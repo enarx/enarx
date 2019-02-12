@@ -53,16 +53,14 @@ impl From<std::io::Error> for Error {
     }
 }
 
-pub type Result<T> = std::result::Result<T, Option<Error>>;
-
 pub struct Sev(File);
 
 impl Sev {
     pub fn new() -> std::io::Result<Sev> {
         Ok(Sev(File::open("/dev/sev")?))
     }
-    
-    unsafe fn cmd<T>(&self, code: Code, data: &mut T) -> Result<()> {
+
+    unsafe fn cmd<T>(&self, code: Code, data: &mut T) -> Result<(), Option<Error>> {
         #[repr(C, packed)]
         struct Command<'a, T> {
             pub code: Code,
@@ -100,8 +98,8 @@ impl Sev {
             }))
         }
     }
-    
-    pub fn platform_status(&self) -> Result<Status> {
+
+    pub fn platform_status(&self) -> Result<Status, Option<Error>> {
         let mut status = Status {
             api_major: 0,
             api_minor: 0,
