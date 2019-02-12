@@ -61,11 +61,11 @@ impl Sev {
         Ok(Sev(File::open("/dev/sev")?))
     }
 
-    unsafe fn cmd<T>(&self, code: Code, data: &mut T) -> Result<(), Option<Error>> {
+    unsafe fn cmd<T>(&self, code: Code, data: Option<&mut T>) -> Result<(), Option<Error>> {
         #[repr(C, packed)]
         struct Command<'a, T> {
             pub code: Code,
-            pub data: &'a T,
+            pub data: Option<&'a mut T>,
             pub error: u32,
         }
     
@@ -111,7 +111,7 @@ impl Sev {
         };
 
         unsafe {
-            self.cmd(Code::PlatformStatus, &mut status)?
+            self.cmd(Code::PlatformStatus, Some(&mut status))?
         };
 
         Ok(status)
