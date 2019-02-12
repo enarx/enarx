@@ -21,6 +21,7 @@ enum Code {
     GetIdentifier = 7,
 }
 
+#[derive(Debug)]
 pub enum Error {
     IoError(std::io::Error),
     
