@@ -11,7 +11,7 @@ const SEV_ISSUE_CMD: c_ulong = 0xc0105300;
 #[repr(u32)]
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 enum Code {
-    FactoryReset = 0,
+    PlatformReset = 0,
     PlatformStatus = 1,
     PekGenerate = 2,
     PekCertificateSigningRequest = 3,
