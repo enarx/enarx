@@ -120,6 +120,24 @@ impl Sev {
 
         Ok(status)
     }
+
+    pub fn pek_generate(&self) -> Result<(), Option<Error>> {
+        unsafe { self.cmd::<u8>(Code::PekGenerate, None) }
+    }
+
+    pub fn pdh_generate(&self) -> Result<(), Option<Error>> {
+        unsafe { self.cmd::<u8>(Code::PdhGenerate, None) }
+    }
+
+    pub fn get_identifers(&self) -> Result<Identifier, Option<Error>> {
+        let mut ids = Identifier([0; 64], [0; 64]);
+
+        unsafe {
+            self.cmd(Code::GetIdentifier, Some(&mut ids))?
+        };
+
+        Ok(ids)
+    }
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, PartialOrd)]
@@ -170,6 +188,9 @@ impl Status {
     }
 }
 
+#[repr(C, packed)]
+pub struct Identifier(pub [u8; 64], [u8; 64]);
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -189,5 +210,26 @@ mod tests {
         assert_eq!(status.owned(), false);
         assert_eq!(status.encrypted_state(), false);
         assert_eq!(status.guest_count(), 0);
+    }
+
+    #[ignore]
+    #[test]
+    fn pek_generate() {
+        let sev = Sev::new().unwrap();
+        sev.pek_generate().unwrap();
+    }
+
+    #[ignore]
+    #[test]
+    fn pdh_generate() {
+        let sev = Sev::new().unwrap();
+        sev.pdh_generate().unwrap();
+    }
+
+    #[test]
+    fn get_identifer() {
+        let sev = Sev::new().unwrap();
+        let ids = sev.get_identifers().unwrap();
+        assert_ne!(ids.0.to_vec(), vec![0u8; 64]);
     }
 }
