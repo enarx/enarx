@@ -165,3 +165,18 @@ impl Status {
         self.guest_count
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn platform_status() {
+        let sev = Sev::new().unwrap();
+        let status = sev.platform_status().unwrap();
+        assert!(status.version() > Version(0, 14, 0));
+        assert_eq!(status.owned(), false);
+        assert_eq!(status.encrypted_state(), false);
+        assert_eq!(status.guest_count(), 0);
+    }
+}
