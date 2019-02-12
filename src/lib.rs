@@ -100,6 +100,10 @@ impl Sev {
         }
     }
 
+    pub fn platform_reset(&self) -> Result<(), Option<Error>> {
+        unsafe { self.cmd::<u8>(Code::PlatformReset, None) }
+    }
+
     pub fn platform_status(&self) -> Result<Status, Option<Error>> {
         let mut status = Status {
             api_major: 0,
@@ -169,6 +173,13 @@ impl Status {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[ignore]
+    #[test]
+    fn platform_reset() {
+        let sev = Sev::new().unwrap();
+        sev.platform_reset().unwrap();
+    }
 
     #[test]
     fn platform_status() {
