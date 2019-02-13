@@ -51,10 +51,6 @@ impl From<std::io::Error> for Error {
 pub struct Sev(File);
 
 impl Sev {
-    pub fn new() -> std::io::Result<Sev> {
-        Ok(Sev(File::open("/dev/sev")?))
-    }
-
     unsafe fn cmd<T>(&self, code: Code, data: Option<&mut T>) -> Result<(), Option<Error>> {
         extern "C" {
             fn ioctl(fd: c_int, request: c_ulong, ...) -> c_int;
@@ -98,6 +94,10 @@ impl Sev {
                 _ => Err(None)?,
             }))
         }
+    }
+
+    pub fn new() -> std::io::Result<Sev> {
+        Ok(Sev(File::open("/dev/sev")?))
     }
 
     pub fn platform_reset(&self) -> Result<(), Option<Error>> {
