@@ -1,5 +1,6 @@
 use std::os::raw::{c_int, c_ulong, c_void};
 use std::os::unix::io::AsRawFd;
+use std::collections::HashSet;
 use std::fs::File;
 
 #[repr(u32)]
@@ -105,20 +106,44 @@ impl Sev {
     }
 
     pub fn platform_status(&self) -> Result<Status, Option<Error>> {
-        let mut status = Status {
-            api_major: 0,
-            api_minor: 0,
-            state: 0,
-            flags: 0,
-            build: 0,
-            guest_count: 0,
-        };
+        #[derive(Copy, Clone, Default)]
+        #[repr(C, packed)]
+        struct Stat {
+            api_major: u8,
+            api_minor: u8,
+            state: u8,
+            flags: u32,
+            build: u8,
+            guest_count: u32,
+        }
+
+        let mut stat = Stat::default();
 
         unsafe {
-            self.cmd(Code::PlatformStatus, Some(&mut status))?
+            self.cmd(Code::PlatformStatus, Some(&mut stat))?
         };
 
-        Ok(status)
+        let mut flags = HashSet::new();
+
+        if stat.flags & (1 << 0) != 0 {
+            flags.insert(Flags::Owned);
+        }
+
+        if stat.flags & (1 << 8) != 0 {
+            flags.insert(Flags::EncryptedState);
+        }
+
+        Ok(Status {
+            version: Version(stat.api_major, stat.api_minor, stat.build),
+            guests: stat.guest_count,
+            flags: flags,
+            state: match stat.state {
+                0 => State::Uninitialized,
+                1 => State::Initialized,
+                2 => State::Working,
+                _ => Err(None)?,
+            },
+        })
     }
 
     pub fn pek_generate(&self) -> Result<(), Option<Error>> {
@@ -160,41 +185,19 @@ pub enum State {
     Working,
 }
 
-#[repr(C, packed)]
-pub struct Status {
-    api_major: u8,
-    api_minor: u8,
-    state: u8,
-    flags: u32,
-    build: u8,
-    guest_count: u32,
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+#[repr(u8)]
+pub enum Flags {
+    Owned,
+    EncryptedState,
 }
 
-impl Status {
-    pub fn version(&self) -> Version {
-        Version(self.api_major, self.api_minor, self.build)
-    }
-    
-    pub fn state(&self) -> Option<State> {
-        Some(match self.state {
-            0 => State::Uninitialized,
-            1 => State::Initialized,
-            2 => State::Working,
-            _ => return None,
-        })
-    }
-    
-    pub fn owned(&self) -> bool {
-        self.flags & (1 << 0) != 0
-    }
-    
-    pub fn encrypted_state(&self) -> bool {
-        self.flags & (1 << 8) != 0
-    }
-    
-    pub fn guest_count(&self) -> u32 {
-        self.guest_count
-    }
+#[derive(Clone, Debug, PartialEq)]
+pub struct Status {
+    pub version: Version,
+    pub state: State,
+    pub flags: HashSet<Flags>,
+    pub guests: u32,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -241,10 +244,10 @@ mod tests {
     fn platform_status() {
         let sev = Sev::new().unwrap();
         let status = sev.platform_status().unwrap();
-        assert!(status.version() > Version(0, 14, 0));
-        assert_eq!(status.owned(), false);
-        assert_eq!(status.encrypted_state(), false);
-        assert_eq!(status.guest_count(), 0);
+        assert!(status.version > Version(0, 14, 0));
+        assert!(!status.flags.contains(&Flags::Owned));
+        assert!(!status.flags.contains(&Flags::EncryptedState));
+        assert_eq!(status.guests, 0);
     }
 
     #[ignore]
