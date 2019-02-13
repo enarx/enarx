@@ -129,14 +129,23 @@ impl Sev {
         unsafe { self.cmd::<c_void>(Code::PdhGenerate, None) }
     }
 
-    pub fn get_identifers(&self) -> Result<Identifier, Option<Error>> {
-        let mut ids = Identifier([0; 64], [0; 64]);
+    pub fn get_identifer(&self) -> Result<Identifier, Option<Error>> {
+        // Per AMD, this interface will change in a future revision.
+        // Future iterations will only ever return one id and its
+        // length will be variable. We handle the current verison of
+        // the API here. We'll adjust to future versions later. We
+        // don't anticipate any future change in *our* public API.
+
+        #[repr(C, packed)]
+        struct Ids([u8; 64], [u8; 64]);
+
+        let mut ids = Ids([0; 64], [0; 64]);
 
         unsafe {
             self.cmd(Code::GetIdentifier, Some(&mut ids))?
         };
 
-        Ok(ids)
+        Ok(Identifier(ids.0.to_vec()))
     }
 }
 
@@ -188,8 +197,34 @@ impl Status {
     }
 }
 
-#[repr(C, packed)]
-pub struct Identifier(pub [u8; 64], [u8; 64]);
+#[derive(Clone, Debug, PartialEq)]
+pub struct Identifier(Vec<u8>);
+
+impl From<Identifier> for Vec<u8> {
+    fn from(id: Identifier) -> Vec<u8> {
+        id.0
+    }
+}
+
+impl std::fmt::LowerHex for Identifier {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
+        for b in self.0.iter() {
+            write!(f, "{:x}", b)?;
+        }
+
+        Ok(())
+    }
+}
+
+impl std::fmt::UpperHex for Identifier {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
+        for b in self.0.iter() {
+            write!(f, "{:X}", b)?;
+        }
+
+        Ok(())
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -229,7 +264,7 @@ mod tests {
     #[test]
     fn get_identifer() {
         let sev = Sev::new().unwrap();
-        let ids = sev.get_identifers().unwrap();
-        assert_ne!(ids.0.to_vec(), vec![0u8; 64]);
+        let id = sev.get_identifer().unwrap();
+        assert_ne!(id.0, vec![0u8; 64]);
     }
 }
