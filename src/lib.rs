@@ -1,4 +1,4 @@
-use std::os::raw::{c_int, c_ulong};
+use std::os::raw::{c_int, c_ulong, c_void};
 use std::os::unix::io::AsRawFd;
 use std::fs::File;
 
@@ -101,7 +101,7 @@ impl Sev {
     }
 
     pub fn platform_reset(&self) -> Result<(), Option<Error>> {
-        unsafe { self.cmd::<u8>(Code::PlatformReset, None) }
+        unsafe { self.cmd::<c_void>(Code::PlatformReset, None) }
     }
 
     pub fn platform_status(&self) -> Result<Status, Option<Error>> {
@@ -122,11 +122,11 @@ impl Sev {
     }
 
     pub fn pek_generate(&self) -> Result<(), Option<Error>> {
-        unsafe { self.cmd::<u8>(Code::PekGenerate, None) }
+        unsafe { self.cmd::<c_void>(Code::PekGenerate, None) }
     }
 
     pub fn pdh_generate(&self) -> Result<(), Option<Error>> {
-        unsafe { self.cmd::<u8>(Code::PdhGenerate, None) }
+        unsafe { self.cmd::<c_void>(Code::PdhGenerate, None) }
     }
 
     pub fn get_identifers(&self) -> Result<Identifier, Option<Error>> {
