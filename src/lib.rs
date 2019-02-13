@@ -2,12 +2,6 @@ use std::os::raw::{c_int, c_ulong};
 use std::os::unix::io::AsRawFd;
 use std::fs::File;
 
-extern "C" {
-    fn ioctl(fd: c_int, request: c_ulong, ...) -> c_int;
-}
-
-const SEV_ISSUE_CMD: c_ulong = 0xc0105300;
-
 #[repr(u32)]
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 enum Code {
@@ -62,6 +56,12 @@ impl Sev {
     }
 
     unsafe fn cmd<T>(&self, code: Code, data: Option<&mut T>) -> Result<(), Option<Error>> {
+        extern "C" {
+            fn ioctl(fd: c_int, request: c_ulong, ...) -> c_int;
+        }
+
+        const SEV_ISSUE_CMD: c_ulong = 0xc0105300;
+
         #[repr(C, packed)]
         struct Command<'a, T> {
             pub code: Code,
