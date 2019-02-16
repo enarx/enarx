@@ -5,3 +5,5 @@ authors = ["Nathaniel McCallum <npmccallum@redhat.com>"]
 
 [dependencies]
 errno = "0.2.4"
+endicon = "1.2.0"
+codicon = "1.0.0"
