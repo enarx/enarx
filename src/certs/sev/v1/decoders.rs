@@ -81,22 +81,14 @@ impl Decoder<Params, Error> for Option<Signature> {
     }
 }
 
-impl Decoder<Params, Error> for Body {
+impl Decoder<Params, Error> for Certificate {
     fn decode<R: Read>(reader: &mut R, params: Params) -> Result<Self, Error> {
         let version = Version::decode(reader, params)?;
         u8::decode(reader, Endianness::Little)?; // Reserved
         u8::decode(reader, Endianness::Little)?; // Reserved
         let pubkey = PublicKey::decode(reader, params)?;
-        
-        Ok(Body { version, pubkey })
-    }
-}
-
-impl Decoder<Params, Error> for Certificate {
-    fn decode<R: Read>(reader: &mut R, params: Params) -> Result<Self, Error> {
-        let body = Body::decode(reader, params)?;
         let sig1 = Option::decode(reader, params)?;
         let sig2 = Option::decode(reader, params)?;
-        Ok(Certificate { body, sig1, sig2 })
+        Ok(Certificate { version, pubkey, sig1, sig2 })
     }
 }

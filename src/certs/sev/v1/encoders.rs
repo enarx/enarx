@@ -85,18 +85,12 @@ impl Encoder<Params, Error> for PublicKey {
     }
 }
 
-impl Encoder<Params, Error> for Body {
+impl Encoder<Params, Error> for Certificate {
     fn encode<W: Write>(&self, writer: &mut W, params: Params) -> Result<(), Error> {
         self.version.encode(writer, params)?;
         0u8.encode(writer, Endianness::Little)?;
         0u8.encode(writer, Endianness::Little)?;
-        self.pubkey.encode(writer, params)
-    }
-}
-
-impl Encoder<Params, Error> for Certificate {
-    fn encode<W: Write>(&self, writer: &mut W, params: Params) -> Result<(), Error> {
-        self.body.encode(writer, params)?;
+        self.pubkey.encode(writer, params)?;
         self.sig1.encode(writer, params)?;
         self.sig2.encode(writer, params)
     }

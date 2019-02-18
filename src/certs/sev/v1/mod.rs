@@ -39,14 +39,9 @@ pub struct Signature {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Body {
+pub struct Certificate {
     pub version: Version,
     pub pubkey: PublicKey,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Certificate {
-    pub body: Body,
     pub sig1: Option<Signature>,
     pub sig2: Option<Signature>,
 }

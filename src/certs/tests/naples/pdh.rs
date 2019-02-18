@@ -7,13 +7,11 @@ fn test() {
 
     let pdh = sev::Certificate::decode(&mut &bytes[..], Params).unwrap();
     let val = sev::Certificate::Version1(sev::v1::Certificate {
-        body: sev::v1::Body {
-            version: sev::v1::Version(0, 17),
-            pubkey: sev::v1::PublicKey {
-                usage: sev::v1::Usage::PlatformDiffieHellman,
-                algo: sev::v1::Algorithm::EcdhSha256,
-                key: bytes[0x010..][..1028].to_vec(),
-            },
+        version: sev::v1::Version(0, 17),
+        pubkey: sev::v1::PublicKey {
+            usage: sev::v1::Usage::PlatformDiffieHellman,
+            algo: sev::v1::Algorithm::EcdhSha256,
+            key: bytes[0x010..][..1028].to_vec(),
         },
         sig1: Some(sev::v1::Signature {
             usage: sev::v1::Usage::PlatformEndorsementKey,
