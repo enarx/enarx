@@ -15,7 +15,7 @@ impl Decoder<Params, Error> for Usage {
     }
 }
 
-impl Decoder<Params, Error> for Body {
+impl Decoder<Params, Error> for Certificate {
     fn decode<R: Read>(reader: &mut R, params: Params) -> Result<Self, Error> {
         let key_id = u128::decode(reader, Endianness::Little)?;
         let sig_id = u128::decode(reader, Endianness::Little)?;
@@ -39,24 +39,17 @@ impl Decoder<Params, Error> for Body {
         
         let mut modulus = vec![0u8; msize];
         reader.read_exact(&mut modulus)?;
+
+        let mut signature = vec![0u8; msize];
+        reader.read_exact(&mut signature)?;
         
-        Ok(Body {
+        Ok(Certificate {
             key_id,
             sig_id,
             usage,
             pubexp,
             modulus,
+            signature,
         })
-    }
-}
-
-impl Decoder<Params, Error> for Certificate {
-    fn decode<R: Read>(reader: &mut R, params: Params) -> Result<Self, Error> {
-        let body = Body::decode(reader, params)?;
-
-        let mut signature = vec![0u8; body.modulus.len()];
-        reader.read_exact(&mut signature)?;
-        
-        Ok(Certificate { body, signature })
     }
 }

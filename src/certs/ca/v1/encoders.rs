@@ -15,8 +15,13 @@ impl Encoder<Params, Error> for Usage {
     }
 }
 
-impl Encoder<Params, Error> for Body {
+impl Encoder<Params, Error> for Certificate {
     fn encode<W: Write>(&self, writer: &mut W, params: Params) -> Result<(), Error> {
+        if self.modulus.len() != self.signature.len() {
+            let msg = format!("signature size: {}", self.signature.len());
+            return Err(Error::InvalidSyntax(msg))?;
+        }
+
         let psize = match self.pubexp.len() {
             256 => 2048u32,
             512 => 4096u32,
@@ -39,20 +44,8 @@ impl Encoder<Params, Error> for Body {
         
         writer.write_all(&self.pubexp)?;
         writer.write_all(&self.modulus)?;
-        
-        Ok(())
-    }
-}
-
-impl Encoder<Params, Error> for Certificate {
-    fn encode<W: Write>(&self, writer: &mut W, params: Params) -> Result<(), Error> {
-        if self.body.modulus.len() != self.signature.len() {
-            let msg = format!("signature size: {}", self.signature.len());
-            return Err(Error::InvalidSyntax(msg))?;
-        }
-    
-        self.body.encode(writer, params)?;
         writer.write_all(&self.signature)?;
+
         Ok(())
     }
 }
