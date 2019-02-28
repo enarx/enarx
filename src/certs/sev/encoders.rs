@@ -41,31 +41,25 @@ impl Encoder<Params> for Option<Algorithm> {
     }
 }
 
-impl Encoder<Params> for Signature1 {
-    type Error = Error;
-    fn encode(&self, writer: &mut impl Write, params: Params) -> Result<(), Error> {
-        if self.sig.len() != 512 {
-            Err(Error::Invalid(format!("signature length: {}", self.sig.len())))?
-        }
-
-        Some(self.usage).encode(writer, params)?;
-        Some(self.algo).encode(writer, params)?;
-        writer.write_all(&self.sig)?;
-        Ok(())
-    }
-}
-
 impl Encoder<Params> for Option<Signature1> {
     type Error = Error;
     fn encode(&self, writer: &mut impl Write, params: Params) -> Result<(), Error> {
         match self {
             None => {
-                (None as Option<Usage>).encode(writer, params)?;
-                (None as Option<Algorithm>).encode(writer, params)?;
+                Option::<Usage>::None.encode(writer, params)?;
+                Option::<Algorithm>::None.encode(writer, params)?;
                 writer.write_all(&[0u8; 512])?;
             },
 
-            Some(ref s) => s.encode(writer, params)?,
+            Some(ref s) => {
+                if s.sig.len() != 512 {
+                    Err(Error::Invalid(format!("signature length: {}", s.sig.len())))?
+                }
+
+                Some(s.usage).encode(writer, params)?;
+                Some(s.algo).encode(writer, params)?;
+                writer.write_all(&s.sig)?;
+            },
         };
 
         Ok(())
