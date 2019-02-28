@@ -1,9 +1,8 @@
 [package]
-name = "sev"
+name = "sev-certs"
 version = "0.1.0"
 authors = ["Nathaniel McCallum <npmccallum@redhat.com>"]
 
 [dependencies]
-errno = "0.2.4"
 endicon = "2.0.0"
 codicon = "2.0.0"
