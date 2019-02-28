@@ -18,20 +18,19 @@ impl Encoder<Params, Error> for Usage {
 impl Encoder<Params, Error> for Body1 {
     fn encode<W: Write>(&self, writer: &mut W, params: Params) -> Result<(), Error> {
         if self.modulus.len() != self.signature.len() {
-            let msg = format!("signature size: {}", self.signature.len());
-            return Err(Error::InvalidSyntax(msg))?;
+            Err(Error::Invalid(format!("signature size: {}", self.signature.len())))?
         }
 
         let psize = match self.pubexp.len() {
             256 => 2048u32,
             512 => 4096u32,
-            s @ _ => Err(Error::InvalidSyntax(format!("pubexp size: {}", s * 8)))?,
+            s @ _ => Err(Error::Invalid(format!("pubexp size: {}", s * 8)))?,
         };
 
         let msize = match self.modulus.len() {
             256 => 2048u32,
             512 => 4096u32,
-            s @ _ => Err(Error::InvalidSyntax(format!("modulus size: {}", s * 8)))?,
+            s @ _ => Err(Error::Invalid(format!("modulus size: {}", s * 8)))?,
         };
 
         self.key_id.encode(writer, Endianness::Little)?;

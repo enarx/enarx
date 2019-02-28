@@ -10,7 +10,7 @@ impl Decoder<Params, Error> for Usage {
         Ok(match u32::decode(reader, Endianness::Little)? {
             0x0000 => Usage::AmdRootKey,
             0x0013 => Usage::AmdSevKey,
-            u @ _ => Err(Error::InvalidSyntax(format!("usage: {:08X}", u)))?
+            u @ _ => Err(Error::Invalid(format!("usage: {:08X}", u)))?
         })
     }
 }
@@ -25,13 +25,13 @@ impl Decoder<Params, Error> for Body1 {
         let psize = match u32::decode(reader, Endianness::Little)? {
             2048 => 2048 / 8,
             4096 => 4096 / 8,
-            s @ _ => Err(Error::InvalidSyntax(format!("pubexp size: {}", s)))?,
+            s @ _ => Err(Error::Invalid(format!("pubexp size: {}", s)))?,
         };
 
         let msize = match u32::decode(reader, Endianness::Little)? {
             2048 => 2048 / 8,
             4096 => 4096 / 8,
-            s @ _ => Err(Error::InvalidSyntax(format!("modulus size: {}", s)))?,
+            s @ _ => Err(Error::Invalid(format!("modulus size: {}", s)))?,
         };
 
         let mut pubexp = vec![0u8; psize];
@@ -58,7 +58,7 @@ impl Decoder<Params, Error> for Versioned {
     fn decode<R: Read>(reader: &mut R, params: Params) -> Result<Self, Error> {
         Ok(match u32::decode(reader, Endianness::Little)? {
             1 => Versioned::Version1(Body1::decode(reader, params)?),
-            v @ _ => Err(Error::InvalidSyntax(format!("version: {}", v)))?
+            v @ _ => Err(Error::Invalid(format!("version: {}", v)))?
         })
     }
 }

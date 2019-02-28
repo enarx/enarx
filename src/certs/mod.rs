@@ -7,7 +7,7 @@ use std::io;
 #[derive(Debug)]
 pub enum Error {
     IoError(io::Error),
-    InvalidSyntax(String),
+    Invalid(String),
 }
 
 impl std::error::Error for Error {}
@@ -16,7 +16,7 @@ impl Display for Error {
     fn fmt(&self, f: &mut Formatter) -> Result {
         match *self {
             Error::IoError(ref e) => e.fmt(f),
-            Error::InvalidSyntax(ref s) => write!(f, "invalid syntax: {}", s),
+            Error::Invalid(ref s) => write!(f, "invalid: {}", s),
         }
     }
 }

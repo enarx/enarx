@@ -42,7 +42,7 @@ impl Encoder<Params, Error> for Option<Algorithm> {
 impl Encoder<Params, Error> for Signature1 {
     fn encode<W: Write>(&self, writer: &mut W, params: Params) -> Result<(), Error> {
         if self.sig.len() != 512 {
-            return Err(Error::InvalidSyntax("signature length".to_string()));
+            Err(Error::Invalid(format!("signature length: {}", self.sig.len())))?
         }
 
         Some(self.usage).encode(writer, params)?;

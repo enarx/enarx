@@ -15,7 +15,7 @@ impl Decoder<Params, Error> for Option<Usage> {
             0x0000 => Usage::AmdRootKey,
             0x0013 => Usage::AmdSevKey,
             0x1000 => return Ok(None),
-            u @ _ => Err(Error::InvalidSyntax(format!("usage: {:08X}", u)))?
+            u @ _ => Err(Error::Invalid(format!("usage: {:08X}", u)))?
         }))
     }
 }
@@ -30,7 +30,7 @@ impl Decoder<Params, Error> for Option<Algorithm> {
             0x0101 => Algorithm::RsaSha384,
             0x0102 => Algorithm::EcdsaSha384,
             0x0103 => Algorithm::EcdhSha384,
-            a @ _ => Err(Error::InvalidSyntax(format!("algorithm: {:08X}", a)))?
+            a @ _ => Err(Error::Invalid(format!("algorithm: {:08X}", a)))?
         }))
     }
 }
@@ -47,12 +47,12 @@ impl Decoder<Params, Error> for Version1 {
 impl Decoder<Params, Error> for PublicKey1 {
     fn decode<R: Read>(reader: &mut R, params: Params) -> Result<Self, Error> {
         let usage = match Option::decode(reader, params)? {
-            None => Err(Error::InvalidSyntax("public key invalid usage".to_string()))?,
+            None => Err(Error::Invalid("public key invalid usage".to_string()))?,
             Some(u) => u,
         };
 
         let algo = match Option::decode(reader, params)? {
-            None => Err(Error::InvalidSyntax("public key invalid algorithm".to_string()))?,
+            None => Err(Error::Invalid("public key invalid algorithm".to_string()))?,
             Some(a) => a,
         };
 
@@ -97,7 +97,7 @@ impl Decoder<Params, Error> for Versioned {
     fn decode<R: Read>(reader: &mut R, params: Params) -> Result<Self, Error> {
         Ok(match u32::decode(reader, Endianness::Little)? {
             1 => Versioned::Version1(Body1::decode(reader, params)?),
-            v @ _ => Err(Error::InvalidSyntax(format!("version: {}", v)))?
+            v @ _ => Err(Error::Invalid(format!("version: {}", v)))?
         })
     }
 }
