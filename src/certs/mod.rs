@@ -1,9 +1,6 @@
 pub mod sev;
 pub mod ca;
 
-#[cfg(test)]
-mod tests;
-
 use std::fmt::{Display, Formatter, Result};
 use std::io;
 
