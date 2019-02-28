@@ -5,7 +5,7 @@ use super::super::*;
 
 #[test]
 fn v1() {
-    let bytes = include_bytes!("ark.cert.fixed");
+    let bytes = include_bytes!("ark.cert");
 
     let ark = Certificate::decode(&mut &bytes[..], Params).unwrap();
     assert_eq!(ark, Certificate(Versioned::Version1(Body1 {

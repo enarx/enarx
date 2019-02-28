@@ -5,7 +5,7 @@ use super::super::*;
 
 #[test]
 fn v1() {
-    let bytes = include_bytes!("ask_ark.cert.fixed");
+    let bytes = include_bytes!("ask_ark.cert");
     let mut rdr = &bytes[..];
 
     let ask = Certificate::decode(&mut rdr, Params).unwrap();
