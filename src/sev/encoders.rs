@@ -46,8 +46,8 @@ impl Encoder<Params> for Option<Signature1> {
     fn encode(&self, writer: &mut impl Write, params: Params) -> Result<(), Error> {
         match self {
             None => {
-                Option::<Usage>::None.encode(writer, params)?;
-                Option::<Algorithm>::None.encode(writer, params)?;
+                (None as Option<Usage>).encode(writer, params)?;
+                (None as Option<Algorithm>).encode(writer, params)?;
                 writer.write_all(&[0u8; 512])?;
             },
 
