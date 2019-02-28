@@ -5,8 +5,9 @@ use std::io::Write;
 use super::super::{Error, Params};
 use super::*;
 
-impl Encoder<Params, Error> for Usage {
-    fn encode<W: Write>(&self, writer: &mut W, _: Params) -> Result<(), Error> {
+impl Encoder<Params> for Usage {
+    type Error = Error;
+    fn encode(&self, writer: &mut impl Write, _: Params) -> Result<(), Error> {
         match self {
             Usage::AmdRootKey => 0x0000u32,
             Usage::AmdSevKey => 0x0013u32,
@@ -15,8 +16,9 @@ impl Encoder<Params, Error> for Usage {
     }
 }
 
-impl Encoder<Params, Error> for Body1 {
-    fn encode<W: Write>(&self, writer: &mut W, params: Params) -> Result<(), Error> {
+impl Encoder<Params> for Body1 {
+    type Error = Error;
+    fn encode(&self, writer: &mut impl Write, params: Params) -> Result<(), Error> {
         if self.modulus.len() != self.signature.len() {
             Err(Error::Invalid(format!("signature size: {}", self.signature.len())))?
         }
@@ -49,8 +51,9 @@ impl Encoder<Params, Error> for Body1 {
     }
 }
 
-impl Encoder<Params, Error> for Versioned {
-    fn encode<W: Write>(&self, writer: &mut W, params: Params) -> Result<(), Error> {
+impl Encoder<Params> for Versioned {
+    type Error = Error;
+    fn encode(&self, writer: &mut impl Write, params: Params) -> Result<(), Error> {
         match self {
             Versioned::Version1(ref body) => {
                 1u32.encode(writer, Endianness::Little)?;
@@ -60,8 +63,9 @@ impl Encoder<Params, Error> for Versioned {
     }
 }
 
-impl Encoder<Params, Error> for Certificate {
-    fn encode<W: Write>(&self, writer: &mut W, params: Params) -> Result<(), Error> {
+impl Encoder<Params> for Certificate {
+    type Error = Error;
+    fn encode(&self, writer: &mut impl Write, params: Params) -> Result<(), Error> {
         self.0.encode(writer, params)
     }
 }

@@ -5,8 +5,9 @@ use std::io::Read;
 use super::super::{Error, Params};
 use super::*;
 
-impl Decoder<Params, Error> for Option<Usage> {
-    fn decode<R: Read>(reader: &mut R, _: Params) -> Result<Self, Error> {
+impl Decoder<Params> for Option<Usage> {
+    type Error = Error;
+    fn decode(reader: &mut impl Read, _: Params) -> Result<Self, Error> {
         Ok(Some(match u32::decode(reader, Endianness::Little)? {
             0x1001 => Usage::OwnerCertificateAuthority,
             0x1002 => Usage::PlatformEndorsementKey,
@@ -20,8 +21,9 @@ impl Decoder<Params, Error> for Option<Usage> {
     }
 }
 
-impl Decoder<Params, Error> for Option<Algorithm> {
-    fn decode<R: Read>(reader: &mut R, _: Params) -> Result<Self, Error> {
+impl Decoder<Params> for Option<Algorithm> {
+    type Error = Error;
+    fn decode(reader: &mut impl Read, _: Params) -> Result<Self, Error> {
         Ok(Some(match u32::decode(reader, Endianness::Little)? {
             0x0000 => return Ok(None),
             0x0001 => Algorithm::RsaSha256,
@@ -35,8 +37,9 @@ impl Decoder<Params, Error> for Option<Algorithm> {
     }
 }
 
-impl Decoder<Params, Error> for Version1 {
-    fn decode<R: Read>(reader: &mut R, _: Params) -> Result<Self, Error> {
+impl Decoder<Params> for Version1 {
+    type Error = Error;
+    fn decode(reader: &mut impl Read, _: Params) -> Result<Self, Error> {
         Ok(Version1(
             u8::decode(reader, Endianness::Little)?,
             u8::decode(reader, Endianness::Little)?,
@@ -44,8 +47,9 @@ impl Decoder<Params, Error> for Version1 {
     }
 }
 
-impl Decoder<Params, Error> for PublicKey1 {
-    fn decode<R: Read>(reader: &mut R, params: Params) -> Result<Self, Error> {
+impl Decoder<Params> for PublicKey1 {
+    type Error = Error;
+    fn decode(reader: &mut impl Read, params: Params) -> Result<Self, Error> {
         let usage = match Option::decode(reader, params)? {
             None => Err(Error::Invalid("public key invalid usage".to_string()))?,
             Some(u) => u,
@@ -63,8 +67,9 @@ impl Decoder<Params, Error> for PublicKey1 {
     }
 }
 
-impl Decoder<Params, Error> for Option<Signature1> {
-    fn decode<R: Read>(reader: &mut R, params: Params) -> Result<Self, Error> {
+impl Decoder<Params> for Option<Signature1> {
+    type Error = Error;
+    fn decode(reader: &mut impl Read, params: Params) -> Result<Self, Error> {
         let usage = Option::decode(reader, params)?;
         let algo = Option::decode(reader, params)?;
 
@@ -81,8 +86,9 @@ impl Decoder<Params, Error> for Option<Signature1> {
     }
 }
 
-impl Decoder<Params, Error> for Body1 {
-    fn decode<R: Read>(reader: &mut R, params: Params) -> Result<Self, Error> {
+impl Decoder<Params> for Body1 {
+    type Error = Error;
+    fn decode(reader: &mut impl Read, params: Params) -> Result<Self, Error> {
         let version = Version1::decode(reader, params)?;
         u8::decode(reader, Endianness::Little)?; // Reserved
         u8::decode(reader, Endianness::Little)?; // Reserved
@@ -93,8 +99,9 @@ impl Decoder<Params, Error> for Body1 {
     }
 }
 
-impl Decoder<Params, Error> for Versioned {
-    fn decode<R: Read>(reader: &mut R, params: Params) -> Result<Self, Error> {
+impl Decoder<Params> for Versioned {
+    type Error = Error;
+    fn decode(reader: &mut impl Read, params: Params) -> Result<Self, Error> {
         Ok(match u32::decode(reader, Endianness::Little)? {
             1 => Versioned::Version1(Body1::decode(reader, params)?),
             v @ _ => Err(Error::Invalid(format!("version: {}", v)))?
@@ -102,8 +109,9 @@ impl Decoder<Params, Error> for Versioned {
     }
 }
 
-impl Decoder<Params, Error> for Certificate {
-    fn decode<R: Read>(reader: &mut R, params: Params) -> Result<Self, Error> {
+impl Decoder<Params> for Certificate {
+    type Error = Error;
+    fn decode(reader: &mut impl Read, params: Params) -> Result<Self, Error> {
         Ok(Certificate(Versioned::decode(reader, params)?))
     }
 }

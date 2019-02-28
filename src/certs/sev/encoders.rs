@@ -5,8 +5,9 @@ use std::io::Write;
 use super::super::{Error, Params};
 use super::*;
 
-impl Encoder<Params, Error> for Option<Usage> {
-    fn encode<W: Write>(&self, writer: &mut W, _: Params) -> Result<(), Error> {
+impl Encoder<Params> for Option<Usage> {
+    type Error = Error;
+    fn encode(&self, writer: &mut impl Write, _: Params) -> Result<(), Error> {
         match self {
             None => 0x1000u32,
             Some(ref u) => match u {
@@ -22,8 +23,9 @@ impl Encoder<Params, Error> for Option<Usage> {
     }
 }
 
-impl Encoder<Params, Error> for Option<Algorithm> {
-    fn encode<W: Write>(&self, writer: &mut W, _: Params) -> Result<(), Error> {
+impl Encoder<Params> for Option<Algorithm> {
+    type Error = Error;
+    fn encode(&self, writer: &mut impl Write, _: Params) -> Result<(), Error> {
         match self {
             None => 0x0000u32,
             Some(ref u) => match u {
@@ -39,8 +41,9 @@ impl Encoder<Params, Error> for Option<Algorithm> {
     }
 }
 
-impl Encoder<Params, Error> for Signature1 {
-    fn encode<W: Write>(&self, writer: &mut W, params: Params) -> Result<(), Error> {
+impl Encoder<Params> for Signature1 {
+    type Error = Error;
+    fn encode(&self, writer: &mut impl Write, params: Params) -> Result<(), Error> {
         if self.sig.len() != 512 {
             Err(Error::Invalid(format!("signature length: {}", self.sig.len())))?
         }
@@ -52,8 +55,9 @@ impl Encoder<Params, Error> for Signature1 {
     }
 }
 
-impl Encoder<Params, Error> for Option<Signature1> {
-    fn encode<W: Write>(&self, writer: &mut W, params: Params) -> Result<(), Error> {
+impl Encoder<Params> for Option<Signature1> {
+    type Error = Error;
+    fn encode(&self, writer: &mut impl Write, params: Params) -> Result<(), Error> {
         match self {
             None => {
                 (None as Option<Usage>).encode(writer, params)?;
@@ -68,16 +72,18 @@ impl Encoder<Params, Error> for Option<Signature1> {
     }
 }
 
-impl Encoder<Params, Error> for Version1 {
-    fn encode<W: Write>(&self, writer: &mut W, _: Params) -> Result<(), Error> {
+impl Encoder<Params> for Version1 {
+    type Error = Error;
+    fn encode(&self, writer: &mut impl Write, _: Params) -> Result<(), Error> {
         self.0.encode(writer, Endianness::Little)?;
         self.1.encode(writer, Endianness::Little)?;
         Ok(())
     }
 }
 
-impl Encoder<Params, Error> for PublicKey1 {
-    fn encode<W: Write>(&self, writer: &mut W, params: Params) -> Result<(), Error> {
+impl Encoder<Params> for PublicKey1 {
+    type Error = Error;
+    fn encode(&self, writer: &mut impl Write, params: Params) -> Result<(), Error> {
         Some(self.usage).encode(writer, params)?;
         Some(self.algo).encode(writer, params)?;
         writer.write_all(&self.key)?;
@@ -85,8 +91,9 @@ impl Encoder<Params, Error> for PublicKey1 {
     }
 }
 
-impl Encoder<Params, Error> for Body1 {
-    fn encode<W: Write>(&self, writer: &mut W, params: Params) -> Result<(), Error> {
+impl Encoder<Params> for Body1 {
+    type Error = Error;
+    fn encode(&self, writer: &mut impl Write, params: Params) -> Result<(), Error> {
         self.version.encode(writer, params)?;
         0u8.encode(writer, Endianness::Little)?;
         0u8.encode(writer, Endianness::Little)?;
@@ -96,8 +103,9 @@ impl Encoder<Params, Error> for Body1 {
     }
 }
 
-impl Encoder<Params, Error> for Versioned {
-    fn encode<W: Write>(&self, writer: &mut W, params: Params) -> Result<(), Error> {
+impl Encoder<Params> for Versioned {
+    type Error = Error;
+    fn encode(&self, writer: &mut impl Write, params: Params) -> Result<(), Error> {
         match self {
             Versioned::Version1(ref c) => {
                 1u32.encode(writer, Endianness::Little)?;
@@ -107,8 +115,9 @@ impl Encoder<Params, Error> for Versioned {
     }
 }
 
-impl Encoder<Params, Error> for Certificate {
-    fn encode<W: Write>(&self, writer: &mut W, params: Params) -> Result<(), Error> {
+impl Encoder<Params> for Certificate {
+    type Error = Error;
+    fn encode(&self, writer: &mut impl Write, params: Params) -> Result<(), Error> {
         self.0.encode(writer, params)
     }
 }

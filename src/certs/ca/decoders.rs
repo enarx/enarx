@@ -5,8 +5,9 @@ use std::io::Read;
 use super::super::{Error, Params};
 use super::*;
 
-impl Decoder<Params, Error> for Usage {
-    fn decode<R: Read>(reader: &mut R, _: Params) -> Result<Self, Error> {
+impl Decoder<Params> for Usage {
+    type Error = Error;
+    fn decode(reader: &mut impl Read, _: Params) -> Result<Self, Error> {
         Ok(match u32::decode(reader, Endianness::Little)? {
             0x0000 => Usage::AmdRootKey,
             0x0013 => Usage::AmdSevKey,
@@ -15,8 +16,9 @@ impl Decoder<Params, Error> for Usage {
     }
 }
 
-impl Decoder<Params, Error> for Body1 {
-    fn decode<R: Read>(reader: &mut R, params: Params) -> Result<Self, Error> {
+impl Decoder<Params> for Body1 {
+    type Error = Error;
+    fn decode(reader: &mut impl Read, params: Params) -> Result<Self, Error> {
         let key_id = u128::decode(reader, Endianness::Little)?;
         let sig_id = u128::decode(reader, Endianness::Little)?;
         let usage = Usage::decode(reader, params)?;
@@ -54,8 +56,9 @@ impl Decoder<Params, Error> for Body1 {
     }
 }
 
-impl Decoder<Params, Error> for Versioned {
-    fn decode<R: Read>(reader: &mut R, params: Params) -> Result<Self, Error> {
+impl Decoder<Params> for Versioned {
+    type Error = Error;
+    fn decode(reader: &mut impl Read, params: Params) -> Result<Self, Error> {
         Ok(match u32::decode(reader, Endianness::Little)? {
             1 => Versioned::Version1(Body1::decode(reader, params)?),
             v @ _ => Err(Error::Invalid(format!("version: {}", v)))?
@@ -63,8 +66,9 @@ impl Decoder<Params, Error> for Versioned {
     }
 }
 
-impl Decoder<Params, Error> for Certificate {
-    fn decode<R: Read>(reader: &mut R, params: Params) -> Result<Self, Error> {
+impl Decoder<Params> for Certificate {
+    type Error = Error;
+    fn decode(reader: &mut impl Read, params: Params) -> Result<Self, Error> {
         Ok(Certificate(Versioned::decode(reader, params)?))
     }
 }
