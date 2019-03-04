@@ -1,6 +1,5 @@
 use codicon::Decoder;
 
-use super::super::super::Params;
 use super::super::*;
 
 #[test]
@@ -8,7 +7,7 @@ fn v1() {
     let bytes = include_bytes!("ask_ark.cert");
     let mut rdr = &bytes[..];
 
-    let ask = Certificate::decode(&mut rdr, Params).unwrap();
+    let ask = Certificate::decode(&mut rdr, ()).unwrap();
     assert_eq!(ask, Certificate(Versioned::Version1(Body1 {
         key_id: 147429952972550494775834017433799571937,
         sig_id: 122178821951678173525318614033703090459,
@@ -20,7 +19,7 @@ fn v1() {
 
     let bytes = rdr;
 
-    let ark = Certificate::decode(&mut rdr, Params).unwrap();
+    let ark = Certificate::decode(&mut rdr, ()).unwrap();
     assert_eq!(ark, Certificate(Versioned::Version1(Body1 {
         key_id: 122178821951678173525318614033703090459,
         sig_id: 122178821951678173525318614033703090459,

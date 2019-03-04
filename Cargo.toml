@@ -5,4 +5,4 @@ authors = ["Nathaniel McCallum <npmccallum@redhat.com>"]
 
 [dependencies]
 endicon = "2.0.0"
-codicon = "2.0.0"
+codicon = "2.1.0"

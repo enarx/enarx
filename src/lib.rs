@@ -31,4 +31,6 @@ impl From<io::Error> for Error {
 }
 
 #[derive(Copy, Clone, Debug)]
-pub struct Params;
+struct Params {
+    omit_sigs: bool,
+}

@@ -109,9 +109,9 @@ impl Decoder<Params> for Versioned {
     }
 }
 
-impl Decoder<Params> for Certificate {
+impl Decoder for Certificate {
     type Error = Error;
-    fn decode(reader: &mut impl Read, params: Params) -> Result<Self, Error> {
-        Ok(Certificate(Versioned::decode(reader, params)?))
+    fn decode(reader: &mut impl Read, _: ()) -> Result<Self, Error> {
+        Ok(Certificate(Versioned::decode(reader, Params { omit_sigs: false })?))
     }
 }

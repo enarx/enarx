@@ -109,9 +109,9 @@ impl Encoder<Params> for Versioned {
     }
 }
 
-impl Encoder<Params> for Certificate {
+impl Encoder for Certificate {
     type Error = Error;
-    fn encode(&self, writer: &mut impl Write, params: Params) -> Result<(), Error> {
-        self.0.encode(writer, params)
+    fn encode(&self, writer: &mut impl Write, _: ()) -> Result<(), Error> {
+        self.0.encode(writer, Params { omit_sigs: false })
     }
 }

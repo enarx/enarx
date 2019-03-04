@@ -1,13 +1,12 @@
 use codicon::{Decoder, Encoder};
 
-use super::super::super::Params;
 use super::super::*;
 
 #[test]
 fn v1() {
     let bytes = include_bytes!("pek.cert");
 
-    let pek = Certificate::decode(&mut &bytes[..], Params).unwrap();
+    let pek = Certificate::decode(&mut &bytes[..], ()).unwrap();
     assert_eq!(pek, Certificate(Versioned::Version1(Body1 {
         version: Version1(0, 17),
         pubkey: PublicKey1 {
@@ -28,7 +27,7 @@ fn v1() {
     })));
 
     let mut output = Vec::new();
-    pek.encode(&mut output, Params).unwrap();
+    pek.encode(&mut output, ()).unwrap();
     assert_eq!(bytes.len(), output.len());
     assert_eq!(bytes.to_vec(), output);
 }
