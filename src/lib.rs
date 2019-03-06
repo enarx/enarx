@@ -1,14 +1,27 @@
 #![allow(unknown_lints)]
-#![warn(clippy)]
+#![warn(clippy::all)]
 
+extern crate untrusted;
 extern crate codicon;
 extern crate endicon;
+extern crate ring;
 
 mod encoders;
 mod decoders;
+mod verify;
 
 #[cfg(test)]
 mod naples;
+
+trait EncodeBuf<T>: codicon::Encoder<T> {
+    fn encode_buf(&self, params: T) -> Result<Vec<u8>, Self::Error> {
+        let mut buf = Vec::new();
+        self.encode(&mut buf, params)?;
+        Ok(buf)
+    }
+}
+
+impl<T, U: codicon::Encoder<T>> EncodeBuf<T> for U {}
 
 #[derive(Debug)]
 pub enum Error {
@@ -33,8 +46,8 @@ impl From<std::io::Error> for Error {
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
-enum Usage {
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+pub enum Usage {
     OwnerCertificateAuthority,
     PlatformEndorsementKey,
     PlatformDiffieHellman,
@@ -70,7 +83,14 @@ struct RsaKey {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
+enum Curve {
+    P256,
+    P384,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
 struct EccKey {
+    curve: Curve,
     x: Vec<u8>,
     y: Vec<u8>,
 }
@@ -78,8 +98,7 @@ struct EccKey {
 #[derive(Clone, Debug, PartialEq, Eq)]
 enum Key {
     Rsa(RsaKey),
-    P256(EccKey),
-    P384(EccKey),
+    Ecc(EccKey),
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -99,9 +118,9 @@ struct Signature {
 }
 
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
-struct Firmware {
-    major: u8,
-    minor: u8,
+pub struct Firmware {
+    pub major: u8,
+    pub minor: u8,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -118,6 +137,13 @@ pub enum Kind {
     Ca
 }
 
+pub trait Verifier<'a> {
+    fn verify(self) -> Result<&'a Certificate, ()>;
+}
+
+#[derive(Copy, Clone, Debug)]
+struct Ring;
+
 impl From<SigAlgo> for Algo {
     fn from(value: SigAlgo) -> Algo {
         Algo::Sig(value)
@@ -127,5 +153,36 @@ impl From<SigAlgo> for Algo {
 impl From<ExcAlgo> for Algo {
     fn from(value: ExcAlgo) -> Algo {
         Algo::Exc(value)
+    }
+}
+
+impl PartialEq<SigAlgo> for Algo {
+    fn eq(&self, other: &SigAlgo) -> bool {
+        *self == Algo::from(*other)
+    }
+}
+
+impl PartialEq<ExcAlgo> for Algo {
+    fn eq(&self, other: &ExcAlgo) -> bool {
+        *self == Algo::from(*other)
+    }
+}
+
+impl Curve {
+    fn size(&self) -> usize {
+        match self {
+            Curve::P256 => 256 / 8,
+            Curve::P384 => 384 / 8,
+        }
+    }
+}
+
+impl Certificate {
+    pub fn firmware(&self) -> Option<Firmware> {
+        self.firmware
+    }
+
+    pub fn usage(&self) -> Usage {
+        self.key.usage
     }
 }

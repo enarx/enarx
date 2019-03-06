@@ -132,13 +132,25 @@ impl Decoder<Sev1> for RsaKey {
     }
 }
 
-impl Decoder<usize> for EccKey {
+impl Decoder<Sev1> for Curve {
     type Error = Error;
-    fn decode(reader: &mut impl Read, size: usize) -> Result<Self, Error> {
-        let x = field(reader, size, 576 / 8)?;
-        let y = field(reader, size, 576 / 8)?;
+    fn decode(reader: &mut impl Read, _: Sev1) -> Result<Self, Error> {
+        Ok(match u32::decode(reader, Endianness::Little)? {
+            1 => Curve::P256,
+            2 => Curve::P384,
+            c => Err(Error::Invalid(format!("curve: {}", c)))?
+        })
+    }
+}
+
+impl Decoder<Sev1> for EccKey {
+    type Error = Error;
+    fn decode(reader: &mut impl Read, params: Sev1) -> Result<Self, Error> {
+        let c = Curve::decode(reader, params)?;
+        let x = field(reader, c.size(), 576 / 8)?;
+        let y = field(reader, c.size(), 576 / 8)?;
         reader.read_exact(&mut [0u8; 880])?; // Reserved
-        Ok(EccKey { x, y })
+        Ok(EccKey { curve: c, x, y })
     }
 }
 
@@ -150,14 +162,12 @@ impl Decoder<Algo> for Key {
         use Algo::*;
 
         Ok(match params {
-            Sig(RsaSha256) | Sig(RsaSha384) => Key::Rsa(RsaKey::decode(reader, Sev1)?),
-            Sig(EcdsaSha256) | Sig(EcdsaSha384) | Exc(EcdhSha256) | Exc(EcdhSha384) => {
-                match u32::decode(reader, Endianness::Little)? {
-                    1 => Key::P256(EccKey::decode(reader, 256 / 8)?),
-                    2 => Key::P384(EccKey::decode(reader, 384 / 8)?),
-                    c => Err(Error::Invalid(format!("curve: {}", c)))?
-                }
-            }
+            Sig(EcdsaSha256) => Key::Ecc(EccKey::decode(reader, Sev1)?),
+            Sig(EcdsaSha384) => Key::Ecc(EccKey::decode(reader, Sev1)?),
+            Exc(EcdhSha256) => Key::Ecc(EccKey::decode(reader, Sev1)?),
+            Exc(EcdhSha384) => Key::Ecc(EccKey::decode(reader, Sev1)?),
+            Sig(RsaSha256) => Key::Rsa(RsaKey::decode(reader, Sev1)?),
+            Sig(RsaSha384) => Key::Rsa(RsaKey::decode(reader, Sev1)?),
         })
     }
 }
@@ -186,9 +196,7 @@ impl Decoder<Sev1> for Option<Signature> {
     fn decode(reader: &mut impl Read, params: Sev1) -> Result<Self, Error> {
         let usage = Option::decode(reader, params)?;
         let algo = Option::decode(reader, params)?;
-
-        let mut sig = vec![0u8; 512];
-        reader.read_exact(&mut &mut sig[..])?;
+        let sig = field(reader, 512, 512)?;
 
         if let Some(usage) = usage {
             if let Some(algo) = algo {
@@ -253,8 +261,7 @@ impl Decoder<Ca1> for Certificate {
 
         let key = RsaKey::decode(reader, Ca1)?;
 
-        let mut signature = vec![0u8; key.modulus.len()];
-        reader.read_exact(&mut signature)?;
+        let sig = field(reader, key.modulus.len(), key.modulus.len())?;
 
         Ok(Certificate {
             version: 1,
@@ -269,7 +276,7 @@ impl Decoder<Ca1> for Certificate {
                 Signature {
                     usage: Usage::AmdRootKey,
                     algo: SigAlgo::RsaSha256,
-                    sig: signature,
+                    sig: sig,
                     id: sig_id,
                 }
             }

@@ -114,9 +114,20 @@ impl Encoder<Sev1> for RsaKey {
     }
 }
 
-impl Encoder<Sev1> for EccKey {
+impl Encoder<Sev1> for Curve {
     type Error = Error;
     fn encode(&self, writer: &mut impl Write, _: Sev1) -> Result<(), Error> {
+        Ok(match self {
+            Curve::P256 => 1u32,
+            Curve::P384 => 2u32,
+        }.encode(writer, Endianness::Little)?)
+    }
+}
+
+impl Encoder<Sev1> for EccKey {
+    type Error = Error;
+    fn encode(&self, writer: &mut impl Write, params: Sev1) -> Result<(), Error> {
+        self.curve.encode(writer, params)?;
         field(writer, &self.x, 576 / 8)?;
         field(writer, &self.y, 576 / 8)?;
         writer.write_all(&[0u8; 880])?; // Reserved
@@ -127,14 +138,10 @@ impl Encoder<Sev1> for EccKey {
 impl Encoder<Sev1> for Key {
     type Error = Error;
     fn encode(&self, writer: &mut impl Write, params: Sev1) -> Result<(), Error> {
-        let (id, ecc) = match self {
-            Key::Rsa(rsa) => return rsa.encode(writer, params),
-            Key::P256(ecc) => (1u32, ecc),
-            Key::P384(ecc) => (2u32, ecc),
-        };
-
-        id.encode(writer, Endianness::Little)?;
-        ecc.encode(writer, params)
+        match self {
+            Key::Rsa(rsa) => rsa.encode(writer, params),
+            Key::Ecc(ecc) => ecc.encode(writer, params),
+        }
     }
 }
 
@@ -251,5 +258,133 @@ impl Encoder for Certificate {
                 v => Err(Error::Invalid(format!("version: {}", v)))?,
             },
         })
+    }
+}
+
+impl Encoder<Ring> for Certificate {
+    type Error = Error;
+    fn encode(&self, writer: &mut impl Write, _: Ring) -> Result<(), Error> {
+        Ok(match self.firmware {
+            Some(_) => match self.version {
+                1 => self.encode(writer, Sev1(false))?,
+                v => Err(Error::Invalid(format!("version: {}", v)))?,
+            },
+
+            None => match self.version {
+                1 => self.encode(writer, Ca1(false))?,
+                v => Err(Error::Invalid(format!("version: {}", v)))?,
+            },
+        })
+    }
+}
+
+// Encodes a usize into a DER length (possibly single- or multi-byte)
+impl Encoder<Ring> for usize {
+    type Error = Error;
+
+    fn encode(&self, writer: &mut impl Write, _: Ring) -> Result<(), Self::Error> {
+        Ok(match self {
+            0 ..= 127 => writer.write_all(&[*self as u8; 1])?,
+            _ => {
+                let b = self.to_be_bytes();
+                let l = self.leading_zeros() as usize / 8;
+                let n = b.len() - l + 128;
+                writer.write_all(&[n as u8; 1])?;
+                writer.write_all(&b[l..])?
+            }
+        })
+    }
+}
+
+// Input: little-endian unsigned number, Output: DER INTEGER type
+impl Encoder<Ring> for Vec<u8> {
+    type Error = Error;
+
+    fn encode(&self, writer: &mut impl Write, params: Ring) -> Result<(), Self::Error> {
+        let size = self.iter().rev().skip_while(|b| **b == 0).count();
+        let sign = self[size - 1] as usize >> 7;
+
+        writer.write_all(&[0x02u8])?; // Tag
+        (size + sign).encode(writer, params)?; // Length
+
+        if sign > 0 {
+            writer.write_all(&[0u8; 1])?;
+        }
+
+        for b in self.iter().rev().skip_while(|b| **b == 0) {
+            writer.write_all(&[*b; 1])?
+        }
+
+        Ok(())
+    }
+}
+
+// Manually encode this structure under DER:
+//
+// RSAPublicKey ::= SEQUENCE {
+//   modulus           INTEGER,  -- n
+//   publicExponent    INTEGER   -- e
+// }
+impl Encoder<Ring> for RsaKey {
+    type Error = Error;
+
+    fn encode(&self, writer: &mut impl Write, params: Ring) -> Result<(), Self::Error> {
+        let modulus = self.modulus.encode_buf(params)?;
+        let pubexp = self.pubexp.encode_buf(params)?;
+
+        writer.write_all(&[0x30u8; 1])?; // Tag
+        (modulus.len() + pubexp.len()).encode(writer, params)?;
+        writer.write_all(&modulus)?;
+        writer.write_all(&pubexp)?;
+        Ok(())
+    }
+}
+
+// Encode using SEC1
+impl Encoder<Ring> for EccKey {
+    type Error = Error;
+
+    fn encode(&self, writer: &mut impl Write, _: Ring) -> Result<(), Self::Error> {
+        let l = self.curve.size();
+        writer.write_all(&[0x04u8; 1])?; // SEC1 Uncompressed
+        for b in self.x[..l].iter().rev() { writer.write_all(&[*b; 1])?; }
+        for b in self.y[..l].iter().rev() { writer.write_all(&[*b; 1])?; }
+        Ok(())
+    }
+}
+
+// Encode RSA using above and P256/P384 using SEC1
+impl Encoder<Ring> for Key {
+    type Error = Error;
+
+    fn encode(&self, writer: &mut impl Write, params: Ring) -> Result<(), Self::Error> {
+        match self {
+            Key::Rsa(ref rsa) => rsa.encode(writer, params),
+            Key::Ecc(ref ecc) => ecc.encode(writer, params),
+        }
+    }
+}
+
+impl Encoder<Ring> for (&Key, &Signature) {
+    type Error = Error;
+
+    fn encode(&self, writer: &mut impl Write, _: Ring) -> Result<(), Self::Error> {
+        let (r, s) = match self.0 {
+            Key::Rsa(r) => (&self.1.sig[..r.modulus.len()], &self.1.sig[0..0]),
+            Key::Ecc(e) => {
+                let s = e.curve.size();
+                (&self.1.sig[0x00..][..s], &self.1.sig[0x48..][..s])
+            },
+        };
+
+        for b in r.iter().rev() {
+            writer.write_all(&[*b; 1])?;
+        }
+
+        for b in s.iter().rev() {
+            writer.write_all(&[*b; 1])?;
+        }
+
+        Ok(())
     }
 }

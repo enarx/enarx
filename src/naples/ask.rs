@@ -1,12 +1,13 @@
-use codicon::{Decoder, Encoder};
+#![allow(clippy::unreadable_literal)]
+
 use std::num::NonZeroU128;
+use codicon::Decoder;
 use super::super::*;
+use super::*;
 
 #[test]
-fn v1() {
-    let bytes = include_bytes!("ask.cert");
-
-    let ask = Certificate::decode(&mut &bytes[..], Kind::Ca).unwrap();
+fn decode() {
+    let ask = Certificate::decode(&mut &ASK[..], Kind::Ca).unwrap();
     assert_eq!(ask, Certificate {
         version: 1,
         firmware: None,
@@ -14,8 +15,8 @@ fn v1() {
             usage: Usage::AmdSevKey,
             algo: SigAlgo::RsaSha256.into(),
             key: Key::Rsa(RsaKey {
-                pubexp: bytes[0x040..][..256].to_vec(),
-                modulus: bytes[0x140..][..256].to_vec(),
+                pubexp: ASK[0x040..][..256].to_vec(),
+                modulus: ASK[0x140..][..256].to_vec(),
             }),
             id: NonZeroU128::new(147429952972550494775834017433799571937),
         },
@@ -23,14 +24,31 @@ fn v1() {
             Signature {
                 usage: Usage::AmdRootKey,
                 algo: SigAlgo::RsaSha256,
-                sig: bytes[0x240..][..256].to_vec(),
+                sig: ASK[0x240..][..256].to_vec(),
                 id: NonZeroU128::new(122178821951678173525318614033703090459),
             }
         }
     });
+}
 
-    let mut output = Vec::new();
-    ask.encode(&mut output, ()).unwrap();
-    assert_eq!(bytes.len(), output.len());
-    assert_eq!(bytes.to_vec(), output);
+#[test]
+fn encode() {
+    let ask = Certificate::decode(&mut &ASK[..], Kind::Ca).unwrap();
+
+    let output = ask.encode_buf(()).unwrap();
+    assert_eq!(ASK.len(), output.len());
+    assert_eq!(ASK.to_vec(), output);
+
+    let output = ask.encode_buf(Ring).unwrap();
+    assert_eq!(CA_SIG_OFFSET, output.len());
+    assert_eq!(ASK[..CA_SIG_OFFSET].to_vec(), output);
+}
+
+#[test]
+fn verify() {
+    let one = Certificate::decode(&mut ARK, Kind::Ca).unwrap();
+    let two = Certificate::decode(&mut ASK, Kind::Ca).unwrap();
+
+    (&one, &two).verify().unwrap();
+    assert!((&two, &one).verify().is_err());
 }

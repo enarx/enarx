@@ -6,3 +6,5 @@ authors = ["Nathaniel McCallum <npmccallum@redhat.com>"]
 [dependencies]
 endicon = "2.0.0"
 codicon = "2.1.0"
+ring = { git = "https://github.com/npmccallum/ring", rev = "a937017e4558f95d944ba321b93ad31e162cbff6" }
+untrusted = "0.6.2"
