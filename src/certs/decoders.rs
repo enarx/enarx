@@ -157,9 +157,9 @@ impl Decoder<Sev1> for EccKey {
 impl Decoder<Algo> for Key {
     type Error = Error;
     fn decode(reader: &mut impl Read, params: Algo) -> Result<Self, Error> {
-        use SigAlgo::*;
-        use ExcAlgo::*;
-        use Algo::*;
+        use self::SigAlgo::*;
+        use self::ExcAlgo::*;
+        use self::Algo::*;
 
         Ok(match params {
             Sig(EcdsaSha256) => Key::Ecc(EccKey::decode(reader, Sev1)?),
