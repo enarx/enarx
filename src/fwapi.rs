@@ -51,6 +51,61 @@ impl From<std::io::Error> for Error {
     }
 }
 
+#[derive(Copy, Clone, Debug, PartialEq, PartialOrd)]
+pub struct Version(u8, u8, u8);
+
+#[derive(Copy, Clone, Debug, PartialEq)]
+#[repr(u8)]
+pub enum State {
+    Uninitialized,
+    Initialized,
+    Working,
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+#[repr(u8)]
+pub enum Flags {
+    Owned,
+    EncryptedState,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct Status {
+    pub version: Version,
+    pub state: State,
+    pub flags: HashSet<Flags>,
+    pub guests: u32,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct Identifier(Vec<u8>);
+
+impl From<Identifier> for Vec<u8> {
+    fn from(id: Identifier) -> Vec<u8> {
+        id.0
+    }
+}
+
+impl std::fmt::LowerHex for Identifier {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
+        for b in self.0.iter() {
+            write!(f, "{:02x}", b)?;
+        }
+
+        Ok(())
+    }
+}
+
+impl std::fmt::UpperHex for Identifier {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
+        for b in self.0.iter() {
+            write!(f, "{:02X}", b)?;
+        }
+
+        Ok(())
+    }
+}
+
 pub struct Sev(File);
 
 impl Sev {
@@ -215,61 +270,6 @@ impl Sev {
         self.cmd(Code::PekCertificateSigningRequest, Some(&mut data))?;
         if data.length != SEV_CERT_LEN as u32 { Err(None)? }
         Ok(buf)
-    }
-}
-
-#[derive(Copy, Clone, Debug, PartialEq, PartialOrd)]
-pub struct Version(u8, u8, u8);
-
-#[derive(Copy, Clone, Debug, PartialEq)]
-#[repr(u8)]
-pub enum State {
-    Uninitialized,
-    Initialized,
-    Working,
-}
-
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
-#[repr(u8)]
-pub enum Flags {
-    Owned,
-    EncryptedState,
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub struct Status {
-    pub version: Version,
-    pub state: State,
-    pub flags: HashSet<Flags>,
-    pub guests: u32,
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub struct Identifier(Vec<u8>);
-
-impl From<Identifier> for Vec<u8> {
-    fn from(id: Identifier) -> Vec<u8> {
-        id.0
-    }
-}
-
-impl std::fmt::LowerHex for Identifier {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
-        for b in self.0.iter() {
-            write!(f, "{:02x}", b)?;
-        }
-
-        Ok(())
-    }
-}
-
-impl std::fmt::UpperHex for Identifier {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
-        for b in self.0.iter() {
-            write!(f, "{:02X}", b)?;
-        }
-
-        Ok(())
     }
 }
 
