@@ -284,6 +284,7 @@ mod tests {
         sev.platform_reset().unwrap();
     }
 
+    #[cfg_attr(not(has_sev), ignore)]
     #[test]
     fn platform_status() {
         let sev = Sev::new().unwrap();
@@ -308,6 +309,7 @@ mod tests {
         sev.pdh_generate().unwrap();
     }
 
+    #[cfg_attr(not(has_sev), ignore)]
     #[test]
     fn get_identifer() {
         let sev = Sev::new().unwrap();
@@ -315,6 +317,7 @@ mod tests {
         assert_ne!(id.0, vec![0u8; 64]);
     }
 
+    #[cfg_attr(not(has_sev), ignore)]
     #[test]
     fn pdh_cert_export() {
         use certs::{Certificate, Kind, Usage};
@@ -338,6 +341,7 @@ mod tests {
         assert_eq!(cert.usage(), Usage::ChipEndorsementKey);
     }
 
+    #[cfg_attr(not(has_sev), ignore)]
     #[test]
     fn pek_csr() {
         use certs::{Certificate, Kind, Usage};
