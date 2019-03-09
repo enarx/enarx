@@ -113,6 +113,7 @@ impl Sev {
             fn ioctl(fd: c_int, request: c_ulong, ...) -> c_int;
         }
 
+        #[allow(clippy::unreadable_literal)]
         const SEV_ISSUE_CMD: c_ulong = 0xc0105300;
 
         #[repr(C, packed)]
@@ -183,7 +184,7 @@ impl Sev {
 
         let mut flags = HashSet::new();
 
-        if stat.flags & (1 << 0) != 0 {
+        if stat.flags & 1 != 0 {
             flags.insert(Flags::Owned);
         }
 
