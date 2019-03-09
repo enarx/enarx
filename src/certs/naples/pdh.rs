@@ -8,7 +8,7 @@ fn decode() {
 
     assert_eq!(pdh, Certificate {
         version: 1,
-        firmware: Some(Firmware { major: 0, minor: 16 }),
+        firmware: Some(Firmware(0, 16)),
         key: PublicKey {
             usage: Usage::PlatformDiffieHellman,
             algo: ExcAlgo::EcdhSha256.into(),

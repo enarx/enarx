@@ -8,7 +8,7 @@ fn decode() {
     let cek = Certificate::decode(&mut &CEK_UNS[..], Kind::Sev).unwrap();
     assert_eq!(cek, Certificate {
         version: 1,
-        firmware: Some(Firmware { major: 0, minor: 16 }),
+        firmware: Some(Firmware(0, 16)),
         key: PublicKey {
             usage: Usage::ChipEndorsementKey,
             algo: SigAlgo::EcdsaSha256.into(),
@@ -25,7 +25,7 @@ fn decode() {
     let cek = Certificate::decode(&mut &CEK_SIG[..], Kind::Sev).unwrap();
     assert_eq!(cek, Certificate {
         version: 1,
-        firmware: Some(Firmware { major: 0, minor: 14 }),
+        firmware: Some(Firmware(0, 14)),
         key: PublicKey {
             usage: Usage::ChipEndorsementKey,
             algo: SigAlgo::EcdsaSha256.into(),

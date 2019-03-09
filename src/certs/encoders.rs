@@ -101,8 +101,8 @@ impl Encoder<Sev1> for Option<Algo> {
 impl Encoder<Sev1> for Firmware {
     type Error = Error;
     fn encode(&self, writer: &mut impl Write, _: Sev1) -> Result<(), Error> {
-        self.major.encode(writer, Endianness::Little)?;
-        self.minor.encode(writer, Endianness::Little)?;
+        self.0.encode(writer, Endianness::Little)?;
+        self.1.encode(writer, Endianness::Little)?;
         Ok(())
     }
 }

@@ -114,10 +114,10 @@ impl Decoder<Sev1> for Option<Algo> {
 impl Decoder<Sev1> for Firmware {
     type Error = Error;
     fn decode(reader: &mut impl Read, _: Sev1) -> Result<Self, Error> {
-        Ok(Firmware {
-            major: u8::decode(reader, Endianness::Little)?,
-            minor: u8::decode(reader, Endianness::Little)?,
-        })
+        Ok(Firmware(
+            u8::decode(reader, Endianness::Little)?,
+            u8::decode(reader, Endianness::Little)?,
+        ))
     }
 }
 

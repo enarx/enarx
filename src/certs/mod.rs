@@ -110,10 +110,7 @@ struct Signature {
 }
 
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
-pub struct Firmware {
-    pub major: u8,
-    pub minor: u8,
-}
+pub struct Firmware(pub u8, pub u8);
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Certificate {

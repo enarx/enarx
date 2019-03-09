@@ -8,7 +8,7 @@ fn decode() {
 
     assert_eq!(oca, Certificate {
         version: 1,
-        firmware: Some(Firmware { major: 0, minor: 16 }),
+        firmware: Some(Firmware(0, 16)),
         key: PublicKey {
             usage: Usage::OwnerCertificateAuthority,
             algo: SigAlgo::EcdsaSha256.into(),
