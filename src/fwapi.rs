@@ -85,7 +85,7 @@ pub struct Status {
     pub guests: u32,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Identifier(Vec<u8>);
 
 impl From<Identifier> for Vec<u8> {
@@ -94,18 +94,8 @@ impl From<Identifier> for Vec<u8> {
     }
 }
 
-impl std::fmt::LowerHex for Identifier {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
-        for b in self.0.iter() {
-            write!(f, "{:02x}", b)?;
-        }
-
-        Ok(())
-    }
-}
-
-impl std::fmt::UpperHex for Identifier {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
+impl std::fmt::Display for Identifier {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         for b in self.0.iter() {
             write!(f, "{:02X}", b)?;
         }
