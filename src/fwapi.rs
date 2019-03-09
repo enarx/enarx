@@ -3,6 +3,8 @@ use std::os::unix::io::AsRawFd;
 use std::collections::HashSet;
 use std::fs::File;
 
+use super::certs::Firmware;
+
 const SEV_CERT_LEN: usize = 0x824;
 
 #[repr(u32)]
@@ -51,8 +53,14 @@ impl From<std::io::Error> for Error {
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, PartialOrd)]
-pub struct Version(u8, u8, u8);
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
+pub struct Build(Firmware, u8);
+
+impl std::fmt::Display for Build {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{}.{}", self.0, self.1)
+    }
+}
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 #[repr(u8)]
@@ -71,7 +79,7 @@ pub enum Flags {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Status {
-    pub version: Version,
+    pub build: Build,
     pub state: State,
     pub flags: HashSet<Flags>,
     pub guests: u32,
@@ -194,7 +202,7 @@ impl Sev {
         }
 
         Ok(Status {
-            version: Version(stat.api_major, stat.api_minor, stat.build),
+            build: Build(Firmware(stat.api_major, stat.api_minor), stat.build),
             guests: stat.guest_count,
             flags: flags,
             state: match stat.state {
@@ -289,7 +297,7 @@ mod tests {
     fn platform_status() {
         let sev = Sev::new().unwrap();
         let status = sev.platform_status().unwrap();
-        assert!(status.version > Version(0, 14, 0));
+        assert!(status.build > Build(Firmware(0, 14), 0));
         assert!(!status.flags.contains(&Flags::Owned));
         assert!(!status.flags.contains(&Flags::EncryptedState));
         assert_eq!(status.guests, 0);

@@ -112,6 +112,12 @@ struct Signature {
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Firmware(pub u8, pub u8);
 
+impl std::fmt::Display for Firmware {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{}.{}", self.0, self.1)
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Certificate {
     version: u32,
