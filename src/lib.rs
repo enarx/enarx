@@ -6,4 +6,7 @@ extern crate codicon;
 extern crate endicon;
 extern crate ring;
 
+extern crate errno;
+
 pub mod certs;
+pub mod fwapi;
