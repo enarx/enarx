@@ -39,7 +39,7 @@ fn encode() {
     assert_eq!(ASK.len(), output.len());
     assert_eq!(ASK.to_vec(), output);
 
-    let output = ask.encode_buf(Ring).unwrap();
+    let output = ask.body().unwrap();
     assert_eq!(CA_SIG_OFFSET, output.len());
     assert_eq!(ASK[..CA_SIG_OFFSET].to_vec(), output);
 }

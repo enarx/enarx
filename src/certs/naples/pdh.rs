@@ -38,7 +38,7 @@ fn encode() {
     assert_eq!(PDH.len(), output.len());
     assert_eq!(PDH.to_vec(), output);
 
-    let output = pdh.encode_buf(Ring).unwrap();
+    let output = pdh.body().unwrap();
     assert_eq!(SEV_SIG_OFFSET, output.len());
     assert_eq!(PDH[..SEV_SIG_OFFSET].to_vec(), output);
 }

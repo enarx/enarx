@@ -55,7 +55,7 @@ fn encode() {
     assert_eq!(CEK_SIG.len(), output.len());
     assert_eq!(CEK_SIG.to_vec(), output);
 
-    let output = cek.encode_buf(Ring).unwrap();
+    let output = cek.body().unwrap();
     assert_eq!(SEV_SIG_OFFSET, output.len());
     assert_eq!(CEK_SIG[..SEV_SIG_OFFSET].to_vec(), output);
 }

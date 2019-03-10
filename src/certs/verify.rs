@@ -1,8 +1,74 @@
 use std::collections::HashMap;
 use std::hash::BuildHasher;
-use ring::signature::*;
-use untrusted::Input;
 use super::*;
+
+use openssl::pkey::{PKey, Public};
+use openssl::ec::{EcGroup, EcKey};
+use openssl::hash::MessageDigest;
+use openssl::error::ErrorStack;
+use openssl::ecdsa::EcdsaSig;
+use openssl::bn::BigNum;
+use openssl::rsa::Rsa;
+use openssl::nid::Nid;
+
+fn bn(buf: &[u8]) -> Result<BigNum, ErrorStack> {
+    BigNum::from_slice(&buf.iter().rev().cloned()
+        .skip_while(|b| *b == 0)
+        .collect::<Vec<u8>>())
+}
+
+impl Key {
+    fn pkey(&self) -> Result<PKey<Public>, ErrorStack> {
+        match self {
+            Key::Rsa(ref r) => {
+                let n = bn(&r.modulus)?;
+                let e = bn(&r.pubexp)?;
+                let k = Rsa::from_public_components(n, e)?;
+                PKey::from_rsa(k)
+            },
+
+            Key::Ecc(ref e) => {
+                let g = EcGroup::from_curve_name(match e.curve {
+                    Curve::P256 => Nid::X9_62_PRIME256V1,
+                    Curve::P384 => Nid::SECP384R1,
+                })?;
+
+                let x = bn(&e.x)?;
+                let y = bn(&e.y)?;
+                let k = EcKey::from_public_key_affine_coordinates(&g, &x, &y)?;
+                PKey::from_ec_key(k)
+            },
+        }
+    }
+}
+
+impl SigAlgo {
+    fn hash(self) -> MessageDigest {
+        match self {
+            SigAlgo::EcdsaSha256 | SigAlgo::RsaSha256 => MessageDigest::sha256(),
+            SigAlgo::EcdsaSha384 | SigAlgo::RsaSha384 => MessageDigest::sha384(),
+        }
+    }
+}
+
+impl Signature {
+    fn format(&self) -> Result<Vec<u8>, ErrorStack> {
+        match self.algo {
+            SigAlgo::EcdsaSha256 | SigAlgo::EcdsaSha384 => {
+                const SIZE: usize = 576 / 8;
+
+                let r = bn(&self.sig[..SIZE])?;
+                let s = bn(&self.sig[SIZE..][..SIZE])?;
+
+                EcdsaSig::from_private_components(r, s)?.to_der()
+            },
+
+            SigAlgo::RsaSha256 | SigAlgo::RsaSha384 => {
+                Ok(bn(&self.sig)?.to_vec())
+            },
+        }
+    }
+}
 
 impl PublicKey {
     fn is_signer(&self, sig: &super::Signature) -> bool {
@@ -10,49 +76,15 @@ impl PublicKey {
         self.usage == sig.usage && self.algo == sig.algo && id
     }
 
-    fn algorithm(&self) -> Option<&dyn ring::signature::VerificationAlgorithm> {
-        Some(match self.algo {
-            Algo::Sig(SigAlgo::RsaSha256) => &RSA_PSS_2048_8192_SHA256,
-            Algo::Sig(SigAlgo::RsaSha384) => &RSA_PSS_2048_8192_SHA384,
-
-            Algo::Sig(SigAlgo::EcdsaSha256) => {
-                match self.key {
-                    Key::Rsa(_) => return None,
-                    Key::Ecc(ref e) => match e.curve {
-                        Curve::P256 => &ECDSA_P256_SHA256_FIXED,
-                        Curve::P384 => &ECDSA_P384_SHA256_FIXED,
-                    }
-                }
-            },
-
-            Algo::Sig(SigAlgo::EcdsaSha384) => {
-                match self.key {
-                    Key::Rsa(_) => return None,
-                    Key::Ecc(ref e) => match e.curve {
-                        Curve::P256 => &ECDSA_P256_SHA384_FIXED,
-                        Curve::P384 => &ECDSA_P384_SHA384_FIXED,
-                    }
-                }
-            },
-
-            _ => return None, // Not a signing algorithm
-        })
-    }
-
     fn verify(&self, cert: &Certificate) -> Result<(), ()> {
         let sig = cert.sigs.iter().find(|s| self.is_signer(s)).ok_or(())?;
-        let sig = (&self.key, sig).encode_buf(Ring).or(Err(()))?;
-        let sig = Input::from(&sig);
+        let key = self.key.pkey().or(Err(()))?;
+        let msg = cert.body().or(Err(()))?;
+        let hsh = sig.algo.hash();
 
-        let msg = cert.encode_buf(Ring).or(Err(()))?;
-        let msg = Input::from(&msg);
-
-        let key = self.key.encode_buf(Ring).or(Err(()))?;
-        let key = Input::from(&key);
-
-        let alg = self.algorithm().ok_or(())?;
-
-        verify(alg, key, msg, sig).or(Err(()))
+        let mut ver = openssl::sign::Verifier::new(hsh, &key).or(Err(()))?;
+        ver.update(&msg).or(Err(()))?;
+        ver.verify(&sig.format().or(Err(()))?).and(Ok(())).or(Err(()))
     }
 }
 

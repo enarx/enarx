@@ -38,7 +38,7 @@ fn encode() {
     assert_eq!(OCA.len(), output.len());
     assert_eq!(OCA.to_vec(), output);
 
-    let output = oca.encode_buf(Ring).unwrap();
+    let output = oca.body().unwrap();
     assert_eq!(SEV_SIG_OFFSET, output.len());
     assert_eq!(OCA[..SEV_SIG_OFFSET].to_vec(), output);
 }

@@ -136,9 +136,6 @@ pub trait Verifier<'a> {
     fn verify(self) -> Result<&'a Certificate, ()>;
 }
 
-#[derive(Copy, Clone, Debug)]
-struct Ring;
-
 impl From<SigAlgo> for Algo {
     fn from(value: SigAlgo) -> Algo {
         Algo::Sig(value)

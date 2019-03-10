@@ -44,7 +44,7 @@ fn encode() {
     assert_eq!(PEK.len(), output.len());
     assert_eq!(PEK.to_vec(), output);
 
-    let output = pek.encode_buf(Ring).unwrap();
+    let output = pek.body().unwrap();
     assert_eq!(SEV_SIG_OFFSET, output.len());
     assert_eq!(PEK[..SEV_SIG_OFFSET].to_vec(), output);
 }

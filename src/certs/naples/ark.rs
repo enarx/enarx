@@ -39,7 +39,7 @@ fn encode() {
     assert_eq!(ARK.len(), output.len());
     assert_eq!(ARK.to_vec(), output);
 
-    let output = ark.encode_buf(Ring).unwrap();
+    let output = ark.body().unwrap();
     assert_eq!(CA_SIG_OFFSET, output.len());
     assert_eq!(ARK[..CA_SIG_OFFSET].to_vec(), output);
 }
