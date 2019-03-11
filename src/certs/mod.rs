@@ -1,6 +1,6 @@
 mod encoders;
 mod decoders;
-mod verify;
+mod crypto;
 
 #[cfg(test)]
 mod naples;

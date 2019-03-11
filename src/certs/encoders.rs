@@ -26,14 +26,14 @@ impl Encoder<usize> for RsaKey {
     type Error = Error;
     fn encode(&self, writer: &mut impl Write, fill: usize) -> Result<(), Error> {
         let msize = match self.modulus.len() * 8 {
-            2048 => 2048u32,
-            4096 => 4096u32,
+            0000 ... 2048 => 2048u32,
+            2049 ... 4096 => 4096u32,
             s => Err(Error::Invalid(format!("modulus size: {}", s)))?,
         };
 
         msize.encode(writer, Endianness::Little)?;
         field(writer, &self.pubexp, fill)?;
-        field(writer, &self.modulus, fill)
+        field(writer, &self.modulus, msize as usize / 8)
     }
 }
 
@@ -165,13 +165,13 @@ impl Encoder<Sev1> for Option<&Signature> {
             },
 
             Some(ref s) => {
-                if s.sig.len() != 512 {
+                if s.sig.len() > 512 {
                     Err(Error::Invalid(format!("signature length: {}", s.sig.len())))?
                 }
 
                 Some(s.usage).encode(writer, params)?;
                 Some(s.algo).encode(writer, params)?;
-                writer.write_all(&s.sig)?;
+                field(writer, &s.sig, 512)?;
             },
         };
 
@@ -200,15 +200,14 @@ impl Encoder<Sev1> for Certificate {
 impl Encoder<Ca1> for RsaKey {
     type Error = Error;
     fn encode(&self, writer: &mut impl Write, _: Ca1) -> Result<(), Error> {
-        let psize = match self.pubexp.len() {
-            256 => 2048u32,
-            512 => 4096u32,
+        let psize = match self.pubexp.len() * 8 {
+            0000 ... 2048 => 2048u32,
+            2049 ... 4096 => 4096u32,
             s => Err(Error::Invalid(format!("pubexp size: {}", s)))?,
         };
 
         psize.encode(writer, Endianness::Little)?;
-
-        self.encode(writer, 0)
+        self.encode(writer, psize as usize / 8)
     }
 }
 
@@ -227,7 +226,10 @@ impl Encoder<Ca1> for Certificate {
     fn encode(&self, writer: &mut impl Write, params: Ca1) -> Result<(), Error> {
         self.version.encode(writer, Endianness::Little)?;
         self.key.id.encode(writer, params)?;
-        self.sigs[0].id.encode(writer, params)?;
+        match self.sigs.len() {
+            0 if !params.0 => self.key.id, // Body for self-signed cert
+            _ => self.sigs[0].id,
+        }.encode(writer, params)?;
         Some(self.key.usage).encode(writer, Sev1(params.0))?;
         0u128.encode(writer, Endianness::Little)?;
 

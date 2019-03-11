@@ -1,6 +1,7 @@
 #![allow(clippy::unreadable_literal)]
 
 use std::num::NonZeroU128;
+use endicon::Endianness;
 use codicon::Decoder;
 use super::super::*;
 use super::*;
@@ -48,4 +49,37 @@ fn encode() {
 fn verify() {
     let ark = Certificate::decode(&mut ARK, Kind::Ca).unwrap();
     (&ark, &ark).verify().unwrap();
+}
+
+#[test]
+fn create() {
+    let (ark, _) = Certificate::new(Usage::AmdRootKey).unwrap();
+    let buf = ark.encode_buf(()).unwrap();
+
+    let id = u128::decode(&mut &buf[4..], Endianness::Little).unwrap();
+    let id = NonZeroU128::new(id);
+
+    assert_eq!(ark, Certificate {
+        version: 1,
+        firmware: None,
+        key: PublicKey {
+            usage: Usage::AmdRootKey,
+            algo: SigAlgo::RsaSha256.into(),
+            key: Key::Rsa(RsaKey {
+                pubexp: buf[0x040..0x140].to_vec(),
+                modulus: buf[0x140..0x240].to_vec(),
+            }),
+            id: id,
+        },
+        sigs: vec! {
+            Signature {
+                usage: Usage::AmdRootKey,
+                algo: SigAlgo::RsaSha256,
+                sig: buf[0x240..0x340].to_vec(),
+                id: id,
+            }
+        }
+    });
+
+    assert!((&ark, &ark).verify().is_ok());
 }
