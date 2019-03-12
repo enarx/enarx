@@ -1,10 +1,13 @@
 use std::os::raw::{c_int, c_ulong, c_void};
+use std::collections::{HashSet, HashMap};
 use std::os::unix::io::AsRawFd;
-use std::collections::HashSet;
 use std::fs::File;
 
+use super::certs::{Firmware, Usage, Kind};
+use super::certs::Certificate as Cert;
 use super::certs::Error as CertError;
-use super::certs::Firmware;
+
+use codicon::Decoder;
 
 const SEV_CERT_LEN: usize = 0x824;
 
@@ -261,7 +264,7 @@ impl Sev {
         Ok(Identifier(ids.0.to_vec()))
     }
 
-    pub fn pdh_cert_export(&self) -> Result<Vec<u8>, Option<CodeError>> {
+    pub fn pdh_cert_export(&self) -> Result<HashMap<Usage, Cert>, Error> {
         #[derive(Copy, Clone, Default)]
         #[repr(C, packed)]
         struct Data {
@@ -280,7 +283,15 @@ impl Sev {
         };
 
         self.cmd(Code::PdhCertificateExport, Some(&mut data))?;
-        Ok(buf)
+
+        let mut map = HashMap::new();
+        let mut rdr = &buf[..];
+        for _ in 0..4 {
+            let cert = Cert::decode(&mut rdr, Kind::Sev)?;
+            map.insert(cert.usage(), cert);
+        }
+
+        Ok(map)
     }
 
     pub fn pek_csr(&self) -> Result<Vec<u8>, Option<CodeError>> {
@@ -350,25 +361,13 @@ mod tests {
     #[cfg_attr(not(has_sev), ignore)]
     #[test]
     fn pdh_cert_export() {
-        use certs::{Certificate, Kind, Usage};
-        use codicon::Decoder;
-
         let sev = Sev::new().unwrap();
         let chain = sev.pdh_cert_export().unwrap();
 
-        let mut reader = &chain[..];
-
-        let cert = Certificate::decode(&mut reader, Kind::Sev).unwrap();
-        assert_eq!(cert.usage(), Usage::PlatformDiffieHellman);
-
-        let cert = Certificate::decode(&mut reader, Kind::Sev).unwrap();
-        assert_eq!(cert.usage(), Usage::PlatformEndorsementKey);
-
-        let cert = Certificate::decode(&mut reader, Kind::Sev).unwrap();
-        assert_eq!(cert.usage(), Usage::OwnerCertificateAuthority);
-
-        let cert = Certificate::decode(&mut reader, Kind::Sev).unwrap();
-        assert_eq!(cert.usage(), Usage::ChipEndorsementKey);
+        assert!(chain.get(&Usage::PlatformDiffieHellman).is_some());
+        assert!(chain.get(&Usage::PlatformEndorsementKey).is_some());
+        assert!(chain.get(&Usage::OwnerCertificateAuthority).is_some());
+        assert!(chain.get(&Usage::ChipEndorsementKey).is_some());
     }
 
     #[cfg_attr(not(has_sev), ignore)]
