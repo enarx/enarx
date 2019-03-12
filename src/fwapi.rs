@@ -21,7 +21,7 @@ enum Code {
 }
 
 #[derive(Debug)]
-pub enum Error {
+pub enum CodeError {
     IoError(std::io::Error),
 
     InvalidPlatformState,
@@ -47,9 +47,9 @@ pub enum Error {
     Unsupported,
 }
 
-impl From<std::io::Error> for Error {
-    fn from(error: std::io::Error) -> Error {
-        Error::IoError(error)
+impl From<std::io::Error> for CodeError {
+    fn from(error: std::io::Error) -> CodeError {
+        CodeError::IoError(error)
     }
 }
 
@@ -108,7 +108,7 @@ pub struct Sev(File);
 
 impl Sev {
     #[inline]
-    fn cmd<T>(&self, code: Code, data: Option<&mut T>) -> Result<(), Option<Error>> {
+    fn cmd<T>(&self, code: Code, data: Option<&mut T>) -> Result<(), Option<CodeError>> {
         extern "C" {
             fn ioctl(fd: c_int, request: c_ulong, ...) -> c_int;
         }
@@ -132,27 +132,27 @@ impl Sev {
             0 => Ok(()),
             _ => Err(Some(match c.error {
                 0 => std::io::Error::from(errno::errno()).into(),
-                1 => Error::InvalidPlatformState,
-                2 => Error::InvalidGuestState,
-                3 => Error::InavlidConfig,
-                4 => Error::InvalidLen,
-                5 => Error::AlreadyOwned,
-                6 => Error::InvalidCertificate,
-                7 => Error::PolicyFailure,
-                8 => Error::Inactive,
-                9 => Error::InvalidAddress,
-                10 => Error::BadSignature,
-                11 => Error::BadMeasurement,
-                12 => Error::AsidOwned,
-                13 => Error::InvalidAsid,
-                14 => Error::WbinvdRequired,
-                15 => Error::DfFlushRequired,
-                16 => Error::InvalidGuest,
-                17 => Error::InvalidCommand,
-                18 => Error::Active,
-                19 => Error::HardwarePlatform,
-                20 => Error::HardwareUnsafe,
-                21 => Error::Unsupported,
+                1 => CodeError::InvalidPlatformState,
+                2 => CodeError::InvalidGuestState,
+                3 => CodeError::InavlidConfig,
+                4 => CodeError::InvalidLen,
+                5 => CodeError::AlreadyOwned,
+                6 => CodeError::InvalidCertificate,
+                7 => CodeError::PolicyFailure,
+                8 => CodeError::Inactive,
+                9 => CodeError::InvalidAddress,
+                10 => CodeError::BadSignature,
+                11 => CodeError::BadMeasurement,
+                12 => CodeError::AsidOwned,
+                13 => CodeError::InvalidAsid,
+                14 => CodeError::WbinvdRequired,
+                15 => CodeError::DfFlushRequired,
+                16 => CodeError::InvalidGuest,
+                17 => CodeError::InvalidCommand,
+                18 => CodeError::Active,
+                19 => CodeError::HardwarePlatform,
+                20 => CodeError::HardwareUnsafe,
+                21 => CodeError::Unsupported,
                 _ => Err(None)?,
             }))
         }
@@ -162,11 +162,11 @@ impl Sev {
         Ok(Sev(File::open("/dev/sev")?))
     }
 
-    pub fn platform_reset(&self) -> Result<(), Option<Error>> {
+    pub fn platform_reset(&self) -> Result<(), Option<CodeError>> {
         self.cmd::<c_void>(Code::PlatformReset, None)
     }
 
-    pub fn platform_status(&self) -> Result<Status, Option<Error>> {
+    pub fn platform_status(&self) -> Result<Status, Option<CodeError>> {
         #[derive(Copy, Clone, Default)]
         #[repr(C, packed)]
         struct Stat {
@@ -205,15 +205,15 @@ impl Sev {
         })
     }
 
-    pub fn pek_generate(&self) -> Result<(), Option<Error>> {
+    pub fn pek_generate(&self) -> Result<(), Option<CodeError>> {
         self.cmd::<c_void>(Code::PekGenerate, None)
     }
 
-    pub fn pdh_generate(&self) -> Result<(), Option<Error>> {
+    pub fn pdh_generate(&self) -> Result<(), Option<CodeError>> {
         self.cmd::<c_void>(Code::PdhGenerate, None)
     }
 
-    pub fn get_identifer(&self) -> Result<Identifier, Option<Error>> {
+    pub fn get_identifer(&self) -> Result<Identifier, Option<CodeError>> {
         // Per AMD, this interface will change in a future revision.
         // Future iterations will only ever return one id and its
         // length will be variable. We handle the current verison of
@@ -230,7 +230,7 @@ impl Sev {
         Ok(Identifier(ids.0.to_vec()))
     }
 
-    pub fn pdh_cert_export(&self) -> Result<Vec<u8>, Option<Error>> {
+    pub fn pdh_cert_export(&self) -> Result<Vec<u8>, Option<CodeError>> {
         #[derive(Copy, Clone, Default)]
         #[repr(C, packed)]
         struct Data {
@@ -252,7 +252,7 @@ impl Sev {
         Ok(buf)
     }
 
-    pub fn pek_csr(&self) -> Result<Vec<u8>, Option<Error>> {
+    pub fn pek_csr(&self) -> Result<Vec<u8>, Option<CodeError>> {
         #[derive(Copy, Clone, Default)]
         #[repr(C, packed)]
         struct Data {
