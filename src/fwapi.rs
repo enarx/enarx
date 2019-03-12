@@ -357,9 +357,6 @@ mod tests {
         let sev = Sev::new().unwrap();
         let status = sev.platform_status().unwrap();
         assert!(status.build > Build(Firmware(0, 14), 0));
-        assert!(!status.flags.contains(&Flags::Owned));
-        assert!(!status.flags.contains(&Flags::EncryptedState));
-        assert_eq!(status.guests, 0);
     }
 
     #[ignore]
