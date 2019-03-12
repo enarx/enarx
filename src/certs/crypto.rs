@@ -38,7 +38,7 @@ impl RsaKey {
 }
 
 impl Curve {
-    fn group(&self) -> Result<EcGroup, ErrorStack> {
+    fn group(self) -> Result<EcGroup, ErrorStack> {
         Ok(EcGroup::from_curve_name(match self {
             Curve::P256 => Nid::X9_62_PRIME256V1,
             Curve::P384 => Nid::SECP384R1,
