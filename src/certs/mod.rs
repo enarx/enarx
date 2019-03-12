@@ -150,6 +150,16 @@ pub struct Certificate {
     sigs: Vec<Signature>,
 }
 
+impl Certificate {
+    pub fn firmware(&self) -> Option<Firmware> {
+        self.firmware
+    }
+
+    pub fn usage(&self) -> Usage {
+        self.key.usage
+    }
+}
+
 impl PartialEq for Certificate {
     fn eq(&self, other: &Certificate) -> bool {
         self.version == other.version
@@ -174,15 +184,5 @@ impl Curve {
             Curve::P256 => 256 / 8,
             Curve::P384 => 384 / 8,
         }
-    }
-}
-
-impl Certificate {
-    pub fn firmware(&self) -> Option<Firmware> {
-        self.firmware
-    }
-
-    pub fn usage(&self) -> Usage {
-        self.key.usage
     }
 }
