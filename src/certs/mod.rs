@@ -68,6 +68,30 @@ enum Algo {
     Exc(ExcAlgo),
 }
 
+impl From<SigAlgo> for Algo {
+    fn from(value: SigAlgo) -> Algo {
+        Algo::Sig(value)
+    }
+}
+
+impl From<ExcAlgo> for Algo {
+    fn from(value: ExcAlgo) -> Algo {
+        Algo::Exc(value)
+    }
+}
+
+impl PartialEq<SigAlgo> for Algo {
+    fn eq(&self, other: &SigAlgo) -> bool {
+        *self == Algo::from(*other)
+    }
+}
+
+impl PartialEq<ExcAlgo> for Algo {
+    fn eq(&self, other: &ExcAlgo) -> bool {
+        *self == Algo::from(*other)
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct RsaKey {
     pubexp: Vec<u8>,
@@ -142,30 +166,6 @@ pub enum Kind {
 
 pub trait Verifier<'a> {
     fn verify(self) -> Result<&'a Certificate, ()>;
-}
-
-impl From<SigAlgo> for Algo {
-    fn from(value: SigAlgo) -> Algo {
-        Algo::Sig(value)
-    }
-}
-
-impl From<ExcAlgo> for Algo {
-    fn from(value: ExcAlgo) -> Algo {
-        Algo::Exc(value)
-    }
-}
-
-impl PartialEq<SigAlgo> for Algo {
-    fn eq(&self, other: &SigAlgo) -> bool {
-        *self == Algo::from(*other)
-    }
-}
-
-impl PartialEq<ExcAlgo> for Algo {
-    fn eq(&self, other: &ExcAlgo) -> bool {
-        *self == Algo::from(*other)
-    }
 }
 
 impl Curve {
