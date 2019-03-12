@@ -177,12 +177,3 @@ pub enum Kind {
 pub trait Verifier<'a> {
     fn verify(self) -> Result<&'a Certificate, ()>;
 }
-
-impl Curve {
-    fn size(&self) -> usize {
-        match self {
-            Curve::P256 => 256 / 8,
-            Curve::P384 => 384 / 8,
-        }
-    }
-}
