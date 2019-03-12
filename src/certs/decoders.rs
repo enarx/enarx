@@ -7,7 +7,7 @@ use std::num::NonZeroU128;
 use super::*;
 
 #[derive(Copy, Clone, Debug)]
-struct Size(u32);
+struct Internal<T>(T);
 
 #[derive(Copy, Clone, Debug)]
 struct Sev1;
@@ -15,11 +15,11 @@ struct Sev1;
 #[derive(Copy, Clone, Debug)]
 struct Ca1;
 
-impl Decoder<Size> for RsaKey {
+impl Decoder<Internal<usize>> for RsaKey {
     type Error = Error;
 
     #[inline]
-    fn decode(reader: &mut impl Read, params: Size) -> Result<Self, Error> {
+    fn decode(reader: &mut impl Read, params: Internal<usize>) -> Result<Self, Error> {
         let psize = match params.0 {
             2048 => 2048,
             4096 => 4096,
@@ -113,7 +113,7 @@ impl Decoder<Sev1> for Firmware {
 impl Decoder<Sev1> for RsaKey {
     type Error = Error;
     fn decode(reader: &mut impl Read, _: Sev1) -> Result<Self, Error> {
-        RsaKey::decode(reader, Size(4096))
+        RsaKey::decode(reader, Internal(4096))
     }
 }
 
@@ -145,14 +145,14 @@ impl Decoder<Sev1> for EccKey {
     }
 }
 
-impl Decoder<Algo> for Key {
+impl Decoder<Internal<Algo>> for Key {
     type Error = Error;
-    fn decode(reader: &mut impl Read, params: Algo) -> Result<Self, Error> {
+    fn decode(reader: &mut impl Read, params: Internal<Algo>) -> Result<Self, Error> {
         use self::SigAlgo::*;
         use self::ExcAlgo::*;
         use self::Algo::*;
 
-        Ok(match params {
+        Ok(match params.0 {
             Sig(EcdsaSha256) => Key::Ecc(EccKey::decode(reader, Sev1)?),
             Sig(EcdsaSha384) => Key::Ecc(EccKey::decode(reader, Sev1)?),
             Exc(EcdhSha256) => Key::Ecc(EccKey::decode(reader, Sev1)?),
@@ -176,7 +176,7 @@ impl Decoder<Sev1> for PublicKey {
             Some(a) => a,
         };
 
-        let key = Key::decode(reader, algo)?;
+        let key = Key::decode(reader, Internal(algo))?;
 
         Ok(PublicKey { usage, algo, key, id: None })
     }
@@ -224,7 +224,7 @@ impl Decoder<Ca1> for RsaKey {
     type Error = Error;
     fn decode(reader: &mut impl Read, _: Ca1) -> Result<Self, Error> {
         let psize = u32::decode(reader, Endianness::Little)?;
-        RsaKey::decode(reader, Size(psize))
+        RsaKey::decode(reader, Internal(psize as usize))
     }
 }
 

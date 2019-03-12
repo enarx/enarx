@@ -9,7 +9,7 @@ use std::num::NonZeroU128;
 use super::*;
 
 #[derive(Copy, Clone, Debug)]
-struct Size(usize);
+struct Internal<T>(T);
 
 #[derive(Copy, Clone, Debug)]
 struct Sev1(bool);
@@ -17,9 +17,9 @@ struct Sev1(bool);
 #[derive(Copy, Clone, Debug)]
 struct Ca1(bool);
 
-impl Encoder<Size> for RsaKey {
+impl Encoder<Internal<usize>> for RsaKey {
     type Error = Error;
-    fn encode(&self, writer: &mut impl Write, params: Size) -> Result<(), Error> {
+    fn encode(&self, writer: &mut impl Write, params: Internal<usize>) -> Result<(), Error> {
         let msize = self.msize()?;
         (msize as u32 * 8).encode(writer, Endianness::Little)?;
         writer.write_all(&self.pubexp[..params.0])?;
@@ -101,7 +101,7 @@ impl Encoder<Sev1> for Firmware {
 impl Encoder<Sev1> for RsaKey {
     type Error = Error;
     fn encode(&self, writer: &mut impl Write, _: Sev1) -> Result<(), Error> {
-        self.encode(writer, Size(4096 / 8))
+        self.encode(writer, Internal(4096 / 8))
     }
 }
 
@@ -189,7 +189,7 @@ impl Encoder<Ca1> for RsaKey {
     fn encode(&self, writer: &mut impl Write, _: Ca1) -> Result<(), Error> {
         let psize = self.psize()?;
         (psize as u32 * 8).encode(writer, Endianness::Little)?;
-        self.encode(writer, Size(psize))
+        self.encode(writer, Internal(psize))
     }
 }
 

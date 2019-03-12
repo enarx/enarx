@@ -288,7 +288,7 @@ impl Sev {
         let mut rdr = &buf[..];
         for _ in 0..4 {
             let cert = Cert::decode(&mut rdr, Kind::Sev)?;
-            map.insert(cert.usage(), cert);
+            map.insert(cert.key.usage, cert);
         }
 
         Ok(map)
@@ -398,7 +398,7 @@ mod tests {
     fn pek_csr() {
         let sev = Sev::new().unwrap();
         let pek = sev.pek_csr().unwrap();
-        assert_eq!(pek.usage(), Usage::PlatformEndorsementKey);
+        assert_eq!(pek.key.usage, Usage::PlatformEndorsementKey);
     }
 
     #[ignore]

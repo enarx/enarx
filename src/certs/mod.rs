@@ -49,7 +49,7 @@ pub enum Usage {
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
-enum SigAlgo {
+pub enum SigAlgo {
     RsaSha256,
     EcdsaSha256,
     RsaSha384,
@@ -57,13 +57,13 @@ enum SigAlgo {
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
-enum ExcAlgo {
+pub enum ExcAlgo {
     EcdhSha256,
     EcdhSha384,
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
-enum Algo {
+pub enum Algo {
     Sig(SigAlgo),
     Exc(ExcAlgo),
 }
@@ -93,9 +93,9 @@ impl PartialEq<ExcAlgo> for Algo {
 }
 
 #[derive(Copy, Clone)]
-struct RsaKey {
-    pubexp: [u8; 4096 / 8],
-    modulus: [u8; 4096 / 8],
+pub struct RsaKey {
+    pub pubexp: [u8; 4096 / 8],
+    pub modulus: [u8; 4096 / 8],
 }
 
 impl std::cmp::Eq for RsaKey {}
@@ -132,16 +132,16 @@ impl RsaKey {
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
-enum Curve {
+pub enum Curve {
     P256,
     P384,
 }
 
 #[derive(Copy, Clone)]
-struct EccKey {
-    c: Curve,
-    x: [u8; 576 / 8],
-    y: [u8; 576 / 8],
+pub struct EccKey {
+    pub c: Curve,
+    pub x: [u8; 576 / 8],
+    pub y: [u8; 576 / 8],
 }
 
 impl std::cmp::Eq for EccKey {}
@@ -160,25 +160,25 @@ impl std::fmt::Debug for EccKey {
 
 #[allow(clippy::large_enum_variant)]
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
-enum Key {
+pub enum Key {
     Rsa(RsaKey),
     Ecc(EccKey),
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
-struct PublicKey {
-    usage: Usage,
-    algo: Algo,
-    key: Key,
-    id: Option<std::num::NonZeroU128>,
+pub struct PublicKey {
+    pub usage: Usage,
+    pub algo: Algo,
+    pub key: Key,
+    pub id: Option<std::num::NonZeroU128>,
 }
 
 #[derive(Copy, Clone)]
-struct Signature {
-    usage: Usage,
-    algo: SigAlgo,
-    sig: [u8; 4096 / 8],
-    id: Option<std::num::NonZeroU128>,
+pub struct Signature {
+    pub usage: Usage,
+    pub algo: SigAlgo,
+    pub sig: [u8; 4096 / 8],
+    pub id: Option<std::num::NonZeroU128>,
 }
 
 impl std::cmp::Eq for Signature {}
@@ -209,26 +209,16 @@ impl std::fmt::Display for Firmware {
 
 #[derive(Copy, Clone, Debug, Eq)]
 pub struct Certificate {
-    version: u32,
-    firmware: Option<Firmware>,
-    key: PublicKey,
-    sigs: [Option<Signature>; 2],
-}
-
-impl Certificate {
-    pub fn firmware(&self) -> Option<Firmware> {
-        self.firmware
-    }
-
-    pub fn usage(&self) -> Usage {
-        self.key.usage
-    }
+    pub version: u32,
+    pub firmware: Option<Firmware>,
+    pub key: PublicKey,
+    pub sigs: [Option<Signature>; 2],
 }
 
 impl PartialEq for Certificate {
     fn eq(&self, other: &Certificate) -> bool {
         self.version == other.version
-            && self.firmware() == other.firmware()
+            && self.firmware == other.firmware
             && self.key == other.key
     }
 }
