@@ -8,6 +8,7 @@ fn decode() {
 
     assert_eq!(pdh, Certificate {
         version: 1,
+        sigs: Vec::new(),
         firmware: Some(Firmware(0, 16)),
         key: PublicKey {
             usage: Usage::PlatformDiffieHellman,
@@ -19,13 +20,13 @@ fn decode() {
             }),
             id: None,
         },
-        sigs: vec! {
-            Signature {
-                usage: Usage::PlatformEndorsementKey,
-                algo: SigAlgo::EcdsaSha256,
-                sig: PDH[0x41C..0x61C].to_vec(),
-                id: None,
-            }
+    });
+    assert_eq!(pdh.sigs, vec! {
+        Signature {
+            usage: Usage::PlatformEndorsementKey,
+            algo: SigAlgo::EcdsaSha256,
+            sig: PDH[0x41C..0x61C].to_vec(),
+            id: None,
         }
     });
 }

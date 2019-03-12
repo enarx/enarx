@@ -8,6 +8,7 @@ fn decode() {
     let cek = Certificate::decode(&mut &CEK_UNS[..], Kind::Sev).unwrap();
     assert_eq!(cek, Certificate {
         version: 1,
+        sigs: Vec::new(),
         firmware: Some(Firmware(0, 16)),
         key: PublicKey {
             usage: Usage::ChipEndorsementKey,
@@ -19,12 +20,13 @@ fn decode() {
             }),
             id: None,
         },
-        sigs: vec! {}
     });
+    assert_eq!(cek.sigs, Vec::new());
 
     let cek = Certificate::decode(&mut &CEK_SIG[..], Kind::Sev).unwrap();
     assert_eq!(cek, Certificate {
         version: 1,
+        sigs: Vec::new(),
         firmware: Some(Firmware(0, 14)),
         key: PublicKey {
             usage: Usage::ChipEndorsementKey,
@@ -36,13 +38,13 @@ fn decode() {
             }),
             id: None,
         },
-        sigs: vec! {
-            Signature {
-                usage: Usage::AmdSevKey,
-                algo: SigAlgo::RsaSha256,
-                sig: CEK_SIG[0x41C..0x61C].to_vec(),
-                id: None,
-            }
+    });
+    assert_eq!(cek.sigs, vec! {
+        Signature {
+            usage: Usage::AmdSevKey,
+            algo: SigAlgo::RsaSha256,
+            sig: CEK_SIG[0x41C..0x61C].to_vec(),
+            id: None,
         }
     });
 }

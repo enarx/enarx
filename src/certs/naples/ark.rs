@@ -12,6 +12,7 @@ fn decode() {
     assert_eq!(ark, Certificate {
         version: 1,
         firmware: None,
+        sigs: Vec::new(),
         key: PublicKey {
             usage: Usage::AmdRootKey,
             algo: SigAlgo::RsaSha256.into(),
@@ -21,13 +22,13 @@ fn decode() {
             }),
             id: NonZeroU128::new(122178821951678173525318614033703090459),
         },
-        sigs: vec! {
-            Signature {
-                usage: Usage::AmdRootKey,
-                algo: SigAlgo::RsaSha256,
-                sig: ARK[0x240..][..256].to_vec(),
-                id: NonZeroU128::new(122178821951678173525318614033703090459),
-            }
+    });
+    assert_eq!(ark.sigs, vec! {
+        Signature {
+            usage: Usage::AmdRootKey,
+            algo: SigAlgo::RsaSha256,
+            sig: ARK[0x240..][..256].to_vec(),
+            id: NonZeroU128::new(122178821951678173525318614033703090459),
         }
     });
 }
@@ -62,6 +63,7 @@ fn create() {
     assert_eq!(ark, Certificate {
         version: 1,
         firmware: None,
+        sigs: Vec::new(),
         key: PublicKey {
             usage: Usage::AmdRootKey,
             algo: SigAlgo::RsaSha256.into(),
@@ -71,13 +73,14 @@ fn create() {
             }),
             id: id,
         },
-        sigs: vec! {
-            Signature {
-                usage: Usage::AmdRootKey,
-                algo: SigAlgo::RsaSha256,
-                sig: buf[0x240..0x340].to_vec(),
-                id: id,
-            }
+    });
+
+    assert_eq!(ark.sigs, vec! {
+        Signature {
+            usage: Usage::AmdRootKey,
+            algo: SigAlgo::RsaSha256,
+            sig: buf[0x240..0x340].to_vec(),
+            id: id,
         }
     });
 

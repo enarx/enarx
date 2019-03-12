@@ -8,6 +8,7 @@ fn decode() {
 
     assert_eq!(oca, Certificate {
         version: 1,
+        sigs: Vec::new(),
         firmware: Some(Firmware(0, 16)),
         key: PublicKey {
             usage: Usage::OwnerCertificateAuthority,
@@ -19,13 +20,13 @@ fn decode() {
             }),
             id: None,
         },
-        sigs: vec! {
-            Signature {
-                usage: Usage::OwnerCertificateAuthority,
-                algo: SigAlgo::EcdsaSha256,
-                sig: OCA[0x41C..0x61C].to_vec(),
-                id: None,
-            }
+    });
+    assert_eq!(oca.sigs, vec! {
+        Signature {
+            usage: Usage::OwnerCertificateAuthority,
+            algo: SigAlgo::EcdsaSha256,
+            sig: OCA[0x41C..0x61C].to_vec(),
+            id: None,
         }
     });
 }
@@ -56,6 +57,7 @@ fn create() {
 
     assert_eq!(oca, Certificate {
         version: 1,
+        sigs: Vec::new(),
         firmware: Some(Firmware(0, 0)),
         key: PublicKey {
             usage: Usage::OwnerCertificateAuthority,
@@ -67,13 +69,13 @@ fn create() {
             }),
             id: None,
         },
-        sigs: vec! {
-            Signature {
-                usage: Usage::OwnerCertificateAuthority,
-                algo: SigAlgo::EcdsaSha256,
-                sig: buf[0x41C..0x61C].to_vec(),
-                id: None,
-            }
+    });
+    assert_eq!(oca.sigs, vec! {
+        Signature {
+            usage: Usage::OwnerCertificateAuthority,
+            algo: SigAlgo::EcdsaSha256,
+            sig: buf[0x41C..0x61C].to_vec(),
+            id: None,
         }
     });
 

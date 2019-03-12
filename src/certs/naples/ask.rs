@@ -11,6 +11,7 @@ fn decode() {
     assert_eq!(ask, Certificate {
         version: 1,
         firmware: None,
+        sigs: Vec::new(),
         key: PublicKey {
             usage: Usage::AmdSevKey,
             algo: SigAlgo::RsaSha256.into(),
@@ -20,13 +21,14 @@ fn decode() {
             }),
             id: NonZeroU128::new(147429952972550494775834017433799571937),
         },
-        sigs: vec! {
-            Signature {
-                usage: Usage::AmdRootKey,
-                algo: SigAlgo::RsaSha256,
-                sig: ASK[0x240..][..256].to_vec(),
-                id: NonZeroU128::new(122178821951678173525318614033703090459),
-            }
+    });
+
+    assert_eq!(ask.sigs, vec! {
+        Signature {
+            usage: Usage::AmdRootKey,
+            algo: SigAlgo::RsaSha256,
+            sig: ASK[0x240..][..256].to_vec(),
+            id: NonZeroU128::new(122178821951678173525318614033703090459),
         }
     });
 }

@@ -8,6 +8,7 @@ fn decode() {
 
     assert_eq!(pek, Certificate {
         version: 1,
+        sigs: Vec::new(),
         firmware: Some(Firmware(0, 16)),
         key: PublicKey {
             usage: Usage::PlatformEndorsementKey,
@@ -19,19 +20,19 @@ fn decode() {
             }),
             id: None,
         },
-        sigs: vec! {
-            Signature {
-                usage: Usage::OwnerCertificateAuthority,
-                algo: SigAlgo::EcdsaSha256,
-                sig: PEK[0x41C..0x61C].to_vec(),
-                id: None,
-            },
-            Signature {
-                usage: Usage::ChipEndorsementKey,
-                algo: SigAlgo::EcdsaSha256,
-                sig: PEK[0x624..0x824].to_vec(),
-                id: None,
-            }
+    });
+    assert_eq!(pek.sigs, vec! {
+        Signature {
+            usage: Usage::OwnerCertificateAuthority,
+            algo: SigAlgo::EcdsaSha256,
+            sig: PEK[0x41C..0x61C].to_vec(),
+            id: None,
+        },
+        Signature {
+            usage: Usage::ChipEndorsementKey,
+            algo: SigAlgo::EcdsaSha256,
+            sig: PEK[0x624..0x824].to_vec(),
+            id: None,
         }
     });
 }

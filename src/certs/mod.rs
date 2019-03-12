@@ -118,12 +118,20 @@ impl std::fmt::Display for Firmware {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, Eq)]
 pub struct Certificate {
     version: u32,
     firmware: Option<Firmware>,
     key: PublicKey,
     sigs: Vec<Signature>,
+}
+
+impl PartialEq for Certificate {
+    fn eq(&self, other: &Certificate) -> bool {
+        self.version == other.version
+            && self.firmware() == other.firmware()
+            && self.key == other.key
+    }
 }
 
 #[derive(Copy, Clone, Debug)]
