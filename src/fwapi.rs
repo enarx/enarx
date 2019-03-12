@@ -294,7 +294,7 @@ impl Sev {
         Ok(map)
     }
 
-    pub fn pek_csr(&self) -> Result<Vec<u8>, Option<CodeError>> {
+    pub fn pek_csr(&self) -> Result<Cert, Error> {
         #[derive(Copy, Clone, Default)]
         #[repr(C, packed)]
         struct Data {
@@ -305,12 +305,11 @@ impl Sev {
         let mut buf = vec![0u8; SEV_CERT_LEN];
         let mut data = Data {
             address: buf.as_mut_ptr() as u64,
-            length: SEV_CERT_LEN as u32,
+            length: buf.len() as u32,
         };
 
         self.cmd(Code::PekCertificateSigningRequest, Some(&mut data))?;
-        if data.length != SEV_CERT_LEN as u32 { Err(None)? }
-        Ok(buf)
+        Ok(Cert::decode(&mut &buf[..], Kind::Sev)?)
     }
 }
 
@@ -373,13 +372,8 @@ mod tests {
     #[cfg_attr(not(has_sev), ignore)]
     #[test]
     fn pek_csr() {
-        use certs::{Certificate, Kind, Usage};
-        use codicon::Decoder;
-
         let sev = Sev::new().unwrap();
         let pek = sev.pek_csr().unwrap();
-
-        let cert = Certificate::decode(&mut &pek[..], Kind::Sev).unwrap();
-        assert_eq!(cert.usage(), Usage::PlatformEndorsementKey);
+        assert_eq!(pek.usage(), Usage::PlatformEndorsementKey);
     }
 }
