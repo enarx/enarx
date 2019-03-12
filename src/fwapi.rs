@@ -3,6 +3,7 @@ use std::os::unix::io::AsRawFd;
 use std::collections::HashSet;
 use std::fs::File;
 
+use super::certs::Error as CertError;
 use super::certs::Firmware;
 
 const SEV_CERT_LEN: usize = 0x824;
@@ -50,6 +51,36 @@ pub enum CodeError {
 impl From<std::io::Error> for CodeError {
     fn from(error: std::io::Error) -> CodeError {
         CodeError::IoError(error)
+    }
+}
+
+#[derive(Debug)]
+pub enum Error {
+    Code(Option<CodeError>),
+    Cert(CertError),
+}
+
+impl From<CodeError> for Error {
+    fn from(error: CodeError) -> Error {
+        Error::Code(Some(error))
+    }
+}
+
+impl From<CertError> for Error {
+    fn from(error: CertError) -> Error {
+        Error::Cert(error)
+    }
+}
+
+impl From<Option<CodeError>> for Error {
+    fn from(error: Option<CodeError>) -> Error {
+        Error::Code(error)
+    }
+}
+
+impl From<std::io::Error> for Error {
+    fn from(error: std::io::Error) -> Error {
+        CodeError::IoError(error).into()
     }
 }
 
