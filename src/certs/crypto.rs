@@ -23,17 +23,17 @@ impl RsaKey {
     fn generate(bits: u32) -> Result<(RsaKey, PKey<Private>), ErrorStack> {
         let prv = Rsa::generate(bits)?;
 
-        let mut modulus = vec![0u8; (bits as usize + 7) / 8];
-        for (i, b) in prv.n().to_vec().iter().rev().enumerate() {
-            modulus[i] = *b;
-        }
-
-        let mut pubexp = vec![0u8; (bits as usize + 7) / 8];
+        let mut pubexp = [0u8; 4096 / 8];
         for (i, b) in prv.e().to_vec().iter().rev().enumerate() {
             pubexp[i] = *b;
         }
 
-        Ok((RsaKey { modulus, pubexp }, PKey::from_rsa(prv)?))
+        let mut modulus = [0u8; 4096 / 8];
+        for (i, b) in prv.n().to_vec().iter().rev().enumerate() {
+            modulus[i] = *b;
+        }
+
+        Ok((RsaKey { pubexp, modulus }, PKey::from_rsa(prv)?))
     }
 }
 
@@ -47,19 +47,27 @@ impl Curve {
 }
 
 impl EccKey {
-    fn generate(curve: Curve) -> Result<(EccKey, PKey<Private>), ErrorStack> {
+    fn generate(c: Curve) -> Result<(EccKey, PKey<Private>), ErrorStack> {
         let mut ctx = BigNumContext::new()?;
-        let mut x = BigNum::new()?;
-        let mut y = BigNum::new()?;
+        let mut xn = BigNum::new()?;
+        let mut yn = BigNum::new()?;
 
-        let grp = curve.group()?;
+        let grp = c.group()?;
         let prv = EcKey::generate(&grp)?;
 
-        prv.public_key().affine_coordinates_gfp(&grp, &mut x, &mut y, &mut ctx)?;
-        let x = x.to_vec().iter().rev().cloned().collect();
-        let y = y.to_vec().iter().rev().cloned().collect();
+        prv.public_key().affine_coordinates_gfp(&grp, &mut xn, &mut yn, &mut ctx)?;
 
-        Ok((EccKey { curve, x, y }, PKey::from_ec_key(prv)?))
+        let mut x = [0u8; 576 / 8];
+        for (i, b) in xn.to_vec().iter().rev().enumerate() {
+            x[i] = *b;
+        }
+
+        let mut y = [0u8; 576 / 8];
+        for (i, b) in yn.to_vec().iter().rev().enumerate() {
+            y[i] = *b;
+        }
+
+        Ok((EccKey { c, x, y }, PKey::from_ec_key(prv)?))
     }
 }
 
@@ -119,7 +127,7 @@ impl Key {
             },
 
             Key::Ecc(ref e) => {
-                let g = EcGroup::from_curve_name(match e.curve {
+                let g = EcGroup::from_curve_name(match e.c {
                     Curve::P256 => Nid::X9_62_PRIME256V1,
                     Curve::P384 => Nid::SECP384R1,
                 })?;
@@ -143,27 +151,30 @@ impl SigAlgo {
 }
 
 impl Signature {
-    fn unformat(algo: SigAlgo, buf: &[u8]) -> Result<Vec<u8>, ErrorStack> {
-        Ok(match algo {
+    fn unformat(algo: SigAlgo, buf: &[u8]) -> Result<[u8; 4096 / 8], ErrorStack> {
+        let mut sig = [0u8; 4096 / 8];
+
+        match algo {
             SigAlgo::RsaSha256 | SigAlgo::RsaSha384 => {
-                buf.iter().rev().cloned().collect()
+                for (i, b) in buf.iter().rev().enumerate() {
+                    sig[i] = *b;
+                }
             },
 
             SigAlgo::EcdsaSha256 | SigAlgo::EcdsaSha384 => {
-                let mut out = vec![0u8; 512];
-                let len = 576 / 8;
-
                 let e = EcdsaSig::from_der(&buf)?;
+
                 for (i, b) in e.r().to_vec().iter().rev().enumerate() {
-                    out[..len][i] = *b;
-                }
-                for (i, b) in e.s().to_vec().iter().rev().enumerate() {
-                    out[len..][i] = *b;
+                    sig[..576 / 8][i] = *b;
                 }
 
-                out
+                for (i, b) in e.s().to_vec().iter().rev().enumerate() {
+                    sig[576 / 8..][i] = *b;
+                }
             },
-        })
+        }
+
+        Ok(sig)
     }
 
     fn format(&self) -> Result<Vec<u8>, ErrorStack> {
@@ -222,11 +233,19 @@ impl PublicKey {
 }
 
 impl Certificate {
-    pub fn sign(&self, prv: &[u8], cert: &mut Certificate) -> Result<(), ()> {
+    pub fn sign(&self, prv: &[u8], crt: &mut Certificate) -> Result<(), ()> {
         let prv = PKey::private_key_from_der(prv).or(Err(()))?;
-        let msg = cert.body().or(Err(()))?;
+        let msg = crt.body().or(Err(()))?;
         let sig = self.key.sign(&prv, &msg)?;
-        cert.sigs.push(sig);
+
+        if crt.sigs[0].is_none() {
+            crt.sigs[0] = Some(sig);
+        } else if crt.sigs[1].is_none() {
+            crt.sigs[1] = Some(sig);
+        } else {
+            Err(())?
+        }
+
         Ok(())
     }
 
@@ -236,7 +255,7 @@ impl Certificate {
         let mut crt = Certificate {
             version: 1,
             firmware: usage.firmware(),
-            sigs: Vec::new(),
+            sigs: [None, None],
             key: PublicKey {
                 id: usage.id().or(Err(()))?,
                 algo: usage.algo(),
@@ -247,15 +266,31 @@ impl Certificate {
 
         let msg = crt.body().or(Err(()))?;
         let sig = crt.key.sign(&prv, &msg)?;
-        crt.sigs.push(sig);
+        crt.sigs[0] = Some(sig);
 
         Ok((crt, prv.private_key_to_der().or(Err(()))?))
+    }
+
+    fn find<'a>(&self, other: &'a Certificate) -> Result<&'a Signature, ()> {
+        if let Some(ref s) = other.sigs[0] {
+            if self.key.is_signer(s) {
+                return Ok(s);
+            }
+        }
+
+        if let Some(ref s) = other.sigs[1] {
+            if self.key.is_signer(s) {
+                return Ok(s);
+            }
+        }
+
+        Err(())
     }
 }
 
 impl<'a> Verifier<'a> for (&Certificate, &'a Certificate) {
     fn verify(self) -> Result<&'a Certificate, ()> {
-        let sig = self.1.sigs.iter().find(|s| self.0.key.is_signer(s)).ok_or(())?;
+        let sig = self.0.find(&self.1)?;
         let msg = self.1.body().or(Err(()))?;
         self.0.key.verify(&msg, sig).and(Ok(self.1))
     }

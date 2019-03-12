@@ -12,25 +12,26 @@ fn decode() {
     assert_eq!(ark, Certificate {
         version: 1,
         firmware: None,
-        sigs: Vec::new(),
+        sigs: [None, None],
         key: PublicKey {
             usage: Usage::AmdRootKey,
             algo: SigAlgo::RsaSha256.into(),
             key: Key::Rsa(RsaKey {
-                pubexp: ARK[0x040..][..256].to_vec(),
-                modulus: ARK[0x140..][..256].to_vec(),
+                pubexp: to4096(&ARK[0x040..][..256]),
+                modulus: to4096(&ARK[0x140..][..256]),
             }),
             id: NonZeroU128::new(122178821951678173525318614033703090459),
         },
     });
-    assert_eq!(ark.sigs, vec! {
-        Signature {
+    assert_eq!(ark.sigs, [
+        Some(Signature {
             usage: Usage::AmdRootKey,
             algo: SigAlgo::RsaSha256,
-            sig: ARK[0x240..][..256].to_vec(),
+            sig: to4096(&ARK[0x240..][..256]),
             id: NonZeroU128::new(122178821951678173525318614033703090459),
-        }
-    });
+        }),
+        None
+    ]);
 }
 
 #[test]
@@ -63,26 +64,27 @@ fn create() {
     assert_eq!(ark, Certificate {
         version: 1,
         firmware: None,
-        sigs: Vec::new(),
+        sigs: [None, None],
         key: PublicKey {
             usage: Usage::AmdRootKey,
             algo: SigAlgo::RsaSha256.into(),
             key: Key::Rsa(RsaKey {
-                pubexp: buf[0x040..0x140].to_vec(),
-                modulus: buf[0x140..0x240].to_vec(),
+                pubexp: to4096(&buf[0x040..0x140]),
+                modulus: to4096(&buf[0x140..0x240]),
             }),
             id: id,
         },
     });
 
-    assert_eq!(ark.sigs, vec! {
-        Signature {
+    assert_eq!(ark.sigs, [
+        Some(Signature {
             usage: Usage::AmdRootKey,
             algo: SigAlgo::RsaSha256,
-            sig: buf[0x240..0x340].to_vec(),
+            sig: to4096(&buf[0x240..0x340]),
             id: id,
-        }
-    });
+        }),
+        None
+    ]);
 
     assert!((&ark, &ark).verify().is_ok());
 }

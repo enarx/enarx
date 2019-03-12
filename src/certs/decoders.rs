@@ -6,12 +6,8 @@ use std::num::NonZeroU128;
 
 use super::*;
 
-#[derive(Copy, Clone, Debug, Default)]
-struct Params {
-    psize: u32,
-    pfull: usize,
-    mfull: usize,
-}
+#[derive(Copy, Clone, Debug)]
+struct Size(u32);
 
 #[derive(Copy, Clone, Debug)]
 struct Sev1;
@@ -19,23 +15,12 @@ struct Sev1;
 #[derive(Copy, Clone, Debug)]
 struct Ca1;
 
-fn field(reader: &mut impl Read, data: usize, field: usize) -> Result<Vec<u8>, Error> {
-        let mut buf = vec![0u8; data];
-        reader.read_exact(&mut buf)?;
-
-        for _ in data .. field {
-            reader.read_exact(&mut [0u8; 1])?;
-        }
-
-        Ok(buf)
-}
-
-impl Decoder<Params> for RsaKey {
+impl Decoder<Size> for RsaKey {
     type Error = Error;
 
     #[inline]
-    fn decode(reader: &mut impl Read, params: Params) -> Result<Self, Error> {
-        let psize = match params.psize {
+    fn decode(reader: &mut impl Read, params: Size) -> Result<Self, Error> {
+        let psize = match params.0 {
             2048 => 2048,
             4096 => 4096,
             s => Err(Error::Invalid(format!("pubexp size: {}", s)))?,
@@ -47,8 +32,12 @@ impl Decoder<Params> for RsaKey {
             s => Err(Error::Invalid(format!("modulus size: {}", s)))?,
         };
 
-        let pubexp = field(reader, psize / 8, params.pfull / 8)?;
-        let modulus = field(reader, msize / 8, params.mfull / 8)?;
+        let mut pubexp = [0u8; 4096 / 8];
+        reader.read_exact(&mut &mut pubexp[..psize / 8])?;
+
+        let mut modulus = [0u8; 4096 / 8];
+        reader.read_exact(&mut &mut modulus[..msize / 8])?;
+
         Ok(RsaKey { pubexp, modulus })
     }
 }
@@ -124,11 +113,7 @@ impl Decoder<Sev1> for Firmware {
 impl Decoder<Sev1> for RsaKey {
     type Error = Error;
     fn decode(reader: &mut impl Read, _: Sev1) -> Result<Self, Error> {
-        RsaKey::decode(reader, Params {
-            psize: 4096,
-            pfull: 4096,
-            mfull: 4096,
-        })
+        RsaKey::decode(reader, Size(4096))
     }
 }
 
@@ -147,10 +132,16 @@ impl Decoder<Sev1> for EccKey {
     type Error = Error;
     fn decode(reader: &mut impl Read, params: Sev1) -> Result<Self, Error> {
         let c = Curve::decode(reader, params)?;
-        let x = field(reader, c.size(), 576 / 8)?;
-        let y = field(reader, c.size(), 576 / 8)?;
+
+        let mut x = [0u8; 576 / 8];
+        reader.read_exact(&mut x)?;
+
+        let mut y = [0u8; 576 / 8];
+        reader.read_exact(&mut y)?;
+
         reader.read_exact(&mut [0u8; 880])?; // Reserved
-        Ok(EccKey { curve: c, x, y })
+
+        Ok(EccKey { c, x, y })
     }
 }
 
@@ -196,7 +187,9 @@ impl Decoder<Sev1> for Option<Signature> {
     fn decode(reader: &mut impl Read, params: Sev1) -> Result<Self, Error> {
         let usage = Option::decode(reader, params)?;
         let algo = Option::decode(reader, params)?;
-        let sig = field(reader, 512, 512)?;
+
+        let mut sig = [0u8; 4096 / 8];
+        reader.read_exact(&mut &mut sig[..])?;
 
         if let Some(usage) = usage {
             if let Some(algo) = algo {
@@ -218,13 +211,10 @@ impl Decoder<Sev1> for Certificate {
 
         let key = PublicKey::decode(reader, params)?;
 
-        let mut sigs = Vec::new();
-        if let Some(sig) = Option::decode(reader, params)? {
-            sigs.push(sig);
-        }
-        if let Some(sig) = Option::decode(reader, params)? {
-            sigs.push(sig);
-        }
+        let sigs = [
+            Option::decode(reader, params)?,
+            Option::decode(reader, params)?
+        ];
 
         Ok(Certificate { version: 1, firmware: Some(firmware), key, sigs })
     }
@@ -234,7 +224,7 @@ impl Decoder<Ca1> for RsaKey {
     type Error = Error;
     fn decode(reader: &mut impl Read, _: Ca1) -> Result<Self, Error> {
         let psize = u32::decode(reader, Endianness::Little)?;
-        RsaKey::decode(reader, Params { psize, ..Default::default() })
+        RsaKey::decode(reader, Size(psize))
     }
 }
 
@@ -261,7 +251,8 @@ impl Decoder<Ca1> for Certificate {
 
         let key = RsaKey::decode(reader, Ca1)?;
 
-        let sig = field(reader, key.modulus.len(), key.modulus.len())?;
+        let mut sig = [0u8; 4096 / 8];
+        reader.read_exact(&mut &mut sig[..key.msize()?])?;
 
         Ok(Certificate {
             version: 1,
@@ -272,14 +263,15 @@ impl Decoder<Ca1> for Certificate {
                 id: key_id,
                 usage,
             },
-            sigs: vec! {
-                Signature {
+            sigs: [
+                Some(Signature {
                     usage: Usage::AmdRootKey,
                     algo: SigAlgo::RsaSha256,
-                    sig: sig,
                     id: sig_id,
-                }
-            }
+                    sig,
+                }),
+                None
+            ]
         })
     }
 }

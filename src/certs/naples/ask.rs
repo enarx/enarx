@@ -11,26 +11,27 @@ fn decode() {
     assert_eq!(ask, Certificate {
         version: 1,
         firmware: None,
-        sigs: Vec::new(),
+        sigs: [None, None],
         key: PublicKey {
             usage: Usage::AmdSevKey,
             algo: SigAlgo::RsaSha256.into(),
             key: Key::Rsa(RsaKey {
-                pubexp: ASK[0x040..][..256].to_vec(),
-                modulus: ASK[0x140..][..256].to_vec(),
+                pubexp: to4096(&ASK[0x040..][..256]),
+                modulus: to4096(&ASK[0x140..][..256]),
             }),
             id: NonZeroU128::new(147429952972550494775834017433799571937),
         },
     });
 
-    assert_eq!(ask.sigs, vec! {
-        Signature {
+    assert_eq!(ask.sigs, [
+        Some(Signature {
             usage: Usage::AmdRootKey,
             algo: SigAlgo::RsaSha256,
-            sig: ASK[0x240..][..256].to_vec(),
+            sig: to4096(&ASK[0x240..][..256]),
             id: NonZeroU128::new(122178821951678173525318614033703090459),
-        }
-    });
+        }),
+        None
+    ]);
 }
 
 #[test]

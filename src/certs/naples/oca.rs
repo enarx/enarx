@@ -8,27 +8,28 @@ fn decode() {
 
     assert_eq!(oca, Certificate {
         version: 1,
-        sigs: Vec::new(),
+        sigs: [None, None],
         firmware: Some(Firmware(0, 16)),
         key: PublicKey {
             usage: Usage::OwnerCertificateAuthority,
             algo: SigAlgo::EcdsaSha256.into(),
             key: Key::Ecc(EccKey {
-                curve: Curve::P384,
-                x: OCA[0x010..0x414][0x04..][..384 / 8].to_vec(),
-                y: OCA[0x010..0x414][0x4C..][..384 / 8].to_vec(),
+                c: Curve::P384,
+                x: to576(&OCA[0x010..0x414][0x04..][..384 / 8]),
+                y: to576(&OCA[0x010..0x414][0x4C..][..384 / 8]),
             }),
             id: None,
         },
     });
-    assert_eq!(oca.sigs, vec! {
-        Signature {
+    assert_eq!(oca.sigs, [
+        Some(Signature {
             usage: Usage::OwnerCertificateAuthority,
             algo: SigAlgo::EcdsaSha256,
-            sig: OCA[0x41C..0x61C].to_vec(),
+            sig: to4096(&OCA[0x41C..0x61C]),
             id: None,
-        }
-    });
+        }),
+        None
+    ]);
 }
 
 #[test]
@@ -57,27 +58,28 @@ fn create() {
 
     assert_eq!(oca, Certificate {
         version: 1,
-        sigs: Vec::new(),
+        sigs: [None, None],
         firmware: Some(Firmware(0, 0)),
         key: PublicKey {
             usage: Usage::OwnerCertificateAuthority,
             algo: SigAlgo::EcdsaSha256.into(),
             key: Key::Ecc(EccKey {
-                curve: Curve::P384,
-                x: buf[0x010..0x414][0x04..][..384 / 8].to_vec(),
-                y: buf[0x010..0x414][0x4C..][..384 / 8].to_vec(),
+                c: Curve::P384,
+                x: to576(&buf[0x010..0x414][0x04..][..384 / 8]),
+                y: to576(&buf[0x010..0x414][0x4C..][..384 / 8]),
             }),
             id: None,
         },
     });
-    assert_eq!(oca.sigs, vec! {
-        Signature {
+    assert_eq!(oca.sigs, [
+        Some(Signature {
             usage: Usage::OwnerCertificateAuthority,
             algo: SigAlgo::EcdsaSha256,
-            sig: buf[0x41C..0x61C].to_vec(),
+            sig: to4096(&buf[0x41C..0x61C]),
             id: None,
-        }
-    });
+        }),
+        None
+    ]);
 
     assert!((&oca, &oca).verify().is_ok());
 }

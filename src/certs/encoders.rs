@@ -9,31 +9,22 @@ use std::num::NonZeroU128;
 use super::*;
 
 #[derive(Copy, Clone, Debug)]
+struct Size(usize);
+
+#[derive(Copy, Clone, Debug)]
 struct Sev1(bool);
 
 #[derive(Copy, Clone, Debug)]
 struct Ca1(bool);
 
-fn field(writer: &mut impl Write, data: &[u8], field: usize) -> Result<(), Error> {
-    writer.write_all(data)?;
-    for _ in data.len() .. field {
-        writer.write_all(&[0u8; 1])?;
-    }
-    Ok(())
-}
-
-impl Encoder<usize> for RsaKey {
+impl Encoder<Size> for RsaKey {
     type Error = Error;
-    fn encode(&self, writer: &mut impl Write, fill: usize) -> Result<(), Error> {
-        let msize = match self.modulus.len() * 8 {
-            0000 ... 2048 => 2048u32,
-            2049 ... 4096 => 4096u32,
-            s => Err(Error::Invalid(format!("modulus size: {}", s)))?,
-        };
-
-        msize.encode(writer, Endianness::Little)?;
-        field(writer, &self.pubexp, fill)?;
-        field(writer, &self.modulus, msize as usize / 8)
+    fn encode(&self, writer: &mut impl Write, params: Size) -> Result<(), Error> {
+        let msize = self.msize()?;
+        (msize as u32 * 8).encode(writer, Endianness::Little)?;
+        writer.write_all(&self.pubexp[..params.0])?;
+        writer.write_all(&self.modulus[..msize])?;
+        Ok(())
     }
 }
 
@@ -110,7 +101,7 @@ impl Encoder<Sev1> for Firmware {
 impl Encoder<Sev1> for RsaKey {
     type Error = Error;
     fn encode(&self, writer: &mut impl Write, _: Sev1) -> Result<(), Error> {
-        self.encode(writer, 4096 / 8)
+        self.encode(writer, Size(4096 / 8))
     }
 }
 
@@ -127,9 +118,9 @@ impl Encoder<Sev1> for Curve {
 impl Encoder<Sev1> for EccKey {
     type Error = Error;
     fn encode(&self, writer: &mut impl Write, params: Sev1) -> Result<(), Error> {
-        self.curve.encode(writer, params)?;
-        field(writer, &self.x, 576 / 8)?;
-        field(writer, &self.y, 576 / 8)?;
+        self.c.encode(writer, params)?;
+        writer.write_all(&self.x)?;
+        writer.write_all(&self.y)?;
         writer.write_all(&[0u8; 880])?; // Reserved
         Ok(())
     }
@@ -154,24 +145,20 @@ impl Encoder<Sev1> for PublicKey {
     }
 }
 
-impl Encoder<Sev1> for Option<&Signature> {
+impl Encoder<Sev1> for Option<Signature> {
     type Error = Error;
     fn encode(&self, writer: &mut impl Write, params: Sev1) -> Result<(), Error> {
         match self {
             None => {
                 (None as Option<Usage>).encode(writer, params)?;
                 (None as Option<SigAlgo>).encode(writer, params)?;
-                writer.write_all(&[0u8; 512])?;
+                writer.write_all(&[0u8; 4096 / 8])?;
             },
 
             Some(ref s) => {
-                if s.sig.len() > 512 {
-                    Err(Error::Invalid(format!("signature length: {}", s.sig.len())))?
-                }
-
                 Some(s.usage).encode(writer, params)?;
                 Some(s.algo).encode(writer, params)?;
-                field(writer, &s.sig, 512)?;
+                writer.write_all(&s.sig)?;
             },
         };
 
@@ -189,8 +176,8 @@ impl Encoder<Sev1> for Certificate {
         self.key.encode(writer, params)?;
 
         if params.0 {
-            self.sigs.get(0).encode(writer, params)?;
-            self.sigs.get(1).encode(writer, params)?;
+            self.sigs[0].encode(writer, params)?;
+            self.sigs[1].encode(writer, params)?;
         }
 
         Ok(())
@@ -200,14 +187,9 @@ impl Encoder<Sev1> for Certificate {
 impl Encoder<Ca1> for RsaKey {
     type Error = Error;
     fn encode(&self, writer: &mut impl Write, _: Ca1) -> Result<(), Error> {
-        let psize = match self.pubexp.len() * 8 {
-            0000 ... 2048 => 2048u32,
-            2049 ... 4096 => 4096u32,
-            s => Err(Error::Invalid(format!("pubexp size: {}", s)))?,
-        };
-
-        psize.encode(writer, Endianness::Little)?;
-        self.encode(writer, psize as usize / 8)
+        let psize = self.psize()?;
+        (psize as u32 * 8).encode(writer, Endianness::Little)?;
+        self.encode(writer, Size(psize))
     }
 }
 
@@ -226,10 +208,12 @@ impl Encoder<Ca1> for Certificate {
     fn encode(&self, writer: &mut impl Write, params: Ca1) -> Result<(), Error> {
         self.version.encode(writer, Endianness::Little)?;
         self.key.id.encode(writer, params)?;
-        match self.sigs.len() {
-            0 if !params.0 => self.key.id, // Body for self-signed cert
-            _ => self.sigs[0].id,
+
+        match self.sigs[0] {
+            None if !params.0 => self.key.id, // Body for self-signed cert
+            _ => self.sigs[0].unwrap().id,
         }.encode(writer, params)?;
+
         Some(self.key.usage).encode(writer, Sev1(params.0))?;
         0u128.encode(writer, Endianness::Little)?;
 
@@ -239,7 +223,7 @@ impl Encoder<Ca1> for Certificate {
         }
 
         if params.0 {
-            writer.write_all(&self.sigs[0].sig)?;
+            writer.write_all(&self.sigs[0].unwrap().sig[..2048 / 8])?;
         }
 
         Ok(())

@@ -8,27 +8,28 @@ fn decode() {
 
     assert_eq!(pdh, Certificate {
         version: 1,
-        sigs: Vec::new(),
+        sigs: [None, None],
         firmware: Some(Firmware(0, 16)),
         key: PublicKey {
             usage: Usage::PlatformDiffieHellman,
             algo: ExcAlgo::EcdhSha256.into(),
             key: Key::Ecc(EccKey {
-                curve: Curve::P384,
-                x: PDH[0x010..0x414][0x04..][..384 / 8].to_vec(),
-                y: PDH[0x010..0x414][0x4C..][..384 / 8].to_vec(),
+                c: Curve::P384,
+                x: to576(&PDH[0x010..0x414][0x04..][..384 / 8]),
+                y: to576(&PDH[0x010..0x414][0x4C..][..384 / 8]),
             }),
             id: None,
         },
     });
-    assert_eq!(pdh.sigs, vec! {
-        Signature {
+    assert_eq!(pdh.sigs, [
+        Some(Signature {
             usage: Usage::PlatformEndorsementKey,
             algo: SigAlgo::EcdsaSha256,
-            sig: PDH[0x41C..0x61C].to_vec(),
+            sig: to4096(&PDH[0x41C..0x61C]),
             id: None,
-        }
-    });
+        }),
+        None
+    ]);
 }
 
 #[test]

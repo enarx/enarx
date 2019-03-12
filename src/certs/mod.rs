@@ -92,32 +92,80 @@ impl PartialEq<ExcAlgo> for Algo {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone)]
 struct RsaKey {
-    pubexp: Vec<u8>,
-    modulus: Vec<u8>,
+    pubexp: [u8; 4096 / 8],
+    modulus: [u8; 4096 / 8],
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+impl std::cmp::Eq for RsaKey {}
+impl std::cmp::PartialEq for RsaKey {
+    fn eq(&self, other: &RsaKey) -> bool {
+        self.pubexp[..] == other.pubexp[..]
+            && self.modulus[..] == other.modulus[..]
+    }
+}
+
+impl std::fmt::Debug for RsaKey {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
+        write!(f, "RsaKey {{ pubexp: {:?}, modulus: {:?} }}",
+            self.pubexp.to_vec(), self.modulus.to_vec())
+    }
+}
+
+impl RsaKey {
+    fn psize(&self) -> Result<usize, Error> {
+        Ok(match self.pubexp.iter().rev().skip_while(|b| **b == 0).count() * 8 {
+            0000 ... 2048 => 2048,
+            2049 ... 4096 => 4096,
+            s => Err(Error::Invalid(format!("pubexp size: {}", s)))?,
+        } / 8)
+    }
+
+    fn msize(&self) -> Result<usize, Error> {
+        Ok(match self.pubexp.iter().rev().skip_while(|b| **b == 0).count() * 8 {
+            0000 ... 2048 => 2048,
+            2049 ... 4096 => 4096,
+            s => Err(Error::Invalid(format!("modulus size: {}", s)))?,
+        } / 8)
+    }
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 enum Curve {
     P256,
     P384,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone)]
 struct EccKey {
-    curve: Curve,
-    x: Vec<u8>,
-    y: Vec<u8>,
+    c: Curve,
+    x: [u8; 576 / 8],
+    y: [u8; 576 / 8],
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+impl std::cmp::Eq for EccKey {}
+impl std::cmp::PartialEq for EccKey {
+    fn eq(&self, other: &EccKey) -> bool {
+        self.x[..] == other.x[..] && self.y[..] == other.y[..]
+    }
+}
+
+impl std::fmt::Debug for EccKey {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
+        write!(f, "EccKey {{ c: {:?}, x: {:?}, y: {:?} }}",
+            self.c, self.x.to_vec(), self.y.to_vec())
+    }
+}
+
+#[allow(clippy::large_enum_variant)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 enum Key {
     Rsa(RsaKey),
     Ecc(EccKey),
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 struct PublicKey {
     usage: Usage,
     algo: Algo,
@@ -125,12 +173,29 @@ struct PublicKey {
     id: Option<std::num::NonZeroU128>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone)]
 struct Signature {
     usage: Usage,
     algo: SigAlgo,
-    sig: Vec<u8>,
+    sig: [u8; 4096 / 8],
     id: Option<std::num::NonZeroU128>,
+}
+
+impl std::cmp::Eq for Signature {}
+impl std::cmp::PartialEq for Signature {
+    fn eq(&self, other: &Signature) -> bool {
+        self.usage == other.usage
+            && self.algo == other.algo
+            && self.sig[..] == other.sig[..]
+            && self.id == other.id
+    }
+}
+
+impl std::fmt::Debug for Signature {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
+        write!(f, "Signature {{ usage: {:?}, algo: {:?}, sig: {:?}, id: {:?} }}",
+            self.usage, self.algo, self.sig.to_vec(), self.id)
+    }
 }
 
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
@@ -142,12 +207,12 @@ impl std::fmt::Display for Firmware {
     }
 }
 
-#[derive(Clone, Debug, Eq)]
+#[derive(Copy, Clone, Debug, Eq)]
 pub struct Certificate {
     version: u32,
     firmware: Option<Firmware>,
     key: PublicKey,
-    sigs: Vec<Signature>,
+    sigs: [Option<Signature>; 2],
 }
 
 impl Certificate {

@@ -8,45 +8,46 @@ fn decode() {
     let cek = Certificate::decode(&mut &CEK_UNS[..], Kind::Sev).unwrap();
     assert_eq!(cek, Certificate {
         version: 1,
-        sigs: Vec::new(),
+        sigs: [None, None],
         firmware: Some(Firmware(0, 16)),
         key: PublicKey {
             usage: Usage::ChipEndorsementKey,
             algo: SigAlgo::EcdsaSha256.into(),
             key: Key::Ecc(EccKey {
-                curve: Curve::P384,
-                x: CEK_UNS[0x010..0x414][0x04..][..384 / 8].to_vec(),
-                y: CEK_UNS[0x010..0x414][0x4C..][..384 / 8].to_vec(),
+                c: Curve::P384,
+                x: to576(&CEK_UNS[0x010..0x414][0x04..][..384 / 8]),
+                y: to576(&CEK_UNS[0x010..0x414][0x4C..][..384 / 8]),
             }),
             id: None,
         },
     });
-    assert_eq!(cek.sigs, Vec::new());
+    assert_eq!(cek.sigs, [None, None]);
 
     let cek = Certificate::decode(&mut &CEK_SIG[..], Kind::Sev).unwrap();
     assert_eq!(cek, Certificate {
         version: 1,
-        sigs: Vec::new(),
+        sigs: [None, None],
         firmware: Some(Firmware(0, 14)),
         key: PublicKey {
             usage: Usage::ChipEndorsementKey,
             algo: SigAlgo::EcdsaSha256.into(),
             key: Key::Ecc(EccKey {
-                curve: Curve::P384,
-                x: CEK_SIG[0x010..0x414][0x04..][..384 / 8].to_vec(),
-                y: CEK_SIG[0x010..0x414][0x4C..][..384 / 8].to_vec(),
+                c: Curve::P384,
+                x: to576(&CEK_SIG[0x010..0x414][0x04..][..384 / 8]),
+                y: to576(&CEK_SIG[0x010..0x414][0x4C..][..384 / 8]),
             }),
             id: None,
         },
     });
-    assert_eq!(cek.sigs, vec! {
-        Signature {
+    assert_eq!(cek.sigs, [
+        Some(Signature {
             usage: Usage::AmdSevKey,
             algo: SigAlgo::RsaSha256,
-            sig: CEK_SIG[0x41C..0x61C].to_vec(),
+            sig: to4096(&CEK_SIG[0x41C..0x61C]),
             id: None,
-        }
-    });
+        }),
+        None
+    ]);
 }
 
 #[test]

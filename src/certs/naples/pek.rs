@@ -8,33 +8,33 @@ fn decode() {
 
     assert_eq!(pek, Certificate {
         version: 1,
-        sigs: Vec::new(),
+        sigs: [None, None],
         firmware: Some(Firmware(0, 16)),
         key: PublicKey {
             usage: Usage::PlatformEndorsementKey,
             algo: SigAlgo::EcdsaSha256.into(),
             key: Key::Ecc(EccKey {
-                curve: Curve::P384,
-                x: PEK[0x010..0x414][0x04..][..384 / 8].to_vec(),
-                y: PEK[0x010..0x414][0x4C..][..384 / 8].to_vec(),
+                c: Curve::P384,
+                x: to576(&PEK[0x010..0x414][0x04..][..384 / 8]),
+                y: to576(&PEK[0x010..0x414][0x4C..][..384 / 8]),
             }),
             id: None,
         },
     });
-    assert_eq!(pek.sigs, vec! {
-        Signature {
+    assert_eq!(pek.sigs, [
+        Some(Signature {
             usage: Usage::OwnerCertificateAuthority,
             algo: SigAlgo::EcdsaSha256,
-            sig: PEK[0x41C..0x61C].to_vec(),
+            sig: to4096(&PEK[0x41C..0x61C]),
             id: None,
-        },
-        Signature {
+        }),
+        Some(Signature {
             usage: Usage::ChipEndorsementKey,
             algo: SigAlgo::EcdsaSha256,
-            sig: PEK[0x624..0x824].to_vec(),
+            sig: to4096(&PEK[0x624..0x824]),
             id: None,
-        }
-    });
+        })
+    ]);
 }
 
 #[test]
