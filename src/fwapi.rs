@@ -7,7 +7,7 @@ use super::certs::{Firmware, Usage, Kind};
 use super::certs::Certificate as Cert;
 use super::certs::Error as CertError;
 
-use codicon::Decoder;
+use codicon::{Decoder, Encoder};
 
 const SEV_CERT_LEN: usize = 0x824;
 
@@ -311,6 +311,33 @@ impl Sev {
         self.cmd(Code::PekCertificateSigningRequest, Some(&mut data))?;
         Ok(Cert::decode(&mut &buf[..], Kind::Sev)?)
     }
+
+    pub fn pek_cert_import(&self, pek: &Cert, oca: &Cert) -> Result<(), Error> {
+        #[derive(Copy, Clone, Default)]
+        #[repr(C, packed)]
+        struct Data {
+            pek_address: u64,
+            pek_length: u32,
+            oca_address: u64,
+            oca_length: u32,
+        }
+
+        let mut obuf = Vec::new();
+        oca.encode(&mut obuf, ())?;
+
+        let mut pbuf = Vec::new();
+        pek.encode(&mut pbuf, ())?;
+
+        let mut data = Data {
+            pek_address: pbuf.as_mut_ptr() as u64,
+            pek_length: pbuf.len() as u32,
+            oca_address: obuf.as_mut_ptr() as u64,
+            oca_length: pbuf.len() as u32,
+        };
+
+        self.cmd(Code::PekCertificateImport, Some(&mut data))?;
+        Ok(())
+    }
 }
 
 #[cfg(test)]
@@ -375,5 +402,29 @@ mod tests {
         let sev = Sev::new().unwrap();
         let pek = sev.pek_csr().unwrap();
         assert_eq!(pek.usage(), Usage::PlatformEndorsementKey);
+    }
+
+    #[ignore]
+    #[test]
+    fn pek_cert_import() {
+        // Generate an OCA
+        let (oca, key) = Cert::new(Usage::OwnerCertificateAuthority).unwrap();
+
+        // Get the CSR
+        let sev = Sev::new().unwrap();
+        let mut pek = sev.pek_csr().unwrap();
+
+        // Sign the CSR
+        oca.sign(&key, &mut pek).unwrap();
+
+        // Import the new OCA and signed PEK
+        sev.pek_cert_import(&pek, &oca).unwrap();
+
+        // Check that export contains the new certs
+        let chain = sev.pdh_cert_export().unwrap();
+        assert_eq!(oca, chain[&Usage::OwnerCertificateAuthority]);
+        assert_eq!(pek, chain[&Usage::PlatformEndorsementKey]);
+
+        sev.platform_reset().unwrap();
     }
 }
