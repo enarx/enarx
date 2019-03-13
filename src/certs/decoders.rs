@@ -18,7 +18,6 @@ struct Ca1;
 impl Decoder<Internal<usize>> for RsaKey {
     type Error = Error;
 
-    #[inline]
     fn decode(reader: &mut impl Read, params: Internal<usize>) -> Result<Self, Error> {
         let psize = match params.0 {
             2048 => 2048,
@@ -44,6 +43,7 @@ impl Decoder<Internal<usize>> for RsaKey {
 
 impl Decoder<Sev1> for Option<Usage> {
     type Error = Error;
+
     fn decode(reader: &mut impl Read, _: Sev1) -> Result<Self, Error> {
         Ok(Some(match u32::decode(reader, Endianness::Little)? {
             0x1001 => Usage::OwnerCertificateAuthority,
@@ -60,6 +60,7 @@ impl Decoder<Sev1> for Option<Usage> {
 
 impl Decoder<Sev1> for Option<SigAlgo> {
     type Error = Error;
+
     fn decode(reader: &mut impl Read, _: Sev1) -> Result<Self, Error> {
         Ok(Some(match u32::decode(reader, Endianness::Little)? {
             0x0000 => return Ok(None),
@@ -74,6 +75,7 @@ impl Decoder<Sev1> for Option<SigAlgo> {
 
 impl Decoder<Sev1> for Option<ExcAlgo> {
     type Error = Error;
+
     fn decode(reader: &mut impl Read, _: Sev1) -> Result<Self, Error> {
         Ok(Some(match u32::decode(reader, Endianness::Little)? {
             0x0000 => return Ok(None),
@@ -86,6 +88,7 @@ impl Decoder<Sev1> for Option<ExcAlgo> {
 
 impl Decoder<Sev1> for Option<Algo> {
     type Error = Error;
+
     fn decode(reader: &mut impl Read, _: Sev1) -> Result<Self, Error> {
         Ok(Some(match u32::decode(reader, Endianness::Little)? {
             0x0000 => return Ok(None),
@@ -102,6 +105,7 @@ impl Decoder<Sev1> for Option<Algo> {
 
 impl Decoder<Sev1> for Firmware {
     type Error = Error;
+
     fn decode(reader: &mut impl Read, _: Sev1) -> Result<Self, Error> {
         Ok(Firmware(
             u8::decode(reader, Endianness::Little)?,
@@ -112,6 +116,7 @@ impl Decoder<Sev1> for Firmware {
 
 impl Decoder<Sev1> for RsaKey {
     type Error = Error;
+
     fn decode(reader: &mut impl Read, _: Sev1) -> Result<Self, Error> {
         RsaKey::decode(reader, Internal(4096))
     }
@@ -119,6 +124,7 @@ impl Decoder<Sev1> for RsaKey {
 
 impl Decoder<Sev1> for Curve {
     type Error = Error;
+
     fn decode(reader: &mut impl Read, _: Sev1) -> Result<Self, Error> {
         Ok(match u32::decode(reader, Endianness::Little)? {
             1 => Curve::P256,
@@ -130,6 +136,7 @@ impl Decoder<Sev1> for Curve {
 
 impl Decoder<Sev1> for EccKey {
     type Error = Error;
+
     fn decode(reader: &mut impl Read, params: Sev1) -> Result<Self, Error> {
         let c = Curve::decode(reader, params)?;
 
@@ -147,6 +154,7 @@ impl Decoder<Sev1> for EccKey {
 
 impl Decoder<Internal<Algo>> for KeyType {
     type Error = Error;
+
     fn decode(reader: &mut impl Read, params: Internal<Algo>) -> Result<Self, Error> {
         use self::SigAlgo::*;
         use self::ExcAlgo::*;
@@ -165,6 +173,7 @@ impl Decoder<Internal<Algo>> for KeyType {
 
 impl Decoder<Sev1> for PublicKey {
     type Error = Error;
+
     fn decode(reader: &mut impl Read, params: Sev1) -> Result<Self, Error> {
         let usage = match Option::decode(reader, params)? {
             None => Err(Error::Invalid("public key usage".to_string()))?,
@@ -184,6 +193,7 @@ impl Decoder<Sev1> for PublicKey {
 
 impl Decoder<Sev1> for Option<Signature> {
     type Error = Error;
+
     fn decode(reader: &mut impl Read, params: Sev1) -> Result<Self, Error> {
         let usage = Option::decode(reader, params)?;
         let algo = Option::decode(reader, params)?;
@@ -203,6 +213,7 @@ impl Decoder<Sev1> for Option<Signature> {
 
 impl Decoder<Sev1> for Certificate {
     type Error = Error;
+
     fn decode(reader: &mut impl Read, params: Sev1) -> Result<Self, Error> {
         let firmware = Firmware::decode(reader, Sev1)?;
 
@@ -222,6 +233,7 @@ impl Decoder<Sev1> for Certificate {
 
 impl Decoder<Ca1> for RsaKey {
     type Error = Error;
+
     fn decode(reader: &mut impl Read, _: Ca1) -> Result<Self, Error> {
         let psize = u32::decode(reader, Endianness::Little)?;
         RsaKey::decode(reader, Internal(psize as usize))
@@ -230,6 +242,7 @@ impl Decoder<Ca1> for RsaKey {
 
 impl Decoder<Ca1> for Option<NonZeroU128> {
     type Error = Error;
+
     fn decode(reader: &mut impl Read, _: Ca1) -> Result<Self, Error> {
         Ok(NonZeroU128::new(u128::decode(reader, Endianness::Little)?))
     }
@@ -237,6 +250,7 @@ impl Decoder<Ca1> for Option<NonZeroU128> {
 
 impl Decoder<Ca1> for Certificate {
     type Error = Error;
+
     fn decode(reader: &mut impl Read, _: Ca1) -> Result<Self, Error> {
         let key_id = Option::<NonZeroU128>::decode(reader, Ca1)?;
         let sig_id = Option::<NonZeroU128>::decode(reader, Ca1)?;
@@ -278,6 +292,7 @@ impl Decoder<Ca1> for Certificate {
 
 impl Decoder<Kind> for Certificate {
     type Error = Error;
+
     fn decode(reader: &mut impl Read, params: Kind) -> Result<Self, Error> {
         Ok(match params {
             Kind::Sev => {

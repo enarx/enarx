@@ -19,6 +19,7 @@ struct Ca1(bool);
 
 impl Encoder<Internal<usize>> for RsaKey {
     type Error = Error;
+
     fn encode(&self, writer: &mut impl Write, params: Internal<usize>) -> Result<(), Error> {
         let msize = self.msize()?;
         (msize as u32 * 8).encode(writer, Endianness::Little)?;
@@ -30,6 +31,7 @@ impl Encoder<Internal<usize>> for RsaKey {
 
 impl Encoder<Sev1> for Option<Usage> {
     type Error = Error;
+
     fn encode(&self, writer: &mut impl Write, _: Sev1) -> Result<(), Error> {
         match self {
             None => 0x1000u32,
@@ -48,6 +50,7 @@ impl Encoder<Sev1> for Option<Usage> {
 
 impl Encoder<Sev1> for Option<SigAlgo> {
     type Error = Error;
+
     fn encode(&self, writer: &mut impl Write, _: Sev1) -> Result<(), Error> {
         match self {
             None => 0x0000u32,
@@ -64,6 +67,7 @@ impl Encoder<Sev1> for Option<SigAlgo> {
 
 impl Encoder<Sev1> for Option<ExcAlgo> {
     type Error = Error;
+
     fn encode(&self, writer: &mut impl Write, _: Sev1) -> Result<(), Error> {
         match self {
             None => 0x0000u32,
@@ -78,6 +82,7 @@ impl Encoder<Sev1> for Option<ExcAlgo> {
 
 impl Encoder<Sev1> for Option<Algo> {
     type Error = Error;
+
     fn encode(&self, writer: &mut impl Write, params: Sev1) -> Result<(), Error> {
         Ok(match self {
             None => 0x0000u32.encode(writer, Endianness::Little)?,
@@ -91,6 +96,7 @@ impl Encoder<Sev1> for Option<Algo> {
 
 impl Encoder<Sev1> for Firmware {
     type Error = Error;
+
     fn encode(&self, writer: &mut impl Write, _: Sev1) -> Result<(), Error> {
         self.0.encode(writer, Endianness::Little)?;
         self.1.encode(writer, Endianness::Little)?;
@@ -100,6 +106,7 @@ impl Encoder<Sev1> for Firmware {
 
 impl Encoder<Sev1> for RsaKey {
     type Error = Error;
+
     fn encode(&self, writer: &mut impl Write, _: Sev1) -> Result<(), Error> {
         self.encode(writer, Internal(4096 / 8))
     }
@@ -107,6 +114,7 @@ impl Encoder<Sev1> for RsaKey {
 
 impl Encoder<Sev1> for Curve {
     type Error = Error;
+
     fn encode(&self, writer: &mut impl Write, _: Sev1) -> Result<(), Error> {
         Ok(match self {
             Curve::P256 => 1u32,
@@ -117,6 +125,7 @@ impl Encoder<Sev1> for Curve {
 
 impl Encoder<Sev1> for EccKey {
     type Error = Error;
+
     fn encode(&self, writer: &mut impl Write, params: Sev1) -> Result<(), Error> {
         self.c.encode(writer, params)?;
         writer.write_all(&self.x)?;
@@ -128,6 +137,7 @@ impl Encoder<Sev1> for EccKey {
 
 impl Encoder<Sev1> for KeyType {
     type Error = Error;
+
     fn encode(&self, writer: &mut impl Write, params: Sev1) -> Result<(), Error> {
         match self {
             KeyType::Rsa(rsa) => rsa.encode(writer, params),
@@ -138,6 +148,7 @@ impl Encoder<Sev1> for KeyType {
 
 impl Encoder<Sev1> for PublicKey {
     type Error = Error;
+
     fn encode(&self, writer: &mut impl Write, params: Sev1) -> Result<(), Error> {
         Some(self.usage).encode(writer, params)?;
         Some(self.algo).encode(writer, params)?;
@@ -147,6 +158,7 @@ impl Encoder<Sev1> for PublicKey {
 
 impl Encoder<Sev1> for Option<Signature> {
     type Error = Error;
+
     fn encode(&self, writer: &mut impl Write, params: Sev1) -> Result<(), Error> {
         match self {
             None => {
@@ -168,6 +180,7 @@ impl Encoder<Sev1> for Option<Signature> {
 
 impl Encoder<Sev1> for Certificate {
     type Error = Error;
+
     fn encode(&self, writer: &mut impl Write, params: Sev1) -> Result<(), Error> {
         self.version.encode(writer, Endianness::Little)?;
         self.firmware.unwrap().encode(writer, params)?;
@@ -186,6 +199,7 @@ impl Encoder<Sev1> for Certificate {
 
 impl Encoder<Ca1> for RsaKey {
     type Error = Error;
+
     fn encode(&self, writer: &mut impl Write, _: Ca1) -> Result<(), Error> {
         let psize = self.psize()?;
         (psize as u32 * 8).encode(writer, Endianness::Little)?;
@@ -195,6 +209,7 @@ impl Encoder<Ca1> for RsaKey {
 
 impl Encoder<Ca1> for Option<NonZeroU128> {
     type Error = Error;
+
     fn encode(&self, writer: &mut impl Write, _: Ca1) -> Result<(), Error> {
         Ok(match self {
             None => 0,
@@ -205,6 +220,7 @@ impl Encoder<Ca1> for Option<NonZeroU128> {
 
 impl Encoder<Ca1> for Certificate {
     type Error = Error;
+
     fn encode(&self, writer: &mut impl Write, params: Ca1) -> Result<(), Error> {
         self.version.encode(writer, Endianness::Little)?;
         self.key.id.encode(writer, params)?;
@@ -232,6 +248,7 @@ impl Encoder<Ca1> for Certificate {
 
 impl Encoder for Certificate {
     type Error = Error;
+
     fn encode(&self, writer: &mut impl Write, _: ()) -> Result<(), Error> {
         Ok(match self.firmware {
             Some(_) => match self.version {
