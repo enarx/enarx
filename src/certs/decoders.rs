@@ -1,7 +1,6 @@
 use endicon::Endianness;
 use codicon::Decoder;
 
-use std::collections::HashMap;
 use std::num::NonZeroU128;
 use std::io::Read;
 
@@ -310,23 +309,5 @@ impl Decoder<Kind> for Certificate {
                 }
             },
         }?)
-    }
-}
-
-#[allow(clippy::implicit_hasher)]
-impl Decoder<Full> for HashMap<Usage, Certificate> {
-    type Error = Error;
-
-    fn decode(reader: &mut impl Read, _: Full) -> Result<Self, Error> {
-        use self::Kind::*;
-
-        let mut map = HashMap::new();
-
-        for k in [Sev, Sev, Sev, Sev, Ca, Ca].iter().cloned() {
-            let crt = Certificate::decode(reader, k)?;
-            map.insert(crt.key.usage, crt);
-        }
-
-        Ok(map)
     }
 }

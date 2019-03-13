@@ -68,10 +68,6 @@ pub enum Usage {
 }
 
 impl Usage {
-    const ALL: &'static [Usage] = &[ Usage::PlatformDiffieHellman,
-        Usage::PlatformEndorsementKey, Usage::OwnerCertificateAuthority,
-        Usage::ChipEndorsementKey, Usage::AmdSevKey, Usage::AmdRootKey ];
-
     pub fn kind(self) -> Kind {
         match self {
             Usage::OwnerCertificateAuthority => Kind::Sev,

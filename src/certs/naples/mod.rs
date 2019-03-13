@@ -35,35 +35,3 @@ fn to576(byte: &[u8]) -> [u8; 576 / 8] {
 
     buf
 }
-
-#[test]
-fn chain() {
-    use crate::certs::{Certificate, Kind, Full, Usage};
-    use codicon::{Decoder, Encoder};
-    use std::collections::HashMap;
-
-    const ALL: &[(Kind, &[u8])] = &[
-        (Kind::Sev, PDH), (Kind::Sev, PEK), (Kind::Sev, OCA),
-        (Kind::Sev, CEK_SIG), (Kind::Ca, ASK), (Kind::Ca, ARK)
-    ];
-
-    // Fill up a HashMap with all our certs.
-    let mut old = HashMap::new();
-    for (k, c) in ALL.iter().cloned() {
-        let crt = Certificate::decode(&mut &c[..], k).unwrap();
-        old.insert(crt.key.usage, crt);
-    }
-
-    // Encode the chain.
-    let mut buf = Vec::new();
-    old.encode(&mut buf, Full).unwrap();
-
-    // Confirm the order of the elements in the chain.
-    let mut rdr = &buf[..];
-    for u in Usage::ALL.iter() {
-        let cert = Certificate::decode(&mut rdr, u.kind()).unwrap();
-        assert_eq!(cert.key.usage, *u);
-    }
-
-    assert_eq!(old, HashMap::decode(&mut &buf[..], Full).unwrap());
-}
