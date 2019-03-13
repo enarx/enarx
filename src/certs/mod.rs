@@ -84,6 +84,19 @@ impl Usage {
     }
 }
 
+impl std::fmt::Display for Usage {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{}", match self {
+            Usage::OwnerCertificateAuthority => "OCA",
+            Usage::PlatformEndorsementKey => "PEK",
+            Usage::PlatformDiffieHellman => "PDH",
+            Usage::ChipEndorsementKey => "CEK",
+            Usage::AmdRootKey => "ARK",
+            Usage::AmdSevKey => "ASK",
+        })
+    }
+}
+
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum SigAlgo {
     RsaSha256,
@@ -92,16 +105,45 @@ pub enum SigAlgo {
     EcdsaSha384,
 }
 
+impl std::fmt::Display for SigAlgo {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            SigAlgo::RsaSha256 => write!(f, "RSA(SHA256)"),
+            SigAlgo::RsaSha384 => write!(f, "RSA(SHA384)"),
+            SigAlgo::EcdsaSha256 => write!(f, "ECDSA(SHA256)"),
+            SigAlgo::EcdsaSha384 => write!(f, "ECDSA(SHA384)"),
+        }
+    }
+}
+
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum ExcAlgo {
     EcdhSha256,
     EcdhSha384,
 }
 
+impl std::fmt::Display for ExcAlgo {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            ExcAlgo::EcdhSha256 => write!(f, "ECDH(SHA256)"),
+            ExcAlgo::EcdhSha384 => write!(f, "ECDH(SHA384)"),
+        }
+    }
+}
+
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum Algo {
     Sig(SigAlgo),
     Exc(ExcAlgo),
+}
+
+impl std::fmt::Display for Algo {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            Algo::Sig(s) => write!(f, "{}", s),
+            Algo::Exc(e) => write!(f, "{}", e),
+        }
+    }
 }
 
 impl From<SigAlgo> for Algo {
@@ -171,6 +213,15 @@ pub enum Curve {
     P384,
 }
 
+impl std::fmt::Display for Curve {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{}", match self {
+            Curve::P256 => "P256",
+            Curve::P384 => "P384",
+        })
+    }
+}
+
 #[derive(Copy, Clone)]
 pub struct EccKey {
     pub c: Curve,
@@ -199,12 +250,28 @@ pub enum KeyType {
     Ecc(EccKey),
 }
 
+impl std::fmt::Display for KeyType {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            KeyType::Rsa(ref r) => write!(f, "RSA({})", r.msize() * 8),
+            KeyType::Ecc(ref e) => write!(f, "ECC({})", e.c),
+        }
+    }
+}
+
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct PublicKey {
     pub usage: Usage,
     pub algo: Algo,
     pub key: KeyType,
     pub id: Option<std::num::NonZeroU128>,
+}
+
+impl std::fmt::Display for PublicKey {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        let id = self.id.and_then(|i| Some(i.get())).unwrap_or(0u128);
+        write!(f, "{} {} {}: {:039X}", self.usage, self.algo, self.key, id)
+    }
 }
 
 #[derive(Copy, Clone)]
