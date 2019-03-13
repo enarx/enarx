@@ -267,7 +267,7 @@ impl Decoder<Ca1> for Certificate {
         let key = RsaKey::decode(reader, Ca1)?;
 
         let mut sig = [0u8; 4096 / 8];
-        reader.read_exact(&mut &mut sig[..key.msize()?])?;
+        reader.read_exact(&mut &mut sig[..key.msize()])?;
 
         Ok(Certificate {
             version: 1,

@@ -150,20 +150,18 @@ impl std::fmt::Debug for RsaKey {
 }
 
 impl RsaKey {
-    fn psize(&self) -> Result<usize, Error> {
-        Ok(match self.pubexp.iter().rev().skip_while(|b| **b == 0).count() * 8 {
-            0000 ... 2048 => 2048,
-            2049 ... 4096 => 4096,
-            s => Err(Error::Invalid(format!("pubexp size: {}", s)))?,
-        } / 8)
+    fn psize(&self) -> usize {
+        match self.pubexp.iter().rev().skip_while(|b| **b == 0).count() * 8 {
+            0 ... 2048 => 2048 / 8,
+            _ => 4096 / 8,
+        }
     }
 
-    fn msize(&self) -> Result<usize, Error> {
-        Ok(match self.pubexp.iter().rev().skip_while(|b| **b == 0).count() * 8 {
-            0000 ... 2048 => 2048,
-            2049 ... 4096 => 4096,
-            s => Err(Error::Invalid(format!("modulus size: {}", s)))?,
-        } / 8)
+    fn msize(&self) -> usize {
+        match self.pubexp.iter().rev().skip_while(|b| **b == 0).count() * 8 {
+            0 ... 2048 => 2048 / 8,
+            _ => 4096 / 8,
+        }
     }
 }
 

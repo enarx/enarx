@@ -22,7 +22,7 @@ impl Encoder<Internal<usize>> for RsaKey {
     type Error = Error;
 
     fn encode(&self, writer: &mut impl Write, params: Internal<usize>) -> Result<(), Error> {
-        let msize = self.msize()?;
+        let msize = self.msize();
         (msize as u32 * 8).encode(writer, Endianness::Little)?;
         writer.write_all(&self.pubexp[..params.0])?;
         writer.write_all(&self.modulus[..msize])?;
@@ -202,7 +202,7 @@ impl Encoder<Ca1> for RsaKey {
     type Error = Error;
 
     fn encode(&self, writer: &mut impl Write, _: Ca1) -> Result<(), Error> {
-        let psize = self.psize()?;
+        let psize = self.psize();
         (psize as u32 * 8).encode(writer, Endianness::Little)?;
         self.encode(writer, Internal(psize))
     }
