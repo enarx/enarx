@@ -13,7 +13,7 @@ fn decode() {
         key: PublicKey {
             usage: Usage::ChipEndorsementKey,
             algo: SigAlgo::EcdsaSha256.into(),
-            key: Key::Ecc(EccKey {
+            key: KeyType::Ecc(EccKey {
                 c: Curve::P384,
                 x: to576(&CEK_UNS[0x010..0x414][0x04..][..384 / 8]),
                 y: to576(&CEK_UNS[0x010..0x414][0x4C..][..384 / 8]),
@@ -31,7 +31,7 @@ fn decode() {
         key: PublicKey {
             usage: Usage::ChipEndorsementKey,
             algo: SigAlgo::EcdsaSha256.into(),
-            key: Key::Ecc(EccKey {
+            key: KeyType::Ecc(EccKey {
                 c: Curve::P384,
                 x: to576(&CEK_SIG[0x010..0x414][0x04..][..384 / 8]),
                 y: to576(&CEK_SIG[0x010..0x414][0x4C..][..384 / 8]),

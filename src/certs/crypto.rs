@@ -72,16 +72,16 @@ impl EccKey {
 }
 
 impl Usage {
-    fn generate(self) -> Result<(Key, PKey<Private>), ErrorStack> {
+    fn generate(self) -> Result<(KeyType, PKey<Private>), ErrorStack> {
         match self {
             Usage::AmdRootKey | Usage::AmdSevKey => {
                 let (key, prv) = RsaKey::generate(2048)?;
-                Ok((Key::Rsa(key), prv))
+                Ok((KeyType::Rsa(key), prv))
             },
 
             _ => {
                 let (key, prv) = EccKey::generate(Curve::P384)?;
-                Ok((Key::Ecc(key), prv))
+                Ok((KeyType::Ecc(key), prv))
             },
         }
     }
@@ -116,17 +116,17 @@ impl Usage {
     }
 }
 
-impl Key {
+impl KeyType {
     fn pkey(&self) -> Result<PKey<Public>, ErrorStack> {
         match self {
-            Key::Rsa(ref r) => {
+            KeyType::Rsa(ref r) => {
                 let n = bn(&r.modulus)?;
                 let e = bn(&r.pubexp)?;
                 let k = Rsa::from_public_components(n, e)?;
                 PKey::from_rsa(k)
             },
 
-            Key::Ecc(ref e) => {
+            KeyType::Ecc(ref e) => {
                 let g = EcGroup::from_curve_name(match e.c {
                     Curve::P256 => Nid::X9_62_PRIME256V1,
                     Curve::P384 => Nid::SECP384R1,

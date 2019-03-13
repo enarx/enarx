@@ -15,7 +15,7 @@ fn decode() {
         key: PublicKey {
             usage: Usage::AmdSevKey,
             algo: SigAlgo::RsaSha256.into(),
-            key: Key::Rsa(RsaKey {
+            key: KeyType::Rsa(RsaKey {
                 pubexp: to4096(&ASK[0x040..][..256]),
                 modulus: to4096(&ASK[0x140..][..256]),
             }),

@@ -145,7 +145,7 @@ impl Decoder<Sev1> for EccKey {
     }
 }
 
-impl Decoder<Internal<Algo>> for Key {
+impl Decoder<Internal<Algo>> for KeyType {
     type Error = Error;
     fn decode(reader: &mut impl Read, params: Internal<Algo>) -> Result<Self, Error> {
         use self::SigAlgo::*;
@@ -153,12 +153,12 @@ impl Decoder<Internal<Algo>> for Key {
         use self::Algo::*;
 
         Ok(match params.0 {
-            Sig(EcdsaSha256) => Key::Ecc(EccKey::decode(reader, Sev1)?),
-            Sig(EcdsaSha384) => Key::Ecc(EccKey::decode(reader, Sev1)?),
-            Exc(EcdhSha256) => Key::Ecc(EccKey::decode(reader, Sev1)?),
-            Exc(EcdhSha384) => Key::Ecc(EccKey::decode(reader, Sev1)?),
-            Sig(RsaSha256) => Key::Rsa(RsaKey::decode(reader, Sev1)?),
-            Sig(RsaSha384) => Key::Rsa(RsaKey::decode(reader, Sev1)?),
+            Sig(EcdsaSha256) => KeyType::Ecc(EccKey::decode(reader, Sev1)?),
+            Sig(EcdsaSha384) => KeyType::Ecc(EccKey::decode(reader, Sev1)?),
+            Exc(EcdhSha256) => KeyType::Ecc(EccKey::decode(reader, Sev1)?),
+            Exc(EcdhSha384) => KeyType::Ecc(EccKey::decode(reader, Sev1)?),
+            Sig(RsaSha256) => KeyType::Rsa(RsaKey::decode(reader, Sev1)?),
+            Sig(RsaSha384) => KeyType::Rsa(RsaKey::decode(reader, Sev1)?),
         })
     }
 }
@@ -176,7 +176,7 @@ impl Decoder<Sev1> for PublicKey {
             Some(a) => a,
         };
 
-        let key = Key::decode(reader, Internal(algo))?;
+        let key = KeyType::decode(reader, Internal(algo))?;
 
         Ok(PublicKey { usage, algo, key, id: None })
     }
@@ -259,7 +259,7 @@ impl Decoder<Ca1> for Certificate {
             firmware: None,
             key: PublicKey {
                 algo: Algo::Sig(SigAlgo::RsaSha256),
-                key: Key::Rsa(key),
+                key: KeyType::Rsa(key),
                 id: key_id,
                 usage,
             },

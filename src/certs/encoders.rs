@@ -126,12 +126,12 @@ impl Encoder<Sev1> for EccKey {
     }
 }
 
-impl Encoder<Sev1> for Key {
+impl Encoder<Sev1> for KeyType {
     type Error = Error;
     fn encode(&self, writer: &mut impl Write, params: Sev1) -> Result<(), Error> {
         match self {
-            Key::Rsa(rsa) => rsa.encode(writer, params),
-            Key::Ecc(ecc) => ecc.encode(writer, params),
+            KeyType::Rsa(rsa) => rsa.encode(writer, params),
+            KeyType::Ecc(ecc) => ecc.encode(writer, params),
         }
     }
 }
@@ -218,7 +218,7 @@ impl Encoder<Ca1> for Certificate {
         0u128.encode(writer, Endianness::Little)?;
 
         match self.key.key {
-            Key::Rsa(ref rsa) => rsa.encode(writer, params)?,
+            KeyType::Rsa(ref rsa) => rsa.encode(writer, params)?,
             _ => Err(Error::Invalid(format!("key: {:?}", self.key.key)))?,
         }
 

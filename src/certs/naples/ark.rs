@@ -16,7 +16,7 @@ fn decode() {
         key: PublicKey {
             usage: Usage::AmdRootKey,
             algo: SigAlgo::RsaSha256.into(),
-            key: Key::Rsa(RsaKey {
+            key: KeyType::Rsa(RsaKey {
                 pubexp: to4096(&ARK[0x040..][..256]),
                 modulus: to4096(&ARK[0x140..][..256]),
             }),
@@ -68,7 +68,7 @@ fn create() {
         key: PublicKey {
             usage: Usage::AmdRootKey,
             algo: SigAlgo::RsaSha256.into(),
-            key: Key::Rsa(RsaKey {
+            key: KeyType::Rsa(RsaKey {
                 pubexp: to4096(&buf[0x040..0x140]),
                 modulus: to4096(&buf[0x140..0x240]),
             }),

@@ -13,7 +13,7 @@ fn decode() {
         key: PublicKey {
             usage: Usage::OwnerCertificateAuthority,
             algo: SigAlgo::EcdsaSha256.into(),
-            key: Key::Ecc(EccKey {
+            key: KeyType::Ecc(EccKey {
                 c: Curve::P384,
                 x: to576(&OCA[0x010..0x414][0x04..][..384 / 8]),
                 y: to576(&OCA[0x010..0x414][0x4C..][..384 / 8]),
@@ -63,7 +63,7 @@ fn create() {
         key: PublicKey {
             usage: Usage::OwnerCertificateAuthority,
             algo: SigAlgo::EcdsaSha256.into(),
-            key: Key::Ecc(EccKey {
+            key: KeyType::Ecc(EccKey {
                 c: Curve::P384,
                 x: to576(&buf[0x010..0x414][0x04..][..384 / 8]),
                 y: to576(&buf[0x010..0x414][0x4C..][..384 / 8]),

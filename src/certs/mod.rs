@@ -160,7 +160,7 @@ impl std::fmt::Debug for EccKey {
 
 #[allow(clippy::large_enum_variant)]
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
-pub enum Key {
+pub enum KeyType {
     Rsa(RsaKey),
     Ecc(EccKey),
 }
@@ -169,7 +169,7 @@ pub enum Key {
 pub struct PublicKey {
     pub usage: Usage,
     pub algo: Algo,
-    pub key: Key,
+    pub key: KeyType,
     pub id: Option<std::num::NonZeroU128>,
 }
 
