@@ -196,6 +196,24 @@ impl SigAlgo {
     }
 }
 
+impl ExcAlgo {
+    fn hash(self) -> MessageDigest {
+        match self {
+            ExcAlgo::EcdhSha256 => MessageDigest::sha256(),
+            ExcAlgo::EcdhSha384 => MessageDigest::sha384(),
+        }
+    }
+}
+
+impl Algo {
+    fn hash(self) -> MessageDigest {
+        match self {
+            Algo::Sig(ref s) => s.hash(),
+            Algo::Exc(ref e) => e.hash(),
+        }
+    }
+}
+
 impl Signature {
     fn unformat(algo: SigAlgo, buf: &[u8]) -> Result<[u8; 4096 / 8], ErrorStack> {
         let mut sig = [0u8; 4096 / 8];
@@ -296,6 +314,21 @@ impl PublicKey {
 
         self.verify(msg, &sig)?;
         Ok(sig)
+    }
+}
+
+impl std::fmt::Display for Certificate {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        let body = self.encode_buf(Body).unwrap();
+        let algo = self.key.algo.hash();
+        let hash = openssl::hash::hash(algo, &body)?;
+
+        write!(f, "{} {} {} ", self.key.usage, self.key.key, self.key.algo)?;
+        for b in hash.iter() {
+            write!(f, "{:02x}", *b)?;
+        }
+
+        Ok(())
     }
 }
 
