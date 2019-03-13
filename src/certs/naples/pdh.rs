@@ -36,11 +36,11 @@ fn decode() {
 fn encode() {
     let pdh = Certificate::decode(&mut &PDH[..], Kind::Sev).unwrap();
 
-    let output = pdh.encode_buf(()).unwrap();
+    let output = pdh.encode_buf(Full).unwrap();
     assert_eq!(PDH.len(), output.len());
     assert_eq!(PDH.to_vec(), output);
 
-    let output = pdh.body().unwrap();
+    let output = pdh.encode_buf(Body).unwrap();
     assert_eq!(SEV_SIG_OFFSET, output.len());
     assert_eq!(PDH[..SEV_SIG_OFFSET].to_vec(), output);
 }

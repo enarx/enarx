@@ -3,7 +3,7 @@ use std::collections::{HashSet, HashMap};
 use std::os::unix::io::AsRawFd;
 use std::fs::File;
 
-use super::certs::{Firmware, Usage, Kind};
+use super::certs::{Firmware, Usage, Kind, Full};
 use super::certs::Certificate as Cert;
 use super::certs::Error as CertError;
 
@@ -323,10 +323,10 @@ impl Sev {
         }
 
         let mut obuf = Vec::new();
-        oca.encode(&mut obuf, ())?;
+        oca.encode(&mut obuf, Full)?;
 
         let mut pbuf = Vec::new();
-        pek.encode(&mut pbuf, ())?;
+        pek.encode(&mut pbuf, Full)?;
 
         let mut data = Data {
             pek_address: pbuf.as_mut_ptr() as u64,
@@ -399,20 +399,36 @@ mod tests {
         let sev = Sev::new().unwrap();
         let pek = sev.pek_csr().unwrap();
         assert_eq!(pek.key.usage, Usage::PlatformEndorsementKey);
+        assert_eq!(pek.sigs, [None, None]);
     }
 
     #[ignore]
     #[test]
     fn pek_cert_import() {
+        use certs::{Body, Verifier};
+
         // Generate an OCA
-        let (oca, key) = Cert::new(Usage::OwnerCertificateAuthority).unwrap();
+        let (key, prv) = Usage::OwnerCertificateAuthority.generate().unwrap();
+        let mut oca = Cert {
+            firmware: Some(Firmware(0, 0)),
+            sigs: [None, None],
+            version: 1,
+            key: key,
+        };
+
+        // Self-sign the OCA
+        let mut buf = Vec::new();
+        oca.encode(&mut buf, Body).unwrap();
+        oca.sigs[0] = Some(oca.key.sign(&buf, &prv).unwrap());
 
         // Get the CSR
         let sev = Sev::new().unwrap();
         let mut pek = sev.pek_csr().unwrap();
 
-        // Sign the CSR
-        oca.sign(&key, &mut pek).unwrap();
+        // Sign the PEK
+        let mut buf = Vec::new();
+        pek.encode(&mut buf, Body).unwrap();
+        pek.sigs[0] = Some(oca.key.sign(&buf, &prv).unwrap());
 
         // Import the new OCA and signed PEK
         sev.pek_cert_import(&pek, &oca).unwrap();
@@ -421,6 +437,10 @@ mod tests {
         let chain = sev.pdh_cert_export().unwrap();
         assert_eq!(oca, chain[&Usage::OwnerCertificateAuthority]);
         assert_eq!(pek, chain[&Usage::PlatformEndorsementKey]);
+
+        // Check that the signatures validate
+        [&chain[&Usage::OwnerCertificateAuthority],
+            &chain[&Usage::PlatformEndorsementKey]].verify().unwrap();
 
         sev.platform_reset().unwrap();
     }

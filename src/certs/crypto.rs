@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::hash::BuildHasher;
+use std::io::{Read, Write};
 use std::num::NonZeroU128;
 use super::*;
 
@@ -7,11 +8,48 @@ use openssl::pkey::{PKey, Public, Private};
 use openssl::bn::{BigNumContext, BigNum};
 use openssl::ec::{EcGroup, EcKey};
 use openssl::hash::MessageDigest;
+use openssl::sign::RsaPssSaltlen;
+use openssl::rsa::{Padding, Rsa};
 use openssl::error::ErrorStack;
 use openssl::rand::rand_bytes;
 use openssl::ecdsa::EcdsaSig;
-use openssl::rsa::Rsa;
 use openssl::nid::Nid;
+
+use codicon::{Decoder, Encoder};
+
+pub struct PrivateKey(PKey<Private>);
+
+impl Decoder for PrivateKey {
+    type Error = Error;
+
+    fn decode(reader: &mut impl Read, _: ()) -> Result<Self, Error> {
+        let mut buf = Vec::new();
+        reader.read_to_end(&mut buf)?;
+
+        let pkey = PKey::private_key_from_der(&buf)
+            .or_else(|_| Err(Error::Invalid("private key".to_string())))?;
+
+        Ok(PrivateKey(pkey))
+    }
+}
+
+impl Encoder for PrivateKey {
+    type Error = Error;
+
+    fn encode(&self, writer: &mut impl Write, _: ()) -> Result<(), Error> {
+        let buf = self.0.private_key_to_der()
+            .or_else(|_| Err(Error::Invalid("private key".to_string())))?;
+
+        writer.write_all(&buf)?;
+        Ok(())
+    }
+}
+
+impl From<ErrorStack> for Unspecified {
+    fn from(_: ErrorStack) -> Self {
+        Unspecified
+    }
+}
 
 fn bn(buf: &[u8]) -> Result<BigNum, ErrorStack> {
     BigNum::from_slice(&buf.iter().rev().cloned()
@@ -20,7 +58,13 @@ fn bn(buf: &[u8]) -> Result<BigNum, ErrorStack> {
 }
 
 impl RsaKey {
-    fn generate(bits: u32) -> Result<(RsaKey, PKey<Private>), ErrorStack> {
+    pub fn generate(bits: usize) -> Result<(RsaKey, PrivateKey), Unspecified> {
+        let bits = match bits {
+            2048 => 2048,
+            4096 => 4096,
+            _ => Err(Unspecified)?,
+        };
+
         let prv = Rsa::generate(bits)?;
 
         let mut pubexp = [0u8; 4096 / 8];
@@ -33,7 +77,8 @@ impl RsaKey {
             modulus[i] = *b;
         }
 
-        Ok((RsaKey { pubexp, modulus }, PKey::from_rsa(prv)?))
+        let prv = PKey::from_rsa(prv)?;
+        Ok((RsaKey { pubexp, modulus }, PrivateKey(prv)))
     }
 }
 
@@ -47,7 +92,7 @@ impl Curve {
 }
 
 impl EccKey {
-    fn generate(c: Curve) -> Result<(EccKey, PKey<Private>), ErrorStack> {
+    pub fn generate(c: Curve) -> Result<(EccKey, PrivateKey), Unspecified> {
         let mut ctx = BigNumContext::new()?;
         let mut xn = BigNum::new()?;
         let mut yn = BigNum::new()?;
@@ -67,25 +112,12 @@ impl EccKey {
             y[i] = *b;
         }
 
-        Ok((EccKey { c, x, y }, PKey::from_ec_key(prv)?))
+        let prv = PKey::from_ec_key(prv)?;
+        Ok((EccKey { c, x, y }, PrivateKey(prv)))
     }
 }
 
 impl Usage {
-    fn generate(self) -> Result<(KeyType, PKey<Private>), ErrorStack> {
-        match self {
-            Usage::AmdRootKey | Usage::AmdSevKey => {
-                let (key, prv) = RsaKey::generate(2048)?;
-                Ok((KeyType::Rsa(key), prv))
-            },
-
-            _ => {
-                let (key, prv) = EccKey::generate(Curve::P384)?;
-                Ok((KeyType::Ecc(key), prv))
-            },
-        }
-    }
-
     fn algo(self) -> Algo {
         match self {
             Usage::AmdRootKey | Usage::AmdSevKey => SigAlgo::RsaSha256.into(),
@@ -108,11 +140,25 @@ impl Usage {
         Ok(id)
     }
 
-    fn firmware(self) -> Option<Firmware> {
-        match self {
-            Usage::AmdRootKey | Usage::AmdSevKey => None,
-            _ => Some(Firmware(0, 0)),
-        }
+    pub fn generate(self) -> Result<(PublicKey, PrivateKey), Unspecified> {
+        let (key, prv) = match self {
+            Usage::AmdRootKey | Usage::AmdSevKey => {
+                let (key, prv) = RsaKey::generate(2048)?;
+                (KeyType::Rsa(key), prv)
+            },
+
+            _ => {
+                let (key, prv) = EccKey::generate(Curve::P384)?;
+                (KeyType::Ecc(key), prv)
+            },
+        };
+
+        Ok((PublicKey {
+            usage: self,
+            algo: self.algo(),
+            id: self.id()?,
+            key: key
+        }, prv))
     }
 }
 
@@ -196,121 +242,94 @@ impl Signature {
 }
 
 impl PublicKey {
-    fn is_signer(&self, sig: &super::Signature) -> bool {
+    pub fn verify(&self, msg: &[u8], sig: &Signature) -> Result<(), Unspecified> {
         let id = sig.id.is_none() || sig.id == self.id;
-        self.usage == sig.usage && self.algo == sig.algo && id
+        if self.usage != sig.usage || self.algo != sig.algo || !id {
+            Err(Unspecified)?
+        }
+
+        let key = self.key.pkey()?;
+        let mut ver = openssl::sign::Verifier::new(sig.algo.hash(), &key)?;
+
+        match sig.algo {
+            SigAlgo::EcdsaSha256 | SigAlgo::EcdsaSha384 => (),
+            SigAlgo::RsaSha256 | SigAlgo::RsaSha384 => {
+                ver.set_rsa_padding(Padding::PKCS1_PSS)?;
+                ver.set_rsa_pss_saltlen(RsaPssSaltlen::DIGEST_LENGTH)?;
+            }
+        }
+
+        ver.update(&msg)?;
+
+        if ver.verify(&sig.format()?)? {
+            Ok(())
+        } else {
+            Err(Unspecified)
+        }
     }
 
-    fn verify(&self, msg: &[u8], sig: &Signature) -> Result<(), ()> {
-        let key = self.key.pkey().or(Err(()))?;
-        let hsh = sig.algo.hash();
-
-        let mut ver = openssl::sign::Verifier::new(hsh, &key).or(Err(()))?;
-        ver.update(&msg).or(Err(()))?;
-        ver.verify(&sig.format().or(Err(()))?).and(Ok(())).or(Err(()))
-    }
-
-    fn sign(&self, pkey: &PKey<Private>, msg: &[u8]) -> Result<Signature, ()> {
+    pub fn sign(&self, msg: &[u8], prv: &PrivateKey) -> Result<Signature, Unspecified> {
         let algo = match self.algo {
             Algo::Sig(a) => a,
-            _ => Err(())?,
+            _ => Err(Unspecified)?,
         };
 
-        let mut sig = openssl::sign::Signer::new(algo.hash(), &pkey).or(Err(()))?;
-        sig.update(msg).or(Err(()))?;
-        let sig = sig.sign_to_vec().or(Err(()))?;
+        let mut sig = openssl::sign::Signer::new(algo.hash(), &prv.0)?;
+
+        match algo {
+            SigAlgo::EcdsaSha256 | SigAlgo::EcdsaSha384 => (),
+            SigAlgo::RsaSha256 | SigAlgo::RsaSha384 => {
+                sig.set_rsa_padding(Padding::PKCS1_PSS)?;
+                sig.set_rsa_pss_saltlen(RsaPssSaltlen::DIGEST_LENGTH)?;
+            }
+        }
+
+        sig.update(msg)?;
+        let sig = sig.sign_to_vec()?;
 
         let sig = Signature {
-            sig: Signature::unformat(algo, &sig).or(Err(()))?,
+            sig: Signature::unformat(algo, &sig)?,
             usage: self.usage,
             id: self.id,
             algo,
         };
 
-        self.verify(msg, &sig).or(Err(()))?;
+        self.verify(msg, &sig)?;
         Ok(sig)
     }
 }
 
-impl Certificate {
-    pub fn sign(&self, prv: &[u8], crt: &mut Certificate) -> Result<(), ()> {
-        let prv = PKey::private_key_from_der(prv).or(Err(()))?;
-        let msg = crt.body().or(Err(()))?;
-        let sig = self.key.sign(&prv, &msg)?;
-
-        if crt.sigs[0].is_none() {
-            crt.sigs[0] = Some(sig);
-        } else if crt.sigs[1].is_none() {
-            crt.sigs[1] = Some(sig);
-        } else {
-            Err(())?
-        }
-
-        Ok(())
-    }
-
-    pub fn new(usage: Usage) -> Result<(Certificate, Vec<u8>), ()> {
-        let (key, prv) = usage.generate().or(Err(()))?;
-
-        let mut crt = Certificate {
-            version: 1,
-            firmware: usage.firmware(),
-            sigs: [None, None],
-            key: PublicKey {
-                id: usage.id().or(Err(()))?,
-                algo: usage.algo(),
-                usage,
-                key
-            }
-        };
-
-        let msg = crt.body().or(Err(()))?;
-        let sig = crt.key.sign(&prv, &msg)?;
-        crt.sigs[0] = Some(sig);
-
-        Ok((crt, prv.private_key_to_der().or(Err(()))?))
-    }
-
-    fn find<'a>(&self, other: &'a Certificate) -> Result<&'a Signature, ()> {
-        if let Some(ref s) = other.sigs[0] {
-            if self.key.is_signer(s) {
-                return Ok(s);
-            }
-        }
-
-        if let Some(ref s) = other.sigs[1] {
-            if self.key.is_signer(s) {
-                return Ok(s);
-            }
-        }
-
-        Err(())
-    }
-}
-
 impl<'a> Verifier<'a> for (&Certificate, &'a Certificate) {
-    fn verify(self) -> Result<&'a Certificate, ()> {
-        let sig = self.0.find(&self.1)?;
-        let msg = self.1.body().or(Err(()))?;
-        self.0.key.verify(&msg, sig).and(Ok(self.1))
+    fn verify(self) -> Result<&'a Certificate, Unspecified> {
+        let crt = self.1.encode_buf(Body)?;
+
+        for sig in self.1.sigs.iter() {
+            if let Some(ref s) = sig {
+                if self.0.key.verify(&crt, s).is_ok() {
+                    return Ok(self.1);
+                }
+            }
+        }
+
+        Err(Unspecified)
     }
 }
 
 impl<'a> Verifier<'a> for &[&'a Certificate] {
-    fn verify(self) -> Result<&'a Certificate, ()> {
-        let root = *self.first().ok_or(())?;
+    fn verify(self) -> Result<&'a Certificate, Unspecified> {
+        let root = *self.first().ok_or(Unspecified)?;
         Ok(self.iter().try_fold(root, |a, &b| (a, b).verify())?)
     }
 }
 
 impl<'a, S: BuildHasher> Verifier<'a> for &'a HashMap<Usage, Certificate, S> {
-    fn verify(self) -> Result<&'a Certificate, ()> {
-        let oca = self.get(&Usage::OwnerCertificateAuthority).ok_or(())?;
-        let ark = self.get(&Usage::AmdRootKey).ok_or(())?;
-        let ask = self.get(&Usage::AmdSevKey).ok_or(())?;
-        let cek = self.get(&Usage::ChipEndorsementKey).ok_or(())?;
-        let pek = self.get(&Usage::PlatformEndorsementKey).ok_or(())?;
-        let pdh = self.get(&Usage::PlatformDiffieHellman).ok_or(())?;
+    fn verify(self) -> Result<&'a Certificate, Unspecified> {
+        let oca = self.get(&Usage::OwnerCertificateAuthority).ok_or(Unspecified)?;
+        let ark = self.get(&Usage::AmdRootKey).ok_or(Unspecified)?;
+        let ask = self.get(&Usage::AmdSevKey).ok_or(Unspecified)?;
+        let cek = self.get(&Usage::ChipEndorsementKey).ok_or(Unspecified)?;
+        let pek = self.get(&Usage::PlatformEndorsementKey).ok_or(Unspecified)?;
+        let pdh = self.get(&Usage::PlatformDiffieHellman).ok_or(Unspecified)?;
 
         [ark, ask, cek, [oca, pek].verify()?, pdh].verify()
     }

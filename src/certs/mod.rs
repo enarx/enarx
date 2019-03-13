@@ -5,6 +5,8 @@ mod crypto;
 #[cfg(test)]
 mod naples;
 
+pub use self::crypto::PrivateKey;
+
 trait EncodeBuf<T>: codicon::Encoder<T> {
     fn encode_buf(&self, params: T) -> Result<Vec<u8>, Self::Error> {
         let mut buf = Vec::new();
@@ -35,6 +37,23 @@ impl std::fmt::Display for Error {
 impl From<std::io::Error> for Error {
     fn from(e: std::io::Error) -> Self {
         Error::IoError(e)
+    }
+}
+
+#[derive(Copy, Clone, Debug)]
+pub struct Unspecified;
+
+impl std::error::Error for Unspecified {}
+
+impl std::fmt::Display for Unspecified {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "unspecified")
+    }
+}
+
+impl From<Error> for Unspecified {
+    fn from(_: Error) -> Self {
+        Unspecified
     }
 }
 
@@ -223,12 +242,18 @@ impl PartialEq for Certificate {
     }
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum Kind {
     Sev,
     Ca
 }
 
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub struct Full;
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub struct Body;
+
 pub trait Verifier<'a> {
-    fn verify(self) -> Result<&'a Certificate, ()>;
+    fn verify(self) -> Result<&'a Certificate, Unspecified>;
 }

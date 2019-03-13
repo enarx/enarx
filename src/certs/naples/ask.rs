@@ -38,11 +38,11 @@ fn decode() {
 fn encode() {
     let ask = Certificate::decode(&mut &ASK[..], Kind::Ca).unwrap();
 
-    let output = ask.encode_buf(()).unwrap();
+    let output = ask.encode_buf(Full).unwrap();
     assert_eq!(ASK.len(), output.len());
     assert_eq!(ASK.to_vec(), output);
 
-    let output = ask.body().unwrap();
+    let output = ask.encode_buf(Body).unwrap();
     assert_eq!(CA_SIG_OFFSET, output.len());
     assert_eq!(ASK[..CA_SIG_OFFSET].to_vec(), output);
 }

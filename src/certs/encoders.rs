@@ -246,10 +246,10 @@ impl Encoder<Ca1> for Certificate {
     }
 }
 
-impl Encoder for Certificate {
+impl Encoder<Full> for Certificate {
     type Error = Error;
 
-    fn encode(&self, writer: &mut impl Write, _: ()) -> Result<(), Error> {
+    fn encode(&self, writer: &mut impl Write, _: Full) -> Result<(), Error> {
         Ok(match self.firmware {
             Some(_) => match self.version {
                 1 => self.encode(writer, Sev1(true))?,
@@ -264,16 +264,18 @@ impl Encoder for Certificate {
     }
 }
 
-impl Certificate {
-    pub(crate) fn body(&self) -> Result<Vec<u8>, Error> {
+impl Encoder<Body> for Certificate {
+    type Error = Error;
+
+    fn encode(&self, writer: &mut impl Write, _: Body) -> Result<(), Error> {
         Ok(match self.firmware {
             Some(_) => match self.version {
-                1 => self.encode_buf(Sev1(false))?,
+                1 => self.encode(writer, Sev1(false))?,
                 v => Err(Error::Invalid(format!("version: {}", v)))?,
             },
 
             None => match self.version {
-                1 => self.encode_buf(Ca1(false))?,
+                1 => self.encode(writer, Ca1(false))?,
                 v => Err(Error::Invalid(format!("version: {}", v)))?,
             },
         })

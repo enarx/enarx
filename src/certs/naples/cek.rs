@@ -54,11 +54,11 @@ fn decode() {
 fn encode() {
     let cek = Certificate::decode(&mut &CEK_SIG[..], Kind::Sev).unwrap();
 
-    let output = cek.encode_buf(()).unwrap();
+    let output = cek.encode_buf(Full).unwrap();
     assert_eq!(CEK_SIG.len(), output.len());
     assert_eq!(CEK_SIG.to_vec(), output);
 
-    let output = cek.body().unwrap();
+    let output = cek.encode_buf(Body).unwrap();
     assert_eq!(SEV_SIG_OFFSET, output.len());
     assert_eq!(CEK_SIG[..SEV_SIG_OFFSET].to_vec(), output);
 }
