@@ -57,14 +57,31 @@ impl From<Error> for Unspecified {
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Usage {
-    OwnerCertificateAuthority,
-    PlatformEndorsementKey,
-    PlatformDiffieHellman,
-    ChipEndorsementKey,
-    AmdRootKey,
-    AmdSevKey,
+    OwnerCertificateAuthority = 2,
+    PlatformEndorsementKey = 1,
+    PlatformDiffieHellman = 0,
+    ChipEndorsementKey = 3,
+    AmdRootKey = 5,
+    AmdSevKey = 4,
+}
+
+impl Usage {
+    const ALL: &'static [Usage] = &[ Usage::PlatformDiffieHellman,
+        Usage::PlatformEndorsementKey, Usage::OwnerCertificateAuthority,
+        Usage::ChipEndorsementKey, Usage::AmdSevKey, Usage::AmdRootKey ];
+
+    pub fn kind(self) -> Kind {
+        match self {
+            Usage::OwnerCertificateAuthority => Kind::Sev,
+            Usage::PlatformEndorsementKey => Kind::Sev,
+            Usage::PlatformDiffieHellman => Kind::Sev,
+            Usage::ChipEndorsementKey => Kind::Sev,
+            Usage::AmdRootKey => Kind::Ca,
+            Usage::AmdSevKey => Kind::Ca,
+        }
+    }
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]

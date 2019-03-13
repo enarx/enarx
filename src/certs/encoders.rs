@@ -2,9 +2,10 @@
 
 use endicon::Endianness;
 use codicon::Encoder;
-use std::io::Write;
 
+use std::collections::HashMap;
 use std::num::NonZeroU128;
+use std::io::Write;
 
 use super::*;
 
@@ -279,5 +280,22 @@ impl Encoder<Body> for Certificate {
                 v => Err(Error::Invalid(format!("version: {}", v)))?,
             },
         })
+    }
+}
+
+#[allow(clippy::implicit_hasher)]
+impl Encoder<Full> for HashMap<Usage, Certificate> {
+    type Error = Error;
+
+    fn encode(&self, writer: &mut impl Write, params: Full) -> Result<(), Error> {
+        if self.len() != Usage::ALL.len() {
+            Err(Error::Invalid(format!("certificate count: {}", self.len())))?
+        }
+
+        for u in Usage::ALL.iter() {
+            self[u].encode(writer, params)?;
+        }
+
+        Ok(())
     }
 }
