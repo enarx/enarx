@@ -196,8 +196,8 @@ mod platform {
                     });
                 },
                 "state" => println!("{}", match status.state {
-                    State::Uninitialized => "unitialized",
-                    State::Initialized => "itialized",
+                    State::Uninitialized => "uninitialized",
+                    State::Initialized => "initialized",
                     State::Working => "working",
                 }),
                 _ => exit(1),
