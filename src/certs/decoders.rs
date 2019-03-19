@@ -190,14 +190,6 @@ impl Decoder<Sev> for Certificate {
     }
 }
 
-impl Decoder<Ca> for Option<NonZeroU128> {
-    type Error = Error;
-
-    fn decode(reader: &mut impl Read, _: Ca) -> Result<Self> {
-        Ok(NonZeroU128::new(u128::decode(reader, Endianness::Little)?))
-    }
-}
-
 impl Decoder<Ca> for Usage {
     type Error = Error;
 
@@ -235,23 +227,48 @@ impl Decoder<Ca> for rsa::Rsa<pkey::Public> {
 impl Decoder<Ca> for Certificate {
     type Error = Error;
 
+    #[allow(clippy::unreadable_literal)]
     fn decode(reader: &mut impl Read, params: Ca) -> Result<Self> {
+        const ARK_SIG: &[u8] = include_bytes!("naples/ark.cert.sig");
+        const ARK_KID: u128 = 122178821951678173525318614033703090459;
+
         let ver = u32::decode(reader, Endianness::Little)?;
         if ver != 1 { return Err(ErrorKind::InvalidData.into()) }
 
-        let kid = Option::decode(reader, params)?;
-        let cid = Option::decode(reader, params)?;
+        let kid = u128::decode(reader, Endianness::Little)?;
+        let cid = u128::decode(reader, Endianness::Little)?;
+
         let usage = Usage::decode(reader, params)?;
-        u128::decode(reader, Endianness::Little)?; // Reserved
+
+        if u128::decode(reader, Endianness::Little)? != 0 {
+            return Err(ErrorKind::InvalidData.into());
+        };
+
         let rsa = rsa::Rsa::decode(reader, params)?;
-        let sig = bn::BigNum::decode(reader, Internal(rsa.size() as usize))?;
+
+        // The Naples ARK is malformed. See this bug for details:
+        //    https://github.com/AMDESE/AMDSEV/issues/17
+        //
+        // We work around this by catching EOF and injecting a valid signature
+        // that we received from AMD. We only do this for the Naples ARK.
+        let sig = match bn::BigNum::decode(reader, Internal(rsa.size() as usize)) {
+            Ok(s) => s,
+            Err(e) => match e.kind() {
+                ErrorKind::UnexpectedEof
+                    if usage == Usage::AmdRootKey
+                    && kid == ARK_KID
+                    && cid == ARK_KID =>
+                        bn::BigNum::decode(&mut ARK_SIG, Internal(ARK_SIG.len()))?,
+                _ => Err(e)?
+            },
+        };
 
         Ok(Certificate {
             firmware: None,
             version: ver,
             key: PublicKey {
                 hash: hash::MessageDigest::sha256(),
-                id: kid,
+                id: NonZeroU128::new(kid),
                 key: pkey::PKey::from_rsa(rsa)?,
                 usage,
             },
@@ -261,7 +278,7 @@ impl Decoder<Ca> for Certificate {
                     hash: hash::MessageDigest::sha256(),
                     key: pkey::Id::RSA,
                     sig: sig.to_vec(),
-                    id: cid,
+                    id: NonZeroU128::new(cid),
                 }),
                 None
             ]

@@ -5,6 +5,8 @@ mod oca;
 mod pek;
 mod pdh;
 
+const ARK_BAD: &[u8] = include_bytes!("ark.cert.bad");
+
 const OCA: &[u8] = include_bytes!("oca.cert");
 const ARK: &[u8] = include_bytes!("ark.cert");
 const ASK: &[u8] = include_bytes!("ask.cert");
