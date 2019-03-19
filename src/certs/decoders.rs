@@ -312,6 +312,9 @@ impl Certificate {
         reader.read_to_end(&mut buf)?;
 
         let key = pkey::PKey::private_key_from_der(&buf)?;
+        if !key.public_eq(&self.key.key) {
+            return Err(ErrorKind::InvalidData.into());
+        }
 
         Ok(PrivateKey {
             usage: self.key.usage,
