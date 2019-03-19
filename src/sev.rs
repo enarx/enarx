@@ -1,4 +1,5 @@
 extern crate tiny_http;
+extern crate colored;
 extern crate reqwest;
 extern crate clap;
 extern crate sev;
@@ -286,6 +287,12 @@ mod chain {
         [ask, ark]
     }
 
+    fn sev_chain_builtin() -> [Certificate; 4] {
+        let [pdh, pek, oca, _] = pdh_cert_export();
+        let cek = download_cek();
+        [pdh, pek, oca, cek]
+    }
+
     fn ca_chain_builtin() -> [Certificate; 2] {
         [Usage::AmdSevKey.load(&mut &ASK[..]).unwrap(),
             Usage::AmdRootKey.load(&mut &ARK[..]).unwrap()]
@@ -307,11 +314,7 @@ mod chain {
     fn verify(matches: &ArgMatches) -> ! {
         let [pdh, pek, oca, cek] = match matches.value_of("sev") {
             Some(filename) => sev_chain(&filename),
-            None => {
-                let [pdh, pek, oca, _] = pdh_cert_export();
-                let cek = download_cek();
-                [pdh, pek, oca, cek]
-            },
+            None => sev_chain_builtin(),
         };
 
         let [ask, ark] = match matches.value_of("ca") {
@@ -332,9 +335,11 @@ mod chain {
     }
 
     fn show(matches: &ArgMatches) -> ! {
+        use colored::Colorize;
+
         let [pdh, pek, oca, cek] = match matches.value_of("sev") {
             Some(filename) => sev_chain(&filename),
-            None => pdh_cert_export(),
+            None => sev_chain_builtin(),
         };
 
         let [ask, ark] = match matches.value_of("ca") {
@@ -342,12 +347,24 @@ mod chain {
             None => ca_chain_builtin(),
         };
 
+        fn v(p: &Certificate, c: &Certificate, s: bool) -> String {
+            let a = match (s, p.verify(&p).is_ok()) {
+                (false, _)    => " ".into(),
+                (true, true)  => "•".green(),
+                (true, false) => "•".red(),
+            };
+
+            let b = if p.verify(&c).is_ok() { "⮤".green() } else { "⮤".red() };
+
+            format!("{}{}", a, b)
+        }
+
         println!("{}", pdh);
-        println!(" └ {}", pek);
-        println!("    └ {}", oca);
-        println!("    └ {}", cek);
-        println!("       └ {}", ask);
-        println!("          └ {}", ark);
+        println!("{} {}", v(&pek, &pdh, false), pek);
+        println!("   {} {}", v(&oca, &pek, true), oca);
+        println!("   {} {}", v(&cek, &pek, false), cek);
+        println!("      {} {}", v(&ask, &cek, false), ask);
+        println!("         {} {}", v(&ark, &ask, true), ark);
 
         exit(0)
     }
