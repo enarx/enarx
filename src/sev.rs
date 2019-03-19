@@ -13,6 +13,8 @@ use std::io::Write;
 use std::fs::File;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
+const ARK: &[u8] = include_bytes!("certs/naples/ark.cert");
+const ASK: &[u8] = include_bytes!("certs/naples/ask.cert");
 
 fn download(rsp: reqwest::Result<reqwest::Response>, usage: Usage) -> Certificate {
     let mut rsp = rsp.expect(&format!("unable to contact {} server", usage));
@@ -53,6 +55,14 @@ fn get_identifer() -> Identifier {
     sev().get_identifer().expect("error fetching identifier")
 }
 
+fn download_cek() -> Certificate {
+    const CEK_SVC: &str = "https://kdsintf.amd.com/cek/id";
+
+    let id = get_identifer();
+    let url = format!("{}/{}", CEK_SVC, id);
+    download(reqwest::get(&url), Usage::ChipEndorsementKey)
+}
+
 fn main() {
     use clap::{Arg, App, SubCommand};
 
@@ -65,7 +75,8 @@ fn main() {
             .about("Platform commands")
 
             .subcommand(SubCommand::with_name("reset")
-                .about("Resets the SEV platform"))
+                .about("Resets the SEV platform")
+            )
 
             .subcommand(SubCommand::with_name("show")
                 .about("Shows information about the SEV platform")
@@ -78,24 +89,42 @@ fn main() {
                 .subcommand(SubCommand::with_name("flags")
                     .about("Show the current platform flags"))
                 .subcommand(SubCommand::with_name("id")
-                    .about("Show the CPU identifier"))))
+                    .about("Show the CPU identifier"))
+            )
+        )
 
         .subcommand(SubCommand::with_name("chain")
             .about("Certificate chain commands")
 
             .subcommand(SubCommand::with_name("export")
                 .about("Export the full SEV certificate chain")
-                .arg(Arg::with_name("file").required(true)))
+                .arg(Arg::with_name("file").required(true))
+            )
 
             .subcommand(SubCommand::with_name("verify")
                 .about("Verify the full SEV certificate chain")
-                .arg(Arg::with_name("sev").required(true))
-                .arg(Arg::with_name("ca").required(true)))
+                .arg(Arg::with_name("sev")
+                    .help("Read SEV chain from the specified file")
+                    .takes_value(true)
+                    .long("sev"))
+                .arg(Arg::with_name("ca")
+                    .help("Read CA chain from the specified file")
+                    .takes_value(true)
+                    .long("ca"))
+            )
 
             .subcommand(SubCommand::with_name("show")
                 .about("Show information about the certificate chain")
-                .arg(Arg::with_name("sev").required(true))
-                .arg(Arg::with_name("ca").required(true))))
+                .arg(Arg::with_name("sev")
+                    .help("Read SEV chain from the specified file")
+                    .takes_value(true)
+                    .long("sev"))
+                .arg(Arg::with_name("ca")
+                    .help("Read CA chain from the specified file")
+                    .takes_value(true)
+                    .long("ca"))
+            )
+        )
 
         .subcommand(SubCommand::with_name("oca")
             .about("Owner Certification Authority commands")
@@ -108,7 +137,9 @@ fn main() {
             .subcommand(SubCommand::with_name("serve")
                 .about("Run a server to handle OCA certificate signing requests")
                 .arg(Arg::with_name("cert").required(true))
-                .arg(Arg::with_name("key").required(true))))
+                .arg(Arg::with_name("key").required(true))
+            )
+        )
 
         .subcommand(SubCommand::with_name("pek")
             .about("Platform Endorsement Key commands")
@@ -117,13 +148,17 @@ fn main() {
                 .about("Rotate the PEK")
                 .arg(Arg::with_name("adopt")
                     .takes_value(true)
-                    .long("adopt"))))
+                    .long("adopt"))
+            )
+        )
 
         .subcommand(SubCommand::with_name("pdh")
             .about("Platform Diffie Hellman commands")
 
             .subcommand(SubCommand::with_name("rotate")
-                .about("Rotate the PDH")))
+                .about("Rotate the PDH")
+            )
+        )
 
         .get_matches();
 
@@ -251,13 +286,14 @@ mod chain {
         [ask, ark]
     }
 
-    fn export(matches: &ArgMatches) -> ! {
-        const CEK_SVC: &str = "https://kdsintf.amd.com/cek/id";
+    fn ca_chain_builtin() -> [Certificate; 2] {
+        [Usage::AmdSevKey.load(&mut &ASK[..]).unwrap(),
+            Usage::AmdRootKey.load(&mut &ARK[..]).unwrap()]
+    }
 
-        let id = get_identifer();
-        let url = format!("{}/{}", CEK_SVC, id);
-        let cek = download(reqwest::get(&url), Usage::ChipEndorsementKey);
+    fn export(matches: &ArgMatches) -> ! {
         let chain = pdh_cert_export();
+        let cek = download_cek();
 
         let mut out = std::io::Cursor::new(Vec::new());
         chain[0].save(&mut out).unwrap();
@@ -269,11 +305,19 @@ mod chain {
     }
 
     fn verify(matches: &ArgMatches) -> ! {
-        let sev = matches.value_of("sev").unwrap();
-        let ca = matches.value_of("ca").unwrap();
+        let [pdh, pek, oca, cek] = match matches.value_of("sev") {
+            Some(filename) => sev_chain(&filename),
+            None => {
+                let [pdh, pek, oca, _] = pdh_cert_export();
+                let cek = download_cek();
+                [pdh, pek, oca, cek]
+            },
+        };
 
-        let [pdh, pek, oca, cek] = sev_chain(&sev);
-        let [ask, ark] = ca_chain(&ca);
+        let [ask, ark] = match matches.value_of("ca") {
+            Some(filename) => ca_chain(filename),
+            None => ca_chain_builtin(),
+        };
 
         oca.verify(&oca).expect("OCA not self-signed");
         oca.verify(&pek).expect("PEK not signed by OCA");
@@ -288,13 +332,22 @@ mod chain {
     }
 
     fn show(matches: &ArgMatches) -> ! {
-        for c in sev_chain(&matches.value_of("sev").unwrap()).iter() {
-            println!("{}", c);
-        }
+        let [pdh, pek, oca, cek] = match matches.value_of("sev") {
+            Some(filename) => sev_chain(&filename),
+            None => pdh_cert_export(),
+        };
 
-        for c in ca_chain(&matches.value_of("ca").unwrap()).iter() {
-            println!("{}", c);
-        }
+        let [ask, ark] = match matches.value_of("ca") {
+            Some(filename) => ca_chain(&filename),
+            None => ca_chain_builtin(),
+        };
+
+        println!("{}", pdh);
+        println!(" └ {}", pek);
+        println!("    └ {}", oca);
+        println!("    └ {}", cek);
+        println!("       └ {}", ask);
+        println!("          └ {}", ark);
 
         exit(0)
     }
