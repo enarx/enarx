@@ -1,55 +1,26 @@
-use codicon::Decoder;
 use super::super::*;
 use super::*;
 
 #[test]
 fn decode() {
-    let pdh = Certificate::decode(&mut &PDH[..], Kind::Sev).unwrap();
-
-    assert_eq!(pdh, Certificate {
-        version: 1,
-        sigs: [None, None],
-        firmware: Some(Firmware(0, 16)),
-        key: PublicKey {
-            usage: Usage::PlatformDiffieHellman,
-            algo: ExcAlgo::EcdhSha256.into(),
-            key: KeyType::Ecc(EccKey {
-                c: Curve::P384,
-                x: to576(&PDH[0x010..0x414][0x04..][..384 / 8]),
-                y: to576(&PDH[0x010..0x414][0x4C..][..384 / 8]),
-            }),
-            id: None,
-        },
-    });
-    assert_eq!(pdh.sigs, [
-        Some(Signature {
-            usage: Usage::PlatformEndorsementKey,
-            algo: SigAlgo::EcdsaSha256,
-            sig: to4096(&PDH[0x41C..0x61C]),
-            id: None,
-        }),
-        None
-    ]);
+    Usage::PlatformDiffieHellman.load(&mut &PDH[..]).unwrap();
 }
 
 #[test]
 fn encode() {
-    let pdh = Certificate::decode(&mut &PDH[..], Kind::Sev).unwrap();
+    let pdh = Usage::PlatformDiffieHellman.load(&mut &PDH[..]).unwrap();
 
-    let output = pdh.encode_buf(Full).unwrap();
+    let mut output = Vec::new();
+    pdh.save(&mut output).unwrap();
     assert_eq!(PDH.len(), output.len());
     assert_eq!(PDH.to_vec(), output);
-
-    let output = pdh.encode_buf(Body).unwrap();
-    assert_eq!(SEV_SIG_OFFSET, output.len());
-    assert_eq!(PDH[..SEV_SIG_OFFSET].to_vec(), output);
 }
 
 #[test]
 fn verify() {
-    let one = Certificate::decode(&mut PEK, Kind::Sev).unwrap();
-    let two = Certificate::decode(&mut PDH, Kind::Sev).unwrap();
+    let one = Usage::PlatformEndorsementKey.load(&mut PEK).unwrap();
+    let two = Usage::PlatformDiffieHellman.load(&mut PDH).unwrap();
 
-    (&one, &two).verify().unwrap();
-    assert!((&two, &one).verify().is_err());
+    one.verify(&two).unwrap();
+    assert!(two.verify(&one).is_err());
 }

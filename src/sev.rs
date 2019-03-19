@@ -1,36 +1,32 @@
 extern crate tiny_http;
 extern crate reqwest;
-extern crate codicon;
 extern crate clap;
 extern crate sev;
 
 use clap::ArgMatches;
 
-use codicon::Decoder;
-
-use sev::certs::{Certificate, Kind, Usage};
 use sev::fwapi::{Sev, Status, Identifier};
+use sev::certs::{Certificate, Usage};
 
-use std::collections::HashMap;
 use std::process::exit;
 use std::io::Write;
 use std::fs::File;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
-fn download(rsp: reqwest::Result<reqwest::Response>, name: &str) -> Certificate {
-    let mut rsp = rsp.expect(&format!("unable to contact {} server", name));
+fn download(rsp: reqwest::Result<reqwest::Response>, usage: Usage) -> Certificate {
+    let mut rsp = rsp.expect(&format!("unable to contact {} server", usage));
 
     if !rsp.status().is_success() {
-        panic!("received failure from {} server: {}", name, rsp.status());
+        panic!("received failure from {} server: {}", usage, rsp.status());
     }
 
     let mut buf = Vec::new();
     rsp.copy_to(&mut buf)
-        .expect(&format!("unable to complete {} download", name));
+        .expect(&format!("unable to complete {} download", usage));
 
-    Certificate::decode(&mut &buf[..], Kind::Sev)
-        .expect(&format!("unable to parse downloaded {}", name))
+    usage.load(&mut &buf[..])
+        .expect(&format!("unable to parse downloaded {}", usage))
 }
 
 fn write(matches: &ArgMatches, name: &str, output: &[u8]) -> ! {
@@ -49,7 +45,7 @@ fn platform_status() -> Status {
     sev().platform_status().expect("unable to fetch platform status")
 }
 
-fn pdh_cert_export() -> HashMap<Usage, Certificate> {
+fn pdh_cert_export() -> [Certificate; 4] {
     sev().pdh_cert_export().expect("unable to export SEV certificates")
 }
 
@@ -209,8 +205,6 @@ mod platform {
 }
 
 mod chain {
-    use sev::certs::{Full, Verifier};
-    use codicon::Encoder;
     use super::*;
 
     pub fn cmd(matches: &ArgMatches) -> ! {
@@ -225,21 +219,51 @@ mod chain {
         }
     }
 
+    fn sev_chain(filename: &str) -> [Certificate; 4] {
+        let mut file = File::open(filename)
+            .expect("unable to open SEV certificate chain file");
+
+        let pdh = Usage::PlatformDiffieHellman.load(&mut file)
+            .expect("unable to decode PDH");
+
+        let pek = Usage::PlatformEndorsementKey.load(&mut file)
+            .expect("unable to decode PEK");
+
+        let oca = Usage::OwnerCertificateAuthority.load(&mut file)
+            .expect("unable to decode OCA");
+
+        let cek = Usage::ChipEndorsementKey.load(&mut file)
+            .expect("unable to decode CEK");
+
+        [pdh, pek, oca, cek]
+    }
+
+    fn ca_chain(filename: &str) -> [Certificate; 2] {
+        let mut file = File::open(&filename)
+            .expect("unable to open CA certificate chain file");
+
+        let ask = Usage::AmdSevKey.load(&mut file)
+            .expect("unable to decode ASK");
+
+        let ark = Usage::AmdRootKey.load(&mut file)
+            .expect("unable to decode ARK");
+
+        [ask, ark]
+    }
+
     fn export(matches: &ArgMatches) -> ! {
         const CEK_SVC: &str = "https://kdsintf.amd.com/cek/id";
 
         let id = get_identifer();
         let url = format!("{}/{}", CEK_SVC, id);
-        let cek = download(reqwest::get(&url), "CEK");
-
-        let mut chain = pdh_cert_export();
-        chain.insert(cek.key.usage, cek);
+        let cek = download(reqwest::get(&url), Usage::ChipEndorsementKey);
+        let chain = pdh_cert_export();
 
         let mut out = std::io::Cursor::new(Vec::new());
-        chain[&Usage::PlatformDiffieHellman].encode(&mut out, Full).unwrap();
-        chain[&Usage::PlatformEndorsementKey].encode(&mut out, Full).unwrap();
-        chain[&Usage::OwnerCertificateAuthority].encode(&mut out, Full).unwrap();
-        chain[&Usage::ChipEndorsementKey].encode(&mut out, Full).unwrap();
+        chain[0].save(&mut out).unwrap();
+        chain[1].save(&mut out).unwrap();
+        chain[2].save(&mut out).unwrap();
+        cek.save(&mut out).unwrap();
 
         write(matches, "file", &out.into_inner())
     }
@@ -248,50 +272,28 @@ mod chain {
         let sev = matches.value_of("sev").unwrap();
         let ca = matches.value_of("ca").unwrap();
 
-        let mut sev = File::open(&sev).expect("unable to open SEV certificate chain file");
-        let mut ca = File::open(&ca).expect("unable to open CA certificate chain file");
+        let [pdh, pek, oca, cek] = sev_chain(&sev);
+        let [ask, ark] = ca_chain(&ca);
 
-        let pdh = Certificate::decode(&mut sev, Kind::Sev).expect("unable to decode PDH");
-        let pek = Certificate::decode(&mut sev, Kind::Sev).expect("unable to decode PEK");
-        let oca = Certificate::decode(&mut sev, Kind::Sev).expect("unable to decode OCA");
-        let cek = Certificate::decode(&mut sev, Kind::Sev).expect("unable to decode CEK");
-        let ask = Certificate::decode(&mut ca, Kind::Ca).expect("unable to decode ASK");
-        let ark = Certificate::decode(&mut ca, Kind::Ca).expect("unable to decode ARK");
+        oca.verify(&oca).expect("OCA not self-signed");
+        oca.verify(&pek).expect("PEK not signed by OCA");
 
-        let pek = match [&oca, &pek].verify() {
-            Err(_) => exit(1),
-            Ok(c) => c,
-        };
+        ark.verify(&ark).expect("ARK not self-signed");
+        ark.verify(&ask).expect("ASK not signed by ARK");
+        ask.verify(&cek).expect("CEK not signed by ASK");
+        cek.verify(&pek).expect("PEK not signed by CEK");
+        pek.verify(&pdh).expect("PDH not signed by PEK");
 
-        match [&ark, &ask, &cek, pek, &pdh].verify() {
-            Err(_) => exit(1),
-            Ok(_) => exit(0),
-        }
+        exit(0)
     }
 
     fn show(matches: &ArgMatches) -> ! {
-        let sev = matches.value_of("sev").unwrap();
-        let ca = matches.value_of("ca").unwrap();
-
-        let mut sev = File::open(&sev).expect("unable to open SEV certificate chain file");
-        let mut ca = File::open(&ca).expect("unable to open CA certificate chain file");
-
-        loop {
-            let crt = match Certificate::decode(&mut sev, Kind::Sev) {
-                Err(_) => break,
-                Ok(c) => c,
-            };
-
-            println!("{}", crt);
+        for c in sev_chain(&matches.value_of("sev").unwrap()).iter() {
+            println!("{}", c);
         }
 
-        loop {
-            let crt = match Certificate::decode(&mut ca, Kind::Ca) {
-                Err(_) => break,
-                Ok(c) => c,
-            };
-
-            println!("{}", crt);
+        for c in ca_chain(&matches.value_of("ca").unwrap()).iter() {
+            println!("{}", c);
         }
 
         exit(0)
@@ -300,8 +302,7 @@ mod chain {
 
 mod oca {
     use tiny_http::{Server, Request, Response, StatusCode, Method};
-    use sev::certs::{Body, Full, Firmware, PrivateKey};
-    use codicon::Encoder;
+    use sev::certs::PrivateKey;
     use super::*;
 
     pub fn cmd(matches: &ArgMatches) -> ! {
@@ -316,38 +317,24 @@ mod oca {
     }
 
     fn create(matches: &ArgMatches) -> ! {
-        // Generate the OCA key pair and certificate
-        let (key, prv) = Usage::OwnerCertificateAuthority.generate()
+        let (oca, prv) = Certificate::oca()
             .expect("unable to generate OCA key pair");
-
-        // Create the certificate
-        let mut oca = Certificate {
-            firmware: Some(Firmware(0, 0)),
-            sigs: [None, None],
-            version: 1,
-            key
-        };
-
-        // Self-sign the OCA
-        let mut buf = Vec::new();
-        oca.encode(&mut buf, Body).expect("unable to encode OCA body");
-        oca.sigs[0] = Some(oca.key.sign(&buf, &prv).expect("unable to self-sign OCA"));
 
         // Write the certificate
         let crt = matches.value_of("cert").unwrap();
         let mut crt = File::create(crt).expect("unable to create certificate file");
-        oca.encode(&mut crt, Full).expect("unable to write certificate file");
+        oca.save(&mut crt).expect("unable to write certificate file");
 
         // Write the private key
         let key = matches.value_of("key").unwrap();
         let mut key = File::create(key).expect("unable to create key file");
-        prv.encode(&mut key, ()).expect("unable to write key file");
+        prv.save(&mut key).expect("unable to write key file");
 
-        std::process::exit(0)
+        exit(0)
     }
 
     fn serve(matches: &ArgMatches) -> ! {
-        let ((enc, crt), prv) = load(matches);
+        let (enc, key) = load(matches);
         let mut buf = vec![0u8; enc.len()];
 
         let srv = Server::http("0.0.0.0:8000").unwrap();
@@ -364,7 +351,7 @@ mod oca {
 
             let (code, data) = match req.method() {
                 Method::Get => (200, Some(&enc[..])),
-                Method::Post => match sign(&mut req, &crt, &prv, &mut buf) {
+                Method::Post => match sign(&mut req, &key, &mut buf) {
                     Ok(_) => (200, Some(&buf[..])),
                     Err(c) => (c, None),
                 },
@@ -384,58 +371,43 @@ mod oca {
             }
         }
 
-        std::process::exit(1)
+        exit(1)
     }
 
-    fn load(matches: &ArgMatches) -> ((Vec<u8>, Certificate), PrivateKey) {
-        let crt = matches.value_of("cert").unwrap();
+    fn load(matches: &ArgMatches) -> (Vec<u8>, PrivateKey) {
+        let oca = matches.value_of("cert").unwrap();
         let key = matches.value_of("key").unwrap();
 
         // Load certificate
-        let mut crt = File::open(crt).expect("unable to open certificate file");
-        let crt = Certificate::decode(&mut crt, Kind::Sev)
-            .expect("unable to decode certificate");
-
-        // Re-encode certificate
-        let mut enc = Vec::new();
-        crt.encode(&mut enc, Full).expect("unable to re-encode certificate");
+        let mut oca = File::open(oca).expect("unable to open certificate file");
+        let oca = Usage::OwnerCertificateAuthority.load(&mut oca)
+            .expect("unable to decode OCA certificate");
 
         // Load private key
         let mut key = File::open(key).expect("unable to open key file");
-        let prv = PrivateKey::decode(&mut key, ()).expect("unable to read key file");
+        let key = oca.load(&mut key).expect("unable to read key file");
 
-        // Test that signing works
-        let sig = crt.key.sign(&[0u8; 0], &prv).expect("unable to sign");
-        crt.key.verify(&[0u8; 0], &sig).expect("unable to verify");
+        // Re-encode the certificate
+        let mut enc = Vec::new();
+        oca.save(&mut enc).unwrap();
 
-        ((enc, crt), prv)
+        (enc, key)
     }
 
-    fn sign(req: &mut Request, oca: &Certificate, key: &PrivateKey, buf: &mut [u8]) -> Result<(), u16> {
+    fn sign(req: &mut Request, key: &PrivateKey, buf: &mut [u8]) -> Result<(), u16> {
         // Read in the provided PEK CSR
         if req.body_length() != Some(buf.len()) { Err(413u16)? }
         req.as_reader().read_exact(&mut &mut buf[..]).or(Err(500u16))?;
 
-        // Validate the PEK CSR data
-        let mut pek = Certificate::decode(&mut &buf[..], Kind::Sev).or(Err(400u16))?;
-        if pek.key.usage != Usage::PlatformEndorsementKey { Err(400u16)? }
-        if pek.sigs != [None, None] { Err(400u16)? }
-
-        // Sign the PEK
-        let mut bdy = Vec::new();
-        pek.encode(&mut bdy, Body).or(Err(500u16))?;
-        pek.sigs[0] = Some(oca.key.sign(&bdy, &key).or(Err(500u16))?);
-
-        // Encode the signed PEK
-        pek.encode(&mut &mut buf[..], Full).or(Err(500u16))?;
+        let mut pek = Usage::PlatformEndorsementKey.load(&mut &buf[..]).or(Err(400u16))?;
+        key.sign(&mut pek).or(Err(400u16))?;
+        pek.save(&mut &mut buf[..]).or(Err(500u16))?;
         Ok(())
     }
 }
 
 mod pek {
-    use sev::certs::{Full, Verifier};
     use sev::fwapi::Flags;
-    use codicon::Encoder;
     use super::*;
 
     pub fn cmd(matches: &ArgMatches) -> ! {
@@ -450,18 +422,18 @@ mod pek {
 
     fn rotate(matches: &ArgMatches) -> ! {
         if let Some(url) = matches.value_of("adopt") {
-            let oca = download(reqwest::get(url), "OCA");
-            [&oca].verify().expect("unable to self-verify OCA certificate");
+            let oca = download(reqwest::get(url), Usage::OwnerCertificateAuthority);
+            oca.verify(&oca).expect("unable to self-verify OCA certificate");
 
             sev().pek_generate().expect("unable to reset PEK");
 
             let csr = sev().pek_csr().expect("unable to fetch PEK CSR");
 
             let mut buf = Vec::new();
-            csr.encode(&mut buf, Full).expect("unable to re-encode PEK CSR");
+            csr.save(&mut buf).expect("unable to re-encode PEK CSR");
 
             let clt = reqwest::Client::new();
-            let pek = download(clt.post(url).body(buf).send(), "PEK");
+            let pek = download(clt.post(url).body(buf).send(), Usage::PlatformEndorsementKey);
 
             sev().pek_cert_import(&pek, &oca).expect("unable to import PEK and OCA");
         } else {

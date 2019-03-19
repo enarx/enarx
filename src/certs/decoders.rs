@@ -1,50 +1,34 @@
 use endicon::Endianness;
 use codicon::Decoder;
+use openssl::*;
 
+use std::io::{Error, ErrorKind, Read, Result};
 use std::num::NonZeroU128;
-use std::io::Read;
 
+use super::common::*;
 use super::*;
 
 #[derive(Copy, Clone, Debug)]
-struct Internal<T>(T);
+struct Sev;
 
 #[derive(Copy, Clone, Debug)]
-struct Sev1;
+struct Ca;
 
-#[derive(Copy, Clone, Debug)]
-struct Ca1;
-
-impl Decoder<Internal<usize>> for RsaKey {
+impl Decoder<Sev> for Firmware {
     type Error = Error;
 
-    fn decode(reader: &mut impl Read, params: Internal<usize>) -> Result<Self, Error> {
-        let psize = match params.0 {
-            2048 => 2048,
-            4096 => 4096,
-            s => Err(Error::Invalid(format!("pubexp size: {}", s)))?,
-        };
-
-        let msize = match u32::decode(reader, Endianness::Little)? {
-            2048 => 2048,
-            4096 => 4096,
-            s => Err(Error::Invalid(format!("modulus size: {}", s)))?,
-        };
-
-        let mut pubexp = [0u8; 4096 / 8];
-        reader.read_exact(&mut &mut pubexp[..psize / 8])?;
-
-        let mut modulus = [0u8; 4096 / 8];
-        reader.read_exact(&mut &mut modulus[..msize / 8])?;
-
-        Ok(RsaKey { pubexp, modulus })
+    fn decode(reader: &mut impl Read, _: Sev) -> Result<Self> {
+        Ok(Firmware(
+            u8::decode(reader, Endianness::Little)?,
+            u8::decode(reader, Endianness::Little)?,
+        ))
     }
 }
 
-impl Decoder<Sev1> for Option<Usage> {
+impl Decoder<Sev> for Option<Usage> {
     type Error = Error;
 
-    fn decode(reader: &mut impl Read, _: Sev1) -> Result<Self, Error> {
+    fn decode(reader: &mut impl Read, _: Sev) -> Result<Self> {
         Ok(Some(match u32::decode(reader, Endianness::Little)? {
             0x1001 => Usage::OwnerCertificateAuthority,
             0x1002 => Usage::PlatformEndorsementKey,
@@ -53,236 +37,231 @@ impl Decoder<Sev1> for Option<Usage> {
             0x0000 => Usage::AmdRootKey,
             0x0013 => Usage::AmdSevKey,
             0x1000 => return Ok(None),
-            u => Err(Error::Invalid(format!("usage: {:08X}", u)))?
+            _ => return Err(ErrorKind::InvalidData.into()),
         }))
     }
 }
 
-impl Decoder<Sev1> for Option<SigAlgo> {
+impl Decoder<Internal<usize>> for bn::BigNum {
     type Error = Error;
 
-    fn decode(reader: &mut impl Read, _: Sev1) -> Result<Self, Error> {
-        Ok(Some(match u32::decode(reader, Endianness::Little)? {
-            0x0000 => return Ok(None),
-            0x0001 => SigAlgo::RsaSha256,
-            0x0002 => SigAlgo::EcdsaSha256,
-            0x0101 => SigAlgo::RsaSha384,
-            0x0102 => SigAlgo::EcdsaSha384,
-            a => Err(Error::Invalid(format!("algorithm: {:08X}", a)))?
-        }))
+    fn decode(reader: &mut impl Read, params: Internal<usize>) -> Result<Self> {
+        let mut buf = vec![0u8; params.0];
+        reader.read_exact(&mut buf)?;
+
+        buf.reverse();
+
+        Ok(bn::BigNum::from_slice(&buf)?)
     }
 }
 
-impl Decoder<Sev1> for Option<ExcAlgo> {
+impl Decoder<Sev> for rsa::Rsa<pkey::Public> {
     type Error = Error;
 
-    fn decode(reader: &mut impl Read, _: Sev1) -> Result<Self, Error> {
-        Ok(Some(match u32::decode(reader, Endianness::Little)? {
-            0x0000 => return Ok(None),
-            0x0003 => ExcAlgo::EcdhSha256,
-            0x0103 => ExcAlgo::EcdhSha384,
-            a => Err(Error::Invalid(format!("algorithm: {:08X}", a)))?
-        }))
+    fn decode(reader: &mut impl Read, _: Sev) -> Result<Self> {
+        let _ = u32::decode(reader, Endianness::Little)?;
+        let e = bn::BigNum::decode(reader, Internal(512))?;
+        let n = bn::BigNum::decode(reader, Internal(512))?;
+        Ok(rsa::Rsa::from_public_components(n, e)?)
     }
 }
 
-impl Decoder<Sev1> for Option<Algo> {
+impl Decoder<Sev> for ec::EcKey<pkey::Public> {
     type Error = Error;
 
-    fn decode(reader: &mut impl Read, _: Sev1) -> Result<Self, Error> {
-        Ok(Some(match u32::decode(reader, Endianness::Little)? {
-            0x0000 => return Ok(None),
-            0x0001 => Algo::Sig(SigAlgo::RsaSha256),
-            0x0002 => Algo::Sig(SigAlgo::EcdsaSha256),
-            0x0003 => Algo::Exc(ExcAlgo::EcdhSha256),
-            0x0101 => Algo::Sig(SigAlgo::RsaSha384),
-            0x0102 => Algo::Sig(SigAlgo::EcdsaSha384),
-            0x0103 => Algo::Exc(ExcAlgo::EcdhSha384),
-            a => Err(Error::Invalid(format!("algorithm: {:08X}", a)))?
-        }))
-    }
-}
+    fn decode(reader: &mut impl Read, _: Sev) -> Result<Self> {
+        let nid = match u32::decode(reader, Endianness::Little)? {
+            1 => nid::Nid::X9_62_PRIME256V1,
+            2 => nid::Nid::SECP384R1,
+            _ => return Err(ErrorKind::InvalidData.into()),
+        };
 
-impl Decoder<Sev1> for Firmware {
-    type Error = Error;
-
-    fn decode(reader: &mut impl Read, _: Sev1) -> Result<Self, Error> {
-        Ok(Firmware(
-            u8::decode(reader, Endianness::Little)?,
-            u8::decode(reader, Endianness::Little)?,
-        ))
-    }
-}
-
-impl Decoder<Sev1> for RsaKey {
-    type Error = Error;
-
-    fn decode(reader: &mut impl Read, _: Sev1) -> Result<Self, Error> {
-        RsaKey::decode(reader, Internal(4096))
-    }
-}
-
-impl Decoder<Sev1> for Curve {
-    type Error = Error;
-
-    fn decode(reader: &mut impl Read, _: Sev1) -> Result<Self, Error> {
-        Ok(match u32::decode(reader, Endianness::Little)? {
-            1 => Curve::P256,
-            2 => Curve::P384,
-            c => Err(Error::Invalid(format!("curve: {}", c)))?
-        })
-    }
-}
-
-impl Decoder<Sev1> for EccKey {
-    type Error = Error;
-
-    fn decode(reader: &mut impl Read, params: Sev1) -> Result<Self, Error> {
-        let c = Curve::decode(reader, params)?;
-
-        let mut x = [0u8; 576 / 8];
-        reader.read_exact(&mut x)?;
-
-        let mut y = [0u8; 576 / 8];
-        reader.read_exact(&mut y)?;
+        let g = ec::EcGroup::from_curve_name(nid)?;
+        let x = bn::BigNum::decode(reader, Internal(72))?;
+        let y = bn::BigNum::decode(reader, Internal(72))?;
 
         reader.read_exact(&mut [0u8; 880])?; // Reserved
 
-        Ok(EccKey { c, x, y })
+        Ok(ec::EcKey::from_public_key_affine_coordinates(&g, &x, &y)?)
     }
 }
 
-impl Decoder<Internal<Algo>> for KeyType {
+impl Decoder<common::Kind> for IdHash {
     type Error = Error;
 
-    fn decode(reader: &mut impl Read, params: Internal<Algo>) -> Result<Self, Error> {
-        use self::SigAlgo::*;
-        use self::ExcAlgo::*;
-        use self::Algo::*;
+    fn decode(reader: &mut impl Read, kind: common::Kind) -> Result<Self> {
+        use openssl::{hash::MessageDigest as Hash, pkey::Id};
+        use super::common::Kind::*;
 
-        Ok(match params.0 {
-            Sig(EcdsaSha256) => KeyType::Ecc(EccKey::decode(reader, Sev1)?),
-            Sig(EcdsaSha384) => KeyType::Ecc(EccKey::decode(reader, Sev1)?),
-            Exc(EcdhSha256) => KeyType::Ecc(EccKey::decode(reader, Sev1)?),
-            Exc(EcdhSha384) => KeyType::Ecc(EccKey::decode(reader, Sev1)?),
-            Sig(RsaSha256) => KeyType::Rsa(RsaKey::decode(reader, Sev1)?),
-            Sig(RsaSha384) => KeyType::Rsa(RsaKey::decode(reader, Sev1)?),
+        Ok(match u32::decode(reader, Endianness::Little)? {
+            0x0001 if kind == Signing  => IdHash(Id::RSA, Hash::sha256()),
+            0x0002 if kind == Signing  => IdHash(Id::EC,  Hash::sha256()),
+            0x0003 if kind == Exchange => IdHash(Id::EC,  Hash::sha256()),
+            0x0101 if kind == Signing  => IdHash(Id::RSA, Hash::sha384()),
+            0x0102 if kind == Signing  => IdHash(Id::EC,  Hash::sha384()),
+            0x0103 if kind == Exchange => IdHash(Id::EC,  Hash::sha384()),
+            _ => return Err(ErrorKind::InvalidData.into()),
         })
     }
 }
 
-impl Decoder<Sev1> for PublicKey {
+impl Decoder<Sev> for PublicKey {
     type Error = Error;
 
-    fn decode(reader: &mut impl Read, params: Sev1) -> Result<Self, Error> {
-        let usage = match Option::decode(reader, params)? {
-            None => Err(Error::Invalid("public key usage".to_string()))?,
+    fn decode(reader: &mut impl Read, params: Sev) -> Result<Self> {
+        let usage: Usage = match Option::decode(reader, params)? {
+            None => return Err(ErrorKind::InvalidData.into()),
             Some(u) => u,
         };
 
-        let algo = match Option::decode(reader, params)? {
-            None => Err(Error::Invalid("public key algorithm".to_string()))?,
-            Some(a) => a,
+        let IdHash(id, hash) = IdHash::decode(reader, usage.into())?;
+
+        let key = match id {
+            pkey::Id::RSA => {
+                let rsa = rsa::Rsa::decode(reader, params)?;
+                pkey::PKey::from_rsa(rsa)?
+            },
+
+            pkey::Id::EC => {
+                let ecc = ec::EcKey::decode(reader, params)?;
+                pkey::PKey::from_ec_key(ecc)?
+            },
+
+            _ => return Err(ErrorKind::InvalidData.into()),
         };
 
-        let key = KeyType::decode(reader, Internal(algo))?;
-
-        Ok(PublicKey { usage, algo, key, id: None })
+        Ok(PublicKey { usage, hash, key, id: None })
     }
 }
 
-impl Decoder<Sev1> for Option<Signature> {
+impl Decoder<Sev> for ecdsa::EcdsaSig {
     type Error = Error;
 
-    fn decode(reader: &mut impl Read, params: Sev1) -> Result<Self, Error> {
-        let usage = Option::decode(reader, params)?;
-        let algo = Option::decode(reader, params)?;
+    fn decode(reader: &mut impl Read, _: Sev) -> Result<Self> {
+        let r = bn::BigNum::decode(reader, Internal(72))?;
+        let s = bn::BigNum::decode(reader, Internal(72))?;
 
-        let mut sig = [0u8; 4096 / 8];
-        reader.read_exact(&mut &mut sig[..])?;
+        reader.read_exact(&mut [0u8; 368])?; // Reserved
 
-        if let Some(usage) = usage {
-            if let Some(algo) = algo {
-                return Ok(Some(Signature { usage, algo, sig, id: None }));
-            }
-        }
-
-        Ok(None)
+        Ok(ecdsa::EcdsaSig::from_private_components(r, s)?)
     }
 }
 
-impl Decoder<Sev1> for Certificate {
+impl Decoder<Sev> for Option<Signature> {
     type Error = Error;
 
-    fn decode(reader: &mut impl Read, params: Sev1) -> Result<Self, Error> {
-        let firmware = Firmware::decode(reader, Sev1)?;
+    fn decode(reader: &mut impl Read, params: Sev) -> Result<Self> {
+        let usage: Usage = match Option::decode(reader, params)? {
+            None => { reader.read_exact(&mut [0u8; 516])?; return Ok(None) },
+            Some(u) => u,
+        };
 
-        u8::decode(reader, Endianness::Little)?; // Reserved
-        u8::decode(reader, Endianness::Little)?; // Reserved
+        let IdHash(key, hash) = IdHash::decode(reader, usage.into())?;
 
-        let key = PublicKey::decode(reader, params)?;
+        let sig = match key {
+            pkey::Id::RSA => bn::BigNum::decode(reader, Internal(512))?.to_vec(),
+            pkey::Id::EC => ecdsa::EcdsaSig::decode(reader, params)?.to_der()?,
+            _ => return Err(ErrorKind::InvalidData.into()),
+        };
 
-        let sigs = [
-            Option::decode(reader, params)?,
-            Option::decode(reader, params)?
-        ];
-
-        Ok(Certificate { version: 1, firmware: Some(firmware), key, sigs })
+        Ok(Some(Signature { usage, hash, key, sig, id: None }))
     }
 }
 
-impl Decoder<Ca1> for RsaKey {
+impl Decoder<Sev> for Certificate {
     type Error = Error;
 
-    fn decode(reader: &mut impl Read, _: Ca1) -> Result<Self, Error> {
-        let psize = u32::decode(reader, Endianness::Little)?;
-        RsaKey::decode(reader, Internal(psize as usize))
+    fn decode(reader: &mut impl Read, params: Sev) -> Result<Self> {
+        let ver = u32::decode(reader, Endianness::Little)?;
+        if ver != 1 { return Err(ErrorKind::InvalidData.into()) }
+
+        let firmware = Some(Firmware::decode(reader, params)?);
+        u16::decode(reader, Endianness::Little)?; // Reserved
+
+        Ok(Certificate {
+            version: ver,
+            firmware,
+            key: PublicKey::decode(reader, params)?,
+            sig: [
+                Option::decode(reader, params)?,
+                Option::decode(reader, params)?
+            ]
+        })
     }
 }
 
-impl Decoder<Ca1> for Option<NonZeroU128> {
+impl Decoder<Ca> for Option<NonZeroU128> {
     type Error = Error;
 
-    fn decode(reader: &mut impl Read, _: Ca1) -> Result<Self, Error> {
+    fn decode(reader: &mut impl Read, _: Ca) -> Result<Self> {
         Ok(NonZeroU128::new(u128::decode(reader, Endianness::Little)?))
     }
 }
 
-impl Decoder<Ca1> for Certificate {
+impl Decoder<Ca> for Usage {
     type Error = Error;
 
-    fn decode(reader: &mut impl Read, _: Ca1) -> Result<Self, Error> {
-        let key_id = Option::<NonZeroU128>::decode(reader, Ca1)?;
-        let sig_id = Option::<NonZeroU128>::decode(reader, Ca1)?;
+    fn decode(reader: &mut impl Read, _: Ca) -> Result<Self> {
+        Ok(match u32::decode(reader, Endianness::Little)? {
+            0x0000 => Usage::AmdRootKey,
+            0x0013 => Usage::AmdSevKey,
+            _ => return Err(ErrorKind::InvalidData.into()),
+        })
+    }
+}
 
-        let usage = match Option::decode(reader, Sev1)? {
-            Some(Usage::AmdRootKey) => Usage::AmdRootKey,
-            Some(Usage::AmdSevKey) => Usage::AmdSevKey,
-            u => Err(Error::Invalid(format!("usage: {:?}", u)))?,
+impl Decoder<Ca> for rsa::Rsa<pkey::Public> {
+    type Error = Error;
+
+    fn decode(reader: &mut impl Read, _: Ca) -> Result<Self> {
+        let psize = match u32::decode(reader, Endianness::Little)? {
+            2048 => 256,
+            4096 => 512,
+            _ => return Err(ErrorKind::InvalidData.into()),
         };
 
+        let msize = match u32::decode(reader, Endianness::Little)? {
+            2048 => 256,
+            4096 => 512,
+            _ => return Err(ErrorKind::InvalidData.into()),
+        };
+
+        let e = bn::BigNum::decode(reader, Internal(psize))?;
+        let n = bn::BigNum::decode(reader, Internal(msize))?;
+        Ok(rsa::Rsa::from_public_components(n, e)?)
+    }
+}
+
+impl Decoder<Ca> for Certificate {
+    type Error = Error;
+
+    fn decode(reader: &mut impl Read, params: Ca) -> Result<Self> {
+        let ver = u32::decode(reader, Endianness::Little)?;
+        if ver != 1 { return Err(ErrorKind::InvalidData.into()) }
+
+        let kid = Option::decode(reader, params)?;
+        let cid = Option::decode(reader, params)?;
+        let usage = Usage::decode(reader, params)?;
         u128::decode(reader, Endianness::Little)?; // Reserved
-
-        let key = RsaKey::decode(reader, Ca1)?;
-
-        let mut sig = [0u8; 4096 / 8];
-        reader.read_exact(&mut &mut sig[..key.msize()])?;
+        let rsa = rsa::Rsa::decode(reader, params)?;
+        let sig = bn::BigNum::decode(reader, Internal(rsa.size() as usize))?;
 
         Ok(Certificate {
-            version: 1,
             firmware: None,
+            version: ver,
             key: PublicKey {
-                algo: Algo::Sig(SigAlgo::RsaSha256),
-                key: KeyType::Rsa(key),
-                id: key_id,
+                hash: hash::MessageDigest::sha256(),
+                id: kid,
+                key: pkey::PKey::from_rsa(rsa)?,
                 usage,
             },
-            sigs: [
+            sig: [
                 Some(Signature {
                     usage: Usage::AmdRootKey,
-                    algo: SigAlgo::RsaSha256,
-                    id: sig_id,
-                    sig,
+                    hash: hash::MessageDigest::sha256(),
+                    key: pkey::Id::RSA,
+                    sig: sig.to_vec(),
+                    id: cid,
                 }),
                 None
             ]
@@ -290,24 +269,38 @@ impl Decoder<Ca1> for Certificate {
     }
 }
 
-impl Decoder<Kind> for Certificate {
-    type Error = Error;
+impl Usage {
+    pub fn load(self, reader: &mut impl Read) -> Result<Certificate> {
+        let crt = match self {
+            Usage::OwnerCertificateAuthority |
+            Usage::PlatformEndorsementKey |
+            Usage::PlatformDiffieHellman |
+            Usage::ChipEndorsementKey => Certificate::decode(reader, Sev)?,
 
-    fn decode(reader: &mut impl Read, params: Kind) -> Result<Self, Error> {
-        Ok(match params {
-            Kind::Sev => {
-                match u32::decode(reader, Endianness::Little)? {
-                    1 => Certificate::decode(reader, Sev1),
-                    v => Err(Error::Invalid(format!("version: {}", v))),
-                }
-            },
+            Usage::AmdRootKey |
+            Usage::AmdSevKey => Certificate::decode(reader, Ca)?,
+        };
 
-            Kind::Ca => {
-                match u32::decode(reader, Endianness::Little)? {
-                    1 => Certificate::decode(reader, Ca1),
-                    v => Err(Error::Invalid(format!("version: {}", v))),
-                }
-            },
-        }?)
+        if crt.key.usage == self {
+            Ok(crt)
+        } else {
+            Err(ErrorKind::InvalidData.into())
+        }
+    }
+}
+
+impl Certificate {
+    pub fn load(&self, reader: &mut impl Read) -> Result<PrivateKey> {
+        let mut buf = Vec::new();
+        reader.read_to_end(&mut buf)?;
+
+        let key = pkey::PKey::private_key_from_der(&buf)?;
+
+        Ok(PrivateKey {
+            usage: self.key.usage,
+            hash: self.key.hash,
+            id: self.key.id,
+            key
+        })
     }
 }

@@ -1,13 +1,9 @@
 use std::os::raw::{c_int, c_ulong, c_void};
-use std::collections::{HashSet, HashMap};
 use std::os::unix::io::AsRawFd;
+use std::collections::HashSet;
 use std::fs::File;
 
-use super::certs::{Firmware, Usage, Kind, Full};
-use super::certs::Certificate as Cert;
-use super::certs::Error as CertError;
-
-use codicon::{Decoder, Encoder};
+use super::certs::{Certificate, Firmware, Usage};
 
 const SEV_CERT_LEN: usize = 0x824;
 
@@ -54,36 +50,6 @@ pub enum CodeError {
 impl From<std::io::Error> for CodeError {
     fn from(error: std::io::Error) -> CodeError {
         CodeError::IoError(error)
-    }
-}
-
-#[derive(Debug)]
-pub enum Error {
-    Code(Option<CodeError>),
-    Cert(CertError),
-}
-
-impl From<CodeError> for Error {
-    fn from(error: CodeError) -> Error {
-        Error::Code(Some(error))
-    }
-}
-
-impl From<CertError> for Error {
-    fn from(error: CertError) -> Error {
-        Error::Cert(error)
-    }
-}
-
-impl From<Option<CodeError>> for Error {
-    fn from(error: Option<CodeError>) -> Error {
-        Error::Code(error)
-    }
-}
-
-impl From<std::io::Error> for Error {
-    fn from(error: std::io::Error) -> Error {
-        CodeError::IoError(error).into()
     }
 }
 
@@ -264,7 +230,7 @@ impl Sev {
         Ok(Identifier(ids.0.to_vec()))
     }
 
-    pub fn pdh_cert_export(&self) -> Result<HashMap<Usage, Cert>, Error> {
+    pub fn pdh_cert_export(&self) -> Result<[Certificate; 4], Option<CodeError>> {
         #[derive(Copy, Clone, Default)]
         #[repr(C, packed)]
         struct Data {
@@ -284,17 +250,18 @@ impl Sev {
 
         self.cmd(Code::PdhCertificateExport, Some(&mut data))?;
 
-        let mut map = HashMap::new();
-        let mut rdr = &buf[..];
-        for _ in 0..4 {
-            let cert = Cert::decode(&mut rdr, Kind::Sev)?;
-            map.insert(cert.key.usage, cert);
+        fn parse(reader: &mut impl std::io::Read) -> Result<[Certificate; 4], CodeError> {
+            let pdh = Usage::PlatformDiffieHellman.load(reader)?;
+            let pek = Usage::PlatformEndorsementKey.load(reader)?;
+            let oca = Usage::OwnerCertificateAuthority.load(reader)?;
+            let cek = Usage::ChipEndorsementKey.load(reader)?;
+            Ok([pdh, pek, oca, cek])
         }
 
-        Ok(map)
+        parse(&mut &buf[..]).or_else(|e| Err(Some(e)))
     }
 
-    pub fn pek_csr(&self) -> Result<Cert, Error> {
+    pub fn pek_csr(&self) -> Result<Certificate, Option<CodeError>> {
         #[derive(Copy, Clone, Default)]
         #[repr(C, packed)]
         struct Data {
@@ -309,10 +276,12 @@ impl Sev {
         };
 
         self.cmd(Code::PekCertificateSigningRequest, Some(&mut data))?;
-        Ok(Cert::decode(&mut &buf[..], Kind::Sev)?)
+
+        Usage::PlatformEndorsementKey.load(&mut &buf[..])
+            .or_else(|e| Err(Some(e.into())))
     }
 
-    pub fn pek_cert_import(&self, pek: &Cert, oca: &Cert) -> Result<(), Error> {
+    pub fn pek_cert_import(&self, pek: &Certificate, oca: &Certificate) -> Result<(), Option<CodeError>> {
         #[derive(Copy, Clone, Default)]
         #[repr(C, packed)]
         struct Data {
@@ -323,10 +292,10 @@ impl Sev {
         }
 
         let mut obuf = Vec::new();
-        oca.encode(&mut obuf, Full)?;
+        oca.save(&mut obuf).or_else(|e| Err(Some(e.into())))?;
 
         let mut pbuf = Vec::new();
-        pek.encode(&mut pbuf, Full)?;
+        pek.save(&mut pbuf).or_else(|e| Err(Some(e.into())))?;
 
         let mut data = Data {
             pek_address: pbuf.as_mut_ptr() as u64,
@@ -387,10 +356,15 @@ mod tests {
         let sev = Sev::new().unwrap();
         let chain = sev.pdh_cert_export().unwrap();
 
-        assert!(chain.get(&Usage::PlatformDiffieHellman).is_some());
-        assert!(chain.get(&Usage::PlatformEndorsementKey).is_some());
-        assert!(chain.get(&Usage::OwnerCertificateAuthority).is_some());
-        assert!(chain.get(&Usage::ChipEndorsementKey).is_some());
+        assert_eq!(chain[0].usage(), Usage::PlatformDiffieHellman);
+        assert_eq!(chain[1].usage(), Usage::PlatformEndorsementKey);
+        assert_eq!(chain[2].usage(), Usage::OwnerCertificateAuthority);
+        assert_eq!(chain[3].usage(), Usage::ChipEndorsementKey);
+
+        chain[1].verify(&chain[0]).unwrap(); // PEK -> PDH
+        chain[2].verify(&chain[1]).unwrap(); // OCA -> PEK
+        chain[2].verify(&chain[2]).unwrap(); // OCA -> OCA
+        chain[3].verify(&chain[1]).unwrap(); // CEK -> PEK
     }
 
     #[cfg_attr(not(has_sev), ignore)]
@@ -398,49 +372,25 @@ mod tests {
     fn pek_csr() {
         let sev = Sev::new().unwrap();
         let pek = sev.pek_csr().unwrap();
-        assert_eq!(pek.key.usage, Usage::PlatformEndorsementKey);
-        assert_eq!(pek.sigs, [None, None]);
+        assert_eq!(pek.usage(), Usage::PlatformEndorsementKey);
     }
 
     #[ignore]
     #[test]
     fn pek_cert_import() {
-        use certs::{Body, Verifier};
-
-        // Generate an OCA
-        let (key, prv) = Usage::OwnerCertificateAuthority.generate().unwrap();
-        let mut oca = Cert {
-            firmware: Some(Firmware(0, 0)),
-            sigs: [None, None],
-            version: 1,
-            key: key,
-        };
-
-        // Self-sign the OCA
-        let mut buf = Vec::new();
-        oca.encode(&mut buf, Body).unwrap();
-        oca.sigs[0] = Some(oca.key.sign(&buf, &prv).unwrap());
-
-        // Get the CSR
         let sev = Sev::new().unwrap();
+
+        let (oca, key) = Certificate::oca().unwrap();
         let mut pek = sev.pek_csr().unwrap();
+        key.sign(&mut pek).unwrap();
 
-        // Sign the PEK
-        let mut buf = Vec::new();
-        pek.encode(&mut buf, Body).unwrap();
-        pek.sigs[0] = Some(oca.key.sign(&buf, &prv).unwrap());
-
-        // Import the new OCA and signed PEK
         sev.pek_cert_import(&pek, &oca).unwrap();
 
-        // Check that export contains the new certs
         let chain = sev.pdh_cert_export().unwrap();
-        assert_eq!(oca, chain[&Usage::OwnerCertificateAuthority]);
-        assert_eq!(pek, chain[&Usage::PlatformEndorsementKey]);
-
-        // Check that the signatures validate
-        [&chain[&Usage::OwnerCertificateAuthority],
-            &chain[&Usage::PlatformEndorsementKey]].verify().unwrap();
+        chain[1].verify(&chain[0]).unwrap(); // PEK -> PDH
+        chain[2].verify(&chain[1]).unwrap(); // CEK -> PEK
+        oca.verify(&chain[1]).unwrap();      // OCA -> PEK
+        oca.verify(&chain[3]).unwrap();      // OCA -> OCA
 
         sev.platform_reset().unwrap();
     }
