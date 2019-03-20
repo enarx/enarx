@@ -95,6 +95,11 @@ fn main() {
                 .takes_value(true)
                 .long("sev")
             )
+            .arg(Arg::with_name("oca")
+                .help("Read OCA from the specified file")
+                .takes_value(true)
+                .long("oca")
+            )
             .arg(Arg::with_name("ca")
                 .help("Read CA chain from the specified file")
                 .takes_value(true)
@@ -226,10 +231,18 @@ mod verify {
     use super::*;
 
     pub fn cmd(matches: &ArgMatches) -> ! {
-        let [pdh, pek, oca, cek] = sev_chain(matches.value_of("sev"));
+        let [pdh, pek, mut oca, cek] = sev_chain(matches.value_of("sev"));
         let [ask, ark] = ca_chain(matches.value_of("ca"));
         let quiet = matches.is_present("quiet");
         let mut err = false;
+
+        if let Some(filename) = matches.value_of("oca") {
+            let mut file = File::open(filename)
+                .expect("unable to open OCA certificate file");
+
+            oca = Usage::OwnerCertificateAuthority.load(&mut file)
+                .expect("unable to decode OCA");
+        }
 
         if !quiet { println!("{}", pdh); }
         err |= status("", &pek, &pdh, quiet);
