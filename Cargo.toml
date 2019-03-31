@@ -10,6 +10,7 @@ fwapi = ["errno"]
 cli = ["clap", "reqwest", "tiny_http", "colored"]
 
 [dependencies]
+flagset = "0.3.0"
 endicon = "2.0.0"
 codicon = "2.1.0"
 openssl = "0.10.19"

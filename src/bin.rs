@@ -451,7 +451,7 @@ mod rotate {
 
             sev().pek_cert_import(&pek, &oca).expect("unable to import PEK and OCA");
         } else {
-            if platform_status().flags.contains(&Flags::Owned) {
+            if platform_status().flags.contains(Flags::Owned) {
                 eprintln!("not rotating owned system; see --adopt option");
                 exit(1);
             } else {

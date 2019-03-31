@@ -1,9 +1,10 @@
+use super::certs::{Certificate, Firmware, Usage};
+
 use std::os::raw::{c_int, c_ulong, c_void};
 use std::os::unix::io::AsRawFd;
-use std::collections::HashSet;
 use std::fs::File;
 
-use super::certs::{Certificate, Firmware, Usage};
+use flagset::{FlagSet, flags};
 
 const SEV_CERT_LEN: usize = 0x824;
 
@@ -70,18 +71,18 @@ pub enum State {
     Working,
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
-#[repr(u8)]
-pub enum Flags {
-    Owned,
-    EncryptedState,
+flags! {
+    pub enum Flags: u32 {
+        Owned = 1,
+        EncryptedState = 1 << 8,
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Status {
     pub build: Build,
     pub state: State,
-    pub flags: HashSet<Flags>,
+    pub flags: FlagSet<Flags>,
     pub guests: u32,
 }
 
@@ -182,20 +183,10 @@ impl Sev {
 
         self.cmd(Code::PlatformStatus, Some(&mut stat))?;
 
-        let mut flags = HashSet::new();
-
-        if stat.flags & 1 != 0 {
-            flags.insert(Flags::Owned);
-        }
-
-        if stat.flags & (1 << 8) != 0 {
-            flags.insert(Flags::EncryptedState);
-        }
-
         Ok(Status {
             build: Build(Firmware(stat.api_major, stat.api_minor), stat.build),
             guests: stat.guest_count,
-            flags: flags,
+            flags: FlagSet::new_truncated(stat.flags),
             state: match stat.state {
                 0 => State::Uninitialized,
                 1 => State::Initialized,
