@@ -1,36 +1,43 @@
-use super::super::*;
 use super::*;
 
 #[test]
 fn decode() {
-    Usage::OwnerCertificateAuthority.load(&mut &OCA[..]).unwrap();
+    sev::Certificate::decode(&mut &OCA[..], ()).unwrap();
 }
 
 #[test]
 fn encode() {
-    let oca = Usage::OwnerCertificateAuthority.load(&mut &OCA[..]).unwrap();
+    let oca = sev::Certificate::decode(&mut &OCA[..], ()).unwrap();
 
     let mut output = Vec::new();
-    oca.save(&mut output).unwrap();
+    oca.encode(&mut output, ()).unwrap();
     assert_eq!(OCA.len(), output.len());
     assert_eq!(OCA.to_vec(), output);
 }
 
+#[cfg(feature = "openssl")]
 #[test]
 fn verify() {
-    let oca = Usage::OwnerCertificateAuthority.load(&mut &OCA[..]).unwrap();
-    oca.verify(&oca).unwrap();
+    let oca = sev::Certificate::decode(&mut OCA, ()).unwrap();
+    (&oca, &oca).verify().unwrap();
 }
 
+#[cfg(feature = "openssl")]
 #[test]
 fn create() {
-    let mut pdh = Usage::PlatformDiffieHellman.load(&mut &PDH[..]).unwrap();
-    let (crt, key) = Certificate::oca().unwrap();
+    let mut pdh = sev::Certificate::decode(&mut &PDH[..], ()).unwrap();
+    let (mut oca, key) = sev::Certificate::generate(sev::Usage::OCA).unwrap();
 
-    assert!(pdh.verify(&pdh).is_err());
-    assert!(crt.verify(&pdh).is_err());
-    crt.verify(&crt).unwrap();
+    assert!((&pdh, &pdh).verify().is_err());
+    assert!((&oca, &pdh).verify().is_err());
+    assert!((&oca, &oca).verify().is_err());
+
+    key.sign(&mut oca).unwrap();
+
+    assert!((&pdh, &pdh).verify().is_err());
+    assert!((&oca, &pdh).verify().is_err());
+    (&oca, &oca).verify().unwrap();
 
     key.sign(&mut pdh).unwrap();
-    crt.verify(&pdh).unwrap();
+    (&oca, &pdh).verify().unwrap();
 }

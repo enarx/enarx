@@ -7,3 +7,6 @@ matrix:
   allow_failures:
     - rust: nightly
   fast_finish: true
+script:
+  - cargo test --verbose
+  - cargo test --verbose --features=openssl

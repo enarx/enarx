@@ -5,23 +5,9 @@ authors = ["Nathaniel McCallum <npmccallum@redhat.com>"]
 edition = "2018"
 
 [features]
-default = ["fwapi", "cli"]
-fwapi = ["errno"]
-cli = ["clap", "reqwest", "tiny_http", "colored"]
+default = []
 
 [dependencies]
-flagset = "0.3.0"
-endicon = "2.0.0"
+openssl = { version = "0.10.20", optional = true }
+bitflags = "1.0.4"
 codicon = "2.1.0"
-openssl = "0.10.19"
-
-tiny_http = { version = "0.6.2", optional = true }
-reqwest = { version = "0.9.11", optional = true }
-colored = { version = "1.7.0", optional = true }
-errno = { version = "0.2.4", optional = true }
-clap = { version = "2.32.0", optional = true }
-
-[[bin]]
-name = "sev"
-path = "src/bin.rs"
-required-features = ["fwapi", "cli"]

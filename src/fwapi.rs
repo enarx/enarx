@@ -1,12 +1,11 @@
-use super::certs::{Certificate, Firmware, Usage};
+use super::{certs::sev::{Chain, Certificate}, Firmware};
 
 use std::os::raw::{c_int, c_ulong, c_void};
+use std::mem::{uninitialized, size_of};
 use std::os::unix::io::AsRawFd;
 use std::fs::File;
 
-use flagset::{FlagSet, flags};
-
-const SEV_CERT_LEN: usize = 0x824;
+use bitflags::bitflags;
 
 #[repr(u32)]
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
@@ -71,10 +70,11 @@ pub enum State {
     Working,
 }
 
-flags! {
-    pub enum Flags: u32 {
-        Owned = 1,
-        EncryptedState = 1 << 8,
+bitflags! {
+    #[derive(Default)]
+    pub struct Flags: u32 {
+        const OWNED           = 1;
+        const ENCRYPTED_STATE = 1 << 8;
     }
 }
 
@@ -82,7 +82,7 @@ flags! {
 pub struct Status {
     pub build: Build,
     pub state: State,
-    pub flags: FlagSet<Flags>,
+    pub flags: Flags,
     pub guests: u32,
 }
 
@@ -132,7 +132,7 @@ impl Sev {
         match unsafe { ioctl(self.0.as_raw_fd(), SEV_ISSUE_CMD, &mut c) } {
             0 => Ok(()),
             _ => Err(Some(match c.error {
-                0 => std::io::Error::from(errno::errno()).into(),
+                0 => std::io::Error::last_os_error().into(),
                 1 => CodeError::InvalidPlatformState,
                 2 => CodeError::InvalidGuestState,
                 3 => CodeError::InavlidConfig,
@@ -186,7 +186,7 @@ impl Sev {
         Ok(Status {
             build: Build(Firmware(stat.api_major, stat.api_minor), stat.build),
             guests: stat.guest_count,
-            flags: FlagSet::new_truncated(stat.flags),
+            flags: Flags::from_bits_truncate(stat.flags),
             state: match stat.state {
                 0 => State::Uninitialized,
                 1 => State::Initialized,
@@ -221,7 +221,7 @@ impl Sev {
         Ok(Identifier(ids.0.to_vec()))
     }
 
-    pub fn pdh_cert_export(&self) -> Result<[Certificate; 4], Option<CodeError>> {
+    pub fn pdh_cert_export(&self) -> Result<Chain, Option<CodeError>> {
         #[derive(Copy, Clone, Default)]
         #[repr(C, packed)]
         struct Data {
@@ -231,25 +231,16 @@ impl Sev {
             cert_chain_length: u32,
         }
 
-        let mut buf = vec![0u8; SEV_CERT_LEN * 4];
+        let mut chain: Chain = unsafe { uninitialized() };
         let mut data = Data {
-            pdh_cert_address: (&mut buf[..SEV_CERT_LEN]).as_mut_ptr() as u64,
-            pdh_cert_length: SEV_CERT_LEN as u32,
-            cert_chain_address: (&mut buf[SEV_CERT_LEN..]).as_mut_ptr() as u64,
-            cert_chain_length: SEV_CERT_LEN as u32 * 3,
+            pdh_cert_address: &mut chain.pdh as *mut Certificate as u64,
+            pdh_cert_length: size_of::<Certificate>() as u32,
+            cert_chain_address: &mut chain.pek as *mut Certificate as u64,
+            cert_chain_length: size_of::<Certificate>() as u32 * 3,
         };
 
         self.cmd(Code::PdhCertificateExport, Some(&mut data))?;
-
-        fn parse(reader: &mut impl std::io::Read) -> Result<[Certificate; 4], CodeError> {
-            let pdh = Usage::PlatformDiffieHellman.load(reader)?;
-            let pek = Usage::PlatformEndorsementKey.load(reader)?;
-            let oca = Usage::OwnerCertificateAuthority.load(reader)?;
-            let cek = Usage::ChipEndorsementKey.load(reader)?;
-            Ok([pdh, pek, oca, cek])
-        }
-
-        parse(&mut &buf[..]).or_else(|e| Err(Some(e)))
+        Ok(chain)
     }
 
     pub fn pek_csr(&self) -> Result<Certificate, Option<CodeError>> {
@@ -260,16 +251,14 @@ impl Sev {
             length: u32,
         }
 
-        let mut buf = vec![0u8; SEV_CERT_LEN];
+        let mut pek: Certificate = unsafe { uninitialized() };
         let mut data = Data {
-            address: buf.as_mut_ptr() as u64,
-            length: buf.len() as u32,
+            address: &mut pek as *mut Certificate as u64,
+            length: size_of::<Certificate>() as u32,
         };
 
         self.cmd(Code::PekCertificateSigningRequest, Some(&mut data))?;
-
-        Usage::PlatformEndorsementKey.load(&mut &buf[..])
-            .or_else(|e| Err(Some(e.into())))
+        Ok(pek)
     }
 
     pub fn pek_cert_import(&self, pek: &Certificate, oca: &Certificate) -> Result<(), Option<CodeError>> {
@@ -282,17 +271,11 @@ impl Sev {
             oca_length: u32,
         }
 
-        let mut obuf = Vec::new();
-        oca.save(&mut obuf).or_else(|e| Err(Some(e.into())))?;
-
-        let mut pbuf = Vec::new();
-        pek.save(&mut pbuf).or_else(|e| Err(Some(e.into())))?;
-
         let mut data = Data {
-            pek_address: pbuf.as_mut_ptr() as u64,
-            pek_length: pbuf.len() as u32,
-            oca_address: obuf.as_mut_ptr() as u64,
-            oca_length: pbuf.len() as u32,
+            pek_address: pek as *const Certificate as u64,
+            pek_length: size_of::<Certificate>() as u32,
+            oca_address: oca as *const Certificate as u64,
+            oca_length: size_of::<Certificate>() as u32,
         };
 
         self.cmd(Code::PekCertificateImport, Some(&mut data))?;
@@ -302,6 +285,7 @@ impl Sev {
 
 #[cfg(test)]
 mod tests {
+    use crate::certs::sev::Usage;
     use super::*;
 
     #[ignore]
@@ -342,20 +326,20 @@ mod tests {
     }
 
     #[cfg_attr(not(has_sev), ignore)]
+    #[cfg(feature = "openssl")]
     #[test]
     fn pdh_cert_export() {
+        use crate::certs::Verifiable;
+
         let sev = Sev::new().unwrap();
         let chain = sev.pdh_cert_export().unwrap();
 
-        assert_eq!(chain[0].usage(), Usage::PlatformDiffieHellman);
-        assert_eq!(chain[1].usage(), Usage::PlatformEndorsementKey);
-        assert_eq!(chain[2].usage(), Usage::OwnerCertificateAuthority);
-        assert_eq!(chain[3].usage(), Usage::ChipEndorsementKey);
+        assert_eq!(chain.pdh, Usage::PDH);
+        assert_eq!(chain.pek, Usage::PEK);
+        assert_eq!(chain.oca, Usage::OCA);
+        assert_eq!(chain.cek, Usage::CEK);
 
-        chain[1].verify(&chain[0]).unwrap(); // PEK -> PDH
-        chain[2].verify(&chain[1]).unwrap(); // OCA -> PEK
-        chain[2].verify(&chain[2]).unwrap(); // OCA -> OCA
-        chain[3].verify(&chain[1]).unwrap(); // CEK -> PEK
+        chain.verify().unwrap();
     }
 
     #[cfg_attr(not(has_sev), ignore)]
@@ -363,25 +347,29 @@ mod tests {
     fn pek_csr() {
         let sev = Sev::new().unwrap();
         let pek = sev.pek_csr().unwrap();
-        assert_eq!(pek.usage(), Usage::PlatformEndorsementKey);
+        assert_eq!(pek, Usage::PEK);
     }
 
+    #[cfg(feature = "openssl")]
     #[ignore]
     #[test]
     fn pek_cert_import() {
+        use crate::certs::{Signer, Verifiable};
+
         let sev = Sev::new().unwrap();
 
-        let (oca, key) = Certificate::oca().unwrap();
+        let (mut oca, key) = Certificate::generate(Usage::OCA).unwrap();
+        key.sign(&mut oca).unwrap();
+
         let mut pek = sev.pek_csr().unwrap();
         key.sign(&mut pek).unwrap();
 
         sev.pek_cert_import(&pek, &oca).unwrap();
 
-        let chain = sev.pdh_cert_export().unwrap();
-        chain[1].verify(&chain[0]).unwrap(); // PEK -> PDH
-        chain[2].verify(&chain[1]).unwrap(); // CEK -> PEK
-        oca.verify(&chain[1]).unwrap();      // OCA -> PEK
-        oca.verify(&chain[3]).unwrap();      // OCA -> OCA
+        let mut chain = sev.pdh_cert_export().unwrap();
+        chain.verify().unwrap();
+        chain.oca = oca;
+        chain.verify().unwrap();
 
         sev.platform_reset().unwrap();
     }
