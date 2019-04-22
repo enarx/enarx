@@ -31,6 +31,15 @@ pub struct PrivateKey<U> {
     pub usage: U,
 }
 
+impl<U> PrivateKey<U> {
+    pub(crate) fn derive(&self, cert: &sev::Certificate) -> Result<Vec<u8>> {
+        let key = PublicKey::try_from(cert)?;
+        let mut der = derive::Deriver::new(&self.key)?;
+        der.set_peer(&key.key)?;
+        Ok(der.derive_to_vec()?)
+    }
+}
+
 impl<'a, U, C> codicon::Decoder<&'a C> for PrivateKey<U> where
     &'a C: TryInto<PublicKey<U>, Error=Error> {
     type Error = Error;

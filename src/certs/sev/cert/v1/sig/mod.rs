@@ -104,7 +104,7 @@ impl TryFrom<&Signature> for Option<crate::certs::Signature> {
     fn try_from(value: &Signature) -> Result<Self> {
         if value.is_empty() { return Ok(None) }
 
-        let usage = value.usage.into();
+        let usage = value.usage;
         let hash = value.algo.try_into()?;
         let kind = value.algo.try_into()?;
         let sig = match kind {

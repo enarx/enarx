@@ -1,4 +1,4 @@
-use super::{certs::sev::{Chain, Certificate}, Firmware};
+use super::{certs::sev::{Chain, Certificate}, Build};
 
 use std::os::raw::{c_int, c_ulong, c_void};
 use std::mem::{uninitialized, size_of};
@@ -50,15 +50,6 @@ pub enum CodeError {
 impl From<std::io::Error> for CodeError {
     fn from(error: std::io::Error) -> CodeError {
         CodeError::IoError(error)
-    }
-}
-
-#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
-pub struct Build(Firmware, u8);
-
-impl std::fmt::Display for Build {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "{}.{}", self.0, self.1)
     }
 }
 
@@ -184,7 +175,7 @@ impl Sev {
         self.cmd(Code::PlatformStatus, Some(&mut stat))?;
 
         Ok(Status {
-            build: Build(Firmware(stat.api_major, stat.api_minor), stat.build),
+            build: Build::new(stat.api_major, stat.api_minor, stat.build),
             guests: stat.guest_count,
             flags: Flags::from_bits_truncate(stat.flags),
             state: match stat.state {
@@ -300,7 +291,7 @@ mod tests {
     fn platform_status() {
         let sev = Sev::new().unwrap();
         let status = sev.platform_status().unwrap();
-        assert!(status.build > Build(Firmware(0, 14), 0));
+        assert!(status.build > Build::new(0, 14, 0));
     }
 
     #[ignore]
@@ -366,9 +357,8 @@ mod tests {
 
         sev.pek_cert_import(&pek, &oca).unwrap();
 
-        let mut chain = sev.pdh_cert_export().unwrap();
-        chain.verify().unwrap();
-        chain.oca = oca;
+        let chain = sev.pdh_cert_export().unwrap();
+        assert_eq!(oca, chain.oca);
         chain.verify().unwrap();
 
         sev.platform_reset().unwrap();
