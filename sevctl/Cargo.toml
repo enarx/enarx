@@ -1,0 +1,14 @@
+[package]
+name = "sevctl"
+version = "0.1.0"
+authors = ["Nathaniel McCallum <npmccallum@redhat.com>"]
+edition = "2018"
+
+[dependencies]
+sev = { git = "https://github.com/enarx/sev", features = ["openssl"] }
+tiny_http = "0.6.2"
+reqwest = "0.9.15"
+codicon = "2.1.0"
+colored = "1.7.0"
+errno = "0.2.4"
+clap = "2.33.0"
