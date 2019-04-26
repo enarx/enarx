@@ -2,7 +2,7 @@ use clap::ArgMatches;
 
 use codicon::*;
 
-use ::sev::fwapi::{Sev, Status};
+use ::sev::firmware::{Firmware, Status};
 use ::sev::certs::*;
 
 use std::process::exit;
@@ -28,21 +28,21 @@ fn download(rsp: reqwest::Result<reqwest::Response>, usage: Usage) -> sev::Certi
         .expect(&format!("unable to parse downloaded {}", usage))
 }
 
-fn sevapi() -> Sev {
-    Sev::new().expect("unable to open /dev/sev")
+fn firmware() -> Firmware {
+    Firmware::open().expect("unable to open /dev/sev")
 }
 
 fn platform_status() -> Status {
-    sevapi().platform_status().expect("unable to fetch platform status")
+    firmware().platform_status().expect("unable to fetch platform status")
 }
 
 fn chain() -> sev::Chain {
     const CEK_SVC: &str = "https://kdsintf.amd.com/cek/id";
 
-    let mut chain = sevapi().pdh_cert_export()
+    let mut chain = firmware().pdh_cert_export()
         .expect("unable to export SEV certificates");
 
-    let id = sevapi().get_identifer().expect("error fetching identifier");
+    let id = firmware().get_identifer().expect("error fetching identifier");
     let url = format!("{}/{}", CEK_SVC, id);
     chain.cek = download(reqwest::get(&url), Usage::CEK);
 
@@ -165,13 +165,13 @@ mod reset {
     use super::*;
 
     pub fn cmd(_: &ArgMatches) -> ! {
-        sevapi().platform_reset().expect("error resetting platform");
+        firmware().platform_reset().expect("error resetting platform");
         exit(0)
     }
 }
 
 mod show {
-    use ::sev::fwapi::Flags;
+    use ::sev::firmware::Flags;
     use super::*;
 
     pub fn cmd(matches: &ArgMatches) -> ! {
@@ -400,7 +400,7 @@ mod serve {
 }
 
 mod rotate {
-    use ::sev::fwapi::Flags;
+    use ::sev::firmware::Flags;
     use super::*;
 
     pub fn cmd(matches: &ArgMatches) -> ! {
@@ -419,9 +419,9 @@ mod rotate {
             let oca = download(reqwest::get(url), Usage::OCA);
             (&oca, &oca).verify().expect("unable to self-verify OCA certificate");
 
-            sevapi().pek_generate().expect("unable to reset PEK");
+            firmware().pek_generate().expect("unable to reset PEK");
 
-            let csr = sevapi().pek_csr().expect("unable to fetch PEK CSR");
+            let csr = firmware().pek_csr().expect("unable to fetch PEK CSR");
 
             let mut buf = Vec::new();
             csr.encode(&mut buf, ()).expect("unable to re-encode PEK CSR");
@@ -429,13 +429,13 @@ mod rotate {
             let clt = reqwest::Client::new();
             let pek = download(clt.post(url).body(buf).send(), Usage::PEK);
 
-            sevapi().pek_cert_import(&pek, &oca).expect("unable to import PEK and OCA");
+            firmware().pek_cert_import(&pek, &oca).expect("unable to import PEK and OCA");
         } else {
             if platform_status().flags.contains(Flags::OWNED) {
                 eprintln!("not rotating owned system; see --adopt option");
                 exit(1);
             } else {
-                sevapi().pek_generate().expect("unable to rotate OCA, PEK and PDH");
+                firmware().pek_generate().expect("unable to rotate OCA, PEK and PDH");
             }
         }
 
@@ -443,7 +443,7 @@ mod rotate {
     }
 
     fn pdh(_: &ArgMatches) -> ! {
-        sevapi().pdh_generate().expect("unable to rotate PDH");
+        firmware().pdh_generate().expect("unable to rotate PDH");
         exit(0)
     }
 }
