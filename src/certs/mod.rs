@@ -6,9 +6,6 @@ mod util;
 #[cfg(feature = "openssl")]
 mod crypto;
 
-#[cfg(test)]
-mod naples;
-
 use std::convert::*;
 use std::io::*;
 
@@ -18,13 +15,49 @@ pub use chain::Chain;
 use util::*;
 
 #[cfg(feature = "openssl")]
-use crypto::*;
-
-#[cfg(feature = "openssl")]
-pub use crypto::{PrivateKey, Signer, Verifiable};
-
-#[cfg(feature = "openssl")]
 use openssl::*;
+
+#[cfg(feature = "openssl")]
+struct Body;
+
+#[cfg(feature = "openssl")]
+pub trait Verifiable {
+    type Output;
+
+    fn verify(self) -> Result<Self::Output>;
+}
+
+#[cfg(feature = "openssl")]
+pub trait Signer<T> {
+    type Output;
+
+    fn sign(&self, target: &mut T) -> Result<Self::Output>;
+}
+
+#[cfg(feature = "openssl")]
+struct Signature {
+    id: Option<u128>,
+    sig: Vec<u8>,
+    kind: pkey::Id,
+    hash: hash::MessageDigest,
+    usage: Usage,
+}
+
+#[cfg(feature = "openssl")]
+pub struct PrivateKey<U> {
+    id: Option<u128>,
+    key: pkey::PKey<pkey::Private>,
+    hash: hash::MessageDigest,
+    usage: U,
+}
+
+#[cfg(feature = "openssl")]
+struct PublicKey<U> {
+    id: Option<u128>,
+    key: pkey::PKey<pkey::Public>,
+    hash: hash::MessageDigest,
+    usage: U,
+}
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]

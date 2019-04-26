@@ -14,7 +14,7 @@ const CEK: &[u8] = include_bytes!("cek.cert");
 const PEK: &[u8] = include_bytes!("pek.cert");
 const PDH: &[u8] = include_bytes!("pdh.cert");
 
-use super::*;
+use ::sev::certs::*;
 
 #[allow(unused_imports)]
 use codicon::*;

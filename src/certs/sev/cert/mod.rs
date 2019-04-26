@@ -3,6 +3,7 @@ mod v1;
 use super::*;
 
 #[repr(C)]
+#[derive(Copy, Clone)]
 pub union Certificate {
     version: u32,
     v1: v1::Certificate,

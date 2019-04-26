@@ -2,35 +2,6 @@ use super::*;
 
 use std::fmt::{Debug, Formatter};
 
-pub struct Body;
-
-pub trait Verifiable {
-    type Output;
-
-    fn verify(self) -> Result<Self::Output>;
-}
-
-pub trait Signer<T> {
-    type Output;
-
-    fn sign(&self, target: &mut T) -> Result<Self::Output>;
-}
-
-pub struct Signature {
-    pub id: Option<u128>,
-    pub sig: Vec<u8>,
-    pub kind: pkey::Id,
-    pub hash: hash::MessageDigest,
-    pub usage: Usage,
-}
-
-pub struct PrivateKey<U> {
-    pub id: Option<u128>,
-    pub key: pkey::PKey<pkey::Private>,
-    pub hash: hash::MessageDigest,
-    pub usage: U,
-}
-
 impl<U> PrivateKey<U> {
     pub(crate) fn derive(&self, cert: &sev::Certificate) -> Result<Vec<u8>> {
         let key = PublicKey::try_from(cert)?;
@@ -40,27 +11,37 @@ impl<U> PrivateKey<U> {
     }
 }
 
-impl<'a, U, C> codicon::Decoder<&'a C> for PrivateKey<U> where
-    &'a C: TryInto<PublicKey<U>, Error=Error> {
-    type Error = Error;
+macro_rules! prv_decoder {
+    ($($cert:path => $usage:path),+) => {
+        $(
+            impl codicon::Decoder<&$cert> for PrivateKey<$usage> {
+                type Error = Error;
 
-    fn decode(reader: &mut impl Read, params: &'a C) -> Result<Self> {
-        let mut buf = Vec::new();
-        reader.read_to_end(&mut buf)?;
+                fn decode(reader: &mut impl Read, params: &$cert) -> Result<Self> {
+                    let mut buf = Vec::new();
+                    reader.read_to_end(&mut buf)?;
 
-        let prv = pkey::PKey::private_key_from_der(&buf)?;
-        let key = params.try_into()?;
-        if !prv.public_eq(&key.key) {
-            return Err(ErrorKind::InvalidData.into());
-        }
+                    let prv = pkey::PKey::private_key_from_der(&buf)?;
+                    let key = PublicKey::try_from(params)?;
+                    if !prv.public_eq(&key.key) {
+                        return Err(ErrorKind::InvalidData.into());
+                    }
 
-        Ok(PrivateKey {
-            usage: key.usage,
-            hash: key.hash,
-            id: key.id,
-            key: prv,
-        })
-    }
+                    Ok(PrivateKey {
+                        usage: key.usage,
+                        hash: key.hash,
+                        id: key.id,
+                        key: prv,
+                    })
+                }
+            }
+        )+
+    };
+}
+
+prv_decoder! {
+    sev::Certificate => sev::Usage,
+    ca::Certificate => ca::Usage
 }
 
 impl<U> codicon::Encoder for PrivateKey<U> {
@@ -70,13 +51,6 @@ impl<U> codicon::Encoder for PrivateKey<U> {
         let buf = self.key.private_key_to_der()?;
         writer.write_all(&buf)
     }
-}
-
-pub struct PublicKey<U> {
-    pub id: Option<u128>,
-    pub key: pkey::PKey<pkey::Public>,
-    pub hash: hash::MessageDigest,
-    pub usage: U,
 }
 
 impl<U: Copy + Into<Usage>> std::fmt::Display for PublicKey<U> {

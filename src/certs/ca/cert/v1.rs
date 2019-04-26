@@ -1,6 +1,6 @@
 use super::*;
 
-const NAPLES_ARK_SIG: &[u8] = include_bytes!("../../naples/ark.cert.sig");
+const NAPLES_ARK_SIG: &[u8] = include_bytes!("../../../../tests/naples/ark.cert.sig");
 const NAPLES_ARK: Preamble = Preamble {
     ver: 1u32.to_le(),
     data: Data {

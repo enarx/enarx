@@ -1,46 +1,30 @@
 #![warn(clippy::all)]
 #![allow(unknown_lints)]
+#![allow(clippy::identity_op)]
 #![allow(clippy::unreadable_literal)]
 
 #[cfg(feature = "openssl")]
 pub mod session;
 pub mod launch;
 pub mod certs;
-pub mod fwapi;
+pub mod api;
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
-pub struct Version {
-    pub major: u8,
-    pub minor: u8,
-}
-
-impl Version {
-    fn new(major: u8, minor: u8) -> Version {
-        Version { major, minor }
-    }
-}
+pub struct Version(pub u8, pub u8);
 
 impl std::fmt::Display for Version {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "{}.{}", self.major, self.minor)
+        write!(f, "{}.{}", self.0, self.1)
     }
 }
 
+#[repr(C)]
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
-pub struct Build {
-    pub version: Version,
-    pub build: u8,
-}
-
-impl Build {
-    fn new(major: u8, minor: u8, build: u8) -> Build {
-        Build { version: Version::new(major, minor), build }
-    }
-}
+pub struct Build(pub Version, pub u8);
 
 impl std::fmt::Display for Build {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "{}.{}", self.version, self.build)
+        write!(f, "{}.{}", self.0, self.1)
     }
 }

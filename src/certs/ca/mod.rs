@@ -11,8 +11,8 @@ use super::*;
 pub struct Usage(u32);
 
 impl Usage {
-    pub const ARK: Usage = Usage(0x0000u32.to_le());
-    pub const ASK: Usage = Usage(0x0013u32.to_le());
+    pub const ARK: Usage = Usage(super::Usage::ARK.0);
+    pub const ASK: Usage = Usage(super::Usage::ASK.0);
 }
 
 impl TryFrom<super::Usage> for Usage {

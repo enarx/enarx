@@ -19,18 +19,31 @@ impl launch::Policy {
     fn bytes(self) -> [u8; 4] {
         unsafe { std::mem::transmute(self) }
     }
+}
 
-    pub fn session(self) -> Result<Session<Initialized>> {
-        Ok(session::Session {
-            policy: self,
+impl std::convert::TryFrom<launch::Policy> for Session<Initialized> {
+    type Error = std::io::Error;
+
+    fn try_from(value: launch::Policy) -> Result<Self> {
+        Ok(Self {
             tek: key::Key::random(16)?,
             tik: key::Key::random(16)?,
             data: Initialized,
+            policy: value,
         })
     }
 }
 
 impl Session<Initialized> {
+    pub fn from_keys(policy: launch::Policy, tek: Vec<u8>, tik: Vec<u8>) -> Self {
+        Self {
+            tek: key::Key::new(tek),
+            tik: key::Key::new(tik),
+            data: Initialized,
+            policy,
+        }
+    }
+
     pub fn start(&self, chain: certs::Chain) -> Result<launch::Start> {
         use certs::*;
 
@@ -65,7 +78,7 @@ impl Session<Initialized> {
         Ok(launch::Start {
             policy: self.policy,
             cert: crt,
-            data: launch::Data {
+            session: launch::Session {
                 policy_mac: pmac,
                 wrap_mac: wmac,
                 wrap_tk: wrap,
@@ -87,7 +100,7 @@ impl Session<Initialized> {
         let mut sig = sign::Signer::new(hash::MessageDigest::sha256(), &key)?;
 
         sig.update(&[0x04u8])?;
-        sig.update(&[build.version.major, build.version.minor, build.build])?;
+        sig.update(&[(build.0).0, (build.0).1, build.1])?;
         sig.update(&self.policy.bytes())?;
         sig.update(&digest)?;
         sig.update(&msr.mnonce)?;
@@ -135,50 +148,5 @@ impl Session<Verified> {
             header: launch::Header { flags, mac, iv },
             ciphertext,
         })
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn verify() {
-        let digest = [
-            0xe3, 0xb0, 0xc4, 0x42, 0x98, 0xfc, 0x1c, 0x14,
-            0x9a, 0xfb, 0xf4, 0xc8, 0x99, 0x6f, 0xb9, 0x24,
-            0x27, 0xae, 0x41, 0xe4, 0x64, 0x9b, 0x93, 0x4c,
-            0xa4, 0x95, 0x99, 0x1b, 0x78, 0x52, 0xb8, 0x55
-        ];
-
-        let measurement = launch::Measurement {
-            measure: [
-                0x6f, 0xaa, 0xb2, 0xda, 0xae, 0x38, 0x9b, 0xcd,
-                0x34, 0x05, 0xa0, 0x5d, 0x6c, 0xaf, 0xe3, 0x3c,
-                0x04, 0x14, 0xf7, 0xbe, 0xdd, 0x0b, 0xae, 0x19,
-                0xba, 0x5f, 0x38, 0xb7, 0xfd, 0x16, 0x64, 0xea
-            ],
-            mnonce: [
-                0x4f, 0xbe, 0x0b, 0xed, 0xba, 0xd6, 0xc8, 0x6a,
-                0xe8, 0xf6, 0x89, 0x71, 0xd1, 0x03, 0xe5, 0x54
-            ],
-        };
-
-        let session = Session {
-            policy: launch::Policy {
-                flags: launch::PolicyFlags::default(),
-                minfw: Version::new(0, 0),
-            },
-            tek: key::Key::random(16).unwrap(),
-            tik: key::Key::new(vec![
-                0x66, 0x32, 0x0d, 0xb7, 0x31, 0x58, 0xa3, 0x5a,
-                0x25, 0x5d, 0x05, 0x17, 0x58, 0xe9, 0x5e, 0xd4
-            ]),
-            data: Initialized
-        };
-
-        let build = Build::new(0x00, 0x12, 0x0f);
-
-        session.verify(&digest, build, measurement).unwrap();
     }
 }

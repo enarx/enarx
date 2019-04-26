@@ -11,10 +11,10 @@ use super::*;
 pub struct Usage(u32);
 
 impl Usage {
-    pub const OCA: Usage = Usage(0x1001u32.to_le());
-    pub const CEK: Usage = Usage(0x1004u32.to_le());
-    pub const PEK: Usage = Usage(0x1002u32.to_le());
-    pub const PDH: Usage = Usage(0x1003u32.to_le());
+    pub const OCA: Usage = Usage(super::Usage::OCA.0);
+    pub const CEK: Usage = Usage(super::Usage::CEK.0);
+    pub const PEK: Usage = Usage(super::Usage::PEK.0);
+    pub const PDH: Usage = Usage(super::Usage::PDH.0);
 }
 
 impl TryFrom<super::Usage> for Usage {

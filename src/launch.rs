@@ -21,8 +21,8 @@ pub struct Policy {
 }
 
 #[repr(C)]
-#[derive(Debug, PartialEq, Eq)]
-pub struct Data {
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub struct Session {
     pub nonce: [u8; 16],
     pub wrap_tk: [u8; 32],
     pub wrap_iv: [u8; 16],
@@ -34,7 +34,7 @@ pub struct Data {
 pub struct Start {
     pub policy: Policy,
     pub cert: certs::sev::Certificate,
-    pub data: Data,
+    pub session: Session,
 }
 
 bitflags! {
