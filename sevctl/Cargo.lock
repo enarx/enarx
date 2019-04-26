@@ -1092,7 +1092,7 @@ dependencies = [
 [[package]]
 name = "sev"
 version = "0.1.0"
-source = "git+https://github.com/enarx/sev#3cfcd67a9c3f09dc12fca1f6fa8722d87f1d1e3a"
+source = "git+https://github.com/enarx/sev#1b0bf8c1fc7523dc44c01b39ff0161a2a25f7acd"
 dependencies = [
  "bitflags 1.0.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "codicon 2.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
