@@ -3,8 +3,8 @@ use super::*;
 #[repr(C)]
 #[derive(Debug, PartialEq, Eq)]
 pub struct Chain {
-    ca: ca::Chain,
-    sev: sev::Chain,
+    pub ca: ca::Chain,
+    pub sev: sev::Chain,
 }
 
 impl codicon::Decoder for Chain {
