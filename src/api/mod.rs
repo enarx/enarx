@@ -10,7 +10,7 @@ use bitflags::bitflags;
 pub use linux::Firmware;
 
 #[derive(Debug)]
-pub enum Inexhaustive<T: Debug> {
+pub enum Indeterminate<T: Debug> {
     Known(T),
     Unknown,
 }
@@ -49,17 +49,17 @@ impl From<std::io::Error> for Error {
     }
 }
 
-impl From<std::io::Error> for Inexhaustive<Error> {
+impl From<std::io::Error> for Indeterminate<Error> {
     #[inline]
-    fn from(error: std::io::Error) -> Inexhaustive<Error> {
-        Inexhaustive::Known(error.into())
+    fn from(error: std::io::Error) -> Indeterminate<Error> {
+        Indeterminate::Known(error.into())
     }
 }
 
-impl From<u32> for Inexhaustive<Error> {
+impl From<u32> for Indeterminate<Error> {
     #[inline]
-    fn from(error: u32) -> Inexhaustive<Error> {
-        Inexhaustive::Known(match error {
+    fn from(error: u32) -> Indeterminate<Error> {
+        Indeterminate::Known(match error {
             0 => std::io::Error::last_os_error().into(),
             1 => Error::InvalidPlatformState,
             2 => Error::InvalidGuestState,
@@ -82,7 +82,7 @@ impl From<u32> for Inexhaustive<Error> {
             19 => Error::HardwarePlatform,
             20 => Error::HardwareUnsafe,
             21 => Error::Unsupported,
-            _ => return Inexhaustive::Unknown,
+            _ => return Indeterminate::Unknown,
         })
     }
 }

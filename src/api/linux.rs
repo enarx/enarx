@@ -22,7 +22,7 @@ enum Code {
 pub struct Firmware(File);
 
 impl Firmware {
-    fn cmd<T>(&self, code: Code, mut value: T) -> Result<T, Inexhaustive<Error>> {
+    fn cmd<T>(&self, code: Code, mut value: T) -> Result<T, Indeterminate<Error>> {
         extern "C" { fn ioctl(fd: c_int, request: c_ulong, ...) -> c_int; }
         const SEV_ISSUE_CMD: c_ulong = 0xc0105300;
 
@@ -49,12 +49,12 @@ impl Firmware {
         Ok(Firmware(File::open("/dev/sev")?))
     }
 
-    pub fn platform_reset(&self) -> Result<(), Inexhaustive<Error>> {
+    pub fn platform_reset(&self) -> Result<(), Indeterminate<Error>> {
         self.cmd(Code::PlatformReset, ())?;
         Ok(())
     }
 
-    pub fn platform_status(&self) -> Result<Status, Inexhaustive<Error>> {
+    pub fn platform_status(&self) -> Result<Status, Indeterminate<Error>> {
         #[repr(C, packed)]
         struct Info {
             api_major: u8,
@@ -75,17 +75,17 @@ impl Firmware {
                 0 => State::Uninitialized,
                 1 => State::Initialized,
                 2 => State::Working,
-                _ => Err(Inexhaustive::Unknown)?,
+                _ => Err(Indeterminate::Unknown)?,
             },
         })
     }
 
-    pub fn pek_generate(&self) -> Result<(), Inexhaustive<Error>> {
+    pub fn pek_generate(&self) -> Result<(), Indeterminate<Error>> {
         self.cmd(Code::PekGenerate, ())?;
         Ok(())
     }
 
-    pub fn pek_csr(&self) -> Result<Certificate, Inexhaustive<Error>> {
+    pub fn pek_csr(&self) -> Result<Certificate, Indeterminate<Error>> {
         #[repr(C, packed)]
         struct Cert {
             addr: u64,
@@ -102,12 +102,12 @@ impl Firmware {
         Ok(pek)
     }
 
-    pub fn pdh_generate(&self) -> Result<(), Inexhaustive<Error>> {
+    pub fn pdh_generate(&self) -> Result<(), Indeterminate<Error>> {
         self.cmd(Code::PdhGenerate, ())?;
         Ok(())
     }
 
-    pub fn pdh_cert_export(&self) -> Result<certs::sev::Chain, Inexhaustive<Error>> {
+    pub fn pdh_cert_export(&self) -> Result<certs::sev::Chain, Indeterminate<Error>> {
         #[repr(C, packed)]
         struct Certs {
             pdh_addr: u64,
@@ -129,7 +129,7 @@ impl Firmware {
         Ok(certs::sev::Chain { pdh, pek: chain[0], oca: chain[1], cek: chain[2] })
     }
 
-    pub fn pek_cert_import(&self, pek: &Certificate, oca: &Certificate) -> Result<(), Inexhaustive<Error>> {
+    pub fn pek_cert_import(&self, pek: &Certificate, oca: &Certificate) -> Result<(), Indeterminate<Error>> {
         #[repr(C, packed)]
         struct Certs {
             pek_addr: u64,
@@ -148,7 +148,7 @@ impl Firmware {
         Ok(())
     }
 
-    pub fn get_identifer(&self) -> Result<Identifier, Inexhaustive<Error>> {
+    pub fn get_identifer(&self) -> Result<Identifier, Indeterminate<Error>> {
         // Per AMD, this interface will change in a future revision.
         // Future iterations will only ever return one id and its
         // length will be variable. We handle the current verison of
