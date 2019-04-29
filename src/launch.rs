@@ -14,7 +14,7 @@ bitflags! {
 }
 
 #[repr(C)]
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
 pub struct Policy {
     pub flags: PolicyFlags,
     pub minfw: Version,
