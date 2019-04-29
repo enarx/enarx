@@ -5,9 +5,9 @@
 
 #[cfg(feature = "openssl")]
 pub mod session;
+pub mod firmware;
 pub mod launch;
 pub mod certs;
-pub mod api;
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]

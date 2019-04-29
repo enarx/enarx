@@ -1,4 +1,4 @@
-use sev::{Build, Version, api::Firmware, certs::sev::Usage};
+use sev::{Build, Version, firmware::Firmware, certs::sev::Usage};
 
 #[ignore]
 #[test]
