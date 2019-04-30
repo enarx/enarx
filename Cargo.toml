@@ -11,3 +11,6 @@ default = []
 openssl = { version = "0.10.20", optional = true }
 bitflags = "1.0.4"
 codicon = "2.1.0"
+
+[patch.crates-io]
+openssl = { git = 'https://github.com/sfackler/rust-openssl' }

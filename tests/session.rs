@@ -1,7 +1,31 @@
 #![cfg(feature = "openssl")]
 
 mod initialized {
-    use sev::{Build, Version, launch, session::Session};
+    use ::sev::{Build, Version, launch, session::Session, certs::*};
+    use codicon::Decoder;
+    use std::convert::*;
+
+    #[test]
+    fn create() {
+        Session::try_from(launch::Policy::default()).unwrap();
+    }
+
+    #[test]
+    fn start() {
+        let session = Session::try_from(launch::Policy::default()).unwrap();
+        session.start(Chain {
+            ca: ca::Chain {
+                ark: ca::Certificate::decode(&mut &include_bytes!("naples/ark.cert")[..], ()).unwrap(),
+                ask: ca::Certificate::decode(&mut &include_bytes!("naples/ask.cert")[..], ()).unwrap(),
+            },
+            sev: sev::Chain {
+                cek: sev::Certificate::decode(&mut &include_bytes!("naples/cek.cert")[..], ()).unwrap(),
+                oca: sev::Certificate::decode(&mut &include_bytes!("naples/oca.cert")[..], ()).unwrap(),
+                pek: sev::Certificate::decode(&mut &include_bytes!("naples/pek.cert")[..], ()).unwrap(),
+                pdh: sev::Certificate::decode(&mut &include_bytes!("naples/pdh.cert")[..], ()).unwrap(),
+            },
+        }).unwrap();
+    }
 
     #[test]
     fn verify() {
