@@ -137,7 +137,19 @@ impl Session<Verified> {
             &*self.tek, Some(&iv), data
         )?;
 
-        let mac = self.tik.mac(&ciphertext)?;
+        let key = pkey::PKey::hmac(&*self.tik)?;
+        let mut sig = sign::Signer::new(hash::MessageDigest::sha256(), &key)?;
+
+        sig.update(&[0x01u8])?;
+        sig.update(&unsafe { std::mem::transmute::<_, [u8; 4]>(flags) })?;
+        sig.update(&iv)?;
+        sig.update(&(data.len() as u32).to_le_bytes())?;
+        sig.update(&(ciphertext.len() as u32).to_le_bytes())?;
+        sig.update(&ciphertext)?;
+        sig.update(&self.data.0.measure)?;
+
+        let mut mac = [0u8; 32];
+        sig.sign(&mut mac)?;
 
         Ok(launch::Secret {
             header: launch::Header { flags, mac, iv },
