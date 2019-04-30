@@ -73,7 +73,7 @@ impl Session<Initialized> {
         assert_eq!(off, wrap.len());
 
         let wmac = kik.mac(&wrap)?;
-        let pmac = kik.mac(&self.policy.bytes())?;
+        let pmac = self.tik.mac(&self.policy.bytes())?;
 
         Ok(launch::Start {
             policy: self.policy,
