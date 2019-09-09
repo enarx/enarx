@@ -16,11 +16,11 @@ use clap::ArgMatches;
 
 use codicon::*;
 
-use ::sev::firmware::{Firmware, Status};
 use ::sev::certs::*;
+use ::sev::firmware::{Firmware, Status};
 
-use std::process::exit;
 use std::fs::File;
+use std::process::exit;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 const AUTHORS: &str = env!("CARGO_PKG_AUTHORS");
@@ -47,16 +47,21 @@ fn firmware() -> Firmware {
 }
 
 fn platform_status() -> Status {
-    firmware().platform_status().expect("unable to fetch platform status")
+    firmware()
+        .platform_status()
+        .expect("unable to fetch platform status")
 }
 
 fn chain() -> sev::Chain {
     const CEK_SVC: &str = "https://kdsintf.amd.com/cek/id";
 
-    let mut chain = firmware().pdh_cert_export()
+    let mut chain = firmware()
+        .pdh_cert_export()
         .expect("unable to export SEV certificates");
 
-    let id = firmware().get_identifer().expect("error fetching identifier");
+    let id = firmware()
+        .get_identifer()
+        .expect("error fetching identifier");
     let url = format!("{}/{}", CEK_SVC, id);
     chain.cek = download(reqwest::get(&url), Usage::CEK);
 
@@ -64,110 +69,116 @@ fn chain() -> sev::Chain {
 }
 
 fn main() {
-    use clap::{Arg, App, SubCommand};
+    use clap::{App, Arg, SubCommand};
 
     let matches = App::new("SEV Platform Control")
         .version(VERSION)
         .author(AUTHORS.split(";").nth(0).unwrap())
         .about("Utilities for managing the SEV environement")
-
-        .subcommand(SubCommand::with_name("reset")
-            .about("Resets the SEV platform")
-        )
-
-        .subcommand(SubCommand::with_name("show")
-            .about("Shows information about the SEV platform")
-            .subcommand(SubCommand::with_name("version")
-                .about("Show the current firmware version"))
-            .subcommand(SubCommand::with_name("guests")
-                .about("Show the current number of guests"))
-            .subcommand(SubCommand::with_name("flags")
-                .about("Show the current platform flags"))
-        )
-
-        .subcommand(SubCommand::with_name("export")
-            .about("Export the SEV certificate chain")
-            .arg(Arg::with_name("file")
-                .help("SEV certificate chain output file")
-                .required(true)
-            )
-        )
-
-        .subcommand(SubCommand::with_name("verify")
-            .about("Verify the full SEV/CA certificate chain")
-            .arg(Arg::with_name("quiet")
-                .help("Do not print anything to the console")
-                .long("quiet")
-                .short("q")
-            )
-            .arg(Arg::with_name("sev")
-                .help("Read SEV chain from the specified file")
-                .takes_value(true)
-                .long("sev")
-            )
-            .arg(Arg::with_name("oca")
-                .help("Read OCA from the specified file")
-                .takes_value(true)
-                .long("oca")
-            )
-            .arg(Arg::with_name("ca")
-                .help("Read CA chain from the specified file")
-                .takes_value(true)
-                .long("ca")
-            )
-        )
-
-        .subcommand(SubCommand::with_name("generate")
-            .about("Generate a new, self-signed OCA certificate and key")
-            .arg(Arg::with_name("cert")
-                .help("OCA certificate output file")
-                .required(true)
-            )
-            .arg(Arg::with_name("key")
-                .help("OCA private key output file")
-                .required(true)
-            )
-        )
-
-        .subcommand(SubCommand::with_name("serve")
-            .about("Run a server to handle OCA certificate signing requests")
-            .arg(Arg::with_name("cert")
-                .help("OCA certificate input file")
-                .required(true)
-            )
-            .arg(Arg::with_name("key")
-                .help("OCA private key input file")
-                .required(true)
-            )
-        )
-
-        .subcommand(SubCommand::with_name("rotate")
-            .about("Rotate certificates and their keys")
-
-            .subcommand(SubCommand::with_name("all")
-                .about("Rotate the OCA, PEK and PDH certificates")
-                .arg(Arg::with_name("adopt")
-                    .help("URL of OCA signing service")
-                    .takes_value(true)
-                    .long("adopt")
+        .subcommand(SubCommand::with_name("reset").about("Resets the SEV platform"))
+        .subcommand(
+            SubCommand::with_name("show")
+                .about("Shows information about the SEV platform")
+                .subcommand(
+                    SubCommand::with_name("version").about("Show the current firmware version"),
                 )
-            )
-
-            .subcommand(SubCommand::with_name("pdh")
-                .about("Rotate the PDH certificate")
-            )
+                .subcommand(
+                    SubCommand::with_name("guests").about("Show the current number of guests"),
+                )
+                .subcommand(
+                    SubCommand::with_name("flags").about("Show the current platform flags"),
+                ),
         )
-
+        .subcommand(
+            SubCommand::with_name("export")
+                .about("Export the SEV certificate chain")
+                .arg(
+                    Arg::with_name("file")
+                        .help("SEV certificate chain output file")
+                        .required(true),
+                ),
+        )
+        .subcommand(
+            SubCommand::with_name("verify")
+                .about("Verify the full SEV/CA certificate chain")
+                .arg(
+                    Arg::with_name("quiet")
+                        .help("Do not print anything to the console")
+                        .long("quiet")
+                        .short("q"),
+                )
+                .arg(
+                    Arg::with_name("sev")
+                        .help("Read SEV chain from the specified file")
+                        .takes_value(true)
+                        .long("sev"),
+                )
+                .arg(
+                    Arg::with_name("oca")
+                        .help("Read OCA from the specified file")
+                        .takes_value(true)
+                        .long("oca"),
+                )
+                .arg(
+                    Arg::with_name("ca")
+                        .help("Read CA chain from the specified file")
+                        .takes_value(true)
+                        .long("ca"),
+                ),
+        )
+        .subcommand(
+            SubCommand::with_name("generate")
+                .about("Generate a new, self-signed OCA certificate and key")
+                .arg(
+                    Arg::with_name("cert")
+                        .help("OCA certificate output file")
+                        .required(true),
+                )
+                .arg(
+                    Arg::with_name("key")
+                        .help("OCA private key output file")
+                        .required(true),
+                ),
+        )
+        .subcommand(
+            SubCommand::with_name("serve")
+                .about("Run a server to handle OCA certificate signing requests")
+                .arg(
+                    Arg::with_name("cert")
+                        .help("OCA certificate input file")
+                        .required(true),
+                )
+                .arg(
+                    Arg::with_name("key")
+                        .help("OCA private key input file")
+                        .required(true),
+                ),
+        )
+        .subcommand(
+            SubCommand::with_name("rotate")
+                .about("Rotate certificates and their keys")
+                .subcommand(
+                    SubCommand::with_name("all")
+                        .about("Rotate the OCA, PEK and PDH certificates")
+                        .arg(
+                            Arg::with_name("adopt")
+                                .help("URL of OCA signing service")
+                                .takes_value(true)
+                                .long("adopt"),
+                        ),
+                )
+                .subcommand(SubCommand::with_name("pdh").about("Rotate the PDH certificate")),
+        )
         .get_matches();
 
     match matches.subcommand() {
-        ("reset",    Some(m)) => reset::cmd(m),
-        ("show",     Some(m)) => show::cmd(m),
-        ("export",   Some(m)) => export::cmd(m),
-        ("verify",   Some(m)) => verify::cmd(m),
+        ("reset", Some(m)) => reset::cmd(m),
+        ("show", Some(m)) => show::cmd(m),
+        ("export", Some(m)) => export::cmd(m),
+        ("verify", Some(m)) => verify::cmd(m),
         ("generate", Some(m)) => generate::cmd(m),
-        ("serve",    Some(m)) => serve::cmd(m),
-        ("rotate",   Some(m)) => rotate::cmd(m),
+        ("serve", Some(m)) => serve::cmd(m),
+        ("rotate", Some(m)) => rotate::cmd(m),
         _ => {
             eprintln!("{}", matches.usage());
             exit(1);
@@ -179,14 +190,16 @@ mod reset {
     use super::*;
 
     pub fn cmd(_: &ArgMatches) -> ! {
-        firmware().platform_reset().expect("error resetting platform");
+        firmware()
+            .platform_reset()
+            .expect("error resetting platform");
         exit(0)
     }
 }
 
 mod show {
-    use ::sev::firmware::Flags;
     use super::*;
+    use ::sev::firmware::Flags;
 
     pub fn cmd(matches: &ArgMatches) -> ! {
         let status = platform_status();
@@ -196,13 +209,18 @@ mod show {
 
             Some("guests") => println!("{}", status.guests),
 
-            Some("flags") => for f in [Flags::OWNED, Flags::ENCRYPTED_STATE].iter() {
-                println!("{}", match status.flags & *f {
-                    Flags::ENCRYPTED_STATE => "es",
-                    Flags::OWNED => "owned",
-                    _ => continue,
-                });
-            },
+            Some("flags") => {
+                for f in [Flags::OWNED, Flags::ENCRYPTED_STATE].iter() {
+                    println!(
+                        "{}",
+                        match status.flags & *f {
+                            Flags::ENCRYPTED_STATE => "es",
+                            Flags::OWNED => "owned",
+                            _ => continue,
+                        }
+                    );
+                }
+            }
 
             _ => {
                 eprintln!("{}", matches.usage());
@@ -215,8 +233,8 @@ mod show {
 }
 
 mod export {
-    use std::io::Write;
     use super::*;
+    use std::io::Write;
 
     pub fn cmd(matches: &ArgMatches) -> ! {
         let chain = chain();
@@ -224,8 +242,8 @@ mod export {
         let mut out = std::io::Cursor::new(Vec::new());
         chain.encode(&mut out, ()).unwrap();
 
-        let mut file = File::create(matches.value_of("file").unwrap())
-            .expect("unable to create output file");
+        let mut file =
+            File::create(matches.value_of("file").unwrap()).expect("unable to create output file");
 
         file.write_all(&out.into_inner())
             .expect("unable to write output file");
@@ -235,10 +253,10 @@ mod export {
 }
 
 mod verify {
+    use super::*;
+    use colored::Colorize;
     use std::convert::TryInto;
     use std::fmt::Display;
-    use colored::Colorize;
-    use super::*;
 
     pub fn cmd(matches: &ArgMatches) -> ! {
         let mut schain = sev_chain(matches.value_of("sev"));
@@ -247,14 +265,14 @@ mod verify {
         let mut err = false;
 
         if let Some(filename) = matches.value_of("oca") {
-            let mut file = File::open(filename)
-                .expect("unable to open OCA certificate file");
+            let mut file = File::open(filename).expect("unable to open OCA certificate file");
 
-            schain.oca = sev::Certificate::decode(&mut file, ())
-                .expect("unable to decode OCA");
+            schain.oca = sev::Certificate::decode(&mut file, ()).expect("unable to decode OCA");
         }
 
-        if !quiet { println!("{}", schain.pdh); }
+        if !quiet {
+            println!("{}", schain.pdh);
+        }
         err |= status("", &schain.pek, &schain.pdh, quiet);
         err |= status("   ", &schain.oca, &schain.pek, quiet);
         err |= status("   ", &schain.cek, &schain.pek, quiet);
@@ -264,9 +282,14 @@ mod verify {
         exit(err as i32)
     }
 
-    fn status<'a, P, C>(pfx: &str, p: &'a P, c: &'a C, quiet: bool) -> bool where
-        P: Display, C: Display, &'a P: TryInto<Usage, Error=std::io::Error>,
-        (&'a P, &'a P): Verifiable, (&'a P, &'a C): Verifiable {
+    fn status<'a, P, C>(pfx: &str, p: &'a P, c: &'a C, quiet: bool) -> bool
+    where
+        P: Display,
+        C: Display,
+        &'a P: TryInto<Usage, Error = std::io::Error>,
+        (&'a P, &'a P): Verifiable,
+        (&'a P, &'a C): Verifiable,
+    {
         let sig = (p, c).verify().is_ok();
         let lnk = if sig { "⮤".green() } else { "⮤".red() };
 
@@ -274,12 +297,16 @@ mod verify {
             Usage::OCA | Usage::ARK => {
                 let selfsig = (p, p).verify().is_ok();
                 let slf = if selfsig { "•".green() } else { "•".red() };
-                if !quiet { println!("{}{}{} {}", pfx, slf, lnk, p); }
+                if !quiet {
+                    println!("{}{}{} {}", pfx, slf, lnk, p);
+                }
                 sig && selfsig
-            },
+            }
 
             _ => {
-                if !quiet { println!("{}{}{} {}", pfx, " ", lnk, p); }
+                if !quiet {
+                    println!("{}{}{} {}", pfx, " ", lnk, p);
+                }
                 sig
             }
         }
@@ -289,22 +316,20 @@ mod verify {
         match filename {
             None => chain(),
             Some(f) => {
-                let mut file = File::open(f)
-                    .expect("unable to open SEV certificate chain file");
+                let mut file = File::open(f).expect("unable to open SEV certificate chain file");
 
                 sev::Chain::decode(&mut file, ()).expect("unable to decode chain")
-            },
+            }
         }
     }
 
     fn ca_chain(filename: Option<&str>) -> ca::Chain {
         match filename {
             Some(f) => {
-                let mut file = File::open(&f)
-                    .expect("unable to open CA certificate chain file");
+                let mut file = File::open(&f).expect("unable to open CA certificate chain file");
 
                 ca::Chain::decode(&mut file, ()).expect("unable to decode chain")
-            },
+            }
 
             None => ca::Chain {
                 ask: ca::Certificate::decode(&mut &ASK[..], ()).unwrap(),
@@ -318,14 +343,15 @@ mod generate {
     use super::*;
 
     pub fn cmd(matches: &ArgMatches) -> ! {
-        let (mut oca, prv) = sev::Certificate::generate(sev::Usage::OCA)
-            .expect("unable to generate OCA key pair");
+        let (mut oca, prv) =
+            sev::Certificate::generate(sev::Usage::OCA).expect("unable to generate OCA key pair");
         prv.sign(&mut oca).unwrap();
 
         // Write the certificate
         let crt = matches.value_of("cert").unwrap();
         let mut crt = File::create(crt).expect("unable to create certificate file");
-        oca.encode(&mut crt, ()).expect("unable to write certificate file");
+        oca.encode(&mut crt, ())
+            .expect("unable to write certificate file");
 
         // Write the private key
         let key = matches.value_of("key").unwrap();
@@ -337,8 +363,8 @@ mod generate {
 }
 
 mod serve {
-    use tiny_http::{Server, Request, Response, StatusCode, Method};
     use super::*;
+    use tiny_http::{Method, Request, Response, Server, StatusCode};
 
     pub fn cmd(matches: &ArgMatches) -> ! {
         let (enc, key) = load(matches);
@@ -346,8 +372,13 @@ mod serve {
 
         let srv = Server::http("0.0.0.0:8000").unwrap();
         for (i, mut req) in srv.incoming_requests().enumerate() {
-            eprintln!("{:08}: {} > {} {}", i, req.remote_addr(),
-                        req.method(), req.url());
+            eprintln!(
+                "{:08}: {} > {} {}",
+                i,
+                req.remote_addr(),
+                req.method(),
+                req.url()
+            );
 
             if req.url() != "/" {
                 let rsp = Response::empty(StatusCode(404));
@@ -387,8 +418,7 @@ mod serve {
 
         // Load certificate
         let mut oca = File::open(oca).expect("unable to open certificate file");
-        let oca = sev::Certificate::decode(&mut oca, ())
-            .expect("unable to decode OCA certificate");
+        let oca = sev::Certificate::decode(&mut oca, ()).expect("unable to decode OCA certificate");
 
         // Load private key
         let mut key = File::open(key).expect("unable to open key file");
@@ -403,8 +433,12 @@ mod serve {
 
     fn sign(req: &mut Request, key: &PrivateKey<sev::Usage>, buf: &mut [u8]) -> Result<(), u16> {
         // Read in the provided PEK CSR
-        if req.body_length() != Some(buf.len()) { Err(413u16)? }
-        req.as_reader().read_exact(&mut &mut buf[..]).or(Err(500u16))?;
+        if req.body_length() != Some(buf.len()) {
+            Err(413u16)?
+        }
+        req.as_reader()
+            .read_exact(&mut &mut buf[..])
+            .or(Err(500u16))?;
 
         let mut pek = sev::Certificate::decode(&mut &buf[..], ()).or(Err(400u16))?;
         key.sign(&mut pek).or(Err(400u16))?;
@@ -414,8 +448,8 @@ mod serve {
 }
 
 mod rotate {
-    use ::sev::firmware::Flags;
     use super::*;
+    use ::sev::firmware::Flags;
 
     pub fn cmd(matches: &ArgMatches) -> ! {
         match matches.subcommand() {
@@ -431,25 +465,32 @@ mod rotate {
     fn all(matches: &ArgMatches) -> ! {
         if let Some(url) = matches.value_of("adopt") {
             let oca = download(reqwest::get(url), Usage::OCA);
-            (&oca, &oca).verify().expect("unable to self-verify OCA certificate");
+            (&oca, &oca)
+                .verify()
+                .expect("unable to self-verify OCA certificate");
 
             firmware().pek_generate().expect("unable to reset PEK");
 
             let csr = firmware().pek_csr().expect("unable to fetch PEK CSR");
 
             let mut buf = Vec::new();
-            csr.encode(&mut buf, ()).expect("unable to re-encode PEK CSR");
+            csr.encode(&mut buf, ())
+                .expect("unable to re-encode PEK CSR");
 
             let clt = reqwest::Client::new();
             let pek = download(clt.post(url).body(buf).send(), Usage::PEK);
 
-            firmware().pek_cert_import(&pek, &oca).expect("unable to import PEK and OCA");
+            firmware()
+                .pek_cert_import(&pek, &oca)
+                .expect("unable to import PEK and OCA");
         } else {
             if platform_status().flags.contains(Flags::OWNED) {
                 eprintln!("not rotating owned system; see --adopt option");
                 exit(1);
             } else {
-                firmware().pek_generate().expect("unable to rotate OCA, PEK and PDH");
+                firmware()
+                    .pek_generate()
+                    .expect("unable to rotate OCA, PEK and PDH");
             }
         }
 
