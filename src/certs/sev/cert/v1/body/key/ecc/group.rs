@@ -28,7 +28,7 @@ impl Group {
         Ok(match self {
             Group::P256 => 32,
             Group::P384 => 48,
-            _ => return Err(ErrorKind::InvalidInput.into())
+            _ => return Err(ErrorKind::InvalidInput.into()),
         })
     }
 }
@@ -41,7 +41,7 @@ impl TryFrom<Group> for nid::Nid {
         Ok(match value {
             Group::P256 => nid::Nid::X9_62_PRIME256V1,
             Group::P384 => nid::Nid::SECP384R1,
-            _ => return Err(ErrorKind::InvalidInput.into())
+            _ => return Err(ErrorKind::InvalidInput.into()),
         })
     }
 }
@@ -54,7 +54,7 @@ impl TryFrom<nid::Nid> for Group {
         Ok(match value {
             nid::Nid::X9_62_PRIME256V1 => Group::P256,
             nid::Nid::SECP384R1 => Group::P384,
-            _ => return Err(ErrorKind::InvalidInput.into())
+            _ => return Err(ErrorKind::InvalidInput.into()),
         })
     }
 }
@@ -73,6 +73,9 @@ impl TryFrom<&ec::EcGroupRef> for Group {
     type Error = Error;
 
     fn try_from(value: &ec::EcGroupRef) -> Result<Self> {
-        value.curve_name().ok_or(ErrorKind::InvalidInput)?.try_into()
+        value
+            .curve_name()
+            .ok_or(ErrorKind::InvalidInput)?
+            .try_into()
     }
 }

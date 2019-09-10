@@ -27,7 +27,9 @@ union Signatures {
 
 impl Default for Signatures {
     fn default() -> Self {
-        Signatures { rsa: rsa::Signature::default() }
+        Signatures {
+            rsa: rsa::Signature::default(),
+        }
     }
 }
 
@@ -44,7 +46,7 @@ impl Default for Signature {
         Signature {
             usage: Usage::INV,
             algo: Algorithm::NONE,
-            sig: Signatures::default()
+            sig: Signatures::default(),
         }
     }
 }
@@ -52,12 +54,21 @@ impl Default for Signature {
 impl std::fmt::Debug for Signature {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self.algo {
-            Algorithm::RSA_SHA256 | Algorithm::RSA_SHA384 =>
-                write!(f, "Signature {{ usage: {:?}, algo: {:?}, sig: {:?} }}",
-                        self.usage, self.algo, unsafe { self.sig.rsa }),
+            Algorithm::RSA_SHA256 | Algorithm::RSA_SHA384 => write!(
+                f,
+                "Signature {{ usage: {:?}, algo: {:?}, sig: {:?} }}",
+                self.usage,
+                self.algo,
+                unsafe { self.sig.rsa }
+            ),
 
-            _ => write!(f, "Signature {{ usage: {:?}, algo: {:?}, sig: {:?} }}",
-                        self.usage, self.algo, unsafe { self.sig.ecdsa }),
+            _ => write!(
+                f,
+                "Signature {{ usage: {:?}, algo: {:?}, sig: {:?} }}",
+                self.usage,
+                self.algo,
+                unsafe { self.sig.ecdsa }
+            ),
         }
     }
 }
@@ -65,12 +76,15 @@ impl std::fmt::Debug for Signature {
 impl Eq for Signature {}
 impl PartialEq for Signature {
     fn eq(&self, other: &Signature) -> bool {
-        self.usage == other.usage && self.algo == other.algo && match self.algo {
-            Algorithm::RSA_SHA256 | Algorithm::RSA_SHA384 =>
-                unsafe { self.sig.rsa == other.sig.rsa },
+        self.usage == other.usage
+            && self.algo == other.algo
+            && match self.algo {
+                Algorithm::RSA_SHA256 | Algorithm::RSA_SHA384 => unsafe {
+                    self.sig.rsa == other.sig.rsa
+                },
 
-            _ => unsafe { self.sig.ecdsa == other.sig.ecdsa },
-        }
+                _ => unsafe { self.sig.ecdsa == other.sig.ecdsa },
+            }
     }
 }
 
@@ -92,7 +106,7 @@ impl TryFrom<crate::certs::Signature> for Signature {
                     nid::Nid::SHA384 => (sig, Algorithm::RSA_SHA384),
                     _ => return Err(ErrorKind::InvalidInput.into()),
                 }
-            },
+            }
 
             pkey::Id::EC => {
                 let ecdsa = ecdsa::Signature::try_from(&value.sig[..])?;
@@ -102,12 +116,16 @@ impl TryFrom<crate::certs::Signature> for Signature {
                     nid::Nid::SHA384 => (sig, Algorithm::ECDSA_SHA384),
                     _ => return Err(ErrorKind::InvalidInput.into()),
                 }
-            },
+            }
 
             _ => return Err(ErrorKind::InvalidInput.into()),
         };
 
-        Ok(Signature { usage: value.usage, algo, sig })
+        Ok(Signature {
+            usage: value.usage,
+            algo,
+            sig,
+        })
     }
 }
 
@@ -116,7 +134,9 @@ impl TryFrom<&Signature> for Option<crate::certs::Signature> {
     type Error = Error;
 
     fn try_from(value: &Signature) -> Result<Self> {
-        if value.is_empty() { return Ok(None) }
+        if value.is_empty() {
+            return Ok(None);
+        }
 
         let usage = value.usage;
         let hash = value.algo.try_into()?;
@@ -127,7 +147,13 @@ impl TryFrom<&Signature> for Option<crate::certs::Signature> {
             _ => return Err(ErrorKind::InvalidInput.into()),
         };
 
-        Ok(Some(crate::certs::Signature { hash, kind, sig, usage, id: None }))
+        Ok(Some(crate::certs::Signature {
+            hash,
+            kind,
+            sig,
+            usage,
+            id: None,
+        }))
     }
 }
 
@@ -135,12 +161,15 @@ impl Signature {
     #[cfg(feature = "openssl")]
     pub fn is_empty(&self) -> bool {
         match self.usage {
-            Usage::OCA | Usage::CEK | Usage::PEK | Usage::PDH |
-            Usage::ARK | Usage::ASK => match self.algo {
-                Algorithm::RSA_SHA256 | Algorithm::RSA_SHA384 |
-                Algorithm::ECDSA_SHA256 | Algorithm::ECDSA_SHA384 => false,
-                _ => true,
-            },
+            Usage::OCA | Usage::CEK | Usage::PEK | Usage::PDH | Usage::ARK | Usage::ASK => {
+                match self.algo {
+                    Algorithm::RSA_SHA256
+                    | Algorithm::RSA_SHA384
+                    | Algorithm::ECDSA_SHA256
+                    | Algorithm::ECDSA_SHA384 => false,
+                    _ => true,
+                }
+            }
             _ => true,
         }
     }

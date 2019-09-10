@@ -12,13 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::mem::{uninitialized, size_of_val};
+use std::fs::File;
+use std::mem::{size_of_val, uninitialized};
 use std::os::raw::{c_int, c_ulong};
 use std::os::unix::io::AsRawFd;
-use std::fs::File;
 
-use crate::certs::sev::Certificate;
 use super::*;
+use crate::certs::sev::Certificate;
 
 #[repr(u32)]
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
@@ -37,7 +37,9 @@ pub struct Firmware(File);
 
 impl Firmware {
     fn cmd<T>(&self, code: Code, mut value: T) -> Result<T, Indeterminate<Error>> {
-        extern "C" { fn ioctl(fd: c_int, request: c_ulong, ...) -> c_int; }
+        extern "C" {
+            fn ioctl(fd: c_int, request: c_ulong, ...) -> c_int;
+        }
         const SEV_ISSUE_CMD: c_ulong = 0xc0105300;
 
         #[repr(C, packed)]
@@ -108,10 +110,13 @@ impl Firmware {
 
         let mut pek: Certificate = unsafe { uninitialized() };
 
-        self.cmd(Code::PekCertificateSigningRequest, Cert {
-            addr: &mut pek as *mut _ as u64,
-            len: size_of_val(&pek) as u32,
-        })?;
+        self.cmd(
+            Code::PekCertificateSigningRequest,
+            Cert {
+                addr: &mut pek as *mut _ as u64,
+                len: size_of_val(&pek) as u32,
+            },
+        )?;
 
         Ok(pek)
     }
@@ -133,17 +138,29 @@ impl Firmware {
         let mut chain: [Certificate; 3] = unsafe { uninitialized() };
         let mut pdh: Certificate = unsafe { uninitialized() };
 
-        self.cmd(Code::PdhCertificateExport, Certs {
-            pdh_addr: &mut pdh as *mut _ as u64,
-            pdh_size: size_of_val(&pdh) as u32,
-            chain_addr: &mut chain as *mut _ as u64,
-            chain_size: size_of_val(&chain) as u32,
-        })?;
+        self.cmd(
+            Code::PdhCertificateExport,
+            Certs {
+                pdh_addr: &mut pdh as *mut _ as u64,
+                pdh_size: size_of_val(&pdh) as u32,
+                chain_addr: &mut chain as *mut _ as u64,
+                chain_size: size_of_val(&chain) as u32,
+            },
+        )?;
 
-        Ok(certs::sev::Chain { pdh, pek: chain[0], oca: chain[1], cek: chain[2] })
+        Ok(certs::sev::Chain {
+            pdh,
+            pek: chain[0],
+            oca: chain[1],
+            cek: chain[2],
+        })
     }
 
-    pub fn pek_cert_import(&self, pek: &Certificate, oca: &Certificate) -> Result<(), Indeterminate<Error>> {
+    pub fn pek_cert_import(
+        &self,
+        pek: &Certificate,
+        oca: &Certificate,
+    ) -> Result<(), Indeterminate<Error>> {
         #[repr(C, packed)]
         struct Certs {
             pek_addr: u64,
@@ -152,12 +169,15 @@ impl Firmware {
             oca_size: u32,
         }
 
-        self.cmd(Code::PekCertificateImport, Certs {
-            pek_addr: pek as *const _ as u64,
-            pek_size: size_of_val(pek) as u32,
-            oca_addr: oca as *const _ as u64,
-            oca_size: size_of_val(oca) as u32,
-        })?;
+        self.cmd(
+            Code::PekCertificateImport,
+            Certs {
+                pek_addr: pek as *const _ as u64,
+                pek_size: size_of_val(pek) as u32,
+                oca_addr: oca as *const _ as u64,
+                oca_size: size_of_val(oca) as u32,
+            },
+        )?;
 
         Ok(())
     }

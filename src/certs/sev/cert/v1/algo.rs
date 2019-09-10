@@ -56,15 +56,15 @@ impl TryFrom<Algorithm> for hash::MessageDigest {
 
     fn try_from(value: Algorithm) -> Result<Self> {
         match value {
-            Algorithm::RSA_SHA256 |
-            Algorithm::ECDSA_SHA256 |
-            Algorithm::ECDH_SHA256 => Ok(hash::MessageDigest::sha256()),
+            Algorithm::RSA_SHA256 | Algorithm::ECDSA_SHA256 | Algorithm::ECDH_SHA256 => {
+                Ok(hash::MessageDigest::sha256())
+            }
 
-            Algorithm::RSA_SHA384 |
-            Algorithm::ECDSA_SHA384 |
-            Algorithm::ECDH_SHA384 => Ok(hash::MessageDigest::sha256()),
+            Algorithm::RSA_SHA384 | Algorithm::ECDSA_SHA384 | Algorithm::ECDH_SHA384 => {
+                Ok(hash::MessageDigest::sha256())
+            }
 
-            _ => Err(ErrorKind::InvalidInput.into())
+            _ => Err(ErrorKind::InvalidInput.into()),
         }
     }
 }

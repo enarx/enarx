@@ -12,9 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-pub mod sev;
 pub mod ca;
 mod chain;
+pub mod sev;
 mod util;
 
 #[cfg(feature = "openssl")]
@@ -89,15 +89,19 @@ impl Usage {
 
 impl std::fmt::Display for Usage {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "{}", match *self {
-            Usage::OCA => "OCA",
-            Usage::PEK => "PEK",
-            Usage::PDH => "PDH",
-            Usage::CEK => "CEK",
-            Usage::ARK => "ARK",
-            Usage::ASK => "ASK",
-            Usage::INV => "INV",
-            _ => Err(std::fmt::Error)?,
-        })
+        write!(
+            f,
+            "{}",
+            match *self {
+                Usage::OCA => "OCA",
+                Usage::PEK => "PEK",
+                Usage::PDH => "PDH",
+                Usage::CEK => "CEK",
+                Usage::ARK => "ARK",
+                Usage::ASK => "ASK",
+                Usage::INV => "INV",
+                _ => Err(std::fmt::Error)?,
+            }
+        )
     }
 }

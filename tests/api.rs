@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use sev::{Build, Version, firmware::Firmware, certs::sev::Usage};
+use sev::{certs::sev::Usage, firmware::Firmware, Build, Version};
 
 #[ignore]
 #[test]
@@ -72,7 +72,7 @@ fn pdh_cert_export() {
 #[ignore]
 #[test]
 fn pek_cert_import() {
-    use sev::certs::{Signer, Verifiable, sev::Certificate};
+    use sev::certs::{sev::Certificate, Signer, Verifiable};
 
     let fw = Firmware::open().unwrap();
 

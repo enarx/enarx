@@ -27,8 +27,13 @@ pub struct PubKey {
 
 impl std::fmt::Debug for PubKey {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "PubKey {{ group: {:?}, x: {:?}, y: {:?} }}",
-                self.g, self.x.iter(), self.y.iter())
+        write!(
+            f,
+            "PubKey {{ group: {:?}, x: {:?}, y: {:?} }}",
+            self.g,
+            self.x.iter(),
+            self.y.iter()
+        )
     }
 }
 
@@ -48,7 +53,7 @@ impl TryFrom<&PubKey> for ec::EcKey<pkey::Public> {
         Ok(ec::EcKey::from_public_key_affine_coordinates(
             &*ec::EcGroup::try_from(value.g)?,
             &*bn::BigNum::from_le(&value.x[..s])?,
-            &*bn::BigNum::from_le(&value.y[..s])?
+            &*bn::BigNum::from_le(&value.y[..s])?,
         )?)
     }
 }
@@ -72,8 +77,14 @@ impl TryFrom<&ec::EcKey<pkey::Private>> for PubKey {
         let mut x = bn::BigNum::new()?;
         let mut y = bn::BigNum::new()?;
 
-        value.public_key().affine_coordinates_gfp(g, &mut x, &mut y, &mut c)?;
-        Ok(Self { g: group::Group::try_from(g)?, x: x.into_le(), y: y.into_le() })
+        value
+            .public_key()
+            .affine_coordinates_gfp(g, &mut x, &mut y, &mut c)?;
+        Ok(Self {
+            g: group::Group::try_from(g)?,
+            x: x.into_le(),
+            y: y.into_le(),
+        })
     }
 }
 

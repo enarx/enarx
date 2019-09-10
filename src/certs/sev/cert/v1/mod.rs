@@ -12,9 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+mod algo;
 pub mod body;
 pub mod sig;
-mod algo;
 
 use super::*;
 
@@ -31,9 +31,13 @@ pub struct Certificate {
 impl Certificate {
     pub fn generate(usage: Usage) -> Result<(Self, PrivateKey<Usage>)> {
         let (body, prv) = body::Body::generate(usage)?;
-        Ok((Self { body, sigs: [
-            sig::Signature::default(), sig::Signature::default()
-        ]}, prv))
+        Ok((
+            Self {
+                body,
+                sigs: [sig::Signature::default(), sig::Signature::default()],
+            },
+            prv,
+        ))
     }
 }
 
@@ -42,7 +46,10 @@ impl codicon::Decoder for Certificate {
 
     fn decode(reader: &mut impl Read, _: ()) -> Result<Self> {
         Ok(Self {
-            body: body::Body { ver: 1u32.to_le(), data: reader.load()? },
+            body: body::Body {
+                ver: 1u32.to_le(),
+                data: reader.load()?,
+            },
             sigs: [reader.load()?, reader.load()?],
         })
     }
@@ -53,9 +60,13 @@ impl Signer<Certificate> for PrivateKey<Usage> {
     type Output = ();
 
     fn sign(&self, target: &mut Certificate) -> Result<()> {
-        let slot = if target.sigs[0].is_empty() { &mut target.sigs[0] }
-              else if target.sigs[1].is_empty() { &mut target.sigs[1] }
-              else { return Err(ErrorKind::InvalidInput.into()); };
+        let slot = if target.sigs[0].is_empty() {
+            &mut target.sigs[0]
+        } else if target.sigs[1].is_empty() {
+            &mut target.sigs[1]
+        } else {
+            return Err(ErrorKind::InvalidInput.into());
+        };
 
         let mut sig = sign::Signer::new(self.hash, &self.key)?;
         if self.key.id() == pkey::Id::RSA {
@@ -70,7 +81,7 @@ impl Signer<Certificate> for PrivateKey<Usage> {
             hash: self.hash,
             kind: self.key.id(),
             sig: sig.sign_to_vec()?,
-            id: self.id
+            id: self.id,
         };
 
         *slot = sig::Signature::try_from(sig)?;

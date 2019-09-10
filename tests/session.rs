@@ -15,7 +15,7 @@
 #![cfg(feature = "openssl")]
 
 mod initialized {
-    use ::sev::{launch, session::Session, certs::*};
+    use ::sev::{certs::*, launch, session::Session};
     use codicon::Decoder;
     use std::convert::*;
 
@@ -34,17 +34,19 @@ mod initialized {
         const PDH: &[u8] = include_bytes!("naples/pdh.cert");
 
         let session = Session::try_from(launch::Policy::default()).unwrap();
-        session.start(Chain {
-            ca: ca::Chain {
-                ark: ca::Certificate::decode(&mut &ARK[..], ()).unwrap(),
-                ask: ca::Certificate::decode(&mut &ASK[..], ()).unwrap(),
-            },
-            sev: sev::Chain {
-                cek: sev::Certificate::decode(&mut &CEK[..], ()).unwrap(),
-                oca: sev::Certificate::decode(&mut &OCA[..], ()).unwrap(),
-                pek: sev::Certificate::decode(&mut &PEK[..], ()).unwrap(),
-                pdh: sev::Certificate::decode(&mut &PDH[..], ()).unwrap(),
-            },
-        }).unwrap();
+        session
+            .start(Chain {
+                ca: ca::Chain {
+                    ark: ca::Certificate::decode(&mut &ARK[..], ()).unwrap(),
+                    ask: ca::Certificate::decode(&mut &ASK[..], ()).unwrap(),
+                },
+                sev: sev::Chain {
+                    cek: sev::Certificate::decode(&mut &CEK[..], ()).unwrap(),
+                    oca: sev::Certificate::decode(&mut &OCA[..], ()).unwrap(),
+                    pek: sev::Certificate::decode(&mut &PEK[..], ()).unwrap(),
+                    pdh: sev::Certificate::decode(&mut &PDH[..], ()).unwrap(),
+                },
+            })
+            .unwrap();
     }
 }

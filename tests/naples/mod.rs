@@ -16,8 +16,8 @@ mod ark;
 mod ask;
 mod cek;
 mod oca;
-mod pek;
 mod pdh;
+mod pek;
 
 const ARK_BAD: &[u8] = include_bytes!("ark.cert.bad");
 

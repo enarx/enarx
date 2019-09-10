@@ -78,25 +78,42 @@ impl<U: Copy + Into<Usage>> std::fmt::Display for PublicKey<U> {
         };
 
         match (sig, self.key.id()) {
-            (true, pkey::Id::RSA) => write!(f, "R{} R{}",
-                    self.key.rsa()?.size() * 8,
-                    self.hash.size() * 8),
+            (true, pkey::Id::RSA) => write!(
+                f,
+                "R{} R{}",
+                self.key.rsa()?.size() * 8,
+                self.hash.size() * 8
+            ),
 
-            (true, pkey::Id::EC)  => write!(f, "EP{} E{}",
-                    self.key.ec_key()?.group().degree(),
-                    self.hash.size() * 8),
+            (true, pkey::Id::EC) => write!(
+                f,
+                "EP{} E{}",
+                self.key.ec_key()?.group().degree(),
+                self.hash.size() * 8
+            ),
 
-            (false, pkey::Id::EC) => write!(f, "EP{} D{}",
-                    self.key.ec_key()?.group().degree(),
-                    self.hash.size() * 8),
+            (false, pkey::Id::EC) => write!(
+                f,
+                "EP{} D{}",
+                self.key.ec_key()?.group().degree(),
+                self.hash.size() * 8
+            ),
 
             _ => Err(Error),
         }
     }
 }
 
-impl<U> PublicKey<U> where U: Debug, Usage: PartialEq<U> {
-    pub fn verify(&self, msg: &impl codicon::Encoder<Body, Error=Error>, sig: &Signature) -> Result<()> {
+impl<U> PublicKey<U>
+where
+    U: Debug,
+    Usage: PartialEq<U>,
+{
+    pub fn verify(
+        &self,
+        msg: &impl codicon::Encoder<Body, Error = Error>,
+        sig: &Signature,
+    ) -> Result<()> {
         let usage = sig.usage == self.usage;
         let kind = sig.kind == self.key.id();
         let hash = sig.hash == self.hash;

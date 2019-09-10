@@ -56,7 +56,9 @@ impl std::fmt::Display for Certificate {
 impl Eq for Certificate {}
 impl PartialEq for Certificate {
     fn eq(&self, other: &Certificate) -> bool {
-        if unsafe { self.version != other.version } { return false; }
+        if unsafe { self.version != other.version } {
+            return false;
+        }
         match self.version() {
             1 => unsafe { self.v1 == other.v1 },
             _ => false,
@@ -67,7 +69,7 @@ impl PartialEq for Certificate {
 impl<U: Copy + Into<crate::certs::Usage>> PartialEq<U> for Certificate {
     fn eq(&self, other: &U) -> bool {
         if let Ok(a) = Usage::try_from(self) {
-            return a == (*other).into()
+            return a == (*other).into();
         }
 
         false
@@ -79,7 +81,9 @@ impl codicon::Decoder for Certificate {
 
     fn decode(reader: &mut impl Read, params: ()) -> Result<Self> {
         Ok(match u32::from_le(reader.load()?) {
-            1 => Certificate { v1: v1::Certificate::decode(reader, params)? },
+            1 => Certificate {
+                v1: v1::Certificate::decode(reader, params)?,
+            },
             _ => return Err(ErrorKind::InvalidData.into()),
         })
     }

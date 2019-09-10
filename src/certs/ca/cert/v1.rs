@@ -24,12 +24,12 @@ const NAPLES_ARK: Preamble = Preamble {
         reserved: 0,
         psize: 2048u32.to_le(),
         msize: 2048u32.to_le(),
-    }
+    },
 };
 
 enum Size {
     Small,
-    Large
+    Large,
 }
 
 #[repr(C, packed)]
@@ -167,7 +167,7 @@ impl std::fmt::Debug for Certificate {
             Err(std::fmt::Error)?
         }
 
-        match u32::from_le(unsafe { self.preamble.data.msize } ) {
+        match u32::from_le(unsafe { self.preamble.data.msize }) {
             2048 => write!(f, "Certificate({:?})", unsafe { &self.small }),
             4096 => write!(f, "Certificate({:?})", unsafe { &self.large }),
             _ => write!(f, "Certificate({:?})", unsafe { &self.preamble }),
@@ -191,10 +191,17 @@ impl codicon::Decoder for Certificate {
     type Error = Error;
 
     fn decode(reader: &mut impl Read, _: ()) -> Result<Self> {
-        let p = Preamble { ver: 1u32.to_le(), data: reader.load()? };
+        let p = Preamble {
+            ver: 1u32.to_le(),
+            data: reader.load()?,
+        };
         match p.size()? {
-            Size::Small => Ok(Certificate { small: Contents::decode(reader, p)? }),
-            Size::Large => Ok(Certificate { large: Contents::decode(reader, p)? }),
+            Size::Small => Ok(Certificate {
+                small: Contents::decode(reader, p)?,
+            }),
+            Size::Large => Ok(Certificate {
+                large: Contents::decode(reader, p)?,
+            }),
         }
     }
 }
@@ -250,21 +257,15 @@ impl TryFrom<Certificate> for PublicKey<Usage> {
     #[inline]
     fn try_from(v: Certificate) -> Result<Self> {
         let (n, e) = match unsafe { v.preamble.size()? } {
-            Size::Small => unsafe {
-                (&v.small.body.modulus[..], &v.small.body.pubexp[..])
-            },
+            Size::Small => unsafe { (&v.small.body.modulus[..], &v.small.body.pubexp[..]) },
 
-            Size::Large => unsafe {
-                (&v.large.body.modulus[..], &v.large.body.pubexp[..])
-            },
+            Size::Large => unsafe { (&v.large.body.modulus[..], &v.large.body.pubexp[..]) },
         };
 
-        let key = pkey::PKey::from_rsa(
-            rsa::Rsa::from_public_components(
-                bn::BigNum::from_le(n)?,
-                bn::BigNum::from_le(e)?
-            )?
-        )?;
+        let key = pkey::PKey::from_rsa(rsa::Rsa::from_public_components(
+            bn::BigNum::from_le(n)?,
+            bn::BigNum::from_le(e)?,
+        )?)?;
 
         Ok(Self {
             usage: unsafe { v.preamble.data.usage },

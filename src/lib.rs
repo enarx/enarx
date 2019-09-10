@@ -17,11 +17,11 @@
 #![allow(clippy::identity_op)]
 #![allow(clippy::unreadable_literal)]
 
-#[cfg(feature = "openssl")]
-pub mod session;
+pub mod certs;
 pub mod firmware;
 pub mod launch;
-pub mod certs;
+#[cfg(feature = "openssl")]
+pub mod session;
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]

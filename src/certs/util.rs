@@ -12,9 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::slice::{from_raw_parts, from_raw_parts_mut};
-use std::mem::{size_of, uninitialized};
 use super::*;
+use std::mem::{size_of, uninitialized};
+use std::slice::{from_raw_parts, from_raw_parts_mut};
 
 #[cfg(feature = "openssl")]
 pub trait FromLe: Sized {
@@ -30,7 +30,9 @@ pub trait IntoLe<T> {
 impl FromLe for openssl::bn::BigNum {
     #[inline]
     fn from_le(value: &[u8]) -> Result<Self> {
-        Ok(Self::from_slice(&value.iter().rev().cloned().collect::<Vec<_>>())?)
+        Ok(Self::from_slice(
+            &value.iter().rev().cloned().collect::<Vec<_>>(),
+        )?)
     }
 }
 
