@@ -21,6 +21,9 @@ matrix:
   allow_failures:
     - rust: nightly
   fast_finish: true
+install:
+  - rustup component add rustfmt
 script:
+  - cargo fmt -- --check
   - cargo test --verbose
   - cargo test --verbose --features=openssl
