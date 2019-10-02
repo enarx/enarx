@@ -118,7 +118,7 @@ impl Session<Initialized> {
         let mut sig = sign::Signer::new(hash::MessageDigest::sha256(), &key)?;
 
         sig.update(&[0x04u8])?;
-        sig.update(&[(build.0).0, (build.0).1, build.1])?;
+        sig.update(&[build.version.major, build.version.minor, build.build])?;
         sig.update(&self.policy.bytes())?;
         sig.update(&digest)?;
         sig.update(&msr.mnonce)?;
@@ -254,7 +254,7 @@ mod initialized {
 
         let policy = launch::Policy {
             flags: launch::PolicyFlags::default(),
-            minfw: Version(0, 0),
+            minfw: Default::default(),
         };
 
         let tek = key::Key::new(vec![0u8; 16]);
@@ -269,7 +269,13 @@ mod initialized {
             tik,
             data: Initialized,
         };
-        let build = Build(Version(0x00, 0x12), 0x0f);
+        let build = Build {
+            version: Version {
+                major: 0x00,
+                minor: 0x12,
+            },
+            build: 0x0f,
+        };
 
         session.verify(&digest, build, measurement).unwrap();
     }

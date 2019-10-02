@@ -39,7 +39,7 @@ impl Body {
             Body {
                 ver: 1u32.to_le(),
                 data: Data {
-                    firmware: crate::Version(0, 0),
+                    firmware: Default::default(),
                     reserved: 0,
                     key,
                 },

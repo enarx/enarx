@@ -84,7 +84,13 @@ impl Firmware {
         let i: Info = self.cmd(Code::PlatformStatus, unsafe { uninitialized() })?;
 
         Ok(Status {
-            build: Build(Version(i.api_major, i.api_minor), i.build),
+            build: Build {
+                version: Version {
+                    major: i.api_major,
+                    minor: i.api_minor,
+                },
+                build: i.build,
+            },
             guests: i.guest_count,
             flags: Flags::from_bits_truncate(i.flags),
             state: match i.state {

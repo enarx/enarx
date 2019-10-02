@@ -26,7 +26,16 @@ fn platform_reset() {
 fn platform_status() {
     let fw = Firmware::open().unwrap();
     let status = fw.platform_status().unwrap();
-    assert!(status.build > Build(Version(0, 14), 0));
+    assert!(
+        status.build
+            > Build {
+                version: Version {
+                    major: 0,
+                    minor: 14
+                },
+                ..Default::default()
+            }
+    );
 }
 
 #[ignore]
