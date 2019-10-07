@@ -23,7 +23,10 @@ matrix:
   fast_finish: true
 install:
   - rustup component add rustfmt
+  - cargo install --force cargo-audit
+  - cargo generate-lockfile
 script:
   - cargo fmt -- --check
+  - cargo audit
   - cargo test --verbose
   - cargo test --verbose --features=openssl
