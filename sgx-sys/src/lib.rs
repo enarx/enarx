@@ -58,6 +58,8 @@ mod test {
         secs.base = 8192;
         secs.ssa_frame_size = 4096;
         secs.attributes = secs::Attributes::MODE_64_BIT;
+        secs.miscselect = secs::MiscSelect::EXINFO;
+        secs.xfrm = (secs::Xfrm::X87 | secs::Xfrm::SSE);
         Enclave::create(&secs).unwrap();
     }
 }
