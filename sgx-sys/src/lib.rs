@@ -22,29 +22,66 @@
 use ioctl::Ioctl;
 use std::fs::File;
 use std::io::Result;
+use std::mem::size_of;
 
 mod ioctl;
+pub mod tcs;
 pub mod secs;
+pub mod sigstruct;
 
+pub struct EnclaveBuilder(File);
 pub struct Enclave(File);
 
-impl Enclave {
-    pub fn create(secs: &secs::Secs) -> Result<Self> {
+pub enum Page<'a> {
+    Tcs(&'a tcs::Tcs),
+    Regular {
+        data: &'a [u8],
+        perms: ioctl::sgx::PagePerms,
+        flags: ioctl::sgx::PageFlags,
+    },
+}
+
+impl EnclaveBuilder {
+    pub fn new(secs: &secs::Secs) -> Result<EnclaveBuilder> {
         let create = ioctl::sgx::Create::new(secs);
         let file = File::open("/dev/sgx/enclave")?;
         create.ioctl(&file)?;
         Ok(Self(file))
     }
 
-    // EADD and EEXTEND
-    //pub fn add_pages(&self, secs: &SgxSecs, tcs: &SgxTcs, sigstruct: &SgxSigStruct) -> Result<()> {
-    // wrap Rust version of SGX_IOC_ENCLAVE_ADD_PAGES
-    //}
+    pub fn add_pages(self, page: Page, offset: usize) -> Result<Self> {
+        use ioctl::sgx;
 
-    // EINIT
-    //pub fn init(&self, sigstruct: &mut SgxSigStruct, secs: &SgxSecs, lepubkeyhash: &SgxLePubKeyHash) -> std::io::Result<()> {
-    // wrap Rust version of SGX_IOC_ENCLAVE_INIT
-    //}
+        let (data, si, flags) = match &page {
+            Page::Tcs(tcs) => {
+                let data = unsafe {
+                    std::slice::from_raw_parts(
+                        *tcs as *const tcs::Tcs as *const u8,
+                        size_of::<tcs::Tcs>()
+                    )
+                };
+                
+                let si = sgx::SecInfo::new(
+                    sgx::PagePerms::READ | sgx::PagePerms::WRITE,
+                    sgx::PageType::Tcs
+                );
+
+                (data, si, sgx::PageFlags::MEASURE)
+            },
+
+            Page::Regular { data, perms, flags } => {
+                (*data, sgx::SecInfo::new(*perms, sgx::PageType::Reg), *flags)
+            },
+        };
+
+        let addpages = sgx::AddPages::new(data, offset, &si, flags);
+        addpages.ioctl(&self.0)?;
+        Ok(self)
+    }
+
+    pub fn build(self, ss: &mut sigstruct::SigStruct) -> Result<Enclave> {
+        Err(std::io::Error::last_os_error())
+    }
 }
 
 #[cfg(test)]
@@ -59,7 +96,7 @@ mod test {
         secs.ssa_frame_size = 4096;
         secs.attributes = secs::Attributes::MODE_64_BIT;
         secs.miscselect = secs::MiscSelect::EXINFO;
-        secs.xfrm = (secs::Xfrm::X87 | secs::Xfrm::SSE);
-        Enclave::create(&secs).unwrap();
+        secs.xfrm = secs::Xfrm::X87 | secs::Xfrm::SSE;
+        EnclaveBuilder::new(&secs).unwrap();
     }
 }

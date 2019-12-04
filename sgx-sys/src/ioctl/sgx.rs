@@ -38,6 +38,40 @@ bitflags! {
     }
 }
 
+bitflags! {
+    pub struct PagePerms: u8 {
+        const READ = 1 << 0;
+        const WRITE = 1 << 1;
+        const EXECUTE = 1 << 2;
+    }
+}
+
+#[repr(u8)]
+pub enum PageType {
+    Secs = 0,
+    Tcs = 1,
+    Reg = 2,
+    Va = 3,
+    Trim = 4,
+}
+
+#[repr(C, align(64))]
+pub struct SecInfo {
+    permissions: PagePerms,
+    page_type: PageType,
+    reserved: [u8; 62]
+}
+
+impl SecInfo {
+    pub fn new(perms: PagePerms, ptype: PageType) -> Self {
+        Self {
+            permissions: perms,
+            page_type: ptype,
+            reserved: [0u8; 62]
+        }
+    }
+}
+
 #[repr(C)]
 #[derive(Debug)]
 pub struct AddPages<'a> {
@@ -53,7 +87,18 @@ impl<'a> Ioctl for AddPages<'a> {
     const REQUEST: c_ulong = 3_223_888_897; // SGX_IOC_ENCLAVE_ADD_PAGES
 }
 
-// TODO: Implement AddPages::new()
+impl<'a> AddPages<'a> {
+    pub fn new(data: &'a [u8], offset: usize, secinfo: &'a SecInfo, flags: PageFlags) -> Self {
+        Self {
+            src: data.as_ptr() as _,
+            offset: offset as _,
+            length: data.len() as _,
+            secinfo: secinfo as *const _ as _,
+            flags,
+            phantom: PhantomData
+        }
+    }
+}
 
 #[repr(C)]
 #[derive(Debug)]
@@ -63,12 +108,11 @@ impl<'a> Ioctl for Init<'a> {
     const REQUEST: c_ulong = 1_074_308_098; // SGX_IOC_ENCLAVE_INIT
 }
 
-// TODO: Implement Init::new()
-//impl<'a> Init<'a> {
-//    pub fn new(sig: &'a crate::sig::Sig) -> Self {
-//        Init(sig as *const _ as _, PhantomData)
-//    }
-//}
+impl<'a> Init<'a> {
+    pub fn new(sig: &'a crate::sigstruct::SigStruct) -> Self {
+        Init(sig as *const _ as _, PhantomData)
+    }
+}
 
 #[repr(C)]
 #[derive(Debug)]
