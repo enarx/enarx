@@ -25,9 +25,9 @@ use std::io::Result;
 use std::mem::size_of;
 
 mod ioctl;
-pub mod tcs;
 pub mod secs;
 pub mod sigstruct;
+pub mod tcs;
 
 pub struct EnclaveBuilder(File);
 pub struct Enclave(File);
@@ -59,21 +59,21 @@ impl EnclaveBuilder {
                 let data = unsafe {
                     std::slice::from_raw_parts(
                         *tcs as *const tcs::Tcs as *const u8,
-                        size_of::<tcs::Tcs>()
+                        size_of::<tcs::Tcs>(),
                     )
                 };
-                
+
                 let si = sgx::SecInfo::new(
                     sgx::PagePerms::READ | sgx::PagePerms::WRITE,
-                    sgx::PageType::Tcs
+                    sgx::PageType::Tcs,
                 );
 
                 (data, si, sgx::PageFlags::MEASURE)
-            },
+            }
 
             Page::Regular { data, perms, flags } => {
                 (*data, sgx::SecInfo::new(*perms, sgx::PageType::Reg), *flags)
-            },
+            }
         };
 
         let addpages = sgx::AddPages::new(data, offset, &si, flags);

@@ -67,7 +67,7 @@ pub struct Secs {
     pub xfrm: Xfrm,          // XSave-Feature Request Mask (subset of XCR0)
     pub mrenclave: [u8; 32], // SHA256-hash of enclave contents
     _reserved2: [u8; 32],
-    pub mrsigner: [u8; 32],  // SHA256-hash of pubkey used to sign SIGSTRUCT
+    pub mrsigner: [u8; 32], // SHA256-hash of pubkey used to sign SIGSTRUCT
     _reserved3: [u8; 32],
     pub config_id: [u8; 64], // user-defined value used in key derivation
     pub isv_prod_id: u16,    // user-defined value used in key derivation
