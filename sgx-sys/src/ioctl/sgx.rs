@@ -59,7 +59,7 @@ pub enum PageType {
 pub struct SecInfo {
     permissions: PagePerms,
     page_type: PageType,
-    reserved: [u8; 62]
+    reserved: [u8; 62],
 }
 
 impl SecInfo {
@@ -67,7 +67,7 @@ impl SecInfo {
         Self {
             permissions: perms,
             page_type: ptype,
-            reserved: [0u8; 62]
+            reserved: [0u8; 62],
         }
     }
 }
@@ -95,7 +95,7 @@ impl<'a> AddPages<'a> {
             length: data.len() as _,
             secinfo: secinfo as *const _ as _,
             flags,
-            phantom: PhantomData
+            phantom: PhantomData,
         }
     }
 }
