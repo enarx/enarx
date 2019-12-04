@@ -42,6 +42,7 @@ pub enum Page<'a> {
 }
 
 impl EnclaveBuilder {
+    // Calls SGX_IOC_ENCLAVE_CREATE (ECREATE)
     pub fn new(secs: &secs::Secs) -> Result<EnclaveBuilder> {
         let create = ioctl::sgx::Create::new(secs);
         let file = File::open("/dev/sgx/enclave")?;
@@ -49,6 +50,7 @@ impl EnclaveBuilder {
         Ok(Self(file))
     }
 
+    // Calls SGX_IOC_ENCLAVE_ADD_PAGES (EADD)
     pub fn add_pages(self, page: Page, offset: usize) -> Result<Self> {
         use ioctl::sgx;
 
@@ -79,8 +81,11 @@ impl EnclaveBuilder {
         Ok(self)
     }
 
+    // Calls SGX_IOC_ENCLAVE_INIT (EINIT)
     pub fn build(self, ss: &mut sigstruct::SigStruct) -> Result<Enclave> {
-        Err(std::io::Error::last_os_error())
+        let init = ioctl::sgx::Init::new(ss);
+        init.ioctl(&self.0)?;
+        Ok(Enclave(self.0))
     }
 }
 
