@@ -13,10 +13,12 @@
 // limitations under the License.
 
 use super::Ioctl;
-use bitflags::bitflags;
 use std::marker::PhantomData;
 use std::os::raw::c_ulong;
 use std::os::unix::io::AsRawFd;
+
+use sgx_types::{secs::Secs, secinfo::SecInfo, sigstruct::SigStruct};
+use paged::{Page, Size4k};
 
 #[repr(C)]
 #[derive(Debug)]
@@ -27,48 +29,8 @@ impl<'a> Ioctl for Create<'a> {
 }
 
 impl<'a> Create<'a> {
-    pub fn new(secs: &'a crate::secs::Secs) -> Self {
+    pub fn new(secs: &'a Page<Size4k, Secs>) -> Self {
         Create(secs as *const _ as _, PhantomData)
-    }
-}
-
-bitflags! {
-    pub struct PageFlags: u64 {
-        const MEASURE = 1 << 0;
-    }
-}
-
-bitflags! {
-    pub struct PagePerms: u8 {
-        const READ = 1 << 0;
-        const WRITE = 1 << 1;
-        const EXECUTE = 1 << 2;
-    }
-}
-
-#[repr(u8)]
-pub enum PageType {
-    Secs = 0,
-    Tcs = 1,
-    Reg = 2,
-    Va = 3,
-    Trim = 4,
-}
-
-#[repr(C, align(64))]
-pub struct SecInfo {
-    permissions: PagePerms,
-    page_type: PageType,
-    reserved: [u8; 62],
-}
-
-impl SecInfo {
-    pub fn new(perms: PagePerms, ptype: PageType) -> Self {
-        Self {
-            permissions: perms,
-            page_type: ptype,
-            reserved: [0u8; 62],
-        }
     }
 }
 
@@ -79,7 +41,7 @@ pub struct AddPages<'a> {
     offset: u64,
     length: u64,
     secinfo: u64,
-    flags: PageFlags,
+    flags: sgx_traits::Flags,
     phantom: PhantomData<&'a ()>,
 }
 
@@ -88,7 +50,7 @@ impl<'a> Ioctl for AddPages<'a> {
 }
 
 impl<'a> AddPages<'a> {
-    pub fn new(data: &'a [u8], offset: usize, secinfo: &'a SecInfo, flags: PageFlags) -> Self {
+    pub fn new(data: &'a [u8], offset: usize, secinfo: &'a SecInfo, flags: sgx_traits::Flags) -> Self {
         Self {
             src: data.as_ptr() as _,
             offset: offset as _,
@@ -109,7 +71,7 @@ impl<'a> Ioctl for Init<'a> {
 }
 
 impl<'a> Init<'a> {
-    pub fn new(sig: &'a crate::sigstruct::SigStruct) -> Self {
+    pub fn new(sig: &'a Page<Size4k, SigStruct>) -> Self {
         Init(sig as *const _ as _, PhantomData)
     }
 }
