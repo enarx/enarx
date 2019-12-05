@@ -56,7 +56,7 @@ bitflags! {
 /// by the means of ENCLS(ECREATE) leaf.
 ///
 /// Section 38.7
-#[repr(C, align(4096))]
+#[repr(C)]
 pub struct Secs {
     pub size: u64,           // size of address space (power of 2)
     pub base: u64,           // base address of address space
@@ -73,7 +73,6 @@ pub struct Secs {
     pub isv_prod_id: u16,    // user-defined value used in key derivation
     pub isv_svn: u16,        // user-defined value used in key derivation
     pub config_svn: u16,     // user-defined value used in key derivation
-    _reserved4: [u8; 3834],
 }
 
 /// FIXME: This is not the right way to create this struct. However,
