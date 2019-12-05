@@ -24,11 +24,12 @@ use std::marker::PhantomData;
 use std::mem::size_of_val;
 
 use paged::{Page, Size4k};
-use sgx_traits::{Builder as BuilderTrait, Enclave as EnclaveTrait, Flags, Handle};
+use sgx_traits::{Builder as BuilderTrait, Enclave as EnclaveTrait, Flags};
 use sgx_types::secinfo::{Flags as Perms, PageType, SecInfo};
 use sgx_types::secs::Secs;
 use sgx_types::sigstruct::SigStruct;
 use sgx_types::tcs::Tcs;
+use sgx_types::Offset;
 
 pub struct Builder<'b>(File, PhantomData<&'b ()>);
 
@@ -44,7 +45,7 @@ impl<'b> BuilderTrait<'b> for Builder<'b> {
         Ok(Self(file, PhantomData))
     }
 
-    fn add_tcs(&mut self, tcs: Tcs, offset: usize) -> Result<Handle<'b, Tcs>> {
+    fn add_tcs(&mut self, tcs: Tcs, offset: usize) -> Result<Offset<'b, Tcs>> {
         let page: Page<Size4k, _> = tcs.into();
 
         let data = unsafe {
@@ -53,10 +54,10 @@ impl<'b> BuilderTrait<'b> for Builder<'b> {
 
         let si = SecInfo::new(Perms::R | Perms::W, PageType::Tcs);
         self.add_slice(&data, offset, Flags::MEASURE, si)
-            .map(|_| unsafe { Handle::new(offset) })
+            .map(|_| unsafe { Offset::new(offset) })
     }
 
-    fn add_struct<T>(&mut self, data: T, offset: usize, perms: Perms) -> Result<Handle<'b, T>> {
+    fn add_struct<T>(&mut self, data: T, offset: usize, perms: Perms) -> Result<Offset<'b, T>> {
         let page: Page<Size4k, _> = data.into();
 
         let data = unsafe {
@@ -65,7 +66,7 @@ impl<'b> BuilderTrait<'b> for Builder<'b> {
 
         let si = SecInfo::new(perms, PageType::Reg);
         self.add_slice(&data, offset, Flags::MEASURE, si)
-            .map(|_| unsafe { Handle::new(offset) })
+            .map(|_| unsafe { Offset::new(offset) })
     }
 
     // Calls SGX_IOC_ENCLAVE_ADD_PAGES (EADD)
@@ -75,10 +76,10 @@ impl<'b> BuilderTrait<'b> for Builder<'b> {
         offset: usize,
         flags: Flags,
         secinfo: SecInfo,
-    ) -> Result<Handle<'b, ()>> {
+    ) -> Result<Offset<'b, ()>> {
         let addpages = ioctl::sgx::AddPages::new(data, offset, &secinfo, flags);
         addpages.ioctl(&self.0)?;
-        Ok(unsafe { Handle::new(offset) })
+        Ok(unsafe { Offset::new(offset) })
     }
 
     // Calls SGX_IOC_ENCLAVE_INIT (EINIT)
@@ -93,7 +94,7 @@ impl<'b> BuilderTrait<'b> for Builder<'b> {
 pub struct Enclave<'e>(File, PhantomData<&'e ()>);
 
 impl<'e> EnclaveTrait<'e> for Enclave<'e> {
-    fn enter(&self, _: &mut Handle<'e, Tcs>) -> Result<()> {
+    fn enter(&self, _: &mut Offset<'e, Tcs>) -> Result<()> {
         Err(std::io::ErrorKind::Other.into())
     }
 }
