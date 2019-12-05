@@ -1,12 +1,29 @@
+use bitflags::bitflags;
+
+bitflags::bitflags! {
+    /// Section 38.8.1
+    pub struct Flags: u64 {
+        const DBGOPTIN = 1 << 0;
+    }
+}
+
+impl Default for Flags {
+    fn default() -> Self {
+        Flags::empty()
+    }
+}
+
 /// Thread Control Structure (TCS) is an enclave page visible in its address
 /// space that defines an entry point inside the enclave. A thread enters inside
 /// an enclave by supplying address of TCS to ENCLU(EENTER). A TCS can be entered
 /// by only one thread at a time.
+///
+/// Section 38.8
 #[derive(Debug, Default)]
 #[repr(C)]
 pub struct Tcs {
     state: u64,         // used to mark an entered TCS
-    flags: u64,         // execution flags (cleared by EADD)
+    flags: Flags,       // execution flags (cleared by EADD)
     ssa_offset: u64,    // SSA stack offset relative to the enclave base
     ssa_index: u32,     // the current SSA frame index (cleard by EADD)
     nr_ssa_frames: u32, // the number of frames in the SSA stack
