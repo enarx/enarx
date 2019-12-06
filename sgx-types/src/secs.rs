@@ -85,22 +85,3 @@ impl Default for Secs {
 }
 
 /// TODO: Implement Secs::new()
-
-#[cfg(test)]
-mod test {
-    use super::*;
-
-    #[test]
-    fn align() {
-        use std::mem::align_of;
-
-        assert_eq!(align_of::<Secs>(), 4096);
-    }
-
-    #[test]
-    fn size() {
-        use std::mem::size_of;
-
-        assert_eq!(size_of::<Secs>(), 4096);
-    }
-}
