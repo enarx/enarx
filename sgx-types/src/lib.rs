@@ -19,11 +19,14 @@
 #![deny(clippy::all)]
 #![allow(clippy::identity_op)]
 
+pub mod attributes;
+pub mod miscselect;
 pub mod secinfo;
 pub mod secs;
 pub mod sigstruct;
 pub mod ssa;
 pub mod tcs;
+pub mod xfrm;
 
 use core::marker::PhantomData;
 
