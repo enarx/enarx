@@ -117,7 +117,7 @@ impl<'e> EnclaveTrait<'e> for Enclave<'e> {
 mod test {
     use super::*;
 
-    #[cfg_attr(not(has_sgx)), ignore]
+    #[cfg_attr(not(has_sgx), ignore)]
     #[test]
     fn enclave_create() {
         use sgx_types::secs::*;
