@@ -106,15 +106,13 @@ mod test {
     #[cfg_attr(not(has_sgx), ignore)]
     #[test]
     fn enclave_create() {
-        use sgx_types::secs::*;
+        use sgx_types::*;
 
         let mut secs = Secs::default();
         secs.size = 8192;
         secs.base = 8192;
         secs.ssa_frame_size = 4096;
-        secs.attributes = Attributes::MODE_64_BIT;
-        secs.miscselect = MiscSelect::EXINFO;
-        secs.xfrm = Xfrm::X87 | Xfrm::SSE;
+        secs.xfrm = xfrm::Xfrm::default();
         Builder::new(secs).unwrap();
     }
 }

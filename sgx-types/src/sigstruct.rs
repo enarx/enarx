@@ -1,3 +1,5 @@
+use super::{attributes::Attributes, miscselect::MiscSelect, xfrm::Xfrm};
+
 const SGX_MODULUS_SIZE: usize = 384;
 const SIGSTRUCT_HEADER1: [u8; 16] = [
     0x06, 0x00, 0x00, 0x00, 0xe1, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -25,19 +27,19 @@ pub struct SigStructHeader {
 
 /// The sgx_sigstruct_body defines contents of the enclave
 #[repr(C, packed)]
-#[derive(Default)] // TODO: remove this when fields are not all zero
+#[derive(Default)]
 pub struct SigStructBody {
-    miscselect: u32, // bit vector specifying extended SSA frame feature set to be used
-    misc_mask: u32,  // required miscselect in SECS; bit vector mask of MISCSELECT to enforce
+    miscselect: MiscSelect,      // bit vector specifying extended SSA frame feature set to be used
+    misc_mask: MiscSelect,       // required miscselect in SECS; bit vector mask of MISCSELECT to enforce
     _reserved2: [u8; 20],
-    attributes: u64,      // attributes for enclave
-    xfrm: u64,            // xsave feature request mask (subset of xcr0)
-    attributes_mask: u64, // required attributes in SECS; mask of attributes to enforce
-    xfrm_mask: u64,       // required xfrm in SECS
-    mrenclave: [u8; 32],  // sha256 hash of enclave contents
+    attributes: Attributes,      // attributes for enclave
+    xfrm: Xfrm,                  // xsave feature request mask (subset of xcr0)
+    attributes_mask: Attributes, // required attributes in SECS; mask of attributes to enforce
+    xfrm_mask: Xfrm,              // required xfrm in SECS
+    mrenclave: [u8; 32],         // sha256 hash of enclave contents
     _reserved3: [u8; 32],
-    isvprodid: u16, // user-defined value used in key derivation
-    isvsvn: u16,    // user-defined value used in key derivation
+    isvprodid: u16,              // user-defined value used in key derivation
+    isvsvn: u16,                 // user-defined value used in key derivation
 }
 
 /// SigStructHeader and SigStructbody are signed. The remaining fields
