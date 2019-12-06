@@ -158,60 +158,114 @@ impl<S: PageSize, T: core::hash::Hash> core::hash::Hash for Page<S, T> {
 
 #[cfg(test)]
 mod tests {
-    use core::mem::*;
     use super::*;
+    use core::mem::*;
 
     #[test]
     fn align4k() {
         assert_eq!(align_of::<Page<Size4k, [u8; 0]>>(), Size4k::BYTES);
         assert_eq!(align_of::<Page<Size4k, [u8; 1]>>(), Size4k::BYTES);
-        assert_eq!(align_of::<Page<Size4k, [u8; Size4k::BYTES - 1]>>(), Size4k::BYTES);
-        assert_eq!(align_of::<Page<Size4k, [u8; Size4k::BYTES + 0]>>(), Size4k::BYTES);
-        assert_eq!(align_of::<Page<Size4k, [u8; Size4k::BYTES + 1]>>(), Size4k::BYTES);
+        assert_eq!(
+            align_of::<Page<Size4k, [u8; Size4k::BYTES - 1]>>(),
+            Size4k::BYTES
+        );
+        assert_eq!(
+            align_of::<Page<Size4k, [u8; Size4k::BYTES + 0]>>(),
+            Size4k::BYTES
+        );
+        assert_eq!(
+            align_of::<Page<Size4k, [u8; Size4k::BYTES + 1]>>(),
+            Size4k::BYTES
+        );
     }
 
     #[test]
     fn align16k() {
         assert_eq!(align_of::<Page<Size16k, [u8; 0]>>(), Size16k::BYTES);
         assert_eq!(align_of::<Page<Size16k, [u8; 1]>>(), Size16k::BYTES);
-        assert_eq!(align_of::<Page<Size16k, [u8; Size16k::BYTES - 1]>>(), Size16k::BYTES);
-        assert_eq!(align_of::<Page<Size16k, [u8; Size16k::BYTES + 0]>>(), Size16k::BYTES);
-        assert_eq!(align_of::<Page<Size16k, [u8; Size16k::BYTES + 1]>>(), Size16k::BYTES);
+        assert_eq!(
+            align_of::<Page<Size16k, [u8; Size16k::BYTES - 1]>>(),
+            Size16k::BYTES
+        );
+        assert_eq!(
+            align_of::<Page<Size16k, [u8; Size16k::BYTES + 0]>>(),
+            Size16k::BYTES
+        );
+        assert_eq!(
+            align_of::<Page<Size16k, [u8; Size16k::BYTES + 1]>>(),
+            Size16k::BYTES
+        );
     }
 
     #[test]
     fn align64k() {
         assert_eq!(align_of::<Page<Size64k, [u8; 0]>>(), Size64k::BYTES);
         assert_eq!(align_of::<Page<Size64k, [u8; 1]>>(), Size64k::BYTES);
-        assert_eq!(align_of::<Page<Size64k, [u8; Size64k::BYTES - 1]>>(), Size64k::BYTES);
-        assert_eq!(align_of::<Page<Size64k, [u8; Size64k::BYTES + 0]>>(), Size64k::BYTES);
-        assert_eq!(align_of::<Page<Size64k, [u8; Size64k::BYTES + 1]>>(), Size64k::BYTES);
+        assert_eq!(
+            align_of::<Page<Size64k, [u8; Size64k::BYTES - 1]>>(),
+            Size64k::BYTES
+        );
+        assert_eq!(
+            align_of::<Page<Size64k, [u8; Size64k::BYTES + 0]>>(),
+            Size64k::BYTES
+        );
+        assert_eq!(
+            align_of::<Page<Size64k, [u8; Size64k::BYTES + 1]>>(),
+            Size64k::BYTES
+        );
     }
 
     #[test]
     fn size4k() {
         assert_eq!(size_of::<Page<Size4k, [u8; 0]>>(), 0);
         assert_eq!(size_of::<Page<Size4k, [u8; 1]>>(), Size4k::BYTES);
-        assert_eq!(size_of::<Page<Size4k, [u8; Size4k::BYTES - 1]>>(), Size4k::BYTES);
-        assert_eq!(size_of::<Page<Size4k, [u8; Size4k::BYTES + 0]>>(), Size4k::BYTES);
-        assert_eq!(size_of::<Page<Size4k, [u8; Size4k::BYTES + 1]>>(), Size4k::BYTES * 2);
+        assert_eq!(
+            size_of::<Page<Size4k, [u8; Size4k::BYTES - 1]>>(),
+            Size4k::BYTES
+        );
+        assert_eq!(
+            size_of::<Page<Size4k, [u8; Size4k::BYTES + 0]>>(),
+            Size4k::BYTES
+        );
+        assert_eq!(
+            size_of::<Page<Size4k, [u8; Size4k::BYTES + 1]>>(),
+            Size4k::BYTES * 2
+        );
     }
 
     #[test]
     fn size16k() {
         assert_eq!(size_of::<Page<Size16k, [u8; 0]>>(), 0);
         assert_eq!(size_of::<Page<Size16k, [u8; 1]>>(), Size16k::BYTES);
-        assert_eq!(size_of::<Page<Size16k, [u8; Size16k::BYTES - 1]>>(), Size16k::BYTES);
-        assert_eq!(size_of::<Page<Size16k, [u8; Size16k::BYTES + 0]>>(), Size16k::BYTES);
-        assert_eq!(size_of::<Page<Size16k, [u8; Size16k::BYTES + 1]>>(), Size16k::BYTES * 2);
+        assert_eq!(
+            size_of::<Page<Size16k, [u8; Size16k::BYTES - 1]>>(),
+            Size16k::BYTES
+        );
+        assert_eq!(
+            size_of::<Page<Size16k, [u8; Size16k::BYTES + 0]>>(),
+            Size16k::BYTES
+        );
+        assert_eq!(
+            size_of::<Page<Size16k, [u8; Size16k::BYTES + 1]>>(),
+            Size16k::BYTES * 2
+        );
     }
 
     #[test]
     fn size64k() {
         assert_eq!(size_of::<Page<Size64k, [u8; 0]>>(), 0);
         assert_eq!(size_of::<Page<Size64k, [u8; 1]>>(), Size64k::BYTES);
-        assert_eq!(size_of::<Page<Size64k, [u8; Size64k::BYTES - 1]>>(), Size64k::BYTES);
-        assert_eq!(size_of::<Page<Size64k, [u8; Size64k::BYTES + 0]>>(), Size64k::BYTES);
-        assert_eq!(size_of::<Page<Size64k, [u8; Size64k::BYTES + 1]>>(), Size64k::BYTES * 2);
+        assert_eq!(
+            size_of::<Page<Size64k, [u8; Size64k::BYTES - 1]>>(),
+            Size64k::BYTES
+        );
+        assert_eq!(
+            size_of::<Page<Size64k, [u8; Size64k::BYTES + 0]>>(),
+            Size64k::BYTES
+        );
+        assert_eq!(
+            size_of::<Page<Size64k, [u8; Size64k::BYTES + 1]>>(),
+            Size64k::BYTES * 2
+        );
     }
 }

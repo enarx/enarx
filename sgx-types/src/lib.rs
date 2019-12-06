@@ -19,8 +19,8 @@
 #![deny(clippy::all)]
 #![allow(clippy::identity_op)]
 
-pub mod secs;
 pub mod secinfo;
+pub mod secs;
 pub mod sigstruct;
 pub mod ssa;
 pub mod tcs;

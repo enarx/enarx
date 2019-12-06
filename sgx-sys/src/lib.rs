@@ -20,15 +20,15 @@ mod ioctl;
 use ioctl::Ioctl;
 use std::fs::File;
 use std::io::Result;
-use std::mem::size_of_val;
 use std::marker::PhantomData;
+use std::mem::size_of_val;
 
-use sgx_traits::{Handle, Flags, Builder as BuilderTrait, Enclave as EnclaveTrait};
-use sgx_types::secinfo::{SecInfo, Flags as Perms, PageType};
-use sgx_types::sigstruct::SigStruct;
-use sgx_types::secs::Secs;
-use sgx_types::tcs::Tcs;
 use paged::{Page, Size4k};
+use sgx_traits::{Builder as BuilderTrait, Enclave as EnclaveTrait, Flags, Handle};
+use sgx_types::secinfo::{Flags as Perms, PageType, SecInfo};
+use sgx_types::secs::Secs;
+use sgx_types::sigstruct::SigStruct;
+use sgx_types::tcs::Tcs;
 
 pub struct Builder<'b>(File, PhantomData<&'b ()>);
 
@@ -44,18 +44,11 @@ impl<'b> BuilderTrait<'b> for Builder<'b> {
         Ok(Self(file, PhantomData))
     }
 
-    fn add_tcs(
-        &mut self,
-        tcs: Tcs,
-        offset: usize
-    ) -> Result<Handle<'b, Tcs>> {
+    fn add_tcs(&mut self, tcs: Tcs, offset: usize) -> Result<Handle<'b, Tcs>> {
         let page: Page<Size4k, _> = tcs.into();
 
         let data = unsafe {
-            std::slice::from_raw_parts(
-                page.as_ref() as *const Tcs as *const u8,
-                size_of_val(&page),
-            )
+            std::slice::from_raw_parts(page.as_ref() as *const Tcs as *const u8, size_of_val(&page))
         };
 
         let si = SecInfo::new(Perms::R | Perms::W, PageType::Tcs);
@@ -63,19 +56,11 @@ impl<'b> BuilderTrait<'b> for Builder<'b> {
             .map(|_| unsafe { Handle::new(offset) })
     }
 
-    fn add_struct<T>(
-        &mut self,
-        data: T,
-        offset: usize,
-        perms: Perms,
-    ) -> Result<Handle<'b, T>> {
+    fn add_struct<T>(&mut self, data: T, offset: usize, perms: Perms) -> Result<Handle<'b, T>> {
         let page: Page<Size4k, _> = data.into();
 
         let data = unsafe {
-            std::slice::from_raw_parts(
-                page.as_ref() as *const T as *const u8,
-                size_of_val(&page),
-            )
+            std::slice::from_raw_parts(page.as_ref() as *const T as *const u8, size_of_val(&page))
         };
 
         let si = SecInfo::new(perms, PageType::Reg);

@@ -12,12 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::marker::PhantomData;
 use std::io::Result;
+use std::marker::PhantomData;
 
-use sgx_types::{secs::Secs, tcs::Tcs, sigstruct::SigStruct};
-use sgx_types::secinfo::{SecInfo, Flags as Permissions};
 use bitflags::bitflags;
+use sgx_types::secinfo::{Flags as Permissions, SecInfo};
+use sgx_types::{secs::Secs, sigstruct::SigStruct, tcs::Tcs};
 
 /// An offset reference with neither read nor write capabilities
 ///
@@ -52,11 +52,7 @@ pub trait Builder<'b>: Sized {
 
     fn new(secs: Secs) -> Result<Self>;
 
-    fn add_tcs(
-        &mut self,
-        tcs: Tcs,
-        offset: usize
-    ) -> Result<Handle<'b, Tcs>>;
+    fn add_tcs(&mut self, tcs: Tcs, offset: usize) -> Result<Handle<'b, Tcs>>;
 
     fn add_struct<T>(
         &mut self,

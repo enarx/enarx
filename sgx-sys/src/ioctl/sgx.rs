@@ -17,8 +17,8 @@ use std::marker::PhantomData;
 use std::os::raw::c_ulong;
 use std::os::unix::io::AsRawFd;
 
-use sgx_types::{secs::Secs, secinfo::SecInfo, sigstruct::SigStruct};
 use paged::{Page, Size4k};
+use sgx_types::{secinfo::SecInfo, secs::Secs, sigstruct::SigStruct};
 
 #[repr(C)]
 #[derive(Debug)]
@@ -50,7 +50,12 @@ impl<'a> Ioctl for AddPages<'a> {
 }
 
 impl<'a> AddPages<'a> {
-    pub fn new(data: &'a [u8], offset: usize, secinfo: &'a SecInfo, flags: sgx_traits::Flags) -> Self {
+    pub fn new(
+        data: &'a [u8],
+        offset: usize,
+        secinfo: &'a SecInfo,
+        flags: sgx_traits::Flags,
+    ) -> Self {
         Self {
             src: data.as_ptr() as _,
             offset: offset as _,
