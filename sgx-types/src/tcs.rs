@@ -1,5 +1,3 @@
-use bitflags::bitflags;
-
 bitflags::bitflags! {
     /// Section 38.8.1
     pub struct Flags: u64 {
