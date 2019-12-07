@@ -29,17 +29,17 @@ pub struct SigStructHeader {
 #[repr(C, packed)]
 #[derive(Default)]
 pub struct SigStructBody {
-    miscselect: MiscSelect,      // bit vector specifying extended SSA frame feature set to be used
-    misc_mask: MiscSelect,       // required miscselect in SECS; bit vector mask of MISCSELECT to enforce
+    miscselect: MiscSelect, // bit vector specifying extended SSA frame feature set to be used
+    misc_mask: MiscSelect,  // required miscselect in SECS; bit vector mask of MISCSELECT to enforce
     _reserved2: [u8; 20],
     attributes: Attributes,      // attributes for enclave
     xfrm: Xfrm,                  // xsave feature request mask (subset of xcr0)
     attributes_mask: Attributes, // required attributes in SECS; mask of attributes to enforce
-    xfrm_mask: Xfrm,              // required xfrm in SECS
+    xfrm_mask: Xfrm,             // required xfrm in SECS
     mrenclave: [u8; 32],         // sha256 hash of enclave contents
     _reserved3: [u8; 32],
-    isvprodid: u16,              // user-defined value used in key derivation
-    isvsvn: u16,                 // user-defined value used in key derivation
+    isvprodid: u16, // user-defined value used in key derivation
+    isvsvn: u16,    // user-defined value used in key derivation
 }
 
 /// SigStructHeader and SigStructbody are signed. The remaining fields
