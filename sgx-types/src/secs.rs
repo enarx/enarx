@@ -21,7 +21,7 @@ use super::{attributes::Attributes, miscselect::MiscSelect, xfrm::Xfrm};
 /// by the means of ENCLS(ECREATE) leaf.
 ///
 /// Section 38.7
-#[repr(C)]
+#[repr(C, align(4096))]
 pub struct Secs {
     pub size: u64,           // size of address space (power of 2)
     pub base: u64,           // base address of address space
@@ -38,6 +38,23 @@ pub struct Secs {
     pub isv_prod_id: u16,    // user-defined value used in key derivation
     pub isv_svn: u16,        // user-defined value used in key derivation
     pub config_svn: u16,     // user-defined value used in key derivation
+}
+
+testaso! {
+    struct Secs: 4096, 4096 => {
+        size: 0,
+        base: 8,
+        ssa_frame_size: 16,
+        miscselect: 20,
+        attributes: 48,
+        xfrm: 56,
+        mrenclave: 64,
+        mrsigner: 128,
+        config_id: 192,
+        isv_prod_id: 256,
+        isv_svn: 258,
+        config_svn: 260
+    }
 }
 
 /// FIXME: This is not the right way to create this struct. However,

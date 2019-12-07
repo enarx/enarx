@@ -1,5 +1,6 @@
 #![allow(clippy::unreadable_literal)]
 
+/// Section 38.9.1.1, Table 38-10
 #[derive(Copy, Clone, Debug)]
 pub enum Exception {
     Divider,
@@ -14,12 +15,14 @@ pub enum Exception {
     Simd,
 }
 
+/// Section 38.9.1.1, Table 38-9
 #[derive(Copy, Clone, Debug)]
 pub enum ExitType {
     Hardware,
     Software,
 }
 
+/// Section 38.9.1.1, Table 38-9
 #[repr(transparent)]
 #[derive(Copy, Clone, Default)]
 pub struct ExitInfo(u32);
@@ -115,21 +118,31 @@ pub struct GprSgx {
     pub gsbase: u64,
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn align() {
-        use std::mem::align_of;
-
-        assert_eq!(align_of::<GprSgx>(), align_of::<u64>());
-    }
-
-    #[test]
-    fn size() {
-        use std::mem::size_of;
-
-        assert_eq!(size_of::<GprSgx>(), 184);
+testaso! {
+    struct GprSgx: 8, 184 => {
+        rax: 0,
+        rcx: 8,
+        rdx: 16,
+        rbx: 24,
+        rsp: 32,
+        rbp: 40,
+        rsi: 48,
+        rdi: 56,
+        r8: 64,
+        r9: 72,
+        r10: 80,
+        r11: 88,
+        r12: 96,
+        r13: 104,
+        r14: 112,
+        r15: 120,
+        rflags: 128,
+        rip: 136,
+        ursp: 144,
+        urbp: 152,
+        exitinfo: 160,
+        reserved: 164,
+        fsbase: 168,
+        gsbase: 176
     }
 }

@@ -19,6 +19,48 @@
 #![deny(clippy::all)]
 #![allow(clippy::identity_op)]
 
+macro_rules! defenum {
+    ($name:ident::$value:ident) => {
+        impl Default for $name {
+            fn default() -> Self {
+                $name::$value
+            }
+        }
+    };
+}
+
+macro_rules! defflags {
+    ($name:ident $($value:ident)|*) => {
+        impl Default for $name {
+            fn default() -> Self {
+                $name::empty() $( | $name::$value )* | $name::empty()
+            }
+        }
+    };
+}
+
+macro_rules! testaso {
+    (@off $name:ident.$field:ident) => {
+        &unsafe { &*core::ptr::null::<$name>() }.$field as *const _ as usize
+    };
+
+    ($(struct $name:ident: $align:expr, $size:expr => { $($field:ident: $offset:expr),* })+) => {
+        #[cfg(test)]
+        #[test]
+        fn aso() {
+            use core::mem::*;
+
+            $(
+                assert_eq!(align_of::<$name>(), $align, "align: {}", stringify!($name));
+                assert_eq!(size_of::<$name>(), $size, "size: {}", stringify!($name));
+                $(
+                    assert_eq!(testaso!(@off $name.$field), $offset, "offset: {}::{}", stringify!($name), stringify!($field));
+                )*
+            )+
+        }
+    };
+}
+
 pub mod attributes;
 pub mod miscselect;
 pub mod secinfo;

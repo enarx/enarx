@@ -18,7 +18,7 @@ impl Default for Flags {
 ///
 /// Section 38.8
 #[derive(Debug, Default)]
-#[repr(C)]
+#[repr(C, align(4096))]
 pub struct Tcs {
     state: u64,         // used to mark an entered TCS
     flags: Flags,       // execution flags (cleared by EADD)
@@ -31,4 +31,20 @@ pub struct Tcs {
     gs_offset: u64,     // offset relative to enclave base to become GS segment inside the enclave
     fs_limit: u32,      // size to become a new FS-limit (only 32-bit enclaves)
     gs_limit: u32,      // size to become a new GS-limit (only 32-bit enclaves)
+}
+
+testaso! {
+    struct Tcs: 4096, 4096 => {
+        state: 0,
+        flags: 8,
+        ssa_offset: 16,
+        ssa_index: 24,
+        nr_ssa_frames: 28,
+        entry_offset: 32,
+        exit_addr: 40,
+        fs_offset: 48,
+        gs_offset: 56,
+        fs_limit: 64,
+        gs_limit: 68
+    }
 }

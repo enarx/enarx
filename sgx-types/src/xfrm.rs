@@ -15,8 +15,4 @@ bitflags::bitflags! {
     }
 }
 
-impl Default for Xfrm {
-    fn default() -> Self {
-        Xfrm::X87 | Xfrm::SSE
-    }
-}
+defflags!(Xfrm X87 | SSE);
