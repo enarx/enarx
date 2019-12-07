@@ -1,2 +1,2 @@
 [workspace]
-members = [ "paged", "sgx-types", "sgx-traits", "sgx-sys" ]
+members = [ "sgx-types", "sgx-traits", "sgx-sys" ]
