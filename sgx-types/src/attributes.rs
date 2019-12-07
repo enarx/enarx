@@ -9,8 +9,4 @@ bitflags::bitflags! {
     }
 }
 
-impl Default for Attributes {
-    fn default() -> Self {
-        Attributes::MODE_64_BIT
-    }
-}
+defflags!(Attributes MODE_64_BIT);

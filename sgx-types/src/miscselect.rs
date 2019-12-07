@@ -5,8 +5,4 @@ bitflags::bitflags! {
     }
 }
 
-impl Default for MiscSelect {
-    fn default() -> Self {
-        MiscSelect::EXINFO
-    }
-}
+defflags!(MiscSelect EXINFO);

@@ -2,13 +2,6 @@
 
 use bitflags::bitflags;
 
-#[repr(C, align(64))]
-pub struct SecInfo {
-    flags: Flags,
-    ptype: PageType,
-    reserved: [u8; 62],
-}
-
 bitflags! {
     pub struct Flags: u8 {
         const R = 1 << 0;
@@ -20,7 +13,10 @@ bitflags! {
     }
 }
 
+defflags!(Flags);
+
 #[repr(u8)]
+#[derive(Copy, Clone)]
 pub enum PageType {
     Secs = 0,
     Tcs = 1,
@@ -29,12 +25,24 @@ pub enum PageType {
     Trim = 4,
 }
 
+defenum!(PageType::Reg);
+
+#[derive(Copy, Clone, Default)]
+#[repr(C, align(64))]
+pub struct SecInfo {
+    flags: Flags,
+    ptype: PageType,
+}
+
+testaso! {
+    struct SecInfo: 64, 64 => {
+        flags: 0,
+        ptype: 1
+    }
+}
+
 impl SecInfo {
     pub fn new(flags: Flags, ptype: PageType) -> Self {
-        Self {
-            flags,
-            ptype,
-            reserved: [0u8; 62],
-        }
+        Self { flags, ptype }
     }
 }
