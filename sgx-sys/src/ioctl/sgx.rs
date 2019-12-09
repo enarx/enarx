@@ -17,7 +17,7 @@ use std::marker::PhantomData;
 use std::os::raw::c_ulong;
 use std::os::unix::io::AsRawFd;
 
-use sgx_types::{secinfo::SecInfo, secs::Secs, sigstruct::SigStruct};
+use sgx_types::{page::SecInfo, secs::Secs, sig::Signature};
 
 #[repr(C)]
 #[derive(Debug)]
@@ -75,7 +75,7 @@ impl<'a> Ioctl for Init<'a> {
 }
 
 impl<'a> Init<'a> {
-    pub fn new(sig: &'a SigStruct) -> Self {
+    pub fn new(sig: &'a Signature) -> Self {
         Init(sig as *const _ as _, PhantomData)
     }
 }
