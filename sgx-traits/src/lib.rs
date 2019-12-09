@@ -15,8 +15,8 @@
 use std::io::Result;
 
 use bitflags::bitflags;
-use sgx_types::secinfo::{Flags as Permissions, SecInfo};
-use sgx_types::{secs::Secs, sigstruct::SigStruct, tcs::Tcs, Offset};
+use sgx_types::page::{Flags as PageFlags, SecInfo};
+use sgx_types::{secs::Secs, sig::Signature, tcs::Tcs, Offset};
 
 bitflags! {
     pub struct Flags: u64 {
@@ -35,12 +35,7 @@ pub trait Builder<'b>: Sized {
 
     fn add_tcs(&mut self, tcs: Tcs, offset: usize) -> Result<Offset<'b, Tcs>>;
 
-    fn add_struct<T>(
-        &mut self,
-        data: T,
-        offset: usize,
-        perms: Permissions,
-    ) -> Result<Offset<'b, T>>;
+    fn add_struct<T>(&mut self, data: T, offset: usize, flags: PageFlags) -> Result<Offset<'b, T>>;
 
     fn add_slice(
         &mut self,
@@ -50,7 +45,7 @@ pub trait Builder<'b>: Sized {
         secinfo: SecInfo,
     ) -> Result<Offset<'b, ()>>;
 
-    fn build(self, ss: SigStruct) -> Result<Self::Enclave>;
+    fn build(self, sig: Signature) -> Result<Self::Enclave>;
 }
 
 #[cfg(test)]

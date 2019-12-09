@@ -61,14 +61,15 @@ macro_rules! testaso {
     };
 }
 
-pub mod attributes;
-pub mod miscselect;
-pub mod secinfo;
+mod utils;
+
+pub mod attr;
+pub mod misc;
+pub mod page;
 pub mod secs;
-pub mod sigstruct;
+pub mod sig;
 pub mod ssa;
 pub mod tcs;
-pub mod xfrm;
 
 use core::marker::PhantomData;
 

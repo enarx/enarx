@@ -1,4 +1,17 @@
 bitflags::bitflags! {
+    /// Section 38.7.1
+    pub struct Flags: u64 {
+        const INIT = 1 << 0;
+        const DEBUG = 1 << 1;
+        const MODE_64_BIT = 1 << 2;
+        const PROVISION_KEY = 1 << 4;
+        const EINIT_TOKEN_KEY = 1 << 5;
+    }
+}
+
+defflags!(Flags MODE_64_BIT);
+
+bitflags::bitflags! {
     /// Section 42.7.2.1 and https://en.wikipedia.org/wiki/Control_register
     pub struct Xfrm: u64 {
         const X87 = 1 << 0;       // x87 FPU/MMX State, note, must be '1'
@@ -16,3 +29,21 @@ bitflags::bitflags! {
 }
 
 defflags!(Xfrm X87 | SSE);
+
+#[repr(C, packed)]
+#[derive(Copy, Clone, Default)]
+pub struct Attributes {
+    flags: Flags,
+    xfrm: Xfrm,
+}
+
+impl core::ops::BitAnd for Attributes {
+    type Output = Self;
+
+    fn bitand(self, other: Self) -> Self {
+        Attributes {
+            flags: self.flags & other.flags,
+            xfrm: self.xfrm & other.xfrm,
+        }
+    }
+}

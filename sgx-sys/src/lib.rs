@@ -24,9 +24,9 @@ use std::marker::PhantomData;
 use std::mem::size_of_val;
 
 use sgx_traits::{Builder as BuilderTrait, Enclave as EnclaveTrait, Flags};
-use sgx_types::secinfo::{Flags as Perms, PageType, SecInfo};
+use sgx_types::page::{Class as PageClass, Flags as PageFlags, SecInfo};
 use sgx_types::secs::Secs;
-use sgx_types::sigstruct::SigStruct;
+use sgx_types::sig::Signature;
 use sgx_types::tcs::Tcs;
 use sgx_types::Offset;
 
@@ -48,12 +48,12 @@ impl<'b> BuilderTrait<'b> for Builder<'b> {
             std::slice::from_raw_parts(&tcs as *const Tcs as *const u8, size_of_val(&tcs))
         };
 
-        let si = SecInfo::new(Perms::R | Perms::W, PageType::Tcs);
+        let si = SecInfo::new(PageFlags::R | PageFlags::W, PageClass::Tcs);
         self.add_slice(&data, offset, Flags::MEASURE, si)
             .map(|_| unsafe { Offset::new(offset) })
     }
 
-    fn add_struct<T>(&mut self, data: T, offset: usize, perms: Perms) -> Result<Offset<'b, T>> {
+    fn add_struct<T>(&mut self, data: T, offset: usize, flags: PageFlags) -> Result<Offset<'b, T>> {
         #[repr(C, align(4096))]
         struct Paged<T>(T);
 
@@ -62,7 +62,7 @@ impl<'b> BuilderTrait<'b> for Builder<'b> {
             std::slice::from_raw_parts(&pages as *const _ as *const u8, size_of_val(&pages))
         };
 
-        let si = SecInfo::new(perms, PageType::Reg);
+        let si = SecInfo::new(flags, PageClass::Reg);
         self.add_slice(&data, offset, Flags::MEASURE, si)
             .map(|_| unsafe { Offset::new(offset) })
     }
@@ -81,8 +81,8 @@ impl<'b> BuilderTrait<'b> for Builder<'b> {
     }
 
     // Calls SGX_IOC_ENCLAVE_INIT (EINIT)
-    fn build(self, ss: SigStruct) -> Result<Self::Enclave> {
-        let init = ioctl::sgx::Init::new(&ss);
+    fn build(self, sig: Signature) -> Result<Self::Enclave> {
+        let init = ioctl::sgx::Init::new(&sig);
         init.ioctl(&self.0)?;
         Ok(Enclave(self.0, PhantomData))
     }
@@ -103,13 +103,8 @@ mod test {
     #[cfg_attr(not(has_sgx), ignore)]
     #[test]
     fn enclave_create() {
-        use sgx_types::*;
-
-        let mut secs = Secs::default();
-        secs.size = 8192;
-        secs.base = 8192;
-        secs.ssa_frame_size = 4096;
-        secs.xfrm = xfrm::Xfrm::default();
+        let ss = Signature::default();
+        let secs = Secs::new(8192, 8192, 4096, &ss);
         Builder::new(secs).unwrap();
     }
 }
