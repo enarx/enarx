@@ -73,28 +73,12 @@ pub mod tcs;
 
 use core::marker::PhantomData;
 
-/// An offset reference with neither read nor write capabilities
-///
-/// The Offset struct allows the creation of an opaque reference to a
-/// type that cannot be read or written. Neither the lifetime nor the
-/// type are discarded. This allows us to refer to an offset inside
-/// an enclave without fear that it will be dereferenced. The size of
-/// the Offset is always 64 bits with natural alignment. Therefore,
-/// the Offset type can be embedded in structs.
 #[repr(transparent)]
 #[derive(Debug)]
-pub struct Offset<'h, T>(u64, PhantomData<&'h T>);
+pub struct Offset<T: ?Sized>(u64, PhantomData<T>);
 
-impl<'h, T> Offset<'h, T> {
-    /// Create a new `Offset`
-    ///
-    /// # Safety
-    ///
-    /// This function is unsafe because you could create an Offset to an
-    /// offset that doesn't exist. This could cause an invalid memory
-    /// reference later in the program. You must ensure that both the
-    /// lifetime and the offset are valid.
-    pub unsafe fn new(offset: usize) -> Self {
-        Offset(offset as u64, PhantomData)
+impl<T: ?Sized> From<usize> for Offset<T> {
+    fn from(value: usize) -> Self {
+        Offset(value as u64, PhantomData)
     }
 }

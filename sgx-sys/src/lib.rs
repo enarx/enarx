@@ -22,6 +22,7 @@ use std::fs::File;
 use std::io::Result;
 use std::marker::PhantomData;
 use std::mem::size_of_val;
+use std::slice::from_raw_parts;
 
 use sgx_traits::{Builder as BuilderTrait, Enclave as EnclaveTrait, Flags};
 use sgx_types::page::{Class as PageClass, Flags as PageFlags, SecInfo};
@@ -43,41 +44,42 @@ impl<'b> BuilderTrait<'b> for Builder<'b> {
         Ok(Self(file, PhantomData))
     }
 
-    fn add_tcs(&mut self, tcs: Tcs, offset: usize) -> Result<Offset<'b, Tcs>> {
-        let data = unsafe {
-            std::slice::from_raw_parts(&tcs as *const Tcs as *const u8, size_of_val(&tcs))
-        };
+    unsafe fn add_tcs(&mut self, tcs: Tcs, offset: usize) -> Result<Offset<Tcs>> {
+        let data = from_raw_parts(&tcs as *const Tcs as *const u8, size_of_val(&tcs));
 
         let si = SecInfo::new(PageFlags::R | PageFlags::W, PageClass::Tcs);
         self.add_slice(&data, offset, Flags::MEASURE, si)
-            .map(|_| unsafe { Offset::new(offset) })
+            .map(|_| offset.into())
     }
 
-    fn add_struct<T>(&mut self, data: T, offset: usize, flags: PageFlags) -> Result<Offset<'b, T>> {
+    unsafe fn add_struct<T>(
+        &mut self,
+        data: T,
+        offset: usize,
+        flags: PageFlags,
+    ) -> Result<Offset<T>> {
         #[repr(C, align(4096))]
         struct Paged<T>(T);
 
         let pages = Paged(data);
-        let data = unsafe {
-            std::slice::from_raw_parts(&pages as *const _ as *const u8, size_of_val(&pages))
-        };
+        let data = from_raw_parts(&pages as *const _ as *const u8, size_of_val(&pages));
 
         let si = SecInfo::new(flags, PageClass::Reg);
         self.add_slice(&data, offset, Flags::MEASURE, si)
-            .map(|_| unsafe { Offset::new(offset) })
+            .map(|_| offset.into())
     }
 
     // Calls SGX_IOC_ENCLAVE_ADD_PAGES (EADD)
-    fn add_slice(
+    unsafe fn add_slice(
         &mut self,
         data: &[u8],
         offset: usize,
         flags: Flags,
         secinfo: SecInfo,
-    ) -> Result<Offset<'b, ()>> {
+    ) -> Result<Offset<[u8]>> {
         let addpages = ioctl::sgx::AddPages::new(data, offset, &secinfo, flags);
         addpages.ioctl(&self.0)?;
-        Ok(unsafe { Offset::new(offset) })
+        Ok(offset.into())
     }
 
     // Calls SGX_IOC_ENCLAVE_INIT (EINIT)
@@ -91,7 +93,7 @@ impl<'b> BuilderTrait<'b> for Builder<'b> {
 pub struct Enclave<'e>(File, PhantomData<&'e ()>);
 
 impl<'e> EnclaveTrait<'e> for Enclave<'e> {
-    fn enter(&self, _: &mut Offset<'e, Tcs>) -> Result<()> {
+    unsafe fn enter(&self, _: &mut Offset<Tcs>) -> Result<()> {
         Err(std::io::ErrorKind::Other.into())
     }
 }

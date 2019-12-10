@@ -25,7 +25,7 @@ bitflags! {
 }
 
 pub trait Enclave<'e> {
-    fn enter(&self, offset: &mut Offset<'e, Tcs>) -> Result<()>;
+    unsafe fn enter(&self, offset: &mut Offset<Tcs>) -> Result<()>;
 }
 
 pub trait Builder<'b>: Sized {
@@ -33,17 +33,22 @@ pub trait Builder<'b>: Sized {
 
     fn new(secs: Secs) -> Result<Self>;
 
-    fn add_tcs(&mut self, tcs: Tcs, offset: usize) -> Result<Offset<'b, Tcs>>;
+    unsafe fn add_tcs(&mut self, tcs: Tcs, offset: usize) -> Result<Offset<Tcs>>;
 
-    fn add_struct<T>(&mut self, data: T, offset: usize, flags: PageFlags) -> Result<Offset<'b, T>>;
+    unsafe fn add_struct<T>(
+        &mut self,
+        data: T,
+        offset: usize,
+        flags: PageFlags,
+    ) -> Result<Offset<T>>;
 
-    fn add_slice(
+    unsafe fn add_slice(
         &mut self,
         data: &[u8],
         offset: usize,
         flags: Flags,
         secinfo: SecInfo,
-    ) -> Result<Offset<'b, ()>>;
+    ) -> Result<Offset<[u8]>>;
 
     fn build(self, sig: Signature) -> Result<Self::Enclave>;
 }
