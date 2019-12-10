@@ -40,11 +40,11 @@ macro_rules! defflags {
 }
 
 macro_rules! testaso {
-    (@off $name:ident.$field:ident) => {
+    (@off $name:ty=>$field:ident) => {
         &unsafe { &*core::ptr::null::<$name>() }.$field as *const _ as usize
     };
 
-    ($(struct $name:ident: $align:expr, $size:expr => { $($field:ident: $offset:expr),* })+) => {
+    ($(struct $name:ty: $align:expr, $size:expr => { $($field:ident: $offset:expr),* })+) => {
         #[cfg(test)]
         #[test]
         fn align() {
@@ -81,7 +81,7 @@ macro_rules! testaso {
             $(
                 $(
                     assert_eq!(
-                        testaso!(@off $name.$field),
+                        testaso!(@off $name=>$field),
                         $offset,
                         "offset: {}::{}",
                         stringify!($name),
