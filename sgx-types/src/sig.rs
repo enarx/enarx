@@ -110,6 +110,20 @@ pub struct Signature {
     pub q2: RsaNumber, // value used in RSA signature verification
 }
 
+impl Signature {
+    /// Creates a signature from a mrenclave hash
+    pub fn from_hash(hash: [u8; 32]) -> Self {
+        let contents = Contents {
+            mrenclave: hash,
+            ..Default::default()
+        };
+        Signature {
+            contents: contents,
+            ..Default::default()
+        }
+    }
+}
+
 testaso! {
     struct Author: 4, 128 => {
         header1: 0,
