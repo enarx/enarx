@@ -1,5 +1,11 @@
 #![allow(clippy::unreadable_literal)]
 
+use crate::utils::Padding;
+
+use core::mem::size_of;
+
+use bitflags::bitflags;
+
 /// Section 38.9.1.1, Table 38-10
 #[derive(Copy, Clone, Debug)]
 pub enum Exception {
@@ -89,9 +95,10 @@ impl ExitInfo {
     }
 }
 
+/// Section 38.9.1, Table 38-8
 #[derive(Debug)]
 #[repr(C)]
-pub struct GprSgx {
+pub struct Gpr {
     pub rax: u64,
     pub rcx: u64,
     pub rdx: u64,
@@ -118,8 +125,57 @@ pub struct GprSgx {
     pub gsbase: u64,
 }
 
+bitflags! {
+    /// Section 38.9.2.2, Table 38-13
+    pub struct PageFault: u32 {
+        const P = 1 << 0;
+        const WR = 1 << 1;
+        const US = 1 << 2;
+        const ID = 1 << 4;
+        const PK = 1 << 5;
+        const SGX = 1 << 5;
+    }
+}
+
+/// Section 38.9.2.1, Table 38-12
+#[derive(Debug)]
+#[repr(C)]
+pub struct ExceptionInfo {
+    maddr: u64,
+    errcd: PageFault,
+}
+
+/// Section 38.9.2, Table 38-11
+#[derive(Debug)]
+#[repr(C)]
+pub struct Miscellaneous {
+    exinfo: ExceptionInfo,
+}
+
+// TODO: replace with real XSAVE type
+#[derive(Debug)]
+#[repr(C, align(4096))]
+pub struct XSave(Padding<[u8; 4096]>);
+
+#[derive(Debug)]
+#[repr(C, align(4096))]
+pub struct Footer {
+    padding: Padding<[u8; 4096 - size_of::<Miscellaneous>() - size_of::<Gpr>()]>,
+    misc: Miscellaneous,
+    gpr: Gpr,
+}
+
+/// Section 38.9, Table 38-7
+#[derive(Debug)]
+#[repr(C)]
+pub struct StateSaveArea<T> {
+    xsave: XSave,
+    other: T,
+    footer: Footer,
+}
+
 testaso! {
-    struct GprSgx: 8, 184 => {
+    struct Gpr: 8, 184 => {
         rax: 0,
         rcx: 8,
         rdx: 16,
@@ -144,5 +200,47 @@ testaso! {
         reserved: 164,
         fsbase: 168,
         gsbase: 176
+    }
+
+    struct ExceptionInfo: 8, 16 => {
+        maddr: 0,
+        errcd: 8
+    }
+
+    struct Miscellaneous: 8, 16 => {
+        exinfo: 0
+    }
+
+    struct XSave: 4096, 4096 => {
+    }
+
+    struct Footer: 4096, 4096 => {
+        padding: 0,
+        misc: 3896,
+        gpr: 3912
+    }
+
+    struct StateSaveArea<()>: 4096, 8192 => {
+        xsave: 0,
+        other: 4096,
+        footer: 4096
+    }
+
+    struct StateSaveArea<u64>: 4096, 12288 => {
+        xsave: 0,
+        other: 4096,
+        footer: 8192
+    }
+
+    struct StateSaveArea<[u8; 4096]>: 4096, 12288 => {
+        xsave: 0,
+        other: 4096,
+        footer: 8192
+    }
+
+    struct StateSaveArea<([u8; 4096], u64)>: 4096, 16384 => {
+        xsave: 0,
+        other: 4096,
+        footer: 12288
     }
 }
