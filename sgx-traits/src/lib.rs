@@ -47,20 +47,3 @@ pub trait Builder<'b>: Sized {
 
     fn build(self, sig: Signature) -> Result<Self::Enclave>;
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn align() {
-        use std::mem::align_of;
-        assert_eq!(align_of::<Offset<u32>>(), align_of::<u64>());
-    }
-
-    #[test]
-    fn size() {
-        use std::mem::size_of;
-        assert_eq!(size_of::<Offset<u32>>(), size_of::<u64>());
-    }
-}
