@@ -1,3 +1,5 @@
+use core::mem::size_of;
+
 #[derive(Copy)]
 #[repr(transparent)]
 pub struct Padding<T>(T);
@@ -14,10 +16,20 @@ impl<T> Default for Padding<T> {
     }
 }
 
+impl<T> core::fmt::Display for Padding<T> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "Padding({})", size_of::<Self>())
+    }
+}
+
+impl<T> core::fmt::Debug for Padding<T> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "Padding({})", size_of::<Self>())
+    }
+}
+
 #[test]
 #[cfg(test)]
 fn padding() {
-    use core::mem::*;
-
     assert_eq!(size_of::<Padding<[u8; 20]>>(), 20);
 }
