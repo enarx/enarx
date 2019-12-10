@@ -47,14 +47,46 @@ macro_rules! testaso {
     ($(struct $name:ident: $align:expr, $size:expr => { $($field:ident: $offset:expr),* })+) => {
         #[cfg(test)]
         #[test]
-        fn aso() {
-            use core::mem::*;
+        fn align() {
+            use core::mem::align_of;
 
             $(
-                assert_eq!(align_of::<$name>(), $align, "align: {}", stringify!($name));
-                assert_eq!(size_of::<$name>(), $size, "size: {}", stringify!($name));
+                assert_eq!(
+                    align_of::<$name>(),
+                    $align,
+                    "align: {}",
+                    stringify!($name)
+                );
+            )+
+        }
+
+        #[cfg(test)]
+        #[test]
+        fn size() {
+            use core::mem::size_of;
+
+            $(
+                assert_eq!(
+                    size_of::<$name>(),
+                    $size,
+                    "size: {}",
+                    stringify!($name)
+                );
+            )+
+        }
+
+        #[cfg(test)]
+        #[test]
+        fn offsets() {
+            $(
                 $(
-                    assert_eq!(testaso!(@off $name.$field), $offset, "offset: {}::{}", stringify!($name), stringify!($field));
+                    assert_eq!(
+                        testaso!(@off $name.$field),
+                        $offset,
+                        "offset: {}::{}",
+                        stringify!($name),
+                        stringify!($field)
+                    );
                 )*
             )+
         }
