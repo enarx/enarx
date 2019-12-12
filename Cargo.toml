@@ -3,6 +3,9 @@ members = [
     "iocuddle",
     "iocuddle-sgx",
 
+    "linux-syscall",
+    "linux-errno",
+
     "sgx-show",
     "sgx-types",
     "sgx-crypto",

@@ -98,6 +98,14 @@ version = "0.2.66"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
+name = "linux-errno"
+version = "0.1.0"
+
+[[package]]
+name = "linux-syscall"
+version = "0.1.0"
+
+[[package]]
 name = "openssl"
 version = "0.10.26"
 source = "git+https://github.com/npmccallum/rust-openssl?branch=patch#99b97f141afa04b63a5a2f94e69acd12e26fbcde"
