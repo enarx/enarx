@@ -15,33 +15,69 @@
 #![deny(clippy::all)]
 #![allow(clippy::identity_op)]
 
-pub mod ioctl;
-
-use ioctl::Ioctl;
 use std::fs::File;
 use std::io::Result;
 use std::marker::PhantomData;
 use std::mem::size_of_val;
 use std::slice::from_raw_parts;
+use openssl::{pkey::{Private, Public}, rsa::Rsa};
+use hex;
 
-use sgx_traits::{Builder as BuilderTrait, Enclave as EnclaveTrait, Flags};
+use sgx_traits::{Hasher as HasherTrait, Enclave as EnclaveTrait, Flags};
 use sgx_types::page::{Class as PageClass, Flags as PageFlags, SecInfo};
 use sgx_types::secs::Secs;
-use sgx_types::sig::Signature;
+use sgx_types::sig::{RsaExponent, RsaNumber};
 use sgx_types::tcs::Tcs;
 use sgx_types::Offset;
+use sgx_sys::ioctl::*;
 
-pub struct Builder<'b>(File, PhantomData<&'b ()>);
+pub struct Hasher<'b> {
+    rsa: Rsa<Private>, 
+    file: File, 
+    phantom: PhantomData<&'b ()>
+}
 
-impl<'b> BuilderTrait<'b> for Builder<'b> {
+impl<'b> HasherTrait<'b> for Hasher<'b> {
     type Enclave = Enclave<'b>;
 
-    // Calls SGX_IOC_ENCLAVE_CREATE (ECREATE)
+    // Mimics call to SGX_IOC_ENCLAVE_CREATE (ECREATE)
     fn new(secs: Secs) -> Result<Self> {
-        let create = ioctl::sgx::Create::new(&secs);
+        let _create = sgx::Create::new(&secs);
         let file = File::open("/dev/sgx/enclave")?;
-        create.ioctl(&file)?;
-        Ok(Self(file, PhantomData))
+        
+        // From Rust OpenSSL: The public exponent will be 65537.
+        let rsa = Rsa::generate(3072)?;
+
+        Ok(Self{
+            rsa: rsa, 
+            file: file, 
+            phantom: PhantomData
+        })
+    }
+
+    fn get_mod(&self) -> RsaNumber {
+        let mut rsanum = [0; 384];
+        let modl = self.rsa.n().to_vec();
+        rsanum.copy_from_slice(&modl);
+        RsaNumber::new(rsanum)
+    }
+
+    fn get_exp(&self) -> RsaExponent {
+        let exp_hex = hex::encode(self.rsa.e().to_vec());
+        let exp_dec = u32::from_str_radix(&exp_hex[..], 16).unwrap();
+        RsaExponent::new(exp_dec)
+    }
+
+    // TODO: make sure signature exists for this
+    fn get_q1(&self) -> RsaNumber {
+        // TODO: q1 = floor(signature.pow(2) / modulus)
+        RsaNumber::default()
+    }
+
+    // TODO: make sure signature exists for this
+    fn get_q2(&self) -> RsaNumber {
+        // TODO: q2 = floor((signature.pow(3) - q1 * signature * modulus) / modulus)
+        RsaNumber::default()
     }
 
     unsafe fn add_tcs(&mut self, tcs: Tcs, offset: usize) -> Result<Offset<Tcs>> {
@@ -69,7 +105,7 @@ impl<'b> BuilderTrait<'b> for Builder<'b> {
             .map(|_| offset.into())
     }
 
-    // Calls SGX_IOC_ENCLAVE_ADD_PAGES (EADD)
+    // Mimics call to SGX_IOC_ENCLAVE_ADD_PAGES (EADD)
     unsafe fn add_slice(
         &mut self,
         data: &[u8],
@@ -77,16 +113,19 @@ impl<'b> BuilderTrait<'b> for Builder<'b> {
         flags: Flags,
         secinfo: SecInfo,
     ) -> Result<Offset<[u8]>> {
-        let addpages = ioctl::sgx::AddPages::new(data, offset, &secinfo, flags);
-        addpages.ioctl(&self.0)?;
+        let _addpages = sgx::AddPages::new(data, offset, &secinfo, flags);
         Ok(offset.into())
     }
 
-    // Calls SGX_IOC_ENCLAVE_INIT (EINIT)
-    fn build(self, sig: Signature) -> Result<Self::Enclave> {
-        let init = ioctl::sgx::Init::new(&sig);
-        init.ioctl(&self.0)?;
-        Ok(Enclave(self.0, PhantomData))
+    // Mimics call to SGX_IOC_ENCLAVE_INIT (EINIT)
+    fn hash(&self) -> Result<[u8; 32]> {
+        // TODO: implement hash
+        Ok([0u8; 32])
+    }
+
+    fn sign(&self) -> Result<()> {
+        // TODO: implement signature on hash
+        Ok(())
     }
 }
 
@@ -100,13 +139,5 @@ impl<'e> EnclaveTrait<'e> for Enclave<'e> {
 
 #[cfg(test)]
 mod test {
-    use super::*;
-
-    #[cfg_attr(not(has_sgx), ignore)]
-    #[test]
-    fn enclave_create() {
-        let ss = Signature::default();
-        let secs = Secs::new(8192, 8192, 4096, &ss);
-        Builder::new(secs).unwrap();
-    }
+    // TODO: Add tests (ex. for modulus, exponent of rsa key)
 }

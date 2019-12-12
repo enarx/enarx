@@ -1,0 +1,15 @@
+[package]
+name = "sgx-hasher"
+version = "0.1.0"
+authors = ["Lily Sturmann <lsturman@redhat.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+bitflags = "1.2.1"
+openssl = "0.10"
+hex = "0.4"
+sgx-types = { path = "../sgx-types" }
+sgx-traits = { path = "../sgx-traits" }
+sgx-sys = { path = "../sgx-sys" }

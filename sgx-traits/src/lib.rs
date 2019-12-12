@@ -16,7 +16,7 @@ use std::io::Result;
 
 use bitflags::bitflags;
 use sgx_types::page::{Flags as PageFlags, SecInfo};
-use sgx_types::{secs::Secs, sig::Signature, tcs::Tcs, Offset};
+use sgx_types::{secs::Secs, sig::{Signature, RsaExponent, RsaNumber}, tcs::Tcs, Offset};
 
 bitflags! {
     pub struct Flags: u64 {
@@ -51,4 +51,39 @@ pub trait Builder<'b>: Sized {
     ) -> Result<Offset<[u8]>>;
 
     fn build(self, sig: Signature) -> Result<Self::Enclave>;
+}
+
+pub trait Hasher<'b>: Sized {
+    type Enclave: Enclave<'b>;
+
+    fn new(secs: Secs) -> Result<Self>;
+
+    fn get_mod(&self) -> RsaNumber;
+
+    fn get_exp(&self) -> RsaExponent;
+
+    fn get_q1(&self) -> RsaNumber;
+
+    fn get_q2(&self) -> RsaNumber;
+
+    unsafe fn add_tcs(&mut self, tcs: Tcs, offset: usize) -> Result<Offset<Tcs>>;
+
+    unsafe fn add_struct<T>(
+        &mut self,
+        data: T,
+        offset: usize,
+        flags: PageFlags,
+    ) -> Result<Offset<T>>;
+
+    unsafe fn add_slice(
+        &mut self,
+        data: &[u8],
+        offset: usize,
+        flags: Flags,
+        secinfo: SecInfo,
+    ) -> Result<Offset<[u8]>>;
+
+    fn hash(&self) -> Result<[u8; 32]>;
+
+    fn sign(&self) -> Result<()>;
 }

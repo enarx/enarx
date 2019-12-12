@@ -10,6 +10,12 @@ impl Default for RsaNumber {
     }
 }
 
+impl RsaNumber {
+    pub fn new(num: [u8; 384]) -> RsaNumber {
+        RsaNumber(num)
+    }
+}
+
 #[repr(transparent)]
 #[derive(Copy, Clone)]
 pub struct RsaExponent(u32);
@@ -17,6 +23,12 @@ pub struct RsaExponent(u32);
 impl Default for RsaExponent {
     fn default() -> Self {
         Self(65537)
+    }
+}
+
+impl RsaExponent {
+    pub fn new(exp: u32) -> RsaExponent {
+        RsaExponent(exp)
     }
 }
 
