@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use super::{attr::Attributes, misc::MiscSelect, sig::Signature, utils::Padding};
+use super::{attr::Attributes, misc::MiscSelect, sig::Contents, utils::Padding};
 
 /// The SGX Enclave Control Structure (SECS) is a special enclave page that is not
 /// visible in the address space. In fact, this structure defines the address
@@ -23,9 +23,9 @@ use super::{attr::Attributes, misc::MiscSelect, sig::Signature, utils::Padding};
 /// Section 38.7
 #[repr(C, align(4096))]
 pub struct Secs {
-    size: u64,           // size of address space (power of 2)
-    base: u64,           // base address of address space
-    ssa_frame_size: u32, // size of an SSA frame
+    size: u64,     // size of address space (power of 2)
+    base: u64,     // base address of address space
+    ssa_size: u32, // size of an SSA frame
     misc: MiscSelect,
     reserved1: Padding<[u8; 24]>,
     attr: Attributes,
@@ -41,7 +41,7 @@ testaso! {
     struct Secs: 4096, 4096 => {
         size: 0,
         base: 8,
-        ssa_frame_size: 16,
+        ssa_size: 16,
         misc: 20,
         reserved1: 24,
         attr: 48,
@@ -55,18 +55,26 @@ testaso! {
 }
 
 impl Secs {
-    pub fn new(size: u64, base: u64, ssa: u32, sig: &Signature) -> Self {
+    pub fn new(size: u64, base: u64, ssa: u32, contents: &Contents) -> Self {
         Secs {
             size,
             base,
-            ssa_frame_size: ssa,
-            misc: sig.contents.misc & sig.contents.misc_mask,
-            attr: sig.contents.attr & sig.contents.attr_mask,
-            mrenclave: sig.contents.mrenclave,
+            ssa_size: ssa,
+            misc: contents.misc(),
+            attr: contents.attr(),
+            mrenclave: contents.mrenclave(),
             mrsigner: unsafe { core::mem::zeroed() }, // FIXME
-            isv_prod_id: sig.contents.isv_prod_id,
-            isv_svn: sig.contents.isv_svn,
+            isv_prod_id: contents.isv_prod_id(),
+            isv_svn: contents.isv_svn(),
             ..unsafe { core::mem::zeroed() }
         }
+    }
+
+    pub fn size(&self) -> u64 {
+        self.size
+    }
+
+    pub fn ssa_size(&self) -> u32 {
+        self.ssa_size
     }
 }

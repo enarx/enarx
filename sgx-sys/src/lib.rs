@@ -27,7 +27,7 @@ use std::slice::from_raw_parts;
 use sgx_traits::{Builder as BuilderTrait, Enclave as EnclaveTrait, Flags};
 use sgx_types::page::{Class as PageClass, Flags as PageFlags, SecInfo};
 use sgx_types::secs::Secs;
-use sgx_types::sig::Signature;
+use sgx_types::sig;
 use sgx_types::tcs::Tcs;
 use sgx_types::Offset;
 
@@ -83,7 +83,7 @@ impl<'b> BuilderTrait<'b> for Builder<'b> {
     }
 
     // Calls SGX_IOC_ENCLAVE_INIT (EINIT)
-    fn build(self, sig: Signature) -> Result<Self::Enclave> {
+    fn build(self, sig: sig::Signature) -> Result<Self::Enclave> {
         let init = ioctl::sgx::Init::new(&sig);
         init.ioctl(&self.0)?;
         Ok(Enclave(self.0, PhantomData))
@@ -101,12 +101,21 @@ impl<'e> EnclaveTrait<'e> for Enclave<'e> {
 #[cfg(test)]
 mod test {
     use super::*;
+    use sgx_types::{attr, misc};
 
     #[cfg_attr(not(has_sgx), ignore)]
     #[test]
     fn enclave_create() {
-        let ss = Signature::default();
-        let secs = Secs::new(8192, 8192, 4096, &ss);
+        let contents = sig::Contents::new(
+            misc::MiscSelect::default(),
+            attr::Attributes::default(),
+            [0u8; 32],
+            0,
+            0,
+        );
+
+        let secs = Secs::new(8192, 8192, 4096, &contents);
+
         Builder::new(secs).unwrap();
     }
 }
