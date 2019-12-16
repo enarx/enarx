@@ -16,8 +16,9 @@
 #![allow(clippy::identity_op)]
 #![allow(clippy::unreadable_literal)]
 
-use openssl::sha;
-use sgx_types::{page, secs};
+use openssl::{bn, hash, pkey, rsa, sha, sign};
+use sgx_types::{page, secs, sig};
+use std::io::{Error, ErrorKind};
 
 pub struct Hasher(sha::Sha256);
 
@@ -77,6 +78,73 @@ impl Hasher {
     pub fn finish(self) -> [u8; 32] {
         self.0.finish()
     }
+}
+
+fn bn_to_rsanum_inner(bn: bn::BigNum) -> Result<[u8; 384], std::io::Error> {
+    let bn = bn.to_vec();
+    if bn.len() != 384 {
+        return Err(Error::new(
+            ErrorKind::InvalidInput,
+            "Could not convert BigNum to [u8; 384]",
+        ));
+    }
+
+    let mut array = [0u8; 384];
+    array.copy_from_slice(&bn);
+    array.reverse();
+    Ok(array)
+}
+
+fn bn_to_u32(bn: &bn::BigNum) -> Result<u32, std::io::Error> {
+    let mut bn = bn.to_vec();
+    while bn.len() < 4 {
+        bn.push(0);
+    }
+    if bn.len() != 4 {
+        return Err(Error::new(
+            ErrorKind::InvalidInput,
+            "Could not convert BigNum to u32",
+        ));
+    }
+
+    let mut array = u32::default().to_ne_bytes(); // Zero
+    array.copy_from_slice(&bn);
+    array.reverse();
+    Ok(u32::from_be_bytes(array))
+}
+
+pub fn sign(
+    author: sig::Author,
+    contents: sig::Contents,
+    key: rsa::Rsa<pkey::Private>,
+) -> Result<sig::Signature, std::io::Error> {
+    // Generates signature on Signature author and contents
+    let rsa_key = pkey::PKey::from_rsa(key.clone())?;
+    let md = hash::MessageDigest::sha256();
+    let mut signer = sign::Signer::new(md, &rsa_key)?;
+    signer.update(author.as_ref())?;
+    signer.update(contents.as_ref())?;
+    let signature = signer.sign_to_vec()?;
+
+    // Generates q1, q2 values for RSA signature verification
+    let s = bn::BigNum::from_slice(&signature)?;
+    let e = bn_to_u32(&bn::BigNum::from_slice(&key.e().to_vec())?)?;
+    let m = key.n();
+
+    let mut ctx = bn::BigNumContext::new()?;
+    let mut q1 = bn::BigNum::new()?;
+    let mut qr = bn::BigNum::new()?;
+
+    q1.div_rem(&mut qr, &(&s * &s), &m, &mut ctx)?;
+    let q2 = &(&s * &qr) / m;
+
+    // Returns modulus, signature, q1, and q2 as [u8; 384]
+    let m = bn_to_rsanum_inner(bn::BigNum::from_slice(&m.to_vec())?)?;
+    let s = bn_to_rsanum_inner(s)?;
+    let q1 = bn_to_rsanum_inner(q1)?;
+    let q2 = bn_to_rsanum_inner(q2)?;
+
+    Ok(sig::Signature::new(author, contents, e, m, s, q1, q2))
 }
 
 #[cfg(test)]
@@ -232,12 +300,19 @@ mod test {
         sig
     }
 
+    fn loadkey(path: &str) -> rsa::Rsa<pkey::Private> {
+        let pem = load(path);
+        rsa::Rsa::private_key_from_pem(&pem).unwrap()
+    }
+
     #[test]
     fn selftest() {
         let bin = load("tests/encl.bin");
         let sig = loadsig("tests/encl.ss");
+        let key = loadkey("tests/encl.pem");
 
-        let contents = sig.contents();
+        let author = sig.author().clone();
+        let contents = sig.contents().clone();
 
         // Validate the hash.
         assert_eq!(
@@ -245,7 +320,15 @@ mod test {
             hash(&[
                 (&bin[..4096], SecInfo::tcs()),
                 (&bin[4096..], SecInfo::reg(Perms::R | Perms::W | Perms::X))
-            ])
+            ]),
+            "failed to produce correct mrenclave hash"
+        );
+
+        // Ensure that sign() can reproduce the exact same signature struct.
+        assert_eq!(
+            sig,
+            sign(author, contents, key).unwrap(),
+            "failed to produce correct signature"
         );
     }
 }
