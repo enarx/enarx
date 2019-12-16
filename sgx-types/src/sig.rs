@@ -48,6 +48,17 @@ pub struct Author {
     reserved1: Padding<[u8; 84]>,
 }
 
+impl AsRef<[u8]> for Author {
+    fn as_ref(&self) -> &[u8] {
+        unsafe {
+            core::slice::from_raw_parts(
+                self as *const Self as *const u8,
+                core::mem::size_of_val(self),
+            )
+        }
+    }
+}
+
 impl Author {
     pub fn new(vendor: Vendor, date: u32, swdefined: u32) -> Self {
         Author {
@@ -77,6 +88,17 @@ pub struct Contents {
     reserved3: Padding<[u8; 32]>,
     isv_prod_id: u16, // user-defined value used in key derivation
     isv_svn: u16,     // user-defined value used in key derivation
+}
+
+impl AsRef<[u8]> for Contents {
+    fn as_ref(&self) -> &[u8] {
+        unsafe {
+            core::slice::from_raw_parts(
+                self as *const Self as *const u8,
+                core::mem::size_of_val(self),
+            )
+        }
+    }
 }
 
 impl Contents {
