@@ -24,12 +24,12 @@ bitflags! {
     }
 }
 
-pub trait Enclave<'e> {
+pub trait Enclave {
     unsafe fn enter(&self, offset: &mut Offset<Tcs>) -> Result<()>;
 }
 
-pub trait Builder<'b>: Sized {
-    type Enclave: Enclave<'b>;
+pub trait Builder: Sized {
+    type Enclave: Enclave;
 
     fn new(secs: Secs) -> Result<Self>;
 

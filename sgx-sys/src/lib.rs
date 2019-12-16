@@ -20,7 +20,6 @@ mod ioctl;
 use ioctl::Ioctl;
 use std::fs::File;
 use std::io::Result;
-use std::marker::PhantomData;
 use std::mem::size_of_val;
 use std::slice::from_raw_parts;
 
@@ -31,17 +30,17 @@ use sgx_types::sig;
 use sgx_types::tcs::Tcs;
 use sgx_types::Offset;
 
-pub struct Builder<'b>(File, PhantomData<&'b ()>);
+pub struct Builder(File);
 
-impl<'b> BuilderTrait<'b> for Builder<'b> {
-    type Enclave = Enclave<'b>;
+impl BuilderTrait for Builder {
+    type Enclave = Enclave;
 
     // Calls SGX_IOC_ENCLAVE_CREATE (ECREATE)
     fn new(secs: Secs) -> Result<Self> {
         let create = ioctl::sgx::Create::new(&secs);
         let file = File::open("/dev/sgx/enclave")?;
         create.ioctl(&file)?;
-        Ok(Self(file, PhantomData))
+        Ok(Self(file))
     }
 
     unsafe fn add_tcs(&mut self, tcs: Tcs, offset: usize) -> Result<Offset<Tcs>> {
@@ -86,13 +85,13 @@ impl<'b> BuilderTrait<'b> for Builder<'b> {
     fn build(self, sig: sig::Signature) -> Result<Self::Enclave> {
         let init = ioctl::sgx::Init::new(&sig);
         init.ioctl(&self.0)?;
-        Ok(Enclave(self.0, PhantomData))
+        Ok(Enclave(self.0))
     }
 }
 
-pub struct Enclave<'e>(File, PhantomData<&'e ()>);
+pub struct Enclave(File);
 
-impl<'e> EnclaveTrait<'e> for Enclave<'e> {
+impl<'e> EnclaveTrait for Enclave {
     unsafe fn enter(&self, _: &mut Offset<Tcs>) -> Result<()> {
         Err(std::io::ErrorKind::Other.into())
     }
