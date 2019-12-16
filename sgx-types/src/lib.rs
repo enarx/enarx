@@ -102,15 +102,3 @@ pub mod secs;
 pub mod sig;
 pub mod ssa;
 pub mod tcs;
-
-use core::marker::PhantomData;
-
-#[repr(transparent)]
-#[derive(Debug)]
-pub struct Offset<T: ?Sized>(u64, PhantomData<T>);
-
-impl<T: ?Sized> From<usize> for Offset<T> {
-    fn from(value: usize) -> Self {
-        Offset(value as u64, PhantomData)
-    }
-}
