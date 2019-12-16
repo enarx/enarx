@@ -6,15 +6,10 @@ version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
-name = "paged"
-version = "0.1.0"
-
-[[package]]
 name = "sgx-sys"
 version = "0.1.0"
 dependencies = [
  "bitflags 1.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "paged 0.1.0",
  "sgx-traits 0.1.0",
  "sgx-types 0.1.0",
 ]

@@ -22,12 +22,12 @@ use std::fs::File;
 use std::io::Result;
 use std::marker::PhantomData;
 use std::mem::size_of_val;
+use std::slice::from_raw_parts;
 
-use paged::{Page, Size4k};
 use sgx_traits::{Builder as BuilderTrait, Enclave as EnclaveTrait, Flags};
-use sgx_types::secinfo::{Flags as Perms, PageType, SecInfo};
+use sgx_types::page::{Class as PageClass, Flags as PageFlags, SecInfo};
 use sgx_types::secs::Secs;
-use sgx_types::sigstruct::SigStruct;
+use sgx_types::sig::Signature;
 use sgx_types::tcs::Tcs;
 use sgx_types::Offset;
 
@@ -38,54 +38,53 @@ impl<'b> BuilderTrait<'b> for Builder<'b> {
 
     // Calls SGX_IOC_ENCLAVE_CREATE (ECREATE)
     fn new(secs: Secs) -> Result<Self> {
-        let page = secs.into();
-        let create = ioctl::sgx::Create::new(&page);
+        let create = ioctl::sgx::Create::new(&secs);
         let file = File::open("/dev/sgx/enclave")?;
         create.ioctl(&file)?;
         Ok(Self(file, PhantomData))
     }
 
-    fn add_tcs(&mut self, tcs: Tcs, offset: usize) -> Result<Offset<'b, Tcs>> {
-        let page: Page<Size4k, _> = tcs.into();
+    unsafe fn add_tcs(&mut self, tcs: Tcs, offset: usize) -> Result<Offset<Tcs>> {
+        let data = from_raw_parts(&tcs as *const Tcs as *const u8, size_of_val(&tcs));
 
-        let data = unsafe {
-            std::slice::from_raw_parts(page.as_ref() as *const Tcs as *const u8, size_of_val(&page))
-        };
-
-        let si = SecInfo::new(Perms::R | Perms::W, PageType::Tcs);
+        let si = SecInfo::new(PageFlags::R | PageFlags::W, PageClass::Tcs);
         self.add_slice(&data, offset, Flags::MEASURE, si)
-            .map(|_| unsafe { Offset::new(offset) })
+            .map(|_| offset.into())
     }
 
-    fn add_struct<T>(&mut self, data: T, offset: usize, perms: Perms) -> Result<Offset<'b, T>> {
-        let page: Page<Size4k, _> = data.into();
+    unsafe fn add_struct<T>(
+        &mut self,
+        data: T,
+        offset: usize,
+        flags: PageFlags,
+    ) -> Result<Offset<T>> {
+        #[repr(C, align(4096))]
+        struct Paged<T>(T);
 
-        let data = unsafe {
-            std::slice::from_raw_parts(page.as_ref() as *const T as *const u8, size_of_val(&page))
-        };
+        let pages = Paged(data);
+        let data = from_raw_parts(&pages as *const _ as *const u8, size_of_val(&pages));
 
-        let si = SecInfo::new(perms, PageType::Reg);
+        let si = SecInfo::new(flags, PageClass::Reg);
         self.add_slice(&data, offset, Flags::MEASURE, si)
-            .map(|_| unsafe { Offset::new(offset) })
+            .map(|_| offset.into())
     }
 
     // Calls SGX_IOC_ENCLAVE_ADD_PAGES (EADD)
-    fn add_slice(
+    unsafe fn add_slice(
         &mut self,
         data: &[u8],
         offset: usize,
         flags: Flags,
         secinfo: SecInfo,
-    ) -> Result<Offset<'b, ()>> {
+    ) -> Result<Offset<[u8]>> {
         let addpages = ioctl::sgx::AddPages::new(data, offset, &secinfo, flags);
         addpages.ioctl(&self.0)?;
-        Ok(unsafe { Offset::new(offset) })
+        Ok(offset.into())
     }
 
     // Calls SGX_IOC_ENCLAVE_INIT (EINIT)
-    fn build(self, ss: SigStruct) -> Result<Self::Enclave> {
-        let page = ss.into();
-        let init = ioctl::sgx::Init::new(&page);
+    fn build(self, sig: Signature) -> Result<Self::Enclave> {
+        let init = ioctl::sgx::Init::new(&sig);
         init.ioctl(&self.0)?;
         Ok(Enclave(self.0, PhantomData))
     }
@@ -94,7 +93,7 @@ impl<'b> BuilderTrait<'b> for Builder<'b> {
 pub struct Enclave<'e>(File, PhantomData<&'e ()>);
 
 impl<'e> EnclaveTrait<'e> for Enclave<'e> {
-    fn enter(&self, _: &mut Offset<'e, Tcs>) -> Result<()> {
+    unsafe fn enter(&self, _: &mut Offset<Tcs>) -> Result<()> {
         Err(std::io::ErrorKind::Other.into())
     }
 }
@@ -106,13 +105,8 @@ mod test {
     #[cfg_attr(not(has_sgx), ignore)]
     #[test]
     fn enclave_create() {
-        use sgx_types::*;
-
-        let mut secs = Secs::default();
-        secs.size = 8192;
-        secs.base = 8192;
-        secs.ssa_frame_size = 4096;
-        secs.xfrm = xfrm::Xfrm::default();
+        let ss = Signature::default();
+        let secs = Secs::new(8192, 8192, 4096, &ss);
         Builder::new(secs).unwrap();
     }
 }

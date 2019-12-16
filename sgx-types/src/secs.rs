@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use super::{attributes::Attributes, miscselect::MiscSelect, xfrm::Xfrm};
+use super::{attr::Attributes, misc::MiscSelect, sig::Signature, utils::Padding};
 
 /// The SGX Enclave Control Structure (SECS) is a special enclave page that is not
 /// visible in the address space. In fact, this structure defines the address
@@ -21,32 +21,52 @@ use super::{attributes::Attributes, miscselect::MiscSelect, xfrm::Xfrm};
 /// by the means of ENCLS(ECREATE) leaf.
 ///
 /// Section 38.7
-#[repr(C)]
+#[repr(C, align(4096))]
 pub struct Secs {
-    pub size: u64,           // size of address space (power of 2)
-    pub base: u64,           // base address of address space
-    pub ssa_frame_size: u32, // size of an SSA frame
-    pub miscselect: MiscSelect,
-    _reserved1: [u8; 24],
-    pub attributes: Attributes,
-    pub xfrm: Xfrm,          // XSave-Feature Request Mask (subset of XCR0)
-    pub mrenclave: [u8; 32], // SHA256-hash of enclave contents
-    _reserved2: [u8; 32],
-    pub mrsigner: [u8; 32], // SHA256-hash of pubkey used to sign SIGSTRUCT
-    _reserved3: [u8; 32],
-    pub config_id: [u8; 64], // user-defined value used in key derivation
-    pub isv_prod_id: u16,    // user-defined value used in key derivation
-    pub isv_svn: u16,        // user-defined value used in key derivation
-    pub config_svn: u16,     // user-defined value used in key derivation
+    size: u64,           // size of address space (power of 2)
+    base: u64,           // base address of address space
+    ssa_frame_size: u32, // size of an SSA frame
+    misc: MiscSelect,
+    reserved1: Padding<[u8; 24]>,
+    attr: Attributes,
+    mrenclave: [u8; 32], // SHA256-hash of enclave contents
+    reserved2: Padding<[u8; 32]>,
+    mrsigner: [u8; 32], // SHA256-hash of pubkey used to sign SIGSTRUCT
+    reserved3: Padding<[u8; 96]>,
+    isv_prod_id: u16, // user-defined value used in key derivation
+    isv_svn: u16,     // user-defined value used in key derivation
 }
 
-/// FIXME: This is not the right way to create this struct. However,
-/// I need a little bit more experience working with SECS to know the
-/// right way to build the constructor. This works for now.
-impl Default for Secs {
-    fn default() -> Self {
-        unsafe { std::mem::zeroed() }
+testaso! {
+    struct Secs: 4096, 4096 => {
+        size: 0,
+        base: 8,
+        ssa_frame_size: 16,
+        misc: 20,
+        reserved1: 24,
+        attr: 48,
+        mrenclave: 64,
+        reserved2: 96,
+        mrsigner: 128,
+        reserved3: 160,
+        isv_prod_id: 256,
+        isv_svn: 258
     }
 }
 
-// TODO: Implement Secs::new()
+impl Secs {
+    pub fn new(size: u64, base: u64, ssa: u32, sig: &Signature) -> Self {
+        Secs {
+            size,
+            base,
+            ssa_frame_size: ssa,
+            misc: sig.contents.misc & sig.contents.misc_mask,
+            attr: sig.contents.attr & sig.contents.attr_mask,
+            mrenclave: sig.contents.mrenclave,
+            mrsigner: unsafe { core::mem::zeroed() }, // FIXME
+            isv_prod_id: sig.contents.isv_prod_id,
+            isv_svn: sig.contents.isv_svn,
+            ..unsafe { core::mem::zeroed() }
+        }
+    }
+}

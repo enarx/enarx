@@ -19,39 +19,98 @@
 #![deny(clippy::all)]
 #![allow(clippy::identity_op)]
 
-pub mod attributes;
-pub mod miscselect;
-pub mod secinfo;
+macro_rules! defenum {
+    ($name:ident::$value:ident) => {
+        impl Default for $name {
+            fn default() -> Self {
+                $name::$value
+            }
+        }
+    };
+}
+
+macro_rules! defflags {
+    ($name:ident $($value:ident)|*) => {
+        impl Default for $name {
+            fn default() -> Self {
+                $name::empty() $( | $name::$value )* | $name::empty()
+            }
+        }
+    };
+}
+
+macro_rules! testaso {
+    (@off $name:ty=>$field:ident) => {
+        &unsafe { &*core::ptr::null::<$name>() }.$field as *const _ as usize
+    };
+
+    ($(struct $name:ty: $align:expr, $size:expr => { $($field:ident: $offset:expr),* })+) => {
+        #[cfg(test)]
+        #[test]
+        fn align() {
+            use core::mem::align_of;
+
+            $(
+                assert_eq!(
+                    align_of::<$name>(),
+                    $align,
+                    "align: {}",
+                    stringify!($name)
+                );
+            )+
+        }
+
+        #[cfg(test)]
+        #[test]
+        fn size() {
+            use core::mem::size_of;
+
+            $(
+                assert_eq!(
+                    size_of::<$name>(),
+                    $size,
+                    "size: {}",
+                    stringify!($name)
+                );
+            )+
+        }
+
+        #[cfg(test)]
+        #[test]
+        fn offsets() {
+            $(
+                $(
+                    assert_eq!(
+                        testaso!(@off $name=>$field),
+                        $offset,
+                        "offset: {}::{}",
+                        stringify!($name),
+                        stringify!($field)
+                    );
+                )*
+            )+
+        }
+    };
+}
+
+mod utils;
+
+pub mod attr;
+pub mod misc;
+pub mod page;
 pub mod secs;
-pub mod sigstruct;
+pub mod sig;
 pub mod ssa;
 pub mod tcs;
-pub mod xfrm;
 
 use core::marker::PhantomData;
 
-/// An offset reference with neither read nor write capabilities
-///
-/// The Offset struct allows the creation of an opaque reference to a
-/// type that cannot be read or written. Neither the lifetime nor the
-/// type are discarded. This allows us to refer to an offset inside
-/// an enclave without fear that it will be dereferenced. The size of
-/// the Offset is always 64 bits with natural alignment. Therefore,
-/// the Offset type can be embedded in structs.
 #[repr(transparent)]
 #[derive(Debug)]
-pub struct Offset<'h, T>(u64, PhantomData<&'h T>);
+pub struct Offset<T: ?Sized>(u64, PhantomData<T>);
 
-impl<'h, T> Offset<'h, T> {
-    /// Create a new `Offset`
-    ///
-    /// # Safety
-    ///
-    /// This function is unsafe because you could create an Offset to an
-    /// offset that doesn't exist. This could cause an invalid memory
-    /// reference later in the program. You must ensure that both the
-    /// lifetime and the offset are valid.
-    pub unsafe fn new(offset: usize) -> Self {
-        Offset(offset as u64, PhantomData)
+impl<T: ?Sized> From<usize> for Offset<T> {
+    fn from(value: usize) -> Self {
+        Offset(value as u64, PhantomData)
     }
 }

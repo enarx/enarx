@@ -15,8 +15,8 @@
 use std::io::Result;
 
 use bitflags::bitflags;
-use sgx_types::secinfo::{Flags as Permissions, SecInfo};
-use sgx_types::{secs::Secs, sigstruct::SigStruct, tcs::Tcs, Offset};
+use sgx_types::page::{Flags as PageFlags, SecInfo};
+use sgx_types::{secs::Secs, sig::Signature, tcs::Tcs, Offset};
 
 bitflags! {
     pub struct Flags: u64 {
@@ -25,7 +25,7 @@ bitflags! {
 }
 
 pub trait Enclave<'e> {
-    fn enter(&self, offset: &mut Offset<'e, Tcs>) -> Result<()>;
+    unsafe fn enter(&self, offset: &mut Offset<Tcs>) -> Result<()>;
 }
 
 pub trait Builder<'b>: Sized {
@@ -33,39 +33,22 @@ pub trait Builder<'b>: Sized {
 
     fn new(secs: Secs) -> Result<Self>;
 
-    fn add_tcs(&mut self, tcs: Tcs, offset: usize) -> Result<Offset<'b, Tcs>>;
+    unsafe fn add_tcs(&mut self, tcs: Tcs, offset: usize) -> Result<Offset<Tcs>>;
 
-    fn add_struct<T>(
+    unsafe fn add_struct<T>(
         &mut self,
         data: T,
         offset: usize,
-        perms: Permissions,
-    ) -> Result<Offset<'b, T>>;
+        flags: PageFlags,
+    ) -> Result<Offset<T>>;
 
-    fn add_slice(
+    unsafe fn add_slice(
         &mut self,
         data: &[u8],
         offset: usize,
         flags: Flags,
         secinfo: SecInfo,
-    ) -> Result<Offset<'b, ()>>;
+    ) -> Result<Offset<[u8]>>;
 
-    fn build(self, ss: SigStruct) -> Result<Self::Enclave>;
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn align() {
-        use std::mem::align_of;
-        assert_eq!(align_of::<Offset<u32>>(), align_of::<u64>());
-    }
-
-    #[test]
-    fn size() {
-        use std::mem::size_of;
-        assert_eq!(size_of::<Offset<u32>>(), size_of::<u64>());
-    }
+    fn build(self, sig: Signature) -> Result<Self::Enclave>;
 }

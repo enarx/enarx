@@ -17,8 +17,7 @@ use std::marker::PhantomData;
 use std::os::raw::c_ulong;
 use std::os::unix::io::AsRawFd;
 
-use paged::{Page, Size4k};
-use sgx_types::{secinfo::SecInfo, secs::Secs, sigstruct::SigStruct};
+use sgx_types::{page::SecInfo, secs::Secs, sig::Signature};
 
 #[repr(C)]
 #[derive(Debug)]
@@ -29,7 +28,7 @@ impl<'a> Ioctl for Create<'a> {
 }
 
 impl<'a> Create<'a> {
-    pub fn new(secs: &'a Page<Size4k, Secs>) -> Self {
+    pub fn new(secs: &'a Secs) -> Self {
         Create(secs as *const _ as _, PhantomData)
     }
 }
@@ -76,7 +75,7 @@ impl<'a> Ioctl for Init<'a> {
 }
 
 impl<'a> Init<'a> {
-    pub fn new(sig: &'a Page<Size4k, SigStruct>) -> Self {
+    pub fn new(sig: &'a Signature) -> Self {
         Init(sig as *const _ as _, PhantomData)
     }
 }
