@@ -1,25 +1,5 @@
 use super::{attr::Attributes, misc::MiscSelect, utils::Padding};
 
-#[repr(transparent)]
-#[derive(Copy, Clone)]
-pub struct RsaNumber([u8; 384]);
-
-impl Default for RsaNumber {
-    fn default() -> Self {
-        RsaNumber([0u8; 384])
-    }
-}
-
-#[repr(transparent)]
-#[derive(Copy, Clone)]
-pub struct RsaExponent(u32);
-
-impl Default for RsaExponent {
-    fn default() -> Self {
-        Self(65537)
-    }
-}
-
 #[derive(Copy, Clone)]
 struct Header1([u8; 16]);
 
@@ -59,14 +39,26 @@ defenum!(Vendor::Unknown);
 /// that is included in the signature. It is split out from `Signature`
 /// in order to make it easy to hash the fields for the signature.
 #[repr(C)]
-#[derive(Default)]
 pub struct Author {
     header1: Header1, // constant byte string
-    pub vendor: Vendor,
-    pub date: u32,      // YYYYMMDD in BCD
-    header2: Header2,   // constant byte string
-    pub swdefined: u32, // software defined value
+    vendor: Vendor,
+    date: u32,        // YYYYMMDD in BCD
+    header2: Header2, // constant byte string
+    swdefined: u32,   // software defined value
     reserved1: Padding<[u8; 84]>,
+}
+
+impl Author {
+    pub fn new(vendor: Vendor, date: u32, swdefined: u32) -> Self {
+        Author {
+            header1: Header1::default(),
+            vendor,
+            date,
+            header2: Header2::default(),
+            swdefined,
+            reserved1: Padding::default(),
+        }
+    }
 }
 
 /// The `Contents` of an enclave
@@ -75,17 +67,58 @@ pub struct Author {
 /// that is included in the signature. It is split out from `Signature`
 /// in order to make it easy to hash the fields for the signature.
 #[repr(C)]
-#[derive(Default)]
 pub struct Contents {
-    pub misc: MiscSelect, // bit vector specifying extended SSA frame feature set to be used
-    pub misc_mask: MiscSelect, // required miscselect in SECS; bit vector mask of MISCSELECT to enforce
+    misc: MiscSelect, // bit vector specifying extended SSA frame feature set to be used
+    misc_mask: MiscSelect, // required miscselect in SECS; bit vector mask of MISCSELECT to enforce
     reserved2: Padding<[u8; 20]>,
-    pub attr: Attributes,
-    pub attr_mask: Attributes,
-    pub mrenclave: [u8; 32], // sha256 hash of enclave contents
+    attr: Attributes,
+    attr_mask: Attributes,
+    mrenclave: [u8; 32], // sha256 hash of enclave contents
     reserved3: Padding<[u8; 32]>,
-    pub isv_prod_id: u16, // user-defined value used in key derivation
-    pub isv_svn: u16,     // user-defined value used in key derivation
+    isv_prod_id: u16, // user-defined value used in key derivation
+    isv_svn: u16,     // user-defined value used in key derivation
+}
+
+impl Contents {
+    pub fn new(
+        misc: MiscSelect,
+        attr: Attributes,
+        mrenclave: [u8; 32],
+        isv_prod_id: u16,
+        isv_svn: u16,
+    ) -> Self {
+        Self {
+            misc,
+            misc_mask: misc,
+            reserved2: Padding::default(),
+            attr,
+            attr_mask: attr,
+            mrenclave,
+            reserved3: Padding::default(),
+            isv_prod_id,
+            isv_svn,
+        }
+    }
+
+    pub fn misc(&self) -> MiscSelect {
+        self.misc & self.misc_mask
+    }
+
+    pub fn attr(&self) -> Attributes {
+        self.attr & self.attr_mask
+    }
+
+    pub fn mrenclave(&self) -> [u8; 32] {
+        self.mrenclave
+    }
+
+    pub fn isv_prod_id(&self) -> u16 {
+        self.isv_prod_id
+    }
+
+    pub fn isv_svn(&self) -> u16 {
+        self.isv_svn
+    }
 }
 
 /// The `Signature` on the enclave
@@ -98,16 +131,38 @@ pub struct Contents {
 ///
 /// Section 38.13
 #[repr(C, align(4096))]
-#[derive(Default)]
 pub struct Signature {
-    pub author: Author,        // defines author of enclave
-    pub modulus: RsaNumber,    // modulus of the pubkey (keylength=3072 bits)
-    pub exponent: RsaExponent, // exponent of the pubkey (RSA Exponent = 3)
-    pub signature: RsaNumber,  // signature calculated over the fields except modulus
-    pub contents: Contents,    // defines contents of enclave
+    author: Author,       // defines author of enclave
+    modulus: [u8; 384],   // modulus of the pubkey (keylength=3072 bits)
+    exponent: u32,        // exponent of the pubkey (RSA Exponent = 3)
+    signature: [u8; 384], // signature calculated over the fields except modulus
+    contents: Contents,   // defines contents of enclave
     reserved4: Padding<[u8; 12]>,
-    pub q1: RsaNumber, // value used in RSA signature verification
-    pub q2: RsaNumber, // value used in RSA signature verification
+    q1: [u8; 384], // value used in RSA signature verification
+    q2: [u8; 384], // value used in RSA signature verification
+}
+
+impl Signature {
+    pub fn new(
+        author: Author,
+        contents: Contents,
+        e: u32,
+        m: [u8; 384],
+        s: [u8; 384],
+        q1: [u8; 384],
+        q2: [u8; 384],
+    ) -> Self {
+        Self {
+            author,
+            modulus: m,
+            exponent: e,
+            signature: s,
+            contents,
+            reserved4: Padding::default(),
+            q1,
+            q2,
+        }
+    }
 }
 
 testaso! {

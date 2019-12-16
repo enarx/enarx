@@ -65,4 +65,12 @@ impl SecInfo {
     pub fn new(flags: Flags, class: Class) -> Self {
         Self { flags, class }
     }
+
+    pub fn flags(&self) -> Flags {
+        self.flags
+    }
+
+    pub fn class(&self) -> Class {
+        self.class
+    }
 }
