@@ -55,7 +55,9 @@ testaso! {
 }
 
 impl Secs {
-    pub fn new(size: u64, base: u64, ssa: u32, contents: &Contents) -> Self {
+    pub const SIZE_MAX: u64 = 0x1_000_000_000;
+
+    pub fn new(base: u64, size: u64, ssa: u32, contents: &Contents) -> Self {
         Secs {
             size,
             base,
