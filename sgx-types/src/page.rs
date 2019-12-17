@@ -54,15 +54,34 @@ pub struct SecInfo {
     class: Class,
 }
 
-testaso! {
-    struct SecInfo: 64, 64 => {
-        flags: 0,
-        class: 1
+impl AsRef<[u8]> for SecInfo {
+    fn as_ref(&self) -> &[u8] {
+        unsafe {
+            core::slice::from_raw_parts(
+                self as *const Self as *const u8,
+                core::mem::size_of_val(self),
+            )
+        }
     }
 }
 
 impl SecInfo {
     pub fn new(flags: Flags, class: Class) -> Self {
         Self { flags, class }
+    }
+
+    pub fn flags(&self) -> Flags {
+        self.flags
+    }
+
+    pub fn class(&self) -> Class {
+        self.class
+    }
+}
+
+testaso! {
+    struct SecInfo: 64, 64 => {
+        flags: 0,
+        class: 1
     }
 }
