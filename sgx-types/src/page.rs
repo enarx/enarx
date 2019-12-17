@@ -31,7 +31,7 @@ defflags!(Flags);
 ///
 /// Section 38.11.2
 #[repr(u8)]
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub enum Class {
     Secs = 0,
     Tcs = 1,
@@ -48,7 +48,7 @@ defenum!(Class::Reg);
 /// divided into two fields (`flags` and `class`) for easy manipulation.
 ///
 /// Section 38.11
-#[derive(Copy, Clone, Default)]
+#[derive(Copy, Clone, Default, Debug)]
 #[repr(C, align(64))]
 pub struct SecInfo {
     flags: Flags,
