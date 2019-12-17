@@ -15,9 +15,10 @@ bitflags! {
 
         /// The page can be executed from inside the enclave.
         const X = 1 << 2;
-        const PENDING = 1 << 2;
-        const MODIFIED = 1 << 2;
-        const PR = 1 << 2;
+
+        const PENDING = 1 << 3;
+        const MODIFIED = 1 << 4;
+        const PR = 1 << 5;
     }
 }
 
