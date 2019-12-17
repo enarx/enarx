@@ -15,7 +15,7 @@
 use super::Ioctl;
 use std::marker::PhantomData;
 use std::os::raw::c_ulong;
-use std::os::unix::io::AsRawFd;
+//use std::os::unix::io::AsRawFd;
 
 use sgx_types::{page::SecInfo, secs::Secs, sig::Signature};
 
@@ -88,8 +88,8 @@ impl<'a> Ioctl for SetAttribute<'a> {
     const REQUEST: c_ulong = 1_074_308_099; // SGX_IOC_ENCLAVE__SET_ATTRIBUTE
 }
 
-impl<'a> SetAttribute<'a> {
-    pub fn new(fd: &'a impl AsRawFd) -> Self {
-        SetAttribute(fd.as_raw_fd() as _, PhantomData)
-    }
-}
+//impl<'a> SetAttribute<'a> {
+//    pub fn new(fd: &'a impl AsRawFd) -> Self {
+//        SetAttribute(fd.as_raw_fd() as _, PhantomData)
+//    }
+//}
