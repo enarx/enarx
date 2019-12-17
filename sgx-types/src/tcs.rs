@@ -45,6 +45,17 @@ impl Tcs {
     }
 }
 
+impl AsRef<[u8]> for Tcs {
+    fn as_ref(&self) -> &[u8] {
+        unsafe {
+            core::slice::from_raw_parts(
+                self as *const Self as *const u8,
+                core::mem::size_of_val(self),
+            )
+        }
+    }
+}
+
 testaso! {
     struct Tcs: 4096, 4096 => {
         state: 0,
