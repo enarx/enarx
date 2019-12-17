@@ -71,25 +71,62 @@ mod test {
     use super::*;
     use sgx_types::{attr, misc};
 
-    const CONTENTS: sig::Contents = sig::Contents::new(
-        misc::MiscSelect::default(),
-        attr::Attributes::default(),
-        [0u8; 32],
-        0,
-        0,
-    );
-
     #[cfg_attr(not(has_sgx), ignore)]
     #[test]
-    fn create() {
-        let secs = secs::Secs::new(8192, 8192, 4096, &contents);
+    fn builder_new() {
+        let contents = sig::Contents::new(
+            misc::MiscSelect::default(),
+            attr::Attributes::default(),
+            [0u8; 32],
+            0,
+            0,
+        );
+
+        let secs = secs::Secs::new(0, secs::Secs::SIZE_MAX, 4096, &contents);
         Builder::new(secs).unwrap();
     }
 
     #[cfg_attr(not(has_sgx), ignore)]
     #[test]
-    fn add() {
-        let secs = secs::Secs::new(8192, 8192, 4096, &contents);
-        Builder::new(secs).unwrap();
+    fn builder_add() {
+        let contents = sig::Contents::new(
+            misc::MiscSelect::default(),
+            attr::Attributes::default(),
+            [0u8; 32],
+            0,
+            0,
+        );
+        let secs = secs::Secs::new(0, secs::Secs::SIZE_MAX, 4096, &contents);
+        let mut builder = Builder::new(secs).unwrap();
+
+        let flags = [Flags::empty(), Flags::MEASURE];
+        let perms = [
+            page::Flags::empty(),
+            page::Flags::R,
+            page::Flags::R | page::Flags::W,
+            page::Flags::R | page::Flags::X,
+            page::Flags::R | page::Flags::W | page::Flags::X,
+        ];
+
+        let mut off = 0;
+        for f in &flags {
+            #[repr(C, align(4096))]
+            struct Page([u8; 4096]);
+            let page = Page([0u8; 4096]);
+
+            // TCS pages MUST NOT specify permissions.
+            let si = page::SecInfo::new(page::Flags::empty(), page::Class::Tcs);
+            eprintln!("{:?} {:?} {:?}", off, *f, si);
+            assert!(unsafe { builder.add(off, &page.0, *f, si).is_ok() });
+            off += 4096;
+
+            // REG pages can have permissions.
+            for p in &perms {
+                let si = page::SecInfo::new(*p, page::Class::Reg);
+                eprintln!("{:?} {:?} {:?}", off, *f, si);
+                assert!(unsafe { builder.add(off, &page.0, *f, si).is_ok() });
+                off += 4096;
+            }
+        }
     }
 }
