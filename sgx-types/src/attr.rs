@@ -37,6 +37,12 @@ pub struct Attributes {
     xfrm: Xfrm,
 }
 
+impl Attributes {
+    pub const fn new(flags: Flags, xfrm: Xfrm) -> Self {
+        Self { flags, xfrm }
+    }
+}
+
 impl core::ops::BitAnd for Attributes {
     type Output = Self;
 
