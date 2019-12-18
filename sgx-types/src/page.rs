@@ -67,8 +67,18 @@ impl AsRef<[u8]> for SecInfo {
 }
 
 impl SecInfo {
-    pub fn new(flags: Flags, class: Class) -> Self {
-        Self { flags, class }
+    pub fn reg(flags: Flags) -> Self {
+        Self {
+            flags,
+            class: Class::Reg,
+        }
+    }
+
+    pub fn tcs() -> Self {
+        Self {
+            flags: Flags::empty(),
+            class: Class::Tcs,
+        }
     }
 
     pub fn flags(&self) -> Flags {
