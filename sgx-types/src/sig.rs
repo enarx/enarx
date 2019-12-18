@@ -1,5 +1,24 @@
 use super::{attr::Attributes, misc::MiscSelect, utils::Padding};
 
+// This is an internal utility type for wrapping RSA numbers.
+// We use it to implement common traits. The size of the RSA
+// number is determined by SGX (384 bytes).
+#[derive(Copy, Clone)]
+struct RsaNumber([u8; 384]);
+
+impl core::fmt::Debug for RsaNumber {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "RsaNumber({:?})", &self.0[..])
+    }
+}
+
+impl Eq for RsaNumber {}
+impl PartialEq for RsaNumber {
+    fn eq(&self, other: &Self) -> bool {
+        self.0[..] == other.0[..]
+    }
+}
+
 #[derive(Copy, Clone)]
 struct Header1([u8; 16]);
 
@@ -156,14 +175,14 @@ impl Contents {
 /// Section 38.13
 #[repr(C, align(4096))]
 pub struct Signature {
-    author: Author,       // defines author of enclave
-    modulus: [u8; 384],   // modulus of the pubkey (keylength=3072 bits)
-    exponent: u32,        // exponent of the pubkey (RSA Exponent = 3)
-    signature: [u8; 384], // signature calculated over the fields except modulus
-    contents: Contents,   // defines contents of enclave
-    reserved4: Padding<[u8; 12]>,
-    q1: [u8; 384], // value used in RSA signature verification
-    q2: [u8; 384], // value used in RSA signature verification
+    author: Author,               // defines author of enclave
+    modulus: RsaNumber,           // modulus of the pubkey (keylength=3072 bits)
+    exponent: u32,                // exponent of the pubkey (RSA Exponent = 3)
+    signature: RsaNumber,         // signature calculated over the fields except modulus
+    contents: Contents,           // defines contents of enclave
+    reserved4: Padding<[u8; 12]>, // padding
+    q1: RsaNumber,                // value used in RSA signature verification
+    q2: RsaNumber,                // value used in RSA signature verification
 }
 
 impl Signature {
@@ -178,13 +197,13 @@ impl Signature {
     ) -> Self {
         Self {
             author,
-            modulus: m,
+            modulus: RsaNumber(m),
             exponent: e,
-            signature: s,
+            signature: RsaNumber(s),
             contents,
             reserved4: Padding::default(),
-            q1,
-            q2,
+            q1: RsaNumber(q1),
+            q2: RsaNumber(q2),
         }
     }
 }
