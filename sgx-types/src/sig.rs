@@ -104,17 +104,19 @@ impl AsRef<[u8]> for Contents {
 impl Contents {
     pub fn new(
         misc: MiscSelect,
+        misc_mask: MiscSelect,
         attr: Attributes,
+        attr_mask: Attributes,
         mrenclave: [u8; 32],
         isv_prod_id: u16,
         isv_svn: u16,
     ) -> Self {
         Self {
             misc,
-            misc_mask: misc,
+            misc_mask,
             reserved2: Padding::default(),
             attr,
-            attr_mask: attr,
+            attr_mask,
             mrenclave,
             reserved3: Padding::default(),
             isv_prod_id,
