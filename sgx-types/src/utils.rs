@@ -28,6 +28,13 @@ impl<T> core::fmt::Debug for Padding<T> {
     }
 }
 
+impl<T> Eq for Padding<T> {}
+impl<T> PartialEq for Padding<T> {
+    fn eq(&self, _: &Self) -> bool {
+        true
+    }
+}
+
 #[test]
 #[cfg(test)]
 fn padding() {
