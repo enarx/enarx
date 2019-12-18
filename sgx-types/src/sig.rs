@@ -209,6 +209,14 @@ impl Signature {
             q2: RsaNumber(q2),
         }
     }
+
+    pub fn author(&self) -> &Author {
+        &self.author
+    }
+
+    pub fn contents(&self) -> &Contents {
+        &self.contents
+    }
 }
 
 testaso! {
