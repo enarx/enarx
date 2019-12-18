@@ -19,7 +19,7 @@ impl PartialEq for RsaNumber {
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 struct Header1([u8; 16]);
 
 impl Default for Header1 {
@@ -31,7 +31,7 @@ impl Default for Header1 {
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 struct Header2([u8; 16]);
 
 impl Default for Header2 {
@@ -43,7 +43,7 @@ impl Default for Header2 {
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 #[repr(u32)]
 pub enum Vendor {
     Unknown = 0x0000,
@@ -58,6 +58,7 @@ defenum!(Vendor::Unknown);
 /// that is included in the signature. It is split out from `Signature`
 /// in order to make it easy to hash the fields for the signature.
 #[repr(C)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Author {
     header1: Header1, // constant byte string
     vendor: Vendor,
@@ -97,6 +98,7 @@ impl Author {
 /// that is included in the signature. It is split out from `Signature`
 /// in order to make it easy to hash the fields for the signature.
 #[repr(C)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Contents {
     misc: MiscSelect, // bit vector specifying extended SSA frame feature set to be used
     misc_mask: MiscSelect, // required miscselect in SECS; bit vector mask of MISCSELECT to enforce
@@ -173,7 +175,8 @@ impl Contents {
 /// signature generation and validation.
 ///
 /// Section 38.13
-#[repr(C, align(4096))]
+#[repr(C)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Signature {
     author: Author,               // defines author of enclave
     modulus: RsaNumber,           // modulus of the pubkey (keylength=3072 bits)
@@ -230,7 +233,7 @@ testaso! {
         isv_svn: 126
     }
 
-    struct Signature: 4096, 4096 => {
+    struct Signature: 4, 1808 => {
         author: 0,
         modulus: 128,
         exponent: 512,

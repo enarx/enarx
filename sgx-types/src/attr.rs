@@ -31,7 +31,7 @@ bitflags::bitflags! {
 defflags!(Xfrm X87 | SSE);
 
 #[repr(C, packed)]
-#[derive(Copy, Clone, Default)]
+#[derive(Copy, Clone, Default, Debug, PartialEq, Eq)]
 pub struct Attributes {
     flags: Flags,
     xfrm: Xfrm,
