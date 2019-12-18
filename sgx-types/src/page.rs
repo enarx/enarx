@@ -23,8 +23,6 @@ bitflags! {
     }
 }
 
-defflags!(Flags);
-
 /// The `Class` of a page
 ///
 /// The `Class` type is the `PAGE_TYPE` data structure, merely renamed
@@ -41,15 +39,13 @@ pub enum Class {
     Trim = 4,
 }
 
-defenum!(Class::Reg);
-
 /// The security information (`SecInfo`) about a page
 ///
 /// Note that the `FLAGS` field from the SGX documentation is here
 /// divided into two fields (`flags` and `class`) for easy manipulation.
 ///
 /// Section 38.11
-#[derive(Copy, Clone, Default, Debug)]
+#[derive(Copy, Clone, Debug)]
 #[repr(C, align(64))]
 pub struct SecInfo {
     flags: Flags,
