@@ -1,5 +1,6 @@
 //! Section 38.11
 
+use crate::utils::Padding;
 use bitflags::bitflags;
 
 bitflags! {
@@ -53,6 +54,7 @@ defenum!(Class::Reg);
 pub struct SecInfo {
     flags: Flags,
     class: Class,
+    reserved: Padding<[u8; 62]>,
 }
 
 impl AsRef<[u8]> for SecInfo {
@@ -71,6 +73,7 @@ impl SecInfo {
         Self {
             flags,
             class: Class::Reg,
+            reserved: Padding::default(),
         }
     }
 
@@ -78,6 +81,7 @@ impl SecInfo {
         Self {
             flags: Flags::empty(),
             class: Class::Tcs,
+            reserved: Padding::default(),
         }
     }
 
