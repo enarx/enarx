@@ -76,6 +76,8 @@ mod test {
     fn builder_new() {
         let contents = sig::Contents::new(
             misc::MiscSelect::default(),
+            misc::MiscSelect::default(),
+            attr::Attributes::default(),
             attr::Attributes::default(),
             [0u8; 32],
             0,
@@ -91,6 +93,8 @@ mod test {
     fn builder_add() {
         let contents = sig::Contents::new(
             misc::MiscSelect::default(),
+            misc::MiscSelect::default(),
+            attr::Attributes::default(),
             attr::Attributes::default(),
             [0u8; 32],
             0,
