@@ -121,14 +121,18 @@ mod test {
             // TCS pages MUST NOT specify permissions.
             let si = page::SecInfo::tcs();
             eprintln!("{:?} {:?} {:?}", off, *f, si);
-            assert!(unsafe { builder.add(off, &page.0, *f, si).is_ok() });
+            unsafe {
+                builder.add(off, &page.0, *f, si).unwrap();
+            }
             off += 4096;
 
             // REG pages can have permissions.
             for p in &perms {
                 let si = page::SecInfo::reg(*p);
                 eprintln!("{:?} {:?} {:?}", off, *f, si);
-                assert!(unsafe { builder.add(off, &page.0, *f, si).is_ok() });
+                unsafe {
+                    builder.add(off, &page.0, *f, si).unwrap();
+                }
                 off += 4096;
             }
         }
