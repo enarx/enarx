@@ -24,7 +24,7 @@ use sgx_types::{page::SecInfo, secs::Secs, sig::Signature};
 pub struct Create<'a>(u64, PhantomData<&'a ()>);
 
 impl<'a> Ioctl for Create<'a> {
-    const REQUEST: c_ulong = 1_074_308_096; // SGX_IOC_ENCLAVE_CREATE
+    const REQUEST: c_ulong = 0x4008_A400; // SGX_IOC_ENCLAVE_CREATE
 }
 
 impl<'a> Create<'a> {
@@ -41,11 +41,12 @@ pub struct AddPages<'a> {
     length: u64,
     secinfo: u64,
     flags: sgx_traits::Flags,
+    count: u64,
     phantom: PhantomData<&'a ()>,
 }
 
 impl<'a> Ioctl for AddPages<'a> {
-    const REQUEST: c_ulong = 3_223_888_897; // SGX_IOC_ENCLAVE_ADD_PAGES
+    const REQUEST: c_ulong = 0xC030_A401; // SGX_IOC_ENCLAVE_ADD_PAGES
 }
 
 impl<'a> AddPages<'a> {
@@ -61,6 +62,7 @@ impl<'a> AddPages<'a> {
             length: data.len() as _,
             secinfo: secinfo as *const _ as _,
             flags,
+            count: 0,
             phantom: PhantomData,
         }
     }
@@ -71,7 +73,7 @@ impl<'a> AddPages<'a> {
 pub struct Init<'a>(u64, PhantomData<&'a ()>);
 
 impl<'a> Ioctl for Init<'a> {
-    const REQUEST: c_ulong = 1_074_308_098; // SGX_IOC_ENCLAVE_INIT
+    const REQUEST: c_ulong = 0x4008_A402; // SGX_IOC_ENCLAVE_INIT
 }
 
 impl<'a> Init<'a> {
@@ -85,7 +87,7 @@ impl<'a> Init<'a> {
 pub struct SetAttribute<'a>(u64, PhantomData<&'a ()>);
 
 impl<'a> Ioctl for SetAttribute<'a> {
-    const REQUEST: c_ulong = 1_074_308_099; // SGX_IOC_ENCLAVE__SET_ATTRIBUTE
+    const REQUEST: c_ulong = 0x4008_A403; // SGX_IOC_ENCLAVE__SET_ATTRIBUTE
 }
 
 //impl<'a> SetAttribute<'a> {
