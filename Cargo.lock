@@ -74,14 +74,6 @@ version = "0.3.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
-name = "sgx-hasher"
-version = "0.1.0"
-dependencies = [
- "openssl 0.10.26 (registry+https://github.com/rust-lang/crates.io-index)",
- "sgx-types 0.1.0",
-]
-
-[[package]]
 name = "sgx-sys"
 version = "0.1.0"
 dependencies = [
@@ -103,6 +95,7 @@ name = "sgx-types"
 version = "0.1.0"
 dependencies = [
  "bitflags 1.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "openssl 0.10.26 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]

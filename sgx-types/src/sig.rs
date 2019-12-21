@@ -189,16 +189,88 @@ pub struct Signature {
 }
 
 impl Signature {
-    pub fn new(
+    pub fn author(&self) -> &Author {
+        &self.author
+    }
+
+    pub fn contents(&self) -> &Contents {
+        &self.contents
+    }
+}
+
+#[cfg(feature = "openssl")]
+impl Signature {
+    fn bn_to_rsanum_inner(bn: openssl::bn::BigNum) -> std::io::Result<[u8; 384]> {
+        use std::io::{Error, ErrorKind};
+
+        let bn = bn.to_vec();
+        if bn.len() != 384 {
+            return Err(Error::new(
+                ErrorKind::InvalidInput,
+                "Could not convert BigNum to [u8; 384]",
+            ));
+        }
+
+        let mut array = [0u8; 384];
+        array.copy_from_slice(&bn);
+        array.reverse();
+        Ok(array)
+    }
+
+    fn bn_to_u32(bn: &openssl::bn::BigNum) -> std::io::Result<u32> {
+        use std::io::{Error, ErrorKind};
+
+        let mut bn = bn.to_vec();
+        while bn.len() < 4 {
+            bn.push(0);
+        }
+        if bn.len() != 4 {
+            return Err(Error::new(
+                ErrorKind::InvalidInput,
+                "Could not convert BigNum to u32",
+            ));
+        }
+
+        let mut array = u32::default().to_ne_bytes(); // Zero
+        array.copy_from_slice(&bn);
+        array.reverse();
+        Ok(u32::from_be_bytes(array))
+    }
+
+    pub fn sign(
         author: Author,
         contents: Contents,
-        e: u32,
-        m: [u8; 384],
-        s: [u8; 384],
-        q1: [u8; 384],
-        q2: [u8; 384],
-    ) -> Self {
-        Self {
+        key: openssl::rsa::Rsa<openssl::pkey::Private>,
+    ) -> std::io::Result<Self> {
+        use openssl::{bn, hash, pkey, sign};
+
+        // Generates signature on Signature author and contents
+        let rsa_key = pkey::PKey::from_rsa(key.clone())?;
+        let md = hash::MessageDigest::sha256();
+        let mut signer = sign::Signer::new(md, &rsa_key)?;
+        signer.update(author.as_ref())?;
+        signer.update(contents.as_ref())?;
+        let signature = signer.sign_to_vec()?;
+
+        // Generates q1, q2 values for RSA signature verification
+        let s = bn::BigNum::from_slice(&signature)?;
+        let e = Self::bn_to_u32(&bn::BigNum::from_slice(&key.e().to_vec())?)?;
+        let m = key.n();
+
+        let mut ctx = bn::BigNumContext::new()?;
+        let mut q1 = bn::BigNum::new()?;
+        let mut qr = bn::BigNum::new()?;
+
+        q1.div_rem(&mut qr, &(&s * &s), &m, &mut ctx)?;
+        let q2 = &(&s * &qr) / m;
+
+        // Returns modulus, signature, q1, and q2 as [u8; 384]
+        let m = Self::bn_to_rsanum_inner(bn::BigNum::from_slice(&m.to_vec())?)?;
+        let s = Self::bn_to_rsanum_inner(s)?;
+        let q1 = Self::bn_to_rsanum_inner(q1)?;
+        let q2 = Self::bn_to_rsanum_inner(q2)?;
+
+        Ok(Self {
             author,
             modulus: RsaNumber(m),
             exponent: e,
@@ -207,15 +279,7 @@ impl Signature {
             reserved4: Padding::default(),
             q1: RsaNumber(q1),
             q2: RsaNumber(q2),
-        }
-    }
-
-    pub fn author(&self) -> &Author {
-        &self.author
-    }
-
-    pub fn contents(&self) -> &Contents {
-        &self.contents
+        })
     }
 }
 
@@ -250,5 +314,32 @@ testaso! {
         reserved4: 1028,
         q1: 1040,
         q2: 1424
+    }
+}
+
+#[cfg(all(test, feature = "openssl"))]
+mod test {
+    use crate::{sig, test::*};
+    use openssl::{pkey, rsa};
+
+    fn load_key(path: &str) -> rsa::Rsa<pkey::Private> {
+        let pem = load_bin(path);
+        rsa::Rsa::private_key_from_pem(&pem).unwrap()
+    }
+
+    #[test]
+    fn selftest() {
+        let sig = load_sig("tests/encl.ss");
+        let key = load_key("tests/encl.pem");
+
+        let author = sig.author().clone();
+        let contents = sig.contents().clone();
+
+        // Ensure that sign() can reproduce the exact same signature struct.
+        assert_eq!(
+            sig,
+            sig::Signature::sign(author, contents, key).unwrap(),
+            "failed to produce correct signature"
+        );
     }
 }

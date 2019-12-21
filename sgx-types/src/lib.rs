@@ -102,3 +102,40 @@ pub mod secs;
 pub mod sig;
 pub mod ssa;
 pub mod tcs;
+
+#[cfg(feature = "openssl")]
+pub mod hasher;
+
+#[cfg(all(test, feature = "openssl"))]
+mod test {
+    use std::fs::File;
+    use std::io::Read;
+
+    pub fn load_bin(path: &str) -> Vec<u8> {
+        let mut file = File::open(path).unwrap();
+        let size = file.metadata().unwrap().len();
+
+        let mut data = vec![0u8; size as usize];
+        file.read_exact(&mut data).unwrap();
+
+        data
+    }
+
+    pub fn load_sig(path: &str) -> super::sig::Signature {
+        let buf: &mut [u8];
+        let mut sig;
+
+        unsafe {
+            sig = std::mem::MaybeUninit::uninit().assume_init();
+            buf = std::slice::from_raw_parts_mut(
+                &mut sig as *mut _ as *mut u8,
+                std::mem::size_of_val(&sig),
+            );
+        }
+
+        let mut file = File::open(path).unwrap();
+        file.read_exact(buf).unwrap();
+
+        sig
+    }
+}
