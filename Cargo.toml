@@ -1,5 +1,6 @@
 [workspace]
 members = [
+    "iocuddle",
     "sgx-show",
     "sgx-types",
     "sgx-crypto",
