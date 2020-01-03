@@ -37,13 +37,7 @@ impl Hasher {
     }
 
     // Mimics call to SGX_IOC_ENCLAVE_ADD_PAGES (EADD and EEXTEND)
-    pub fn add(
-        &mut self,
-        offset: u64,
-        data: &[u8],
-        flags: sgx_traits::Flags,
-        secinfo: page::SecInfo,
-    ) {
+    pub fn add(&mut self, offset: u64, data: &[u8], measure: bool, secinfo: page::SecInfo) {
         const EEXTEND: u64 = 0x00444E4554584545;
         const EADD: u64 = 0x0000000044444145;
 
@@ -60,7 +54,7 @@ impl Hasher {
             self.0.update(&secinfo.as_ref()[..48]);
 
             // Hash for the EEXTEND instruction.
-            if flags.contains(sgx_traits::Flags::MEASURE) {
+            if measure {
                 for (j, segment) in page.chunks(256).enumerate() {
                     let off = off + j as u64 * 256;
 
@@ -195,7 +189,7 @@ mod test {
 
         let mut off = 0;
         for i in input {
-            hasher.add(off, i.0, sgx_traits::Flags::MEASURE, i.1);
+            hasher.add(off, i.0, true, i.1);
             off += i.0.len() as u64;
         }
 
