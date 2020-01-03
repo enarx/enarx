@@ -1,8 +1,8 @@
 [workspace]
 members = [
-    "iocuddle",
     "sgx-types",
     "sgx-traits",
-    "sgx-sys",
+    "iocuddle",
+    "iocuddle-sgx",
     "sgx-hasher",
 ]

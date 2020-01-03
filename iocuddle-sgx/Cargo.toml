@@ -1,5 +1,5 @@
 [package]
-name = "sgx-sys"
+name = "iocuddle-sgx"
 version = "0.1.0"
 authors = ["Nathaniel McCallum <npmccallum@redhat.com>"]
 edition = "2018"
@@ -8,5 +8,8 @@ edition = "2018"
 
 [dependencies]
 bitflags = "1.2.1"
+iocuddle = { path = "../iocuddle" }
 sgx-types = { path = "../sgx-types" }
-sgx-traits = { path = "../sgx-traits" }
+
+[dev-dependencies]
+rstest = "0.5.2"
