@@ -1,11 +1,12 @@
 [workspace]
 members = [
     "iocuddle",
+    "iocuddle-sgx",
+
     "sgx-show",
     "sgx-types",
     "sgx-crypto",
     "sgx-traits",
-    "sgx-sys",
 ]
 
 [patch.crates-io]
