@@ -78,7 +78,6 @@ name = "sgx-hasher"
 version = "0.1.0"
 dependencies = [
  "openssl 0.10.26 (registry+https://github.com/rust-lang/crates.io-index)",
- "sgx-traits 0.1.0",
  "sgx-types 0.1.0",
 ]
 
