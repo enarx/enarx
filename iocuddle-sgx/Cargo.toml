@@ -12,4 +12,6 @@ iocuddle = { path = "../iocuddle" }
 sgx-types = { path = "../sgx-types" }
 
 [dev-dependencies]
+sgx-crypto = { path = "../sgx-crypto" }
+openssl = "0.10.26"
 rstest = "0.5.2"

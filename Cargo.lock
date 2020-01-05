@@ -76,7 +76,9 @@ version = "0.1.0"
 dependencies = [
  "bitflags 1.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "iocuddle 0.1.0",
+ "openssl 0.10.26 (git+https://github.com/npmccallum/rust-openssl?branch=patch)",
  "rstest 0.5.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "sgx-crypto 0.1.0",
  "sgx-types 0.1.0",
 ]
 

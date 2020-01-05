@@ -96,9 +96,14 @@ impl<'a> SetAttribute<'a> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use rstest::*;
-    use sgx_types::{attr, misc, page};
+
+    use std::convert::TryFrom;
     use std::fs::File;
+
+    use openssl::{bn, pkey, rsa};
+    use rstest::*;
+    use sgx_crypto::{Hasher, Signer};
+    use sgx_types::{attr, misc, page};
 
     #[repr(C, align(4096))]
     struct Page([u8; 4096]);
@@ -108,6 +113,12 @@ mod test {
     #[fixture]
     fn file() -> File {
         File::open("/dev/sgx/enclave").unwrap()
+    }
+
+    #[fixture]
+    fn key() -> rsa::Rsa<pkey::Private> {
+        let e = bn::BigNum::try_from(3u32).unwrap();
+        rsa::Rsa::generate_with_e(3072, &e).unwrap()
     }
 
     #[cfg_attr(not(has_sgx), ignore)]
@@ -121,11 +132,18 @@ mod test {
             page::Flags::R | page::Flags::W | page::Flags::X,
         ],
     )]
-    fn test(mut file: File, flags: Flags, perms: page::Flags) {
+    fn test(mut file: File, key: rsa::Rsa<pkey::Private>, flags: Flags, perms: page::Flags) {
         const TCS_OFFSET: u64 = 0x0000;
         const REG_OFFSET: u64 = 0x1000;
         const BASE_ADDR: u64 = 0x0000;
         const SSA_SIZE: u32 = 0x1000;
+
+        // Hash all the pages
+        let measure = flags.contains(Flags::MEASURE);
+        let mut hasher = Hasher::new(secs::Secs::SIZE_MAX, SSA_SIZE);
+        hasher.add(TCS_OFFSET, &PAGE.0, measure, page::SecInfo::tcs());
+        hasher.add(REG_OFFSET, &PAGE.0, measure, page::SecInfo::reg(perms));
+        let hash = hasher.finish();
 
         // Make the contents
         let contents = sig::Contents::new(
@@ -133,7 +151,7 @@ mod test {
             misc::MiscSelect::default(),
             attr::Attributes::default(),
             attr::Attributes::default(),
-            [0u8; 32],
+            hash,
             0,
             0,
         );
@@ -156,6 +174,8 @@ mod test {
         ENCLAVE_ADD_PAGES.ioctl(&mut file, &mut ap).unwrap();
 
         // Initialize
-        //ENCLAVE_INIT.ioctl(&mut file, &Init::new(&sig)).unwrap();
+        let author = sig::Author::new(sig::Vendor::Unknown, 0, 0);
+        let sig = sig::Signature::sign(author, contents, key).unwrap();
+        ENCLAVE_INIT.ioctl(&mut file, &Init::new(&sig)).unwrap();
     }
 }
