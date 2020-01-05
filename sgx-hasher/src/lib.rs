@@ -18,7 +18,8 @@
 
 use openssl::{bn, hash, pkey, rsa, sha, sign};
 use sgx_types::{page, secs, sig};
-use std::io::{Error, ErrorKind};
+use std::convert::TryInto;
+use std::io::Result;
 
 pub struct Hasher(sha::Sha256);
 
@@ -74,44 +75,25 @@ impl Hasher {
     }
 }
 
-fn bn_to_rsanum_inner(bn: bn::BigNum) -> Result<[u8; 384], std::io::Error> {
-    let bn = bn.to_vec();
-    if bn.len() != 384 {
-        return Err(Error::new(
-            ErrorKind::InvalidInput,
-            "Could not convert BigNum to [u8; 384]",
-        ));
-    }
-
-    let mut array = [0u8; 384];
-    array.copy_from_slice(&bn);
-    array.reverse();
-    Ok(array)
+trait ToArray {
+    fn to_le_array(&self) -> Result<[u8; 384]>;
 }
 
-fn bn_to_u32(bn: &bn::BigNum) -> Result<u32, std::io::Error> {
-    let mut bn = bn.to_vec();
-    while bn.len() < 4 {
-        bn.push(0);
-    }
-    if bn.len() != 4 {
-        return Err(Error::new(
-            ErrorKind::InvalidInput,
-            "Could not convert BigNum to u32",
-        ));
-    }
+impl ToArray for bn::BigNumRef {
+    fn to_le_array(&self) -> Result<[u8; 384]> {
+        use std::mem::MaybeUninit;
 
-    let mut array = u32::default().to_ne_bytes(); // Zero
-    array.copy_from_slice(&bn);
-    array.reverse();
-    Ok(u32::from_be_bytes(array))
+        let mut buf: [u8; 384] = unsafe { MaybeUninit::uninit().assume_init() };
+        self.to_le_bytes(&mut buf)?;
+        Ok(buf)
+    }
 }
 
 pub fn sign(
     author: sig::Author,
     contents: sig::Contents,
     key: rsa::Rsa<pkey::Private>,
-) -> Result<sig::Signature, std::io::Error> {
+) -> Result<sig::Signature> {
     // Generates signature on Signature author and contents
     let rsa_key = pkey::PKey::from_rsa(key.clone())?;
     let md = hash::MessageDigest::sha256();
@@ -121,8 +103,8 @@ pub fn sign(
     let signature = signer.sign_to_vec()?;
 
     // Generates q1, q2 values for RSA signature verification
-    let s = bn::BigNum::from_slice(&signature)?;
-    let e = bn_to_u32(&bn::BigNum::from_slice(&key.e().to_vec())?)?;
+    let s = bn::BigNum::from_be_bytes(&signature)?;
+    let e = key.e().try_into()?;
     let m = key.n();
 
     let mut ctx = bn::BigNumContext::new()?;
@@ -132,13 +114,15 @@ pub fn sign(
     q1.div_rem(&mut qr, &(&s * &s), &m, &mut ctx)?;
     let q2 = &(&s * &qr) / m;
 
-    // Returns modulus, signature, q1, and q2 as [u8; 384]
-    let m = bn_to_rsanum_inner(bn::BigNum::from_slice(&m.to_vec())?)?;
-    let s = bn_to_rsanum_inner(s)?;
-    let q1 = bn_to_rsanum_inner(q1)?;
-    let q2 = bn_to_rsanum_inner(q2)?;
-
-    Ok(sig::Signature::new(author, contents, e, m, s, q1, q2))
+    Ok(sig::Signature::new(
+        author,
+        contents,
+        e,
+        m.to_le_array()?,
+        s.to_le_array()?,
+        q1.to_le_array()?,
+        q2.to_le_array()?,
+    ))
 }
 
 #[cfg(test)]

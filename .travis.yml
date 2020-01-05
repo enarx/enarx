@@ -13,6 +13,7 @@
 # limitations under the License.
 
 language: rust
+dist: bionic
 rust:
   - stable
   - beta

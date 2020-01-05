@@ -46,20 +46,20 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 [[package]]
 name = "openssl"
 version = "0.10.26"
-source = "registry+https://github.com/rust-lang/crates.io-index"
+source = "git+https://github.com/npmccallum/rust-openssl?branch=patch#99b97f141afa04b63a5a2f94e69acd12e26fbcde"
 dependencies = [
  "bitflags 1.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "cfg-if 0.1.10 (registry+https://github.com/rust-lang/crates.io-index)",
  "foreign-types 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "lazy_static 1.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "libc 0.2.66 (registry+https://github.com/rust-lang/crates.io-index)",
- "openssl-sys 0.9.53 (registry+https://github.com/rust-lang/crates.io-index)",
+ "openssl-sys 0.9.53 (git+https://github.com/npmccallum/rust-openssl?branch=patch)",
 ]
 
 [[package]]
 name = "openssl-sys"
 version = "0.9.53"
-source = "registry+https://github.com/rust-lang/crates.io-index"
+source = "git+https://github.com/npmccallum/rust-openssl?branch=patch#99b97f141afa04b63a5a2f94e69acd12e26fbcde"
 dependencies = [
  "autocfg 0.1.7 (registry+https://github.com/rust-lang/crates.io-index)",
  "cc 1.0.48 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -77,7 +77,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 name = "sgx-hasher"
 version = "0.1.0"
 dependencies = [
- "openssl 0.10.26 (registry+https://github.com/rust-lang/crates.io-index)",
+ "openssl 0.10.26 (git+https://github.com/npmccallum/rust-openssl?branch=patch)",
  "sgx-types 0.1.0",
 ]
 
@@ -119,7 +119,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 "checksum foreign-types-shared 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)" = "00b0228411908ca8685dba7fc2cdd70ec9990a6e753e89b6ac91a84c40fbaf4b"
 "checksum lazy_static 1.4.0 (registry+https://github.com/rust-lang/crates.io-index)" = "e2abad23fbc42b3700f2f279844dc832adb2b2eb069b2df918f455c4e18cc646"
 "checksum libc 0.2.66 (registry+https://github.com/rust-lang/crates.io-index)" = "d515b1f41455adea1313a4a2ac8a8a477634fbae63cc6100e3aebb207ce61558"
-"checksum openssl 0.10.26 (registry+https://github.com/rust-lang/crates.io-index)" = "3a3cc5799d98e1088141b8e01ff760112bbd9f19d850c124500566ca6901a585"
-"checksum openssl-sys 0.9.53 (registry+https://github.com/rust-lang/crates.io-index)" = "465d16ae7fc0e313318f7de5cecf57b2fbe7511fd213978b457e1c96ff46736f"
+"checksum openssl 0.10.26 (git+https://github.com/npmccallum/rust-openssl?branch=patch)" = "<none>"
+"checksum openssl-sys 0.9.53 (git+https://github.com/npmccallum/rust-openssl?branch=patch)" = "<none>"
 "checksum pkg-config 0.3.17 (registry+https://github.com/rust-lang/crates.io-index)" = "05da548ad6865900e60eaba7f589cc0783590a92e940c26953ff81ddbab2d677"
 "checksum vcpkg 0.2.8 (registry+https://github.com/rust-lang/crates.io-index)" = "3fc439f2794e98976c88a2a2dafce96b930fe8010b0a256b3c2199a773933168"

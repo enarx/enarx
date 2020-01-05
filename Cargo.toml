@@ -5,3 +5,6 @@ members = [
     "sgx-sys",
     "sgx-hasher",
 ]
+
+[patch.crates-io]
+openssl = { git = 'https://github.com/npmccallum/rust-openssl', branch='patch' }
