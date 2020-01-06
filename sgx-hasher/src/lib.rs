@@ -89,40 +89,49 @@ impl ToArray for bn::BigNumRef {
     }
 }
 
-pub fn sign(
-    author: sig::Author,
-    contents: sig::Contents,
-    key: rsa::Rsa<pkey::Private>,
-) -> Result<sig::Signature> {
-    // Generates signature on Signature author and contents
-    let rsa_key = pkey::PKey::from_rsa(key.clone())?;
-    let md = hash::MessageDigest::sha256();
-    let mut signer = sign::Signer::new(md, &rsa_key)?;
-    signer.update(author.as_ref())?;
-    signer.update(contents.as_ref())?;
-    let signature = signer.sign_to_vec()?;
+pub trait Signer: Sized {
+    fn sign(
+        author: sig::Author,
+        contents: sig::Contents,
+        key: rsa::Rsa<pkey::Private>,
+    ) -> Result<Self>;
+}
 
-    // Generates q1, q2 values for RSA signature verification
-    let s = bn::BigNum::from_be_bytes(&signature)?;
-    let e = key.e().try_into()?;
-    let m = key.n();
+impl Signer for sig::Signature {
+    fn sign(
+        author: sig::Author,
+        contents: sig::Contents,
+        key: rsa::Rsa<pkey::Private>,
+    ) -> Result<Self> {
+        // Generates signature on Signature author and contents
+        let rsa_key = pkey::PKey::from_rsa(key.clone())?;
+        let md = hash::MessageDigest::sha256();
+        let mut signer = sign::Signer::new(md, &rsa_key)?;
+        signer.update(author.as_ref())?;
+        signer.update(contents.as_ref())?;
+        let signature = signer.sign_to_vec()?;
 
-    let mut ctx = bn::BigNumContext::new()?;
-    let mut q1 = bn::BigNum::new()?;
-    let mut qr = bn::BigNum::new()?;
+        // Generates q1, q2 values for RSA signature verification
+        let s = bn::BigNum::from_be_bytes(&signature)?;
+        let m = key.n();
 
-    q1.div_rem(&mut qr, &(&s * &s), &m, &mut ctx)?;
-    let q2 = &(&s * &qr) / m;
+        let mut ctx = bn::BigNumContext::new()?;
+        let mut q1 = bn::BigNum::new()?;
+        let mut qr = bn::BigNum::new()?;
 
-    Ok(sig::Signature::new(
-        author,
-        contents,
-        e,
-        m.to_le_array()?,
-        s.to_le_array()?,
-        q1.to_le_array()?,
-        q2.to_le_array()?,
-    ))
+        q1.div_rem(&mut qr, &(&s * &s), &m, &mut ctx)?;
+        let q2 = &(&s * &qr) / m;
+
+        Ok(sig::Signature::new(
+            author,
+            contents,
+            key.e().try_into()?,
+            m.to_le_array()?,
+            s.to_le_array()?,
+            q1.to_le_array()?,
+            q2.to_le_array()?,
+        ))
+    }
 }
 
 #[cfg(test)]
@@ -292,7 +301,7 @@ mod test {
         // Ensure that sign() can reproduce the exact same signature struct.
         assert_eq!(
             sig,
-            sign(author, contents, key).unwrap(),
+            sig::Signature::sign(author, contents, key).unwrap(),
             "failed to produce correct signature"
         );
     }
