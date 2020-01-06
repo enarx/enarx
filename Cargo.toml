@@ -1,9 +1,9 @@
 [workspace]
 members = [
     "sgx-types",
+    "sgx-crypto",
     "sgx-traits",
     "sgx-sys",
-    "sgx-hasher",
 ]
 
 [patch.crates-io]

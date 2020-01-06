@@ -74,7 +74,7 @@ version = "0.3.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
-name = "sgx-hasher"
+name = "sgx-crypto"
 version = "0.1.0"
 dependencies = [
  "openssl 0.10.26 (git+https://github.com/npmccallum/rust-openssl?branch=patch)",
