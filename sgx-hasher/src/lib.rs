@@ -17,7 +17,7 @@
 #![allow(clippy::unreadable_literal)]
 
 use openssl::{bn, hash, pkey, rsa, sha, sign};
-use sgx_types::{page, secs, sig};
+use sgx_types::{page, sig};
 use std::convert::TryInto;
 use std::io::Result;
 
@@ -25,13 +25,13 @@ pub struct Hasher(sha::Sha256);
 
 impl Hasher {
     // Mimics call to SGX_IOC_ENCLAVE_CREATE (ECREATE)
-    pub fn new(secs: secs::Secs) -> Self {
+    pub fn new(size: u64, ssa_size: u32) -> Self {
         const ECREATE: u64 = 0x0045544145524345;
 
         let mut sha256 = sha::Sha256::new();
         sha256.update(&ECREATE.to_le_bytes());
-        sha256.update(&secs.ssa_size().to_le_bytes());
-        sha256.update(&secs.size().to_le_bytes());
+        sha256.update(&ssa_size.to_le_bytes());
+        sha256.update(&size.to_le_bytes());
         sha256.update(&[0u8; 44]); // Reserved
 
         Self(sha256)
@@ -129,7 +129,7 @@ pub fn sign(
 mod test {
     use super::*;
     use sgx_types::page::{Flags as Perms, SecInfo};
-    use sgx_types::{attr, misc, sig};
+    use sgx_types::sig;
     use std::fs::File;
     use std::io::Read;
 
@@ -153,23 +153,10 @@ mod test {
         // Add the lengths of all the enclave segments to produce enclave size.
         let size = input.iter().fold(0, |c, x| c + x.0.len() as u64);
 
-        let contents = sig::Contents::new(
-            misc::MiscSelect::default(),
-            misc::MiscSelect::default(),
-            attr::Attributes::default(),
-            attr::Attributes::default(),
-            [0u8; 32],
-            0,
-            0,
-        );
-
-        // This creates an enclave with:
-        //     base address: 0
+        // Inputs:
         //     enclave size: the next power of two beyond our segments
         //   ssa frame size: 1
-        //         contents: defined above
-        let secs = secs::Secs::new(0, size.next_power_of_two(), 1, &contents);
-        let mut hasher = Hasher::new(secs);
+        let mut hasher = Hasher::new(size.next_power_of_two(), 1);
 
         let mut off = 0;
         for i in input {
