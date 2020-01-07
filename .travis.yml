@@ -22,10 +22,15 @@ matrix:
   allow_failures:
     - rust: nightly
   fast_finish: true
+  include:
+    - name: "cargo audit"
+      rust: stable
+      install:
+        - cargo install --force cargo-audit
+      script:
+        - cargo audit
 install:
   - rustup component add rustfmt
-  - cargo install --force cargo-audit
 script:
   - cargo fmt -- --check
-  - cargo audit
   - cargo test
