@@ -3,13 +3,13 @@ bitflags::bitflags! {
     pub struct Flags: u64 {
         const INIT = 1 << 0;
         const DEBUG = 1 << 1;
-        const MODE_64_BIT = 1 << 2;
-        const PROVISION_KEY = 1 << 4;
-        const EINIT_TOKEN_KEY = 1 << 5;
+        const BIT64 = 1 << 2;
+        const PROV_KEY = 1 << 4;
+        const EINIT_KEY = 1 << 5;
     }
 }
 
-defflags!(Flags MODE_64_BIT);
+defflags!(Flags BIT64);
 
 bitflags::bitflags! {
     /// Section 42.7.2.1 and https://en.wikipedia.org/wiki/Control_register
