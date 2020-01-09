@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use super::*;
-use std::mem::{size_of, uninitialized};
+use std::mem::{size_of, MaybeUninit};
 use std::slice::{from_raw_parts, from_raw_parts_mut};
 
 #[cfg(feature = "openssl")]
@@ -64,7 +64,7 @@ impl IntoLe<[u8; 512]> for openssl::bn::BigNumRef {
 
 pub trait TypeLoad: Read {
     fn load<T: Sized + Copy>(&mut self) -> Result<T> {
-        let mut t = unsafe { uninitialized() };
+        let mut t = unsafe { MaybeUninit::uninit().assume_init() };
         let p = &mut t as *mut T as *mut u8;
         let s = unsafe { from_raw_parts_mut(p, size_of::<T>()) };
         self.read_exact(s)?;

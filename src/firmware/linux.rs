@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use std::fs::File;
-use std::mem::{size_of_val, uninitialized};
+use std::mem::{size_of_val, MaybeUninit};
 use std::os::raw::{c_int, c_ulong};
 use std::os::unix::io::AsRawFd;
 
@@ -81,7 +81,9 @@ impl Firmware {
             guest_count: u32,
         }
 
-        let i: Info = self.cmd(Code::PlatformStatus, unsafe { uninitialized() })?;
+        let i: Info = self.cmd(Code::PlatformStatus, unsafe {
+            MaybeUninit::uninit().assume_init()
+        })?;
 
         Ok(Status {
             build: Build {
@@ -114,7 +116,7 @@ impl Firmware {
             len: u32,
         }
 
-        let mut pek: Certificate = unsafe { uninitialized() };
+        let mut pek: Certificate = unsafe { MaybeUninit::uninit().assume_init() };
 
         self.cmd(
             Code::PekCertificateSigningRequest,
@@ -141,8 +143,8 @@ impl Firmware {
             chain_size: u32,
         }
 
-        let mut chain: [Certificate; 3] = unsafe { uninitialized() };
-        let mut pdh: Certificate = unsafe { uninitialized() };
+        let mut chain: [Certificate; 3] = unsafe { MaybeUninit::uninit().assume_init() };
+        let mut pdh: Certificate = unsafe { MaybeUninit::uninit().assume_init() };
 
         self.cmd(
             Code::PdhCertificateExport,
@@ -198,7 +200,9 @@ impl Firmware {
         #[repr(C, packed)]
         struct Ids([u8; 64], [u8; 64]);
 
-        let ids: Ids = self.cmd(Code::GetIdentifier, unsafe { uninitialized() })?;
+        let ids: Ids = self.cmd(Code::GetIdentifier, unsafe {
+            MaybeUninit::uninit().assume_init()
+        })?;
         Ok(Identifier(ids.0.to_vec()))
     }
 }
