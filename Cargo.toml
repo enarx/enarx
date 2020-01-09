@@ -8,9 +8,6 @@ edition = "2018"
 default = []
 
 [dependencies]
-openssl = { version = "0.10.20", optional = true }
-bitflags = "1.0.4"
+openssl = { version = "0.10.26", optional = true }
+bitflags = "1.2.1"
 codicon = "2.1.0"
-
-[patch.crates-io]
-openssl = { git = 'https://github.com/sfackler/rust-openssl' }
