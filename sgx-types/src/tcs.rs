@@ -1,6 +1,24 @@
+// Copyright 2020 Red Hat, Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+//! Thread Control Structure (Section 38.8)
+//! Each executing thread in the enclave is associated with a Thread Control Structure.
+
 bitflags::bitflags! {
     /// Section 38.8.1
     pub struct Flags: u64 {
+        /// Allows debugging features while executing in the enclave on this TCS. Hardware clears this bit on EADD.
         const DBGOPTIN = 1 << 0;
     }
 }
@@ -14,20 +32,32 @@ bitflags::bitflags! {
 #[derive(Debug)]
 #[repr(C, align(4096))]
 pub struct Tcs {
-    pub state: u64,         // used to mark an entered TCS
-    pub flags: Flags,       // execution flags (cleared by EADD)
-    pub ssa_offset: u64,    // SSA stack offset relative to the enclave base
-    pub ssa_index: u32,     // the current SSA frame index (cleard by EADD)
-    pub nr_ssa_frames: u32, // the number of frames in the SSA stack
-    pub entry_offset: u64,  // entry point offset relative to the enclave base
-    pub exit_addr: u64,     // address outside enclave to exit on an exception or interrupt
-    pub fs_offset: u64, // offset relative to enclave base to become FS segment inside the enclave
-    pub gs_offset: u64, // offset relative to enclave base to become GS segment inside the enclave
-    pub fs_limit: u32,  // size to become a new FS-limit (only 32-bit enclaves)
-    pub gs_limit: u32,  // size to become a new GS-limit (only 32-bit enclaves)
+    /// Used to mark an entered TCS.
+    state: u64,
+    /// Execution flags (cleared by EADD)
+    flags: Flags,
+    /// SSA stack offset relative to the enclave base
+    ssa_offset: u64,
+    /// The current SSA frame index (cleared by EADD)
+    ssa_index: u32,
+    /// The number of frames in the SSA stack
+    nr_ssa_frames: u32,
+    /// Entry point offset relative to the enclave base.
+    entry_offset: u64,
+    /// Address outside enclave to exit on an exception or interrupt.
+    exit_addr: u64,
+    /// Offset relative to enclave base to become FS segment inside the enclave.
+    fs_offset: u64,
+    /// Offset relative to enclave base to become GS segment inside the enclave.
+    gs_offset: u64,
+    /// Size to become a new FS-limit (only 32-bit enclaves).
+    fs_limit: u32,
+    /// Size to become a new GS-limit (only 32-bit enclaves).
+    gs_limit: u32,
 }
 
 impl Tcs {
+    /// Creates new TCS from an entry offset, SSA offset, and number of SSA frames.
     pub const fn new(entry: u64, ssa: u64, nssa: u32) -> Self {
         Self {
             state: 0,

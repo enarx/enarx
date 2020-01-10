@@ -1,4 +1,4 @@
-// Copyright 2019 Red Hat, Inc.
+// Copyright 2020 Red Hat, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@
 #![no_std]
 #![deny(clippy::all)]
 #![allow(clippy::identity_op)]
+#![deny(missing_docs)]
 
 macro_rules! defflags {
     ($name:ident $($value:ident)|*) => {
@@ -96,10 +97,16 @@ pub mod tcs;
 use core::fmt::Debug;
 use core::ops::BitAnd;
 
+/// Succinctly describes a masked type, e.g. masked Attributes or masked MiscSelect.
+/// A mask is applied to Attributes and MiscSelect structs in a Signature (SIGSTRUCT)
+/// to specify values of Attributes and MiscSelect to enforce. This struct combines
+/// the struct and its mask for simplicity.
 #[repr(C)]
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct Masked<T: Copy + Debug + PartialEq + BitAnd<Output = T>> {
+    /// The data being masked, e.g. Attribute flags.
     pub data: T,
+    /// The mask.
     pub mask: T,
 }
 

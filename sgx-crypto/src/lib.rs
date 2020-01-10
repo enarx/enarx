@@ -1,4 +1,4 @@
-// Copyright 2019 Red Hat, Inc.
+// Copyright 2020 Red Hat, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,20 +12,32 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//! Intel SGX Documentation is available at the following link.
+//! Section references in further documentation refer to this document.
+//! https://www.intel.com/content/dam/www/public/emea/xe/en/documents/manuals/64-ia-32-architectures-software-developer-vol-3d-part-4-manual.pdf
+
 #![deny(clippy::all)]
 #![allow(clippy::identity_op)]
 #![allow(clippy::unreadable_literal)]
+#![deny(missing_docs)]
 
 use openssl::{bn, hash, pkey, rsa, sha, sign};
 use sgx_types::{page, secs, sig};
 use std::convert::TryInto;
 use std::io::Result;
 
+/// This struct creates and updates the MRENCLAVE value associated
+/// with an enclave's Signature (or SIGSTRUCT). This value is updated with
+/// each ECREATE, EADD, or EEXTEND operation as documented in 41.3 and as
+/// summarized at https://github.com/enarx/enarx/wiki/SGX-Measurement. The leaf
+/// functions are mimicked to obtain these values, but are not actually called here;
+/// to use them, refer to the [iocuddle-sgx](../../iocuddle-sgx) library.
 pub struct Hasher(sha::Sha256);
 
 impl Hasher {
-    // Mimics call to SGX_IOC_ENCLAVE_CREATE (ECREATE)
+    /// Mimics call to SGX_IOC_ENCLAVE_CREATE (ECREATE).
     pub fn new(size: u64, ssa_size: u32) -> Self {
+        // This value documented in 41.3.
         const ECREATE: u64 = 0x0045544145524345;
 
         let mut sha256 = sha::Sha256::new();
@@ -37,8 +49,9 @@ impl Hasher {
         Self(sha256)
     }
 
-    // Mimics call to SGX_IOC_ENCLAVE_ADD_PAGES (EADD and EEXTEND)
+    /// Mimics call to SGX_IOC_ENCLAVE_ADD_PAGES (EADD and EEXTEND).
     pub fn add(&mut self, offset: u64, data: &[u8], measure: bool, secinfo: page::SecInfo) {
+        // These values documented in 41.3.
         const EEXTEND: u64 = 0x00444E4554584545;
         const EADD: u64 = 0x0000000044444145;
 
@@ -68,8 +81,7 @@ impl Hasher {
         }
     }
 
-    // Produces MRENCLAVE value (SHA256 of fields specified in
-    // https://github.com/enarx/enarx/wiki/SGX-Measurement)
+    /// Produces MRENCLAVE value by hashing with SHA256.
     pub fn finish(self) -> [u8; 32] {
         self.0.finish()
     }
@@ -90,13 +102,20 @@ impl ToArray for bn::BigNumRef {
     }
 }
 
+/// When implemented for the sig::Signature struct from [sgx-types](../../sgx-types),
+/// this trait signs the MRENCLAVE value created
+/// by the Hasher with an RSA key, as documented in 38.13.
 pub trait Signature: Sized {
+    /// Returns a signature over an Author (SIGSTRUCT header) and SIGSTRUCT Contents
+    /// with the provided RSA key.
     fn sign(
         author: sig::Author,
         contents: sig::Contents,
         key: rsa::Rsa<pkey::Private>,
     ) -> Result<Self>;
 
+    /// Returns an enclave control structure with provided specifications based on
+    /// Signature.
     fn secs(&self, base: u64, size: u64, ssa: u32) -> secs::Secs;
 }
 

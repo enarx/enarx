@@ -1,4 +1,19 @@
-//! Section 38.11
+// Copyright 2020 Red Hat, Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+//! Page SecInfo (Section 38.11)
+//! These structs specify metadata about en enclave page.
 
 use bitflags::bitflags;
 
@@ -16,8 +31,13 @@ bitflags! {
         /// The page can be executed from inside the enclave.
         const X = 1 << 2;
 
+        /// The page is in the PENDING state.
         const PENDING = 1 << 3;
+
+        /// The page is in the MODIFIED state.
         const MODIFIED = 1 << 4;
+
+        /// A permission restriction operation on the page is in progress.
         const PR = 1 << 5;
     }
 }
@@ -31,10 +51,15 @@ bitflags! {
 #[repr(u8)]
 #[derive(Copy, Clone, Debug)]
 pub enum Class {
+    /// Page is an SECS.
     Secs = 0,
+    /// Page is a TCS.
     Tcs = 1,
+    /// Page is a regular page.
     Reg = 2,
+    /// Page is a Version Array.
     Va = 3,
+    /// Page is in trimmed state.
     Trim = 4,
 }
 
@@ -47,7 +72,9 @@ pub enum Class {
 #[derive(Copy, Clone, Debug)]
 #[repr(C, align(64))]
 pub struct SecInfo {
+    /// Section 38.11.1
     pub flags: Flags,
+    /// Section 38.11.2
     pub class: Class,
     reserved: [u16; 31],
 }
@@ -64,6 +91,7 @@ impl AsRef<[u8]> for SecInfo {
 }
 
 impl SecInfo {
+    /// Creates a SecInfo (page) of class type Regular.
     pub const fn reg(flags: Flags) -> Self {
         Self {
             flags,
@@ -72,6 +100,7 @@ impl SecInfo {
         }
     }
 
+    /// Creates a SecInfo (page) of class type TCS.
     pub const fn tcs() -> Self {
         Self {
             flags: Flags::empty(),
