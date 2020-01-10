@@ -29,6 +29,10 @@ matrix:
         - cargo install --force cargo-audit
       script:
         - cargo audit
+    - name: "sev"
+      rust: stable
+      script:
+        - cargo test --manifest-path sev/Cargo.toml --verbose --features=openssl
 install:
   - rustup component add rustfmt
 script:
