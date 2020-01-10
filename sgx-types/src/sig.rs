@@ -1,18 +1,42 @@
+// Copyright 2020 Red Hat, Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+//! SigStruct (Section 38.13)
+//! SigStruct is a structure created and signed by the enclave developer that
+//! contains information about the enclave. SIGSTRUCT is processed by the EINIT
+//! leaf function to verify that the enclave was properly built.
+
 use super::{attr::Attributes, isv, misc::MiscSelect, Masked};
 
+/// Holds an ID that specifies the vendor of the enclave.
 #[repr(transparent)]
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct Vendor(u32);
 
 impl Vendor {
+    /// Vendor ID for unknown vendor.
     pub const UNKNOWN: Vendor = Vendor(0x0000);
+    /// Vendor ID for Intel.
     pub const INTEL: Vendor = Vendor(0x8086);
 
+    /// Creates a new Vendor based on vendor ID.
     pub const fn new(id: u32) -> Self {
         Self(id)
     }
 
     #[allow(clippy::unreadable_literal)]
+    /// Creates a new Author from a date and software defined value.
     pub const fn author(self, date: u32, swdefined: u32) -> Author {
         Author {
             header1: u128::from_be(0x06000000E10000000000010000000000),
@@ -33,11 +57,16 @@ impl Vendor {
 #[repr(C)]
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct Author {
-    header1: u128,      // constant byte string
-    pub vendor: Vendor, // vendor
-    pub date: u32,      // YYYYMMDD in BCD
-    header2: u128,      // constant byte string
-    pub swdefined: u32, // software defined value
+    /// Constant byte string.
+    header1: u128,
+    /// Vendor.
+    pub vendor: Vendor,
+    /// YYYYMMDD in BCD.
+    pub date: u32,
+    /// Constant byte string.
+    header2: u128,
+    /// Software-defined value.
+    pub swdefined: u32,
     reserved: [u32; 21],
 }
 
@@ -49,16 +78,22 @@ pub struct Author {
 #[repr(C)]
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct Contents {
+    /// Bit vector specifying extended SSA frame feature set to be used.
     pub misc: Masked<MiscSelect>,
     reserved0: [u8; 20],
+    /// Enclave attributes struct.
     pub attr: Masked<Attributes>,
+    /// SHA256 hash of enclave contents.
     pub mrenclave: [u8; 32],
     reserved1: [u8; 32],
+    /// User-defined value used in key derivation.
     pub isv_prod_id: isv::ProdId,
+    /// User-defined value used in key derivation.
     pub isv_svn: isv::Svn,
 }
 
 impl Contents {
+    /// Creates new SIGSTRUCT Contents from known values (including MRENCLAVE).
     pub fn new(
         misc: Masked<MiscSelect>,
         attr: Masked<Attributes>,
@@ -90,14 +125,21 @@ impl Contents {
 #[repr(C)]
 #[derive(Clone)]
 pub struct Signature {
-    pub author: Author,       // defines author of enclave
-    pub modulus: [u8; 384],   // modulus of the pubkey (keylength=3072 bits)
-    pub exponent: u32,        // exponent of the pubkey (RSA Exponent = 3)
-    pub signature: [u8; 384], // signature calculated over the fields except modulus
-    pub contents: Contents,   // defines contents of enclave
-    reserved: [u8; 12],       // padding
-    pub q1: [u8; 384],        // value used in RSA signature verification
-    pub q2: [u8; 384],        // value used in RSA signature verification
+    /// Defines the author of an enclave.
+    pub author: Author,
+    /// Modulus of the pubkey (key length = 3072 bits).
+    pub modulus: [u8; 384],
+    /// Exponent of the pubkey (RSA exponent = 3).
+    pub exponent: u32,
+    /// Signature calculated over the fields except modulus.
+    pub signature: [u8; 384],
+    /// Defines the contents of an enclave.
+    pub contents: Contents,
+    reserved: [u8; 12],
+    /// Value used in RSA signature verification.
+    pub q1: [u8; 384],
+    /// Value used in RSA signature verification.
+    pub q2: [u8; 384],
 }
 
 impl core::fmt::Debug for Signature {
@@ -131,6 +173,7 @@ impl PartialEq for Signature {
 }
 
 impl Signature {
+    /// Creates a new Signature.
     pub const fn new(
         author: Author,
         contents: Contents,

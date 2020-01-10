@@ -1,3 +1,21 @@
+// Copyright 2020 Red Hat, Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+//! State Save Area (SSA) Frame (Section 38.9)
+//! When an AEX occurs while running in an enclave, the architectural state is saved in the
+//! thread’s current SSA frame, which is pointed to by TCS.CSSA.
+
 #![allow(clippy::unreadable_literal)]
 
 use bitflags::bitflags;
@@ -5,22 +23,34 @@ use bitflags::bitflags;
 /// Section 38.9.1.1, Table 38-10
 #[derive(Copy, Clone, Debug)]
 pub enum Exception {
+    /// Divider exception.
     Divider,
+    /// Debug exception.
     Debug,
+    /// Breakpoint exception.
     Breakpoint,
+    /// Bound range exceeded exception.
     BoundRange,
+    /// Invalid opcode exception.
     InvalidOpCode,
+    /// General protection exception. Only reported if SECS.MISCSELECT.EXINFO = 1.
     GeneralProtection,
+    /// Page fault exception. Only reported if SECS.MISCSELECT.EXINFO = 1.
     PageFault,
+    /// x87 FPU floating-point error.
     FloatingPoint,
+    /// Alignment check exceptions.
     AlignmentCheck,
+    /// SIMD floating-point exceptions.
     Simd,
 }
 
 /// Section 38.9.1.1, Table 38-9
 #[derive(Copy, Clone, Debug)]
 pub enum ExitType {
+    /// Hardware exit.
     Hardware,
+    /// Software exit.
     Software,
 }
 
@@ -40,6 +70,7 @@ impl core::fmt::Debug for ExitInfo {
 }
 
 impl ExitInfo {
+    /// Creates ExitInfo based on ExitType and Exception.
     pub fn new(et: ExitType, exc: Exception) -> Self {
         let et = match et {
             ExitType::Hardware => 0b011 << 8,
@@ -62,6 +93,7 @@ impl ExitInfo {
         ExitInfo(1 << 31 | et | exc)
     }
 
+    /// Returns the exit type, if any.
     pub fn exit_type(self) -> Option<ExitType> {
         const MASK: u32 = 1 << 31 | 0b111 << 8;
 
@@ -72,6 +104,7 @@ impl ExitInfo {
         }
     }
 
+    /// Returns the exception type, if any.
     pub fn exception(self) -> Option<Exception> {
         const MASK: u32 = 1 << 31 | 0xff;
 
@@ -95,40 +128,70 @@ impl ExitInfo {
 #[derive(Debug)]
 #[repr(C)]
 pub struct Gpr {
+    /// Register rax
     pub rax: u64,
+    /// Register rcx
     pub rcx: u64,
+    /// Register rdx
     pub rdx: u64,
+    /// Register rbx
     pub rbx: u64,
+    /// Register rsp
     pub rsp: u64,
+    /// Register rbp
     pub rbp: u64,
+    /// Register rsi
     pub rsi: u64,
+    /// Register rdi
     pub rdi: u64,
+    /// Register r8
     pub r8: u64,
+    /// Register r9
     pub r9: u64,
+    /// Register r10
     pub r10: u64,
+    /// Register r11
     pub r11: u64,
+    /// Register r12
     pub r12: u64,
+    /// Register r13
     pub r13: u64,
+    /// Register r14
     pub r14: u64,
+    /// Register r15
     pub r15: u64,
+    /// Register flags
     pub rflags: u64,
+    /// Register rip
     pub rip: u64,
+    /// Register ursp
     pub ursp: u64,
+    /// Register urbp
     pub urbp: u64,
+    /// ExitInfo struct
     pub exitinfo: ExitInfo,
+    /// Reserved
     pub reserved: u32,
+    /// FS base
     pub fsbase: u64,
+    /// GS base
     pub gsbase: u64,
 }
 
 bitflags! {
     /// Section 38.9.2.2, Table 38-13
     pub struct PageFault: u32 {
+        /// Same as non-SGX page fault exception P flag.
         const P = 1 << 0;
+        /// Same as non-SGX page fault exception W/R flag.
         const WR = 1 << 1;
+        /// Always set to 1 (user mode reference).
         const US = 1 << 2;
+        /// Same as non-SGX page fault exception I/D flag.
         const ID = 1 << 4;
+        /// Protection Key induced fault.
         const PK = 1 << 5;
+        /// EPCM induced fault.
         const SGX = 1 << 5;
     }
 }
@@ -137,7 +200,10 @@ bitflags! {
 #[derive(Debug)]
 #[repr(C)]
 pub struct ExceptionInfo {
+    /// In case of a page fault, contains the linear address that caused the fault.
     pub maddr: u64,
+    /// Exception error code for GP fault or page fault.
+    /// TODO: Should this have more options in case of general purpose fault?
     pub errcd: PageFault,
 }
 
@@ -145,24 +211,41 @@ pub struct ExceptionInfo {
 #[derive(Debug)]
 #[repr(C)]
 pub struct Miscellaneous {
+    /// Exception info for GP or page fault occurring inside an enclave can be written to
+    /// this struct under some conditions (see Table 38.11).
     pub exinfo: ExceptionInfo,
 }
 
-// TODO: replace with real XSAVE type
+/// The size of XSAVE region in SSA is derived from the enclave’s support of the collection
+/// of processor extended states that would be managed by XSAVE. The enablement of those
+/// processor extended state components in conjunction with CPUID leaf 0DH information
+/// determines the XSAVE region size in SSA.
+///
+/// Section 38.9, Table 38-7
 #[derive(Debug)]
 #[repr(C, align(4096))]
 pub struct XSave([[u64; 32]; 16]);
 
+/// The Footer combines the padding, Miscellaneous, and GPRSGX fields of the SSA Frame
+/// struct. It has no direct equivalent in the SGX documentation, but creates an SSA Frame
+/// in combination with the XSave struct.
+///
+/// Section 38.9, Table 38-7
 #[derive(Debug)]
 #[repr(C, align(4096))]
 pub struct Footer {
-    padding0: [[u64; 32]; 15], // size == 4096 - 256
-    padding1: [u32; 14],       // 256 - size_of::<Miscellaneous>() - size_of::<Gpr>()
+    /// Size == 4096 - 256
+    padding0: [[u64; 32]; 15],
+    /// 256 - size_of::<Miscellaneous>() - size_of::<Gpr>()
+    padding1: [u32; 14],
+    /// May hold some exception info for faults occurring inside an enclave.
     pub misc: Miscellaneous,
+    /// Holds info on general purpose registers.
     pub gpr: Gpr,
 }
 
 impl Footer {
+    /// Creates a new footer from Miscellaneous (fault-related) and Gpr info.
     pub const fn new(misc: Miscellaneous, gpr: Gpr) -> Self {
         Self {
             padding0: [[0; 32]; 15],
@@ -173,12 +256,19 @@ impl Footer {
     }
 }
 
+/// When an AEX occurs while running in an enclave, the architectural state is saved
+/// in the thread’s current StateSaveArea (SSA Frame), which is pointed to by TCS.CSSA.
+///
 /// Section 38.9, Table 38-7
 #[derive(Debug)]
 #[repr(C)]
 pub struct StateSaveArea<T> {
+    ///  Section 38.9, Table 38-7
     pub xsave: XSave,
+    /// Other information about the SSA
+    /// TODO: Be more specific about this
     pub other: T,
+    /// Section 38.9, Table 38-7
     pub footer: Footer,
 }
 
