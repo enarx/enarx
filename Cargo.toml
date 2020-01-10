@@ -6,6 +6,8 @@ members = [
     "sgx-show",
     "sgx-types",
     "sgx-crypto",
+    
+    "sev",
 ]
 
 [patch.crates-io]
