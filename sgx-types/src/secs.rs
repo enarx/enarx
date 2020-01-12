@@ -57,7 +57,7 @@ testaso! {
 impl Secs {
     pub const SIZE_MAX: u64 = 0x1_000_000_000;
 
-    pub fn new(base: u64, size: u64, ssa: u32, contents: &Contents) -> Self {
+    pub fn new(base: u64, size: u64, ssa: u32, mrsigner: [u8; 32], contents: &Contents) -> Self {
         Secs {
             size,
             base,
@@ -65,7 +65,7 @@ impl Secs {
             misc: contents.misc(),
             attr: contents.attr(),
             mrenclave: contents.mrenclave(),
-            mrsigner: unsafe { core::mem::zeroed() }, // FIXME
+            mrsigner,
             isv_prod_id: contents.isv_prod_id(),
             isv_svn: contents.isv_svn(),
             ..unsafe { core::mem::zeroed() }
