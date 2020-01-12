@@ -1,24 +1,5 @@
 use super::{attr::Attributes, misc::MiscSelect, utils::Padding};
 
-// This is an internal utility type for wrapping RSA numbers.
-// We use it to implement common traits. The size of the RSA
-// number is determined by SGX (384 bytes).
-#[derive(Copy, Clone)]
-struct RsaNumber([u8; 384]);
-
-impl core::fmt::Debug for RsaNumber {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(f, "RsaNumber({:?})", &self.0[..])
-    }
-}
-
-impl Eq for RsaNumber {}
-impl PartialEq for RsaNumber {
-    fn eq(&self, other: &Self) -> bool {
-        self.0[..] == other.0[..]
-    }
-}
-
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 #[repr(u32)]
 pub enum Vendor {
@@ -152,37 +133,67 @@ impl Contents {
 ///
 /// Section 38.13
 #[repr(C)]
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone)]
 pub struct Signature {
     author: Author,               // defines author of enclave
-    modulus: RsaNumber,           // modulus of the pubkey (keylength=3072 bits)
+    modulus: [u8; 384],           // modulus of the pubkey (keylength=3072 bits)
     exponent: u32,                // exponent of the pubkey (RSA Exponent = 3)
-    signature: RsaNumber,         // signature calculated over the fields except modulus
+    signature: [u8; 384],         // signature calculated over the fields except modulus
     contents: Contents,           // defines contents of enclave
     reserved4: Padding<[u8; 12]>, // padding
-    q1: RsaNumber,                // value used in RSA signature verification
-    q2: RsaNumber,                // value used in RSA signature verification
+    q1: [u8; 384],                // value used in RSA signature verification
+    q2: [u8; 384],                // value used in RSA signature verification
+}
+
+impl core::fmt::Debug for Signature {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "Signature {{")?;
+        write!(f, " author: {:?},", self.author)?;
+        write!(f, " modulus: {:?},", &self.modulus[..])?;
+        write!(f, " exponent: {:?},", self.exponent)?;
+        write!(f, " signature: {:?},", &self.signature[..])?;
+        write!(f, " contents: {:?},", self.contents)?;
+        write!(f, " reserved: {:?},", self.reserved4)?;
+        write!(f, " q1: {:?},", &self.q1[..])?;
+        write!(f, " q1: {:?} ", &self.q2[..])?;
+        write!(f, "}}")
+    }
+}
+
+impl Eq for Signature {}
+impl PartialEq for Signature {
+    #[allow(clippy::op_ref)]
+    fn eq(&self, other: &Self) -> bool {
+        self.author == other.author
+            && &self.modulus[..] == &other.modulus[..]
+            && self.exponent == other.exponent
+            && &self.signature[..] == &other.signature[..]
+            && self.contents == other.contents
+            && self.reserved4 == other.reserved4
+            && &self.q1[..] == &other.q1[..]
+            && &self.q2[..] == &other.q2[..]
+    }
 }
 
 impl Signature {
     pub fn new(
         author: Author,
         contents: Contents,
-        e: u32,
-        m: [u8; 384],
-        s: [u8; 384],
+        exponent: u32,
+        modulus: [u8; 384],
+        signature: [u8; 384],
         q1: [u8; 384],
         q2: [u8; 384],
     ) -> Self {
         Self {
             author,
-            modulus: RsaNumber(m),
-            exponent: e,
-            signature: RsaNumber(s),
+            modulus,
+            exponent,
+            signature,
             contents,
             reserved4: Padding::default(),
-            q1: RsaNumber(q1),
-            q2: RsaNumber(q2),
+            q1,
+            q2,
         }
     }
 
@@ -191,7 +202,7 @@ impl Signature {
     }
 
     pub fn modulus(&self) -> &[u8; 384] {
-        &self.modulus.0
+        &self.modulus
     }
 
     pub fn contents(&self) -> &Contents {
