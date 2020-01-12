@@ -12,6 +12,7 @@ impl Vendor {
         Self(id)
     }
 
+    #[allow(clippy::unreadable_literal)]
     pub fn author(self, date: u32, swdefined: u32) -> Author {
         Author {
             header1: u128::from_be(0x06000000E10000000000010000000000),
