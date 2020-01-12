@@ -20,30 +20,6 @@ impl PartialEq for RsaNumber {
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
-struct Header1([u8; 16]);
-
-impl Default for Header1 {
-    fn default() -> Self {
-        Header1([
-            0x06, 0x00, 0x00, 0x00, 0xe1, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00,
-            0x00, 0x00,
-        ])
-    }
-}
-
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
-struct Header2([u8; 16]);
-
-impl Default for Header2 {
-    fn default() -> Self {
-        Header2([
-            0x01, 0x01, 0x00, 0x00, 0x60, 0x00, 0x00, 0x00, 0x60, 0x00, 0x00, 0x00, 0x01, 0x00,
-            0x00, 0x00,
-        ])
-    }
-}
-
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 #[repr(u32)]
 pub enum Vendor {
     Unknown = 0x0000,
@@ -60,11 +36,11 @@ defenum!(Vendor::Unknown);
 #[repr(C)]
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Author {
-    header1: Header1, // constant byte string
-    vendor: Vendor,
-    date: u32,        // YYYYMMDD in BCD
-    header2: Header2, // constant byte string
-    swdefined: u32,   // software defined value
+    header1: u128,  // constant byte string
+    vendor: Vendor, // vendor
+    date: u32,      // YYYYMMDD in BCD
+    header2: u128,  // constant byte string
+    swdefined: u32, // software defined value
     reserved1: Padding<[u8; 84]>,
 }
 
@@ -82,10 +58,10 @@ impl AsRef<[u8]> for Author {
 impl Author {
     pub fn new(vendor: Vendor, date: u32, swdefined: u32) -> Self {
         Author {
-            header1: Header1::default(),
+            header1: u128::from_be(0x06000000E10000000000010000000000),
             vendor,
             date,
-            header2: Header2::default(),
+            header2: u128::from_be(0x01010000600000006000000001000000),
             swdefined,
             reserved1: Padding::default(),
         }
@@ -224,7 +200,7 @@ impl Signature {
 }
 
 testaso! {
-    struct Author: 4, 128 => {
+    struct Author: 8, 128 => {
         header1: 0,
         vendor: 16,
         date: 20,
@@ -245,7 +221,7 @@ testaso! {
         isv_svn: 126
     }
 
-    struct Signature: 4, 1808 => {
+    struct Signature: 8, 1808 => {
         author: 0,
         modulus: 128,
         exponent: 512,
