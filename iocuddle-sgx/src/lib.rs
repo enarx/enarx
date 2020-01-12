@@ -157,7 +157,13 @@ mod test {
         );
 
         // Make the SECS page
-        let secs = secs::Secs::new(BASE_ADDR, secs::Secs::SIZE_MAX, SSA_SIZE, &contents);
+        let secs = secs::Secs::new(
+            BASE_ADDR,
+            secs::Secs::SIZE_MAX,
+            SSA_SIZE,
+            [0; 32],
+            &contents,
+        );
 
         // Create the enclave
         let create = Create::new(&secs);
