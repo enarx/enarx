@@ -146,7 +146,7 @@ mod test {
         let hash = hasher.finish();
 
         // Make the SECS page
-        let author = sig::Author::new(sig::Vendor::Unknown, 0, 0);
+        let author = sig::Vendor::INTEL.author(0, 0);
         let contents = sig::Contents::new(
             misc::MiscSelect::default(),
             misc::MiscSelect::default(),
