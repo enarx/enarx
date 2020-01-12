@@ -14,17 +14,17 @@ bitflags::bitflags! {
 #[derive(Debug)]
 #[repr(C, align(4096))]
 pub struct Tcs {
-    state: u64,         // used to mark an entered TCS
-    flags: Flags,       // execution flags (cleared by EADD)
-    ssa_offset: u64,    // SSA stack offset relative to the enclave base
-    ssa_index: u32,     // the current SSA frame index (cleard by EADD)
-    nr_ssa_frames: u32, // the number of frames in the SSA stack
-    entry_offset: u64,  // entry point offset relative to the enclave base
-    exit_addr: u64,     // address outside enclave to exit on an exception or interrupt
-    fs_offset: u64,     // offset relative to enclave base to become FS segment inside the enclave
-    gs_offset: u64,     // offset relative to enclave base to become GS segment inside the enclave
-    fs_limit: u32,      // size to become a new FS-limit (only 32-bit enclaves)
-    gs_limit: u32,      // size to become a new GS-limit (only 32-bit enclaves)
+    pub state: u64,         // used to mark an entered TCS
+    pub flags: Flags,       // execution flags (cleared by EADD)
+    pub ssa_offset: u64,    // SSA stack offset relative to the enclave base
+    pub ssa_index: u32,     // the current SSA frame index (cleard by EADD)
+    pub nr_ssa_frames: u32, // the number of frames in the SSA stack
+    pub entry_offset: u64,  // entry point offset relative to the enclave base
+    pub exit_addr: u64,     // address outside enclave to exit on an exception or interrupt
+    pub fs_offset: u64, // offset relative to enclave base to become FS segment inside the enclave
+    pub gs_offset: u64, // offset relative to enclave base to become GS segment inside the enclave
+    pub fs_limit: u32,  // size to become a new FS-limit (only 32-bit enclaves)
+    pub gs_limit: u32,  // size to become a new GS-limit (only 32-bit enclaves)
 }
 
 impl Tcs {

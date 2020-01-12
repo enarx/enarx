@@ -23,18 +23,18 @@ use super::{attr::Attributes, misc::MiscSelect, sig::Contents, utils::Padding};
 /// Section 38.7
 #[repr(C, align(4096))]
 pub struct Secs {
-    size: u64,     // size of address space (power of 2)
-    base: u64,     // base address of address space
-    ssa_size: u32, // size of an SSA frame
-    misc: MiscSelect,
+    pub size: u64,
+    pub base: u64,
+    pub ssa_size: u32,
+    pub misc: MiscSelect,
     reserved1: Padding<[u8; 24]>,
-    attr: Attributes,
-    mrenclave: [u8; 32], // SHA256-hash of enclave contents
+    pub attr: Attributes,
+    pub mrenclave: [u8; 32],
     reserved2: Padding<[u8; 32]>,
-    mrsigner: [u8; 32], // SHA256-hash of pubkey used to sign SIGSTRUCT
+    pub mrsigner: [u8; 32],
     reserved3: Padding<[u8; 96]>,
-    isv_prod_id: u16, // user-defined value used in key derivation
-    isv_svn: u16,     // user-defined value used in key derivation
+    pub isv_prod_id: u16,
+    pub isv_svn: u16,
 }
 
 testaso! {
@@ -62,21 +62,13 @@ impl Secs {
             size,
             base,
             ssa_size: ssa,
-            misc: contents.misc().data & contents.misc().mask,
-            attr: contents.attr().data & contents.attr().mask,
-            mrenclave: contents.mrenclave(),
+            misc: contents.misc.data & contents.misc.mask,
+            attr: contents.attr.data & contents.attr.mask,
+            mrenclave: contents.mrenclave,
             mrsigner,
-            isv_prod_id: contents.isv_prod_id(),
-            isv_svn: contents.isv_svn(),
+            isv_prod_id: contents.isv_prod_id,
+            isv_svn: contents.isv_svn,
             ..unsafe { core::mem::zeroed() }
         }
-    }
-
-    pub fn size(&self) -> u64 {
-        self.size
-    }
-
-    pub fn ssa_size(&self) -> u32 {
-        self.ssa_size
     }
 }

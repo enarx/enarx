@@ -137,11 +137,11 @@ impl Signature for sig::Signature {
 
     fn secs(&self, base: u64, size: u64, ssa: u32) -> secs::Secs {
         let md = openssl::hash::MessageDigest::sha256();
-        let bytes = openssl::hash::hash(md, &self.modulus()[..]).unwrap();
+        let bytes = openssl::hash::hash(md, &self.modulus[..]).unwrap();
 
         let mut hash = [0u8; 32];
         hash.copy_from_slice(bytes.as_ref());
-        secs::Secs::new(base, size, ssa, hash, self.contents())
+        secs::Secs::new(base, size, ssa, hash, &self.contents)
     }
 }
 
@@ -296,12 +296,12 @@ mod test {
         let sig = loadsig("tests/encl.ss");
         let key = loadkey("tests/encl.pem");
 
-        let author = sig.author().clone();
-        let contents = sig.contents().clone();
+        let author = sig.author.clone();
+        let contents = sig.contents.clone();
 
         // Validate the hash.
         assert_eq!(
-            contents.mrenclave(),
+            contents.mrenclave,
             hash(&[
                 (&bin[..4096], SecInfo::tcs()),
                 (&bin[4096..], SecInfo::reg(Perms::R | Perms::W | Perms::X))

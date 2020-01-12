@@ -48,8 +48,8 @@ pub enum Class {
 #[derive(Copy, Clone, Debug)]
 #[repr(C, align(64))]
 pub struct SecInfo {
-    flags: Flags,
-    class: Class,
+    pub flags: Flags,
+    pub class: Class,
     reserved: Padding<[u8; 62]>,
 }
 
@@ -79,14 +79,6 @@ impl SecInfo {
             class: Class::Tcs,
             reserved: Padding::default(),
         }
-    }
-
-    pub fn flags(&self) -> Flags {
-        self.flags
-    }
-
-    pub fn class(&self) -> Class {
-        self.class
     }
 }
 
