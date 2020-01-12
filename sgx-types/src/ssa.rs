@@ -33,8 +33,8 @@ pub enum ExitType {
 #[derive(Copy, Clone, Default)]
 pub struct ExitInfo(u32);
 
-impl std::fmt::Debug for ExitInfo {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+impl core::fmt::Debug for ExitInfo {
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
         let exc = self.exception();
         let et = self.exit_type();
 
