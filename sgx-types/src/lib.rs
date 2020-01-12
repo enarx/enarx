@@ -20,16 +20,6 @@
 #![deny(clippy::all)]
 #![allow(clippy::identity_op)]
 
-macro_rules! defenum {
-    ($name:ident::$value:ident) => {
-        impl Default for $name {
-            fn default() -> Self {
-                $name::$value
-            }
-        }
-    };
-}
-
 macro_rules! defflags {
     ($name:ident $($value:ident)|*) => {
         impl Default for $name {

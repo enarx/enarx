@@ -1,13 +1,28 @@
 use super::{attr::Attributes, misc::MiscSelect, utils::Padding};
 
+#[repr(transparent)]
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
-#[repr(u32)]
-pub enum Vendor {
-    Unknown = 0x0000,
-    Intel = 0x8086,
-}
+pub struct Vendor(u32);
 
-defenum!(Vendor::Unknown);
+impl Vendor {
+    pub const UNKNOWN: Vendor = Vendor(0x0000);
+    pub const INTEL: Vendor = Vendor(0x8086);
+
+    pub const fn new(id: u32) -> Self {
+        Self(id)
+    }
+
+    pub fn author(self, date: u32, swdefined: u32) -> Author {
+        Author {
+            header1: u128::from_be(0x06000000E10000000000010000000000),
+            vendor: self,
+            date,
+            header2: u128::from_be(0x01010000600000006000000001000000),
+            swdefined,
+            reserved1: Padding::default(),
+        }
+    }
+}
 
 /// The `Author` of an enclave
 ///
@@ -32,19 +47,6 @@ impl AsRef<[u8]> for Author {
                 self as *const Self as *const u8,
                 core::mem::size_of_val(self),
             )
-        }
-    }
-}
-
-impl Author {
-    pub fn new(vendor: Vendor, date: u32, swdefined: u32) -> Self {
-        Author {
-            header1: u128::from_be(0x06000000E10000000000010000000000),
-            vendor,
-            date,
-            header2: u128::from_be(0x01010000600000006000000001000000),
-            swdefined,
-            reserved1: Padding::default(),
         }
     }
 }
