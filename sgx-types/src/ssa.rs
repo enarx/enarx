@@ -141,15 +141,15 @@ bitflags! {
 #[derive(Debug)]
 #[repr(C)]
 pub struct ExceptionInfo {
-    maddr: u64,
-    errcd: PageFault,
+    pub maddr: u64,
+    pub errcd: PageFault,
 }
 
 /// Section 38.9.2, Table 38-11
 #[derive(Debug)]
 #[repr(C)]
 pub struct Miscellaneous {
-    exinfo: ExceptionInfo,
+    pub exinfo: ExceptionInfo,
 }
 
 // TODO: replace with real XSAVE type
@@ -161,17 +161,17 @@ pub struct XSave(Padding<[u8; 4096]>);
 #[repr(C, align(4096))]
 pub struct Footer {
     padding: Padding<[u8; 4096 - size_of::<Miscellaneous>() - size_of::<Gpr>()]>,
-    misc: Miscellaneous,
-    gpr: Gpr,
+    pub misc: Miscellaneous,
+    pub gpr: Gpr,
 }
 
 /// Section 38.9, Table 38-7
 #[derive(Debug)]
 #[repr(C)]
 pub struct StateSaveArea<T> {
-    xsave: XSave,
-    other: T,
-    footer: Footer,
+    pub xsave: XSave,
+    pub other: T,
+    pub footer: Footer,
 }
 
 testaso! {

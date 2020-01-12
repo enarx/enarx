@@ -33,11 +33,11 @@ impl Vendor {
 #[repr(C)]
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Author {
-    header1: u128,  // constant byte string
-    vendor: Vendor, // vendor
-    date: u32,      // YYYYMMDD in BCD
-    header2: u128,  // constant byte string
-    swdefined: u32, // software defined value
+    header1: u128,      // constant byte string
+    pub vendor: Vendor, // vendor
+    pub date: u32,      // YYYYMMDD in BCD
+    header2: u128,      // constant byte string
+    pub swdefined: u32, // software defined value
     reserved1: Padding<[u8; 84]>,
 }
 
@@ -60,13 +60,13 @@ impl AsRef<[u8]> for Author {
 #[repr(C)]
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Contents {
-    misc: Masked<MiscSelect>,
+    pub misc: Masked<MiscSelect>,
     reserved2: Padding<[u8; 20]>,
-    attr: Masked<Attributes>,
-    mrenclave: [u8; 32], // sha256 hash of enclave contents
+    pub attr: Masked<Attributes>,
+    pub mrenclave: [u8; 32],
     reserved3: Padding<[u8; 32]>,
-    isv_prod_id: u16, // user-defined value used in key derivation
-    isv_svn: u16,     // user-defined value used in key derivation
+    pub isv_prod_id: u16,
+    pub isv_svn: u16,
 }
 
 impl AsRef<[u8]> for Contents {
@@ -98,26 +98,6 @@ impl Contents {
             isv_svn,
         }
     }
-
-    pub fn misc(&self) -> Masked<MiscSelect> {
-        self.misc
-    }
-
-    pub fn attr(&self) -> Masked<Attributes> {
-        self.attr
-    }
-
-    pub fn mrenclave(&self) -> [u8; 32] {
-        self.mrenclave
-    }
-
-    pub fn isv_prod_id(&self) -> u16 {
-        self.isv_prod_id
-    }
-
-    pub fn isv_svn(&self) -> u16 {
-        self.isv_svn
-    }
 }
 
 /// The `Signature` on the enclave
@@ -132,14 +112,14 @@ impl Contents {
 #[repr(C)]
 #[derive(Clone)]
 pub struct Signature {
-    author: Author,               // defines author of enclave
-    modulus: [u8; 384],           // modulus of the pubkey (keylength=3072 bits)
-    exponent: u32,                // exponent of the pubkey (RSA Exponent = 3)
-    signature: [u8; 384],         // signature calculated over the fields except modulus
-    contents: Contents,           // defines contents of enclave
+    pub author: Author,           // defines author of enclave
+    pub modulus: [u8; 384],       // modulus of the pubkey (keylength=3072 bits)
+    pub exponent: u32,            // exponent of the pubkey (RSA Exponent = 3)
+    pub signature: [u8; 384],     // signature calculated over the fields except modulus
+    pub contents: Contents,       // defines contents of enclave
     reserved4: Padding<[u8; 12]>, // padding
-    q1: [u8; 384],                // value used in RSA signature verification
-    q2: [u8; 384],                // value used in RSA signature verification
+    pub q1: [u8; 384],            // value used in RSA signature verification
+    pub q2: [u8; 384],            // value used in RSA signature verification
 }
 
 impl core::fmt::Debug for Signature {
@@ -192,18 +172,6 @@ impl Signature {
             q1,
             q2,
         }
-    }
-
-    pub fn author(&self) -> &Author {
-        &self.author
-    }
-
-    pub fn modulus(&self) -> &[u8; 384] {
-        &self.modulus
-    }
-
-    pub fn contents(&self) -> &Contents {
-        &self.contents
     }
 }
 

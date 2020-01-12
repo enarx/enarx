@@ -33,14 +33,8 @@ defflags!(Xfrm X87 | SSE);
 #[repr(C, packed)]
 #[derive(Copy, Clone, Default, Debug, PartialEq, Eq)]
 pub struct Attributes {
-    flags: Flags,
-    xfrm: Xfrm,
-}
-
-impl Attributes {
-    pub const fn new(flags: Flags, xfrm: Xfrm) -> Self {
-        Self { flags, xfrm }
-    }
+    pub flags: Flags,
+    pub xfrm: Xfrm,
 }
 
 impl core::ops::BitAnd for Attributes {
