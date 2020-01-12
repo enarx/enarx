@@ -93,3 +93,28 @@ pub mod secs;
 pub mod sig;
 pub mod ssa;
 pub mod tcs;
+
+use core::fmt::Debug;
+use core::ops::BitAnd;
+
+#[repr(C)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub struct Masked<T: Copy + Debug + PartialEq + BitAnd<Output = T>> {
+    pub data: T,
+    pub mask: T,
+}
+
+impl<T: Copy + Debug + PartialEq + BitAnd<Output = T>> From<T> for Masked<T> {
+    fn from(value: T) -> Self {
+        Self {
+            data: value,
+            mask: value,
+        }
+    }
+}
+
+impl<T: Copy + Debug + PartialEq + BitAnd<Output = T>> PartialEq<T> for Masked<T> {
+    fn eq(&self, other: &T) -> bool {
+        self.mask & self.data == self.mask & *other
+    }
+}

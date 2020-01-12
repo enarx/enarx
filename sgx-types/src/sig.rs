@@ -1,4 +1,4 @@
-use super::{attr::Attributes, misc::MiscSelect, utils::Padding};
+use super::{attr::Attributes, misc::MiscSelect, utils::Padding, Masked};
 
 #[repr(transparent)]
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -60,11 +60,9 @@ impl AsRef<[u8]> for Author {
 #[repr(C)]
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Contents {
-    misc: MiscSelect, // bit vector specifying extended SSA frame feature set to be used
-    misc_mask: MiscSelect, // required miscselect in SECS; bit vector mask of MISCSELECT to enforce
+    misc: Masked<MiscSelect>,
     reserved2: Padding<[u8; 20]>,
-    attr: Attributes,
-    attr_mask: Attributes,
+    attr: Masked<Attributes>,
     mrenclave: [u8; 32], // sha256 hash of enclave contents
     reserved3: Padding<[u8; 32]>,
     isv_prod_id: u16, // user-defined value used in key derivation
@@ -84,20 +82,16 @@ impl AsRef<[u8]> for Contents {
 
 impl Contents {
     pub fn new(
-        misc: MiscSelect,
-        misc_mask: MiscSelect,
-        attr: Attributes,
-        attr_mask: Attributes,
+        misc: Masked<MiscSelect>,
+        attr: Masked<Attributes>,
         mrenclave: [u8; 32],
         isv_prod_id: u16,
         isv_svn: u16,
     ) -> Self {
         Self {
             misc,
-            misc_mask,
             reserved2: Padding::default(),
             attr,
-            attr_mask,
             mrenclave,
             reserved3: Padding::default(),
             isv_prod_id,
@@ -105,12 +99,12 @@ impl Contents {
         }
     }
 
-    pub fn misc(&self) -> MiscSelect {
-        self.misc & self.misc_mask
+    pub fn misc(&self) -> Masked<MiscSelect> {
+        self.misc
     }
 
-    pub fn attr(&self) -> Attributes {
-        self.attr & self.attr_mask
+    pub fn attr(&self) -> Masked<Attributes> {
+        self.attr
     }
 
     pub fn mrenclave(&self) -> [u8; 32] {
@@ -225,10 +219,8 @@ testaso! {
 
     struct Contents: 4, 128 => {
         misc: 0,
-        misc_mask: 4,
         reserved2: 8,
         attr: 28,
-        attr_mask: 44,
         mrenclave: 60,
         reserved3: 92,
         isv_prod_id: 124,

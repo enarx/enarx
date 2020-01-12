@@ -148,10 +148,8 @@ mod test {
         // Make the SECS page
         let author = sig::Vendor::INTEL.author(0, 0);
         let contents = sig::Contents::new(
-            misc::MiscSelect::default(),
-            misc::MiscSelect::default(),
-            attr::Attributes::default(),
-            attr::Attributes::default(),
+            misc::MiscSelect::default().into(),
+            attr::Attributes::default().into(),
             hash,
             0,
             0,
