@@ -17,7 +17,7 @@
 #![allow(clippy::unreadable_literal)]
 
 use openssl::{bn, hash, pkey, rsa, sha, sign};
-use sgx_types::{page, sig};
+use sgx_types::{page, secs, sig};
 use std::convert::TryInto;
 use std::io::Result;
 
@@ -89,15 +89,17 @@ impl ToArray for bn::BigNumRef {
     }
 }
 
-pub trait Signer: Sized {
+pub trait Signature: Sized {
     fn sign(
         author: sig::Author,
         contents: sig::Contents,
         key: rsa::Rsa<pkey::Private>,
     ) -> Result<Self>;
+
+    fn secs(&self, base: u64, size: u64, ssa: u32) -> secs::Secs;
 }
 
-impl Signer for sig::Signature {
+impl Signature for sig::Signature {
     fn sign(
         author: sig::Author,
         contents: sig::Contents,
@@ -131,6 +133,15 @@ impl Signer for sig::Signature {
             q1.to_le_array()?,
             q2.to_le_array()?,
         ))
+    }
+
+    fn secs(&self, base: u64, size: u64, ssa: u32) -> secs::Secs {
+        let md = openssl::hash::MessageDigest::sha256();
+        let bytes = openssl::hash::hash(md, &self.modulus()[..]).unwrap();
+
+        let mut hash = [0u8; 32];
+        hash.copy_from_slice(bytes.as_ref());
+        secs::Secs::new(base, size, ssa, hash, self.contents())
     }
 }
 
