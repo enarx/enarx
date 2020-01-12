@@ -102,7 +102,7 @@ mod test {
 
     use openssl::{bn, pkey, rsa};
     use rstest::*;
-    use sgx_crypto::{Hasher, Signer};
+    use sgx_crypto::{Hasher, Signature};
     use sgx_types::{attr, misc, page};
 
     #[repr(C, align(4096))]
@@ -145,7 +145,8 @@ mod test {
         hasher.add(REG_OFFSET, &PAGE.0, measure, page::SecInfo::reg(perms));
         let hash = hasher.finish();
 
-        // Make the contents
+        // Make the SECS page
+        let author = sig::Author::new(sig::Vendor::Unknown, 0, 0);
         let contents = sig::Contents::new(
             misc::MiscSelect::default(),
             misc::MiscSelect::default(),
@@ -155,15 +156,8 @@ mod test {
             0,
             0,
         );
-
-        // Make the SECS page
-        let secs = secs::Secs::new(
-            BASE_ADDR,
-            secs::Secs::SIZE_MAX,
-            SSA_SIZE,
-            [0; 32],
-            &contents,
-        );
+        let sig = sig::Signature::sign(author, contents, key).unwrap();
+        let secs = sig.secs(BASE_ADDR, secs::Secs::SIZE_MAX, SSA_SIZE);
 
         // Create the enclave
         let create = Create::new(&secs);
@@ -180,8 +174,6 @@ mod test {
         ENCLAVE_ADD_PAGES.ioctl(&mut file, &mut ap).unwrap();
 
         // Initialize
-        let author = sig::Author::new(sig::Vendor::Unknown, 0, 0);
-        let sig = sig::Signature::sign(author, contents, key).unwrap();
         ENCLAVE_INIT.ioctl(&mut file, &Init::new(&sig)).unwrap();
     }
 }

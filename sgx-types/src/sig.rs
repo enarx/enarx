@@ -214,6 +214,10 @@ impl Signature {
         &self.author
     }
 
+    pub fn modulus(&self) -> &[u8; 384] {
+        &self.modulus.0
+    }
+
     pub fn contents(&self) -> &Contents {
         &self.contents
     }
