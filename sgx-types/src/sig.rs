@@ -1,4 +1,4 @@
-use super::{attr::Attributes, misc::MiscSelect, utils::Padding, Masked};
+use super::{attr::Attributes, misc::MiscSelect, Masked};
 
 #[repr(transparent)]
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -13,14 +13,14 @@ impl Vendor {
     }
 
     #[allow(clippy::unreadable_literal)]
-    pub fn author(self, date: u32, swdefined: u32) -> Author {
+    pub const fn author(self, date: u32, swdefined: u32) -> Author {
         Author {
             header1: u128::from_be(0x06000000E10000000000010000000000),
             vendor: self,
             date,
             header2: u128::from_be(0x01010000600000006000000001000000),
             swdefined,
-            reserved1: Padding::default(),
+            reserved: [0; 21],
         }
     }
 }
@@ -31,14 +31,14 @@ impl Vendor {
 /// that is included in the signature. It is split out from `Signature`
 /// in order to make it easy to hash the fields for the signature.
 #[repr(C)]
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct Author {
     header1: u128,      // constant byte string
     pub vendor: Vendor, // vendor
     pub date: u32,      // YYYYMMDD in BCD
     header2: u128,      // constant byte string
     pub swdefined: u32, // software defined value
-    reserved1: Padding<[u8; 84]>,
+    reserved: [u32; 21],
 }
 
 impl AsRef<[u8]> for Author {
@@ -58,13 +58,13 @@ impl AsRef<[u8]> for Author {
 /// that is included in the signature. It is split out from `Signature`
 /// in order to make it easy to hash the fields for the signature.
 #[repr(C)]
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct Contents {
     pub misc: Masked<MiscSelect>,
-    reserved2: Padding<[u8; 20]>,
+    reserved0: [u8; 20],
     pub attr: Masked<Attributes>,
     pub mrenclave: [u8; 32],
-    reserved3: Padding<[u8; 32]>,
+    reserved1: [u8; 32],
     pub isv_prod_id: u16,
     pub isv_svn: u16,
 }
@@ -90,10 +90,10 @@ impl Contents {
     ) -> Self {
         Self {
             misc,
-            reserved2: Padding::default(),
+            reserved0: [0; 20],
             attr,
             mrenclave,
-            reserved3: Padding::default(),
+            reserved1: [0; 32],
             isv_prod_id,
             isv_svn,
         }
@@ -112,14 +112,14 @@ impl Contents {
 #[repr(C)]
 #[derive(Clone)]
 pub struct Signature {
-    pub author: Author,           // defines author of enclave
-    pub modulus: [u8; 384],       // modulus of the pubkey (keylength=3072 bits)
-    pub exponent: u32,            // exponent of the pubkey (RSA Exponent = 3)
-    pub signature: [u8; 384],     // signature calculated over the fields except modulus
-    pub contents: Contents,       // defines contents of enclave
-    reserved4: Padding<[u8; 12]>, // padding
-    pub q1: [u8; 384],            // value used in RSA signature verification
-    pub q2: [u8; 384],            // value used in RSA signature verification
+    pub author: Author,       // defines author of enclave
+    pub modulus: [u8; 384],   // modulus of the pubkey (keylength=3072 bits)
+    pub exponent: u32,        // exponent of the pubkey (RSA Exponent = 3)
+    pub signature: [u8; 384], // signature calculated over the fields except modulus
+    pub contents: Contents,   // defines contents of enclave
+    reserved: [u8; 12],       // padding
+    pub q1: [u8; 384],        // value used in RSA signature verification
+    pub q2: [u8; 384],        // value used in RSA signature verification
 }
 
 impl core::fmt::Debug for Signature {
@@ -130,7 +130,7 @@ impl core::fmt::Debug for Signature {
         write!(f, " exponent: {:?},", self.exponent)?;
         write!(f, " signature: {:?},", &self.signature[..])?;
         write!(f, " contents: {:?},", self.contents)?;
-        write!(f, " reserved: {:?},", self.reserved4)?;
+        write!(f, " reserved: {:?},", self.reserved)?;
         write!(f, " q1: {:?},", &self.q1[..])?;
         write!(f, " q1: {:?} ", &self.q2[..])?;
         write!(f, "}}")
@@ -146,14 +146,14 @@ impl PartialEq for Signature {
             && self.exponent == other.exponent
             && &self.signature[..] == &other.signature[..]
             && self.contents == other.contents
-            && self.reserved4 == other.reserved4
+            && self.reserved == other.reserved
             && &self.q1[..] == &other.q1[..]
             && &self.q2[..] == &other.q2[..]
     }
 }
 
 impl Signature {
-    pub fn new(
+    pub const fn new(
         author: Author,
         contents: Contents,
         exponent: u32,
@@ -168,7 +168,7 @@ impl Signature {
             exponent,
             signature,
             contents,
-            reserved4: Padding::default(),
+            reserved: [0; 12],
             q1,
             q2,
         }
@@ -182,15 +182,15 @@ testaso! {
         date: 20,
         header2: 24,
         swdefined: 40,
-        reserved1: 44
+        reserved: 44
     }
 
     struct Contents: 4, 128 => {
         misc: 0,
-        reserved2: 8,
+        reserved0: 8,
         attr: 28,
         mrenclave: 60,
-        reserved3: 92,
+        reserved1: 92,
         isv_prod_id: 124,
         isv_svn: 126
     }
@@ -201,7 +201,7 @@ testaso! {
         exponent: 512,
         signature: 516,
         contents: 900,
-        reserved4: 1028,
+        reserved: 1028,
         q1: 1040,
         q2: 1424
     }

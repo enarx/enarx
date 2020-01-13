@@ -84,8 +84,6 @@ macro_rules! testaso {
     };
 }
 
-mod utils;
-
 pub mod attr;
 pub mod misc;
 pub mod page;

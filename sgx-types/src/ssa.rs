@@ -1,9 +1,5 @@
 #![allow(clippy::unreadable_literal)]
 
-use crate::utils::Padding;
-
-use core::mem::size_of;
-
 use bitflags::bitflags;
 
 /// Section 38.9.1.1, Table 38-10
@@ -155,14 +151,26 @@ pub struct Miscellaneous {
 // TODO: replace with real XSAVE type
 #[derive(Debug)]
 #[repr(C, align(4096))]
-pub struct XSave(Padding<[u8; 4096]>);
+pub struct XSave([[u64; 32]; 16]);
 
 #[derive(Debug)]
 #[repr(C, align(4096))]
 pub struct Footer {
-    padding: Padding<[u8; 4096 - size_of::<Miscellaneous>() - size_of::<Gpr>()]>,
+    padding0: [[u64; 32]; 15], // size == 4096 - 256
+    padding1: [u32; 14],       // 256 - size_of::<Miscellaneous>() - size_of::<Gpr>()
     pub misc: Miscellaneous,
     pub gpr: Gpr,
+}
+
+impl Footer {
+    pub const fn new(misc: Miscellaneous, gpr: Gpr) -> Self {
+        Self {
+            padding0: [[0; 32]; 15],
+            padding1: [0; 14],
+            misc,
+            gpr,
+        }
+    }
 }
 
 /// Section 38.9, Table 38-7
@@ -215,9 +223,8 @@ testaso! {
     }
 
     struct Footer: 4096, 4096 => {
-        padding: 0,
-        misc: 3896,
-        gpr: 3912
+        misc: 4096 - core::mem::size_of::<Miscellaneous>() - core::mem::size_of::<Gpr>(),
+        gpr: 4096 - core::mem::size_of::<Gpr>()
     }
 
     struct StateSaveArea<()>: 4096, 8192 => {

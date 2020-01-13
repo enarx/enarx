@@ -296,12 +296,9 @@ mod test {
         let sig = loadsig("tests/encl.ss");
         let key = loadkey("tests/encl.pem");
 
-        let author = sig.author.clone();
-        let contents = sig.contents.clone();
-
         // Validate the hash.
         assert_eq!(
-            contents.mrenclave,
+            sig.contents.mrenclave,
             hash(&[
                 (&bin[..4096], SecInfo::tcs()),
                 (&bin[4096..], SecInfo::reg(Perms::R | Perms::W | Perms::X))
@@ -312,7 +309,7 @@ mod test {
         // Ensure that sign() can reproduce the exact same signature struct.
         assert_eq!(
             sig,
-            sig::Signature::sign(author, contents, key).unwrap(),
+            sig::Signature::sign(sig.author, sig.contents, key).unwrap(),
             "failed to produce correct signature"
         );
     }
