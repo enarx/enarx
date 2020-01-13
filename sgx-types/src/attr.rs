@@ -30,11 +30,25 @@ bitflags::bitflags! {
 
 defflags!(Xfrm X87 | SSE);
 
-#[repr(C, packed)]
+#[repr(C, packed(4))]
 #[derive(Copy, Clone, Default, Debug, PartialEq, Eq)]
 pub struct Attributes {
-    pub flags: Flags,
-    pub xfrm: Xfrm,
+    flags: Flags,
+    xfrm: Xfrm,
+}
+
+impl Attributes {
+    pub const fn new(flags: Flags, xfrm: Xfrm) -> Self {
+        Self { flags, xfrm }
+    }
+
+    pub const fn flags(&self) -> Flags {
+        self.flags
+    }
+
+    pub const fn xfrm(&self) -> Xfrm {
+        self.xfrm
+    }
 }
 
 impl core::ops::BitAnd for Attributes {
@@ -46,4 +60,8 @@ impl core::ops::BitAnd for Attributes {
             xfrm: self.xfrm & other.xfrm,
         }
     }
+}
+
+testaso! {
+    struct Attributes: 4, 16 => {}
 }
