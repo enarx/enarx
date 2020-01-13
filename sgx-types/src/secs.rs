@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use super::{attr::Attributes, misc::MiscSelect, sig::Contents, utils::Padding};
+use super::{attr, misc::MiscSelect, sig::Contents};
 
 /// The SGX Enclave Control Structure (SECS) is a special enclave page that is not
 /// visible in the address space. In fact, this structure defines the address
@@ -21,18 +21,19 @@ use super::{attr::Attributes, misc::MiscSelect, sig::Contents, utils::Padding};
 /// by the means of ENCLS(ECREATE) leaf.
 ///
 /// Section 38.7
+#[derive(Copy, Clone, Debug)]
 #[repr(C, align(4096))]
 pub struct Secs {
     pub size: u64,
     pub base: u64,
     pub ssa_size: u32,
     pub misc: MiscSelect,
-    reserved1: Padding<[u8; 24]>,
-    pub attr: Attributes,
+    reserved0: [u8; 24],
+    pub attr: attr::Attributes,
     pub mrenclave: [u8; 32],
-    reserved2: Padding<[u8; 32]>,
+    reserved1: [u8; 32],
     pub mrsigner: [u8; 32],
-    reserved3: Padding<[u8; 96]>,
+    reserved2: [u64; 12],
     pub isv_prod_id: u16,
     pub isv_svn: u16,
 }
@@ -43,12 +44,12 @@ testaso! {
         base: 8,
         ssa_size: 16,
         misc: 20,
-        reserved1: 24,
+        reserved0: 24,
         attr: 48,
         mrenclave: 64,
-        reserved2: 96,
+        reserved1: 96,
         mrsigner: 128,
-        reserved3: 160,
+        reserved2: 160,
         isv_prod_id: 256,
         isv_svn: 258
     }
@@ -58,17 +59,19 @@ impl Secs {
     pub const SIZE_MAX: u64 = 0x1_000_000_000;
 
     pub fn new(base: u64, size: u64, ssa: u32, mrsigner: [u8; 32], contents: &Contents) -> Self {
-        Secs {
+        Self {
             size,
             base,
             ssa_size: ssa,
             misc: contents.misc.data & contents.misc.mask,
+            reserved0: [0; 24],
             attr: contents.attr.data & contents.attr.mask,
             mrenclave: contents.mrenclave,
+            reserved1: [0; 32],
             mrsigner,
+            reserved2: [0; 12],
             isv_prod_id: contents.isv_prod_id,
             isv_svn: contents.isv_svn,
-            ..unsafe { core::mem::zeroed() }
         }
     }
 }
