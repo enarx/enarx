@@ -80,6 +80,7 @@ trait ToArray {
 }
 
 impl ToArray for bn::BigNumRef {
+    #[allow(clippy::uninit_assumed_init)]
     fn to_le_array(&self) -> Result<[u8; 384]> {
         use std::mem::MaybeUninit;
 
