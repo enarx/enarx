@@ -41,17 +41,6 @@ pub struct Author {
     reserved: [u32; 21],
 }
 
-impl AsRef<[u8]> for Author {
-    fn as_ref(&self) -> &[u8] {
-        unsafe {
-            core::slice::from_raw_parts(
-                self as *const Self as *const u8,
-                core::mem::size_of_val(self),
-            )
-        }
-    }
-}
-
 /// The `Contents` of an enclave
 ///
 /// This structure encompasses the second block of fields from `SIGSTRUCT`
@@ -67,17 +56,6 @@ pub struct Contents {
     reserved1: [u8; 32],
     pub isv_prod_id: u16,
     pub isv_svn: u16,
-}
-
-impl AsRef<[u8]> for Contents {
-    fn as_ref(&self) -> &[u8] {
-        unsafe {
-            core::slice::from_raw_parts(
-                self as *const Self as *const u8,
-                core::mem::size_of_val(self),
-            )
-        }
-    }
 }
 
 impl Contents {

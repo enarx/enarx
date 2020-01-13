@@ -106,12 +106,26 @@ impl Signature for sig::Signature {
         contents: sig::Contents,
         key: rsa::Rsa<pkey::Private>,
     ) -> Result<Self> {
+        let a = unsafe {
+            core::slice::from_raw_parts(
+                &author as *const _ as *const u8,
+                core::mem::size_of_val(&author),
+            )
+        };
+
+        let c = unsafe {
+            core::slice::from_raw_parts(
+                &contents as *const _ as *const u8,
+                core::mem::size_of_val(&contents),
+            )
+        };
+
         // Generates signature on Signature author and contents
         let rsa_key = pkey::PKey::from_rsa(key.clone())?;
         let md = hash::MessageDigest::sha256();
         let mut signer = sign::Signer::new(md, &rsa_key)?;
-        signer.update(author.as_ref())?;
-        signer.update(contents.as_ref())?;
+        signer.update(a)?;
+        signer.update(c)?;
         let signature = signer.sign_to_vec()?;
 
         // Generates q1, q2 values for RSA signature verification
