@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use super::{attr, misc::MiscSelect, sig::Contents};
+use super::{attr, isv, misc::MiscSelect, sig::Contents};
 
 /// The SGX Enclave Control Structure (SECS) is a special enclave page that is not
 /// visible in the address space. In fact, this structure defines the address
@@ -34,8 +34,8 @@ pub struct Secs {
     reserved1: [u8; 32],
     pub mrsigner: [u8; 32],
     reserved2: [u64; 12],
-    pub isv_prod_id: u16,
-    pub isv_svn: u16,
+    pub isv_prod_id: isv::ProdId,
+    pub isv_svn: isv::Svn,
 }
 
 testaso! {

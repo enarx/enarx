@@ -103,7 +103,7 @@ mod test {
     use openssl::{bn, pkey, rsa};
     use rstest::*;
     use sgx_crypto::{Hasher, Signature};
-    use sgx_types::{attr, misc, page};
+    use sgx_types::{attr, isv, misc, page};
 
     #[repr(C, align(4096))]
     struct Page([u8; 4096]);
@@ -151,8 +151,8 @@ mod test {
             misc::MiscSelect::default().into(),
             attr::Attributes::default().into(),
             hash,
-            0,
-            0,
+            isv::ProdId::new(0),
+            isv::Svn::new(0),
         );
         let sig = sig::Signature::sign(author, contents, key).unwrap();
         let secs = sig.secs(BASE_ADDR, secs::Secs::SIZE_MAX, SSA_SIZE);
