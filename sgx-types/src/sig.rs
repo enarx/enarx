@@ -1,4 +1,4 @@
-use super::{attr::Attributes, misc::MiscSelect, Masked};
+use super::{attr::Attributes, isv, misc::MiscSelect, Masked};
 
 #[repr(transparent)]
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -54,8 +54,8 @@ pub struct Contents {
     pub attr: Masked<Attributes>,
     pub mrenclave: [u8; 32],
     reserved1: [u8; 32],
-    pub isv_prod_id: u16,
-    pub isv_svn: u16,
+    pub isv_prod_id: isv::ProdId,
+    pub isv_svn: isv::Svn,
 }
 
 impl Contents {
@@ -63,8 +63,8 @@ impl Contents {
         misc: Masked<MiscSelect>,
         attr: Masked<Attributes>,
         mrenclave: [u8; 32],
-        isv_prod_id: u16,
-        isv_svn: u16,
+        isv_prod_id: isv::ProdId,
+        isv_svn: isv::Svn,
     ) -> Self {
         Self {
             misc,
