@@ -1,0 +1,22 @@
+[package]
+name = "keep-runtime"
+version = "0.1.0"
+authors = ["Stefan Junker <mail@stefanjunker.de>", "Daiki Ueno <dueno@redhat.com>"]
+edition = "2018"
+license = "Apache-2.0"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+wasmtime = "0.16.0"
+wasmtime-wasi = "0.16.0"
+wasi-common = "0.16.0"
+wat = "1.0"
+
+env_logger = "0.7"
+log = "0.4"
+
+[profile.release]
+incremental = false
+codegen-units = 1
+lto = true

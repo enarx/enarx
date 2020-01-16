@@ -11,6 +11,7 @@ CARGO_MAKE_CRATE_WORKSPACE_MEMBERS = [
 	"intel-types",
 	"iocuddle",
 	"iocuddle-sgx",
+	"keep-runtime",
 	"memory",
 	"payload",
 	"sallyport",
