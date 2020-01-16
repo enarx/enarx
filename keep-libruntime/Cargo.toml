@@ -1,0 +1,25 @@
+[package]
+name = "wasm-workload"
+version = "0.1.0"
+authors = ["Stefan Junker <mail@stefanjunker.de>"]
+edition = "2018"
+license = "Apache-2.0"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+# master on 2020-01-22
+wasmtime = { git = "https://github.com/bytecodealliance/wasmtime", package = "wasmtime", rev = "9a88d3d8941ef5c03dfd156956dd045ab3d8ce2b" }
+wasmtime-jit = { git = "https://github.com/bytecodealliance/wasmtime", package = "wasmtime-jit",  rev = "9a88d3d8941ef5c03dfd156956dd045ab3d8ce2b" }
+wasmtime-interface-types = { git = "https://github.com/bytecodealliance/wasmtime", package = "wasmtime-interface-types",  rev = "9a88d3d8941ef5c03dfd156956dd045ab3d8ce2b" }
+wasmtime-wasi = { git = "https://github.com/bytecodealliance/wasmtime", rev ="9a88d3d8941ef5c03dfd156956dd045ab3d8ce2b" }
+
+log = "0.4"
+serde = "1.0"
+serde_json = "1.0"
+
+# A copy of wasmtime-wasi at v0.3.0 made for customisation purposes
+# wasmtime-wasi = { git = "https://github.com/enarx/enarx-wasi-prototype", rev ="2ff5c5630488bedb956021da775f2b979307d41d" }
+
+[dev-dependencies]
+tempfile = "3.1"
