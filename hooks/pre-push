@@ -1,0 +1,2 @@
+#!/bin/bash -e
+for f in $0.d/*; do $f; done
