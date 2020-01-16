@@ -27,14 +27,11 @@ matrix:
       rust: stable
       install:
         - cargo install --force cargo-audit
-      script:
-        - cargo audit
+      script: ./hooks/pre-push.d/cargo-audit --force
     - name: "sev"
       rust: stable
       script:
         - cargo test --manifest-path sev/Cargo.toml --verbose --features=openssl
 install:
   - rustup component add rustfmt
-script:
-  - cargo fmt -- --check
-  - cargo test
+script: ./hooks/pre-push
