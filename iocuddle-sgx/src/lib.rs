@@ -140,7 +140,7 @@ mod test {
 
         // Hash all the pages
         let measure = flags.contains(Flags::MEASURE);
-        let mut hasher = Hasher::new(secs::Secs::SIZE_MAX, SSA_SIZE);
+        let mut hasher = unsafe { Hasher::new(secs::Secs::max_size().unwrap().get(), SSA_SIZE) };
         hasher.add(TCS_OFFSET, &PAGE.0, measure, page::SecInfo::tcs());
         hasher.add(REG_OFFSET, &PAGE.0, measure, page::SecInfo::reg(perms));
         let hash = hasher.finish();
@@ -155,7 +155,7 @@ mod test {
             isv::Svn::new(0),
         );
         let sig = sig::Signature::sign(author, contents, key).unwrap();
-        let secs = sig.secs(BASE_ADDR, secs::Secs::SIZE_MAX, SSA_SIZE);
+        let secs = unsafe { sig.secs(BASE_ADDR, secs::Secs::max_size().unwrap().get(), SSA_SIZE) };
 
         // Create the enclave
         let create = Create::new(&secs);

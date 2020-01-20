@@ -20,6 +20,7 @@
 //! by the means of ENCLS(ECREATE) leaf.
 
 use super::{attr, isv, misc::MiscSelect, sig::Contents};
+use core::num::NonZeroU64;
 
 /// Section 38.7
 #[derive(Copy, Clone, Debug)]
@@ -66,8 +67,39 @@ testaso! {
 }
 
 impl Secs {
-    /// TODO: The max size of an enclave should come from CPUID, which is inaccessible from within SGX.
-    pub const SIZE_MAX: u64 = 0x1_000_000_000;
+    /// # Usage
+    /// Returns the maximum enclave size for 64bit in bytes.
+    /// CPUID.(EAX=12H, ECX=0H) enumerates Intel SGX capability;
+    /// For more on CPUID enumeration leaves, see 37.7.2 and Table 37-4.
+    ///
+    /// # Safety
+    /// This function is unsafe because it does not check if the `CPUID` instruction
+    /// is available before issuing it.
+    pub unsafe fn max_size() -> Option<NonZeroU64> {
+        const LEAF_MAX_PARAM: u32 = 0x0;
+        const LEAF_SGX_SUPPORT: u32 = 0x07;
+        const SUBLEAF_SGX_SUPPORT: u32 = 0x0;
+        const LEAF_MAX_ENCL_SIZE: u32 = 0x12;
+        const SUBLEAF_MAX_ENCL_SIZE: u32 = 0x0;
+
+        // Test for max leaf size
+        let res = core::arch::x86_64::__get_cpuid_max(LEAF_MAX_PARAM);
+        let max_leaf = res.0;
+        if max_leaf < LEAF_SGX_SUPPORT || max_leaf < LEAF_MAX_ENCL_SIZE {
+            return None;
+        }
+
+        // Test for SGX support
+        let res = core::arch::x86_64::__cpuid_count(LEAF_SGX_SUPPORT, SUBLEAF_SGX_SUPPORT);
+        if res.ebx & (1 << 2) == 0 {
+            return None;
+        }
+
+        // Test for max enclave size
+        let res = core::arch::x86_64::__cpuid_count(LEAF_MAX_ENCL_SIZE, SUBLEAF_MAX_ENCL_SIZE);
+        let max_size: u64 = 1 << (res.edx >> 8 as u8) as u64;
+        Some(NonZeroU64::new(max_size).unwrap())
+    }
 
     /// Creates a new SECS struct based on a base address, size, SSA size, and Contents.
     pub fn new(base: u64, size: u64, ssa: u32, mrsigner: [u8; 32], contents: &Contents) -> Self {
