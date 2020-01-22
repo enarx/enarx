@@ -1,6 +1,6 @@
 ---
-name: Conferences
-about: tracking conferences with issues
+name: Conference
+about: Submit a conference for the Enarx project to present at.
 title: Event name - date
 labels: conferences
 assignees: ''
