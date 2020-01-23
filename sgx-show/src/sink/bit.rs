@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 use crate::data::cpuid::{CpuId, Leaf};
 
 pub struct Bit<T: Leaf> {

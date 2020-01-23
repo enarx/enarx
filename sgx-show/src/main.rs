@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 //! This program exists to gather and display data relating to SGX hardware,
 //! SGX BIOS enablement, SGX kernel drivers and potentially SGX-related
 //! software for use in debugging.

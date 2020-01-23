@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 //! # Overview
 //!
 //! The traits contained in this module constitute a state machine for
