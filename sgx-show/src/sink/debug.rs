@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 pub struct Debug<T: std::fmt::Debug>(std::marker::PhantomData<T>);
 
 impl<T: std::fmt::Debug> Debug<T> {

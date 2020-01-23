@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 use core::arch::x86_64::__cpuid_count;
 use core::marker::PhantomData;
 

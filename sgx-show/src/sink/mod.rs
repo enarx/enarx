@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 pub mod bit;
 pub mod debug;
 pub mod mask;

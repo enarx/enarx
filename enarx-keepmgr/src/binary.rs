@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 use std::io::Result;
 
 use goblin::{elf, elf::program_header::PT_LOAD};
