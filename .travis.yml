@@ -18,6 +18,9 @@ rust:
   - stable
   - beta
   - nightly
+addons:
+  apt:
+    packages: libssl-dev musl-dev musl-tools
 matrix:
   allow_failures:
     - rust: nightly
@@ -34,4 +37,5 @@ matrix:
         - cargo test --manifest-path sev/Cargo.toml --verbose --features=openssl
 install:
   - rustup component add rustfmt
+  - rustup target add x86_64-unknown-linux-musl
 script: ./hooks/pre-push

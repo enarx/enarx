@@ -8,4 +8,4 @@ edition = "2018"
 
 [dependencies]
 sgx-types = { path = "../sgx-types" }
-openssl = "0.10.26"
+openssl = { version = "0.10.26", features = [ "vendored" ] }
