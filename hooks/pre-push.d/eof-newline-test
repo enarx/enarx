@@ -1,0 +1,10 @@
+#!/bin/bash
+top=`git rev-parse --show-toplevel`
+status=0
+for file in $(find "$top" -path "$top"/target -prune -o -type f -name "*.rs" -print -o -type f -name "*.toml" -print); do
+    if [ ! $(tail -c 1 "$file") = $'\n' ]; then
+        echo "$file does not have a newline at EOF. Please ensure it has one."
+        status=1
+    fi
+done
+exit $status
