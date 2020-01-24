@@ -1,0 +1,11 @@
+#!/bin/bash -e
+top=`git rev-parse --show-toplevel`
+status=0
+for file in $(find "$top" -path "$top"/target -prune -o -name "*.rs" -type f -print); do
+    if ! awk '/\/\/ SPDX-License-Identifier: Apache-2.0$/ { exit 0 } { exit 1 }' $file; then
+        echo "$file does not have an Apache 2.0 SPDX ID on the first line of the file."
+        echo "Please add one."
+        status=1
+    fi
+done
+exit $status
