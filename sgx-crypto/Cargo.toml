@@ -8,4 +8,7 @@ edition = "2018"
 
 [dependencies]
 sgx-types = { path = "../sgx-types" }
-openssl = { version = "0.10.26", features = [ "vendored" ] }
+openssl = "0.10.26"
+
+[patch.crates-io]
+openssl = { git = 'https://github.com/npmccallum/rust-openssl', branch='patch' }

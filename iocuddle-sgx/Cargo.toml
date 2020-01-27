@@ -13,5 +13,8 @@ sgx-types = { path = "../sgx-types" }
 
 [dev-dependencies]
 sgx-crypto = { path = "../sgx-crypto" }
-openssl = { version = "0.10.26", features = [ "vendored" ] }
+openssl = "0.10.26"
 rstest = "0.5.2"
+
+[patch.crates-io]
+openssl = { git = 'https://github.com/npmccallum/rust-openssl', branch='patch' }

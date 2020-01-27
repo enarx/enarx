@@ -1,2 +1,5 @@
 #!/bin/bash -e
-cargo fmt -- --check
+
+for f in `dirname $0`/../../*/Cargo.toml; do
+    cargo fmt --manifest-path=$f -- --check
+done
