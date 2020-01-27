@@ -93,6 +93,7 @@ pub mod secs;
 pub mod sig;
 pub mod ssa;
 pub mod tcs;
+pub mod ti;
 
 use core::fmt::Debug;
 use core::ops::BitAnd;
