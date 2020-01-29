@@ -25,35 +25,12 @@ The mechanism itself should be capable of being FIPS-certified.
 
 For more information, please try our [wiki](https://github.com/enarx/enarx/wiki), which includes further details on how to get more information.  It's also where we plan to keep up-to-date project information.
 
+Ready to dive in? Learn [how to contribute](https://github.com/enarx/enarx/wiki/How-to-contribute) on
+the wiki.
+
 Building the various components of Enarx is currently complex: we are working on this.  Please contact us for help.
 
 (2020-01-01) It is also worth mentioning that it isn't yet possible to run Enarx.  We're working hard on it and we'd love people to work with us. We hope to be adding more information very soon, to allow you to get started.
-
-### Setting up the Development Environment
-
-#### Debian, Ubuntu
-
-Additional packages:
-* libssl-dev
-* musl-dev
-* musl-tools
-
-#### Fedora
-
-`musl` is not in the standard repos, so you need to get it from a copr such as
- https://copr.fedorainfracloud.org/coprs/taocris/musl/
-
-To do so:
-```bash
-# dnf copr enable taocris/musl
-# dnf install musl-devel musl-libc-static musl-gcc musl-clang 
-```
-
-#### Rust
-
-```bash
-$ rustup target add x86_64-unknown-linux-musl
-```
 
 ## Authors
 
