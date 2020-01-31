@@ -34,21 +34,23 @@ pub trait Leaf: std::fmt::Display {
 
 pub struct CpuId<T: Leaf>(pub u128, PhantomData<T>);
 
+#[allow(clippy::identity_op)]
+#[allow(clippy::erasing_op)]
 impl<T: Leaf> CpuId<T> {
     pub fn eax(&self) -> u32 {
-        (self.0 >> 3 * 32) as u32
+        (self.0 >> (3 * 32)) as u32
     }
 
     pub fn ebx(&self) -> u32 {
-        (self.0 >> 2 * 32) as u32
+        (self.0 >> (2 * 32)) as u32
     }
 
     pub fn ecx(&self) -> u32 {
-        (self.0 >> 1 * 32) as u32
+        (self.0 >> (1 * 32)) as u32
     }
 
     pub fn edx(&self) -> u32 {
-        (self.0 >> 0 * 32) as u32
+        (self.0 >> (0 * 32)) as u32
     }
 }
 

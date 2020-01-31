@@ -23,6 +23,10 @@
 //!
 //! There is currently only one data source (CPUID).
 
+#![deny(missing_docs)]
+#![deny(clippy::all)]
+#![allow(clippy::unreadable_literal)]
+
 mod data;
 mod exec;
 mod sink;
