@@ -81,6 +81,7 @@ impl Firmware {
             guest_count: u32,
         }
 
+        #[allow(clippy::uninit_assumed_init)]
         let i: Info = self.cmd(Code::PlatformStatus, unsafe {
             MaybeUninit::uninit().assume_init()
         })?;
@@ -99,7 +100,7 @@ impl Firmware {
                 0 => State::Uninitialized,
                 1 => State::Initialized,
                 2 => State::Working,
-                _ => Err(Indeterminate::Unknown)?,
+                _ => return Err(Indeterminate::Unknown),
             },
         })
     }
@@ -116,6 +117,7 @@ impl Firmware {
             len: u32,
         }
 
+        #[allow(clippy::uninit_assumed_init)]
         let mut pek: Certificate = unsafe { MaybeUninit::uninit().assume_init() };
 
         self.cmd(
@@ -143,7 +145,9 @@ impl Firmware {
             chain_size: u32,
         }
 
+        #[allow(clippy::uninit_assumed_init)]
         let mut chain: [Certificate; 3] = unsafe { MaybeUninit::uninit().assume_init() };
+        #[allow(clippy::uninit_assumed_init)]
         let mut pdh: Certificate = unsafe { MaybeUninit::uninit().assume_init() };
 
         self.cmd(
@@ -200,6 +204,7 @@ impl Firmware {
         #[repr(C, packed)]
         struct Ids([u8; 64], [u8; 64]);
 
+        #[allow(clippy::uninit_assumed_init)]
         let ids: Ids = self.cmd(Code::GetIdentifier, unsafe {
             MaybeUninit::uninit().assume_init()
         })?;

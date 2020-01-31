@@ -100,7 +100,7 @@ impl std::fmt::Display for Usage {
                 Usage::ARK => "ARK",
                 Usage::ASK => "ASK",
                 Usage::INV => "INV",
-                _ => Err(std::fmt::Error)?,
+                _ => return Err(std::fmt::Error),
             }
         )
     }

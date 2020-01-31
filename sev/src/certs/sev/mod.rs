@@ -40,7 +40,7 @@ impl TryFrom<super::Usage> for Usage {
             super::Usage::CEK => Usage::CEK,
             super::Usage::PEK => Usage::PEK,
             super::Usage::PDH => Usage::PDH,
-            _ => Err(())?,
+            _ => return Err(()),
         })
     }
 }
