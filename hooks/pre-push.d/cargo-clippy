@@ -1,0 +1,5 @@
+#!/bin/bash
+
+for f in `dirname $0`/../../*/Cargo.toml; do
+    cargo clippy --manifest-path=$f
+done
