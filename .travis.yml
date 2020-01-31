@@ -37,5 +37,6 @@ matrix:
         - cargo test --manifest-path sev/Cargo.toml --verbose --features=openssl
 install:
   - rustup component add rustfmt
+  - rustup component add clippy
   - rustup target add x86_64-unknown-linux-musl
 script: ./hooks/pre-push
