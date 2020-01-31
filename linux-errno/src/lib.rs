@@ -14,6 +14,7 @@
 
 //! errno type and constants for various architectures
 #![no_std]
+#![deny(clippy::all)]
 
 /// x86 errno
 pub mod x86_64;

@@ -138,7 +138,7 @@ macro_rules! traits {
                     if let Err(e) = reader.read_exact(&mut signature[..]) {
                         if e.kind() != ErrorKind::UnexpectedEof
                             && preamble != NAPLES_ARK {
-                            Err(e)?
+                            return Err(e);
                         }
 
                         signature[..].copy_from_slice(NAPLES_ARK_SIG);
@@ -164,7 +164,7 @@ pub union Certificate {
 impl std::fmt::Debug for Certificate {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         if unsafe { self.preamble.data.psize != self.preamble.data.msize } {
-            Err(std::fmt::Error)?
+            return Err(std::fmt::Error);
         }
 
         match u32::from_le(unsafe { self.preamble.data.msize }) {

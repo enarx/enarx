@@ -36,7 +36,7 @@ impl TryFrom<super::Usage> for Usage {
         Ok(match value {
             super::Usage::ARK => Usage::ARK,
             super::Usage::ASK => Usage::ASK,
-            _ => Err(())?,
+            _ => return Err(()),
         })
     }
 }

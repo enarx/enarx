@@ -64,6 +64,7 @@ impl IntoLe<[u8; 512]> for openssl::bn::BigNumRef {
 
 pub trait TypeLoad: Read {
     fn load<T: Sized + Copy>(&mut self) -> Result<T> {
+        #[allow(clippy::uninit_assumed_init)]
         let mut t = unsafe { MaybeUninit::uninit().assume_init() };
         let p = &mut t as *mut T as *mut u8;
         let s = unsafe { from_raw_parts_mut(p, size_of::<T>()) };

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#![warn(clippy::all)]
+#![deny(clippy::all)]
 #![allow(unknown_lints)]
 #![allow(clippy::identity_op)]
 #![allow(clippy::unreadable_literal)]
