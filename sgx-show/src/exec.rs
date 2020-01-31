@@ -41,7 +41,7 @@ impl<T, U: TryFrom<T>> Executor for Test<T, U> {
 
         if success {
             if let Some(t) = self.data.data() {
-                if let Some(u) = U::try_from(t).ok() {
+                if let Ok(u) = U::try_from(t) {
                     if self.sink.test(&u) {
                         data = Some(u);
                     }
