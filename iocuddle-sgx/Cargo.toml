@@ -13,7 +13,7 @@ sgx-types = { path = "../sgx-types" }
 
 [dev-dependencies]
 sgx-crypto = { path = "../sgx-crypto" }
-openssl = "0.10.26"
+openssl = "0.10.27"
 rstest = "0.5.2"
 
 [patch.crates-io]
