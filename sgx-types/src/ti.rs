@@ -16,7 +16,7 @@
 //! The Target Info is used to identify the target enclave that will be able to cryptographically
 //! verify the REPORT structure returned by the EREPORT leaf. Must be 512-byte aligned.
 
-use super::{attr::Attributes, misc::MiscSelect, secs::Secs};
+use super::{attr::Attributes, misc::MiscSelect};
 
 /// Table 38-22
 #[derive(Debug)]
@@ -31,19 +31,6 @@ pub struct TargetInfo {
     pub misc: MiscSelect,
     reserved1: [u64; 32],
     reserved2: [u64; 25],
-}
-
-impl From<&Secs> for TargetInfo {
-    fn from(secs: &Secs) -> Self {
-        Self {
-            mrenclave: secs.mrenclave,
-            attributes: secs.attr,
-            reserved0: 0u32,
-            misc: secs.misc,
-            reserved1: [0u64; 32],
-            reserved2: [0u64; 25],
-        }
-    }
 }
 
 testaso! {
