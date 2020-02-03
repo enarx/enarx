@@ -331,12 +331,9 @@ impl Footer {
 /// Section 38.9, Table 38-7
 #[derive(Debug)]
 #[repr(C)]
-pub struct StateSaveArea<T> {
+pub struct StateSaveArea {
     ///  Section 38.9, Table 38-7
     pub xsave: XSave,
-    /// Other information about the SSA
-    /// TODO: Be more specific about this
-    pub other: T,
     /// Section 38.9, Table 38-7
     pub footer: Footer,
 }
@@ -387,27 +384,8 @@ testaso! {
         gpr: 4096 - core::mem::size_of::<Gpr>()
     }
 
-    struct StateSaveArea<()>: 4096, 8192 => {
+    struct StateSaveArea: 4096, 8192 => {
         xsave: 0,
-        other: 4096,
         footer: 4096
-    }
-
-    struct StateSaveArea<u64>: 4096, 12288 => {
-        xsave: 0,
-        other: 4096,
-        footer: 8192
-    }
-
-    struct StateSaveArea<[u8; 4096]>: 4096, 12288 => {
-        xsave: 0,
-        other: 4096,
-        footer: 8192
-    }
-
-    struct StateSaveArea<([u8; 4096], u64)>: 4096, 16384 => {
-        xsave: 0,
-        other: 4096,
-        footer: 12288
     }
 }
