@@ -34,21 +34,23 @@ use std::io::Result;
 /// to use them, refer to the [iocuddle-sgx](../../iocuddle-sgx) library.
 pub struct Hasher(sha::Sha256);
 
-impl Hasher {
+impl From<&secs::Spec> for Hasher {
     /// Mimics call to SGX_IOC_ENCLAVE_CREATE (ECREATE).
-    pub fn new(size: u64, ssa_size: u32) -> Self {
+    fn from(value: &secs::Spec) -> Self {
         // This value documented in 41.3.
         const ECREATE: u64 = 0x0045544145524345;
 
         let mut sha256 = sha::Sha256::new();
         sha256.update(&ECREATE.to_le_bytes());
-        sha256.update(&ssa_size.to_le_bytes());
-        sha256.update(&size.to_le_bytes());
+        sha256.update(&value.ssa_size.get().to_le_bytes());
+        sha256.update(&value.enc_size.get().to_le_bytes());
         sha256.update(&[0u8; 44]); // Reserved
 
         Self(sha256)
     }
+}
 
+impl Hasher {
     /// Mimics call to SGX_IOC_ENCLAVE_ADD_PAGES (EADD and EEXTEND).
     pub fn add(&mut self, offset: u64, data: &[u8], measure: bool, secinfo: page::SecInfo) {
         // These values documented in 41.3.
@@ -116,7 +118,7 @@ pub trait Signature: Sized {
 
     /// Returns an enclave control structure with provided specifications based on
     /// Signature.
-    fn secs(&self, base: u64, size: u64, ssa: u32) -> secs::Secs;
+    fn secs(&self, base: u64, spec: secs::Spec) -> secs::Secs;
 }
 
 impl Signature for sig::Signature {
@@ -169,13 +171,13 @@ impl Signature for sig::Signature {
         ))
     }
 
-    fn secs(&self, base: u64, size: u64, ssa: u32) -> secs::Secs {
+    fn secs(&self, base: u64, spec: secs::Spec) -> secs::Secs {
         let md = openssl::hash::MessageDigest::sha256();
         let bytes = openssl::hash::hash(md, &self.modulus[..]).unwrap();
 
         let mut hash = [0u8; 32];
         hash.copy_from_slice(bytes.as_ref());
-        secs::Secs::new(base, size, ssa, hash, &self.contents)
+        secs::Secs::new(base, spec, hash, &self.contents)
     }
 }
 
@@ -186,6 +188,7 @@ mod test {
     use sgx_types::sig;
     use std::fs::File;
     use std::io::Read;
+    use std::num::{NonZeroU32, NonZeroU64};
 
     // A NOTE ABOUT THIS TESTING METHODOLOGY
     //
@@ -210,7 +213,10 @@ mod test {
         // Inputs:
         //     enclave size: the next power of two beyond our segments
         //   ssa frame size: 1
-        let mut hasher = Hasher::new(size.next_power_of_two(), 1);
+        let mut hasher = Hasher::from(&secs::Spec {
+            enc_size: NonZeroU64::new(size.next_power_of_two()).unwrap(),
+            ssa_size: NonZeroU32::new(1).unwrap(),
+        });
 
         let mut off = 0;
         for i in input {
