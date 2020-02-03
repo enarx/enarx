@@ -99,6 +99,7 @@ mod test {
 
     use std::convert::TryFrom;
     use std::fs::File;
+    use std::num::NonZeroU32;
 
     use openssl::{bn, pkey, rsa};
     use rstest::*;
@@ -138,9 +139,14 @@ mod test {
         const BASE_ADDR: u64 = 0x0000;
         const SSA_SIZE: u32 = 0x1000;
 
+        let spec = secs::Spec {
+            enc_size: unsafe { secs::Spec::max_enc_size().unwrap() },
+            ssa_size: NonZeroU32::new(SSA_SIZE).unwrap(),
+        };
+
         // Hash all the pages
         let measure = flags.contains(Flags::MEASURE);
-        let mut hasher = unsafe { Hasher::new(secs::Secs::max_size().unwrap().get(), SSA_SIZE) };
+        let mut hasher = Hasher::from(&spec);
         hasher.add(TCS_OFFSET, &PAGE.0, measure, page::SecInfo::tcs());
         hasher.add(REG_OFFSET, &PAGE.0, measure, page::SecInfo::reg(perms));
         let hash = hasher.finish();
@@ -155,7 +161,7 @@ mod test {
             isv::Svn::new(0),
         );
         let sig = sig::Signature::sign(author, contents, key).unwrap();
-        let secs = unsafe { sig.secs(BASE_ADDR, secs::Secs::max_size().unwrap().get(), SSA_SIZE) };
+        let secs = sig.secs(BASE_ADDR, spec);
 
         // Create the enclave
         let create = Create::new(&secs);
