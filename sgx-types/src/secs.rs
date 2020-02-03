@@ -26,27 +26,18 @@ use core::num::NonZeroU64;
 #[derive(Copy, Clone, Debug)]
 #[repr(C, align(4096))]
 pub struct Secs {
-    /// Size of address space (power of 2).
-    pub size: u64,
-    /// Base address of address space.
-    pub base: u64,
-    /// Size of an SSA frame.
-    pub ssa_size: u32,
-    /// Enumerates info the processor can save into the MISC region of SSA when an AEX occurs.
-    pub misc: MiscSelect,
+    size: u64,
+    base: u64,
+    ssa_size: u32,
+    misc: MiscSelect,
     reserved0: [u8; 24],
-    /// Enclave attributes as described in Table 38-3.
-    pub attr: attr::Attributes,
-    /// SHA256 hash of enclave contents.
-    pub mrenclave: [u8; 32],
+    attr: attr::Attributes,
+    mrenclave: [u8; 32],
     reserved1: [u8; 32],
-    /// SHA256 hash of pubkey used to sign SIGSTRUCT.
-    pub mrsigner: [u8; 32],
+    mrsigner: [u8; 32],
     reserved2: [u64; 12],
-    /// User-defined value used in key derivation.
-    pub isv_prod_id: isv::ProdId,
-    /// User-defined value used in key derivation.
-    pub isv_svn: isv::Svn,
+    isv_prod_id: isv::ProdId,
+    isv_svn: isv::Svn,
 }
 
 testaso! {
