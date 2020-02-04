@@ -2,6 +2,7 @@
 members = [
     "iocuddle",
     "iocuddle-sgx",
+    "iocuddle-sev",
 
     "linux-syscall",
     "linux-errno",
