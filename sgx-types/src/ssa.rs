@@ -11,7 +11,7 @@ use core::{
     mem::{align_of, size_of},
     num::NonZeroU32,
 };
-use intel_types::XSave;
+use intel_types::*;
 use testing::testaso;
 
 /// Section 38.9.1.1, Table 38-10
@@ -19,22 +19,31 @@ use testing::testaso;
 pub enum Exception {
     /// Divider exception.
     Divider,
+
     /// Debug exception.
     Debug,
+
     /// Breakpoint exception.
     Breakpoint,
+
     /// Bound range exceeded exception.
     BoundRange,
+
     /// Invalid opcode exception.
     InvalidOpCode,
+
     /// General protection exception. Only reported if SECS.MISCSELECT.EXINFO = 1.
     GeneralProtection,
+
     /// Page fault exception. Only reported if SECS.MISCSELECT.EXINFO = 1.
     PageFault,
+
     /// x87 FPU floating-point error.
     FloatingPoint,
+
     /// Alignment check exceptions.
     AlignmentCheck,
+
     /// SIMD floating-point exceptions.
     Simd,
 }
@@ -44,6 +53,7 @@ pub enum Exception {
 pub enum ExitType {
     /// Hardware exit.
     Hardware,
+
     /// Software exit.
     Software,
 }
@@ -124,50 +134,73 @@ impl ExitInfo {
 pub struct Gpr {
     /// Register rax
     pub rax: u64,
+
     /// Register rcx
     pub rcx: u64,
+
     /// Register rdx
     pub rdx: u64,
+
     /// Register rbx
     pub rbx: u64,
+
     /// Register rsp
     pub rsp: u64,
+
     /// Register rbp
     pub rbp: u64,
+
     /// Register rsi
     pub rsi: u64,
+
     /// Register rdi
     pub rdi: u64,
+
     /// Register r8
     pub r8: u64,
+
     /// Register r9
     pub r9: u64,
+
     /// Register r10
     pub r10: u64,
+
     /// Register r11
     pub r11: u64,
+
     /// Register r12
     pub r12: u64,
+
     /// Register r13
     pub r13: u64,
+
     /// Register r14
     pub r14: u64,
+
     /// Register r15
     pub r15: u64,
+
     /// Register flags
     pub rflags: u64,
+
     /// Register rip
     pub rip: u64,
+
     /// Register ursp
     pub ursp: u64,
+
     /// Register urbp
     pub urbp: u64,
+
     /// ExitInfo struct
     pub exitinfo: ExitInfo,
+
     /// Reserved
     pub reserved: u32,
+
     /// FS base
     pub fsbase: u64,
+
     /// GS base
     pub gsbase: u64,
 }
@@ -176,16 +209,22 @@ bitflags! {
     /// Flags for a page fault;
     /// Section 38.9.2.2, Table 38-13
     pub struct PageFault: u32 {
+
         /// Same as non-SGX page fault exception P flag.
         const P = 1 << 0;
+
         /// Same as non-SGX page fault exception W/R flag.
         const WR = 1 << 1;
+
         /// Always set to 1 (user mode reference).
         const US = 1 << 2;
+
         /// Same as non-SGX page fault exception I/D flag.
         const ID = 1 << 4;
+
         /// Protection Key induced fault.
         const PK = 1 << 5;
+
         /// EPCM induced fault.
         const SGX = 1 << 15;
     }
@@ -197,38 +236,54 @@ bitflags! {
     /// when the exception is segment related. Otherwise, 0.
     /// For more, refer to: https://wiki.osdev.org/Exceptions
     pub struct GenProtFault: u32 {
+
         ///  Exception originated externally to the processor.
         const E = 1 << 0;
+
         /// Bits 1 and 2 together indicate whether the selector (bits 3-15) references a
         /// descriptor in the GDT, IDT, or LDT.
         const TBL1 = 1 << 1;
+
         /// Bits 1 and 2 together indicate whether the selector (bits 3-15) references a
         /// descriptor in the GDT, IDT, or LDT.
         const TBL2 = 1 << 2;
+
         /// Selector index (bits 3-15) for the GDT, IDT, or LDT.
         const SEL3 = 1 << 3;
+
         /// Selector index (bits 3-15) for the GDT, IDT, or LDT.
         const SEL4 = 1 << 4;
+
         /// Selector index (bits 3-15) for the GDT, IDT, or LDT.
         const SEL5 = 1 << 5;
+
         /// Selector index (bits 3-15) for the GDT, IDT, or LDT.
         const SEL6 = 1 << 6;
+
         /// Selector index (bits 3-15) for the GDT, IDT, or LDT.
         const SEL7 = 1 << 7;
+
         /// Selector index (bits 3-15) for the GDT, IDT, or LDT.
         const SEL8 = 1 << 8;
+
         /// Selector index (bits 3-15) for the GDT, IDT, or LDT.
         const SEL9 = 1 << 9;
+
         /// Selector index (bits 3-15) for the GDT, IDT, or LDT.
         const SEL10 = 1 << 10;
+
         /// Selector index (bits 3-15) for the GDT, IDT, or LDT.
         const SEL11 = 1 << 11;
+
         /// Selector index (bits 3-15) for the GDT, IDT, or LDT.
         const SEL12 = 1 << 12;
+
         /// Selector index (bits 3-15) for the GDT, IDT, or LDT.
         const SEL13 = 1 << 13;
+
         /// Selector index (bits 3-15) for the GDT, IDT, or LDT.
         const SEL14 = 1 << 14;
+
         /// Selector index (bits 3-15) for the GDT, IDT, or LDT.
         const SEL15 = 1 << 15;
     }
@@ -240,6 +295,7 @@ bitflags! {
 pub enum Fault {
     /// General Protection Fault with flags.
     GP(GenProtFault),
+
     /// Page Fault with flags and memory address.
     PF(u64, PageFault),
 }
@@ -250,8 +306,10 @@ pub enum Fault {
 struct ExceptionInfo {
     /// In case of a page fault, contains the linear address that caused the fault.
     maddr: u64,
+
     /// Exception error code for GP fault or page fault.
     errcd: u32,
+
     reserved: u32,
 }
 
@@ -264,35 +322,25 @@ pub struct Miscellaneous {
     exinfo: ExceptionInfo,
 }
 
-/// The Footer combines the padding, Miscellaneous, and GPRSGX fields of the SSA Frame
-/// struct. It has no direct equivalent in the SGX documentation, but creates an SSA Frame
-/// in combination with the XSave struct.
+/// When an AEX occurs while running in an enclave, the architectural state is saved
+/// in the thread’s current StateSaveArea (SSA Frame), which is pointed to by TCS.CSSA.
 ///
 /// Section 38.9, Table 38-7
-#[derive(Debug)]
 #[repr(C, align(4096))]
-pub struct Footer {
-    /// Size == 4096 - 256
-    padding0: [[u64; 32]; 15],
-    /// 256 - size_of::<Miscellaneous>() - size_of::<Gpr>()
-    padding1: [u32; 14],
-    /// May hold some exception info for faults occurring inside an enclave.
+pub struct StateSaveArea {
+    /// Area for saving and restoring the XSAVE-managed state components
+    pub xsave: XSave,
+
+    reserved: [u8; Self::padding()],
+
+    /// Contains Exception Info (error condition, memory address)
     pub misc: Miscellaneous,
-    /// Holds info on general purpose registers.
+
+    /// Contains Exit Info (exit and exception type)
     pub gpr: Gpr,
 }
 
-impl Footer {
-    /// Creates a new footer from Miscellaneous (fault-related) and Gpr info.
-    pub const fn new(misc: Miscellaneous, gpr: Gpr) -> Self {
-        Self {
-            padding0: [[0; 32]; 15],
-            padding1: [0; 14],
-            misc,
-            gpr,
-        }
-    }
-
+impl StateSaveArea {
     /// Converts an internal fault type to a safe Rust enum describing the fault.
     pub fn fault(&self) -> Option<Fault> {
         self.gpr.exitinfo.exit_type()?;
@@ -307,22 +355,14 @@ impl Footer {
             _ => None,
         }
     }
-}
 
-/// When an AEX occurs while running in an enclave, the architectural state is saved
-/// in the thread’s current StateSaveArea (SSA Frame), which is pointed to by TCS.CSSA.
-///
-/// Section 38.9, Table 38-7
-#[derive(Debug)]
-#[repr(C, align(4096))]
-pub struct StateSaveArea {
-    ///  Section 38.9, Table 38-7
-    pub xsave: XSave,
-    /// Section 38.9, Table 38-7
-    pub footer: Footer,
-}
+    const fn padding() -> usize {
+        #[repr(C, align(4096))]
+        struct Unpadded(XSave, Miscellaneous, Gpr);
 
-impl StateSaveArea {
+        size_of::<Unpadded>() - size_of::<XSave>() - size_of::<Miscellaneous>() - size_of::<Gpr>()
+    }
+
     /// Returns the size of the SSA in 4k pages, rather than bytes. According to
     /// the documentation, SSAFrameSize (used in SECS) is referenced in pages.
     /// See section 38.7 for page-size requirement for SECS and Table 38-7 for
@@ -371,13 +411,10 @@ testaso! {
         exinfo: 0
     }
 
-    struct Footer: 4096, 4096 => {
-        misc: 4096 - core::mem::size_of::<Miscellaneous>() - core::mem::size_of::<Gpr>(),
-        gpr: 4096 - core::mem::size_of::<Gpr>()
-    }
-
-    struct StateSaveArea: 4096, 8192 => {
+    struct StateSaveArea: 4096, 4096 => {
         xsave: 0,
-        footer: 4096
+        reserved: 576,
+        misc: 3896,
+        gpr: 3912
     }
 }
