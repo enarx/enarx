@@ -5,7 +5,8 @@
 //! contains information about the enclave. SIGSTRUCT is processed by the EINIT
 //! leaf function to verify that the enclave was properly built.
 
-use super::{attr::Attributes, isv, misc::MiscSelect, Masked};
+use super::{attr::Attributes, isv, misc::MiscSelect};
+use intel_types::Masked;
 use testing::testaso;
 
 /// Holds an ID that specifies the vendor of the enclave.
