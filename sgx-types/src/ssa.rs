@@ -11,6 +11,7 @@ use core::{
     mem::{align_of, size_of},
     num::NonZeroU32,
 };
+use intel_types::XSave;
 use testing::testaso;
 
 /// Section 38.9.1.1, Table 38-10
@@ -263,16 +264,6 @@ pub struct Miscellaneous {
     exinfo: ExceptionInfo,
 }
 
-/// The size of XSAVE region in SSA is derived from the enclave’s support of the collection
-/// of processor extended states that would be managed by XSAVE. The enablement of those
-/// processor extended state components in conjunction with CPUID leaf 0DH information
-/// determines the XSAVE region size in SSA.
-///
-/// Section 38.9, Table 38-7
-#[derive(Debug)]
-#[repr(C, align(4096))]
-pub struct XSave([[u64; 32]; 16]);
-
 /// The Footer combines the padding, Miscellaneous, and GPRSGX fields of the SSA Frame
 /// struct. It has no direct equivalent in the SGX documentation, but creates an SSA Frame
 /// in combination with the XSave struct.
@@ -378,9 +369,6 @@ testaso! {
 
     struct Miscellaneous: 8, 16 => {
         exinfo: 0
-    }
-
-    struct XSave: 4096, 4096 => {
     }
 
     struct Footer: 4096, 4096 => {

@@ -28,34 +28,3 @@ pub mod sig;
 pub mod ssa;
 pub mod tcs;
 pub mod ti;
-
-use core::fmt::Debug;
-use core::ops::BitAnd;
-
-/// Succinctly describes a masked type, e.g. masked Attributes or masked MiscSelect.
-/// A mask is applied to Attributes and MiscSelect structs in a Signature (SIGSTRUCT)
-/// to specify values of Attributes and MiscSelect to enforce. This struct combines
-/// the struct and its mask for simplicity.
-#[repr(C)]
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
-pub struct Masked<T: Copy + Debug + PartialEq + BitAnd<Output = T>> {
-    /// The data being masked, e.g. Attribute flags.
-    pub data: T,
-    /// The mask.
-    pub mask: T,
-}
-
-impl<T: Copy + Debug + PartialEq + BitAnd<Output = T>> From<T> for Masked<T> {
-    fn from(value: T) -> Self {
-        Self {
-            data: value,
-            mask: value,
-        }
-    }
-}
-
-impl<T: Copy + Debug + PartialEq + BitAnd<Output = T>> PartialEq<T> for Masked<T> {
-    fn eq(&self, other: &T) -> bool {
-        self.mask & self.data == self.mask & *other
-    }
-}
