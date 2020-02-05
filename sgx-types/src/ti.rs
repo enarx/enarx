@@ -5,6 +5,7 @@
 //! verify the REPORT structure returned by the EREPORT leaf. Must be 512-byte aligned.
 
 use super::{attr::Attributes, misc::MiscSelect};
+use testing::testaso;
 
 /// Table 38-22
 #[derive(Debug)]

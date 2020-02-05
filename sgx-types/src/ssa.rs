@@ -11,6 +11,7 @@ use core::{
     mem::{align_of, size_of},
     num::NonZeroU32,
 };
+use testing::testaso;
 
 /// Section 38.9.1.1, Table 38-10
 #[derive(Copy, Clone, Debug)]

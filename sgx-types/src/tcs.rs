@@ -3,6 +3,8 @@
 //! Thread Control Structure (Section 38.8)
 //! Each executing thread in the enclave is associated with a Thread Control Structure.
 
+use testing::testaso;
+
 bitflags::bitflags! {
     /// Section 38.8.1
     pub struct Flags: u64 {

@@ -9,6 +9,7 @@
 
 use super::{attr, isv, misc::MiscSelect, sig::Contents, ssa::StateSaveArea};
 use core::num::{NonZeroU32, NonZeroU64};
+use testing::testaso;
 
 /// An enclave's size specification
 pub struct Spec {
