@@ -1,2 +1,18 @@
 #!/bin/bash -e
-for f in $0.d/*; do $f; done
+rust=0
+for file in $(git diff --name-only HEAD); do
+    if [[ -n "$TRAVIS" ]] || [[ $file == *.rs ]] || [[ $file == *.toml ]]; then
+        rust=1
+        break
+    fi
+done
+
+if [ "$rust" == 1 ]; then
+    for file in $0.d/rust-tests/*; do $file; done
+fi
+
+for file in $0.d/*; do
+    if [ -f "$file" ]; then
+        $file
+    fi
+done

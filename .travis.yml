@@ -30,7 +30,7 @@ matrix:
       rust: stable
       install:
         - cargo install --force cargo-audit
-      script: ./hooks/pre-push.d/cargo-audit --force
+      script: ./hooks/pre-push.d/rust-tests/cargo-audit --force
     - name: "sev"
       rust: stable
       script:
