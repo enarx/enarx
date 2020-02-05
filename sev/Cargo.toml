@@ -8,6 +8,6 @@ edition = "2018"
 default = []
 
 [dependencies]
-openssl = { version = "0.10.27", optional = true }
+openssl = { version = "0.10.28", optional = true }
 bitflags = "1.2.1"
 codicon = "2.1.0"
