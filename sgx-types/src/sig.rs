@@ -6,6 +6,7 @@
 //! leaf function to verify that the enclave was properly built.
 
 use super::{attr::Attributes, isv, misc::MiscSelect, Masked};
+use testing::testaso;
 
 /// Holds an ID that specifies the vendor of the enclave.
 #[repr(transparent)]
