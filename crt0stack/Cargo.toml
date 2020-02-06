@@ -1,0 +1,25 @@
+[package]
+name = "crt0stack"
+version = "0.6.0"
+authors = ["Harald Hoyer <harald@redhat.com>"]
+edition = "2018"
+license = "Apache-2.0"
+description = "Create the inital stack for executing an elf binary."
+
+categories = [
+    "no-std",
+]
+
+keywords = [
+    "no_std",
+    "elf",
+    "stack",
+    "auxiliary",
+    "vector",
+    "auxv",
+    "auxval"
+]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
