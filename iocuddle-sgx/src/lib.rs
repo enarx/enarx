@@ -128,7 +128,7 @@ mod test {
         const SSA_SIZE: u32 = 0x1000;
 
         let spec = secs::Spec {
-            enc_size: unsafe { secs::Spec::max_enc_size().unwrap() },
+            enc_size: secs::Spec::max_enc_size().unwrap(),
             ssa_size: NonZeroU32::new(SSA_SIZE).unwrap(),
         };
 
