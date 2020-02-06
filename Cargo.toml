@@ -6,6 +6,7 @@ members = [
     "linux-syscall",
     "linux-errno",
     "vmsyscall",
+    "crt0stack",
 
     "sgx-show",
     "sgx-types",
