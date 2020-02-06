@@ -7,7 +7,7 @@
 //! page created for any enclave. It is moved from a temporary buffer to an EPC
 //! by the means of ENCLS(ECREATE) leaf.
 
-use super::{attr, isv, misc::MiscSelect, sig::Contents};
+use super::{attr, isv, misc::MiscSelect, sig::Contents, ssa::StateSaveArea};
 use core::num::{NonZeroU32, NonZeroU64};
 
 /// An enclave's size specification
@@ -66,6 +66,15 @@ impl Spec {
         let res = unsafe { __cpuid_count(LEAF_MAX_ENCL_SIZE, SUBLEAF_MAX_ENCL_SIZE) };
         let max_size: u64 = 1 << (res.edx >> 8 as u8) as u64;
         Some(NonZeroU64::new(max_size).unwrap())
+    }
+}
+
+impl Default for Spec {
+    fn default() -> Self {
+        Self {
+            enc_size: Spec::max_enc_size().unwrap(),
+            ssa_size: StateSaveArea::frame_size(),
+        }
     }
 }
 
