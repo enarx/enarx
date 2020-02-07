@@ -309,7 +309,7 @@ pub struct XSaveHeader {
 pub struct XSaveExtend;
 
 /// For details on the fields included in XSave, see Section 13.4. Must be 64 byte aligned.
-#[derive(Debug)]
+#[derive(Debug, Default)]
 #[repr(C, align(64))]
 pub struct XSave {
     /// Legacy region of the XSave area
