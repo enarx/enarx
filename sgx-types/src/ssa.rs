@@ -129,7 +129,7 @@ impl ExitInfo {
 }
 
 /// Section 38.9.1, Table 38-8
-#[derive(Debug)]
+#[derive(Debug, Default)]
 #[repr(C)]
 pub struct Gpr {
     /// Register rax
@@ -301,7 +301,7 @@ pub enum Fault {
 }
 
 /// Section 38.9.2.1, Table 38-12
-#[derive(Debug)]
+#[derive(Debug, Default)]
 #[repr(C)]
 struct ExceptionInfo {
     /// In case of a page fault, contains the linear address that caused the fault.
@@ -314,7 +314,7 @@ struct ExceptionInfo {
 }
 
 /// Section 38.9.2, Table 38-11
-#[derive(Debug)]
+#[derive(Debug, Default)]
 #[repr(C)]
 pub struct Miscellaneous {
     /// Exception info for GP or page fault occurring inside an enclave can be written to
@@ -338,6 +338,17 @@ pub struct StateSaveArea {
 
     /// Contains Exit Info (exit and exception type)
     pub gpr: Gpr,
+}
+
+impl Default for StateSaveArea {
+    fn default() -> Self {
+        Self {
+            xsave: Default::default(),
+            reserved: [0u8; Self::padding()],
+            misc: Default::default(),
+            gpr: Default::default(),
+        }
+    }
 }
 
 impl StateSaveArea {
