@@ -1,15 +1,15 @@
 #!/bin/bash -e
 top=`git rev-parse --show-toplevel`
-apache=$(curl -s https://www.apache.org/licenses/LICENSE-2.0.txt)
 status=0
 for file in $(find "$top" -name Cargo.toml | sed 's|Cargo.toml|LICENSE|'); do
     if [ ! -f "$file" ]; then
         echo "$file does not exist. Please ensure an Apache 2.0 license is present."
         status=1
     else
-        if [ "`cat $file`" != "$apache" ]; then
-            echo "$file does not match the reference Apache 2.0 license found at:"
-            echo "    https://www.apache.org/licenses/LICENSE-2.0.txt"
+        if ! diff -Buw $top/LICENSE $file; then
+            echo
+            echo "$file does not match $top/LICENSE!"
+            echo
             status=1
         fi
     fi
