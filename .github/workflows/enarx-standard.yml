@@ -1,0 +1,12 @@
+name: Enarx Standard Tests
+# Automated testing run on all commits.
+
+on: [pull_request]
+
+jobs:
+  sanity-check:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@master
+    - name: Sanity-check test
+      run: true
