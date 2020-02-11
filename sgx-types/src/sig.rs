@@ -82,6 +82,18 @@ pub struct Contents {
     pub isv_svn: isv::Svn,
 }
 
+impl From<[u8; 32]> for Contents {
+    fn from(value: [u8; 32]) -> Self {
+        Self::new(
+            Default::default(),
+            Default::default(),
+            value,
+            Default::default(),
+            Default::default(),
+        )
+    }
+}
+
 impl Contents {
     /// Creates new SIGSTRUCT Contents from known values (including MRENCLAVE).
     pub fn new(
