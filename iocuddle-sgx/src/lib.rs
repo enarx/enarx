@@ -135,8 +135,8 @@ mod test {
         // Hash all the pages
         let measure = flags.contains(Flags::MEASURE);
         let mut hasher = Hasher::from(&spec);
-        hasher.add(TCS_OFFSET, &PAGE.0, measure, page::SecInfo::tcs());
-        hasher.add(REG_OFFSET, &PAGE.0, measure, page::SecInfo::reg(perms));
+        hasher.add(&PAGE.0[..], TCS_OFFSET, page::SecInfo::tcs(), measure);
+        hasher.add(&PAGE.0[..], REG_OFFSET, page::SecInfo::reg(perms), measure);
         let hash = hasher.finish();
 
         // Make the SECS page

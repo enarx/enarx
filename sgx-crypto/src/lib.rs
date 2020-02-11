@@ -40,7 +40,15 @@ impl From<&secs::Spec> for Hasher {
 
 impl Hasher {
     /// Mimics call to SGX_IOC_ENCLAVE_ADD_PAGES (EADD and EEXTEND).
-    pub fn add(&mut self, offset: u64, data: &[u8], measure: bool, secinfo: page::SecInfo) {
+    pub fn add<T: AsRef<[u8]> + ?Sized>(
+        &mut self,
+        data: &T,
+        offset: u64,
+        secinfo: page::SecInfo,
+        measure: bool,
+    ) {
+        let data = data.as_ref();
+
         // These values documented in 41.3.
         const EEXTEND: u64 = 0x00444E4554584545;
         const EADD: u64 = 0x0000000044444145;
@@ -208,7 +216,7 @@ mod test {
 
         let mut off = 0;
         for i in input {
-            hasher.add(off, i.0, true, i.1);
+            hasher.add(i.0, off, i.1, true);
             off += i.0.len() as u64;
         }
 
