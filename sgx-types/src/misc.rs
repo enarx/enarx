@@ -6,10 +6,9 @@
 
 bitflags::bitflags! {
     /// Section 38.7.2
+    #[derive(Default)]
     pub struct MiscSelect: u32 {
         /// Report info about page faults and general protection exception that occurred inside an enclave.
         const EXINFO = 1 << 0;
     }
 }
-
-defflags!(MiscSelect EXINFO);
