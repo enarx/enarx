@@ -1,0 +1,15 @@
+[package]
+name = "mmap"
+version = "0.1.0"
+authors = ["Nathaniel McCallum <npmccallum@redhat.com>"]
+edition = "2018"
+license = "Apache-2.0"
+
+[dependencies]
+addr = { path = "../addr" }
+span = { path = "../span" }
+bitflags = "1.2"
+libc = "0.2"
+
+[dev-dependencies]
+units = { path = "../units" }
