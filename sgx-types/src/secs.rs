@@ -95,6 +95,8 @@ pub struct Secs {
     reserved2: [u64; 12],
     isvprodid: isv::ProdId,
     isvsvn: isv::Svn,
+    reserved3: [u32; 7],
+    reserved4: [[u64; 28]; 17],
 }
 
 testaso! {
@@ -110,7 +112,9 @@ testaso! {
         mrsigner: 128,
         reserved2: 160,
         isvprodid: 256,
-        isvsvn: 258
+        isvsvn: 258,
+        reserved3: 260,
+        reserved4: 288
     }
 }
 
@@ -130,6 +134,8 @@ impl Secs {
             reserved2: [0; 12],
             isvprodid: contents.isv_prod_id,
             isvsvn: contents.isv_svn,
+            reserved3: [0; 7],
+            reserved4: [[0; 28]; 17],
         }
     }
 }
