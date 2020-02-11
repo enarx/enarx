@@ -16,7 +16,7 @@ pub struct Spec {
     /// The enclave size (in bytes; power of 2)
     pub enc_size: NonZeroU64,
 
-    /// The state save area frame size (in bytes)
+    /// The state save area frame size (in 4k pages)
     pub ssa_size: NonZeroU32,
 }
 
