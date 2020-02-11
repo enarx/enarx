@@ -111,10 +111,6 @@ pub trait Signature: Sized {
         contents: sig::Contents,
         key: rsa::Rsa<pkey::Private>,
     ) -> Result<Self>;
-
-    /// Returns an enclave control structure with provided specifications based on
-    /// Signature.
-    fn secs(&self, base: u64, spec: secs::Spec) -> secs::Secs;
 }
 
 impl Signature for sig::Signature {
@@ -165,15 +161,6 @@ impl Signature for sig::Signature {
             q1.to_le_array()?,
             q2.to_le_array()?,
         ))
-    }
-
-    fn secs(&self, base: u64, spec: secs::Spec) -> secs::Secs {
-        let md = openssl::hash::MessageDigest::sha256();
-        let bytes = openssl::hash::hash(md, &self.modulus[..]).unwrap();
-
-        let mut hash = [0u8; 32];
-        hash.copy_from_slice(bytes.as_ref());
-        secs::Secs::new(base, spec, hash, &self.contents)
     }
 }
 
