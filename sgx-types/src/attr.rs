@@ -21,7 +21,11 @@ bitflags::bitflags! {
     }
 }
 
-defflags!(Flags BIT64);
+impl Default for Flags {
+    fn default() -> Self {
+        Self::BIT64
+    }
+}
 
 bitflags::bitflags! {
     /// Section 42.7.2.1; more info can be found at https://en.wikipedia.org/wiki/Control_register.

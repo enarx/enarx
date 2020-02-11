@@ -9,16 +9,6 @@
 #![allow(clippy::identity_op)]
 #![deny(missing_docs)]
 
-macro_rules! defflags {
-    ($name:ident $($value:ident)|*) => {
-        impl Default for $name {
-            fn default() -> Self {
-                $name::empty() $( | $name::$value )* | $name::empty()
-            }
-        }
-    };
-}
-
 pub mod attr;
 pub mod isv;
 pub mod misc;
