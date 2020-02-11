@@ -96,7 +96,7 @@ impl From<[u8; 32]> for Contents {
 
 impl Contents {
     /// Creates new SIGSTRUCT Contents from known values (including MRENCLAVE).
-    pub fn new(
+    pub const fn new(
         misc: Masked<MiscSelect>,
         attr: Masked<Attributes>,
         mrenclave: [u8; 32],
