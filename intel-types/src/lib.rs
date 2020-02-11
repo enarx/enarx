@@ -10,7 +10,10 @@
 #![deny(missing_docs)]
 
 use bitflags::bitflags;
-use core::{fmt::Debug, ops::BitAnd};
+use core::{
+    fmt::Debug,
+    ops::{BitAnd, BitOr, Not},
+};
 use testing::testaso;
 
 /// Succinctly describes a masked type, e.g. masked Attributes or masked MiscSelect.
@@ -19,7 +22,7 @@ use testing::testaso;
 /// the struct and its mask for simplicity.
 #[repr(C)]
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
-pub struct Masked<T: Copy + Debug + PartialEq + BitAnd<Output = T>> {
+pub struct Masked<T: BitAnd<Output = T>> {
     /// The data being masked, e.g. Attribute flags.
     pub data: T,
 
@@ -27,16 +30,40 @@ pub struct Masked<T: Copy + Debug + PartialEq + BitAnd<Output = T>> {
     pub mask: T,
 }
 
-impl<T: Copy + Debug + PartialEq + BitAnd<Output = T>> From<T> for Masked<T> {
+impl<T> Default for Masked<T>
+where
+    T: BitAnd<Output = T>,
+    T: BitOr<Output = T>,
+    T: Not<Output = T>,
+    T: Default,
+    T: Copy,
+{
+    fn default() -> Self {
+        T::default().into()
+    }
+}
+
+impl<T> From<T> for Masked<T>
+where
+    T: BitAnd<Output = T>,
+    T: BitOr<Output = T>,
+    T: Not<Output = T>,
+    T: Copy,
+{
     fn from(value: T) -> Self {
         Self {
             data: value,
-            mask: value,
+            mask: value | !value,
         }
     }
 }
 
-impl<T: Copy + Debug + PartialEq + BitAnd<Output = T>> PartialEq<T> for Masked<T> {
+impl<T> PartialEq<T> for Masked<T>
+where
+    T: BitAnd<Output = T>,
+    T: PartialEq,
+    T: Copy,
+{
     fn eq(&self, other: &T) -> bool {
         self.mask & self.data == self.mask & *other
     }
@@ -173,15 +200,6 @@ impl Default for MxCsr {
             | MxCsr::OVERFLOW_MASK
             | MxCsr::UNDERFLOW_MASK
             | MxCsr::PREC_MASK
-    }
-}
-
-impl Default for Masked<MxCsr> {
-    fn default() -> Self {
-        Self {
-            data: MxCsr::default(),
-            mask: MxCsr::all(),
-        }
     }
 }
 
