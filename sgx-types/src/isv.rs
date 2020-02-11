@@ -5,12 +5,12 @@
 
 /// ISV assigned Product ID.
 #[repr(transparent)]
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Default)]
 pub struct ProdId(u16);
 
 /// ISV assigned SVN (security version number).
 #[repr(transparent)]
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Default)]
 pub struct Svn(u16);
 
 impl ProdId {
