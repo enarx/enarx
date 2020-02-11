@@ -44,11 +44,16 @@ pub struct AddPages<'a> {
 }
 
 impl<'a> AddPages<'a> {
-    pub fn new(data: &'a [u8], offset: u64, secinfo: &'a page::SecInfo, flags: Flags) -> Self {
+    pub fn new<T: AsRef<[u8]> + ?Sized>(
+        data: &'a T,
+        offset: u64,
+        secinfo: &'a page::SecInfo,
+        flags: Flags,
+    ) -> Self {
         Self {
-            src: data.as_ptr() as _,
+            src: data.as_ref().as_ptr() as _,
             offset,
-            length: data.len() as _,
+            length: data.as_ref().len() as _,
             secinfo: secinfo as *const _ as _,
             flags,
             count: 0,
@@ -157,12 +162,12 @@ mod test {
 
         // Add a TCS page
         let si = page::SecInfo::tcs();
-        let mut ap = AddPages::new(&PAGE.0, TCS_OFFSET, &si, flags);
+        let mut ap = AddPages::new(&PAGE.0[..], TCS_OFFSET, &si, flags);
         ENCLAVE_ADD_PAGES.ioctl(&mut file, &mut ap).unwrap();
 
         // Add a REG page
         let si = page::SecInfo::reg(perms);
-        let mut ap = AddPages::new(&PAGE.0, REG_OFFSET, &si, flags);
+        let mut ap = AddPages::new(&PAGE.0[..], REG_OFFSET, &si, flags);
         ENCLAVE_ADD_PAGES.ioctl(&mut file, &mut ap).unwrap();
 
         // Initialize
