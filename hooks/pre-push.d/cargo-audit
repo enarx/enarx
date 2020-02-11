@@ -1,8 +1,3 @@
 #!/bin/bash -e
 [[ -n "$TRAVIS" && "$1" != "--force" ]] && exit 0
-
-for f in `dirname $0`/../../*/Cargo.toml; do
-    pushd `dirname $f`
-    cargo audit
-    popd
-done
+cargo audit

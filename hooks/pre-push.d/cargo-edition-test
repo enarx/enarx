@@ -2,6 +2,8 @@
 top=`git rev-parse --show-toplevel`
 status=0
 for file in $(find "$top" -name Cargo.toml); do
+    [ "$(toml get "$file" package)" == "null" ] && continue
+
     if [ "$(toml get "$file" package.edition)" != '"2018"' ]; then
         echo "$file is not using edition = "2018"."
         echo "Please ensure the field is present and includes the correct Rust edition."        

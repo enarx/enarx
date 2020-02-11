@@ -1,6 +1,2 @@
 #!/bin/bash -e
-
-for f in `dirname $0`/../../*/Cargo.toml; do
-    realpath $f
-    cargo test --manifest-path=$f
-done
+cargo test
