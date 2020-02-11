@@ -51,14 +51,36 @@ bitflags::bitflags! {
     }
 }
 
-defflags!(Xfrm X87 | SSE);
+impl Default for Xfrm {
+    fn default() -> Self {
+        Self::X87 | Self::SSE
+    }
+}
 
-#[repr(C, packed(4))]
-#[derive(Copy, Clone, Default, Debug, PartialEq, Eq)]
 /// Section 38.7.1.
+#[repr(C, packed(4))]
+#[derive(Copy, Clone, Default, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Attributes {
     flags: Flags,
     xfrm: Xfrm,
+}
+
+impl From<Flags> for Attributes {
+    fn from(value: Flags) -> Self {
+        Self {
+            flags: value,
+            xfrm: Default::default(),
+        }
+    }
+}
+
+impl From<Xfrm> for Attributes {
+    fn from(value: Xfrm) -> Self {
+        Self {
+            flags: Default::default(),
+            xfrm: value,
+        }
+    }
 }
 
 impl Attributes {
@@ -78,6 +100,17 @@ impl Attributes {
     }
 }
 
+impl core::ops::Not for Attributes {
+    type Output = Self;
+
+    fn not(self) -> Self {
+        Attributes {
+            flags: !self.flags,
+            xfrm: !self.xfrm,
+        }
+    }
+}
+
 impl core::ops::BitAnd for Attributes {
     type Output = Self;
 
@@ -85,6 +118,28 @@ impl core::ops::BitAnd for Attributes {
         Attributes {
             flags: self.flags & other.flags,
             xfrm: self.xfrm & other.xfrm,
+        }
+    }
+}
+
+impl core::ops::BitOr for Attributes {
+    type Output = Self;
+
+    fn bitor(self, other: Self) -> Self {
+        Attributes {
+            flags: self.flags | other.flags,
+            xfrm: self.xfrm | other.xfrm,
+        }
+    }
+}
+
+impl core::ops::BitXor for Attributes {
+    type Output = Self;
+
+    fn bitxor(self, other: Self) -> Self {
+        Attributes {
+            flags: self.flags ^ other.flags,
+            xfrm: self.xfrm ^ other.xfrm,
         }
     }
 }
