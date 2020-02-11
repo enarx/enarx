@@ -83,34 +83,34 @@ impl Default for Spec {
 #[derive(Copy, Clone, Debug)]
 #[repr(C, align(4096))]
 pub struct Secs {
-    enc_size: NonZeroU64,
-    enc_base: u64,
-    ssa_size: NonZeroU32,
-    misc: MiscSelect,
+    size: NonZeroU64,
+    baseaddr: u64,
+    ssaframesize: NonZeroU32,
+    miscselect: MiscSelect,
     reserved0: [u8; 24],
-    attr: attr::Attributes,
+    attributes: attr::Attributes,
     mrenclave: [u8; 32],
     reserved1: [u8; 32],
     mrsigner: [u8; 32],
     reserved2: [u64; 12],
-    isv_prod_id: isv::ProdId,
-    isv_svn: isv::Svn,
+    isvprodid: isv::ProdId,
+    isvsvn: isv::Svn,
 }
 
 testaso! {
     struct Secs: 4096, 4096 => {
-        enc_size: 0,
-        enc_base: 8,
-        ssa_size: 16,
-        misc: 20,
+        size: 0,
+        baseaddr: 8,
+        ssaframesize: 16,
+        miscselect: 20,
         reserved0: 24,
-        attr: 48,
+        attributes: 48,
         mrenclave: 64,
         reserved1: 96,
         mrsigner: 128,
         reserved2: 160,
-        isv_prod_id: 256,
-        isv_svn: 258
+        isvprodid: 256,
+        isvsvn: 258
     }
 }
 
@@ -118,18 +118,18 @@ impl Secs {
     /// Creates a new SECS struct based on a base address, size, SSA size, and Contents.
     pub fn new(base: u64, spec: Spec, mrsigner: [u8; 32], contents: &Contents) -> Self {
         Self {
-            enc_size: spec.enc_size,
-            enc_base: base,
-            ssa_size: spec.ssa_size,
-            misc: contents.misc.data & contents.misc.mask,
+            size: spec.enc_size,
+            baseaddr: base,
+            ssaframesize: spec.ssa_size,
+            miscselect: contents.misc.data & contents.misc.mask,
             reserved0: [0; 24],
-            attr: contents.attr.data & contents.attr.mask,
+            attributes: contents.attr.data & contents.attr.mask,
             mrenclave: contents.mrenclave,
             reserved1: [0; 32],
             mrsigner,
             reserved2: [0; 12],
-            isv_prod_id: contents.isv_prod_id,
-            isv_svn: contents.isv_svn,
+            isvprodid: contents.isv_prod_id,
+            isvsvn: contents.isv_svn,
         }
     }
 }
