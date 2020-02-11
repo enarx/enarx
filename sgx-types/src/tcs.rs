@@ -28,40 +28,40 @@ pub struct Tcs {
     /// Execution flags (cleared by EADD)
     flags: Flags,
     /// SSA stack offset relative to the enclave base
-    ssa_offset: u64,
+    ossa: u64,
     /// The current SSA frame index (cleared by EADD)
-    ssa_index: u32,
+    cssa: u32,
     /// The number of frames in the SSA stack
-    nr_ssa_frames: u32,
+    nssa: u32,
     /// Entry point offset relative to the enclave base.
-    entry_offset: u64,
+    oentry: u64,
     /// Address outside enclave to exit on an exception or interrupt.
-    exit_addr: u64,
+    aep: u64,
     /// Offset relative to enclave base to become FS segment inside the enclave.
-    fs_offset: u64,
+    ofsbasgx: u64,
     /// Offset relative to enclave base to become GS segment inside the enclave.
-    gs_offset: u64,
+    ogsbasgx: u64,
     /// Size to become a new FS-limit (only 32-bit enclaves).
-    fs_limit: u32,
+    fslimit: u32,
     /// Size to become a new GS-limit (only 32-bit enclaves).
-    gs_limit: u32,
+    gslimit: u32,
 }
 
 impl Tcs {
     /// Creates new TCS from an entry offset, SSA offset, and number of SSA frames.
-    pub const fn new(entry: u64, ssa: u64, nssa: u32) -> Self {
+    pub const fn new(oentry: u64, ssa: u64, nssa: u32) -> Self {
         Self {
             state: 0,
             flags: Flags::empty(),
-            ssa_offset: ssa,
-            ssa_index: 0,
-            nr_ssa_frames: nssa,
-            entry_offset: entry,
-            exit_addr: 0,
-            fs_offset: 0,
-            gs_offset: 0,
-            fs_limit: 0,
-            gs_limit: 0,
+            ossa: ssa,
+            cssa: 0,
+            nssa,
+            oentry,
+            aep: 0,
+            ofsbasgx: 0,
+            ogsbasgx: 0,
+            fslimit: 0,
+            gslimit: 0,
         }
     }
 }
@@ -81,14 +81,14 @@ testaso! {
     struct Tcs: 4096, 4096 => {
         state: 0,
         flags: 8,
-        ssa_offset: 16,
-        ssa_index: 24,
-        nr_ssa_frames: 28,
-        entry_offset: 32,
-        exit_addr: 40,
-        fs_offset: 48,
-        gs_offset: 56,
-        fs_limit: 64,
-        gs_limit: 68
+        ossa: 16,
+        cssa: 24,
+        nssa: 28,
+        oentry: 32,
+        aep: 40,
+        ofsbasgx: 48,
+        ogsbasgx: 56,
+        fslimit: 64,
+        gslimit: 68,
     }
 }
