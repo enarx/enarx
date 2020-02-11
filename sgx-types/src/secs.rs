@@ -7,7 +7,7 @@
 //! page created for any enclave. It is moved from a temporary buffer to an EPC
 //! by the means of ENCLS(ECREATE) leaf.
 
-use super::{attr, isv, misc::MiscSelect, sig::Contents, ssa::StateSaveArea};
+use super::{attr, isv, misc::MiscSelect, ssa::StateSaveArea};
 use core::num::{NonZeroU32, NonZeroU64};
 use testing::testaso;
 
@@ -119,21 +119,21 @@ testaso! {
 }
 
 impl Secs {
-    /// Creates a new SECS struct based on a base address, size, SSA size, and Contents.
-    pub fn new(base: u64, spec: Spec, mrsigner: [u8; 32], contents: &Contents) -> Self {
+    /// Creates a new SECS struct based on a base address and spec.
+    pub fn new(base: u64, spec: Spec) -> Self {
         Self {
             size: spec.enc_size,
             baseaddr: base,
             ssaframesize: spec.ssa_size,
-            miscselect: contents.misc.data & contents.misc.mask,
+            miscselect: MiscSelect::default(),
             reserved0: [0; 24],
-            attributes: contents.attr.data & contents.attr.mask,
-            mrenclave: contents.mrenclave,
+            attributes: attr::Attributes::default(),
+            mrenclave: [0; 32],
             reserved1: [0; 32],
-            mrsigner,
+            mrsigner: [0; 32],
             reserved2: [0; 12],
-            isvprodid: contents.isv_prod_id,
-            isvsvn: contents.isv_svn,
+            isvprodid: isv::ProdId::default(),
+            isvsvn: isv::Svn::default(),
             reserved3: [0; 7],
             reserved4: [[0; 28]; 17],
         }
