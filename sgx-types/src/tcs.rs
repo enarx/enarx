@@ -45,6 +45,8 @@ pub struct Tcs {
     fslimit: u32,
     /// Size to become a new GS-limit (only 32-bit enclaves).
     gslimit: u32,
+    reserved0: [u64; 23],
+    reserved1: [[u64; 32]; 15],
 }
 
 impl Tcs {
@@ -62,6 +64,8 @@ impl Tcs {
             ogsbasgx: 0,
             fslimit: 0,
             gslimit: 0,
+            reserved0: [0; 23],
+            reserved1: [[0; 32]; 15],
         }
     }
 }
@@ -90,5 +94,7 @@ testaso! {
         ogsbasgx: 56,
         fslimit: 64,
         gslimit: 68,
+        reserved0: 72,
+        reserved1: 256
     }
 }
