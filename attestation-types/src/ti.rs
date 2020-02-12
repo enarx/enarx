@@ -4,7 +4,7 @@
 //! The Target Info is used to identify the target enclave that will be able to cryptographically
 //! verify the REPORT structure returned by the EREPORT leaf. Must be 512-byte aligned.
 
-use super::{attr::Attributes, misc::MiscSelect};
+use sgx_types::{attr::Attributes, misc::MiscSelect};
 #[cfg(test)]
 use testing::testaso;
 

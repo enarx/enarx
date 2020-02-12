@@ -3,7 +3,7 @@
 //! Section 38.15
 //! The REPORT structure is the output of the EREPORT instruction, and must be 512-Byte aligned.
 
-use super::{attr::Attributes, isv, misc::MiscSelect};
+use sgx_types::{attr::Attributes, isv, misc::MiscSelect};
 #[cfg(test)]
 use testing::testaso;
 
