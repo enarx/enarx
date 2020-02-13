@@ -181,7 +181,7 @@ pub struct Gpr {
     pub r15: u64,
 
     /// Register flags
-    pub rflags: u64,
+    pub rflags: Rflags,
 
     /// Register rip
     pub rip: u64,

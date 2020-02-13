@@ -340,6 +340,72 @@ pub struct XSave {
     pub extend: XSaveExtend,
 }
 
+bitflags! {
+    /// In 64-bit mode, EFLAGS is extended to 64 bits and called RFLAGS.
+    /// The upper 32 bits of RFLAGS register is reserved. The lower 32 bits
+    /// of RFLAGS is the same as EFLAGS.
+    /// S prefix indicates a status flag; C indicates a control flag; X
+    /// indicates a system flag.
+    ///
+    /// See Section 3.4.3.4, 3.4.3, and Figure 3-8.
+    #[derive(Default)]
+    pub struct Rflags: u64 {
+        /// Carry flag
+        const S_CF = 1 << 0;
+
+        /// Parity flag
+        const S_PF = 1 << 2;
+
+        /// Auxiliary Carry Flag
+        const S_AF = 1 << 4;
+
+        /// Zero flag
+        const S_ZF = 1 << 6;
+
+        /// Sign flag
+        const S_SF = 1 << 7;
+
+        /// Trap flag
+        const X_TF = 1 << 8;
+
+        /// Interrupt enable flag
+        const X_IF = 1 << 9;
+
+        /// Direction flag
+        const C_DF = 1 << 10;
+
+        /// Overflow flag
+        const S_OF = 1 << 11;
+
+        /// I/O privilege level
+        const X_IOPL0 = 1 << 12;
+
+        /// I/O privilege level
+        const X_IOPL1 = 1 << 13;
+
+        /// Nested task
+        const X_NT = 1 << 14;
+
+        /// Resume flag
+        const X_RF = 1 << 16;
+
+        /// Virtual-8086 mode
+        const X_VM = 1 << 17;
+
+        /// Alignment check / access control
+        const X_AC = 1 << 18;
+
+        /// Virtual interrupt flag
+        const X_VIF = 1 << 19;
+
+        /// Virtual interrupt pending
+        const X_VIP = 1 << 20;
+
+        /// ID flag (ID)
+        const X_ID = 1 << 21;
+    }
+}
+
 testaso! {
     struct XSaveLegacy: 8, 512 => {
         fcw: 0,
