@@ -1,0 +1,60 @@
+# Commits which modify this file MUST generate the new .png!
+msc {
+  tenant     [textbgcolor="green"],
+  host       [textbgcolor="red"],
+  bios       [textbgcolor="orange"],
+  bootloader [textbgcolor="orange"],
+  kernel     [textbgcolor="orange"],
+  psp        [textbgcolor="yellow"];
+
+  tenant=>host [label="cert chain request"];
+  host=>psp [label="cert chain request"];
+  psp=>host [label="cert chain reply\n(w/ firmware version)"];
+  host=>tenant [label="cert chain reply\n(w/ firmware version)"];
+
+  ...;
+
+  tenant box tenant [label="validate cert chain"];
+  tenant box tenant [label="validate fw version"];
+  tenant box tenant [label="craft exec policy"];
+  tenant box tenant [label="random cdh keypair"];
+  tenant box tenant [label="random tek/tik"];
+
+
+  tenant box tenant [label="DH(cdh, pdh) => z"];
+  tenant box tenant [label="KDF(z) => master"];
+  tenant box tenant [label="KDF(master) => kek"];
+  tenant box tenant [label="KDF(master) => kik"];
+
+  tenant => host [label="CDH, MAC(tik, policy),\nMAC(kik, ENC(kek, tek||tik))"];
+  host => psp [label="CDH, MAC(tik, policy),\nMAC(kik, ENC(kek, tek||tik))"];
+
+  psp box psp [label="DH(cdh, pdh) => z"];
+  psp box psp [label="KDF(z) => master"];
+  psp box psp [label="KDF(master) => kek"];
+  psp box psp [label="KDF(master) => kik"];
+
+  psp box psp [label="check MAC(kik, ...)"];
+  psp box psp [label="DEC(kek, tek||tik)"];
+
+  host => psp [label="guest pages"];
+  psp box psp [label="measure guest pages"];
+
+  psp => host [label="MAC(tik, measurement)"];
+  host => tenant [label="MAC(tik, measurement)"];
+
+  tenant box tenant [label="validate measure"];
+  tenant box tenant [label="prepare metadata"];
+  tenant => host [label="enc = ENC(tek, metadata)\nMAC(tik, enc)"];
+  host => psp [label="enc = ENC(tek, metadata)\nMAC(tik, enc)"];
+
+  psp => bios [label="decrypt metadata into guest memory"];
+
+  --- [label="VM START"];
+
+  bios => bootloader [label="metadata"];
+  bootloader => kernel [label="metadata"];
+  kernel box kernel [label="unlock volume"];
+
+  --- [label="BOOT COMPLETE"];
+}
