@@ -34,10 +34,7 @@ Building the various components of Enarx is currently complex: we are working on
 
 ## Authors
 
-* **Mike Bursell** - *Initial work* - [MikeCamel](https://github.com/MikeCamel)
-  **Harald Hoyer** - *Technical details* - [haraldh](https://github.com/haraldh)
-
-See also the list of [people](https://github.com/orgs/enarx/people) who participate in this project.
+See the list of [people](https://github.com/orgs/enarx/people) who participate in this project.
 
 ## License
 
