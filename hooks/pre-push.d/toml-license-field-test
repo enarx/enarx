@@ -1,7 +1,9 @@
 #!/bin/bash -e
-top=`git rev-parse --show-toplevel`
+set -o pipefail
+
+top=$(git rev-parse --show-toplevel)
 status=0
-for file in $(find "$top" -name Cargo.toml); do
+while read -r file; do
     [ "$(toml get "$file" package)" == "null" ] && continue
 
     if [ "$(toml get "$file" package.license)" != "\"Apache-2.0\"" ]; then
@@ -9,5 +11,5 @@ for file in $(find "$top" -name Cargo.toml); do
         echo "Please ensure the field is present and includes an Apache license."
         status=1
     fi
-done
+done < <(find "$top" -name Cargo.toml)
 exit $status

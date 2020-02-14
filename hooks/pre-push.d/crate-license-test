@@ -1,17 +1,19 @@
 #!/bin/bash -e
-top=`git rev-parse --show-toplevel`
+set -o pipefail
+
+top=$(git rev-parse --show-toplevel)
 status=0
-for file in $(find "$top" -name Cargo.toml | sed 's|Cargo.toml|LICENSE|'); do
+while read -r file; do
     if [ ! -f "$file" ]; then
         echo "$file does not exist. Please ensure an Apache 2.0 license is present."
         status=1
     else
-        if ! diff -Buw $top/LICENSE $file; then
+        if ! diff -Buw "$top/LICENSE" "$file"; then
             echo
             echo "$file does not match $top/LICENSE!"
             echo
             status=1
         fi
     fi
-done
+done < <(find "$top" -name Cargo.toml | sed 's|/Cargo.toml$|/LICENSE|')
 exit $status
