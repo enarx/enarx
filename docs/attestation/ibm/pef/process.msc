@@ -17,18 +17,23 @@ msc {
 
   tenant box tenant [label="validate cert chain"];
   tenant box tenant [label="calculate VM hash"];
-  tenant box tenant [label="encrypt lockbox(pubkey,\nVM hash & metadata)"];
-  tenant=>host [label="deliver lockbox(s)"];
+  tenant box tenant [label="encrypt payload(\npayloadkey,\nVM hash & metadata)"];
+  tenant box tenant [label="encrypt lockbox(\npublickey,\npayloadkey)"];
+  tenant box tenant [label="esmoperand(\nlockbox,\npayload)"];
+  tenant=>host [label="deliver esmoperand"];
 
   --- [label="VM START"];
 
-  host=>bootloader [label="deliver lockbox(s)"];
-  bootloader=>ultravisor [label="enter SVM mode\n[deliver lockbox(s)]"];
-  ultravisor => tpm [label="lockbox(s)"];
-  tpm => ultravisor [label="vm hash & metadata"];
+  host=>kernel [label="deliver esmoperand"];
+  kernel=>ultravisor [label="enter SVM mode\n[deliver esmoperand]"];
+  ultravisor box ultravisor [label="extract lockbox from esmoperand"];
+  ultravisor => tpm [label="lockbox"];
+  tpm box tpm [label="decrypt privatekey(lockbox)"];
+  tpm => ultravisor [label="payloadkey"];
+  ultravisor box ultravisor [label="extract payload from esmoperand"];
+  ultravisor box ultravisor [label="decrypt payloadkey(payload)"];
   ultravisor box ultravisor [label="validate VM hash"];
-  ultravisor => bootloader [label="metadata"];
-  bootloader => kernel [label="metadata"];
+  ultravisor => kernel [label="metadata"];
   kernel box kernel [label="unlock volume"];
 
   --- [label="BOOT COMPLETE"];
