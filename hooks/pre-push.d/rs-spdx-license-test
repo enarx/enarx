@@ -8,5 +8,5 @@ while read -r file; do
         echo "$file does not have an Apache 2.0 SPDX ID on the first line of the file."
         status=1
     fi
-done < <(find "$top" -path "$top"/target -prune -o -name "*.rs" -type f -print)
+done < <(find "$top" -regex '.*/target' -prune -o -type f -regex '.*rs' -print)
 exit $status
