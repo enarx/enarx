@@ -26,11 +26,6 @@ matrix:
     - rust: nightly
   fast_finish: true
   include:
-    - name: "cargo audit"
-      rust: stable
-      install:
-        - cargo install --force cargo-audit
-      script: ./hooks/pre-push.d/cargo-audit --force
     - name: "sev"
       rust: stable
       script:

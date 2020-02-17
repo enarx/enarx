@@ -1,3 +1,0 @@
-#!/bin/bash -e
-[[ -n "$TRAVIS" && "$1" != "--force" ]] && exit 0
-cargo audit
