@@ -28,3 +28,12 @@ jobs:
     # Run any specified Rust tests.
     - name: Run tests
       run: cargo test
+
+  # Vulnerability check with cargo audit.
+  cargo-audit:
+    runs-on: ubuntu-latest
+    container: quay.io/enarx/fedora-test
+    steps:
+    - uses: actions/checkout@v1
+    - name: cargo-audit
+      run: cargo audit
