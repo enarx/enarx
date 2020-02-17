@@ -1,0 +1,20 @@
+# Commits which modify this file MUST generate the new .png!
+digraph G {
+    node [style=filled, shape=box, fontcolor=black];
+    rootca [label="Intel SGX Root CA Cert", fillcolor="#ccffcc"]
+    pckprocca [label="Provisioning Certification Key Processor CA Cert", fillcolor="#ffff99"]
+    pckcert [label="Provisioning Certification Key Cert", fillcolor="#ffff99"]
+    pck [label="Provisioning Certification Key", color=white, fillcolor=white, image="key_blue.png"]
+    att [label="Attestation Key", color=white, fillcolor=white, image="key_yellow.png"]
+    tcb [label="TCB Signing Cert", fillcolor="#ffff99"]
+
+    node [shape=ellipse]
+    rootcrl [label="Intel SGX Root CA Cert Revocation List", fillcolor="#ffff99"]
+    pckcrl [label="Provisioning Certification Key Processor CA Cert Revocation List", fillcolor="#ffff99"]
+
+    rootca -> { pckprocca, rootcrl, tcb }
+    pckprocca -> pckcert
+    pckcert -> pck
+    pck -> att
+    rootcrl -> pckcrl
+}
