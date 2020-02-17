@@ -10,5 +10,5 @@ digraph G {
     ASK -> CEK;
     CEK -> PEK;
     PEK -> PDH;
-    OCA -> PDH;
+    OCA -> PEK;
 }
