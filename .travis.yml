@@ -25,11 +25,6 @@ matrix:
   allow_failures:
     - rust: nightly
   fast_finish: true
-  include:
-    - name: "sev"
-      rust: stable
-      script:
-        - cargo test --manifest-path sev/Cargo.toml --verbose --features=openssl
 install:
   - rustup component add rustfmt
   - rustup component add clippy

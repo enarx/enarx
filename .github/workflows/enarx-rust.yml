@@ -29,6 +29,10 @@ jobs:
     - name: Run tests
       run: cargo test
 
+    # Run Rust tests with OpenSSL-specific features enabled for SEV.
+    - name: Run tests (SEV-specific)
+      run: cargo test --manifest-path sev/Cargo.toml --verbose --features=openssl
+
   # Vulnerability check with cargo audit.
   cargo-audit:
     runs-on: ubuntu-latest
