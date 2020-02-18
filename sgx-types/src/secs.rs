@@ -7,83 +7,15 @@
 //! page created for any enclave. It is moved from a temporary buffer to an EPC
 //! by the means of ENCLS(ECREATE) leaf.
 
-use super::{attr, isv, misc::MiscSelect, ssa::StateSaveArea};
-use core::num::{NonZeroU32, NonZeroU64};
+use super::{attr, isv, misc::MiscSelect};
+use core::num::{NonZeroU32, NonZeroUsize};
 use testing::testaso;
-
-/// An enclave's size specification
-pub struct Spec {
-    /// The enclave size (in bytes; power of 2)
-    pub enc_size: NonZeroU64,
-
-    /// The state save area frame size (in 4k pages)
-    pub ssa_size: NonZeroU32,
-}
-
-impl Spec {
-    /// # Usage
-    /// Returns the maximum enclave size for 64bit in bytes.
-    /// CPUID.(EAX=12H, ECX=0H) enumerates Intel SGX capability;
-    /// For more on CPUID enumeration leaves, see 37.7.2 and Table 37-4.
-    ///
-    /// # Safety
-    /// This function is technically unsafe because it does not check if the
-    /// `CPUID` instruction is available before issuing it. This could result
-    /// in a crash on some very old CPUs. However, the only modern context
-    /// where it could crash is environments like SGX or some virtualized
-    /// CPUs. But even in these contexts, it is common to trap and emulate the
-    /// instruction.
-    ///
-    /// Therefore, it is common practice to ignore the test to see if the
-    /// `CPUID` instruction is available and just issue it anyway. For this
-    /// reason, we are marking this function as safe. For more background to
-    /// the state of `CPUID` in Rust, see:
-    ///
-    /// https://github.com/rust-lang/rust/issues/60123
-    ///
-    pub fn max_enc_size() -> Option<NonZeroU64> {
-        use core::arch::x86_64::{__cpuid_count, __get_cpuid_max};
-
-        const LEAF_MAX_PARAM: u32 = 0x0;
-        const LEAF_SGX_SUPPORT: u32 = 0x07;
-        const SUBLEAF_SGX_SUPPORT: u32 = 0x0;
-        const LEAF_MAX_ENCL_SIZE: u32 = 0x12;
-        const SUBLEAF_MAX_ENCL_SIZE: u32 = 0x0;
-
-        // Test for max leaf size
-        let res = unsafe { __get_cpuid_max(LEAF_MAX_PARAM) };
-        let max_leaf = res.0;
-        if max_leaf < LEAF_SGX_SUPPORT || max_leaf < LEAF_MAX_ENCL_SIZE {
-            return None;
-        }
-
-        // Test for SGX support
-        let res = unsafe { __cpuid_count(LEAF_SGX_SUPPORT, SUBLEAF_SGX_SUPPORT) };
-        if res.ebx & (1 << 2) == 0 {
-            return None;
-        }
-
-        // Test for max enclave size
-        let res = unsafe { __cpuid_count(LEAF_MAX_ENCL_SIZE, SUBLEAF_MAX_ENCL_SIZE) };
-        let max_size: u64 = 1 << (res.edx >> 8 as u8) as u64;
-        Some(NonZeroU64::new(max_size).unwrap())
-    }
-}
-
-impl Default for Spec {
-    fn default() -> Self {
-        Self {
-            enc_size: Spec::max_enc_size().unwrap(),
-            ssa_size: StateSaveArea::frame_size(),
-        }
-    }
-}
 
 /// Section 38.7
 #[derive(Copy, Clone, Debug)]
 #[repr(C, align(4096))]
 pub struct Secs {
-    size: NonZeroU64,
+    size: u64,
     baseaddr: u64,
     ssaframesize: NonZeroU32,
     miscselect: MiscSelect,
@@ -120,11 +52,11 @@ testaso! {
 
 impl Secs {
     /// Creates a new SECS struct based on a base address and spec.
-    pub fn new(base: u64, spec: Spec) -> Self {
+    pub fn new(base: usize, size: usize, ssa_pages: NonZeroU32) -> Self {
         Self {
-            size: spec.enc_size,
-            baseaddr: base,
-            ssaframesize: spec.ssa_size,
+            size: size as _,
+            baseaddr: base as _,
+            ssaframesize: ssa_pages,
             miscselect: MiscSelect::default(),
             reserved0: [0; 24],
             attributes: attr::Attributes::default(),
@@ -137,5 +69,54 @@ impl Secs {
             reserved3: [0; 7],
             reserved4: [[0; 28]; 17],
         }
+    }
+
+    /// # Usage
+    /// Returns the maximum enclave size for 64bit in bytes.
+    /// CPUID.(EAX=12H, ECX=0H) enumerates Intel SGX capability;
+    /// For more on CPUID enumeration leaves, see 37.7.2 and Table 37-4.
+    ///
+    /// # Safety
+    /// This function is technically unsafe because it does not check if the
+    /// `CPUID` instruction is available before issuing it. This could result
+    /// in a crash on some very old CPUs. However, the only modern context
+    /// where it could crash is environments like SGX or some virtualized
+    /// CPUs. But even in these contexts, it is common to trap and emulate the
+    /// instruction.
+    ///
+    /// Therefore, it is common practice to ignore the test to see if the
+    /// `CPUID` instruction is available and just issue it anyway. For this
+    /// reason, we are marking this function as safe. For more background to
+    /// the state of `CPUID` in Rust, see:
+    ///
+    /// https://github.com/rust-lang/rust/issues/60123
+    ///
+    pub fn max_enc_size() -> Option<NonZeroUsize> {
+        use core::arch::x86_64::{__cpuid_count, __get_cpuid_max};
+
+        const LEAF_MAX_PARAM: u32 = 0x0;
+        const LEAF_SGX_SUPPORT: u32 = 0x07;
+        const SUBLEAF_SGX_SUPPORT: u32 = 0x0;
+        const LEAF_MAX_ENCL_SIZE: u32 = 0x12;
+        const SUBLEAF_MAX_ENCL_SIZE: u32 = 0x0;
+
+        // Test for max leaf size
+        let res = unsafe { __get_cpuid_max(LEAF_MAX_PARAM) };
+        let max_leaf = res.0;
+        if max_leaf < LEAF_SGX_SUPPORT || max_leaf < LEAF_MAX_ENCL_SIZE {
+            return None;
+        }
+
+        // Test for SGX support
+        let res = unsafe { __cpuid_count(LEAF_SGX_SUPPORT, SUBLEAF_SGX_SUPPORT) };
+        if res.ebx & (1 << 2) == 0 {
+            return None;
+        }
+
+        // Test for max enclave size
+        let res = unsafe { __cpuid_count(LEAF_MAX_ENCL_SIZE, SUBLEAF_MAX_ENCL_SIZE) };
+        let max_size: u64 = 1 << (res.edx >> 8 as u8) as u64;
+
+        NonZeroUsize::new(max_size as usize)
     }
 }
