@@ -10,9 +10,10 @@
 #![deny(missing_docs)]
 
 use openssl::{bn, hash, pkey, rsa, sha, sign};
-use sgx_types::{page, secs, sig};
+use sgx_types::{page, sig};
 use std::convert::TryInto;
 use std::io::Result;
+use std::num::NonZeroU32;
 
 /// This struct creates and updates the MRENCLAVE value associated
 /// with an enclave's Signature (or SIGSTRUCT). This value is updated with
@@ -22,23 +23,21 @@ use std::io::Result;
 /// to use them, refer to the [iocuddle-sgx](../../iocuddle-sgx) library.
 pub struct Hasher(sha::Sha256);
 
-impl From<&secs::Spec> for Hasher {
+impl Hasher {
     /// Mimics call to SGX_IOC_ENCLAVE_CREATE (ECREATE).
-    fn from(value: &secs::Spec) -> Self {
+    pub fn new(size: usize, ssa_pages: NonZeroU32) -> Self {
         // This value documented in 41.3.
         const ECREATE: u64 = 0x0045544145524345;
 
         let mut sha256 = sha::Sha256::new();
         sha256.update(&ECREATE.to_le_bytes());
-        sha256.update(&value.ssa_size.get().to_le_bytes());
-        sha256.update(&value.enc_size.get().to_le_bytes());
+        sha256.update(&ssa_pages.get().to_le_bytes());
+        sha256.update(&(size as u64).to_le_bytes());
         sha256.update(&[0u8; 44]); // Reserved
 
         Self(sha256)
     }
-}
 
-impl Hasher {
     /// Mimics call to SGX_IOC_ENCLAVE_ADD_PAGES (EADD and EEXTEND).
     pub fn add<T: AsRef<[u8]> + ?Sized>(
         &mut self,
@@ -171,7 +170,6 @@ mod test {
     use sgx_types::sig;
     use std::fs::File;
     use std::io::Read;
-    use std::num::{NonZeroU32, NonZeroU64};
 
     // A NOTE ABOUT THIS TESTING METHODOLOGY
     //
@@ -191,15 +189,13 @@ mod test {
 
     fn hash(input: &[(&[u8], SecInfo)]) -> [u8; 32] {
         // Add the lengths of all the enclave segments to produce enclave size.
-        let size = input.iter().fold(0, |c, x| c + x.0.len() as u64);
+        let size = input.iter().fold(0, |c, x| c + x.0.len());
 
         // Inputs:
-        //     enclave size: the next power of two beyond our segments
-        //   ssa frame size: 1
-        let mut hasher = Hasher::from(&secs::Spec {
-            enc_size: NonZeroU64::new(size.next_power_of_two()).unwrap(),
-            ssa_size: NonZeroU32::new(1).unwrap(),
-        });
+        //   enclave size: the next power of two beyond our segments
+        //      ssa pages: 1
+        let ssa_pages = NonZeroU32::new(1).unwrap();
+        let mut hasher = Hasher::new(size.next_power_of_two(), ssa_pages);
 
         let mut off = 0;
         for i in input {

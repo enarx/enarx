@@ -127,22 +127,19 @@ mod test {
         ],
     )]
     fn test(mut file: File, key: rsa::Rsa<pkey::Private>, flags: Flags, perms: page::Flags) {
+        const SSA_PAGES: NonZeroU32 = unsafe { NonZeroU32::new_unchecked(1) };
+        const BASE_ADDR: usize = 0x0000;
         const TCS_OFFSET: u64 = 0x0000;
         const REG_OFFSET: u64 = 0x1000;
-        const BASE_ADDR: u64 = 0x0000;
-        const SSA_SIZE: u32 = 0x1000;
 
-        let spec = secs::Spec {
-            enc_size: secs::Spec::max_enc_size().unwrap(),
-            ssa_size: NonZeroU32::new(SSA_SIZE).unwrap(),
-        };
+        let size = secs::Secs::max_enc_size().unwrap().get();
 
         // Create the hasher.
         let measure = flags.contains(Flags::MEASURE);
-        let mut hasher = Hasher::from(&spec);
+        let mut hasher = Hasher::new(size, SSA_PAGES);
 
         // Create the enclave.
-        let secs = secs::Secs::new(BASE_ADDR, spec);
+        let secs = secs::Secs::new(BASE_ADDR, size, SSA_PAGES);
         let create = Create::new(&secs);
         ENCLAVE_CREATE.ioctl(&mut file, &create).unwrap();
 
