@@ -1,0 +1,31 @@
+# Commits which modify this file MUST generate the new .png!
+# .png files can be generated at https://mscgen.js.org/
+
+msc {
+  hscale="1.5";
+
+  tenant  [textbgcolor="#abeba7"], # green
+  host    [label="host agent", textbgcolor="#e8716b"], # red
+  qe      [textbgcolor="#f0b17f"], # orange
+  enclave [textbgcolor="#f0b17f"]; # orange
+
+  --- [label="ENCLAVE LAUNCH"];
+
+  tenant=>host [label="request enclave attestation\n"];
+  host=>qe [label="\nrequest QE target info\n(sgx_qe_get_target_info())\n"];
+  qe box qe [label="generate target info with EREPORT"];
+  qe=>host [label="return QE target info"];
+  host=>enclave [label="\nsend QE target info"];
+  enclave box enclave [label="\ngenerate Report for QE as target with EREPORT\n"];
+  enclave=>host [label="return Report[encl_pubkey]"];
+  host=>qe [label="request Quote for Report\n(sgx_qe_get_quote_size\nand sgx_qe_get_quote)"];
+  qe box qe [label="\nvalidate Report and generate Quote\n"];
+  qe=>host [label="return Quote"];
+  host=>tenant [label="return Quote[Report[encl_pubkey]]"];
+  tenant box tenant [label="validate Quote PCK with PCK Cert Chain"];
+  tenant box tenant [label="validate Quote AK with PCK"];
+  tenant box tenant [label="validate Quote enclave measurement"];
+
+  tenant=>host [label="send encrypted encl_pubkey[secrets]"];
+  host=>enclave [label="forward encrypted encl_pubkey[secrets]"];
+}
