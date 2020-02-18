@@ -29,5 +29,4 @@ install:
   - rustup component add rustfmt
   - rustup component add clippy
   - rustup target add x86_64-unknown-linux-musl
-  - cargo install toml-cli
 script: ./hooks/pre-push
