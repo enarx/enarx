@@ -7,7 +7,9 @@ ALL_FILES = [
     "./attestation/amd/sev/certchain.dot",
     "./attestation/amd/sev/process.msc",
     "./attestation/ibm/pef/certchain.dot",
-    "./attestation/ibm/pef/process.msc"
+    "./attestation/ibm/pef/process.msc",
+    "./attestation/intel/sgx/sgx_certchain.dot",
+    "./attestation/intel/sgx/sgx_process.msc"
 ]
 
 [tasks.diagram-flow]
