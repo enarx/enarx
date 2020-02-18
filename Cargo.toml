@@ -11,6 +11,10 @@ members = [
     "sgx-types",
     "sgx-crypto",
 
+    "enarx-keep",
+    "enarx-keep-sgx",
+    "enarx-keep-sgx-shim",
+
     "units",
     "addr",
     "span",
@@ -21,3 +25,9 @@ members = [
 
 [patch.crates-io]
 openssl = { git = 'https://github.com/npmccallum/rust-openssl', branch='patch' }
+
+[profile.dev]
+panic = "abort"
+
+[profile.release]
+panic = "abort"

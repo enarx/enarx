@@ -1,0 +1,22 @@
+{
+    "build": {
+        "prepend": [
+            "-Wl,--script=enarx-keep-sgx-shim/layout.ld",
+            "-Wl,--gc-keep-exported"
+        ],
+
+        "replace": {
+            ".*crt.\\.o": []
+        },
+
+        "debug": false
+    },
+
+    "test": {
+        "replace": {
+            "-lstart": []
+        },
+
+        "debug": false
+    }
+}
