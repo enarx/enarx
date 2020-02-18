@@ -22,7 +22,3 @@ jobs:
     # Ensure Cargo edition is correct.
     - name: Cargo edition
       run: .tests/cargo-edition
-
-    # Ensure Cargo.toml's license field is Apache 2.0.
-    - name: License field
-      run: .tests/toml-license-field
