@@ -9,7 +9,7 @@ jobs:
     runs-on: ubuntu-latest
     container: quay.io/enarx/fedora-test
     steps:
-    - uses: actions/checkout@v1
+    - uses: actions/checkout@v2
     
     - name: rustfmt
       run: cargo fmt -- --check
@@ -19,7 +19,7 @@ jobs:
     runs-on: ubuntu-latest
     container: quay.io/enarx/fedora-test
     steps:
-    - uses: actions/checkout@v1
+    - uses: actions/checkout@v2
     
     # Ensure the project builds correctly.
     - name: Build
@@ -38,6 +38,6 @@ jobs:
     runs-on: ubuntu-latest
     container: quay.io/enarx/fedora-test
     steps:
-    - uses: actions/checkout@v1
+    - uses: actions/checkout@v2
     - name: cargo-audit
       run: cargo audit
