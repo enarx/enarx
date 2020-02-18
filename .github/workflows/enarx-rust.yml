@@ -33,6 +33,15 @@ jobs:
     - name: Run tests (SEV-specific)
       run: cargo test --manifest-path sev/Cargo.toml --verbose --features=openssl
 
+  # Lint check with rust-clippy.
+  rust-clippy:
+    runs-on: ubuntu-latest
+    container: quay.io/enarx/fedora-test
+    steps:
+    - uses: actions/checkout@v2
+    - name: rust-clippy
+      run: cargo clippy
+      
   # Vulnerability check with cargo audit.
   cargo-audit:
     runs-on: ubuntu-latest
