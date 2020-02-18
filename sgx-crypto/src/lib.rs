@@ -9,6 +9,7 @@
 #![allow(clippy::unreadable_literal)]
 #![deny(missing_docs)]
 
+use addr::Offset;
 use openssl::{bn, hash, pkey, rsa, sha, sign};
 use sgx_types::{page, sig};
 use std::convert::TryInto;
@@ -25,14 +26,16 @@ pub struct Hasher(sha::Sha256);
 
 impl Hasher {
     /// Mimics call to SGX_IOC_ENCLAVE_CREATE (ECREATE).
-    pub fn new(size: usize, ssa_pages: NonZeroU32) -> Self {
+    pub fn new(size: Offset<usize>, ssa_pages: NonZeroU32) -> Self {
+        let size = size.inner() as u64;
+
         // This value documented in 41.3.
         const ECREATE: u64 = 0x0045544145524345;
 
         let mut sha256 = sha::Sha256::new();
         sha256.update(&ECREATE.to_le_bytes());
         sha256.update(&ssa_pages.get().to_le_bytes());
-        sha256.update(&(size as u64).to_le_bytes());
+        sha256.update(&size.to_le_bytes());
         sha256.update(&[0u8; 44]); // Reserved
 
         Self(sha256)
@@ -42,10 +45,11 @@ impl Hasher {
     pub fn add<T: AsRef<[u8]> + ?Sized>(
         &mut self,
         data: &T,
-        offset: u64,
+        offset: Offset<usize>,
         secinfo: page::SecInfo,
         measure: bool,
     ) {
+        let offset = offset.inner();
         let data = data.as_ref();
 
         // These values documented in 41.3.
@@ -57,20 +61,20 @@ impl Hasher {
 
         // For each page in the input...
         for (i, page) in data.chunks(4096).enumerate() {
-            let off = offset + i as u64 * 4096;
+            let off = offset + i * 4096;
 
             // Hash for the EADD instruction.
             self.0.update(&EADD.to_le_bytes());
-            self.0.update(&off.to_le_bytes());
+            self.0.update(&(off as u64).to_le_bytes());
             self.0.update(&secinfo.as_ref()[..48]);
 
             // Hash for the EEXTEND instruction.
             if measure {
                 for (j, segment) in page.chunks(256).enumerate() {
-                    let off = off + j as u64 * 256;
+                    let off = off + j * 256;
 
                     self.0.update(&EEXTEND.to_le_bytes());
-                    self.0.update(&off.to_le_bytes());
+                    self.0.update(&(off as u64).to_le_bytes());
                     self.0.update(&[0u8; 48]);
                     self.0.update(segment);
                 }
@@ -195,12 +199,12 @@ mod test {
         //   enclave size: the next power of two beyond our segments
         //      ssa pages: 1
         let ssa_pages = NonZeroU32::new(1).unwrap();
-        let mut hasher = Hasher::new(size.next_power_of_two(), ssa_pages);
+        let mut hasher = Hasher::new(size.next_power_of_two().into(), ssa_pages);
 
         let mut off = 0;
         for i in input {
-            hasher.add(i.0, off, i.1, true);
-            off += i.0.len() as u64;
+            hasher.add(i.0, off.into(), i.1, true);
+            off += i.0.len();
         }
 
         hasher.finish()

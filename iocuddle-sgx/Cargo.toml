@@ -8,11 +8,12 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-bitflags = "1.2.1"
-iocuddle = { path = "../iocuddle" }
 sgx-types = { path = "../sgx-types" }
+iocuddle = { path = "../iocuddle" }
+addr = { path = "../addr" }
+bitflags = "1.2"
 
 [dev-dependencies]
-sgx-crypto = { path = "../sgx-crypto" }
 openssl = { version = "0.10", features = [ "vendored" ] }
-rstest = "0.5.2"
+sgx-crypto = { path = "../sgx-crypto" }
+rstest = "0.5"

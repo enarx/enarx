@@ -3,6 +3,7 @@
 //! Thread Control Structure (Section 38.8)
 //! Each executing thread in the enclave is associated with a Thread Control Structure.
 
+use addr::Offset;
 use testing::testaso;
 
 bitflags::bitflags! {
@@ -28,13 +29,13 @@ pub struct Tcs {
     /// Execution flags (cleared by EADD)
     flags: Flags,
     /// SSA stack offset relative to the enclave base
-    ossa: u64,
+    ossa: Offset<u64>,
     /// The current SSA frame index (cleared by EADD)
     cssa: u32,
     /// The number of frames in the SSA stack
     nssa: u32,
     /// Entry point offset relative to the enclave base.
-    oentry: u64,
+    oentry: Offset<u64>,
     /// Address outside enclave to exit on an exception or interrupt.
     aep: u64,
     /// Offset relative to enclave base to become FS segment inside the enclave.
@@ -51,14 +52,14 @@ pub struct Tcs {
 
 impl Tcs {
     /// Creates new TCS from an entry offset, SSA offset, and number of SSA frames.
-    pub const fn new(oentry: u64, ssa: u64, nssa: u32) -> Self {
+    pub fn new(entry: Offset<usize>, ssa: Offset<usize>, nssa: u32) -> Self {
         Self {
             state: 0,
             flags: Flags::empty(),
-            ossa: ssa,
+            ossa: ssa.into(),
             cssa: 0,
             nssa,
-            oentry,
+            oentry: entry.into(),
             aep: 0,
             ofsbasgx: 0,
             ogsbasgx: 0,

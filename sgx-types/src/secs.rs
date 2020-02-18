@@ -8,6 +8,7 @@
 //! by the means of ENCLS(ECREATE) leaf.
 
 use super::{attr, isv, misc::MiscSelect};
+use addr::{Address, Offset};
 use core::num::{NonZeroU32, NonZeroUsize};
 use testing::testaso;
 
@@ -15,8 +16,8 @@ use testing::testaso;
 #[derive(Copy, Clone, Debug)]
 #[repr(C, align(4096))]
 pub struct Secs {
-    size: u64,
-    baseaddr: u64,
+    size: Offset<u64>,
+    baseaddr: Address<u64>,
     ssaframesize: NonZeroU32,
     miscselect: MiscSelect,
     reserved0: [u8; 24],
@@ -52,10 +53,10 @@ testaso! {
 
 impl Secs {
     /// Creates a new SECS struct based on a base address and spec.
-    pub fn new(base: usize, size: usize, ssa_pages: NonZeroU32) -> Self {
+    pub fn new(base: Address<usize>, size: Offset<usize>, ssa_pages: NonZeroU32) -> Self {
         Self {
-            size: size as _,
-            baseaddr: base as _,
+            size: size.into(),
+            baseaddr: base.into(),
             ssaframesize: ssa_pages,
             miscselect: MiscSelect::default(),
             reserved0: [0; 24],
