@@ -12,6 +12,7 @@ members = [
     "sgx-crypto",
 
     "units",
+    "addr",
 
     "sev",
 ]
