@@ -11,6 +11,8 @@ members = [
     "sgx-types",
     "sgx-crypto",
 
+    "units",
+
     "sev",
 ]
 
