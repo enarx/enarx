@@ -22,3 +22,14 @@ jobs:
     # Ensure Cargo edition is correct.
     - name: Cargo edition
       run: .tests/cargo-edition
+
+  # Miscellaneous organizational tests.
+  misc-organization:
+    runs-on: ubuntu-latest
+    container: quay.io/enarx/fedora-test
+    steps:
+    - uses: actions/checkout@v2
+  
+    # Ensure all code-related files have a newline at end of file.
+    - name: Cargo edition
+      run: .tests/eof-newline
