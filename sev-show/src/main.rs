@@ -11,6 +11,8 @@
 
 mod show;
 
+use core::arch::x86_64::__cpuid_count;
+
 use show::*;
 
 /// Emits the results described in `tests` and prints them in a
@@ -34,10 +36,24 @@ fn emit_results(tests: Vec<CompletedTest>, indent: usize) {
 }
 
 fn main() {
+    let cpuid = unsafe { __cpuid_count(0x0000_0000, 0x0000_0000) };
+
     let tests = vec![Test {
-        name: "Stub",
-        func: Box::new(|| (Ok(()), None)),
-        dependents: vec![],
+        name: "AMD CPU",
+        func: Box::new(move || {
+            let data =
+                ((cpuid.ebx as u128) << 64) | ((cpuid.edx as u128) << 32) | (cpuid.ecx as u128);
+
+            // "AuthenticAMD" -- see Table 3.2: Processor Vendor Return Values
+            // https://www.amd.com/system/files/TechDocs/24594.pdf
+            if data == 0x0000_0000_6874_7541_6974_6E65_444D_4163 as u128 {
+                (Ok(()), None)
+            } else {
+                (Err(()), None)
+            }
+        }),
+        dependents: vec![
+        ],
     }];
 
     let completed = tests.into_iter().map(|t| t.run()).collect();
