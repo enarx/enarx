@@ -165,6 +165,16 @@ fn main() {
                     }
                 }),
                 dependents: vec![
+                    Test {
+                        name: "File is readable by user",
+                        func: Box::new(|| {
+                            match std::fs::OpenOptions::new().read(true).open("/dev/sev") {
+                                Ok(_) => (Ok(()), None),
+                                Err(e) => (Err(()), Some(format!(": {}", e))),
+                            }
+                        }),
+                        dependents: vec![],
+                    },
                 ],
             },
         ],
