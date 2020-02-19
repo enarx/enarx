@@ -58,7 +58,7 @@ pub enum Class {
 /// divided into two fields (`flags` and `class`) for easy manipulation.
 ///
 /// Section 38.11
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone)]
 #[repr(C, align(64))]
 pub struct SecInfo {
     /// Section 38.11.1
@@ -66,6 +66,15 @@ pub struct SecInfo {
     /// Section 38.11.2
     pub class: Class,
     reserved: [u16; 31],
+}
+
+impl core::fmt::Debug for SecInfo {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("SecInfo")
+            .field("class", &self.class)
+            .field("flags", &self.flags)
+            .finish()
+    }
 }
 
 impl AsRef<[u8]> for SecInfo {
