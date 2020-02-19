@@ -187,6 +187,25 @@ fn main() {
                     },
                 ],
             },
+            Test {
+                name: "SEV is enabled for kernel",
+                func: Box::new(move || {
+                    if std::path::Path::new("/sys/module/kvm_amd/parameters/sev").exists() {
+                        let param =
+                            std::fs::read_to_string("/sys/module/kvm_amd/parameters/sev").unwrap();
+                        let param = param.trim();
+
+                        if param == "1" {
+                            (Ok(()), None)
+                        } else {
+                            (Err(()), None)
+                        }
+                    } else {
+                        (Err(()), None)
+                    }
+                }),
+                dependents: vec![],
+            },
         ],
     }];
 
