@@ -155,6 +155,18 @@ fn main() {
                 }),
                 dependents: vec![],
             },
+            Test {
+                name: "/dev/sev device special file exists",
+                func: Box::new(move || {
+                    if std::path::Path::new("/dev/sev").exists() {
+                        (Ok(()), None)
+                    } else {
+                        (Err(()), None)
+                    }
+                }),
+                dependents: vec![
+                ],
+            },
         ],
     }];
 
