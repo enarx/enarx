@@ -101,6 +101,14 @@ fn main() {
                         }),
                         dependents: vec![],
                     },
+                    Test {
+                        name: "C-bit location in page table entry",
+                        func: Box::new(move || {
+                            let field = enc_mem_caps.ebx & 0b01_1111;
+                            (Ok(()), Some(format!(": {}", field)))
+                        }),
+                        dependents: vec![],
+                    },
                 ],
             },
         ],
