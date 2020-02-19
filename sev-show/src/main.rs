@@ -144,6 +144,17 @@ fn main() {
                 }),
                 dependents: vec![],
             },
+            Test {
+                name: "Page Flush MSR available",
+                func: Box::new(move || {
+                    if (enc_mem_caps.eax & (1 << 2)) != 0 {
+                        (Ok(()), None)
+                    } else {
+                        (Err(()), None)
+                    }
+                }),
+                dependents: vec![],
+            },
         ],
     }];
 
