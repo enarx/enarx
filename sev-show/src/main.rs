@@ -121,6 +121,11 @@ fn main() {
                     }
                 }),
                 dependents: vec![
+                    Test {
+                        name: "Number of encrypted guests supported simultaneously",
+                        func: Box::new(move || (Ok(()), Some(format!(": {}", enc_mem_caps.ecx)))),
+                        dependents: vec![],
+                    },
                 ],
             },
         ],
