@@ -111,6 +111,18 @@ fn main() {
                     },
                 ],
             },
+            Test {
+                name: "SEV support",
+                func: Box::new(move || {
+                    if (enc_mem_caps.eax & (1 << 1)) != 0 {
+                        (Ok(()), None)
+                    } else {
+                        (Err(()), None)
+                    }
+                }),
+                dependents: vec![
+                ],
+            },
         ],
     }];
 
