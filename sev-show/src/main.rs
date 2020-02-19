@@ -93,6 +93,14 @@ fn main() {
                     }
                 }),
                 dependents: vec![
+                    Test {
+                        name: "Physical address bit reduction",
+                        func: Box::new(move || {
+                            let field = (enc_mem_caps.ebx & 0b1111_1100_0000) >> 6;
+                            (Ok(()), Some(format!(": {}", field)))
+                        }),
+                        dependents: vec![],
+                    },
                 ],
             },
         ],
