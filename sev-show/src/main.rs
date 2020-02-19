@@ -55,6 +55,35 @@ fn main() {
         }),
         dependents: vec![
             Test {
+                name: "Processor is known to have microcode that supports SEV",
+                func: Box::new(|| {
+                    // FIXME: This test should absolutely be replaced by one that actually
+                    // queries the microcode.
+                    // https://github.com/enarx/enarx/issues/234
+                    let cpu_name = {
+                        let mut bytestr = Vec::with_capacity(48);
+                        for cpuid in 0x8000_000_2u32..=0x8000_0004_u32 {
+                            let cpuid = unsafe { __cpuid_count(cpuid, 0x0000_0000) };
+                            let mut bytes: Vec<u8> = [cpuid.eax, cpuid.ebx, cpuid.ecx, cpuid.edx]
+                                .iter()
+                                .flat_map(|r| r.to_le_bytes().to_vec())
+                                .collect();
+                            bytestr.append(&mut bytes);
+                        }
+
+                        String::from_utf8(bytestr).unwrap().trim().to_string()
+                    };
+
+                    let display = Some(format!(": {}", cpu_name));
+                    if cpu_name.to_uppercase().contains("EPYC") {
+                        (Ok(()), display)
+                    } else {
+                        (Err(()), display)
+                    }
+                }),
+                dependents: vec![],
+            },
+            Test {
                 name: "SME support",
                 func: Box::new(move || {
                     if (enc_mem_caps.eax & (1 << 0)) != 0 {
