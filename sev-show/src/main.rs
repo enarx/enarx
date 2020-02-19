@@ -126,6 +126,11 @@ fn main() {
                         func: Box::new(move || (Ok(()), Some(format!(": {}", enc_mem_caps.ecx)))),
                         dependents: vec![],
                     },
+                    Test {
+                        name: "Minimum ASID value for SEV-enabled, SEV-ES disabled guest",
+                        func: Box::new(move || (Ok(()), Some(format!(": {}", enc_mem_caps.edx)))),
+                        dependents: vec![],
+                    },
                 ],
             },
         ],
