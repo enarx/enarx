@@ -37,6 +37,7 @@ fn emit_results(tests: Vec<CompletedTest>, indent: usize) {
 
 fn main() {
     let cpuid = unsafe { __cpuid_count(0x0000_0000, 0x0000_0000) };
+    let enc_mem_caps = unsafe { __cpuid_count(0x8000_001f, 0x0000_0000) };
 
     let tests = vec![Test {
         name: "AMD CPU",
@@ -53,6 +54,18 @@ fn main() {
             }
         }),
         dependents: vec![
+            Test {
+                name: "SME support",
+                func: Box::new(move || {
+                    if (enc_mem_caps.eax & (1 << 0)) != 0 {
+                        (Ok(()), None)
+                    } else {
+                        (Err(()), None)
+                    }
+                }),
+                dependents: vec![
+                ],
+            },
         ],
     }];
 
