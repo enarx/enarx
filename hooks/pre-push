@@ -1,9 +1,0 @@
-#!/bin/bash
-set -o pipefail
-
-ret=0
-while read -r f; do
-  "$f"
-  ((ret+=$?))
-done < <(find "${0}.d" -type f -perm /u+x,g+x)
-exit $ret
