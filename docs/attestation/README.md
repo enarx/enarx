@@ -231,7 +231,10 @@ First, have a quick look at the following diagram, then we'll unpack it:
 
 Please note that attestation for SEV-ES and SEV-SNP will be documented at a later date.
 
+#### Protections
 
+After attestation completes successfully, a guest is assured to receive [a number of protections](
+./amd/sev/protections.md).
 
 #### References
 
