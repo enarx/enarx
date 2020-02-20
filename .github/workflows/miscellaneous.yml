@@ -6,7 +6,6 @@ jobs:
   # Miscellaneous organizational tests.
   misc-eof:
     runs-on: ubuntu-latest
-    container: quay.io/enarx/fedora-test
     steps:
     - uses: actions/checkout@v2
   
@@ -17,7 +16,6 @@ jobs:
   # Enforce correct license files and headers.
   misc-licenses:
     runs-on: ubuntu-latest
-    container: quay.io/enarx/fedora-test
     steps:
     - uses: actions/checkout@v2
     
