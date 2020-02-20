@@ -1,0 +1,30 @@
+name: misc
+
+on: [pull_request]
+
+jobs:
+  # Miscellaneous organizational tests.
+  misc-eof:
+    runs-on: ubuntu-latest
+    container: quay.io/enarx/fedora-test
+    steps:
+    - uses: actions/checkout@v2
+  
+    # Ensure all code-related files have a newline at end of file.
+    - name: All code files have a newline at EOF
+      run: .tests/misc-eof
+
+  # Enforce correct license files and headers.
+  misc-licenses:
+    runs-on: ubuntu-latest
+    container: quay.io/enarx/fedora-test
+    steps:
+    - uses: actions/checkout@v2
+    
+    # Ensure that all crates have a top-level Apache 2.0 license.
+    - name: Crate-level licenses present
+      run: .tests/misc-licenses-crate
+
+    # Ensure all .rs files have an Apache 2.0 SPDX license ID.
+    - name: All .rs files have SPDX IDs
+      run: .tests/misc-licenses-rs-spdx

@@ -1,11 +1,10 @@
-name: Enarx Rust Tests
-# Automated testing specific to Enarx's Rust code.
+name: cargo
 
 on: [pull_request]
 
 jobs:
   # Ensure all Rust code is properly formatted with `rustfmt`.
-  rust-formatting:
+  cargo-fmt:
     runs-on: ubuntu-latest
     container: quay.io/enarx/fedora-test
     steps:
@@ -14,8 +13,8 @@ jobs:
     - name: rustfmt
       run: cargo fmt -- --check
 
-  # Build and test the Enarx workspace.
-  rust-build-test:
+  # Build the Enarx workspace.
+  cargo-build:
     runs-on: ubuntu-latest
     container: quay.io/enarx/fedora-test
     steps:
@@ -24,6 +23,13 @@ jobs:
     # Ensure the project builds correctly.
     - name: Build
       run: cargo build
+
+  # Test the Enarx workspace.
+  cargo-test:
+    runs-on: ubuntu-latest
+    container: quay.io/enarx/fedora-test
+    steps:
+    - uses: actions/checkout@v2
     
     # Run any specified Rust tests.
     - name: Run tests
@@ -34,12 +40,12 @@ jobs:
       run: cargo test --manifest-path sev/Cargo.toml --verbose --features=openssl
 
   # Lint check with rust-clippy.
-  rust-clippy:
+  cargo-clippy:
     runs-on: ubuntu-latest
     container: quay.io/enarx/fedora-test
     steps:
     - uses: actions/checkout@v2
-    - name: rust-clippy
+    - name: cargo-clippy
       run: cargo clippy
       
   # Vulnerability check with cargo audit.
@@ -50,3 +56,25 @@ jobs:
     - uses: actions/checkout@v2
     - name: cargo-audit
       run: cargo audit
+
+  # Enforce the edition field in Cargo.toml files.
+  cargo-toml-package-edition:
+    runs-on: ubuntu-latest
+    container: quay.io/enarx/fedora-test
+    steps:
+    - uses: actions/checkout@v2
+    
+    # Ensure Cargo edition is correct.
+    - name: Cargo edition is correct
+      run: .tests/cargo-toml-package-edition
+
+  # Enforce the license field in Cargo.toml files.
+  cargo-toml-package-license:
+    runs-on: ubuntu-latest
+    container: quay.io/enarx/fedora-test
+    steps:
+    - uses: actions/checkout@v2
+    
+    # Ensure Cargo.toml's license field is Apache 2.0.
+    - name: All Cargo.toml files have a license field
+      run: .tests/cargo-toml-package-license
