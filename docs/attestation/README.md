@@ -3,6 +3,10 @@
 This directory contains information on attestation for the various
 technologies involved. Technologies are listed in alphabetical order.
 
+Please note that attestation is a deeply technical process and readers
+should be familiar with some [prerequisite concepts](./prerequisites.md)
+before reading this document.
+
 ### Colors
 
 In process diagrams, colors mean the following:
