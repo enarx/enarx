@@ -1,0 +1,20 @@
+#!/bin/bash
+
+diagram_dir="./docs/attestation/"
+diagrams=$(make --quiet -C "$diagram_dir" diagrams)
+
+status=0
+for diagram in $diagrams ; do
+	# Truncate the file extension (.png, .svg, etc)
+	source=${diagram%????}
+
+	source_date=$(git log -1 --date=unix --format="%cd" -- "$diagram_dir$source")
+	diagram_date=$(git log -1 --date=unix --format="%cd" -- "$diagram_dir$diagram")
+
+	if [[ $diagram_date -lt $source_date ]]; then
+		echo "This diagram is out-of-date: $diagram_dir$diagram. Please generate an"`
+		      `" updated diagram and commit it to include it with your pull request."
+		status=1
+	fi
+done
+exit $status

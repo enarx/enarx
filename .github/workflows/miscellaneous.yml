@@ -26,3 +26,12 @@ jobs:
     # Ensure all .rs files have an Apache 2.0 SPDX license ID.
     - name: All .rs files have SPDX IDs
       run: .tests/misc-licenses-rs-spdx
+
+  misc-diagrams:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+
+    # Ensure all diagrams are up-to-date.
+    - name: All diagrams are up-to-date
+      run: .tests/misc-diagrams
