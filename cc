@@ -86,7 +86,7 @@ try:
     # Determine what we are trying to link.
     if len([a for a in argv if "build_script_build" in a]) > 0:
         link = link.get("script", {})
-    elif len([a for a in argv if "libtest" in a]) > 0:
+    elif len([a for a in argv if "/libtest-" in a]) > 0:
         link = link.get("test", {})
     else:
         link = link.get("build", {})
