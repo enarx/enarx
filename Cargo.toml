@@ -23,6 +23,7 @@ members = [
 
     "sev",
     "sev-show",
+    "sev-types",
 ]
 
 [patch.crates-io]
