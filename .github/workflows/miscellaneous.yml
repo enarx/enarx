@@ -27,6 +27,10 @@ jobs:
     - name: All .rs files have SPDX IDs
       run: .tests/misc-licenses-rs-spdx
 
+    # Ensure all .s and .S files have an Apache 2.0 SPDX license ID.
+    - name: All .s/.S files have SPDX IDs
+      run: .tests/misc-licenses-asm-spdx
+      
   misc-diagrams:
     runs-on: ubuntu-latest
     steps:
