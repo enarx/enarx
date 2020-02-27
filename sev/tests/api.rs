@@ -2,7 +2,7 @@
 
 use sev::{certs::sev::Usage, firmware::Firmware, Build, Version};
 
-#[ignore]
+#[cfg_attr(not(all(has_sev, dangerous_tests)), ignore)]
 #[test]
 fn platform_reset() {
     let fw = Firmware::open().unwrap();
@@ -26,7 +26,7 @@ fn platform_status() {
     );
 }
 
-#[ignore]
+#[cfg_attr(not(all(has_sev, dangerous_tests)), ignore)]
 #[test]
 fn pek_generate() {
     let fw = Firmware::open().unwrap();
@@ -41,7 +41,7 @@ fn pek_csr() {
     assert_eq!(pek, Usage::PEK);
 }
 
-#[ignore]
+#[cfg_attr(not(all(has_sev, dangerous_tests)), ignore)]
 #[test]
 fn pdh_generate() {
     let fw = Firmware::open().unwrap();
@@ -66,7 +66,7 @@ fn pdh_cert_export() {
 }
 
 #[cfg(feature = "openssl")]
-#[ignore]
+#[cfg_attr(not(all(has_sev, dangerous_tests)), ignore)]
 #[test]
 fn pek_cert_import() {
     use sev::certs::{sev::Certificate, Signer, Verifiable};
