@@ -18,6 +18,10 @@ bitflags::bitflags! {
         const PROV_KEY = 1 << 4;
         /// EINIT token key is available from EGETKEY.
         const EINIT_KEY = 1 << 5;
+        /// Enable CET attributes.
+        const CET = 1 << 6;
+        /// Key Separation and Sharing enabled.
+        const KSS = 1 << 7;
     }
 }
 
