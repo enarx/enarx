@@ -320,20 +320,20 @@ mod tests {
     use super::*;
 
     struct Stack<'a> {
-        pub(crate) idx: usize,
-        pub(crate) stack: &'a mut [u8],
+        idx: usize,
+        stack: &'a mut [u8],
     }
 
     impl<'a> Stack<'a> {
         #[inline(always)]
-        pub(crate) fn new(slice: &'a mut [u8]) -> Self {
+        fn new(slice: &'a mut [u8]) -> Self {
             Self {
                 idx: slice.len(),
                 stack: slice,
             }
         }
         #[inline(always)]
-        pub(crate) fn push(&mut self, val: impl Serializable) {
+        fn push(&mut self, val: impl Serializable) {
             self.idx -= val.into_buf(&mut self.stack[..self.idx]).unwrap();
         }
 
