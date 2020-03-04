@@ -2,8 +2,6 @@
 
 //! Types and Constants to create an ELF AUXV
 
-use crate::auxv::Key::Null;
-
 /// The basic AuxvType able to hold a pointer
 pub type Type = usize;
 
@@ -149,6 +147,6 @@ pub(crate) enum Key {
 
 impl Default for Key {
     fn default() -> Self {
-        Null
+        Self::Null
     }
 }
