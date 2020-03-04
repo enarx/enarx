@@ -91,11 +91,11 @@ impl Serializable for &[u8] {
 }
 
 /// State marker for Builder
-pub struct Aux(());
+pub enum Aux {}
 /// State marker for Builder
-pub struct Env(());
+pub enum Env {}
 /// State marker for Builder
-pub struct Arg(());
+pub enum Arg {}
 
 /// Handle for the stack
 ///
