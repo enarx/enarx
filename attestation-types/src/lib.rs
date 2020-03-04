@@ -8,5 +8,6 @@
 #![allow(clippy::identity_op)]
 #![deny(missing_docs)]
 
+pub mod quote;
 pub mod report;
 pub mod ti;
