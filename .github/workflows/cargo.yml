@@ -57,6 +57,15 @@ jobs:
     - name: cargo-audit
       run: cargo audit
 
+  # Check that dependencies have Apache 2.0-compatible licenses.
+  cargo-deny-check-licenses:
+    runs-on: ubuntu-latest
+    container: quay.io/enarx/fedora-test
+    steps:
+    - uses: actions/checkout@v2
+    - name: cargo-deny-check-licenses
+      run: cargo deny check licenses
+
   # Enforce the edition field in Cargo.toml files.
   cargo-toml-package-edition:
     runs-on: ubuntu-latest
