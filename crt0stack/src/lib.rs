@@ -36,7 +36,7 @@
 pub mod auxv;
 pub use auxv::Entry;
 
-use auxv::{Key, Type};
+use auxv::Key;
 use core::marker::PhantomData;
 
 /// Indicates too many arguments for `serialize`
@@ -253,7 +253,7 @@ impl<'a> Builder<'a, Aux> {
     /// Add a new auxv::Entry
     #[inline]
     pub fn push(&mut self, entry: &auxv::Entry) -> Result<()> {
-        let (key, value): (Key, Type) = match *entry {
+        let (key, value): (Key, usize) = match *entry {
             Entry::Platform(x) => {
                 self.push_data(0u8)?;
                 (Key::Platform, self.push_data(x.as_bytes())? as _)
@@ -294,7 +294,7 @@ impl<'a> Builder<'a, Aux> {
     #[inline]
     pub fn done(mut self) -> Result<Handle<'a>> {
         self.push_item(Key::default() as usize)?;
-        self.push_item(Type::default())?;
+        self.push_item(usize::default())?;
 
         let start_idx = {
             // at the end, copy the items of the item section from the bottom to the top of the stack
@@ -503,37 +503,37 @@ mod tests {
         assert_eq!(arg, core::ptr::null());
 
         let key: Key = prep_stack.pop_l();
-        let value: Type = prep_stack.pop_l();
+        let value: usize = prep_stack.pop_l();
         assert_eq!(key, Key::Random);
         let s: &[u8; 16] = unsafe { core::mem::transmute(value) };
         assert_eq!(s, &[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]);
 
         let key: Key = prep_stack.pop_l();
-        let value: Type = prep_stack.pop_l();
+        let value: usize = prep_stack.pop_l();
         assert_eq!(key, Key::Gid);
         assert_eq!(value, 1000);
 
         let key: Key = prep_stack.pop_l();
-        let value: Type = prep_stack.pop_l();
+        let value: usize = prep_stack.pop_l();
         assert_eq!(key, Key::Uid);
         assert_eq!(value, 1000);
 
         let key: Key = prep_stack.pop_l();
-        let value: Type = prep_stack.pop_l();
+        let value: usize = prep_stack.pop_l();
         assert_eq!(key, Key::Platform);
         let cstr = unsafe { CStr::from_ptr(value as *const u8 as _) };
         let s = cstr.to_string_lossy();
         assert_eq!(s, "x86_64");
 
         let key: Key = prep_stack.pop_l();
-        let value: Type = prep_stack.pop_l();
+        let value: usize = prep_stack.pop_l();
         assert_eq!(key, Key::ExecFilename);
         let cstr = unsafe { CStr::from_ptr(value as _) };
         let s = cstr.to_string_lossy();
         assert_eq!(s, prog);
 
         let key: Key = prep_stack.pop_l();
-        let value: Type = prep_stack.pop_l();
+        let value: usize = prep_stack.pop_l();
         assert_eq!(key, Key::Null);
         assert_eq!(value, 0);
     }

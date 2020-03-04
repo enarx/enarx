@@ -2,58 +2,55 @@
 
 //! Types and Constants to create an ELF AUXV
 
-/// The basic AuxvType able to hold a pointer
-pub type Type = usize;
-
 /// AuxvEntry to be used with `Crt0Stack::add_auxv_entry()`
 pub enum Entry<'a> {
     /// file descriptor of program
-    ExecFd(Type), // core does not have RawFd
+    ExecFd(usize), // core does not have RawFd
 
     /// program headers for program
-    PHdr(Type),
+    PHdr(usize),
 
     /// size of program header entry
-    PHent(Type),
+    PHent(usize),
 
     /// number of program headers
-    PHnum(Type),
+    PHnum(usize),
 
     /// system page size
-    Pagesize(Type),
+    Pagesize(usize),
 
     /// base address of interpreter
-    Base(Type),
+    Base(usize),
 
     /// flags
-    Flags(Type),
+    Flags(usize),
 
     /// entry point of program
-    Entry(Type),
+    Entry(usize),
 
     /// program is not ELF
     Notelf(bool),
 
     /// real uid
-    Uid(Type),
+    Uid(usize),
 
     /// effective uid
-    EUid(Type),
+    EUid(usize),
 
     /// real gid
-    Gid(Type),
+    Gid(usize),
 
     /// effective gid
-    EGid(Type),
+    EGid(usize),
 
     /// string identifying CPU for optimizations
     Platform(&'a str),
 
     /// arch dependent hints at CPU capabilities
-    HWCap(Type),
+    HWCap(usize),
 
     /// frequency at which times() increments
-    ClockTick(Type),
+    ClockTick(usize),
 
     /// secure mode boolean
     Secure(bool),
@@ -65,7 +62,7 @@ pub enum Entry<'a> {
     Random([u8; 16]),
 
     /// extension of HWCAP
-    HWCap2(Type),
+    HWCap2(usize),
 
     /// filename of program
     ExecFilename(&'a str),
