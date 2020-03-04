@@ -348,8 +348,7 @@ mod tests {
                 val.as_mut_ptr().write(ptr.read());
             }
             self.idx += size;
-            let val = unsafe { val.assume_init() };
-            val
+            unsafe { val.assume_init() }
         }
 
         #[inline(always)]
