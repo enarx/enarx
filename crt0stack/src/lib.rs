@@ -895,4 +895,38 @@ mod tests {
             println!("aux: {:?}", aux);
         }
     }
+
+    #[test]
+    fn reader_unknown() {
+        let stack = [
+            0usize,           // argc
+            0usize,           // arg terminator
+            0usize,           // env terminator
+            Key::UID.into(),  // UID
+            1234,             // UID
+            0xAAAA,           // unknown
+            0xAAAA,           // unknown
+            Key::GID.into(),  // GID
+            1234,             // GID
+            Key::NULL.into(), // terminator
+            0usize,           // terminator
+        ];
+
+        let reader = unsafe { Reader::from_stack(&*(stack.as_ptr() as *const ())) };
+        assert_eq!(reader.count(), 0);
+
+        let mut reader = reader.done();
+        assert_eq!(reader.next(), None); // terminator
+        assert_eq!(reader.next(), None); // don't overrun
+
+        let mut reader = reader.done();
+        assert_eq!(reader.next(), None); // terminator
+        assert_eq!(reader.next(), None); // don't overrun
+
+        let mut reader = reader.done();
+        assert_eq!(reader.next(), Some(Entry::Uid(1234)));
+        assert_eq!(reader.next(), Some(Entry::Gid(1234))); // skip unknown...
+        assert_eq!(reader.next(), None); // terminator
+        assert_eq!(reader.next(), None); // don't overrun
+    }
 }
