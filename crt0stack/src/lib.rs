@@ -13,10 +13,10 @@
 //! let mut builder = Builder::new(stack);
 //!
 //! builder.push("/init").unwrap();
-//! let mut builder = builder.next().unwrap();
+//! let mut builder = builder.done().unwrap();
 //!
 //! builder.push("HOME=/root").unwrap();
-//! let mut builder = builder.next().unwrap();
+//! let mut builder = builder.done().unwrap();
 //!
 //! let auxv = [
 //!     Entry::Gid(1000),
@@ -125,10 +125,10 @@ impl<'a> Handle<'a> {
 /// let mut builder = Builder::new(stack);
 ///
 /// builder.push("/init").unwrap();
-/// let mut builder = builder.next().unwrap();
+/// let mut builder = builder.done().unwrap();
 ///
 /// builder.push("HOME=/root").unwrap();
-/// let mut builder = builder.next().unwrap();
+/// let mut builder = builder.done().unwrap();
 ///
 /// let auxv = [
 ///     Entry::Gid(1000),
@@ -202,7 +202,7 @@ impl<'a> Builder<'a, Arg> {
 
     /// Advance the Builder to the next step
     #[inline]
-    pub fn next(mut self) -> Result<Builder<'a, Env>> {
+    pub fn done(mut self) -> Result<Builder<'a, Env>> {
         // last argv is NULL
         self.push_item(0usize)?;
 
@@ -237,7 +237,7 @@ impl<'a> Builder<'a, Env> {
 
     /// Advance the Build to the next step
     #[inline]
-    pub fn next(mut self) -> Result<Builder<'a, Aux>> {
+    pub fn done(mut self) -> Result<Builder<'a, Aux>> {
         // last environ is NULL
         self.push_item(0usize)?;
         Ok(Builder {
@@ -474,9 +474,9 @@ mod tests {
 
         let mut builder = Builder::new(stack);
         builder.push(prog).unwrap();
-        let mut builder = builder.next().unwrap();
+        let mut builder = builder.done().unwrap();
         builder.push("HOME=/root").unwrap();
-        let mut builder = builder.next().unwrap();
+        let mut builder = builder.done().unwrap();
         auxv.iter().for_each(|e| builder.push(e).unwrap());
         let handle = builder.done().unwrap();
 

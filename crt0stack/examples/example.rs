@@ -43,9 +43,9 @@ fn main() -> core::result::Result<(), OutOfSpace> {
 
     let mut builder = Builder::new(&mut stack_mem);
     builder.push(prog)?;
-    let mut builder = builder.next()?;
+    let mut builder = builder.done()?;
     builder.push("LANG=C")?;
-    let mut builder = builder.next()?;
+    let mut builder = builder.done()?;
     for i in &[
         Entry::ExecFilename(prog),
         Entry::Platform("x86_64"),
