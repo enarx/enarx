@@ -315,6 +315,171 @@ impl<'a> Builder<'a, Aux> {
     }
 }
 
+// Convert a usize (pointer) to a string.
+unsafe fn u2s<'a>(ptr: usize) -> core::result::Result<&'a str, core::str::Utf8Error> {
+    let ptr = ptr as *const u8;
+
+    let mut len = 0;
+    while *ptr.offset(len) != 0 {
+        len += 1;
+    }
+
+    let buf = core::slice::from_raw_parts(ptr, len as _);
+    core::str::from_utf8(buf)
+}
+
+/// Reader for the initial stack of a Linux ELF binary
+pub struct Reader<'a, T> {
+    stack: *const usize,
+    index: usize,
+    state: PhantomData<&'a T>,
+}
+
+impl<'a> Reader<'a, ()> {
+    /// Create a new Reader for the stack
+    ///
+    /// # Safety
+    ///
+    /// This function creates a reader by taking a reference to a hopefully well-crafted
+    /// crt0 stack. We have no way to validate that this is the case. If the pointer
+    /// points to some other kind of data, there will likely be crashes. So be sure you
+    /// get this right.
+    #[inline]
+    pub unsafe fn new(stack: &'a ()) -> Self {
+        Self {
+            stack: stack as *const _ as _,
+            index: 0,
+            state: PhantomData,
+        }
+    }
+
+    /// Returns the number of arguments
+    #[inline]
+    pub fn count(&self) -> usize {
+        unsafe { *self.stack.add(self.index) }
+    }
+
+    /// Starts parsing the arguments
+    #[inline]
+    pub fn done(self) -> Reader<'a, Arg> {
+        Reader {
+            stack: self.stack,
+            index: 1,
+            state: PhantomData,
+        }
+    }
+}
+
+impl<'a> Iterator for Reader<'a, Arg> {
+    type Item = &'a str;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if unsafe { *self.stack.add(self.index) } == 0 {
+            return None;
+        }
+
+        match unsafe { u2s(*self.stack.add(self.index)) } {
+            Ok(s) => {
+                self.index += 1;
+                Some(s)
+            }
+            Err(_) => None,
+        }
+    }
+}
+
+impl<'a> Reader<'a, Arg> {
+    /// Starts parsing the environment
+    #[inline]
+    pub fn done(mut self) -> Reader<'a, Env> {
+        while unsafe { *self.stack.add(self.index) } != 0 {
+            self.index += 1;
+        }
+
+        Reader {
+            stack: self.stack,
+            index: self.index + 1,
+            state: PhantomData,
+        }
+    }
+}
+
+impl<'a> Iterator for Reader<'a, Env> {
+    type Item = &'a str;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if unsafe { *self.stack.add(self.index) } == 0 {
+            return None;
+        }
+
+        match unsafe { u2s(*self.stack.add(self.index)) } {
+            Ok(s) => {
+                self.index += 1;
+                Some(s)
+            }
+            Err(_) => None,
+        }
+    }
+}
+
+impl<'a> Reader<'a, Env> {
+    /// Starts parsing the auxiliary vector
+    #[inline]
+    pub fn done(mut self) -> Reader<'a, Aux> {
+        while unsafe { *self.stack.add(self.index) } != 0 {
+            self.index += 1;
+        }
+
+        Reader {
+            stack: self.stack,
+            index: self.index + 1,
+            state: PhantomData,
+        }
+    }
+}
+
+impl<'a> Iterator for Reader<'a, Aux> {
+    type Item = Entry<'a>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let val = unsafe { *self.stack.offset(self.index as isize + 1) };
+
+        let entry = match unsafe { core::mem::transmute(*self.stack.add(self.index)) } {
+            Key::NULL => return None,
+            Key::EXECFD => Entry::ExecFd(val),
+            Key::PHDR => Entry::PHdr(val),
+            Key::PHENT => Entry::PHent(val),
+            Key::PHNUM => Entry::PHnum(val),
+            Key::PAGESZ => Entry::PageSize(val),
+            Key::BASE => Entry::Base(val),
+            Key::FLAGS => Entry::Flags(val),
+            Key::ENTRY => Entry::Entry(val),
+            Key::NOTELF => Entry::NotElf(val != 0),
+            Key::UID => Entry::Uid(val),
+            Key::EUID => Entry::EUid(val),
+            Key::GID => Entry::Gid(val),
+            Key::EGID => Entry::EGid(val),
+            Key::PLATFORM => Entry::Platform(unsafe { u2s(val).ok()? }),
+            Key::HWCAP => Entry::HWCap(val),
+            Key::CLKTCK => Entry::ClockTick(val),
+            Key::SECURE => Entry::Secure(val != 0),
+            Key::BASE_PLATFORM => Entry::BasePlatform(unsafe { u2s(val).ok()? }),
+            Key::RANDOM => Entry::Random(unsafe { *(val as *const [u8; 16]) }),
+            Key::HWCAP2 => Entry::HWCap2(val),
+            Key::EXECFN => Entry::ExecFilename(unsafe { u2s(val).ok()? }),
+            _ => {
+                return {
+                    self.index += 2;
+                    self.next()
+                }
+            }
+        };
+
+        self.index += 2;
+        Some(entry)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -536,5 +701,91 @@ mod tests {
         let value: usize = prep_stack.pop_l();
         assert_eq!(key, Key::NULL);
         assert_eq!(value, 0);
+    }
+
+    #[test]
+    fn reader() {
+        let mut stack = [0u8; 512];
+
+        let mut builder = Builder::new(&mut stack);
+        builder.push("foo").unwrap();
+        builder.push("bar").unwrap();
+        builder.push("baz").unwrap();
+
+        let mut builder = builder.done().unwrap();
+        builder.push("FOO=foo").unwrap();
+        builder.push("BAR=bar").unwrap();
+        builder.push("BAZ=baz").unwrap();
+
+        let mut builder = builder.done().unwrap();
+        builder.push(&Entry::Random([255u8; 16])).unwrap();
+        builder.push(&Entry::Platform("foo")).unwrap();
+        builder.push(&Entry::Secure(true)).unwrap();
+        builder.push(&Entry::Uid(1234)).unwrap();
+
+        let handle = builder.done().unwrap();
+
+        let reader = unsafe { Reader::new(handle.start_ptr()) };
+        assert_eq!(reader.count(), 3);
+
+        let mut reader = reader.done();
+        assert_eq!(reader.next(), Some("foo"));
+        assert_eq!(reader.next(), Some("bar"));
+        assert_eq!(reader.next(), Some("baz"));
+        assert_eq!(reader.next(), None);
+
+        let mut reader = reader.done();
+        assert_eq!(reader.next(), Some("FOO=foo"));
+        assert_eq!(reader.next(), Some("BAR=bar"));
+        assert_eq!(reader.next(), Some("BAZ=baz"));
+        assert_eq!(reader.next(), None);
+
+        let mut reader = reader.done();
+        assert_eq!(reader.next(), Some(Entry::Random([255u8; 16])));
+        assert_eq!(reader.next(), Some(Entry::Platform("foo")));
+        assert_eq!(reader.next(), Some(Entry::Secure(true)));
+        assert_eq!(reader.next(), Some(Entry::Uid(1234)));
+        assert_eq!(reader.next(), None);
+    }
+
+    #[test]
+    fn reader_skip() {
+        let mut stack = [0u8; 512];
+
+        let mut builder = Builder::new(&mut stack);
+        builder.push("foo").unwrap();
+        builder.push("bar").unwrap();
+        builder.push("baz").unwrap();
+
+        let mut builder = builder.done().unwrap();
+        builder.push("FOO=foo").unwrap();
+        builder.push("BAR=bar").unwrap();
+        builder.push("BAZ=baz").unwrap();
+
+        let mut builder = builder.done().unwrap();
+        builder.push(&Entry::Random([255u8; 16])).unwrap();
+        builder.push(&Entry::Platform("foo")).unwrap();
+        builder.push(&Entry::Secure(true)).unwrap();
+        builder.push(&Entry::Uid(1234)).unwrap();
+
+        let handle = builder.done().unwrap();
+
+        let reader = unsafe { Reader::new(handle.start_ptr()) };
+        assert_eq!(reader.count(), 3);
+
+        let mut reader = reader.done();
+        assert_eq!(reader.next(), Some("foo"));
+        // skip additional values
+
+        let mut reader = reader.done();
+        assert_eq!(reader.next(), Some("FOO=foo"));
+        // skip additional values
+
+        let mut reader = reader.done();
+        assert_eq!(reader.next(), Some(Entry::Random([255u8; 16])));
+        assert_eq!(reader.next(), Some(Entry::Platform("foo")));
+        assert_eq!(reader.next(), Some(Entry::Secure(true)));
+        assert_eq!(reader.next(), Some(Entry::Uid(1234)));
+        assert_eq!(reader.next(), None);
     }
 }
