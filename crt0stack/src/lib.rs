@@ -326,11 +326,11 @@ unsafe fn u2s<'a>(ptr: usize) -> core::result::Result<&'a str, core::str::Utf8Er
     let ptr = ptr as *const u8;
 
     let mut len = 0;
-    while *ptr.offset(len) != 0 {
+    while *ptr.add(len) != 0 {
         len += 1;
     }
 
-    let buf = core::slice::from_raw_parts(ptr, len as _);
+    let buf = core::slice::from_raw_parts(ptr, len);
     core::str::from_utf8(buf)
 }
 
@@ -448,7 +448,7 @@ impl<'a> Iterator for Reader<'a, Aux> {
     type Item = Entry<'a>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let val = unsafe { *self.stack.offset(self.index as isize + 1) };
+        let val = unsafe { *self.stack.add(self.index + 1) };
 
         let entry = match unsafe { core::mem::transmute(*self.stack.add(self.index)) } {
             Key::NULL => return None,
