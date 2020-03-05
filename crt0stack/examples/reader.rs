@@ -19,7 +19,7 @@ fn main() {
             len += 1;
         }
 
-        Reader::new(&*(ptr as *const ()))
+        Reader::from_stack(&*(ptr as *const ()))
     };
 
     assert_eq!(reader.count(), 1);
