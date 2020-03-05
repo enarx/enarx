@@ -392,6 +392,37 @@ impl<'a> Iterator for Reader<'a, Arg> {
 }
 
 impl<'a> Reader<'a, Arg> {
+    /// Rewind to the start of this section
+    #[inline]
+    pub fn rewind(&mut self) {
+        // Go to the end of this section.
+        while unsafe { *self.stack } != 0 {
+            self.stack = unsafe { self.stack.add(1) };
+        }
+
+        // Decrement the pointer until we reach the count.
+        let mut len = 0;
+        self.stack = unsafe { self.stack.sub(1) };
+        while unsafe { *self.stack } != len {
+            self.stack = unsafe { self.stack.sub(1) };
+            len += 1;
+        }
+
+        // Increment once
+        self.stack = unsafe { self.stack.add(1) };
+    }
+
+    /// Returns parsing to the argument count section
+    #[inline]
+    pub fn prev(mut self) -> Reader<'a, ()> {
+        self.rewind();
+
+        Reader {
+            stack: unsafe { self.stack.sub(1) },
+            state: PhantomData,
+        }
+    }
+
     /// Starts parsing the environment
     #[inline]
     pub fn done(mut self) -> Reader<'a, Env> {
@@ -425,6 +456,32 @@ impl<'a> Iterator for Reader<'a, Env> {
 }
 
 impl<'a> Reader<'a, Env> {
+    /// Rewind to the start of this section
+    #[inline]
+    pub fn rewind(&mut self) {
+        self.stack = unsafe { self.stack.sub(1) };
+
+        while unsafe { *self.stack } != 0 {
+            self.stack = unsafe { self.stack.sub(1) };
+        }
+
+        self.stack = unsafe { self.stack.add(1) };
+    }
+
+    /// Returns parsing to the start of the argument section
+    #[inline]
+    pub fn prev(mut self) -> Reader<'a, Arg> {
+        self.rewind();
+
+        let mut prev: Reader<'a, Arg> = Reader {
+            stack: unsafe { self.stack.sub(1) },
+            state: PhantomData,
+        };
+
+        prev.rewind();
+        prev
+    }
+
     /// Starts parsing the auxiliary vector
     #[inline]
     pub fn done(mut self) -> Reader<'a, Aux> {
