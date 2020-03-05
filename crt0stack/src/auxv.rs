@@ -67,6 +67,14 @@ pub enum Entry<'a> {
 
     /// filename of program
     ExecFilename(&'a str),
+
+    /// pointer to the vDSO page (deprecated)
+    #[cfg(target_arch = "x86")]
+    SysInfo(usize),
+
+    /// pointer to the ELF headers of the vDSO page
+    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+    SysInfoEHdr(usize),
 }
 
 #[repr(transparent)]
@@ -149,4 +157,12 @@ impl Key {
 
     /// filename of program
     pub const EXECFN: Key = Key(31);
+
+    /// pointer to the vDSO page (deprecated)
+    #[cfg(target_arch = "x86")]
+    pub const SYSINFO: Key = Key(32);
+
+    /// pointer to the ELF headers of the vDSO page
+    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+    pub const SYSINFO_EHDR: Key = Key(33);
 }
