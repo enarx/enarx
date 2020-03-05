@@ -342,7 +342,7 @@ pub struct Reader<'a, T> {
 }
 
 impl<'a> Reader<'a, ()> {
-    /// Create a new Reader for the stack
+    /// Create a new Reader from a pointer to the stack
     ///
     /// # Safety
     ///
@@ -351,7 +351,7 @@ impl<'a> Reader<'a, ()> {
     /// points to some other kind of data, there will likely be crashes. So be sure you
     /// get this right.
     #[inline]
-    pub unsafe fn new(stack: &'a ()) -> Self {
+    pub unsafe fn from_stack(stack: &'a ()) -> Self {
         Self {
             stack: stack as *const _ as _,
             index: 0,
@@ -738,7 +738,7 @@ mod tests {
 
         let handle = builder.done().unwrap();
 
-        let reader = unsafe { Reader::new(handle.start_ptr()) };
+        let reader = unsafe { Reader::from_stack(handle.start_ptr()) };
         assert_eq!(reader.count(), 3);
 
         let mut reader = reader.done();
@@ -783,7 +783,7 @@ mod tests {
 
         let handle = builder.done().unwrap();
 
-        let reader = unsafe { Reader::new(handle.start_ptr()) };
+        let reader = unsafe { Reader::from_stack(handle.start_ptr()) };
         assert_eq!(reader.count(), 3);
 
         let mut reader = reader.done();
@@ -820,7 +820,7 @@ mod tests {
                 len += 1;
             }
 
-            Reader::new(&*(ptr as *const ()))
+            Reader::from_stack(&*(ptr as *const ()))
         };
 
         assert_eq!(reader.count(), 1);
