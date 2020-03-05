@@ -284,6 +284,12 @@ impl<'a> Builder<'a, Aux> {
             Entry::ClockTick(v) => (Key::CLKTCK, v),
             Entry::Secure(v) => (Key::SECURE, if v { 1 } else { 0 }),
             Entry::HWCap2(v) => (Key::HWCAP2, v),
+
+            #[cfg(target_arch = "x86")]
+            Entry::SysInfo(v) => (Key::SYSINFO, v),
+
+            #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+            Entry::SysInfoEHdr(v) => (Key::SYSINFO_EHDR, v),
         };
         self.push_item(key.into())?;
         self.push_item(value)?;
@@ -467,6 +473,13 @@ impl<'a> Iterator for Reader<'a, Aux> {
             Key::RANDOM => Entry::Random(unsafe { *(val as *const [u8; 16]) }),
             Key::HWCAP2 => Entry::HWCap2(val),
             Key::EXECFN => Entry::ExecFilename(unsafe { u2s(val).ok()? }),
+
+            #[cfg(target_arch = "x86")]
+            Key::SYSINFO => Entry::SysInfo(val),
+
+            #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+            Key::SYSINFO_EHDR => Entry::SysInfoEHdr(val),
+
             _ => {
                 return {
                     self.index += 2;
