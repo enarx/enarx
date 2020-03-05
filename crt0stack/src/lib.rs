@@ -456,6 +456,23 @@ impl<'a> Iterator for Reader<'a, Env> {
 }
 
 impl<'a> Reader<'a, Env> {
+    /// Create a new Reader from the POSIX `environ` pointer
+    ///
+    /// # Safety
+    ///
+    /// This function creates a reader by taking a pointer to the environment
+    /// section of a hopefully well-crafted crt0 stack. We have no way to
+    /// validate that this is the case. If the pointer points to some other
+    /// kind of data, there will likely be crashes. So be sure you get this
+    /// right.
+    #[inline]
+    pub unsafe fn from_environ<T>(environ: &'a *mut T) -> Self {
+        Reader {
+            stack: environ as *const _ as *const usize,
+            state: PhantomData,
+        }
+    }
+
     /// Rewind to the start of this section
     #[inline]
     pub fn rewind(&mut self) {
@@ -857,24 +874,10 @@ mod tests {
     #[test]
     fn reader_real() {
         extern "C" {
-            static environ: *const *const std::os::raw::c_char;
+            static environ: *mut *mut std::os::raw::c_char;
         }
 
-        let reader = unsafe {
-            let mut ptr = environ as *const usize;
-            ptr = ptr.sub(1);
-            assert_eq!(*ptr, 0);
-            ptr = ptr.sub(1);
-
-            let mut len = 0;
-            while *ptr != len {
-                ptr = ptr.sub(1);
-                len += 1;
-            }
-
-            Reader::from_stack(&*(ptr as *const ()))
-        };
-
+        let reader = unsafe { Reader::from_environ(&*environ) }.prev().prev();
         assert_eq!(reader.count(), 1);
 
         let mut reader = reader.done();
