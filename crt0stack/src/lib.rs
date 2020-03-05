@@ -256,36 +256,36 @@ impl<'a> Builder<'a, Aux> {
         let (key, value): (Key, usize) = match *entry {
             Entry::Platform(x) => {
                 self.push_data(0u8)?;
-                (Key::Platform, self.push_data(x.as_bytes())? as _)
+                (Key::PLATFORM, self.push_data(x.as_bytes())? as _)
             }
             Entry::BasePlatform(x) => {
                 self.push_data(0u8)?;
-                (Key::BasePlatform, self.push_data(x.as_bytes())? as _)
+                (Key::BASE_PLATFORM, self.push_data(x.as_bytes())? as _)
             }
             Entry::ExecFilename(x) => {
                 self.push_data(0u8)?;
-                (Key::ExecFilename, self.push_data(x.as_bytes())? as _)
+                (Key::EXECFN, self.push_data(x.as_bytes())? as _)
             }
-            Entry::Random(x) => (Key::Random, self.push_data(&x[..])? as _),
-            Entry::ExecFd(v) => (Key::ExecFd, v),
-            Entry::PHdr(v) => (Key::PHdr, v),
-            Entry::PHent(v) => (Key::PHent, v),
-            Entry::PHnum(v) => (Key::PHnum, v),
-            Entry::PageSize(v) => (Key::Pagesize, v),
-            Entry::Base(v) => (Key::Base, v),
-            Entry::Flags(v) => (Key::Flags, v),
-            Entry::Entry(v) => (Key::Entry, v),
-            Entry::NotElf(v) => (Key::NotElf, if v { 1 } else { 0 }),
-            Entry::Uid(v) => (Key::Uid, v),
-            Entry::EUid(v) => (Key::EUid, v),
-            Entry::Gid(v) => (Key::Gid, v),
-            Entry::EGid(v) => (Key::EGid, v),
-            Entry::HWCap(v) => (Key::HWCap, v),
-            Entry::ClockTick(v) => (Key::ClockTick, v),
-            Entry::Secure(v) => (Key::Secure, if v { 1 } else { 0 }),
-            Entry::HWCap2(v) => (Key::HWCap2, v),
+            Entry::Random(x) => (Key::RANDOM, self.push_data(&x[..])? as _),
+            Entry::ExecFd(v) => (Key::EXECFD, v),
+            Entry::PHdr(v) => (Key::PHDR, v),
+            Entry::PHent(v) => (Key::PHENT, v),
+            Entry::PHnum(v) => (Key::PHNUM, v),
+            Entry::PageSize(v) => (Key::PAGESZ, v),
+            Entry::Base(v) => (Key::BASE, v),
+            Entry::Flags(v) => (Key::FLAGS, v),
+            Entry::Entry(v) => (Key::ENTRY, v),
+            Entry::NotElf(v) => (Key::NOTELF, if v { 1 } else { 0 }),
+            Entry::Uid(v) => (Key::UID, v),
+            Entry::EUid(v) => (Key::EUID, v),
+            Entry::Gid(v) => (Key::GID, v),
+            Entry::EGid(v) => (Key::EGID, v),
+            Entry::HWCap(v) => (Key::HWCAP, v),
+            Entry::ClockTick(v) => (Key::CLKTCK, v),
+            Entry::Secure(v) => (Key::SECURE, if v { 1 } else { 0 }),
+            Entry::HWCap2(v) => (Key::HWCAP2, v),
         };
-        self.push_item(key as usize)?;
+        self.push_item(key.into())?;
         self.push_item(value)?;
         Ok(())
     }
@@ -293,8 +293,8 @@ impl<'a> Builder<'a, Aux> {
     /// Finish the Builder and get the `Handle`
     #[inline]
     pub fn done(mut self) -> Result<Handle<'a>> {
-        self.push_item(Key::default() as usize)?;
-        self.push_item(usize::default())?;
+        self.push_item(Key::NULL.into())?;
+        self.push_item(0)?;
 
         let start_idx = {
             // at the end, copy the items of the item section from the bottom to the top of the stack
@@ -504,37 +504,37 @@ mod tests {
 
         let key: Key = prep_stack.pop_l();
         let value: usize = prep_stack.pop_l();
-        assert_eq!(key, Key::Random);
+        assert_eq!(key, Key::RANDOM);
         let s: &[u8; 16] = unsafe { core::mem::transmute(value) };
         assert_eq!(s, &[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]);
 
         let key: Key = prep_stack.pop_l();
         let value: usize = prep_stack.pop_l();
-        assert_eq!(key, Key::Gid);
+        assert_eq!(key, Key::GID);
         assert_eq!(value, 1000);
 
         let key: Key = prep_stack.pop_l();
         let value: usize = prep_stack.pop_l();
-        assert_eq!(key, Key::Uid);
+        assert_eq!(key, Key::UID);
         assert_eq!(value, 1000);
 
         let key: Key = prep_stack.pop_l();
         let value: usize = prep_stack.pop_l();
-        assert_eq!(key, Key::Platform);
+        assert_eq!(key, Key::PLATFORM);
         let cstr = unsafe { CStr::from_ptr(value as *const u8 as _) };
         let s = cstr.to_string_lossy();
         assert_eq!(s, "x86_64");
 
         let key: Key = prep_stack.pop_l();
         let value: usize = prep_stack.pop_l();
-        assert_eq!(key, Key::ExecFilename);
+        assert_eq!(key, Key::EXECFN);
         let cstr = unsafe { CStr::from_ptr(value as _) };
         let s = cstr.to_string_lossy();
         assert_eq!(s, prog);
 
         let key: Key = prep_stack.pop_l();
         let value: usize = prep_stack.pop_l();
-        assert_eq!(key, Key::Null);
+        assert_eq!(key, Key::NULL);
         assert_eq!(value, 0);
     }
 }
