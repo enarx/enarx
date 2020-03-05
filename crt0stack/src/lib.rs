@@ -337,7 +337,6 @@ unsafe fn u2s<'a>(ptr: usize) -> core::result::Result<&'a str, core::str::Utf8Er
 /// Reader for the initial stack of a Linux ELF binary
 pub struct Reader<'a, T> {
     stack: *const usize,
-    index: usize,
     state: PhantomData<&'a T>,
 }
 
@@ -354,7 +353,6 @@ impl<'a> Reader<'a, ()> {
     pub unsafe fn from_stack(stack: &'a ()) -> Self {
         Self {
             stack: stack as *const _ as _,
-            index: 0,
             state: PhantomData,
         }
     }
@@ -362,15 +360,14 @@ impl<'a> Reader<'a, ()> {
     /// Returns the number of arguments
     #[inline]
     pub fn count(&self) -> usize {
-        unsafe { *self.stack.add(self.index) }
+        unsafe { *self.stack }
     }
 
     /// Starts parsing the arguments
     #[inline]
     pub fn done(self) -> Reader<'a, Arg> {
         Reader {
-            stack: self.stack,
-            index: 1,
+            stack: unsafe { self.stack.add(1) },
             state: PhantomData,
         }
     }
@@ -380,13 +377,13 @@ impl<'a> Iterator for Reader<'a, Arg> {
     type Item = &'a str;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if unsafe { *self.stack.add(self.index) } == 0 {
+        if unsafe { *self.stack } == 0 {
             return None;
         }
 
-        match unsafe { u2s(*self.stack.add(self.index)) } {
+        match unsafe { u2s(*self.stack) } {
             Ok(s) => {
-                self.index += 1;
+                self.stack = unsafe { self.stack.add(1) };
                 Some(s)
             }
             Err(_) => None,
@@ -398,13 +395,12 @@ impl<'a> Reader<'a, Arg> {
     /// Starts parsing the environment
     #[inline]
     pub fn done(mut self) -> Reader<'a, Env> {
-        while unsafe { *self.stack.add(self.index) } != 0 {
-            self.index += 1;
+        while unsafe { *self.stack } != 0 {
+            self.stack = unsafe { self.stack.add(1) };
         }
 
         Reader {
-            stack: self.stack,
-            index: self.index + 1,
+            stack: unsafe { self.stack.add(1) },
             state: PhantomData,
         }
     }
@@ -414,13 +410,13 @@ impl<'a> Iterator for Reader<'a, Env> {
     type Item = &'a str;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if unsafe { *self.stack.add(self.index) } == 0 {
+        if unsafe { *self.stack } == 0 {
             return None;
         }
 
-        match unsafe { u2s(*self.stack.add(self.index)) } {
+        match unsafe { u2s(*self.stack) } {
             Ok(s) => {
-                self.index += 1;
+                self.stack = unsafe { self.stack.add(1) };
                 Some(s)
             }
             Err(_) => None,
@@ -432,13 +428,12 @@ impl<'a> Reader<'a, Env> {
     /// Starts parsing the auxiliary vector
     #[inline]
     pub fn done(mut self) -> Reader<'a, Aux> {
-        while unsafe { *self.stack.add(self.index) } != 0 {
-            self.index += 1;
+        while unsafe { *self.stack } != 0 {
+            self.stack = unsafe { self.stack.add(1) };
         }
 
         Reader {
-            stack: self.stack,
-            index: self.index + 1,
+            stack: unsafe { self.stack.add(1) },
             state: PhantomData,
         }
     }
@@ -448,9 +443,9 @@ impl<'a> Iterator for Reader<'a, Aux> {
     type Item = Entry<'a>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let val = unsafe { *self.stack.add(self.index + 1) };
+        let val = unsafe { *self.stack.add(1) };
 
-        let entry = match unsafe { core::mem::transmute(*self.stack.add(self.index)) } {
+        let entry = match unsafe { core::mem::transmute(*self.stack) } {
             Key::NULL => return None,
             Key::EXECFD => Entry::ExecFd(val),
             Key::PHDR => Entry::PHdr(val),
@@ -482,13 +477,13 @@ impl<'a> Iterator for Reader<'a, Aux> {
 
             _ => {
                 return {
-                    self.index += 2;
+                    self.stack = unsafe { self.stack.add(2) };
                     self.next()
                 }
             }
         };
 
-        self.index += 2;
+        self.stack = unsafe { self.stack.add(2) };
         Some(entry)
     }
 }
