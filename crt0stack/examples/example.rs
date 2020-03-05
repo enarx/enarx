@@ -53,7 +53,7 @@ fn main() -> core::result::Result<(), OutOfSpace> {
         Entry::EUid(1000),
         Entry::Gid(1000),
         Entry::EGid(1000),
-        Entry::Pagesize(4096),
+        Entry::PageSize(4096),
         Entry::Secure(false),
         Entry::ClockTick(100),
         Entry::Flags(0),

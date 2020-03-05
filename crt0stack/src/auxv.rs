@@ -17,7 +17,7 @@ pub enum Entry<'a> {
     PHnum(usize),
 
     /// system page size
-    Pagesize(usize),
+    PageSize(usize),
 
     /// base address of interpreter
     Base(usize),
@@ -29,7 +29,7 @@ pub enum Entry<'a> {
     Entry(usize),
 
     /// program is not ELF
-    Notelf(bool),
+    NotElf(bool),
 
     /// real uid
     Uid(usize),
