@@ -9,6 +9,7 @@ use testing::testaso;
 bitflags::bitflags! {
     /// Section 38.8.1
     #[derive(Default)]
+    #[repr(transparent)]
     pub struct Flags: u64 {
         /// Allows debugging features while executing in the enclave on this TCS. Hardware clears this bit on EADD.
         const DBGOPTIN = 1 << 0;
