@@ -81,8 +81,11 @@ impl Hasher {
     }
 
     /// Produces MRENCLAVE value by hashing with SHA256.
-    pub fn finish(self) -> [u8; 32] {
-        self.0.finish()
+    pub fn finish(self, params: impl Into<Option<sig::Parameters>>) -> sig::Measurement {
+        params
+            .into()
+            .unwrap_or_default()
+            .measurement(self.0.finish())
     }
 }
 
@@ -101,25 +104,16 @@ impl ToArray for bn::BigNumRef {
     }
 }
 
-/// When implemented for the sig::Signature struct from [sgx-types](../../sgx-types),
-/// this trait signs the MRENCLAVE value created
-/// by the Hasher with an RSA key, as documented in 38.13.
-pub trait Signature: Sized {
-    /// Returns a signature over an Author (SIGSTRUCT header) and SIGSTRUCT Contents
-    /// with the provided RSA key.
-    fn sign(
-        author: sig::Author,
-        contents: sig::Contents,
-        key: rsa::Rsa<pkey::Private>,
-    ) -> Result<Self>;
+/// A key which can create an enclave signature
+///
+/// This is documented in 38.13.
+pub trait Signer: Sized {
+    /// Create an enclave signature
+    fn sign(&self, author: sig::Author, measurement: sig::Measurement) -> Result<sig::Signature>;
 }
 
-impl Signature for sig::Signature {
-    fn sign(
-        author: sig::Author,
-        contents: sig::Contents,
-        key: rsa::Rsa<pkey::Private>,
-    ) -> Result<Self> {
+impl Signer for rsa::Rsa<pkey::Private> {
+    fn sign(&self, author: sig::Author, measurement: sig::Measurement) -> Result<sig::Signature> {
         let a = unsafe {
             core::slice::from_raw_parts(
                 &author as *const _ as *const u8,
@@ -129,13 +123,13 @@ impl Signature for sig::Signature {
 
         let c = unsafe {
             core::slice::from_raw_parts(
-                &contents as *const _ as *const u8,
-                core::mem::size_of_val(&contents),
+                &measurement as *const _ as *const u8,
+                core::mem::size_of_val(&measurement),
             )
         };
 
         // Generates signature on Signature author and contents
-        let rsa_key = pkey::PKey::from_rsa(key.clone())?;
+        let rsa_key = pkey::PKey::from_rsa(self.clone())?;
         let md = hash::MessageDigest::sha256();
         let mut signer = sign::Signer::new(md, &rsa_key)?;
         signer.update(a)?;
@@ -144,7 +138,7 @@ impl Signature for sig::Signature {
 
         // Generates q1, q2 values for RSA signature verification
         let s = bn::BigNum::from_be_bytes(&signature)?;
-        let m = key.n();
+        let m = self.n();
 
         let mut ctx = bn::BigNumContext::new()?;
         let mut q1 = bn::BigNum::new()?;
@@ -155,8 +149,8 @@ impl Signature for sig::Signature {
 
         Ok(sig::Signature::new(
             author,
-            contents,
-            key.e().try_into()?,
+            measurement,
+            self.e().try_into()?,
             m.to_le_array()?,
             s.to_le_array()?,
             q1.to_le_array()?,
@@ -205,7 +199,8 @@ mod test {
             off += i.0.len();
         }
 
-        hasher.finish()
+        // Use default signature parameters
+        hasher.finish(None).mrenclave()
     }
 
     #[test]
@@ -319,7 +314,7 @@ mod test {
 
         // Validate the hash.
         assert_eq!(
-            sig.contents.mrenclave,
+            sig.measurement().mrenclave(),
             hash(&[
                 (&bin[..4096], SecInfo::tcs()),
                 (&bin[4096..], SecInfo::reg(Perms::R | Perms::W | Perms::X))
@@ -330,7 +325,7 @@ mod test {
         // Ensure that sign() can reproduce the exact same signature struct.
         assert_eq!(
             sig,
-            sig::Signature::sign(sig.author, sig.contents, key).unwrap(),
+            key.sign(sig.author(), sig.measurement()).unwrap(),
             "failed to produce correct signature"
         );
     }

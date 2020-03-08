@@ -61,58 +61,88 @@ pub struct Author {
     reserved: [u32; 21],
 }
 
-/// The `Contents` of an enclave
+/// The enclave parameters
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
+pub struct Parameters {
+    /// Bit vector specifying extended SSA frame feature set to be used.
+    pub misc: Masked<MiscSelect>,
+
+    /// Enclave attributes struct.
+    pub attr: Masked<Attributes>,
+
+    /// User-defined value used in key derivation.
+    pub isv_prod_id: isv::ProdId,
+
+    /// User-defined value used in key derivation.
+    pub isv_svn: isv::Svn,
+}
+
+impl Parameters {
+    /// Combines the parameters and a hash of the enclave to produce a `Measurement`
+    pub const fn measurement(&self, mrenclave: [u8; 32]) -> Measurement {
+        Measurement {
+            misc: self.misc,
+            reserved0: [0; 20],
+            attr: self.attr,
+            mrenclave,
+            reserved1: [0; 32],
+            isv_prod_id: self.isv_prod_id,
+            isv_svn: self.isv_svn,
+        }
+    }
+}
+
+/// The enclave Measurement
 ///
 /// This structure encompasses the second block of fields from `SIGSTRUCT`
 /// that is included in the signature. It is split out from `Signature`
 /// in order to make it easy to hash the fields for the signature.
 #[repr(C)]
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
-pub struct Contents {
-    /// Bit vector specifying extended SSA frame feature set to be used.
-    pub misc: Masked<MiscSelect>,
+pub struct Measurement {
+    misc: Masked<MiscSelect>,
     reserved0: [u8; 20],
-    /// Enclave attributes struct.
-    pub attr: Masked<Attributes>,
-    /// SHA256 hash of enclave contents.
-    pub mrenclave: [u8; 32],
+    attr: Masked<Attributes>,
+    mrenclave: [u8; 32],
     reserved1: [u8; 32],
-    /// User-defined value used in key derivation.
-    pub isv_prod_id: isv::ProdId,
-    /// User-defined value used in key derivation.
-    pub isv_svn: isv::Svn,
+    isv_prod_id: isv::ProdId,
+    isv_svn: isv::Svn,
 }
 
-impl From<[u8; 32]> for Contents {
-    fn from(value: [u8; 32]) -> Self {
-        Self::new(
-            Default::default(),
-            Default::default(),
-            value,
-            Default::default(),
-            Default::default(),
-        )
+impl Measurement {
+    /// Get the enclave measurement hash
+    pub fn mrenclave(&self) -> [u8; 32] {
+        self.mrenclave
+    }
+
+    /// Get the enclave parameters
+    pub fn parameters(&self) -> Parameters {
+        Parameters {
+            isv_prod_id: self.isv_prod_id,
+            isv_svn: self.isv_svn,
+            misc: self.misc,
+            attr: self.attr,
+        }
     }
 }
 
-impl Contents {
-    /// Creates new SIGSTRUCT Contents from known values (including MRENCLAVE).
-    pub const fn new(
-        misc: Masked<MiscSelect>,
-        attr: Masked<Attributes>,
-        mrenclave: [u8; 32],
-        isv_prod_id: isv::ProdId,
-        isv_svn: isv::Svn,
-    ) -> Self {
-        Self {
-            misc,
-            reserved0: [0; 20],
-            attr,
-            mrenclave,
-            reserved1: [0; 32],
-            isv_prod_id,
-            isv_svn,
+#[derive(Clone)]
+struct RsaNumber([u8; 384]);
+
+impl core::fmt::Debug for RsaNumber {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        for b in self.0.iter() {
+            write!(f, "{:02x}", *b)?;
         }
+
+        Ok(())
+    }
+}
+
+impl Eq for RsaNumber {}
+impl PartialEq for RsaNumber {
+    fn eq(&self, rhs: &Self) -> bool {
+        self.0[..] == rhs.0[..]
     }
 }
 
@@ -126,60 +156,23 @@ impl Contents {
 ///
 /// Section 38.13
 #[repr(C)]
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Signature {
-    /// Defines the author of an enclave.
-    pub author: Author,
-    /// Modulus of the pubkey (key length = 3072 bits).
-    pub modulus: [u8; 384],
-    /// Exponent of the pubkey (RSA exponent = 3).
-    pub exponent: u32,
-    /// Signature calculated over the fields except modulus.
-    pub signature: [u8; 384],
-    /// Defines the contents of an enclave.
-    pub contents: Contents,
+    author: Author,
+    modulus: RsaNumber,
+    exponent: u32,
+    signature: RsaNumber,
+    measurement: Measurement,
     reserved: [u8; 12],
-    /// Value used in RSA signature verification.
-    pub q1: [u8; 384],
-    /// Value used in RSA signature verification.
-    pub q2: [u8; 384],
-}
-
-impl core::fmt::Debug for Signature {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(f, "Signature {{")?;
-        write!(f, " author: {:?},", self.author)?;
-        write!(f, " modulus: {:?},", &self.modulus[..])?;
-        write!(f, " exponent: {:?},", self.exponent)?;
-        write!(f, " signature: {:?},", &self.signature[..])?;
-        write!(f, " contents: {:?},", self.contents)?;
-        write!(f, " reserved: {:?},", self.reserved)?;
-        write!(f, " q1: {:?},", &self.q1[..])?;
-        write!(f, " q1: {:?} ", &self.q2[..])?;
-        write!(f, "}}")
-    }
-}
-
-impl Eq for Signature {}
-impl PartialEq for Signature {
-    #[allow(clippy::op_ref)]
-    fn eq(&self, other: &Self) -> bool {
-        self.author == other.author
-            && &self.modulus[..] == &other.modulus[..]
-            && self.exponent == other.exponent
-            && &self.signature[..] == &other.signature[..]
-            && self.contents == other.contents
-            && self.reserved == other.reserved
-            && &self.q1[..] == &other.q1[..]
-            && &self.q2[..] == &other.q2[..]
-    }
+    q1: RsaNumber,
+    q2: RsaNumber,
 }
 
 impl Signature {
     /// Creates a new Signature.
     pub const fn new(
         author: Author,
-        contents: Contents,
+        measurement: Measurement,
         exponent: u32,
         modulus: [u8; 384],
         signature: [u8; 384],
@@ -188,14 +181,24 @@ impl Signature {
     ) -> Self {
         Self {
             author,
-            modulus,
+            modulus: RsaNumber(modulus),
             exponent,
-            signature,
-            contents,
+            signature: RsaNumber(signature),
+            measurement,
             reserved: [0; 12],
-            q1,
-            q2,
+            q1: RsaNumber(q1),
+            q2: RsaNumber(q2),
         }
+    }
+
+    /// Get the enclave author
+    pub fn author(&self) -> Author {
+        self.author
+    }
+
+    /// Get the enclave measurement
+    pub fn measurement(&self) -> Measurement {
+        self.measurement
     }
 }
 
@@ -210,7 +213,7 @@ testaso! {
         reserved: 44
     }
 
-    struct Contents: 4, 128 => {
+    struct Measurement: 4, 128 => {
         misc: 0,
         reserved0: 8,
         attr: 28,
@@ -225,7 +228,7 @@ testaso! {
         modulus: 128,
         exponent: 512,
         signature: 516,
-        contents: 900,
+        measurement: 900,
         reserved: 1028,
         q1: 1040,
         q2: 1424
