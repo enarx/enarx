@@ -12,14 +12,9 @@ members = [
     "sgx-types",
     "sgx-crypto",
 
-    "enarx-keep",
-    "enarx-keep-sgx",
-    "enarx-keep-sgx-shim",
-
     "units",
     "addr",
     "span",
-    "mmap",
     "vdso",
 
     "sev",
