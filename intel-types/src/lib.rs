@@ -84,6 +84,7 @@ pub struct Xmm([u8; 16]);
 bitflags! {
     /// x87 Floating Point Unit (FPU) Control Word
     /// Section 8.1.5
+    #[repr(transparent)]
     pub struct Fcw: u16 {
         /// Invalid Operation
         const INV_OP = 1 << 0;
@@ -138,6 +139,7 @@ impl Default for Fcw {
 
 bitflags! {
     /// 32-bit register providing status and control bits used in SIMD floating-point operations
+    #[repr(transparent)]
     pub struct MxCsr: u32 {
         /// Invalid Operation Flag
         const INV_OP = 1 << 0;
@@ -205,6 +207,7 @@ impl Default for MxCsr {
 
 bitflags! {
     /// Section 13.4.3
+    #[repr(transparent)]
     pub struct XcompBv: u64 {
         /// Compacted form is used for the layout of the XSAVE EXtended Region
         const COMPACT = 1 << 63;
@@ -226,6 +229,7 @@ bitflags! {
     /// Bits 62:10 are reserved. Bit 63 does not correspond to any state component.
     /// Section 13.1
     #[derive(Default)]
+    #[repr(transparent)]
     pub struct XstateBv: u64 {
         /// x87 state (Section 13.5.1)
         const X87 = 1 << 0;
@@ -349,6 +353,7 @@ bitflags! {
     ///
     /// See Section 3.4.3.4, 3.4.3, and Figure 3-8.
     #[derive(Default)]
+    #[repr(transparent)]
     pub struct Rflags: u64 {
         /// Carry flag
         const S_CF = 1 << 0;
