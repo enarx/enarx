@@ -12,6 +12,7 @@ members = [
     "sgx-types",
     "sgx-crypto",
 
+    "enumerate",
     "units",
     "span",
     "vdso",
