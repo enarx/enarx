@@ -73,13 +73,13 @@ where
 /// It includes the 10-byte value as well as 6 bytes of padding.
 #[derive(Debug, Default)]
 #[repr(C)]
-pub struct Mm(u128);
+pub struct Mm([u8; 16]);
 
 /// This type represents an XMM 128-bit data register, used to operate on packed single-
 /// precision floating-point operands.
 #[derive(Debug, Default)]
 #[repr(C)]
-pub struct Xmm(u128);
+pub struct Xmm([u8; 16]);
 
 bitflags! {
     /// x87 Floating Point Unit (FPU) Control Word
@@ -324,7 +324,7 @@ pub struct XSaveHeader {
 /// 13.4.3.
 #[derive(Debug, Default)]
 #[repr(C)]
-pub struct XSaveExtend;
+pub struct XSaveExtend([u8; 0]);
 
 /// For details on the fields included in XSave, see Section 13.4. Must be 64 byte aligned.
 #[derive(Debug, Default)]
