@@ -10,5 +10,4 @@ libc = "0.2.67"
 
 [dependencies]
 crt0stack = { path = "../crt0stack" }
-addr = { path = "../addr" }
 goblin = "0.2.0"
