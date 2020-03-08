@@ -8,61 +8,35 @@
 
 use bitflags::bitflags;
 use core::{
-    mem::{align_of, size_of},
+    mem::{align_of, size_of, MaybeUninit},
     num::NonZeroU32,
 };
+use enumerate::enumerate;
 use intel_types::*;
 #[cfg(test)]
 use testing::testaso;
 
-/// Section 38.9.1.1, Table 38-10
-#[derive(Copy, Clone, Debug)]
-pub enum Exception {
-    /// Divider exception.
-    Divider,
+enumerate! {
+    /// Section 38.9.1.1, Table 38-9
+    #[derive(Copy, Clone)]
+    pub enum ExitType: u8 {
+        /// Hardware
+        Hardware = 0b011,
 
-    /// Debug exception.
-    Debug,
-
-    /// Breakpoint exception.
-    Breakpoint,
-
-    /// Bound range exceeded exception.
-    BoundRange,
-
-    /// Invalid opcode exception.
-    InvalidOpCode,
-
-    /// General protection exception. Only reported if SECS.MISCSELECT.EXINFO = 1.
-    GeneralProtection,
-
-    /// Page fault exception. Only reported if SECS.MISCSELECT.EXINFO = 1.
-    PageFault,
-
-    /// x87 FPU floating-point error.
-    FloatingPoint,
-
-    /// Alignment check exceptions.
-    AlignmentCheck,
-
-    /// SIMD floating-point exceptions.
-    Simd,
+        /// Software
+        Software = 0b110,
+    }
 }
 
 /// Section 38.9.1.1, Table 38-9
-#[derive(Copy, Clone, Debug)]
-pub enum ExitType {
-    /// Hardware exit.
-    Hardware,
-
-    /// Software exit.
-    Software,
+#[repr(C, align(4))]
+#[derive(Copy, Clone)]
+pub struct ExitInfo {
+    vector: Exception,
+    exit_type: ExitType,
+    reserved: u8,
+    valid: u8,
 }
-
-/// Section 38.9.1.1, Table 38-9
-#[repr(transparent)]
-#[derive(Copy, Clone, Default)]
-pub struct ExitInfo(u32);
 
 impl core::fmt::Debug for ExitInfo {
     fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
@@ -74,58 +48,41 @@ impl core::fmt::Debug for ExitInfo {
     }
 }
 
+impl Default for ExitInfo {
+    fn default() -> Self {
+        unsafe { MaybeUninit::zeroed().assume_init() }
+    }
+}
+
 impl ExitInfo {
+    const VALID: u8 = 1 << 7;
+
     /// Creates ExitInfo based on ExitType and Exception.
     pub fn new(et: ExitType, exc: Exception) -> Self {
-        let et = match et {
-            ExitType::Hardware => 0b011 << 8,
-            ExitType::Software => 0b110 << 8,
-        };
-
-        let exc = match exc {
-            Exception::Divider => 0x00,
-            Exception::Debug => 0x01,
-            Exception::Breakpoint => 0x03,
-            Exception::BoundRange => 0x05,
-            Exception::InvalidOpCode => 0x06,
-            Exception::GeneralProtection => 0x0d,
-            Exception::PageFault => 0x0e,
-            Exception::FloatingPoint => 0x10,
-            Exception::AlignmentCheck => 0x11,
-            Exception::Simd => 0x13,
-        };
-
-        ExitInfo(1 << 31 | et | exc)
+        ExitInfo {
+            vector: exc,
+            exit_type: et,
+            reserved: 0,
+            valid: Self::VALID,
+        }
     }
 
     /// Returns the exit type, if any.
     pub fn exit_type(self) -> Option<ExitType> {
-        const MASK: u32 = 1 << 31 | 0b111 << 8;
-
-        match self.0 & MASK {
-            0x80000300 => Some(ExitType::Hardware),
-            0x80000600 => Some(ExitType::Software),
-            _ => None,
+        if self.valid != Self::VALID {
+            return None;
         }
+
+        Some(self.exit_type)
     }
 
     /// Returns the exception type, if any.
     pub fn exception(self) -> Option<Exception> {
-        const MASK: u32 = 1 << 31 | 0xff;
-
-        match self.0 & MASK {
-            0x80000000 => Some(Exception::Divider),
-            0x80000001 => Some(Exception::Debug),
-            0x80000003 => Some(Exception::Breakpoint),
-            0x80000005 => Some(Exception::BoundRange),
-            0x80000006 => Some(Exception::InvalidOpCode),
-            0x8000000d => Some(Exception::GeneralProtection),
-            0x8000000e => Some(Exception::PageFault),
-            0x80000010 => Some(Exception::FloatingPoint),
-            0x80000011 => Some(Exception::AlignmentCheck),
-            0x80000013 => Some(Exception::Simd),
-            _ => None,
+        if self.valid != Self::VALID {
+            return None;
         }
+
+        Some(self.vector)
     }
 }
 
@@ -210,7 +167,6 @@ bitflags! {
     /// Flags for a page fault;
     /// Section 38.9.2.2, Table 38-13
     pub struct PageFault: u32 {
-
         /// Same as non-SGX page fault exception P flag.
         const P = 1 << 0;
 
@@ -237,7 +193,6 @@ bitflags! {
     /// when the exception is segment related. Otherwise, 0.
     /// For more, refer to: https://wiki.osdev.org/Exceptions
     pub struct GenProtFault: u32 {
-
         ///  Exception originated externally to the processor.
         const E = 1 << 0;
 
@@ -368,7 +323,7 @@ impl StateSaveArea {
     pub fn fault(&self) -> Option<Fault> {
         self.gpr.exitinfo.exit_type()?;
         match self.gpr.exitinfo.exception() {
-            Some(Exception::PageFault) => Some(Fault::PF(
+            Some(Exception::Page) => Some(Fault::PF(
                 self.misc.exinfo.maddr,
                 PageFault::from_bits(self.misc.exinfo.errcd).unwrap(),
             )),
