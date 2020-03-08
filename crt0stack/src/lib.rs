@@ -256,40 +256,36 @@ impl<'a> Builder<'a, Aux> {
         let (key, value): (Key, usize) = match *entry {
             Entry::Platform(x) => {
                 self.push_data(0u8)?;
-                (Key::PLATFORM, self.push_data(x.as_bytes())? as _)
+                (Key::Platform, self.push_data(x.as_bytes())? as _)
             }
             Entry::BasePlatform(x) => {
                 self.push_data(0u8)?;
-                (Key::BASE_PLATFORM, self.push_data(x.as_bytes())? as _)
+                (Key::BasePlatform, self.push_data(x.as_bytes())? as _)
             }
             Entry::ExecFilename(x) => {
                 self.push_data(0u8)?;
-                (Key::EXECFN, self.push_data(x.as_bytes())? as _)
+                (Key::ExecFilename, self.push_data(x.as_bytes())? as _)
             }
-            Entry::Random(x) => (Key::RANDOM, self.push_data(&x[..])? as _),
-            Entry::ExecFd(v) => (Key::EXECFD, v),
-            Entry::PHdr(v) => (Key::PHDR, v),
-            Entry::PHent(v) => (Key::PHENT, v),
-            Entry::PHnum(v) => (Key::PHNUM, v),
-            Entry::PageSize(v) => (Key::PAGESZ, v),
-            Entry::Base(v) => (Key::BASE, v),
-            Entry::Flags(v) => (Key::FLAGS, v),
-            Entry::Entry(v) => (Key::ENTRY, v),
-            Entry::NotElf(v) => (Key::NOTELF, if v { 1 } else { 0 }),
-            Entry::Uid(v) => (Key::UID, v),
-            Entry::EUid(v) => (Key::EUID, v),
-            Entry::Gid(v) => (Key::GID, v),
-            Entry::EGid(v) => (Key::EGID, v),
-            Entry::HWCap(v) => (Key::HWCAP, v),
-            Entry::ClockTick(v) => (Key::CLKTCK, v),
-            Entry::Secure(v) => (Key::SECURE, if v { 1 } else { 0 }),
-            Entry::HWCap2(v) => (Key::HWCAP2, v),
-
-            #[cfg(target_arch = "x86")]
-            Entry::SysInfo(v) => (Key::SYSINFO, v),
-
-            #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-            Entry::SysInfoEHdr(v) => (Key::SYSINFO_EHDR, v),
+            Entry::Random(x) => (Key::Random, self.push_data(&x[..])? as _),
+            Entry::ExecFd(v) => (Key::ExecFd, v),
+            Entry::PHdr(v) => (Key::PHdr, v),
+            Entry::PHent(v) => (Key::PHent, v),
+            Entry::PHnum(v) => (Key::PHnum, v),
+            Entry::PageSize(v) => (Key::PageSize, v),
+            Entry::Base(v) => (Key::Base, v),
+            Entry::Flags(v) => (Key::Flags, v),
+            Entry::Entry(v) => (Key::Entry, v),
+            Entry::NotElf(v) => (Key::NotElf, if v { 1 } else { 0 }),
+            Entry::Uid(v) => (Key::Uid, v),
+            Entry::EUid(v) => (Key::EUid, v),
+            Entry::Gid(v) => (Key::Gid, v),
+            Entry::EGid(v) => (Key::EGid, v),
+            Entry::HwCap(v) => (Key::HwCap, v),
+            Entry::ClockTick(v) => (Key::ClockTick, v),
+            Entry::Secure(v) => (Key::Secure, if v { 1 } else { 0 }),
+            Entry::HwCap2(v) => (Key::HwCap2, v),
+            Entry::SysInfo(v) => (Key::SysInfo, v),
+            Entry::SysInfoEHdr(v) => (Key::SysInfoEHdr, v),
         };
         self.push_item(key.into())?;
         self.push_item(value)?;
@@ -299,7 +295,7 @@ impl<'a> Builder<'a, Aux> {
     /// Finish the Builder and get the `Handle`
     #[inline]
     pub fn done(mut self) -> Result<Handle<'a>> {
-        self.push_item(Key::NULL.into())?;
+        self.push_item(Key::Null.into())?;
         self.push_item(0)?;
 
         let start_idx = {
@@ -520,34 +516,34 @@ impl<'a> Iterator for Reader<'a, Aux> {
         let val = unsafe { *self.stack.add(1) };
 
         let entry = match unsafe { core::mem::transmute(*self.stack) } {
-            Key::NULL => return None,
-            Key::EXECFD => Entry::ExecFd(val),
-            Key::PHDR => Entry::PHdr(val),
-            Key::PHENT => Entry::PHent(val),
-            Key::PHNUM => Entry::PHnum(val),
-            Key::PAGESZ => Entry::PageSize(val),
-            Key::BASE => Entry::Base(val),
-            Key::FLAGS => Entry::Flags(val),
-            Key::ENTRY => Entry::Entry(val),
-            Key::NOTELF => Entry::NotElf(val != 0),
-            Key::UID => Entry::Uid(val),
-            Key::EUID => Entry::EUid(val),
-            Key::GID => Entry::Gid(val),
-            Key::EGID => Entry::EGid(val),
-            Key::PLATFORM => Entry::Platform(unsafe { u2s(val).ok()? }),
-            Key::HWCAP => Entry::HWCap(val),
-            Key::CLKTCK => Entry::ClockTick(val),
-            Key::SECURE => Entry::Secure(val != 0),
-            Key::BASE_PLATFORM => Entry::BasePlatform(unsafe { u2s(val).ok()? }),
-            Key::RANDOM => Entry::Random(unsafe { *(val as *const [u8; 16]) }),
-            Key::HWCAP2 => Entry::HWCap2(val),
-            Key::EXECFN => Entry::ExecFilename(unsafe { u2s(val).ok()? }),
+            Key::Null => return None,
+            Key::ExecFd => Entry::ExecFd(val),
+            Key::PHdr => Entry::PHdr(val),
+            Key::PHent => Entry::PHent(val),
+            Key::PHnum => Entry::PHnum(val),
+            Key::PageSize => Entry::PageSize(val),
+            Key::Base => Entry::Base(val),
+            Key::Flags => Entry::Flags(val),
+            Key::Entry => Entry::Entry(val),
+            Key::NotElf => Entry::NotElf(val != 0),
+            Key::Uid => Entry::Uid(val),
+            Key::EUid => Entry::EUid(val),
+            Key::Gid => Entry::Gid(val),
+            Key::EGid => Entry::EGid(val),
+            Key::Platform => Entry::Platform(unsafe { u2s(val).ok()? }),
+            Key::HwCap => Entry::HwCap(val),
+            Key::ClockTick => Entry::ClockTick(val),
+            Key::Secure => Entry::Secure(val != 0),
+            Key::BasePlatform => Entry::BasePlatform(unsafe { u2s(val).ok()? }),
+            Key::Random => Entry::Random(unsafe { *(val as *const [u8; 16]) }),
+            Key::HwCap2 => Entry::HwCap2(val),
+            Key::ExecFilename => Entry::ExecFilename(unsafe { u2s(val).ok()? }),
 
             #[cfg(target_arch = "x86")]
-            Key::SYSINFO => Entry::SysInfo(val),
+            Key::SysInfo => Entry::SysInfo(val),
 
             #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-            Key::SYSINFO_EHDR => Entry::SysInfoEHdr(val),
+            Key::SysInfoEHdr => Entry::SysInfoEHdr(val),
 
             _ => {
                 return {
@@ -751,37 +747,37 @@ mod tests {
 
         let key: Key = prep_stack.pop_l();
         let value: usize = prep_stack.pop_l();
-        assert_eq!(key, Key::RANDOM);
+        assert_eq!(key, Key::Random);
         let s: &[u8; 16] = unsafe { core::mem::transmute(value) };
         assert_eq!(s, &[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]);
 
         let key: Key = prep_stack.pop_l();
         let value: usize = prep_stack.pop_l();
-        assert_eq!(key, Key::GID);
+        assert_eq!(key, Key::Gid);
         assert_eq!(value, 1000);
 
         let key: Key = prep_stack.pop_l();
         let value: usize = prep_stack.pop_l();
-        assert_eq!(key, Key::UID);
+        assert_eq!(key, Key::Uid);
         assert_eq!(value, 1000);
 
         let key: Key = prep_stack.pop_l();
         let value: usize = prep_stack.pop_l();
-        assert_eq!(key, Key::PLATFORM);
+        assert_eq!(key, Key::Platform);
         let cstr = unsafe { CStr::from_ptr(value as *const u8 as _) };
         let s = cstr.to_string_lossy();
         assert_eq!(s, "x86_64");
 
         let key: Key = prep_stack.pop_l();
         let value: usize = prep_stack.pop_l();
-        assert_eq!(key, Key::EXECFN);
+        assert_eq!(key, Key::ExecFilename);
         let cstr = unsafe { CStr::from_ptr(value as _) };
         let s = cstr.to_string_lossy();
         assert_eq!(s, prog);
 
         let key: Key = prep_stack.pop_l();
         let value: usize = prep_stack.pop_l();
-        assert_eq!(key, Key::NULL);
+        assert_eq!(key, Key::Null);
         assert_eq!(value, 0);
     }
 
@@ -902,13 +898,13 @@ mod tests {
             0usize,           // argc
             0usize,           // arg terminator
             0usize,           // env terminator
-            Key::UID.into(),  // UID
+            Key::Uid.into(),  // UID
             1234,             // UID
             0xAAAA,           // unknown
             0xAAAA,           // unknown
-            Key::GID.into(),  // GID
+            Key::Gid.into(),  // GID
             1234,             // GID
-            Key::NULL.into(), // terminator
+            Key::Null.into(), // terminator
             0usize,           // terminator
         ];
 
