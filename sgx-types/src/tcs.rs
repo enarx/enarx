@@ -63,8 +63,8 @@ impl Tcs {
             aep: 0,
             ofsbasgx: 0,
             ogsbasgx: 0,
-            fslimit: 0,
-            gslimit: 0,
+            fslimit: !0,
+            gslimit: !0,
             reserved0: [0; 23],
             reserved1: [[0; 32]; 15],
         }
