@@ -9,7 +9,6 @@
 #![allow(clippy::unreadable_literal)]
 #![deny(missing_docs)]
 
-use addr::Offset;
 use openssl::{bn, hash, pkey, rsa, sha, sign};
 use sgx_types::{page, sig};
 use std::convert::TryInto;
@@ -26,8 +25,8 @@ pub struct Hasher(sha::Sha256);
 
 impl Hasher {
     /// Mimics call to SGX_IOC_ENCLAVE_CREATE (ECREATE).
-    pub fn new(size: Offset<usize>, ssa_pages: NonZeroU32) -> Self {
-        let size = size.inner() as u64;
+    pub fn new(size: usize, ssa_pages: NonZeroU32) -> Self {
+        let size = size as u64;
 
         // This value documented in 41.3.
         const ECREATE: u64 = 0x0045544145524345;
@@ -45,11 +44,10 @@ impl Hasher {
     pub fn add<T: AsRef<[u8]> + ?Sized>(
         &mut self,
         data: &T,
-        offset: Offset<usize>,
+        offset: usize,
         secinfo: page::SecInfo,
         measure: bool,
     ) {
-        let offset = offset.inner();
         let data = data.as_ref();
 
         // These values documented in 41.3.
@@ -199,11 +197,11 @@ mod test {
         //   enclave size: the next power of two beyond our segments
         //      ssa pages: 1
         let ssa_pages = NonZeroU32::new(1).unwrap();
-        let mut hasher = Hasher::new(size.next_power_of_two().into(), ssa_pages);
+        let mut hasher = Hasher::new(size.next_power_of_two(), ssa_pages);
 
         let mut off = 0;
         for i in input {
-            hasher.add(i.0, off.into(), i.1, true);
+            hasher.add(i.0, off, i.1, true);
             off += i.0.len();
         }
 
