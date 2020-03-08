@@ -60,8 +60,8 @@ fn main() -> core::result::Result<(), OutOfSpace> {
         Entry::PHdr((load_addr + ELF64_HDR_SIZE) as _),
         Entry::PHent(ELF64_PHDR_SIZE as _),
         Entry::PHnum(num_elf_program_sections),
-        Entry::HWCap(hwcap as _),
-        Entry::HWCap2(0),
+        Entry::HwCap(hwcap as _),
+        Entry::HwCap2(0),
         Entry::Random(random_bytes),
     ] {
         builder.push(i)?;
