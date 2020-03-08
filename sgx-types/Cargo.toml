@@ -10,6 +10,7 @@ edition = "2018"
 [dependencies]
 bitflags = "1.2"
 span  = { path = "../span" }
+enumerate  = { path = "../enumerate" }
 intel-types = { path = "../intel-types" }
 
 [dev-dependencies]
