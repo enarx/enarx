@@ -4,7 +4,7 @@
 //! Section references in further documentation refer to this document.
 //! https://www.intel.com/content/dam/www/public/us/en/documents/manuals/64-ia-32-architectures-software-developer-vol-1-manual.pdf
 
-#![no_std]
+#![cfg_attr(not(test), no_std)]
 #![deny(clippy::all)]
 #![allow(clippy::identity_op)]
 #![deny(missing_docs)]
@@ -67,6 +67,72 @@ where
 {
     fn eq(&self, other: &T) -> bool {
         self.mask & self.data == self.mask & *other
+    }
+}
+
+enumerate::enumerate! {
+    /// Exception Error Codes
+    #[derive(Copy, Clone)]
+    pub enum Exception: u8 {
+        /// Divide-by-zero Error
+        DivideByZero = 0x00,
+
+        /// Debug
+        Debug = 0x01,
+
+        /// Breakpoint
+        Breakpoint = 0x03,
+
+        /// Overflow
+        Overflow = 0x04,
+
+        /// Bound Range Exceeded
+        BoundRange = 0x05,
+
+        /// Invalid Opcode
+        InvalidOpcode = 0x06,
+
+        /// Device Not Available
+        DeviceNotAvailable = 0x07,
+
+        /// Double Fault
+        DoubleFault = 0x08,
+
+        /// Invalid TSS
+        InvalidTss = 0x0A,
+
+        /// Segment Not Present
+        SegmentNotPresent = 0x0B,
+
+        /// Stack-Segment Fault
+        StackSegment = 0x0C,
+
+        /// General Protection Fault
+        GeneralProtection = 0x0D,
+
+        /// Page Fault
+        Page = 0x0E,
+
+        /// x87 Floating-Point Exception
+        FloatingPoint = 0x10,
+
+        /// Alignment Check
+        AlignmentCheck = 0x11,
+
+        /// Machine Check
+        MachineCheck = 0x12,
+
+        /// SIMD Floating-Point Exception
+        SimdFloatingPoint = 0x13,
+
+        /// Virtualization Exception
+        Virtualization = 0x14,
+
+        /// Control Protection Exception
+        ControlProtection = 0x15,
+
+        /// Security Exception
+        Security = 0x1E,
     }
 }
 
