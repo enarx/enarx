@@ -96,7 +96,7 @@ mod test {
 
     use openssl::{bn, pkey, rsa};
     use rstest::*;
-    use sgx_crypto::{Hasher, Signature};
+    use sgx_crypto::{Hasher, Signer};
     use sgx_types::{page, secs};
     use span::Span;
 
@@ -143,7 +143,7 @@ mod test {
         let mut hasher = Hasher::new(span.count, SSA_PAGES);
 
         // Create the enclave.
-        let secs = secs::Secs::new(span, SSA_PAGES);
+        let secs = secs::Secs::new(span, SSA_PAGES, None);
         let create = Create::new(&secs);
         ENCLAVE_CREATE.ioctl(&mut file, &create).unwrap();
 
@@ -161,8 +161,7 @@ mod test {
 
         // Initialize the enclave.
         let author = sig::Vendor::INTEL.author(0, 0);
-        let contents = hasher.finish().into();
-        let sig = sig::Signature::sign(author, contents, key).unwrap();
+        let sig = key.sign(author, hasher.finish(None)).unwrap();
         ENCLAVE_INIT.ioctl(&mut file, &Init::new(&sig)).unwrap();
     }
 }

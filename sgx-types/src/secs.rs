@@ -7,11 +7,12 @@
 //! page created for any enclave. It is moved from a temporary buffer to an EPC
 //! by the means of ENCLS(ECREATE) leaf.
 
-use super::{attr, isv, misc::MiscSelect};
+use super::{attr, isv, misc::MiscSelect, sig::Parameters};
 use core::num::{NonZeroU32, NonZeroUsize};
+use span::Span;
+
 #[cfg(test)]
 use testing::testaso;
-use span::Span;
 
 /// Section 38.7
 #[derive(Copy, Clone, Debug)]
@@ -27,28 +28,34 @@ pub struct Secs {
     reserved1: [u8; 32],
     mrsigner: [u8; 32],
     reserved2: [u64; 12],
-    isvprodid: isv::ProdId,
-    isvsvn: isv::Svn,
+    isv_prod_id: isv::ProdId,
+    isv_svn: isv::Svn,
     reserved3: [u32; 7],
     reserved4: [[u64; 28]; 17],
 }
 
 impl Secs {
     /// Creates a new SECS struct based on a base address and spec.
-    pub fn new(span: Span<usize, usize>, ssa_pages: NonZeroU32) -> Self {
+    pub fn new(
+        span: Span<usize, usize>,
+        ssa_pages: NonZeroU32,
+        parameters: impl Into<Option<Parameters>>,
+    ) -> Self {
+        let parameters = parameters.into().unwrap_or_default();
+
         Self {
             size: span.count as _,
             baseaddr: span.start as _,
             ssaframesize: ssa_pages,
-            miscselect: MiscSelect::default(),
+            miscselect: parameters.misc.data & parameters.misc.mask,
             reserved0: [0; 24],
-            attributes: attr::Attributes::default(),
+            attributes: parameters.attr.data & parameters.attr.mask,
             mrenclave: [0; 32],
             reserved1: [0; 32],
             mrsigner: [0; 32],
             reserved2: [0; 12],
-            isvprodid: isv::ProdId::default(),
-            isvsvn: isv::Svn::default(),
+            isv_prod_id: parameters.isv_prod_id,
+            isv_svn: parameters.isv_svn,
             reserved3: [0; 7],
             reserved4: [[0; 28]; 17],
         }
@@ -117,8 +124,8 @@ testaso! {
         reserved1: 96,
         mrsigner: 128,
         reserved2: 160,
-        isvprodid: 256,
-        isvsvn: 258,
+        isv_prod_id: 256,
+        isv_svn: 258,
         reserved3: 260,
         reserved4: 288
     }
