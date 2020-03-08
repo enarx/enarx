@@ -12,6 +12,9 @@ members = [
     "sgx-types",
     "sgx-crypto",
 
+    "enarx-keep-sgx",
+    "enarx-keep-sgx-shim",
+
     "enumerate",
     "units",
     "span",

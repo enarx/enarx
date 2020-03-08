@@ -1,0 +1,22 @@
+[package]
+name = "enarx-keep-sgx"
+version = "0.1.0"
+authors = ["Nathaniel McCallum <npmccallum@redhat.com>"]
+edition = "2018"
+license = "Apache-2.0"
+
+[dependencies]
+iocuddle-sgx = { path = "../iocuddle-sgx" }
+intel-types = { path = "../intel-types" }
+sgx-crypto = { path = "../sgx-crypto" }
+sgx-types = { path = "../sgx-types" }
+enumerate = { path = "../enumerate" }
+span = { path = "../span" }
+vdso = { path = "../vdso" }
+bitflags = "1.2"
+openssl = "0.10"
+goblin = "0.2"
+libc = "0.2"
+
+[build-dependencies]
+cc = "1.0"
