@@ -5,7 +5,6 @@
 
 use std::marker::PhantomData;
 
-use addr::Offset;
 use bitflags::bitflags;
 use iocuddle::*;
 use sgx_types::{page, secs, sig};
@@ -36,7 +35,7 @@ impl<'a> Create<'a> {
 #[derive(Debug)]
 pub struct AddPages<'a> {
     src: u64,
-    offset: Offset<u64>,
+    offset: u64,
     length: u64,
     secinfo: u64,
     flags: Flags,
@@ -47,13 +46,13 @@ pub struct AddPages<'a> {
 impl<'a> AddPages<'a> {
     pub fn new<T: AsRef<[u8]> + ?Sized>(
         data: &'a T,
-        offset: Offset<usize>,
+        offset: usize,
         secinfo: &'a page::SecInfo,
         flags: Flags,
     ) -> Self {
         Self {
             src: data.as_ref().as_ptr() as _,
-            offset: offset.into(),
+            offset: offset as _,
             length: data.as_ref().len() as _,
             secinfo: secinfo as *const _ as _,
             flags,
@@ -95,11 +94,11 @@ mod test {
     use std::fs::File;
     use std::num::NonZeroU32;
 
-    use addr::Address;
     use openssl::{bn, pkey, rsa};
     use rstest::*;
     use sgx_crypto::{Hasher, Signature};
     use sgx_types::{page, secs};
+    use span::Span;
 
     #[repr(C, align(4096))]
     struct Page([u8; 4096]);
@@ -130,18 +129,21 @@ mod test {
     )]
     fn test(mut file: File, key: rsa::Rsa<pkey::Private>, flags: Flags, perms: page::Flags) {
         const SSA_PAGES: NonZeroU32 = unsafe { NonZeroU32::new_unchecked(1) };
-        const BASE_ADDR: Address<usize> = Address::new(0x0000);
-        const TCS_OFFSET: Offset<usize> = Offset::new(0x0000);
-        const REG_OFFSET: Offset<usize> = Offset::new(0x1000);
+        const BASE_ADDR: usize = 0x0000;
+        const TCS_OFFSET: usize = 0x0000;
+        const REG_OFFSET: usize = 0x1000;
 
-        let size = secs::Secs::max_enc_size().unwrap().get();
+        let span = Span {
+            start: BASE_ADDR,
+            count: secs::Secs::max_enc_size().unwrap().get(),
+        };
 
         // Create the hasher.
         let measure = flags.contains(Flags::MEASURE);
-        let mut hasher = Hasher::new(size.into(), SSA_PAGES);
+        let mut hasher = Hasher::new(span.count, SSA_PAGES);
 
         // Create the enclave.
-        let secs = secs::Secs::new(BASE_ADDR, size.into(), SSA_PAGES);
+        let secs = secs::Secs::new(span, SSA_PAGES);
         let create = Create::new(&secs);
         ENCLAVE_CREATE.ioctl(&mut file, &create).unwrap();
 

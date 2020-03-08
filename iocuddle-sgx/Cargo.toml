@@ -10,10 +10,10 @@ edition = "2018"
 [dependencies]
 sgx-types = { path = "../sgx-types" }
 iocuddle = { path = "../iocuddle" }
-addr = { path = "../addr" }
 bitflags = "1.2"
 
 [dev-dependencies]
 openssl = { version = "0.10", features = [ "vendored" ] }
 sgx-crypto = { path = "../sgx-crypto" }
-rstest = "0.5"
+span = { path = "../span" }
+rstest = "0.6"

@@ -13,7 +13,6 @@ members = [
     "sgx-crypto",
 
     "units",
-    "addr",
     "span",
     "vdso",
 

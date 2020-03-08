@@ -8,17 +8,17 @@
 //! by the means of ENCLS(ECREATE) leaf.
 
 use super::{attr, isv, misc::MiscSelect};
-use addr::{Address, Offset};
 use core::num::{NonZeroU32, NonZeroUsize};
 #[cfg(test)]
 use testing::testaso;
+use span::Span;
 
 /// Section 38.7
 #[derive(Copy, Clone, Debug)]
 #[repr(C, align(4096))]
 pub struct Secs {
-    size: Offset<u64>,
-    baseaddr: Address<u64>,
+    size: u64,
+    baseaddr: u64,
     ssaframesize: NonZeroU32,
     miscselect: MiscSelect,
     reserved0: [u8; 24],
@@ -35,10 +35,10 @@ pub struct Secs {
 
 impl Secs {
     /// Creates a new SECS struct based on a base address and spec.
-    pub fn new(base: Address<usize>, size: Offset<usize>, ssa_pages: NonZeroU32) -> Self {
+    pub fn new(span: Span<usize, usize>, ssa_pages: NonZeroU32) -> Self {
         Self {
-            size: size.into(),
-            baseaddr: base.into(),
+            size: span.count as _,
+            baseaddr: span.start as _,
             ssaframesize: ssa_pages,
             miscselect: MiscSelect::default(),
             reserved0: [0; 24],
