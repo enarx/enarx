@@ -4,6 +4,7 @@
 //! These structs specify metadata about en enclave page.
 
 use bitflags::bitflags;
+#[cfg(test)]
 use testing::testaso;
 
 bitflags! {
@@ -108,6 +109,7 @@ impl SecInfo {
     }
 }
 
+#[cfg(test)]
 testaso! {
     struct SecInfo: 64, 64 => {
         flags: 0,

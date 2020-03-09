@@ -4,6 +4,7 @@
 //! The REPORT structure is the output of the EREPORT instruction, and must be 512-Byte aligned.
 
 use super::{attr::Attributes, isv, misc::MiscSelect};
+#[cfg(test)]
 use testing::testaso;
 
 /// This struct is separated out from the Report to be usable by the Quote struct.
@@ -66,6 +67,7 @@ pub struct Report {
     padding: [u128; 5],
 }
 
+#[cfg(test)]
 testaso! {
     struct Body: 4, 384 => {
         cpusvn: 0,

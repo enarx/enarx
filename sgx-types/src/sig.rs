@@ -7,6 +7,7 @@
 
 use super::{attr::Attributes, isv, misc::MiscSelect};
 use intel_types::Masked;
+#[cfg(test)]
 use testing::testaso;
 
 /// Holds an ID that specifies the vendor of the enclave.
@@ -198,6 +199,7 @@ impl Signature {
     }
 }
 
+#[cfg(test)]
 testaso! {
     struct Author: 8, 128 => {
         header1: 0,

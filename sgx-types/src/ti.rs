@@ -5,6 +5,7 @@
 //! verify the REPORT structure returned by the EREPORT leaf. Must be 512-byte aligned.
 
 use super::{attr::Attributes, misc::MiscSelect};
+#[cfg(test)]
 use testing::testaso;
 
 /// Table 38-22
@@ -22,6 +23,7 @@ pub struct TargetInfo {
     reserved2: [u64; 25],
 }
 
+#[cfg(test)]
 testaso! {
     struct TargetInfo: 512, 512 => {
         mrenclave: 0,

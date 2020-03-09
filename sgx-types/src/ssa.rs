@@ -12,6 +12,7 @@ use core::{
     num::NonZeroU32,
 };
 use intel_types::*;
+#[cfg(test)]
 use testing::testaso;
 
 /// Section 38.9.1.1, Table 38-10
@@ -395,6 +396,7 @@ impl StateSaveArea {
     }
 }
 
+#[cfg(test)]
 testaso! {
     struct Gpr: 8, 184 => {
         rax: 0,

@@ -10,5 +10,7 @@ edition = "2018"
 [dependencies]
 bitflags = "1.2"
 addr = { path = "../addr" }
-testing  = { path = "../testing" }
 intel-types = { path = "../intel-types" }
+
+[dev-dependencies]
+testing  = { path = "../testing" }

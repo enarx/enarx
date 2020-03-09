@@ -4,6 +4,7 @@
 //! Each executing thread in the enclave is associated with a Thread Control Structure.
 
 use addr::Offset;
+#[cfg(test)]
 use testing::testaso;
 
 bitflags::bitflags! {
@@ -83,6 +84,7 @@ impl AsRef<[u8]> for Tcs {
     }
 }
 
+#[cfg(test)]
 testaso! {
     struct Tcs: 4096, 4096 => {
         state: 0,
