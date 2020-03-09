@@ -10,6 +10,7 @@
 use super::{attr, isv, misc::MiscSelect};
 use addr::{Address, Offset};
 use core::num::{NonZeroU32, NonZeroUsize};
+#[cfg(test)]
 use testing::testaso;
 
 /// Section 38.7
@@ -30,25 +31,6 @@ pub struct Secs {
     isvsvn: isv::Svn,
     reserved3: [u32; 7],
     reserved4: [[u64; 28]; 17],
-}
-
-testaso! {
-    struct Secs: 4096, 4096 => {
-        size: 0,
-        baseaddr: 8,
-        ssaframesize: 16,
-        miscselect: 20,
-        reserved0: 24,
-        attributes: 48,
-        mrenclave: 64,
-        reserved1: 96,
-        mrsigner: 128,
-        reserved2: 160,
-        isvprodid: 256,
-        isvsvn: 258,
-        reserved3: 260,
-        reserved4: 288
-    }
 }
 
 impl Secs {
@@ -119,5 +101,25 @@ impl Secs {
         let max_size: u64 = 1 << (res.edx >> 8 as u8) as u64;
 
         NonZeroUsize::new(max_size as usize)
+    }
+}
+
+#[cfg(test)]
+testaso! {
+    struct Secs: 4096, 4096 => {
+        size: 0,
+        baseaddr: 8,
+        ssaframesize: 16,
+        miscselect: 20,
+        reserved0: 24,
+        attributes: 48,
+        mrenclave: 64,
+        reserved1: 96,
+        mrsigner: 128,
+        reserved2: 160,
+        isvprodid: 256,
+        isvsvn: 258,
+        reserved3: 260,
+        reserved4: 288
     }
 }

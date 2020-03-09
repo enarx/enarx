@@ -3,6 +3,7 @@
 //! Attributes (Section 38.7.1)
 //! The attributes of an enclave are specified by the struct below as described.
 
+#[cfg(test)]
 use testing::testaso;
 
 bitflags::bitflags! {
@@ -152,6 +153,7 @@ impl core::ops::BitXor for Attributes {
     }
 }
 
+#[cfg(test)]
 testaso! {
     struct Attributes: 4, 16 => {}
 }

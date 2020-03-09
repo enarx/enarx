@@ -14,6 +14,7 @@ use core::{
     fmt::Debug,
     ops::{BitAnd, BitOr, Not},
 };
+#[cfg(test)]
 use testing::testaso;
 
 /// Succinctly describes a masked type, e.g. masked Attributes or masked MiscSelect.
@@ -411,6 +412,7 @@ bitflags! {
     }
 }
 
+#[cfg(test)]
 testaso! {
     struct XSaveLegacy: 8, 512 => {
         fcw: 0,
