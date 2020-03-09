@@ -1,0 +1,3 @@
+version: 2
+mergeable:
+  - when: pull_request.*
