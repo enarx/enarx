@@ -30,3 +30,23 @@ jobs:
     # Ensure all diagrams are up-to-date.
     - name: All diagrams are up-to-date
       run: .tests/misc-diagrams
+
+  # Ensure required lints are enabled.
+  misc-lints-clippy-all:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+  
+    # Ensure that the `clippy::all` lint is enabled.
+    - name: All Rust crates have `clippy::all` enabled
+      run: .tests/misc-lints-clippy-all
+  
+  # Ensure required lints are enabled.
+  misc-lints-missing-docs:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+
+    # Ensure that the `missing_docs` lint is enabled.
+    - name: All Rust crates have `missing_docs` enabled
+      run: .tests/misc-lints-missing-docs
