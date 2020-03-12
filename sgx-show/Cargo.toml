@@ -10,4 +10,4 @@ edition = "2018"
 [dependencies]
 sgx-types = { path = "../sgx-types" }
 bytesize = "1.0.0"
-colored = "1.9.1"
+colorful = "0.2.1"

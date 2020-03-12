@@ -15,7 +15,7 @@ pub struct Test<T, U: TryFrom<T>> {
 
 impl<T, U: TryFrom<T>> Test<T, U> {
     fn dump(&self, indent: usize, data: Option<U>) {
-        use colored::*;
+        use colorful::*;
 
         let prefix = if data.is_some() {
             "✔".green()
