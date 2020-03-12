@@ -18,7 +18,7 @@ use show::*;
 /// Emits the results described in `tests` and prints them in a
 /// tree-like fashion.
 fn emit_results(tests: Vec<CompletedTest>, indent: usize) {
-    use colored::*;
+    use colorful::*;
 
     for test in tests {
         let icon = if test.passed() {
