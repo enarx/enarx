@@ -1,3 +1,16 @@
 version: 2
 mergeable:
   - when: pull_request.*
+    validate:
+      - do: project
+        must_include:
+          regex: 'Infrastructure'
+          message: 'PR is in the Infrastructure project.'
+      - do: label
+        must_exclude:
+          regex: 'infrastructure'
+          message: 'PR does not have the Infrastructure label.'
+
+    pass:
+      - do: labels
+        labels: [ 'infrastructure' ]
