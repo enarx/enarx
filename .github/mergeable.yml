@@ -1,3 +1,9 @@
 version: 2
 mergeable:
   - when: pull_request.*
+    validate:
+      - do: description
+        must_include:
+          regex: 'Resolves \#\d+'
+          message: >
+            Please ensure this PR has a corresponding issue, and that it closes that issue with the "Resolves" [closing keyword](https://help.github.com/en/github/managing-your-work-on-github/linking-a-pull-request-to-an-issue#linking-a-pull-request-to-an-issue-using-a-keyword).
