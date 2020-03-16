@@ -54,9 +54,11 @@ fn main() {
                 off += 4096;
             }
 
-            builder
-                .load(src, off, SecInfo::reg(seg.rwx))
-                .expect("Unable to add shim page");
+            if !src.is_empty() {
+                builder
+                    .load(src, off, SecInfo::reg(seg.rwx))
+                    .expect("Unable to add shim page");
+            }
         }
 
         // Load the code segments.
@@ -71,35 +73,5 @@ fn main() {
         builder.done().expect("Unable to initialize enclave")
     };
 
-    let mut leaf = Leaf::Enter;
-    let mut cssa = 0usize;
-    loop {
-        eprintln!("{}: {:?}", cssa, leaf);
-
-        match enclave.enter(leaf) {
-            Ok(_) => {
-                eprintln!("{}: Exit", cssa);
-
-                if cssa == 0 {
-                    std::process::exit(0);
-                }
-
-                leaf = Leaf::Resume;
-                cssa -= 1;
-            }
-
-            Err(Some(exc)) => {
-                eprintln!("{}: {:?}", cssa, exc);
-
-                if !exc.resume() {
-                    std::process::exit(1);
-                }
-
-                leaf = Leaf::Enter;
-                cssa += 1;
-            }
-
-            _ => panic!("Unexpected exit code!"),
-        }
-    }
+    enclave.enter(Leaf::Enter).unwrap();
 }

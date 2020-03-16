@@ -6,7 +6,19 @@ use intel_types::Exception;
 use super::map::Unmap;
 
 extern "C" {
-    fn enter_enclave(
+    fn enclave_handle(
+        rdi: usize,
+        rsi: usize,
+        rdx: usize,
+        ursp: usize,
+        r8: usize,
+        r9: usize,
+        tcs: usize,
+        ret: i32,
+        exc: &ExceptionInfo,
+    ) -> i32;
+
+    fn enclave_enter(
         rdi: usize,
         rsi: usize,
         rdx: usize,
@@ -15,7 +27,17 @@ extern "C" {
         r9: usize,
         tcs: usize,
         exc: &mut ExceptionInfo,
-        cb: usize,
+        handler: unsafe extern "C" fn(
+            rdi: usize,
+            rsi: usize,
+            rdx: usize,
+            ursp: usize,
+            r8: usize,
+            r9: usize,
+            tcs: usize,
+            ret: i32,
+            exc: &ExceptionInfo,
+        ) -> i32,
         vdso: usize,
         cmd: Leaf,
     ) -> i32;
@@ -63,15 +85,6 @@ impl std::fmt::Debug for ExceptionInfo {
     }
 }
 
-impl ExceptionInfo {
-    pub fn resume(&self) -> bool {
-        match self.trap {
-            Exception::InvalidOpcode => true,
-            _ => false,
-        }
-    }
-}
-
 pub struct Enclave {
     #[allow(dead_code)]
     mem: Unmap,
@@ -97,7 +110,21 @@ impl Enclave {
         #[allow(clippy::uninit_assumed_init)]
         let mut exc: ExceptionInfo = unsafe { std::mem::MaybeUninit::uninit().assume_init() };
 
-        match unsafe { enter_enclave(0, 0, 0, 0, 0, 0, self.tcs, &mut exc, 0, self.fnc, leaf) } {
+        match unsafe {
+            enclave_enter(
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                self.tcs,
+                &mut exc,
+                enclave_handle,
+                self.fnc,
+                leaf,
+            )
+        } {
             EEXIT => Ok(()),
             FAULT => Err(Some(exc)),
             _ => Err(None),
