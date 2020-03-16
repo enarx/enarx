@@ -1,7 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
+//! This crate implements Intel SGX-related IOCTLs using the iocuddle crate.
+//! All references to Section or Tables are from
+//! https://www.intel.com/content/dam/www/public/us/en/documents/manuals/64-ia-32-architectures-software-developer-vol-3d-part-4-manual.pdf
+
 #![deny(clippy::all)]
 #![allow(clippy::identity_op)]
+#![deny(missing_docs)]
 
 use std::marker::PhantomData;
 
@@ -10,22 +15,33 @@ use iocuddle::*;
 use sgx_types::{page, secs, sig};
 
 const SGX: Group = Group::new(0xA4);
+
+/// IOCTL identifier for ECREATE (see Section 41-21)
 pub const ENCLAVE_CREATE: Ioctl<Write, &Create> = unsafe { SGX.write(0x00) };
+
+/// IOCTL identifier for EADD (see Section 41-11)
 pub const ENCLAVE_ADD_PAGES: Ioctl<WriteRead, &AddPages> = unsafe { SGX.write_read(0x01) };
+
+/// IOCTL identifier for EINIT (see Section 41-35)
 pub const ENCLAVE_INIT: Ioctl<Write, &Init> = unsafe { SGX.write(0x02) };
+
 //pub const ENCLAVE_SET_ATTRIBUTE: Ioctl<Write, &SetAttribute> = unsafe { SGX.write(0x03) };
 
 bitflags! {
+    /// WIP
     pub struct Flags: u64 {
+        /// Indicates whether a page has been measured.
         const MEASURE = 1 << 0;
     }
 }
 
 #[repr(C)]
 #[derive(Debug)]
+/// Struct for creating a new enclave from SECS
 pub struct Create<'a>(u64, PhantomData<&'a ()>);
 
 impl<'a> Create<'a> {
+    /// A new Create struct wraps an SECS struct from the sgx-types crate.
     pub fn new(secs: &'a secs::Secs) -> Self {
         Create(secs as *const _ as _, PhantomData)
     }
@@ -33,6 +49,7 @@ impl<'a> Create<'a> {
 
 #[repr(C)]
 #[derive(Debug)]
+/// Struct for adding pages to an enclave
 pub struct AddPages<'a> {
     src: u64,
     offset: u64,
@@ -44,6 +61,7 @@ pub struct AddPages<'a> {
 }
 
 impl<'a> AddPages<'a> {
+    /// Creates a new AddPages struct for a page at a certain offset
     pub fn new<T: AsRef<[u8]> + ?Sized>(
         data: &'a T,
         offset: usize,
@@ -61,6 +79,7 @@ impl<'a> AddPages<'a> {
         }
     }
 
+    /// WIP
     pub fn count(&self) -> u64 {
         self.count
     }
@@ -68,9 +87,11 @@ impl<'a> AddPages<'a> {
 
 #[repr(C)]
 #[derive(Debug)]
+/// Struct for initializing an enclave
 pub struct Init<'a>(u64, PhantomData<&'a ()>);
 
 impl<'a> Init<'a> {
+    /// A new Init struct must wrap a Signature from the sgx-types crate.
     pub fn new(sig: &'a sig::Signature) -> Self {
         Init(sig as *const _ as _, PhantomData)
     }
@@ -78,9 +99,11 @@ impl<'a> Init<'a> {
 
 #[repr(C)]
 #[derive(Debug)]
+/// Struct for setting enclave attributes - WIP - ERESUME? EREMOVE?
 pub struct SetAttribute<'a>(u64, PhantomData<&'a ()>);
 
 impl<'a> SetAttribute<'a> {
+    /// A new SetAttribute struct must wrap a file descriptor.
     pub fn new(fd: &'a impl std::os::unix::io::AsRawFd) -> Self {
         SetAttribute(fd.as_raw_fd() as _, PhantomData)
     }
