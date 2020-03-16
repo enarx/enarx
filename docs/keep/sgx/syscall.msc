@@ -1,0 +1,60 @@
+msc {
+	hscale="1.5",
+	wordwraparcs=on;
+
+	outside [textcolor="red"],
+	asm [textcolor="blue"],
+	ssa [textcolor="blue"],
+	rust [textcolor="blue"],
+	binary [textcolor="purple"];
+
+	outside => asm [label="EENTER [CSSA=0]"];
+	asm box asm [label="setup trusted stack (randomized)"];
+	asm box asm [label="savep (untrusted) on trusted stack"];
+	ssa => asm [label="SRSP == NULL"];
+	asm box asm [label="zerop, zerot, zerof, zerox"];
+	asm => rust [label="enter()"];
+	rust box rust [label="setup crt0stack"];
+	rust => binary [label="_start()"];
+
+	--- [label="TIME PASSES"];
+
+	binary box binary [label="issues syscall instruction"];
+	binary >> ssa [label="AEX [CSSA=0]"];
+	ssa >> outside [label="AEX [CSSA=0]"];
+	outside => asm [label="EENTER [CSSA=1]"];
+	ssa => asm [label="stack pointer"];
+	asm box asm [label="setup trusted stack after AEX redzone"];
+	asm box asm [label="savep (untrusted) on trusted stack"];
+	ssa => asm [label="SRSP == NULL"];
+	asm box asm [label="zerop, zerot, zerof, zerox"];
+	asm => rust [label="enter()"];
+	ssa => rust [label="CPU state"];
+	rust box rust [label="introspect AEX CPU state"];
+	rust => asm [label="syscall()"];
+	asm box asm [label="savep (trusted) on trusted stack"];
+	asm box asm [label="savex (trusted) on trusted stack"];
+	asm => ssa [label="SRSP"];
+	asm box asm [label="zerof, zerox"];
+	asm box asm [label="loadp (untrusted) from trusted stack"];
+	asm => outside [label="EEXIT [CSSA=1]\n%r11 = %rax, %r11 != ~0"];
+	outside box outside [label="perform syscall"];
+	outside => asm [label="EENTER [CSSA=1]\n%rdi = %rax"];
+	ssa => asm [label="stack pointer"];
+	asm box asm [label="setup trusted stack after red zone"];
+	asm box asm [label="savep (untrusted) on trusted stack"];
+	ssa => asm [label="SRSP != NULL"];
+	asm => ssa [label="SRSP = NULL"];
+	asm box asm [label="loadx (trusted) from trusted stack"];
+	asm box asm [label="loadp (trusted) from trusted stack"];
+	asm box asm [label="zeroa, zerot, zerof"];
+	asm => rust [label="syscall() return"];
+	rust box rust [label="modify AEX CPU state"];
+	rust => ssa [label="CPU state"];
+	rust => asm [label="enter() return"];
+	asm box asm [label="zeroa, zerot, zerof, zerox"];
+	asm box asm [label="loadp (untrusted) from trusted stack"];
+	asm => outside [label="EEXIT [CSSA=1]\n%r11 == ~0"];
+	outside >> ssa [label="ERESUME [CSSA=0]"];
+	ssa >> binary [label="ERESUME [CSSA=0]"];
+}

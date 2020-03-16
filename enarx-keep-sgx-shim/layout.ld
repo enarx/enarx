@@ -19,31 +19,36 @@
  *      32TiB gives us maximum possible room to grow.
  */
 
-ENTRY(ctx)
+ENTRY(tcs)
 
 SECTIONS {
+  /* Enclave Start: 32 TiB */
   . = 32 * 1M * 1M;
-  .enarx.ctx : { *(.enarx.ctx) }
+  .enarx.tcs : { *(.enarx.tcs) }
+  .enarx.aex : { *(.enarx.aex) }
 
-  . = ALIGN(4K);
-  .text : { *(.text*) }
+  /* Heap Start: 32TiB + 61GiB */
+  . = 32 * 1M * 1M + 61 * 1024M;
+  .enarx.thp : { *(.enarx.thp) }
 
-  . = ALIGN(4K);
-  .got.plt : { *(.got.plt) }
-  .got : { *(.got) }
-
-  . = ALIGN(2M);
+  /* Stack Start: 32TiB + 62GiB */
+  . = ALIGN(1024M);
   .enarx.stk : { *(.enarx.stk) }
+
+  /* Shim Start: 32TiB + 63GiB */
+  . = ALIGN(1024M);
+  .got.plt : { *(.got.plt) }
+  .data : { *(.data*) }
+  .bss : { *(.bss*) }
+  .got : { *(.got) }
 
   . = ALIGN(4K);
   .rodata : { *(.rodata*) }
 
   . = ALIGN(4K);
-  .data : { *(.data*) }
+  .text : { *(.text*) }
 
-  . = 32 * 1M * 1M + 63 * 1M * 1K;
-  .enarx.shp : { *(.enarx.shp) }
-
+  . = ALIGN(4K);
   /* All other non-discarded sections implicitly go here... */
 
   /DISCARD/ : {
