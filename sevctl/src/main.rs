@@ -27,7 +27,7 @@ const AUTHORS: &str = env!("CARGO_PKG_AUTHORS");
 const ARK: &[u8] = include_bytes!("naples/ark.cert");
 const ASK: &[u8] = include_bytes!("naples/ask.cert");
 
-fn download(rsp: reqwest::Result<reqwest::Response>, usage: Usage) -> sev::Certificate {
+fn download(rsp: reqwest::Result<reqwest::blocking::Response>, usage: Usage) -> sev::Certificate {
     let mut rsp = rsp.expect(&format!("unable to contact {} server", usage));
 
     if !rsp.status().is_success() {
@@ -63,7 +63,7 @@ fn chain() -> sev::Chain {
         .get_identifer()
         .expect("error fetching identifier");
     let url = format!("{}/{}", CEK_SVC, id);
-    chain.cek = download(reqwest::get(&url), Usage::CEK);
+    chain.cek = download(reqwest::blocking::get(&url), Usage::CEK);
 
     chain
 }
@@ -464,7 +464,7 @@ mod rotate {
 
     fn all(matches: &ArgMatches) -> ! {
         if let Some(url) = matches.value_of("adopt") {
-            let oca = download(reqwest::get(url), Usage::OCA);
+            let oca = download(reqwest::blocking::get(url), Usage::OCA);
             (&oca, &oca)
                 .verify()
                 .expect("unable to self-verify OCA certificate");
@@ -477,7 +477,7 @@ mod rotate {
             csr.encode(&mut buf, ())
                 .expect("unable to re-encode PEK CSR");
 
-            let clt = reqwest::Client::new();
+            let clt = reqwest::blocking::Client::new();
             let pek = download(clt.post(url).body(buf).send(), Usage::PEK);
 
             firmware()
