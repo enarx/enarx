@@ -1,6 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
+#![deny(clippy::all)]
 #![no_std]
+// TODO: https://github.com/enarx/enarx/issues/349
+#![deny(missing_docs)]
+#![allow(missing_docs)]
 
 #[macro_export]
 macro_rules! jedec {

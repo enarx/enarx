@@ -2,6 +2,9 @@
 
 #![no_std]
 #![deny(clippy::all)]
+// TODO: https://github.com/enarx/enarx/issues/348
+#![deny(missing_docs)]
+#![allow(missing_docs)]
 
 use core::ops::*;
 

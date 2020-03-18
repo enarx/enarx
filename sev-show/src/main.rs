@@ -9,8 +9,11 @@
 //! Note: this will eventually be superseded by the consolidation
 //! of `sgx-show`-like utilities.
 
+// TODO: https://github.com/enarx/enarx/issues/344
 #![deny(clippy::all)]
+#![allow(clippy::all)]
 #![deny(missing_docs)]
+#![allow(missing_docs)]
 
 mod show;
 

@@ -1,4 +1,4 @@
 #!/bin/bash -e
 top=$(git rev-parse --show-toplevel)
 echo "The following files do not #![deny(missing_docs)]:"
-! grep -LF '#![deny(missing_docs)]' $top/*/src/main.rs $top/*/src/lib.rs
+! git grep -LF '#![deny(missing_docs)]' $top/*/src/main.rs $top/*/src/lib.rs
