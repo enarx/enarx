@@ -9,6 +9,9 @@
 //! Note: this will eventually be superseded by the consolidation
 //! of `sgx-show`-like utilities.
 
+#![deny(clippy::all)]
+#![deny(missing_docs)]
+
 mod show;
 
 use core::arch::x86_64::__cpuid_count;
@@ -26,7 +29,7 @@ fn emit_results(tests: Vec<CompletedTest>, indent: usize) {
         } else {
             "✗".red()
         };
-        let info = test.info.clone().unwrap_or("".to_string());
+        let info = test.info.clone().unwrap_or_else(|| "".to_string());
 
         println!("{:>space$}{} {}{}", "", icon, test, info, space = indent);
         if let Some(dependents) = test.dependents {
@@ -62,7 +65,7 @@ fn main() {
                     // https://github.com/enarx/enarx/issues/234
                     let cpu_name = {
                         let mut bytestr = Vec::with_capacity(48);
-                        for cpuid in 0x8000_000_2u32..=0x8000_0004_u32 {
+                        for cpuid in 0x8000_0002_u32..=0x8000_0004_u32 {
                             let cpuid = unsafe { __cpuid_count(cpuid, 0x0000_0000) };
                             let mut bytes: Vec<u8> = [cpuid.eax, cpuid.ebx, cpuid.ecx, cpuid.edx]
                                 .iter()
@@ -86,7 +89,7 @@ fn main() {
             Test {
                 name: "SME support",
                 func: Box::new(move || {
-                    if (enc_mem_caps.eax & (1 << 0)) != 0 {
+                    if (enc_mem_caps.eax & 0x1) != 0 {
                         (Ok(()), None)
                     } else {
                         (Err(()), None)
