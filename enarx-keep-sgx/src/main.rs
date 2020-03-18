@@ -24,7 +24,7 @@ fn main() {
         // Get the arguments.
         let mut args = std::env::args();
         let shim = args.nth(1).expect(USAGE);
-        let code = args.nth(0).expect(USAGE);
+        let code = args.next().expect(USAGE);
 
         // Parse the shim and code and validate assumptions.
         let shim = component::Component::from_path(shim).expect("Unable to parse shim");
