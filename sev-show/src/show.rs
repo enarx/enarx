@@ -2,6 +2,8 @@
 
 use std::fmt;
 
+pub type TestFn = dyn Fn() -> (Result<(), ()>, Option<String>);
+
 /// A yet-to-be-ran test
 pub struct Test {
     /// A good description of what the test is for
@@ -11,7 +13,7 @@ pub struct Test {
     /// a tuple consisting of a Result that indicates if the test passed or
     /// failed, as well as an optional string that can convey more information
     /// in the test's output.
-    pub func: Box<dyn Fn() -> (Result<(), ()>, Option<String>)>,
+    pub func: Box<TestFn>,
 
     /// Any dependent tests that may be ran if this parent test passes
     /// (example: it doesn't make sense to run any AMD-specific tests if
