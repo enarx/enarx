@@ -1,0 +1,30 @@
+[package]
+name = "enarx-keep-sev"
+version = "0.1.0"
+authors = ["Harald Hoyer <harald@redhat.com>"]
+edition = "2018"
+license = "Apache-2.0"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+bit_field = "0.10.0"
+bitflags = "1.2.1"
+failure = "0.1.7"
+libc = "0.2.68"
+kvm-bindings = "0.2.0"
+kvm-ioctls = "0.5.0"
+memmap = "0.7.0"
+structopt = "0.3"
+vmm-sys-util = "0.4.0"
+vmsyscall = { path = "../vmsyscall" }
+xmas-elf = "0.7.0"
+
+[dependencies.cast]
+version = "0.2.2"
+default-features = false
+
+[dependencies.ux]
+default-features = false
+version = "0.1.3"
+

@@ -24,6 +24,7 @@ members = [
     "sev-show",
     "sev-types",
 
+    "enarx-keep-sev",
     "enarx-keep-sev-shim",
 ]
 
