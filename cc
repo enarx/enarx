@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 
 # This file MUST NOT be named `ld`, otherwise Rust will try to outsmart us.
 
