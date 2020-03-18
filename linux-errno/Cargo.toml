@@ -16,3 +16,4 @@ keywords = [
 ]
 
 [dependencies]
+enumerate = { path = "../enumerate" }
