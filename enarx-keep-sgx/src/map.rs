@@ -6,10 +6,6 @@ use std::fs::File;
 use std::io::{Error, Result};
 use std::os::unix::io::AsRawFd;
 
-// FIXME: https://github.com/rust-lang/libc/pull/1658
-pub const MAP_SYNC: libc::c_int = libc::MAP_HUGETLB << 1;
-pub const MAP_FIXED_NOREPLACE: libc::c_int = MAP_SYNC << 1;
-
 /// Calls `munmap()` when going out of scope
 ///
 /// This simple type just tracks the lifespan of a region of memory.
