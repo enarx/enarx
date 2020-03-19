@@ -58,7 +58,7 @@ impl Builder {
                 span.start,
                 span.count,
                 libc::PROT_NONE,
-                libc::MAP_SHARED | map::MAP_FIXED_NOREPLACE,
+                libc::MAP_SHARED | libc::MAP_FIXED_NOREPLACE,
                 Some(&file),
                 0,
             )?;

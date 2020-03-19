@@ -16,7 +16,7 @@ vdso = { path = "../vdso" }
 bitflags = "1.2"
 openssl = "0.10"
 goblin = "0.2"
-libc = "0.2"
+libc = "0.2.68"
 
 [build-dependencies]
 cc = "1.0"
