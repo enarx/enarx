@@ -1,3 +1,13 @@
 version: 2
 mergeable:
   - when: pull_request.*
+    validate:
+      - do: title
+        must_exclude:
+          regex: "The IT Crowd"
+    fail:
+      - do: checks
+        status: 'success'
+    error:
+      - do: checks
+        status: 'success'
