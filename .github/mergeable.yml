@@ -1,6 +1,6 @@
 version: 2
 mergeable:
-  - when: pull_request.*
+  - when: pull_request.opened, pull_request.edited, pull_request.unlabeled, pull_request.synchronize
     validate:
       - do: title
         must_exclude:
