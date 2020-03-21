@@ -121,15 +121,12 @@ enclave:
     cmp     $0,                     %rax            # If CSSA > 0...
     jne     .Levent                                 # ... restore stack from AEX[CSSA-1].
 
-# CSSA == 0
-    rdrand  %r11                                    # Get a random number
-    and     $0xff0,                 %r11            # Mask to an aligned random offset
-    lea     stk(%rip),              %r10            # Get the stack pointer
-    sub     %r11,                   %r10            # Subtract random offset
-
-    xor     %r11,                   %r11            # %r11 = NULL
-    xor     %rax,                   %rax            # %rax = NULL
-    jmp     .Lstack
+    # Clear unused registers, set the stack pointer and jump to Rust
+    zerop
+    zerot
+    xor     %rax,                   %rax
+    lea     stk(%rip),              %rsp
+    jmp     entry
 
 # CSSA != 0
 .Levent:
@@ -143,15 +140,13 @@ enclave:
     and     $~0xf,                  %r10            # Align
 
     mov     SRSP(%r11),             %rax            # %rax = syscall return stack pointer
-    jmp     .Lstack
 
-# %rax = NULL or syscall return stack pointer
-# %rbx = next non-enclave instruction
-# %rcx = &TCS
-# %r10 = trusted stack pointer
-# %r11 = NULL or &aex[CSSA - 1]
-# %rsp = untrusted stack pointer
-.Lstack:
+    # %rax = syscall return stack pointer
+    # %rbx = next non-enclave instruction
+    # %rcx = &TCS
+    # %r10 = trusted stack pointer
+    # %r11 = &aex[CSSA - 1]
+    # %rsp = untrusted stack pointer
     xchg    %r10,                   %rsp            # Swap to trusted stack
     pushq   $0                                      # Align stack
     push    %r10                                    # Save untrusted %rsp
@@ -160,15 +155,15 @@ enclave:
     cmp     $0,                     %rax            # If we are returning from a syscall...
     jne     .Lsyscall                               # ... finish the job.
 
-    push    %rsp                                    # Argument for enter()
-    push    %r11                                    # Argument for enter()
+    push    %rsp                                    # Argument for event()
+    push    %r11                                    # Argument for event()
 
     zerop                                           # Clear preserved registers
     zerot                                           # Clear temporary registers
     zerof   %r11                                    # Clear CPU flags
 
-    # void enter(rdi, rsi, rdx, tcs, r8, r9, &aex[CSSA-1], ctx);
-    call    enter                                   # Call enter()
+    # void event(rdi, rsi, rdx, tcs, r8, r9, &aex[CSSA-1], ctx);
+    call    event                                   # Call event()
     add     $16,                    %rsp            # Remove parameters from stack
 
     # Prepare CPU context for exit
