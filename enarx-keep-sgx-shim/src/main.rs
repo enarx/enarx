@@ -16,27 +16,11 @@ fn main() {}
 
 // ============== REAL CODE HERE ===============
 
-pub mod libc;
+mod handler;
 
+use handler::Handler;
 use nolibc::x86_64::syscall::Number as SysCall;
 use sgx_types::{ssa::StateSaveArea, tcs::Tcs};
-
-pub enum Context {}
-
-extern "C" {
-    #[no_mangle]
-    fn syscall(
-        rdi: u64,
-        rsi: u64,
-        rdx: u64,
-        aex: &mut StateSaveArea,
-        r8: u64,
-        r9: u64,
-        r10: u64,
-        rax: SysCall,
-        ctx: &Context,
-    ) -> u64;
-}
 
 /// # Safety
 #[no_mangle]
@@ -60,8 +44,18 @@ pub unsafe extern "C" fn entry(
         ) -> u64;
     }
 
-    let uid = do_syscall(0, 0, 0, 0, 0, 0, SysCall::GETUID);
-    do_syscall(uid / 100, 0, 0, 0, 0, 0, SysCall::EXIT);
+    const MSG: &str = "Γειά σου Κόσμε!\n";
+
+    do_syscall(
+        1,
+        MSG.as_ptr() as _,
+        MSG.len() as _,
+        0,
+        0,
+        0,
+        SysCall::WRITE,
+    );
+    do_syscall(0, 0, 0, 0, 0, 0, SysCall::EXIT);
     panic!()
 }
 
@@ -71,25 +65,29 @@ pub unsafe extern "C" fn event(
     _rdi: u64,
     _rsi: u64,
     _rdx: u64,
-    _tcs: &Tcs,
+    tcs: &Tcs,
     _r8: u64,
     _r9: u64,
     aex: &mut StateSaveArea,
-    ctx: &Context,
+    ctx: &handler::Context,
 ) {
     match core::slice::from_raw_parts(aex.gpr.rip as *const u8, 2) {
         // syscall
         [0x0f, 0x05] => {
-            aex.gpr.rip += 2;
-            aex.gpr.rax = match aex.gpr.rax.into() {
-                rax @ SysCall::EXIT => syscall(aex.gpr.rdi, 0, 0, aex, 0, 0, 0, rax, ctx),
-                rax @ SysCall::GETUID => syscall(0, 0, 0, aex, 0, 0, 0, rax, ctx),
-                _ => syscall(8, 0, 0, aex, 0, 0, 0, SysCall::EXIT, ctx),
+            let syscall = aex.gpr.rax.into();
+            let mut h = Handler::new(tcs, aex, ctx);
+
+            aex.gpr.rax = match syscall {
+                SysCall::READ => h.read(),
+                SysCall::WRITE => h.write(),
+                SysCall::GETUID => h.getuid(),
+                SysCall::EXIT => h.exit(None),
+                _ => h.exit(254),
             };
+
+            aex.gpr.rip += 2;
         }
 
-        _ => {
-            syscall(9, 0, 0, aex, 0, 0, 0, SysCall::EXIT, ctx);
-        }
+        _ => Handler::new(tcs, aex, ctx).exit(255),
     };
 }
