@@ -3,10 +3,9 @@ members = [
     "iocuddle",
     "iocuddle-sgx",
 
-    "linux-syscall",
-    "linux-errno",
     "vmsyscall",
     "crt0stack",
+    "nolibc",
 
     "sgx-show",
     "sgx-types",

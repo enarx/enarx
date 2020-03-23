@@ -2,8 +2,19 @@
 
 //! errno type and constants for x84_64
 
+// Number values generated with:
+//
+// ```
+// bindgen /usr/include/errno.h \
+//   | sed -rn 's|pub const (E[A-Z0-9_]*): u32 = ([0-9]+);|\1 = \2,|p' \
+//   | sort -g -t= -k2
+// ```
+
+// The last 4095 numbers are errrnos.
+const ERRNO_BASE: u64 = !0xfff;
+
 enumerate::enumerate! {
-    pub enum ErrNo: i64 {
+    pub enum Number: i64 {
         EPERM = 1,
         ENOENT = 2,
         ESRCH = 3,
@@ -141,13 +152,28 @@ enumerate::enumerate! {
     }
 }
 
+impl Number {
+    pub fn from_syscall(ret: u64) -> Option<Self> {
+        if ret > ERRNO_BASE {
+            let ret = ret as i64;
+            Some(Self::from(-ret))
+        } else {
+            None
+        }
+    }
+
+    pub fn into_syscall(self) -> u64 {
+        -self.0 as u64
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
 
     #[test]
     fn basic() {
-        assert_eq!(1i64, ErrNo::EPERM.into());
-        assert_eq!(ErrNo::EPERM, 1i64.into());
+        assert_eq!(1i64, Number::EPERM.into());
+        assert_eq!(Number::EPERM, 1i64.into());
     }
 }

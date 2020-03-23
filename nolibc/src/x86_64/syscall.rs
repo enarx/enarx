@@ -2,11 +2,18 @@
 
 //! syscall type and constants
 
-#![allow(missing_docs)]
+// Number values generated with:
+//
+// ```
+// bindgen /usr/include/sys/syscall.h \
+//   | sed -rn 's|pub const SYS_([a-z][a-z0-9_]*): u32 = ([0-9]+);|\1 = \2,|p' \
+//   | tr [:lower:] [:upper:] \
+//   | sort -g -t= -k2
+// ```
 
 enumerate::enumerate! {
     #[derive(Copy, Clone)]
-    pub enum SysCall: u64 {
+    pub enum Number: u64 {
         READ = 0,
         WRITE = 1,
         OPEN = 2,
@@ -362,7 +369,7 @@ mod test {
 
     #[test]
     fn basic() {
-        assert_eq!(0u64, SysCall::READ.into());
-        assert_eq!(SysCall::READ, 0u64.into());
+        assert_eq!(0u64, Number::READ.into());
+        assert_eq!(Number::READ, 0u64.into());
     }
 }

@@ -6,8 +6,8 @@ edition = "2018"
 license = "Apache-2.0"
 
 [dependencies]
-linux-syscall = { path = "../linux-syscall" }
 sgx-types = { path = "../sgx-types" }
+nolibc = { path = "../nolibc" }
 
 [build-dependencies]
 cc = "*"
