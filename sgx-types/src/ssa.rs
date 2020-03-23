@@ -287,7 +287,8 @@ pub struct StateSaveArea {
     /// Area for saving and restoring the XSAVE-managed state components
     pub xsave: XSave,
 
-    reserved: [u8; Self::padding()],
+    /// Padding
+    pub reserved: [u8; Self::padding()],
 
     /// Contains Exception Info (error condition, memory address)
     pub misc: Miscellaneous,
