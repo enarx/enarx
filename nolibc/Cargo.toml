@@ -1,7 +1,7 @@
 [package]
-name = "linux-syscall"
+name = "nolibc"
 version = "0.1.0"
-authors = ["Harald Hoyer <harald@redhat.com>"]
+authors = ["Harald Hoyer <npmccallum@redhat.com>", "Nathaniel McCallum <npmccallum@redhat.com>"]
 license = "Apache-2.0"
 edition = "2018"
 
@@ -10,9 +10,10 @@ categories = [
 ]
 
 keywords = [
-    "linux",
     "syscall",
     "no_std",
+    "errno",
+    "linux",
 ]
 
 [dependencies]

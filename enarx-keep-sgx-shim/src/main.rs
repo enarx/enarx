@@ -18,7 +18,7 @@ fn main() {}
 
 pub mod libc;
 
-use linux_syscall::x86_64::SysCall;
+use nolibc::x86_64::syscall::Number as SysCall;
 use sgx_types::{ssa::StateSaveArea, tcs::Tcs};
 
 pub enum Context {}
