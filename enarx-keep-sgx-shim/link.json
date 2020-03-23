@@ -14,7 +14,7 @@
 
     "test": {
         "replace": {
-            "-lstart": []
+            "-lasm": []
         },
 
         "debug": false
