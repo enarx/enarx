@@ -4,7 +4,7 @@ use crt0stack::Reader;
 
 fn main() {
     extern "C" {
-        static environ: *mut *mut std::os::raw::c_char;
+        static environ: *const *const std::os::raw::c_char;
     }
 
     let reader = unsafe { Reader::from_environ(&*environ) }.prev().prev();
