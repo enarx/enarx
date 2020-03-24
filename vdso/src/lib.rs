@@ -11,7 +11,7 @@ use std::os::raw::c_char;
 use std::slice::from_raw_parts;
 
 extern "C" {
-    static environ: *mut *mut c_char;
+    static environ: *const *const c_char;
 }
 
 #[cfg(target_pointer_width = "64")]

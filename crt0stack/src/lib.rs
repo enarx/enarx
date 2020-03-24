@@ -462,7 +462,7 @@ impl<'a> Reader<'a, Env> {
     /// kind of data, there will likely be crashes. So be sure you get this
     /// right.
     #[inline]
-    pub unsafe fn from_environ<T>(environ: &'a *mut T) -> Self {
+    pub unsafe fn from_environ<T>(environ: &'a *const T) -> Self {
         Reader {
             stack: environ as *const _ as *const usize,
             state: PhantomData,
@@ -870,7 +870,7 @@ mod tests {
     #[test]
     fn reader_real() {
         extern "C" {
-            static environ: *mut *mut std::os::raw::c_char;
+            static environ: *const *const std::os::raw::c_char;
         }
 
         let reader = unsafe { Reader::from_environ(&*environ) }.prev().prev();
