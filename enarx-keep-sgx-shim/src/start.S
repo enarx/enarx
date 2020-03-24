@@ -211,13 +211,19 @@ syscall:
     zerof   %rcx                                    # Clear CPU flags
     jmp     .Leexit
 
-    # Temporary test function
-    # int do_syscall(rdi, rsi, rdx, r10, r8, r9, rax);
+    # _Noreturn void exit(code);
     .text
-    .globl do_syscall
-    .type do_syscall, @function
-do_syscall:
-    mov     %rcx,                   %r10
-    mov     8(%rsp),                %rax
+    .globl exit
+    .type exit, @function
+exit:
+    mov     $60,                    %rax
     syscall
-    ret
+    ud2
+
+    # _Noreturn void jump(rsp, fnc);
+    .text
+    .globl jump
+    .type jump, @function
+jump:
+    mov     %rdi,                   %rsp
+    jmp     *%rsi
