@@ -18,18 +18,21 @@
 #       "replace": { "-lba[rz]": [ "-Wl,--whole-archive", "-lbar", "-lbaz" ] },
 #       "prepend": [ "-lbar" ],
 #       "append": [ "-lbaz" ],
+#       "append-target-rlib": ["libc"],
 #       "debug": false
 #     },
 #     "build": {
 #       "replace": { "-lba[rz]": [ "-Wl,--whole-archive", "-lbar", "-lbaz" ] },
 #       "prepend": [ "-lbar" ],
 #       "append": [ "-lbaz" ]
+#       "append-target-rlib": ["libc"],
 #       "debug": false
 #     },
 #     "test": {
 #       "replace": { "-lba[rz]": [ "-Wl,--whole-archive", "-lbar", "-lbaz" ] },
 #       "prepend": [ "-lbar" ],
 #       "append": [ "-lbaz" ]
+#       "append-target-rlib": ["libc"],
 #       "debug": false
 #     }
 #  }
@@ -45,6 +48,11 @@
 # The "prepend" and "append" fields add a new argument to the linker
 # invocation at the start or end of the arguments, respectively.
 #
+# The "append-target-rlib" field adds a rust rlib of the target directory.
+# E.g. if "libc" is specified,
+# $HOME/.rustup/[…]/x86_64-unknown-linux-musl/lib/liblibc-6c4492b949101b15.rlib
+# is added to the linker invocation at the end of the arguments as a static library.
+#
 # The "debug" field, when `true`, causes this script to dump all linker
 # arguments and environment variables to the console and exit with a failure.
 # This is useful for debugging the modifications to the linker arguments.
@@ -58,6 +66,7 @@ import json
 import sys
 import os
 import re
+import glob
 
 def replace(argv, regex, values):
     assert(isinstance(values, list))
@@ -75,6 +84,10 @@ if cc is None:
     cc = shutil.which('cc')
 assert(cc is not None)
 argv = sys.argv[1:]
+
+
+target_rlib_dir = \
+    os.path.dirname([x for x in argv if x.find("libcompiler_builtins") != -1 and x.endswith(".rlib")][0])
 
 try:
     path = os.getenv('CARGO_MANIFEST_DIR')
@@ -97,6 +110,14 @@ try:
 
     # Prepend and append new items.
     argv = link.get("prepend", []) + argv + link.get("append", [])
+
+    for name in link.get("append-target-rlib", []):
+        rlibs = glob.glob(target_rlib_dir + "/lib" + name + "-*.rlib")
+        argv.append("-Wl,--push-state")
+        argv.append("-Wl,-Bstatic")
+        for rlib in rlibs:
+            argv.append(rlib)
+        argv.append("-Wl,--pop-state")
 
     if link.get("debug", False):
         pprint.pprint(dict(os.environ))
