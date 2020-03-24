@@ -1,6 +1,6 @@
 [package]
 name = "vmsyscall"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["Harald Hoyer <harald@redhat.com>"]
 license = "Apache-2.0"
 edition = "2018"
@@ -14,4 +14,3 @@ keywords = [
 ]
 
 [dependencies]
-serde = { version = "1.0", default-features = false, features = ["derive"] }
