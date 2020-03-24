@@ -8,7 +8,7 @@
 
 use core::ops::*;
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone, Default, Debug, PartialEq, Eq)]
 pub struct Span<T, U = T> {
     /// The beginning of the span
     pub start: T,
