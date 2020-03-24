@@ -8,6 +8,7 @@
 
 use core::ops::*;
 
+#[repr(C)]
 #[derive(Copy, Clone, Default, Debug, PartialEq, Eq)]
 pub struct Span<T, U = T> {
     /// The beginning of the span
