@@ -58,6 +58,7 @@ import json
 import sys
 import os
 import re
+import glob
 
 def replace(argv, regex, values):
     assert(isinstance(values, list))
@@ -75,6 +76,14 @@ if cc is None:
     cc = shutil.which('cc')
 assert(cc is not None)
 argv = sys.argv[1:]
+
+
+target_rlib_dir = \
+    os.path.dirname(
+        list(
+            filter(lambda x: x.find("libcompiler_builtins") != -1 and x.endswith(".rlib"), argv)
+        )[0]
+    )
 
 try:
     path = os.getenv('CARGO_MANIFEST_DIR')
@@ -97,6 +106,12 @@ try:
 
     # Prepend and append new items.
     argv = link.get("prepend", []) + argv + link.get("append", [])
+
+    for name in link.get("insert-target-rlib", []):
+        rlibs = glob.glob(target_rlib_dir + "/lib" + name + "-*.rlib")
+        for rlib in rlibs:
+            argv.append("-Wl,-Bstatic")
+            argv.append(rlib)
 
     if link.get("debug", False):
         pprint.pprint(dict(os.environ))
