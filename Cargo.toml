@@ -11,6 +11,7 @@ members = [
     "sgx-types",
     "sgx-crypto",
 
+    "payload",
     "enarx-keep-sgx",
     "enarx-keep-sgx-shim",
 
