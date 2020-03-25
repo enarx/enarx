@@ -12,7 +12,7 @@ fn main() {
 
     let mut reader = reader.done();
     for arg in &mut reader {
-        eprintln!("arg: {:?}", arg);
+        println!("arg: {:?}", arg);
     }
 
     let mut reader = reader.done();
