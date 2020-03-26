@@ -94,7 +94,9 @@ impl<'a> Handler<'a> {
             )
         };
 
-        if self.enclave.contains(&ret) {
+        // Make sure the allocated memory is page-aligned and outside of the enclave.
+        if self.enclave.contains(&ret) || self.enclave.contains(&(ret + bytes)) || ret & 0xfff != 0
+        {
             self.attacked();
         }
 
