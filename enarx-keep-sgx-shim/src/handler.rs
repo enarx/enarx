@@ -2,10 +2,10 @@
 
 use nolibc::x86_64::error::Number as ErrNo;
 use nolibc::x86_64::syscall::Number as SysCall;
-use nolibc::ArchPrctlTask;
+use nolibc::{ArchPrctlTask, Iovec};
 use sgx_types::{ssa::StateSaveArea, tcs::Tcs};
 
-use core::ops::Range;
+use core::{mem::size_of, ops::Range, slice::from_raw_parts_mut};
 
 extern "C" {
     #[no_mangle]
@@ -225,5 +225,76 @@ impl<'a> Handler<'a> {
 
             _ => ErrNo::EINVAL.into_syscall(),
         }
+    }
+
+    /// Do a readv() syscall
+    pub fn readv(&mut self) -> u64 {
+        let fd = self.aex.gpr.rdi;
+        let trusted = unsafe {
+            from_raw_parts_mut(self.aex.gpr.rsi as *mut Iovec, self.aex.gpr.rdx as usize)
+        };
+
+        // Add up total size of buffers and size of iovec array.
+        let bufsize = trusted.iter().fold(0, |a, e| a + e.size);
+        let iovecsize = size_of::<Iovec>() * trusted.len();
+        let size = bufsize + iovecsize;
+
+        // Allocate some unencrypted memory.
+        let map = match self.ualloc(size as u64) {
+            Err(errno) => return errno.into_syscall(),
+            Ok(map) => unsafe { from_raw_parts_mut(map, size as usize) },
+        };
+
+        // Split allocated memory into that used by the iovec struct array and that used by its buffers.
+        let (uiovec, ubuffer) = map.split_at_mut(iovecsize);
+
+        // Convert the prefix from a byte slice into an iovec slice.
+        let (_, untrusted, _) = unsafe { uiovec.align_to_mut::<Iovec>() };
+        if untrusted.len() != trusted.len() {
+            self.attacked();
+        }
+
+        // Set pointers in unencrypted iovec slice to use the rest of the allocated memory.
+        // The offset is into the buffer area allocated immediately after the iovec struct
+        // array, measured in bytes.
+        let mut offset = 0;
+        for (t, mut u) in trusted.iter_mut().zip(untrusted.iter_mut()) {
+            u.base = ubuffer[offset..].as_mut_ptr();
+            u.size = t.size;
+            offset += t.size;
+        }
+
+        // Do the syscall; replace encrypted memory with unencrypted memory.
+        let ret = unsafe {
+            self.syscall(
+                SysCall::READV,
+                fd,
+                untrusted.as_ptr() as _,
+                untrusted.len() as u64,
+                0,
+                0,
+                0,
+            )
+        };
+
+        // Copy the unencrypted input into encrypted memory.
+        if ErrNo::from_syscall(ret).is_none() {
+            if ret > size as u64 {
+                self.attacked();
+            }
+
+            let mut offset = 0;
+            for (t, u) in trusted.iter_mut().zip(untrusted.iter_mut()) {
+                if u.base != ubuffer[offset..].as_mut_ptr() || u.size != t.size {
+                    self.attacked();
+                }
+
+                t.as_mut().copy_from_slice(u.as_ref());
+                offset += t.size;
+            }
+        }
+
+        unsafe { self.ufree(map.as_ptr() as *mut u8, size as u64) };
+        ret
     }
 }
