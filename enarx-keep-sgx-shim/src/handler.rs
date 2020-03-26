@@ -158,7 +158,7 @@ impl<'a> Handler<'a> {
                     self.attacked();
                 }
 
-                core::ptr::copy_nonoverlapping(buf, map, ret as _);
+                core::ptr::copy_nonoverlapping(map, buf, ret as _);
             }
 
             ret
