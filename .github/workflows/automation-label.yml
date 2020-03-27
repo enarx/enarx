@@ -1,0 +1,17 @@
+name: automation-label
+
+on:
+    issues:
+        types:
+            - labeled
+            - unlabeled
+
+jobs:
+  add-to-project-when-labeled:
+    runs-on: ubuntu-latest
+    container: quay.io/enarx/fedora-test
+    steps:
+    - uses: actions/checkout@v2
+    
+    - name: add-to-project-when-labeled
+      run: .automation/add-to-project-when-labeled ${{ secrets.GITHUB_TOKEN }} $GITHUB_REPOSITORY $GITHUB_EVENT_PATH
