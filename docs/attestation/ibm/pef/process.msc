@@ -11,48 +11,66 @@ msc {
   
 
 
-  tenant note tpm [label=" This flow assume that the VM is created and distributed to cloud
-  \n provider(host) at a point ahead of generating the lock box. The lock\n  box is not generated
-  until the target machine is known."];
+  tenant note tpm [textbgcolor=silver,label=" This flow includes creating the Virtual machine.
+The host actor in this flow represents the target environment, which could be a single machine
+or a cloud infrastructure. When the target environment is a cloud infrastructure there are other actors
+that are not clearly represented. The tenant in this flow represents what is trusted by the end 
+user of a cloud infrastructure. The flow does not specify where the trusted component is located.
+In particular, this flow says the infrastructure provider must give the identity of the target 
+machine to something trusted by the end user. This flow also does not specify how the VM is distributed
+to the cloud provider.\n\n For PEF, attestation can only occur when the target machine is known.
+The required certificate chain flows are documented elsewhere. If the lock box is not created 
+and inserted when the VM is initially generated, then the lockbox has to be created
+and inserted into the image prior to execution on the target machine. The normal PEF flows
+are illustrated after VM START. It is important to note that if the seed is ever in an untrusted
+or insecure location, the owner of the VM must assume the security is compromised."];
   
   tenant box tenant [label="create integrity data"];
-  tenant box tenant [label="generate symmetric seed"];
-  tenant box tenant [label="encrypt payload(\nseed,\nintegrity data)"];
-  tenant note host  [label="payload encryption includes HMAC \nHMAC key is derived from seed"];
+  tenant box tenant [label="generate seed"];
+  tenant box tenant [label="generate symmetric key"];
+  tenant box tenant [label="generate HMAC key"];
+  tenant box tenant [label="encrypt (payload, integrity data) with symmetric key"];
+  tenant note host  [textbgcolor=silver,label="Payload encryption includes HMAC. \nHMAC key is derived 
+from seed"];
   tenant=>host [label="distribute VM to cloud/host"];
 
   ...;
-
+ 
+  tenant=>host [label="Request execution of VM"];
+  tenant note host  [textbgcolor=silver,label="Target machine selected."];
+  host=>tenant [label="target indicator"];
   tenant=>host [label="cert chain request"];
   host=>tpm [label="cert chain request"];
   tpm=>host [label="cert chain reply"];
   host=>tenant [label="cert chain reply"];
   tenant box tenant [label="validate cert chain"];
-  tenant note host  [label="invalid cert halts deployment"];
+  tenant note host  [textbgcolor=red,label="invalid cert halts deployment"];
 
   ...;
 
-  tenant box tenant [label="encrypt lockbox(\npublic-key,\nseed)"];
+  tenant box tenant [label="create lockbox \nencrypt(\nseed) with \npublic key."];
   tenant=>host [label="deliver lock box"];
   tenant=>host [label="request start of VM"];
+  host note SLOF [textbgcolor=silver,label="insertion of a lockbox into a VM is a utility run against the 
+VM image and not a PEF or Ultravisor API."];
   host box host [label="insert lockbox into VM"];
 
   --- [label="VM START"];
   kernel box kernel [label="ESM instruction"];
   kernel=>ultravisor [label="deliver esmoperand"];
   ultravisor box ultravisor [label="extract lockbox from esmoperand"];
-  ultravisor=>host [label="terminate if valid lock box not found"];
-  ultravisor => tpm [label="lockbox"];
-  tpm box tpm [label="decrypt private-key(lockbox)"];
+  ultravisor=>host [linecolor=red, label="terminate if valid lock box not found"];
+  ultravisor => tpm [label="deliver lockbox"];
+  tpm box tpm [label="decrypt lockbox(private-key)"];
   tpm => ultravisor [label="seed"];
   ultravisor box ultravisor [label="gen symmetric key"];
   ultravisor box ultravisor [label="gen HMAC key"];
   ultravisor box ultravisor [label="check payload integrity(HAMC key)"];
-  ultravisor=>host [label="terminate if integrity check fails"];
-  ultravisor box ultravisor [label="extract payload from esmoperand"];
-  ultravisor box ultravisor [label="decrypt symmetric key(payload)"];
+  ultravisor=>host [linecolor=red,label="terminate if integrity check fails"];
+  ultravisor box ultravisor [label="extract payload from esm operand"];
+  ultravisor box ultravisor [label="decrypt\n(symmetric key,payload)"];
   ultravisor box ultravisor [label="validate VM integrity"];
-  ultravisor=>host [label="termintate if integrity check fails"];
+  ultravisor=>host [linecolor=red,label="termintate if integrity check fails"];
   ultravisor=>kernel [label="continue execution"];
   
   ...;
@@ -62,5 +80,5 @@ msc {
   kernel box kernel [label="unlock volume"];
 
   --- [label="BOOT COMPLETE"];
-  kernel note ultravisor [label="VM can request other items from payload at any time"];  
+  kernel note ultravisor [textbgcolor=silver,label="VM can request other items from the private data in the payload at any time"];  
 }
