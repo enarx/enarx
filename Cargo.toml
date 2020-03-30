@@ -23,6 +23,8 @@ members = [
     "sev",
     "sev-show",
     "sev-types",
+
+    "enarx-keep-sev-shim",
 ]
 
 [patch.crates-io]
