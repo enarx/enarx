@@ -2,11 +2,12 @@
 
 use enumerate::enumerate;
 use intel_types::Exception;
+use std::mem::MaybeUninit;
 
 use super::map::Unmap;
 
 extern "C" {
-    fn enclave_handle(
+    fn handle(
         rdi: usize,
         rsi: usize,
         rdx: usize,
@@ -18,7 +19,7 @@ extern "C" {
         exc: &ExceptionInfo,
     ) -> i32;
 
-    fn enclave_enter(
+    fn eenter(
         rdi: usize,
         rsi: usize,
         rdx: usize,
@@ -53,7 +54,7 @@ enumerate! {
 
 #[repr(transparent)]
 #[derive(Copy, Clone)]
-struct Address<T: Copy + std::fmt::LowerHex>(T);
+pub struct Address<T: Copy + std::fmt::LowerHex>(T);
 
 impl<T: Copy + std::fmt::LowerHex> std::fmt::Debug for Address<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -66,11 +67,11 @@ impl<T: Copy + std::fmt::LowerHex> std::fmt::Debug for Address<T> {
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub struct ExceptionInfo {
-    leaf: Leaf,
-    trap: Exception,
+    pub leaf: Leaf,
+    pub trap: Exception,
     unused: u8,
-    code: u16,
-    addr: Address<u64>,
+    pub code: u16,
+    pub addr: Address<u64>,
     reserved: [u64; 2],
 }
 
@@ -103,28 +104,28 @@ impl Enclave {
     }
 
     #[inline(always)]
-    pub fn enter(&self, leaf: Leaf) -> Result<(), Option<ExceptionInfo>> {
+    pub fn enter(
+        &self,
+        rdi: usize,
+        rsi: usize,
+        rdx: usize,
+        leaf: Leaf,
+        r8: usize,
+        r9: usize,
+    ) -> Result<(), Option<ExceptionInfo>> {
         const FAULT: i32 = -libc::EFAULT;
         const EEXIT: i32 = 0;
 
         #[allow(clippy::uninit_assumed_init)]
-        let mut exc: ExceptionInfo = unsafe { std::mem::MaybeUninit::uninit().assume_init() };
+        let mut exc: ExceptionInfo = unsafe { MaybeUninit::uninit().assume_init() };
 
-        match unsafe {
-            enclave_enter(
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                self.tcs,
-                &mut exc,
-                enclave_handle,
-                self.fnc,
-                leaf,
+        let ret = unsafe {
+            eenter(
+                rdi, rsi, rdx, 0, r8, r9, self.tcs, &mut exc, handle, self.fnc, leaf,
             )
-        } {
+        };
+
+        match ret {
             EEXIT => Ok(()),
             FAULT => Err(Some(exc)),
             _ => Err(None),

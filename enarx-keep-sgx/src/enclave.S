@@ -1,9 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
-#define EFAULT  14
 #define EENTER  2
 #define ERESUME 3
-#define INVOP   6
 
 .macro dpush arg
     push                    \arg
@@ -21,9 +19,9 @@
 .endm
 
     .text
-    .global enclave_enter
-    .type enclave_enter, @function
-enclave_enter:
+    .global eenter
+    .type eenter, @function
+eenter:
     .cfi_startproc
     rpush   %r15
     rpush   %r14
@@ -51,41 +49,23 @@ enclave_enter:
     .cfi_endproc
 
     .text
-    .global enclave_handle
-    .type enclave_handle, @function
-enclave_handle:
+    .global handle
+    .type handle, @function
+handle:
     mov     16(%rsp),   %rax        # %rax = ret parameter
     cmp     $0,         %rax        # enclave EEXIT
     je      .Leexit
-    cmp     $-EFAULT,   %eax        # enclave AEX
-    je      .Laex
-
-.Ldone:
     ret
 
 .Leexit:
-    cmp     $~0,        %r11        # No syscall
-    mov     $ERESUME,   %rax        # %rax = ERESUME
-    je      .Ldone
-
-    mov     %r11,       %rax        # %rax is passed in %r11
-    syscall
-    mov     %rax,       %rdi
-    mov     $EENTER,    %rax        # %rax = EENTER
+    cmp     $~0,        %r11        # Is a syscall?
+    jne     .Lsyscall
+    mov     $ERESUME,   %rax
     ret
 
-.Laex:
-    mov     24(%rsp),   %rax        # %rax = @e
-    cmp     $0,         %rax
-    je      .Lfault
-
-    mov     4(%rax),    %ax         # %ax = e->trapnr (16 bits)
-    cmp     $INVOP,     %ax         # trapnr == invalid opcode
-    jne     .Lfault
-
-    mov     $EENTER,    %rax        # Re-enter the enclave to
-    ret                             # handle the invalid opcode.
-
-.Lfault:
-    mov     $-EFAULT,   %rax
+.Lsyscall:
+    mov     %r11,       %rax        # %rax is passed in %r11
+    syscall
+    mov     %rax,       %rdi        # Pass return value in %rdi
+    mov     $EENTER,    %rax        # %rax = EENTER
     ret

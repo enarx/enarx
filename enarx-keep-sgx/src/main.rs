@@ -12,6 +12,7 @@ mod enclave;
 mod map;
 mod page;
 
+use intel_types::Exception;
 use sgx_types::page::SecInfo;
 use span::Span;
 
@@ -73,5 +74,22 @@ fn main() {
         builder.done().expect("Unable to initialize enclave")
     };
 
-    enclave.enter(Leaf::Enter).unwrap();
+    // The main loop event handing is divided into two halves.
+    //
+    //   1. EEXIT events (including syscall proxying and ERESUMEs [CSSA--])
+    //      are handled by the handler callback to the vDSO function. See
+    //      enclave.rs and enclave.S. This allows us to pass registers
+    //      directly to the syscall instruction.
+    //
+    //   2. Asynchronous exits (AEX) are handled here to minimize the amount
+    //      of assembly code used.
+    loop {
+        match enclave.enter(0, 0, 0, Leaf::Enter, 0, 0) {
+            // On InvalidOpcode: re-enter the enclave with EENTER (CSSA++).
+            Err(Some(ei)) if ei.trap == Exception::InvalidOpcode => (),
+
+            // We don't currently know how to handle other AEX events.
+            e => panic!("Unexpected AEX: {:?}", e),
+        }
+    }
 }
