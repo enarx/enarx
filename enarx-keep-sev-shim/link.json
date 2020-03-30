@@ -1,0 +1,25 @@
+{
+    "build": {
+        "prepend": [
+            "-Wl,--script=enarx-keep-sev-shim/layout.ld",
+            "-Wl,--no-relax",
+            "-nostartfiles",
+            "-v"
+        ],
+
+        "replace": {
+            ".*crt.\\.o": [],
+            "-Wl,-Bdynamic": []
+        },
+
+        "debug": false
+    },
+
+    "test": {
+        "replace": {
+            "-lasm": []
+        },
+
+        "debug": false
+    }
+}
