@@ -21,7 +21,7 @@ use enclave::Leaf;
 fn main() {
     const USAGE: &str = "Usage: enarx-keep-sgx <shim> <code>";
 
-    let enclave = {
+    let (enclave, entry) = {
         // Get the arguments.
         let mut args = std::env::args();
         let shim = args.nth(1).expect(USAGE);
@@ -71,7 +71,10 @@ fn main() {
         }
 
         // Complete the process.
-        builder.done().expect("Unable to initialize enclave")
+        (
+            builder.done().expect("Unable to initialize enclave"),
+            code.entry,
+        )
     };
 
     // The main loop event handing is divided into two halves.
@@ -84,7 +87,7 @@ fn main() {
     //   2. Asynchronous exits (AEX) are handled here to minimize the amount
     //      of assembly code used.
     loop {
-        match enclave.enter(0, 0, 0, Leaf::Enter, 0, 0) {
+        match enclave.enter(entry, 0, 0, Leaf::Enter, 0, 0) {
             // On InvalidOpcode: re-enter the enclave with EENTER (CSSA++).
             Err(Some(ei)) if ei.trap == Exception::InvalidOpcode => (),
 
