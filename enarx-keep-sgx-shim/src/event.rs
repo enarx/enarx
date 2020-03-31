@@ -26,6 +26,7 @@ pub extern "C" fn event(
                 SysCall::READ => h.read(),
                 SysCall::READV => h.readv(),
                 SysCall::WRITE => h.write(),
+                SysCall::WRITEV => h.writev(),
                 SysCall::EXIT => h.exit(None),
                 SysCall::GETUID => h.getuid(),
                 SysCall::ARCH_PRCTL => h.arch_prctl(),
