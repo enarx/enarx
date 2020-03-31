@@ -3,15 +3,15 @@
 use x86_64::structures::paging::PageTableFlags;
 
 #[repr(C, align(4096))]
-pub struct Pagetable([u64; 512]);
+pub(crate) struct Pagetable(pub(crate) [u64; 512]);
 
 #[link_section = ".pmldata"]
 #[no_mangle]
-pub static PML4T: Pagetable = Pagetable([0; 512]);
+pub(crate) static mut PML4T: Pagetable = Pagetable([0; 512]);
 
 #[link_section = ".pmldata"]
 #[no_mangle]
-pub static PML3IDENT: Pagetable = Pagetable([0; 512]);
+pub(crate) static mut PML3IDENT: Pagetable = Pagetable([0; 512]);
 
 const fn pml2ident_entry_kernel(i: u64) -> u64 {
     (i << 21)
@@ -20,6 +20,7 @@ const fn pml2ident_entry_kernel(i: u64) -> u64 {
         | PageTableFlags::HUGE_PAGE.bits()
 }
 
+// FIXME: replace with 0 and map app correctly
 const fn pml2ident_entry_user(i: u64) -> u64 {
     (i << 21)
         | PageTableFlags::PRESENT.bits()
@@ -39,7 +40,7 @@ const fn pml3to_entry(i: u64) -> u64 {
 
 #[link_section = ".pmldata"]
 #[no_mangle]
-pub static PML3TO: Pagetable = Pagetable([
+pub(crate) static PML3TO: Pagetable = Pagetable([
     pml3to_entry(0),
     pml3to_entry(1),
     pml3to_entry(2),
@@ -556,7 +557,7 @@ pub static PML3TO: Pagetable = Pagetable([
 
 #[link_section = ".pmldata"]
 #[no_mangle]
-pub static PML2IDENT: Pagetable = Pagetable([
+pub(crate) static mut PML2IDENT: Pagetable = Pagetable([
     pml2ident_entry_kernel(0),
     pml2ident_entry_kernel(1),
     pml2ident_entry_user(2),

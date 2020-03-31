@@ -15,34 +15,68 @@
 * Memory management via mmap() and proxying to enarx-keep-sev
 * Thread creation via clone() in enarx-keep-sev and start a new CPU in enarx-keep-sev-shim 
 
-## Testing with nightly
-
-Currently, we need nightly for timers and interrupts.
+## Execute an Elf payload
 
 ### KVM
 ```console
 $ cargo build --workspace
-$ cargo build -p enarx-keep-sev --examples
-$ cd enarx-keep-sev-shim
-$ CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_RUNNER="../target/x86_64-unknown-linux-musl/debug/enarx-keep-sev --app ../target/x86_64-unknown-linux-musl/debug/examples/testapp --kernel" \
-  cargo +nightly test --features test_kvm
+$ ./target/x86_64-unknown-linux-musl/debug/enarx-keep-sev \
+  --kernel ./target/x86_64-unknown-linux-musl/debug/enarx-keep-sev-shim \
+  --app ./target/x86_64-unknown-linux-musl/debug/payload
 ```
 
 ### QEMU
 ```console
 $ cd enarx-keep-sev-shim
-$ CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_RUNNER=$(pwd)/qemu-test-runner.sh \
-  cargo +nightly test --features qemu
+$ cargo build --workspace
+$ CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_RUNNER="$(pwd)/qemu-test-runner.sh --app ../target/x86_64-unknown-linux-musl/debug/payload --kernel" \
+  cargo run --features qemu
 ```
 
-## gdb debugging with the kernel
+with kvm
+```console
+$ cd enarx-keep-sev-shim
+$ cargo build --workspace
+$ CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_RUNNER="$(pwd)/qemu-test-runner.sh --app ../target/x86_64-unknown-linux-musl/debug/payload --kernel" \
+  cargo run --features qemu -- -- -enable-kvm
+```
+
+## Testing
+
+Currently, nightly is needed for `feature(custom_test_frameworks)`.
+
+### KVM
+```console
+$ cd enarx-keep-sev-shim
+$ cargo build --workspace
+$ CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_RUNNER="../target/x86_64-unknown-linux-musl/debug/enarx-keep-sev --app ../target/x86_64-unknown-linux-musl/debug/payload --kernel" \
+  cargo +nightly test --features test_kvm
+```
+
+### QEMU
+
+```console
+$ cd enarx-keep-sev-shim
+$ cargo build --workspace
+$ CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_RUNNER="$(pwd)/qemu-test-runner.sh --app ../target/x86_64-unknown-linux-musl/debug/payload --kernel" \
+  cargo +nightly test --features test_qemu
+```
+
+with kvm:
+```console
+$ CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_RUNNER="$(pwd)/qemu-test-runner.sh --app ../target/x86_64-unknown-linux-musl/debug/payload --kernel" \
+  cargo +nightly test --features test_qemu -- -- -enable-kvm
+```
+
+## gdb debugging with the `enarx-keep-sev-shim` kernel
 
 Currently, we need nightly for timers and interrupts.
 
 ```console
 $ cd enarx-keep-sev-shim
-$ CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_RUNNER=$(pwd)/qemu-test-runner.sh \
-  cargo +nightly test --features qemu -- -S -s
+$ cargo build --workspace
+$ CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_RUNNER="$(pwd)/qemu-test-runner.sh --app ../target/x86_64-unknown-linux-musl/debug/payload --kernel" \
+  cargo run --features qemu -- -- -S -s
 ```
 
 in another terminal:
@@ -57,4 +91,13 @@ $ gdb \
     -ex 'br exec_elf' -ex 'cont'
 ```
 
-Currently ring 3 elf app execution is not yet supported in qemu.
+to debug the app, continue with:
+```console
+> br _usermode
+> next
+> next
+> file target/x86_64-unknown-linux-musl/debug/app
+> br _start
+> br app::main
+> cont
+```

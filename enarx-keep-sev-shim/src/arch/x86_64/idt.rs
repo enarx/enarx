@@ -4,6 +4,7 @@
 //!
 //! Duplicated from the x86_64 crate, because we want
 //! to use non-nightly rust which has no feature(abi_x86_interrupt))
+//! FIXME: needs simpler implementation
 
 // Copyright 2017 Philipp Oppermann. See the README.md
 // file at the top-level directory of this distribution.
