@@ -235,9 +235,9 @@ impl KvmVm {
             failure::bail!(msg.to_string());
         }
 
-        let guest_code: VirtAddr = VirtAddr::new(elf_file.header.pt2.entry_point());
         let mut load_addr: Option<VirtAddr> = None;
         let phnum: usize = elf_file.program_iter().count();
+        let mut elf_dyn_offset = 0_i64;
 
         for program_header in elf_file.program_iter() {
             match program_header {
@@ -249,14 +249,21 @@ impl KvmVm {
                     }
 
                     if load_addr.is_none() {
-                        load_addr.replace(VirtAddr::new(segment.virtual_addr) - segment.offset);
+                        if segment.physical_addr == 0 {
+                            elf_dyn_offset = 0x0040_0000;
+                        }
+                        load_addr.replace(
+                            VirtAddr::new((segment.virtual_addr as i64 + elf_dyn_offset) as _)
+                                - segment.offset,
+                        );
                     }
 
                     if segment.mem_size == 0 {
                         continue;
                     }
 
-                    let start_phys = PhysAddr::new(segment.physical_addr);
+                    let start_phys =
+                        PhysAddr::new((segment.physical_addr as i64 + elf_dyn_offset) as _);
                     let start_frame: PhysFrame =
                         PhysFrame::from_start_address(start_phys.align_down(self.page_size as u64))
                             .unwrap();
@@ -298,6 +305,9 @@ impl KvmVm {
                 ProgramHeader::Ph32(_) => failure::bail!("32-bit ELF files are not supported"),
             }
         }
+
+        let guest_code: VirtAddr =
+            VirtAddr::new((elf_file.header.pt2.entry_point() as i64 + elf_dyn_offset) as _);
 
         // FIXME: Mmap's drop() function will unmap the memory we just mapped when it goes
         // out of scope. Avoid drop.
