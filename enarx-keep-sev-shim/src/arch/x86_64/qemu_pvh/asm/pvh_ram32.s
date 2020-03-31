@@ -46,7 +46,7 @@ ram32_start:
 
 #enable_paging:
     # Load page table root into CR3
-    movl $_pml4t, %eax
+    movl $PML4T, %eax
     movl %eax, %cr3
 
     # Set CR4.PAE (Physical Address Extension)

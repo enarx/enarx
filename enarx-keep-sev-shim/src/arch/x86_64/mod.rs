@@ -8,7 +8,8 @@ pub mod gdt;
 pub mod idt;
 pub mod interrupts;
 
-mod start_e820;
+#[cfg(feature = "qemu")]
+mod qemu_pvh;
 
 pub mod structures;
 pub mod syscall;
@@ -55,6 +56,7 @@ macro_rules! entry_point {
 pub const PAGESIZE: usize = 4096;
 pub const STACK_START: usize = 0x7F48_4800_0000;
 pub const STACK_SIZE: usize = 1024 * 1024; // 1 MiB
+pub const PHYSICAL_MEMORY_OFFSET: u64 = 0x800_0000_0000;
 
 static mut APP_ENTRY_POINT: *const u8 = core::ptr::null();
 static mut APP_LOAD_ADDR: *const u8 = core::ptr::null();

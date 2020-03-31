@@ -25,7 +25,9 @@ fn main() {
         .collect::<Vec<_>>();
 
     if cfg!(feature = "qemu") {
-        asm_dir.push("qemu-pvh");
+        asm_dir.push("..");
+        asm_dir.push("qemu_pvh");
+        asm_dir.push("asm");
         let pvh_entries = fs::read_dir(&asm_dir)
             .unwrap()
             .filter_map(|f| {
