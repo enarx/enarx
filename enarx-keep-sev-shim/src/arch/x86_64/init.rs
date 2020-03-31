@@ -22,9 +22,7 @@ use super::MAPPER;
 use super::NEXT_MMAP;
 use super::STACK_SIZE;
 use super::STACK_START;
-use crate::arch::x86_64::PAGESIZE;
-
-const PHYSICAL_MEMORY_OFFSET: u64 = 0x800_0000_0000;
+use crate::arch::x86_64::{PAGESIZE, PHYSICAL_MEMORY_OFFSET};
 
 #[allow(clippy::type_complexity)]
 static mut ENTRY_POINT: Option<
@@ -75,7 +73,6 @@ pub fn init(
     gdt::init();
     unsafe { syscall::init() };
 
-    //    #[cfg(feature = "nightly")]
     interrupts::init();
 
     eprintln!("{:#?}", boot_info);
@@ -221,6 +218,19 @@ pub fn init_stack(
 }
 
 extern "C" fn init_after_stack_swap() -> ! {
+    #[cfg(feature = "qemu")]
+    {
+        let (entry_point, load_addr, ph_num) =
+            super::qemu_pvh::load_elf::load_elf(unsafe { MAPPER.as_mut().unwrap() }, unsafe {
+                FRAME_ALLOCATOR.as_mut().unwrap()
+            });
+        unsafe {
+            APP_ENTRY_POINT = entry_point;
+            APP_LOAD_ADDR = load_addr;
+            APP_PH_NUM = ph_num;
+        }
+    }
+
     let frame_allocator = unsafe { FRAME_ALLOCATOR.as_mut().unwrap() };
     let mapper = unsafe { MAPPER.as_mut().unwrap() };
     let entry_point = unsafe { ENTRY_POINT.as_ref().unwrap() };

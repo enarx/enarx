@@ -9,7 +9,6 @@ XSAVE_STACK_OFFSET = (16*64 + 3 * 8)
 
 .p2align 4
 _syscall_enter:
-    cli
     swapgs                 # Set gs segment to TSS
     mov    %rsp,%gs:0x1c   # Save userspace rsp
     mov    %gs:0x4,%rsp    # Load kernel rsp
@@ -43,7 +42,7 @@ _syscall_enter:
     movq   %rcx, %rdx
     # xsave end
 
-    sti
+    #FIXME: sti
 
     # SYSV:    rdi, rsi, rdx, rcx, r8, r9
     # SYSCALL: rdi, rsi, rdx, r10, r8, r9
@@ -69,7 +68,7 @@ _syscall_enter:
     popq    %rdi
     popq    %rdi
 
-    cli
+    #FIXME: cli
 
     # xrstor
     movq   %rax, %r11
@@ -90,7 +89,7 @@ _syscall_enter:
     iretq
 
     # FIXME: comment out iretq for fast return with sysretq
-    cli
+    //FIXME: cli
     swapgs
     pop    %rcx             # Pop userspace return pointer
     add    $0x8,%rsp        # Pop userspace code segment
