@@ -8,6 +8,9 @@
 #![cfg_attr(feature = "nightly", test_runner(enarx_keep_sev_shim::test_runner))]
 #![cfg_attr(feature = "nightly", reexport_test_harness_main = "test_main")]
 #![allow(clippy::empty_loop)]
+#![deny(missing_docs)]
+// FIXME: https://github.com/enarx/enarx/issues/391
+#![allow(missing_docs)]
 
 #[cfg(any(not(test), all(test, feature = "nightly")))]
 enarx_keep_sev_shim::entry_point!(kernel_main);

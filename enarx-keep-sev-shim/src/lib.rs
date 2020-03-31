@@ -10,6 +10,9 @@
 #![cfg_attr(feature = "nightly", feature(lang_items))]
 #![cfg_attr(feature = "nightly", reexport_test_harness_main = "test_main")]
 #![allow(clippy::empty_loop)]
+#![deny(missing_docs)]
+// FIXME: https://github.com/enarx/enarx/issues/391
+#![allow(missing_docs)]
 
 #[cfg(feature = "allocator")]
 extern crate alloc;
