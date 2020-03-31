@@ -25,3 +25,27 @@ enumerate::enumerate! {
         ArchGetGs = 0x1004,
     }
 }
+
+/// Buffer used by readv() and writev() syscalls
+#[repr(C)]
+pub struct Iovec<'a> {
+    /// Buffer start address
+    pub base: *mut u8,
+
+    /// Number of bytes to transfer
+    pub size: usize,
+
+    phantom: core::marker::PhantomData<&'a ()>,
+}
+
+impl<'a> AsRef<[u8]> for Iovec<'a> {
+    fn as_ref(&self) -> &[u8] {
+        unsafe { core::slice::from_raw_parts(self.base, self.size) }
+    }
+}
+
+impl<'a> AsMut<[u8]> for Iovec<'a> {
+    fn as_mut(&mut self) -> &mut [u8] {
+        unsafe { core::slice::from_raw_parts_mut(self.base, self.size) }
+    }
+}
