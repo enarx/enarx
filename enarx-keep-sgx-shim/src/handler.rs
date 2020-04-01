@@ -191,4 +191,10 @@ impl<'a> Handler<'a> {
             ret
         }
     }
+
+    /// Do a set_tid_address() syscall
+    // This is currently unimplemented and returns a dummy thread id.
+    pub fn set_tid_address(&mut self) -> u64 {
+        1
+    }
 }
