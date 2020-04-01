@@ -118,6 +118,17 @@ impl<'a> Handler<'a> {
         panic!()
     }
 
+    /// Proxy an exitgroup() syscall
+    ///
+    /// The optional `code` parameter overrides the value from `aex`.
+    /// TODO: Currently we are only using one thread, so this will behave the
+    /// same way as exit(). In the future, this implementation will change.
+    pub fn exit_group<T: Into<Option<u8>>>(&mut self, code: T) -> ! {
+        let code = code.into().map(|x| x.into()).unwrap_or(self.aex.gpr.rdi);
+        unsafe { self.syscall(SysCall::EXIT_GROUP, code, 0, 0, 0, 0, 0) };
+        panic!()
+    }
+
     /// Do a getuid() syscall
     pub fn getuid(&mut self) -> u64 {
         unsafe { self.syscall(SysCall::GETUID, 0, 0, 0, 0, 0, 0) }

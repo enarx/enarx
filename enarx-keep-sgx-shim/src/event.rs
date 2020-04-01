@@ -27,6 +27,7 @@ pub extern "C" fn event(
                 SysCall::WRITE => h.write(),
                 SysCall::GETUID => h.getuid(),
                 SysCall::EXIT => h.exit(None),
+                SysCall::EXIT_GROUP => h.exit_group(None),
                 _ => h.exit(254),
             };
 
