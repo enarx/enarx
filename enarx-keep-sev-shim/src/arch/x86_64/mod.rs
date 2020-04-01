@@ -23,8 +23,6 @@ pub use exec::exec_elf;
 mod init;
 pub use init::init;
 
-pub mod pagetables;
-
 mod mmap;
 pub use mmap::{brk_user, mmap_user};
 
