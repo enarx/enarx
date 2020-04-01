@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use super::contents::Contents;
 use sgx_types::page::Flags;
 
 use goblin::elf::{header::*, program_header::*, Elf};
@@ -8,21 +7,20 @@ use memory::Page;
 use span::Span;
 
 use std::cmp::{max, min};
-use std::fs::File;
-use std::io::{Read, Result};
+use std::io::Result;
 use std::ops::Range;
 use std::path::Path;
 
 /// A loadable segment of code
 pub struct Segment {
-    pub src: Contents,
+    pub src: Vec<Page>,
     pub dst: Span<usize, usize>,
     pub rwx: Flags,
 }
 
 impl<'a> Segment {
     /// Creates a segment from a `ProgramHeader`.
-    fn from_ph(file: &File, ph: &ProgramHeader) -> Result<Option<Self>> {
+    fn from_ph(file: &[u8], ph: &ProgramHeader) -> Result<Option<Self>> {
         if ph.p_type != PT_LOAD {
             return Ok(None);
         }
@@ -41,24 +39,44 @@ impl<'a> Segment {
             rwx |= Flags::X;
         }
 
-        let mask = Page::size() - 1;
-
         let src = Span {
-            start: ph.p_offset as _,
-            count: ph.p_filesz as _,
+            start: ph.p_offset as usize,
+            count: ph.p_filesz as usize,
         };
 
-        let dst = Span {
-            start: ph.p_vaddr as _,
-            count: (ph.p_memsz as usize + mask) & !mask,
+        let unaligned = Range::from(Span {
+            start: ph.p_vaddr as usize,
+            count: ph.p_memsz as usize,
+        });
+
+        let frame = Range {
+            start: unaligned.start / Page::size(),
+            end: (unaligned.end + Page::size() - 1) / Page::size(),
         };
 
-        assert_eq!(dst.start & mask, 0);
+        let aligned = Range {
+            start: frame.start * Page::size(),
+            end: frame.end * Page::size(),
+        };
+
+        let subslice = Span::from(Range {
+            start: unaligned.start - aligned.start,
+            end: unaligned.end - aligned.start,
+        });
+
+        let subslice = Range::from(Span {
+            start: subslice.start,
+            count: min(subslice.count, src.count),
+        });
+
+        let src = &file[Range::from(src)];
+        let mut buf = vec![Page::default(); Span::from(frame).count];
+        unsafe { buf.align_to_mut() }.1[subslice].copy_from_slice(src);
 
         Ok(Some(Self {
             rwx,
-            dst,
-            src: Contents::from_file(dst.count, file, src)?,
+            dst: aligned.into(),
+            src: buf,
         }))
     }
 }
@@ -72,13 +90,7 @@ pub struct Component {
 impl<'a> Component {
     /// Loads a binary from a file
     pub fn from_path(path: impl AsRef<Path>) -> Result<Self> {
-        // Open the file.
-        let mut file = File::open(path)?;
-
-        // Read in the whole file.
-        let mut data = Vec::new();
-        let size = file.read_to_end(&mut data)?;
-        data.truncate(size);
+        let data = std::fs::read(path)?;
 
         // Parse the file.
         let elf = Elf::parse(data.as_ref()).unwrap();
@@ -108,7 +120,7 @@ impl<'a> Component {
 
         let mut segments = Vec::new();
         for ph in elf.program_headers.iter() {
-            if let Some(seg) = Segment::from_ph(&file, ph)? {
+            if let Some(seg) = Segment::from_ph(&data, ph)? {
                 segments.push(seg);
             }
         }

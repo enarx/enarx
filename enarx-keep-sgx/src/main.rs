@@ -7,7 +7,6 @@
 
 mod builder;
 mod component;
-mod contents;
 mod enclave;
 mod map;
 
@@ -42,7 +41,7 @@ fn main() {
 
         // Load the shim segments.
         for seg in shim.segments.iter() {
-            let mut src = seg.src.as_ref();
+            let mut src = unsafe { seg.src.align_to().1 };
             let mut off = seg.dst.start - span.start;
 
             // The first page of the shim entry is the TCS page.
@@ -63,9 +62,10 @@ fn main() {
 
         // Load the code segments.
         for seg in code.segments.iter() {
+            let src = unsafe { seg.src.align_to().1 };
             let off = seg.dst.start - span.start;
             builder
-                .load(&seg.src, off, SecInfo::reg(seg.rwx))
+                .load(&src, off, SecInfo::reg(seg.rwx))
                 .expect("Unable to add code page");
         }
 
