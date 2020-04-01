@@ -98,7 +98,6 @@ _before_jump:
 stack_size = 0x10000
 
 .section .bss.stack, "aw"
-.global pvh_stack
 .align 4096
 first_kernel_stack:
 .space stack_size
