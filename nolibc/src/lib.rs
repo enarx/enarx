@@ -15,3 +15,13 @@ pub mod x86_64;
 
 #[cfg(target_arch = "x86_64")]
 pub use x86_64::*;
+
+enumerate::enumerate! {
+    #[derive(Copy, Clone)]
+    pub enum ArchPrctlTask: u64 {
+        ArchSetGs = 0x1001,
+        ArchSetFs = 0x1002,
+        ArchGetFs = 0x1003,
+        ArchGetGs = 0x1004,
+    }
+}
