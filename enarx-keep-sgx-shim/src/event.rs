@@ -28,6 +28,8 @@ pub extern "C" fn event(
                 SysCall::GETUID => h.getuid(),
                 SysCall::EXIT => h.exit(None),
                 SysCall::EXIT_GROUP => h.exit_group(None),
+                SysCall::RT_SIGACTION => h.rt_sigaction(),
+                SysCall::RT_SIGPROCMASK => h.rt_sigprocmask(),
                 _ => h.exit(254),
             };
 

@@ -191,4 +191,16 @@ impl<'a> Handler<'a> {
             ret
         }
     }
+
+    /// rt_sigaction() syscall stub
+    /// TODO: Implement correct behavior for this function.
+    pub fn rt_sigaction(&mut self) -> u64 {
+        0
+    }
+
+    /// rt_sigprocmask() syscall stub
+    /// TODO: Implement correct behavior for this function.
+    pub fn rt_sigprocmask(&mut self) -> u64 {
+        0
+    }
 }
