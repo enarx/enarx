@@ -25,8 +25,8 @@ pub extern "C" fn event(
             aex.gpr.rax = match syscall {
                 SysCall::READ => h.read(),
                 SysCall::WRITE => h.write(),
-                SysCall::GETUID => h.getuid(),
                 SysCall::EXIT => h.exit(None),
+                SysCall::GETUID => h.getuid(),
                 SysCall::EXIT_GROUP => h.exit_group(None),
                 SysCall::SET_TID_ADDRESS => h.set_tid_address(),
                 _ => h.exit(254),
