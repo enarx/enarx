@@ -267,9 +267,8 @@ impl KvmVm {
                     let start_frame: PhysFrame =
                         PhysFrame::from_start_address(start_phys.align_down(self.page_size as u64))
                             .unwrap();
-
                     let end_frame: PhysFrame = PhysFrame::from_start_address(
-                        PhysAddr::new((segment.physical_addr) + segment.mem_size - 1)
+                        ((start_phys + segment.mem_size - 1u64) as PhysAddr)
                             .align_up(self.page_size as u64),
                     )
                     .unwrap();
