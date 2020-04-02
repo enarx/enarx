@@ -4,7 +4,7 @@ use crate::arch::x86_64::structures::paging::{
     mapper::MapToError, FrameAllocator, Mapper, Page, PageTableFlags, Size4KiB,
 };
 
-use x86_64::structures::paging::FrameDeallocator;
+//FIXME: use x86_64::structures::paging::FrameDeallocator;
 use x86_64::VirtAddr;
 
 use super::FRAME_ALLOCATOR;
@@ -51,8 +51,8 @@ pub fn mmap_user(len: usize) -> *mut u8 {
                 Ok(())
             })
             .or_else(|e| match e {
-                MapToError::PageAlreadyMapped(f) => {
-                    frame_allocator.deallocate_frame(f);
+                MapToError::PageAlreadyMapped(_f) => {
+                    //FIXME: frame_allocator.deallocate_frame(f);
                     Ok(())
                 }
                 MapToError::ParentEntryHugePage => Ok(()),
@@ -112,8 +112,8 @@ pub fn brk_user(len: usize) -> *mut u8 {
                 Ok(())
             })
             .or_else(|e| match e {
-                MapToError::PageAlreadyMapped(f) => {
-                    frame_allocator.deallocate_frame(f);
+                MapToError::PageAlreadyMapped(_f) => {
+                    //FIXME: frame_allocator.deallocate_frame(f);
                     Ok(())
                 }
                 MapToError::ParentEntryHugePage => Ok(()),

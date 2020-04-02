@@ -4,8 +4,8 @@ use crate::arch::x86_64::{
     structures::paging::{FrameAllocator, OffsetPageTable, PageTable, PhysFrame, Size4KiB},
     PhysAddr, VirtAddr,
 };
-use vmsyscall::memory_map::{FrameRange, Map, Region, RegionType};
-use x86_64::structures::paging::{FrameDeallocator, UnusedPhysFrame};
+use vmsyscall::memory_map::{Map, RegionType};
+use x86_64::structures::paging::UnusedPhysFrame;
 
 /// Initialize a new OffsetPageTable.
 ///
@@ -41,6 +41,7 @@ unsafe fn active_level_4_table(physical_memory_offset: VirtAddr) -> &'static mut
 }
 
 /// A FrameAllocator that returns usable frames from the bootloader's memory map.
+#[derive(Debug)]
 pub struct BootInfoFrameAllocator {
     memory_map: Map,
     next: usize,
@@ -96,6 +97,7 @@ unsafe impl FrameAllocator<Size4KiB> for BootInfoFrameAllocator {
     }
 }
 
+/* FIXME:
 impl FrameDeallocator<Size4KiB> for BootInfoFrameAllocator {
     fn deallocate_frame(&mut self, frame: UnusedPhysFrame<Size4KiB>) {
         self.memory_map.add_region(Region {
@@ -107,3 +109,4 @@ impl FrameDeallocator<Size4KiB> for BootInfoFrameAllocator {
         })
     }
 }
+*/
