@@ -2,6 +2,7 @@
 
 use nolibc::x86_64::error::Number as ErrNo;
 use nolibc::x86_64::syscall::Number as SysCall;
+use nolibc::ArchPrctlTask;
 use sgx_types::{ssa::StateSaveArea, tcs::Tcs};
 
 use core::ops::Range;
@@ -196,5 +197,31 @@ impl<'a> Handler<'a> {
     // This is currently unimplemented and returns a dummy thread id.
     pub fn set_tid_address(&mut self) -> u64 {
         1
+    }
+
+    /// Do an arch_prctl() syscall
+    pub fn arch_prctl(&mut self) -> u64 {
+        // TODO: Check that addr in %rdx does not point to an unmapped address
+        // and is not outside of the process address space.
+
+        match ArchPrctlTask::from(self.aex.gpr.rsi) {
+            ArchPrctlTask::ArchSetFs => {
+                self.aex.gpr.fsbase = self.aex.gpr.rdx;
+                0
+            }
+
+            // TODO: Fix me
+            ArchPrctlTask::ArchGetFs => ErrNo::ENOSYS.into_syscall(),
+
+            ArchPrctlTask::ArchSetGs => {
+                self.aex.gpr.gsbase = self.aex.gpr.rdx;
+                0
+            }
+
+            // TODO: Fix me
+            ArchPrctlTask::ArchGetGs => ErrNo::ENOSYS.into_syscall(),
+
+            _ => ErrNo::EINVAL.into_syscall(),
+        }
     }
 }
