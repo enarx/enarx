@@ -41,11 +41,13 @@ pub struct Builder {
     file: File,
     mmap: map::Unmap,
     hash: Hasher,
-    perm: Vec<(Span<usize, usize>, SecInfo)>,
+    perm: Vec<(Span<usize>, SecInfo)>,
 }
 
 impl Builder {
-    pub fn new(span: Span<usize, usize>) -> Result<Self> {
+    pub fn new(span: impl Into<Span<usize>>) -> Result<Self> {
+        let span = span.into();
+
         // Open the device.
         let mut file = OpenOptions::new()
             .read(true)
@@ -90,28 +92,23 @@ impl Builder {
         si: SecInfo,
     ) -> Result<()> {
         const FLAGS: sgx::Flags = sgx::Flags::MEASURE;
-
-        let er: Range<_> = self.mmap.span().into();
-        let ds = Span {
-            start: er.start + dst,
-            count: src.as_ref().len(),
-        };
-        let dr: Range<_> = ds.into();
-
-        // Check that the dst is inside the enclave.
-        if dr.start < er.start || dr.end > er.end {
-            return Err(std::io::ErrorKind::InvalidInput.into());
-        }
+        let off = dst - self.mmap.span().start;
 
         // Update the enclave.
-        let mut ap = sgx::AddPages::new(src, dst, &si, FLAGS);
+        let mut ap = sgx::AddPages::new(src, off, &si, FLAGS);
         sgx::ENCLAVE_ADD_PAGES.ioctl(&mut self.file, &mut ap)?;
 
         // Update the hash.
-        self.hash.add(src, dst, si, true);
+        self.hash.add(src, off, si, true);
 
         // Save permissions fixups for later.
-        self.perm.push((ds, si));
+        self.perm.push((
+            Span {
+                start: dst,
+                count: src.as_ref().len(),
+            },
+            si,
+        ));
 
         Ok(())
     }
@@ -145,7 +142,7 @@ impl Builder {
                 }
             }
 
-            let range: Range<_> = span.into();
+            let range = Range::from(span);
             eprintln!("{:016x}-{:016x} {:?}", range.start, range.end, si);
         }
 
