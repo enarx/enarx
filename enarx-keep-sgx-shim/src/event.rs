@@ -32,6 +32,7 @@ pub extern "C" fn event(
                 SysCall::ARCH_PRCTL => h.arch_prctl(),
                 SysCall::EXIT_GROUP => h.exit_group(None),
                 SysCall::SET_TID_ADDRESS => h.set_tid_address(),
+                SysCall::BRK => h.brk(),
                 _ => h.exit(254),
             };
 

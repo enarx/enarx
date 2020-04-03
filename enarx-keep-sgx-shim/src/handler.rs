@@ -360,4 +360,27 @@ impl<'a> Handler<'a> {
 
         ret
     }
+
+    /// Do a brk() system call
+    pub fn brk(&mut self) -> u64 {
+        let mut ret: u64 = 0;
+        let address = self.aex.gpr.rdi;
+        unsafe {
+            static mut INDEX: u64 = 0;
+            let mut diff = 0;
+            static mut HEAP: core::ops::Range<u64> = core::ops::Range { start: 0, end: 0 };
+            let (lower, _upper) = HEAP.size_hint();
+            if address > INDEX {
+                diff = address - INDEX;
+            }
+            if lower as u64 >= diff {
+                if diff > 0 {
+                    HEAP.nth(diff as usize - 1);
+                }
+                INDEX += diff;
+                ret = INDEX;
+            }
+        }
+        ret
+    }
 }
