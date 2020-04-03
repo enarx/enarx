@@ -85,6 +85,7 @@ impl<'a> Segment {
 pub struct Component {
     pub segments: Vec<Segment>,
     pub entry: usize,
+    pub pie: bool,
 }
 
 impl<'a> Component {
@@ -101,9 +102,19 @@ impl<'a> Component {
         assert_eq!(elf.header.e_ident[EI_VERSION], EV_CURRENT);
 
         // Validate header assumptions.
-        assert_eq!(elf.header.e_type, ET_EXEC);
         assert_eq!(elf.header.e_machine, EM_X86_64);
         assert_eq!(elf.header.e_version, EV_CURRENT as _);
+        let pie = match elf.header.e_type {
+            ET_DYN => true,
+            ET_EXEC => false,
+            _ => panic!("Unsupported ELF type!"),
+        };
+
+        // Validate that there is no interpreter.
+        assert!(!elf
+            .program_headers
+            .iter()
+            .fold(false, |a, ph| a | (ph.p_type == PT_INTERP)));
 
         // Validate that the entry point is in one of the loaded sections.
         assert_eq!(
@@ -125,9 +136,13 @@ impl<'a> Component {
             }
         }
 
+        // Validate that for pie binaries the first segment starts at 0.
+        assert_eq!(pie, segments[0].dst.start == 0);
+
         Ok(Self {
             entry: elf.entry as _,
             segments,
+            pie,
         })
     }
 
