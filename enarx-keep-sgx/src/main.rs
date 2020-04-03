@@ -41,20 +41,20 @@ fn load() -> (enclave::Enclave, usize) {
     // Load the shim segments.
     for seg in shim.segments.iter() {
         let mut src = unsafe { seg.src.align_to().1 };
-        let mut off = seg.dst.start - span.start;
+        let mut dst = seg.dst.start;
 
         // The first page of the shim entry is the TCS page.
         if seg.dst.start == shim.entry {
             builder
-                .load(&src[..4096], off, SecInfo::tcs())
+                .load(&src[..4096], dst, SecInfo::tcs())
                 .expect("Unable to add TCS page");
             src = &src[4096..];
-            off += 4096;
+            dst += 4096;
         }
 
         if !src.is_empty() {
             builder
-                .load(src, off, SecInfo::reg(seg.rwx))
+                .load(src, dst, SecInfo::reg(seg.rwx))
                 .expect("Unable to add shim page");
         }
     }
@@ -62,9 +62,8 @@ fn load() -> (enclave::Enclave, usize) {
     // Load the code segments.
     for seg in code.segments.iter() {
         let src = unsafe { seg.src.align_to().1 };
-        let off = seg.dst.start - span.start;
         builder
-            .load(&src, off, SecInfo::reg(seg.rwx))
+            .load(&src, seg.dst.start, SecInfo::reg(seg.rwx))
             .expect("Unable to add code page");
     }
 
