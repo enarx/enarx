@@ -1,52 +1,38 @@
 // SPDX-License-Identifier: Apache-2.0
 
+//! This crate contains types for measuring linear sets by either the end
+//! points (`Bounds`) or by a starting point and the number of elements (`Span`).
+//!
+//! In the interest of zero-cost abstractions, all methods are always inlined
+//! for maximum compiler optimization. Thus, you only pay for the conversions
+//! that are actually used.
+
 #![no_std]
 #![deny(clippy::all)]
-// TODO: https://github.com/enarx/enarx/issues/348
 #![deny(missing_docs)]
-#![allow(missing_docs)]
 
-use core::ops::*;
+mod line;
+mod span;
 
-#[repr(C)]
-#[derive(Copy, Clone, Default, Debug, PartialEq, Eq)]
-pub struct Span<T, U = T> {
-    /// The beginning of the span
-    pub start: T,
+pub use line::Line;
+pub use span::Span;
 
-    /// The number of elments in the span
-    pub count: U,
+/// Determines whether a set contains an element
+pub trait Contains<T> {
+    /// Returns whether or not the set contains the element
+    fn contains(&self, value: &T) -> bool;
 }
 
-impl<T: Clone + Add<U, Output = T>, U: Clone + Sub<U, Output = U>> Span<T, U> {
-    pub fn split(self, offset: U) -> (Self, Self) {
-        (
-            Span {
-                start: self.start.clone(),
-                count: offset.clone(),
-            },
-            Span {
-                start: self.start + offset.clone(),
-                count: self.count - offset,
-            },
-        )
-    }
+/// A trait for determining whether a set is empty
+pub trait Empty {
+    /// Returns whether or not the set is empty
+    fn is_empty(&self) -> bool;
 }
 
-impl<T: Clone + Sub<T, Output = U>, U> From<Range<T>> for Span<T, U> {
-    fn from(value: Range<T>) -> Self {
-        Span {
-            start: value.start.clone(),
-            count: value.end - value.start,
-        }
-    }
-}
-
-impl<T: Clone + Add<U, Output = T>, U> From<Span<T, U>> for Range<T> {
-    fn from(value: Span<T, U>) -> Self {
-        Range {
-            start: value.start.clone(),
-            end: value.start + value.count,
-        }
-    }
+/// Splits the set
+pub trait Split<T>: Sized {
+    /// Splits the set
+    ///
+    /// Returns `None` if `at` is not in the set.
+    fn split(self, at: T) -> Option<(Self, Self)>;
 }
