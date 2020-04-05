@@ -4,6 +4,7 @@ use super::enclave::Enclave;
 use super::map;
 
 use iocuddle_sgx as sgx;
+use memory::Page;
 use openssl::{bn, rsa};
 use sgx_crypto::{Hasher, Signer};
 use sgx_types::{
@@ -85,12 +86,7 @@ impl Builder {
         })
     }
 
-    pub fn load<T: AsRef<[u8]> + ?Sized>(
-        &mut self,
-        src: &T,
-        dst: usize,
-        si: SecInfo,
-    ) -> Result<()> {
+    pub fn load(&mut self, src: &[Page], dst: usize, si: SecInfo) -> Result<()> {
         const FLAGS: sgx::Flags = sgx::Flags::MEASURE;
         let off = dst - self.mmap.span().start;
 
@@ -105,7 +101,7 @@ impl Builder {
         self.perm.push((
             Span {
                 start: dst,
-                count: src.as_ref().len(),
+                count: src.len() * Page::size(),
             },
             si,
         ));

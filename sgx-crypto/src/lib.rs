@@ -9,8 +9,10 @@
 #![allow(clippy::unreadable_literal)]
 #![deny(missing_docs)]
 
+use memory::Page;
 use openssl::{bn, hash, pkey, rsa, sha, sign};
-use sgx_types::{page, sig};
+use sgx_types::{page::SecInfo, sig};
+
 use std::convert::TryInto;
 use std::io::Result;
 use std::num::NonZeroU32;
@@ -41,25 +43,16 @@ impl Hasher {
     }
 
     /// Mimics call to SGX_IOC_ENCLAVE_ADD_PAGES (EADD and EEXTEND).
-    pub fn add<T: AsRef<[u8]> + ?Sized>(
-        &mut self,
-        data: &T,
-        offset: usize,
-        secinfo: page::SecInfo,
-        measure: bool,
-    ) {
-        let data = data.as_ref();
-
+    pub fn add(&mut self, pages: &[Page], offset: usize, secinfo: SecInfo, measure: bool) {
         // These values documented in 41.3.
         const EEXTEND: u64 = 0x00444E4554584545;
         const EADD: u64 = 0x0000000044444145;
 
-        assert_eq!(data.len() % 4096, 0);
-        assert_eq!(offset % 4096, 0);
+        assert_eq!(offset % Page::size(), 0);
 
         // For each page in the input...
-        for (i, page) in data.chunks(4096).enumerate() {
-            let off = offset + i * 4096;
+        for (i, page) in pages.iter().enumerate() {
+            let off = offset + i * Page::size();
 
             // Hash for the EADD instruction.
             self.0.update(&EADD.to_le_bytes());
@@ -70,7 +63,7 @@ impl Hasher {
 
             // Hash for the EEXTEND instruction.
             if measure {
-                for (j, segment) in page.chunks(256).enumerate() {
+                for (j, segment) in page.as_ref().chunks(256).enumerate() {
                     let off = off + j * 256;
 
                     self.0.update(&EEXTEND.to_le_bytes());
@@ -183,11 +176,10 @@ mod test {
     // a case where we don't match this, we will happily change our ANSWERs.
 
     const DATA: [u8; 4096] = [123u8; 4096];
-    const LONG: [u8; 8192] = [123u8; 8192];
 
-    fn hash(input: &[(&[u8], SecInfo)]) -> [u8; 32] {
+    fn hash(input: &[(&[Page], SecInfo)]) -> [u8; 32] {
         // Add the lengths of all the enclave segments to produce enclave size.
-        let size = input.iter().fold(0, |c, x| c + x.0.len());
+        let size = input.iter().fold(0, |c, x| c + x.0.len() * Page::size());
 
         // Inputs:
         //   enclave size: the next power of two beyond our segments
@@ -198,7 +190,7 @@ mod test {
         let mut off = 0;
         for i in input {
             hasher.add(i.0, off, i.1, true);
-            off += i.0.len();
+            off += i.0.len() * Page::size();
         }
 
         // Use default signature parameters
@@ -221,7 +213,7 @@ mod test {
             230, 83, 134, 171, 179, 130, 94, 239, 114, 13, 202, 111, 173, 126, 101, 185, 44, 96,
             129, 56, 92, 7, 246, 99, 17, 85, 245, 207, 201, 9, 51, 65,
         ];
-        let question = hash(&[(&DATA, SecInfo::tcs())]);
+        let question = hash(&[(&[Page::copy(DATA); 1], SecInfo::tcs())]);
         assert_eq!(question, ANSWER);
     }
 
@@ -231,7 +223,7 @@ mod test {
             0, 117, 112, 212, 9, 215, 100, 12, 99, 30, 102, 236, 187, 103, 39, 144, 251, 33, 191,
             112, 25, 95, 140, 251, 201, 209, 113, 187, 15, 71, 15, 242,
         ];
-        let question = hash(&[(&DATA, SecInfo::reg(Perms::R))]);
+        let question = hash(&[(&[Page::copy(DATA); 1], SecInfo::reg(Perms::R))]);
         assert_eq!(question, ANSWER);
     }
 
@@ -241,7 +233,7 @@ mod test {
             129, 184, 53, 91, 133, 145, 39, 205, 176, 182, 220, 37, 36, 198, 139, 91, 148, 181, 98,
             116, 22, 122, 174, 173, 173, 59, 39, 209, 165, 47, 8, 219,
         ];
-        let question = hash(&[(&DATA, SecInfo::reg(Perms::R | Perms::W))]);
+        let question = hash(&[(&[Page::copy(DATA); 1], SecInfo::reg(Perms::R | Perms::W))]);
         assert_eq!(question, ANSWER);
     }
 
@@ -251,7 +243,10 @@ mod test {
             175, 209, 233, 45, 48, 189, 118, 146, 139, 110, 63, 192, 56, 119, 66, 69, 246, 116,
             142, 206, 58, 97, 186, 173, 59, 110, 122, 19, 171, 237, 80, 6,
         ];
-        let question = hash(&[(&DATA, SecInfo::reg(Perms::R | Perms::W | Perms::X))]);
+        let question = hash(&[(
+            &[Page::copy(DATA); 1],
+            SecInfo::reg(Perms::R | Perms::W | Perms::X),
+        )]);
         assert_eq!(question, ANSWER);
     }
 
@@ -261,7 +256,7 @@ mod test {
             76, 207, 169, 240, 107, 1, 166, 236, 108, 53, 91, 107, 135, 238, 123, 132, 35, 246,
             230, 31, 254, 6, 3, 175, 35, 2, 39, 175, 114, 254, 73, 55,
         ];
-        let question = hash(&[(&DATA, SecInfo::reg(Perms::R | Perms::X))]);
+        let question = hash(&[(&[Page::copy(DATA); 1], SecInfo::reg(Perms::R | Perms::X))]);
         assert_eq!(question, ANSWER);
     }
 
@@ -271,7 +266,10 @@ mod test {
             233, 11, 17, 35, 117, 163, 196, 106, 142, 137, 169, 130, 108, 108, 51, 5, 29, 241, 152,
             190, 9, 245, 27, 16, 85, 173, 17, 90, 43, 124, 46, 84,
         ];
-        let question = hash(&[(&DATA, SecInfo::tcs()), (&LONG, SecInfo::reg(Perms::R))]);
+        let question = hash(&[
+            (&[Page::copy(DATA); 1], SecInfo::tcs()),
+            (&[Page::copy(DATA); 2], SecInfo::reg(Perms::R)),
+        ]);
         assert_eq!(question, ANSWER);
     }
 
@@ -314,12 +312,23 @@ mod test {
         let sig = loadsig("tests/encl.ss");
         let key = loadkey("tests/encl.pem");
 
+        let len = (bin.len() - 1) / Page::size();
+
+        let mut tcs = [Page::default()];
+        let mut src = vec![Page::default(); len];
+
+        let dst = unsafe { tcs.align_to_mut::<u8>().1 };
+        dst.copy_from_slice(&bin[..Page::size()]);
+
+        let dst = unsafe { src.align_to_mut::<u8>().1 };
+        dst.copy_from_slice(&bin[Page::size()..]);
+
         // Validate the hash.
         assert_eq!(
             sig.measurement().mrenclave(),
             hash(&[
-                (&bin[..4096], SecInfo::tcs()),
-                (&bin[4096..], SecInfo::reg(Perms::R | Perms::W | Perms::X))
+                (&tcs, SecInfo::tcs()),
+                (&src, SecInfo::reg(Perms::R | Perms::W | Perms::X))
             ]),
             "failed to produce correct mrenclave hash"
         );

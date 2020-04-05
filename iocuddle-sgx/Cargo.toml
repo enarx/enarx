@@ -10,6 +10,7 @@ edition = "2018"
 [dependencies]
 sgx-types = { path = "../sgx-types" }
 iocuddle = { path = "../iocuddle" }
+memory = { path = "../memory" }
 bitflags = "1.2"
 
 [dev-dependencies]

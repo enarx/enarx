@@ -11,6 +11,7 @@ mod enclave;
 mod map;
 
 use intel_types::Exception;
+use memory::Page;
 use sgx_types::page::SecInfo;
 use span::Span;
 
@@ -40,16 +41,16 @@ fn load() -> (enclave::Enclave, usize) {
 
     // Load the shim segments.
     for seg in shim.segments.iter() {
-        let mut src = unsafe { seg.src.align_to().1 };
+        let mut src = &seg.src[..];
         let mut dst = seg.dst.start;
 
         // The first page of the shim entry is the TCS page.
         if seg.dst.start == shim.entry {
             builder
-                .load(&src[..4096], dst, SecInfo::tcs())
+                .load(&src[..1], dst, SecInfo::tcs())
                 .expect("Unable to add TCS page");
-            src = &src[4096..];
-            dst += 4096;
+            src = &src[1..];
+            dst += Page::size();
         }
 
         if !src.is_empty() {
@@ -61,9 +62,8 @@ fn load() -> (enclave::Enclave, usize) {
 
     // Load the code segments.
     for seg in code.segments.iter() {
-        let src = unsafe { seg.src.align_to().1 };
         builder
-            .load(&src, seg.dst.start, SecInfo::reg(seg.rwx))
+            .load(&seg.src, seg.dst.start, SecInfo::reg(seg.rwx))
             .expect("Unable to add code page");
     }
 
