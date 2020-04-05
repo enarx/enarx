@@ -28,8 +28,8 @@ extern "C" {
 pub enum Context {}
 
 pub struct Handler<'a> {
+    pub aex: &'a mut StateSaveArea,
     layout: &'a Layout,
-    aex: &'a mut StateSaveArea,
     ctx: &'a Context,
 }
 
