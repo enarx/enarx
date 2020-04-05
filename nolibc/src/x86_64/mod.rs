@@ -5,6 +5,10 @@
 pub mod error;
 pub mod syscall;
 
+pub const STDIN: u64 = 0;
+pub const STDOUT: u64 = 1;
+pub const STDERR: u64 = 2;
+
 pub const PROT_READ: u64 = 1;
 pub const PROT_WRITE: u64 = 2;
 pub const PROT_EXEC: u64 = 4;

@@ -25,12 +25,82 @@ extern "C" {
     ) -> u64;
 }
 
+pub trait Print<T: ?Sized> {
+    fn print(&mut self, data: &T);
+}
+
 pub enum Context {}
 
 pub struct Handler<'a> {
     pub aex: &'a mut StateSaveArea,
     layout: &'a Layout,
     ctx: &'a Context,
+}
+
+impl<'a> Print<str> for Handler<'a> {
+    fn print(&mut self, data: &str) {
+        let bytes = data.as_bytes();
+        let len = bytes.len() as _;
+
+        // Allocate some unencrypted memory.
+        let map = match self.ualloc(len) {
+            Err(_) => return,
+            Ok(map) => map,
+        };
+
+        unsafe {
+            // Copy the encrypted input into unencrypted memory.
+            core::ptr::copy_nonoverlapping(bytes.as_ptr(), map, bytes.len());
+
+            // Do the syscall; replace encrypted memory with unencrypted memory.
+            self.syscall(SysCall::WRITE, nolibc::STDERR, map as _, len, 0, 0, 0);
+
+            self.ufree(map, len);
+        }
+    }
+}
+
+fn hex(byte: u8) -> u8 {
+    match byte & 0xf {
+        0x0 => b'0',
+        0x1 => b'1',
+        0x2 => b'2',
+        0x3 => b'3',
+        0x4 => b'4',
+        0x5 => b'5',
+        0x6 => b'6',
+        0x7 => b'7',
+        0x8 => b'8',
+        0x9 => b'9',
+        0xa => b'a',
+        0xb => b'b',
+        0xc => b'c',
+        0xd => b'd',
+        0xe => b'e',
+        0xf => b'f',
+        _ => panic!(),
+    }
+}
+
+// Print a reverse hex dump for types that implement Copy
+//
+// The most common use for this is printing numbers, which are little endian.
+// Reversing the bytes makes the output big-endian hex.
+impl<'a, T: Copy> Print<T> for Handler<'a> {
+    fn print(&mut self, data: &T) {
+        let mut output = [*data, *data];
+        let output = unsafe { output.align_to_mut::<u8>().1 };
+
+        let input = [*data];
+        let input = unsafe { input.align_to::<u8>().1 };
+
+        for (i, byte) in input.iter().rev().cloned().enumerate() {
+            output[i * 2] = hex(byte >> 4);
+            output[i * 2 + 1] = hex(byte);
+        }
+
+        self.print(unsafe { core::str::from_utf8_unchecked(&output) })
+    }
 }
 
 impl<'a> Handler<'a> {
