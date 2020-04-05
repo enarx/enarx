@@ -64,7 +64,9 @@ impl Hasher {
             // Hash for the EADD instruction.
             self.0.update(&EADD.to_le_bytes());
             self.0.update(&(off as u64).to_le_bytes());
-            self.0.update(&secinfo.as_ref()[..48]);
+            self.0.update(unsafe {
+                std::slice::from_raw_parts(&secinfo as *const _ as *const u8, 48)
+            });
 
             // Hash for the EEXTEND instruction.
             if measure {

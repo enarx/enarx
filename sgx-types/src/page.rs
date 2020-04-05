@@ -78,17 +78,6 @@ impl core::fmt::Debug for SecInfo {
     }
 }
 
-impl AsRef<[u8]> for SecInfo {
-    fn as_ref(&self) -> &[u8] {
-        unsafe {
-            core::slice::from_raw_parts(
-                self as *const Self as *const u8,
-                core::mem::size_of_val(self),
-            )
-        }
-    }
-}
-
 impl SecInfo {
     /// Creates a SecInfo (page) of class type Regular.
     pub const fn reg(flags: Flags) -> Self {
