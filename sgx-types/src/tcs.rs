@@ -22,8 +22,8 @@ bitflags::bitflags! {
 /// by only one thread at a time.
 ///
 /// Section 38.8
-#[derive(Debug)]
-#[repr(C, align(4096))]
+#[derive(Copy, Clone, Debug)]
+#[repr(C)]
 pub struct Tcs {
     /// Used to mark an entered TCS.
     state: u64,
@@ -47,8 +47,6 @@ pub struct Tcs {
     fslimit: u32,
     /// Size to become a new GS-limit (only 32-bit enclaves).
     gslimit: u32,
-    reserved0: [u64; 23],
-    reserved1: [[u64; 32]; 15],
 }
 
 impl Tcs {
@@ -66,15 +64,13 @@ impl Tcs {
             ogsbasgx: 0,
             fslimit: !0,
             gslimit: !0,
-            reserved0: [0; 23],
-            reserved1: [[0; 32]; 15],
         }
     }
 }
 
 #[cfg(test)]
 testaso! {
-    struct Tcs: 4096, 4096 => {
+    struct Tcs: 8, 72 => {
         state: 0,
         flags: 8,
         ossa: 16,
@@ -85,8 +81,6 @@ testaso! {
         ofsbasgx: 48,
         ogsbasgx: 56,
         fslimit: 64,
-        gslimit: 68,
-        reserved0: 72,
-        reserved1: 256
+        gslimit: 68
     }
 }
