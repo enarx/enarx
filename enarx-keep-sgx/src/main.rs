@@ -8,16 +8,20 @@
 mod builder;
 mod component;
 mod enclave;
+mod layout;
 mod map;
+
+use builder::Builder;
+use component::{Component, Segment};
+use enclave::Leaf;
 
 use intel_types::Exception;
 use memory::Page;
-use sgx_types::page::SecInfo;
+use sgx_types::page::{Flags, SecInfo};
+use sgx_types::tcs::Tcs;
 use span::Span;
 
-use enclave::Leaf;
-
-fn load() -> (enclave::Enclave, usize) {
+fn load() -> enclave::Enclave {
     const USAGE: &str = "Usage: enarx-keep-sgx <shim> <code>";
 
     // Get the arguments.
@@ -26,56 +30,65 @@ fn load() -> (enclave::Enclave, usize) {
     let code = args.next().expect(USAGE);
 
     // Parse the shim and code and validate assumptions.
-    let shim = component::Component::from_path(shim).expect("Unable to parse shim");
-    let code = component::Component::from_path(code).expect("Unable to parse code");
+    let shim = Component::from_path(shim).expect("Unable to parse shim");
+    let code = Component::from_path(code).expect("Unable to parse code");
+    assert!(!shim.pie);
+    assert!(!code.pie);
 
-    // Determine the memory range for the enclave.
-    let span: Span<_, _> = shim.range().into();
-    let span = Span {
-        start: span.start,
-        count: span.count.next_power_of_two(),
-    };
+    // Calculate the memory layout for the enclave.
+    let layout = layout::Layout::calculate(&shim, &code);
+
+    // Create SSAs and TCS.
+    let ssas = vec![Page::default(); 2];
+    let tcs = Tcs::new(
+        shim.entry - layout.enclave.start,
+        Page::size() * 2, // SSAs after Layout (see below)
+        ssas.len() as _,
+    );
+
+    let internal = vec![
+        // TCS
+        Segment {
+            si: SecInfo::tcs(),
+            dst: layout.prefix.start,
+            src: vec![Page::copy(tcs)],
+        },
+        // Layout
+        Segment {
+            si: SecInfo::reg(Flags::R),
+            dst: layout.prefix.start + Page::size(),
+            src: vec![Page::copy(layout)],
+        },
+        // SSAs
+        Segment {
+            si: SecInfo::reg(Flags::R | Flags::W),
+            dst: layout.prefix.start + Page::size() * 2,
+            src: ssas,
+        },
+        // Heap
+        Segment {
+            si: SecInfo::reg(Flags::R | Flags::W),
+            dst: layout.heap.start,
+            src: vec![Page::default(); Span::from(layout.heap).count / Page::size()],
+        },
+        // Stack
+        Segment {
+            si: SecInfo::reg(Flags::R | Flags::W),
+            dst: layout.stack.start,
+            src: vec![Page::default(); Span::from(layout.stack).count / Page::size()],
+        },
+    ];
 
     // Initiate the enclave building process.
-    let mut builder = builder::Builder::new(span).expect("Unable to create builder");
-
-    // Load the shim segments.
-    for seg in shim.segments.iter() {
-        let mut src = &seg.src[..];
-        let mut dst = seg.dst.start;
-
-        // The first page of the shim entry is the TCS page.
-        if seg.dst.start == shim.entry {
-            builder
-                .load(&src[..1], dst, SecInfo::tcs())
-                .expect("Unable to add TCS page");
-            src = &src[1..];
-            dst += Page::size();
-        }
-
-        if !src.is_empty() {
-            builder
-                .load(src, dst, SecInfo::reg(seg.rwx))
-                .expect("Unable to add shim page");
-        }
-    }
-
-    // Load the code segments.
-    for seg in code.segments.iter() {
-        builder
-            .load(&seg.src, seg.dst.start, SecInfo::reg(seg.rwx))
-            .expect("Unable to add code page");
-    }
-
-    // Complete the process.
-    (
-        builder.done().expect("Unable to initialize enclave"),
-        code.entry,
-    )
+    let mut builder = Builder::new(layout.enclave).expect("Unable to create builder");
+    builder.load(&internal).unwrap();
+    builder.load(&shim.segments).unwrap();
+    builder.load(&code.segments).unwrap();
+    builder.done(layout.prefix.start).unwrap()
 }
 
 fn main() {
-    let (enclave, entry) = load();
+    let enclave = load();
 
     // The main loop event handing is divided into two halves.
     //
@@ -87,7 +100,7 @@ fn main() {
     //   2. Asynchronous exits (AEX) are handled here to minimize the amount
     //      of assembly code used.
     loop {
-        match enclave.enter(entry, 0, 0, Leaf::Enter, 0, 0) {
+        match enclave.enter(0, 0, 0, Leaf::Enter, 0, 0) {
             // On InvalidOpcode: re-enter the enclave with EENTER (CSSA++).
             Err(Some(ei)) if ei.trap == Exception::InvalidOpcode => (),
 

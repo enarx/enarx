@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
+use super::component::Segment;
 use super::enclave::Enclave;
 use super::map;
 
@@ -7,18 +8,13 @@ use iocuddle_sgx as sgx;
 use memory::Page;
 use openssl::{bn, rsa};
 use sgx_crypto::{Hasher, Signer};
-use sgx_types::{
-    page::{Class, Flags, SecInfo},
-    secs::*,
-    sig::*,
-    ssa::StateSaveArea,
-};
-use span::Span;
+use sgx_types::page::{Class, Flags, SecInfo};
+use sgx_types::{secs::*, sig::*, ssa::StateSaveArea};
+use span::{Line, Span};
 
 use std::convert::TryFrom;
 use std::fs::{File, OpenOptions};
 use std::io::{Error, Result};
-use std::ops::Range;
 
 fn f2p(flags: Flags) -> libc::c_int {
     let mut prot = libc::PROT_NONE;
@@ -86,30 +82,33 @@ impl Builder {
         })
     }
 
-    pub fn load(&mut self, src: &[Page], dst: usize, si: SecInfo) -> Result<()> {
+    pub fn load(&mut self, segs: &[Segment]) -> Result<()> {
         const FLAGS: sgx::Flags = sgx::Flags::MEASURE;
-        let off = dst - self.mmap.span().start;
 
-        // Update the enclave.
-        let mut ap = sgx::AddPages::new(src, off, &si, FLAGS);
-        sgx::ENCLAVE_ADD_PAGES.ioctl(&mut self.file, &mut ap)?;
+        for seg in segs {
+            let off = seg.dst - self.mmap.span().start;
 
-        // Update the hash.
-        self.hash.add(src, off, si, true);
+            // Update the enclave.
+            let mut ap = sgx::AddPages::new(&seg.src, off, &seg.si, FLAGS);
+            sgx::ENCLAVE_ADD_PAGES.ioctl(&mut self.file, &mut ap)?;
 
-        // Save permissions fixups for later.
-        self.perm.push((
-            Span {
-                start: dst,
-                count: src.len() * Page::size(),
-            },
-            si,
-        ));
+            // Update the hash.
+            self.hash.add(&seg.src, off, seg.si, true);
+
+            // Save permissions fixups for later.
+            self.perm.push((
+                Span {
+                    start: seg.dst,
+                    count: seg.src.len() * Page::size(),
+                },
+                seg.si,
+            ));
+        }
 
         Ok(())
     }
 
-    pub fn done(mut self) -> Result<Enclave> {
+    pub fn done(mut self, tcs: usize) -> Result<Enclave> {
         // Generate a signing key.
         let exp = bn::BigNum::try_from(3u32)?;
         let key = rsa::Rsa::generate_with_e(3072, &exp)?;
@@ -138,11 +137,10 @@ impl Builder {
                 }
             }
 
-            let range = Range::from(span);
-            eprintln!("{:016x}-{:016x} {:?}", range.start, range.end, si);
+            let line = Line::from(span);
+            eprintln!("{:016x}-{:016x} {:?}", line.start, line.end, si);
         }
 
-        let tcs = self.mmap.span().start;
         Ok(Enclave::new(self.mmap, tcs))
     }
 }
