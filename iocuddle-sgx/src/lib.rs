@@ -12,7 +12,8 @@ use std::marker::PhantomData;
 
 use bitflags::bitflags;
 use iocuddle::*;
-use sgx_types::{page, secs, sig};
+use memory::Page;
+use sgx_types::{page::SecInfo, secs, sig};
 
 const SGX: Group = Group::new(0xA4);
 
@@ -62,16 +63,13 @@ pub struct AddPages<'a> {
 
 impl<'a> AddPages<'a> {
     /// Creates a new AddPages struct for a page at a certain offset
-    pub fn new<T: AsRef<[u8]> + ?Sized>(
-        data: &'a T,
-        offset: usize,
-        secinfo: &'a page::SecInfo,
-        flags: Flags,
-    ) -> Self {
+    pub fn new(data: &'a [Page], offset: usize, secinfo: &'a SecInfo, flags: Flags) -> Self {
+        let data = unsafe { data.align_to::<u8>().1 };
+
         Self {
-            src: data.as_ref().as_ptr() as _,
+            src: data.as_ptr() as _,
             offset: offset as _,
-            length: data.as_ref().len() as _,
+            length: data.len() as _,
             secinfo: secinfo as *const _ as _,
             flags,
             count: 0,
@@ -120,13 +118,8 @@ mod test {
     use openssl::{bn, pkey, rsa};
     use rstest::*;
     use sgx_crypto::{Hasher, Signer};
-    use sgx_types::{page, secs};
+    use sgx_types::{page::Flags as Perms, secs};
     use span::Span;
-
-    #[repr(C, align(4096))]
-    struct Page([u8; 4096]);
-
-    const PAGE: Page = Page([0u8; 4096]);
 
     #[fixture]
     fn file() -> File {
@@ -143,19 +136,20 @@ mod test {
     #[rstest(
         flags => [Flags::empty(), Flags::MEASURE],
         perms => [
-            page::Flags::empty(),
-            page::Flags::R,
-            page::Flags::R | page::Flags::W,
-            page::Flags::R | page::Flags::X,
-            page::Flags::R | page::Flags::W | page::Flags::X,
+            Perms::empty(),
+            Perms::R,
+            Perms::R | Perms::W,
+            Perms::R | Perms::X,
+            Perms::R | Perms::W | Perms::X,
         ],
     )]
-    fn test(mut file: File, key: rsa::Rsa<pkey::Private>, flags: Flags, perms: page::Flags) {
+    fn test(mut file: File, key: rsa::Rsa<pkey::Private>, flags: Flags, perms: Perms) {
         const SSA_PAGES: NonZeroU32 = unsafe { NonZeroU32::new_unchecked(1) };
         const BASE_ADDR: usize = 0x0000;
         const TCS_OFFSET: usize = 0x0000;
         const REG_OFFSET: usize = 0x1000;
 
+        let page = [Page::default()];
         let span = Span {
             start: BASE_ADDR,
             count: secs::Secs::max_enc_size().unwrap().get(),
@@ -171,16 +165,16 @@ mod test {
         ENCLAVE_CREATE.ioctl(&mut file, &create).unwrap();
 
         // Add a TCS page
-        let si = page::SecInfo::tcs();
-        let mut ap = AddPages::new(&PAGE.0[..], TCS_OFFSET, &si, flags);
+        let si = SecInfo::tcs();
+        let mut ap = AddPages::new(&page, TCS_OFFSET, &si, flags);
         ENCLAVE_ADD_PAGES.ioctl(&mut file, &mut ap).unwrap();
-        hasher.add(&PAGE.0[..], TCS_OFFSET, page::SecInfo::tcs(), measure);
+        hasher.add(&page, TCS_OFFSET, SecInfo::tcs(), measure);
 
         // Add a REG page
-        let si = page::SecInfo::reg(perms);
-        let mut ap = AddPages::new(&PAGE.0[..], REG_OFFSET, &si, flags);
+        let si = SecInfo::reg(perms);
+        let mut ap = AddPages::new(&page, REG_OFFSET, &si, flags);
         ENCLAVE_ADD_PAGES.ioctl(&mut file, &mut ap).unwrap();
-        hasher.add(&PAGE.0[..], REG_OFFSET, page::SecInfo::reg(perms), measure);
+        hasher.add(&page, REG_OFFSET, SecInfo::reg(perms), measure);
 
         // Initialize the enclave.
         let author = sig::Vendor::INTEL.author(0, 0);
