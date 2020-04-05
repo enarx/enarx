@@ -1,7 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use super::component::Component;
-
 use span::{Contains as _, Line, Span};
 
 const PREFIX: usize = units::bytes![4; MiB];
@@ -43,16 +41,10 @@ pub struct Layout {
     pub heap: Line<usize>,
     pub stack: Line<usize>,
     pub shim: Line<usize>,
-
-    pub entry: usize,
 }
 
 impl Layout {
-    pub fn calculate(shim: &Component, code: &Component) -> Self {
-        let entry = code.entry;
-        let code = code.region();
-        let shim = shim.region();
-
+    pub fn calculate(shim: Line<usize>, code: Line<usize>) -> Self {
         let enclave = Line::from(Span {
             start: lower(shim.end, SIZE),
             count: SIZE,
@@ -60,24 +52,25 @@ impl Layout {
 
         assert!(enclave.contains(&shim.start));
         assert!(enclave.contains(&shim.end));
-        assert!(enclave.contains(&code.start));
-        assert!(enclave.contains(&code.end));
-        assert!(enclave.start + PREFIX <= code.start);
+        assert_eq!(code.start, 0);
 
-        let prefix = enclave.start..code.start;
+        let prefix = Span {
+            start: enclave.start,
+            count: PREFIX,
+        }
+        .into();
+        let code = above(prefix, Span::from(code).count);
         let heap = above(code, HEAP);
         let stack = below(shim, STACK);
 
         Self {
             enclave,
 
-            prefix: prefix.into(),
-            code,
+            prefix,
+            code: code.into(),
             heap: heap.into(),
             stack: stack.into(),
             shim,
-
-            entry,
         }
     }
 }

@@ -2,6 +2,7 @@
 
 use crt0stack::{Builder, Entry, Handle, OutOfSpace};
 
+use crate::elf;
 use crate::Layout;
 
 extern "C" {
@@ -29,8 +30,13 @@ fn random() -> u64 {
     unsafe { exit(1) }
 }
 
-fn crt0setup(crt0: &mut [u8]) -> Result<Handle, OutOfSpace> {
+fn crt0setup<'a>(
+    layout: &Layout,
+    hdr: &elf::Header,
+    crt0: &'a mut [u8],
+) -> Result<Handle<'a>, OutOfSpace> {
     let rand = unsafe { core::mem::transmute([random(), random()]) };
+    let phdr = layout.code.start + hdr.e_phoff;
 
     // Set the arguments
     let mut builder = Builder::new(crt0);
@@ -54,9 +60,9 @@ fn crt0setup(crt0: &mut [u8]) -> Result<Handle, OutOfSpace> {
     builder.push(&Entry::Flags(0))?; // TODO: https://github.com/enarx/enarx/issues/386
     builder.push(&Entry::HwCap(0))?; // TODO: https://github.com/enarx/enarx/issues/386
     builder.push(&Entry::HwCap2(0))?; // TODO: https://github.com/enarx/enarx/issues/386
-    builder.push(&Entry::PHdr(0))?; // TODO: https://github.com/enarx/enarx/issues/387
-    builder.push(&Entry::PHent(0))?; // TODO: https://github.com/enarx/enarx/issues/387
-    builder.push(&Entry::PHnum(0))?; // TODO: https://github.com/enarx/enarx/issues/387
+    builder.push(&Entry::PHdr(phdr as _))?;
+    builder.push(&Entry::PHent(hdr.e_phentsize as _))?;
+    builder.push(&Entry::PHnum(hdr.e_phnum as _))?;
     builder.push(&Entry::Random(rand))?;
 
     builder.done()
@@ -64,12 +70,24 @@ fn crt0setup(crt0: &mut [u8]) -> Result<Handle, OutOfSpace> {
 
 #[no_mangle]
 pub extern "C" fn entry(_rdi: u64, _rsi: u64, _rdx: u64, layout: &Layout, _r8: u64, _r9: u64) -> ! {
+    // Validate the ELF header.
+    let hdr = unsafe { &*(layout.code.start as *const elf::Header) };
+    if hdr.ei_magic != elf::MAGIC {
+        unsafe { exit(1) };
+    }
+
+    // Prepare the crt0 stack.
     let mut crt0 = Stack([0u8; 1024]);
     let space = random() as usize & 0xf0;
-    let handle = match crt0setup(&mut crt0.0[space..]) {
+    let handle = match crt0setup(layout, hdr, &mut crt0.0[space..]) {
         Err(OutOfSpace) => unsafe { exit(1) },
         Ok(handle) => handle,
     };
 
-    unsafe { jump(handle.start_ptr() as *const _ as _, layout.entry) }
+    unsafe {
+        jump(
+            handle.start_ptr() as *const _ as _,
+            layout.code.start + hdr.e_entry,
+        )
+    }
 }

@@ -31,12 +31,18 @@ fn load() -> enclave::Enclave {
 
     // Parse the shim and code and validate assumptions.
     let shim = Component::from_path(shim).expect("Unable to parse shim");
-    let code = Component::from_path(code).expect("Unable to parse code");
+    let mut code = Component::from_path(code).expect("Unable to parse code");
     assert!(!shim.pie);
-    assert!(!code.pie);
+    assert!(code.pie);
 
     // Calculate the memory layout for the enclave.
-    let layout = layout::Layout::calculate(&shim, &code);
+    let layout = layout::Layout::calculate(shim.region(), code.region());
+
+    // Relocate the code binary.
+    code.entry += layout.code.start;
+    for seg in code.segments.iter_mut() {
+        seg.dst += layout.code.start;
+    }
 
     // Create SSAs and TCS.
     let ssas = vec![Page::default(); 2];
