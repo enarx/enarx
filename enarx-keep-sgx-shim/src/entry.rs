@@ -2,7 +2,7 @@
 
 use crt0stack::{Builder, Entry, Handle, OutOfSpace};
 
-use sgx_types::tcs::Tcs;
+use crate::Layout;
 
 extern "C" {
     fn jump(rsp: u64, fnc: u64) -> !;
@@ -63,7 +63,7 @@ fn crt0setup(crt0: &mut [u8]) -> Result<Handle, OutOfSpace> {
 }
 
 #[no_mangle]
-pub extern "C" fn entry(entry: u64, _rsi: u64, _rdx: u64, _tcs: &Tcs, _r8: u64, _r9: u64) -> ! {
+pub extern "C" fn entry(_rdi: u64, _rsi: u64, _rdx: u64, layout: &Layout, _r8: u64, _r9: u64) -> ! {
     let mut crt0 = Stack([0u8; 1024]);
     let space = random() as usize & 0xf0;
     let handle = match crt0setup(&mut crt0.0[space..]) {
@@ -71,7 +71,5 @@ pub extern "C" fn entry(entry: u64, _rsi: u64, _rdx: u64, _tcs: &Tcs, _r8: u64, 
         Ok(handle) => handle,
     };
 
-    // We need some way to measure the entry parameter.
-    // TODO: https://github.com/enarx/enarx/issues/388
-    unsafe { jump(handle.start_ptr() as *const _ as _, entry) }
+    unsafe { jump(handle.start_ptr() as *const _ as _, layout.entry) }
 }

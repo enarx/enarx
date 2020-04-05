@@ -19,24 +19,11 @@
  *      32TiB gives us maximum possible room to grow.
  */
 
-ENTRY(tcs)
+ENTRY(enclave)
 
 SECTIONS {
-  /* Enclave Start: 32 TiB */
-  . = 32 * 1M * 1M;
-  .enarx.tcs : { *(.enarx.tcs) }
-  .enarx.aex : { *(.enarx.aex) }
-
-  /* Heap Start: 32TiB + 61GiB */
-  . = 32 * 1M * 1M + 61 * 1024M;
-  .enarx.thp : { *(.enarx.thp) }
-
-  /* Stack Start: 32TiB + 62GiB */
-  . = ALIGN(1024M);
-  .enarx.stk : { *(.enarx.stk) }
-
   /* Shim Start: 32TiB + 63GiB */
-  . = ALIGN(1024M);
+  . = 32 * 1M * 1M + 63 * 1024M;
   .got.plt : { *(.got.plt) }
   .data : { *(.data*) }
   .bss : { *(.bss*) }

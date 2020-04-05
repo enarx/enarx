@@ -9,6 +9,7 @@ license = "Apache-2.0"
 crt0stack = { path = "../crt0stack" }
 sgx-types = { path = "../sgx-types" }
 nolibc = { path = "../nolibc" }
+span = { path = "../span" }
 
 [build-dependencies]
 cc = "*"

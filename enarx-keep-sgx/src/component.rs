@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use sgx_types::page::Flags;
-
 use goblin::elf::{header::*, program_header::*, Elf};
+
 use memory::Page;
-use span::Span;
+use sgx_types::page::{Flags, SecInfo};
+use span::{Line, Span};
 
 use std::cmp::{max, min};
 use std::io::Result;
@@ -14,8 +14,8 @@ use std::path::Path;
 /// A loadable segment of code
 pub struct Segment {
     pub src: Vec<Page>,
-    pub dst: Span<usize, usize>,
-    pub rwx: Flags,
+    pub dst: usize,
+    pub si: SecInfo,
 }
 
 impl<'a> Segment {
@@ -44,22 +44,22 @@ impl<'a> Segment {
             count: ph.p_filesz as usize,
         };
 
-        let unaligned = Range::from(Span {
+        let unaligned = Line::from(Span {
             start: ph.p_vaddr as usize,
             count: ph.p_memsz as usize,
         });
 
-        let frame = Range {
+        let frame = Line {
             start: unaligned.start / Page::size(),
             end: (unaligned.end + Page::size() - 1) / Page::size(),
         };
 
-        let aligned = Range {
+        let aligned = Line {
             start: frame.start * Page::size(),
             end: frame.end * Page::size(),
         };
 
-        let subslice = Span::from(Range {
+        let subslice = Span::from(Line {
             start: unaligned.start - aligned.start,
             end: unaligned.end - aligned.start,
         });
@@ -74,8 +74,8 @@ impl<'a> Segment {
         unsafe { buf.align_to_mut() }.1[subslice].copy_from_slice(src);
 
         Ok(Some(Self {
-            rwx,
-            dst: aligned.into(),
+            si: SecInfo::reg(rwx),
+            dst: aligned.start,
             src: buf,
         }))
     }
@@ -137,7 +137,7 @@ impl<'a> Component {
         }
 
         // Validate that for pie binaries the first segment starts at 0.
-        assert_eq!(pie, segments[0].dst.start == 0);
+        assert_eq!(pie, segments[0].dst == 0);
 
         Ok(Self {
             entry: elf.entry as _,
@@ -146,17 +146,17 @@ impl<'a> Component {
         })
     }
 
-    /// Find the bottom and top of the binary segments.
-    pub fn range(&self) -> Range<usize> {
-        self.segments.iter().map(|x| Range::from(x.dst)).fold(
-            Range {
-                start: usize::max_value(),
-                end: usize::min_value(),
-            },
-            |l, r| Range {
-                start: min(l.start, r.start),
-                end: max(l.end, r.end),
-            },
-        )
+    /// Find the total memory region for the binary.
+    pub fn region(&self) -> Line<usize> {
+        self.segments
+            .iter()
+            .map(|x| Line {
+                start: x.dst,
+                end: x.dst + x.src.len() * Page::size(),
+            })
+            .fold(usize::max_value()..usize::min_value(), |l, r| {
+                min(l.start, r.start)..max(l.end, r.end)
+            })
+            .into()
     }
 }

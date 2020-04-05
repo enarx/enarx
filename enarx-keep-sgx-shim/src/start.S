@@ -1,15 +1,12 @@
 # SPDX-License-Identifier: Apache-2.0
 
-#define NSSA    2
-#define ALGN    (2 * 1024 * 1024)
-#define STCK    (8 * 1024 * 1024)
-#define HEAP    (128 * 1024 * 1024)
-
 #define GPR     (4096 - 184)
 #define RSP     (GPR + 32)
 
 #define MISC    (GPR - 16)
 #define SRSP    (MISC - 8)
+
+#define STACK   (9 * 8)
 
 # Clear all preserved (callee-saved) registers (except %rsp)
 .macro  zerop
@@ -63,49 +60,6 @@
     pop     %rbx
 .endm
 
-    .section ".enarx.tcs", "aw"
-    .globl tcs
-    .type tcs, @object
-tcs:                            # The TCS page
-    .align  4096
-    .fill   1, 8, 0             # STATE (set by CPU)
-    .fill   1, 8, 0             # FLAGS
-    .quad   aex - tcs           # OSSA
-    .fill   1, 4, 0             # CSSA (set by CPU)
-    .fill   1, 4, NSSA          # NSSA
-    .quad   enclave - tcs       # OENTRY
-    .fill   1, 8, 0             # AEP (set by EENTER and ERESUME)
-    .fill   1, 8, 0             # OFSBASE
-    .fill   1, 8, 0             # OGSBASE
-    .fill   1, 4, ~0            # FSLIMIT
-    .fill   1, 4, ~0            # GSLIMIT
-    .fill   4024, 1, 0          # Reserved
-
-    .section ".enarx.aex", "aw", @nobits
-    .globl aex
-    .type aex, @object
-aex:
-    .rept   NSSA
-    .align  4096
-    .fill   4096, 1, 0
-    .endr
-
-    .section ".enarx.stk", "aw", @nobits
-    .type   stk, @object
-    .size   stk, STCK
-    .globl  stk
-    .align  ALGN
-    .zero   STCK
-stk:                            # The top of the trusted stack
-
-    .section ".enarx.thp", "aw", @nobits
-    .type   thp, @object
-    .size   thp, HEAP
-    .globl  thp
-thp:                            # The bottom of the trusted heap
-    .align  ALGN
-    .zero   HEAP
-
 # This function is called during EENTER. Its inputs are as follows:
 #  %rax = The current SSA index. (i.e. %rbx->cssa)
 #  %rbx = The address of the TCS.
@@ -118,6 +72,7 @@ thp:                            # The bottom of the trusted heap
     .type enclave, @function
 enclave:
     xchg    %rbx,                   %rcx            # Swap TCS and next instruction.
+    add     $4096,                  %rcx            # %rcx = &Layout
     cmp     $0,                     %rax            # If CSSA > 0...
     jne     .Levent                                 # ... restore stack from AEX[CSSA-1].
 
@@ -125,14 +80,13 @@ enclave:
     zerop
     zerot
     xor     %rax,                   %rax
-    lea     stk(%rip),              %rsp
+    mov     STACK(%rcx),            %rsp
     jmp     entry
 
 # CSSA != 0
 .Levent:
-    dec     %rax                                    # %rax = CSSA - 1
-    shl     $12,                    %rax            # %rax = (CSSA - 1) * 4096
-    movabs  $aex,                   %r11            # %r11 = &aex
+    shl     $12,                    %rax            # %rax = CSSA * 4096
+    mov     %rcx,                   %r11            # %r11 = &Layout
     add     %rax,                   %r11            # %r11 = &aex[CSSA - 1]
 
     mov     RSP(%r11),              %r10            # %r10 = aex[CSSA - 1].gpr.rsp

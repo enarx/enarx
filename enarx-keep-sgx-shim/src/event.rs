@@ -1,16 +1,17 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use nolibc::x86_64::syscall::Number as SysCall;
-use sgx_types::{ssa::StateSaveArea, tcs::Tcs};
+use sgx_types::ssa::StateSaveArea;
 
 use crate::handler::{Context, Handler};
+use crate::Layout;
 
 #[no_mangle]
 pub extern "C" fn event(
     _rdi: u64,
     _rsi: u64,
     _rdx: u64,
-    tcs: &Tcs,
+    layout: &Layout,
     _r8: u64,
     _r9: u64,
     aex: &mut StateSaveArea,
@@ -20,7 +21,7 @@ pub extern "C" fn event(
         // syscall
         [0x0f, 0x05] => {
             let syscall = aex.gpr.rax.into();
-            let mut h = Handler::new(tcs, aex, ctx);
+            let mut h = Handler::new(layout, aex, ctx);
 
             aex.gpr.rax = match syscall {
                 SysCall::READ => h.read(),
@@ -39,6 +40,6 @@ pub extern "C" fn event(
             aex.gpr.rip += 2;
         }
 
-        _ => Handler::new(tcs, aex, ctx).exit(255),
+        _ => Handler::new(layout, aex, ctx).exit(255),
     };
 }

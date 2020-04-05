@@ -23,3 +23,20 @@ mod entry;
 mod event;
 mod handler;
 mod libc;
+
+use span::Line;
+
+// NOTE: this must be kept in sync with enarx-keep-sgx
+#[repr(C)]
+#[derive(Copy, Clone, Default, Debug, PartialEq, Eq)]
+pub struct Layout {
+    pub enclave: Line<u64>,
+
+    pub prefix: Line<u64>,
+    pub code: Line<u64>,
+    pub heap: Line<u64>,
+    pub stack: Line<u64>,
+    pub shim: Line<u64>,
+
+    pub entry: u64,
+}

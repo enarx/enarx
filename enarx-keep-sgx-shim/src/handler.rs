@@ -1,11 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 
+use crate::Layout;
+
 use nolibc::x86_64::error::Number as ErrNo;
 use nolibc::x86_64::syscall::Number as SysCall;
 use nolibc::{ArchPrctlTask, Iovec};
-use sgx_types::{ssa::StateSaveArea, tcs::Tcs};
+use sgx_types::ssa::StateSaveArea;
+use span::{Contains, Line, Span};
 
-use core::{mem::size_of, ops::Range, slice::from_raw_parts_mut};
+use core::{mem::size_of, slice::from_raw_parts_mut};
 
 extern "C" {
     #[no_mangle]
@@ -25,34 +28,15 @@ extern "C" {
 pub enum Context {}
 
 pub struct Handler<'a> {
-    enclave: Range<u64>,
+    layout: &'a Layout,
     aex: &'a mut StateSaveArea,
     ctx: &'a Context,
 }
 
 impl<'a> Handler<'a> {
     /// Create a new handler
-    pub fn new(tcs: &'a Tcs, aex: &'a mut StateSaveArea, ctx: &'a Context) -> Self {
-        // Calculate the boundaries of the enclave.
-        //
-        // The enclave size is a power of two. The enclave is naturally aligned.
-        // The TCS is near the bottom and the shim code is near the top.
-        //
-        // Therefore, from the absolute address of the TCS and some entity in
-        // the shim, we can calculate the boundaries of the enclave memory.
-        let tcs_addr = tcs as *const _ as u64;
-        let top_addr = syscall as usize as u64;
-        let size = (top_addr - tcs_addr).next_power_of_two();
-        let start = tcs_addr / size * size;
-
-        Self {
-            aex,
-            ctx,
-            enclave: Range {
-                start,
-                end: start + size,
-            },
-        }
+    pub fn new(layout: &'a Layout, aex: &'a mut StateSaveArea, ctx: &'a Context) -> Self {
+        Self { aex, ctx, layout }
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -95,8 +79,11 @@ impl<'a> Handler<'a> {
         };
 
         // Make sure the allocated memory is page-aligned and outside of the enclave.
-        if self.enclave.contains(&ret) || self.enclave.contains(&(ret + bytes)) || ret & 0xfff != 0
-        {
+        let line = Line::from(Span {
+            start: ret,
+            count: bytes,
+        });
+        if self.layout.enclave.contains(&line) || ret & 0xfff != 0 {
             self.attacked();
         }
 
