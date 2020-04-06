@@ -208,9 +208,9 @@ impl<'a> Handler<'a> {
         // TODO: Check that addr in %rdx does not point to an unmapped address
         // and is not outside of the process address space.
 
-        match ArchPrctlTask::from(self.aex.gpr.rsi) {
+        match ArchPrctlTask::from(self.aex.gpr.rdi) {
             ArchPrctlTask::ArchSetFs => {
-                self.aex.gpr.fsbase = self.aex.gpr.rdx;
+                self.aex.gpr.fsbase = self.aex.gpr.rsi;
                 0
             }
 
@@ -218,7 +218,7 @@ impl<'a> Handler<'a> {
             ArchPrctlTask::ArchGetFs => ErrNo::ENOSYS.into_syscall(),
 
             ArchPrctlTask::ArchSetGs => {
-                self.aex.gpr.gsbase = self.aex.gpr.rdx;
+                self.aex.gpr.gsbase = self.aex.gpr.rsi;
                 0
             }
 
