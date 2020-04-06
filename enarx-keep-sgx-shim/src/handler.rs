@@ -10,6 +10,8 @@ use span::{Contains, Line, Span};
 
 use core::{mem::size_of, slice::from_raw_parts_mut};
 
+const TRACE: bool = false;
+
 extern "C" {
     #[no_mangle]
     fn syscall(
@@ -169,10 +171,39 @@ impl<'a> Handler<'a> {
         self.syscall(SysCall::MUNMAP, map as _, bytes, 0, 0, 0, 0)
     }
 
+    fn trace(&mut self, name: &str, argc: usize) {
+        if !TRACE {
+            return;
+        }
+
+        let argv = [
+            self.aex.gpr.rdi,
+            self.aex.gpr.rsi,
+            self.aex.gpr.rdx,
+            self.aex.gpr.r10,
+            self.aex.gpr.r8,
+            self.aex.gpr.r9,
+        ];
+
+        self.print(name);
+        self.print("(");
+        for (i, arg) in argv[..argc].iter().enumerate() {
+            if i > 0 {
+                self.print(", ");
+            }
+
+            self.print(arg);
+        }
+
+        self.print(")\n");
+    }
+
     /// Proxy an exit() syscall
     ///
     /// The optional `code` parameter overrides the value from `aex`.
     pub fn exit<T: Into<Option<u8>>>(&mut self, code: T) -> ! {
+        self.trace("exit", 1);
+
         let code = code.into().map(|x| x.into()).unwrap_or(self.aex.gpr.rdi);
         loop {
             unsafe { self.syscall(SysCall::EXIT, code, 0, 0, 0, 0, 0) };
@@ -185,6 +216,8 @@ impl<'a> Handler<'a> {
     /// TODO: Currently we are only using one thread, so this will behave the
     /// same way as exit(). In the future, this implementation will change.
     pub fn exit_group<T: Into<Option<u8>>>(&mut self, code: T) -> ! {
+        self.trace("exit_group", 1);
+
         let code = code.into().map(|x| x.into()).unwrap_or(self.aex.gpr.rdi);
         loop {
             unsafe { self.syscall(SysCall::EXIT_GROUP, code, 0, 0, 0, 0, 0) };
@@ -193,11 +226,15 @@ impl<'a> Handler<'a> {
 
     /// Do a getuid() syscall
     pub fn getuid(&mut self) -> u64 {
+        self.trace("getuid", 0);
+
         unsafe { self.syscall(SysCall::GETUID, 0, 0, 0, 0, 0, 0) }
     }
 
     /// Do a read() syscall
     pub fn read(&mut self) -> u64 {
+        self.trace("read", 3);
+
         let fd = self.aex.gpr.rdi;
         let buf = self.aex.gpr.rsi as *mut u8;
         let size = self.aex.gpr.rdx;
@@ -228,6 +265,8 @@ impl<'a> Handler<'a> {
 
     /// Do a write() syscall
     pub fn write(&mut self) -> u64 {
+        self.trace("write", 3);
+
         let fd = self.aex.gpr.rdi;
         let buf = self.aex.gpr.rsi as *const u8;
         let size = self.aex.gpr.rdx;
@@ -257,6 +296,8 @@ impl<'a> Handler<'a> {
     /// Do a set_tid_address() syscall
     // This is currently unimplemented and returns a dummy thread id.
     pub fn set_tid_address(&mut self) -> u64 {
+        self.trace("set_tid_address", 1);
+
         1
     }
 
@@ -264,6 +305,8 @@ impl<'a> Handler<'a> {
     pub fn arch_prctl(&mut self) -> u64 {
         // TODO: Check that addr in %rdx does not point to an unmapped address
         // and is not outside of the process address space.
+
+        self.trace("arch_prctl", 2);
 
         match ArchPrctlTask::from(self.aex.gpr.rdi) {
             ArchPrctlTask::ArchSetFs => {
@@ -288,6 +331,8 @@ impl<'a> Handler<'a> {
 
     /// Do a readv() syscall
     pub fn readv(&mut self) -> u64 {
+        self.trace("readv", 3);
+
         let fd = self.aex.gpr.rdi;
         let trusted = unsafe {
             from_raw_parts_mut(self.aex.gpr.rsi as *mut Iovec, self.aex.gpr.rdx as usize)
@@ -359,6 +404,8 @@ impl<'a> Handler<'a> {
 
     /// Do a writev() syscall
     pub fn writev(&mut self) -> u64 {
+        self.trace("writev", 3);
+
         let fd = self.aex.gpr.rdi;
         let trusted = unsafe {
             from_raw_parts_mut(self.aex.gpr.rsi as *mut Iovec, self.aex.gpr.rdx as usize)
