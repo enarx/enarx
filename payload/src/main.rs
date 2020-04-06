@@ -28,4 +28,7 @@ fn main() {
     for aux in &mut reader {
         println!("aux: {:?}", aux);
     }
+
+    println!();
+    println!("Good morning, that's a nice Tnetennba!");
 }
