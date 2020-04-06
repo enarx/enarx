@@ -46,6 +46,27 @@ pub extern "C" fn event(
             aex.gpr.rip += 2;
         }
 
+        // cpuid
+        [0x0f, 0xa2] => {
+            let (rax, rbx, rcx, rdx) = match (h.aex.gpr.rax, h.aex.gpr.rcx) {
+                (a, c) => {
+                    h.print("unsupported cpuid: (");
+                    h.print(&a);
+                    h.print(", ");
+                    h.print(&c);
+                    h.print(")\n");
+
+                    (0, 0, 0, 0)
+                }
+            };
+
+            aex.gpr.rax = rax;
+            aex.gpr.rbx = rbx;
+            aex.gpr.rcx = rcx;
+            aex.gpr.rdx = rdx;
+            aex.gpr.rip += 2;
+        }
+
         r => {
             let opcode = (r[0] as u16) << 8 | r[1] as u16;
             h.print("unsupported opcode: ");
