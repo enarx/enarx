@@ -154,7 +154,6 @@ impl<'a> Handler<'a> {
         unsafe {
             // Do the syscall; replace encrypted memory with unencrypted memory.
             let ret = self.syscall(SysCall::READ, fd, map as _, size, 0, 0, 0);
-            self.ufree(map, size);
 
             // Copy the unencrypted input into encrypted memory.
             if ErrNo::from_syscall(ret).is_none() {
@@ -165,6 +164,7 @@ impl<'a> Handler<'a> {
                 core::ptr::copy_nonoverlapping(map, buf, ret as _);
             }
 
+            self.ufree(map, size);
             ret
         }
     }
