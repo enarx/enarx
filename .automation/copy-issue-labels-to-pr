@@ -68,4 +68,4 @@ unset_labels = COPYABLE_LABELS & issues_labels - pr_labels
 
 # If there are any labels we need to add, add them.
 if len(unset_labels) > 0:
-    pr.set_labels(*list(unset_labels))
+    pr.set_labels(*list(pr_labels | unset_labels))
