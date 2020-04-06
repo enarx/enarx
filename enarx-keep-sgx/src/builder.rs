@@ -10,7 +10,7 @@ use openssl::{bn, rsa};
 use sgx_crypto::{Hasher, Signer};
 use sgx_types::page::{Class, Flags, SecInfo};
 use sgx_types::{secs::*, sig::*, ssa::StateSaveArea};
-use span::{Line, Span};
+use span::Span;
 
 use std::convert::TryFrom;
 use std::fs::{File, OpenOptions};
@@ -137,8 +137,8 @@ impl Builder {
                 }
             }
 
-            let line = Line::from(span);
-            eprintln!("{:016x}-{:016x} {:?}", line.start, line.end, si);
+            //let line = span::Line::from(span);
+            //eprintln!("{:016x}-{:016x} {:?}", line.start, line.end, si);
         }
 
         Ok(Enclave::new(self.mmap, tcs))
