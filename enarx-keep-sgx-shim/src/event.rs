@@ -49,6 +49,8 @@ pub extern "C" fn event(
         // cpuid
         [0x0f, 0xa2] => {
             let (rax, rbx, rcx, rdx) = match (h.aex.gpr.rax, h.aex.gpr.rcx) {
+                (0, _) => (0, 0x756e_6547, 0x6c65_746e, 0x4965_6e69), // "GenuineIntel"
+
                 (a, c) => {
                     h.print("unsupported cpuid: (");
                     h.print(&a);
