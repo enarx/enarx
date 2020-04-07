@@ -21,15 +21,15 @@
 ```console
 $ cargo build --workspace
 $ ./target/x86_64-unknown-linux-musl/debug/enarx-keep-sev \
-  --kernel ./target/x86_64-unknown-linux-musl/debug/enarx-keep-sev-shim \
-  --app ./target/x86_64-unknown-linux-musl/debug/payload
+  --shim ./target/x86_64-unknown-linux-musl/debug/enarx-keep-sev-shim \
+  --code ./target/x86_64-unknown-linux-musl/debug/payload
 ```
 
 ### QEMU
 ```console
 $ cd enarx-keep-sev-shim
 $ cargo build --workspace
-$ CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_RUNNER="$(pwd)/qemu-test-runner.sh --app ../target/x86_64-unknown-linux-musl/debug/payload --kernel" \
+$ CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_RUNNER="$(pwd)/qemu-test-runner.sh --code ../target/x86_64-unknown-linux-musl/debug/payload --shim" \
   cargo run --features qemu
 ```
 
@@ -37,7 +37,7 @@ with kvm
 ```console
 $ cd enarx-keep-sev-shim
 $ cargo build --workspace
-$ CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_RUNNER="$(pwd)/qemu-test-runner.sh --app ../target/x86_64-unknown-linux-musl/debug/payload --kernel" \
+$ CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_RUNNER="$(pwd)/qemu-test-runner.sh --code ../target/x86_64-unknown-linux-musl/debug/payload --shim" \
   cargo run --features qemu -- -- -enable-kvm
 ```
 
@@ -49,7 +49,7 @@ Currently, nightly is needed for `feature(custom_test_frameworks)`.
 ```console
 $ cd enarx-keep-sev-shim
 $ cargo build --workspace
-$ CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_RUNNER="../target/x86_64-unknown-linux-musl/debug/enarx-keep-sev --app ../target/x86_64-unknown-linux-musl/debug/payload --kernel" \
+$ CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_RUNNER="../target/x86_64-unknown-linux-musl/debug/enarx-keep-sev --code ../target/x86_64-unknown-linux-musl/debug/payload --shim" \
   cargo +nightly test --features test_kvm
 ```
 
@@ -58,13 +58,13 @@ $ CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_RUNNER="../target/x86_64-unknown-linux-
 ```console
 $ cd enarx-keep-sev-shim
 $ cargo build --workspace
-$ CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_RUNNER="$(pwd)/qemu-test-runner.sh --app ../target/x86_64-unknown-linux-musl/debug/payload --kernel" \
+$ CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_RUNNER="$(pwd)/qemu-test-runner.sh --code ../target/x86_64-unknown-linux-musl/debug/payload --shim" \
   cargo +nightly test --features test_qemu
 ```
 
 with kvm:
 ```console
-$ CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_RUNNER="$(pwd)/qemu-test-runner.sh --app ../target/x86_64-unknown-linux-musl/debug/payload --kernel" \
+$ CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_RUNNER="$(pwd)/qemu-test-runner.sh --code ../target/x86_64-unknown-linux-musl/debug/payload --shim" \
   cargo +nightly test --features test_qemu -- -- -enable-kvm
 ```
 
@@ -75,7 +75,7 @@ Currently, we need nightly for timers and interrupts.
 ```console
 $ cd enarx-keep-sev-shim
 $ cargo build --workspace
-$ CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_RUNNER="$(pwd)/qemu-test-runner.sh --app ../target/x86_64-unknown-linux-musl/debug/payload --kernel" \
+$ CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_RUNNER="$(pwd)/qemu-test-runner.sh --code ../target/x86_64-unknown-linux-musl/debug/payload --shim" \
   cargo run --features qemu -- -- -S -s
 ```
 

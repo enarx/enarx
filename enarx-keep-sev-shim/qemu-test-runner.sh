@@ -1,7 +1,7 @@
 #!/bin/sh
 
 function usage() {
-    echo "Usage: $0 --kernel <kernel> --app <app> -- <extra-args>" >&2
+    echo "Usage: $0 --shim <shim> --code <code> -- <extra-args>" >&2
     exit 1
 }
 
@@ -12,8 +12,8 @@ fi
 TEMP=$(unset POSIXLY_CORRECT; getopt \
     -o "h" \
     --long help \
-    --long kernel: \
-    --long app: \
+    --long shim: \
+    --long code: \
     -- "$@")
 
 if (( $? != 0 )); then
@@ -28,15 +28,15 @@ while :; do
         PARMS_TO_STORE+=" $1";
     fi
     case "$1" in
-        --kernel)   kernel="$2"; shift;;
-        --app)      app="$2"; shift;;
+        --shim)     shim="$2"; shift;;
+        --code)     code="$2"; shift;;
         -h|--help)  usage;;
         --)         shift; break;;
     esac
     shift
 done
 
-if [[ -z $kernel ]] || [[ -z $app ]]; then
+if [[ -z $shim ]] || [[ -z $code ]]; then
     usage
 fi
 
@@ -53,8 +53,8 @@ qemu-system-x86_64 \
    -serial chardev:char0 \
    -serial chardev:char1 \
    -cpu max \
-   -kernel "$kernel" \
-   -initrd "$app" \
+   -kernel "$shim" \
+   -initrd "$code" \
    "$@"
 
 ret=$?

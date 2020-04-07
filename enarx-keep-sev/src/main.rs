@@ -22,11 +22,11 @@ const PORT_QEMU_EXIT: u16 = 0xF4;
 
 #[derive(StructOpt, Debug)]
 struct Args {
-    /// The path to the kernel image/binary
+    /// The path to the shim image/binary
     #[structopt(short, long, parse(from_os_str))]
-    kernel: PathBuf,
+    shim: PathBuf,
     #[structopt(short, long, parse(from_os_str))]
-    app: PathBuf,
+    code: PathBuf,
 }
 
 fn main() {
@@ -44,18 +44,18 @@ fn main() {
 }
 
 fn run(args: Args) -> Result<(), Error> {
-    let kernel_path = args.kernel.clone().into_os_string();
-    let kernel =
-        File::open(args.kernel).context(format!("Couldn't open kernel image {:?}", kernel_path))?;
+    let shim_path = args.shim.clone().into_os_string();
+    let shim =
+        File::open(args.shim).context(format!("Couldn't open shim image {:?}", shim_path))?;
 
-    let app_path = args.app.clone().into_os_string();
-    let app =
-        File::open(args.app).context(format!("Couldn't open application image {:?}", app_path))?;
+    let code_path = args.code.clone().into_os_string();
+    let code =
+        File::open(args.code).context(format!("Couldn't open code image {:?}", code_path))?;
 
-    eprintln!("Hypervisor: Starting {:?}", kernel_path);
+    eprintln!("Hypervisor: Starting {:?}", shim_path);
     let start = Instant::now();
 
-    launch_vm(kernel, app)?;
+    launch_vm(shim, code)?;
 
     let elapsed = start.elapsed();
     eprintln!("Hypervisor: Creating and running took {:?}", elapsed);
@@ -64,8 +64,8 @@ fn run(args: Args) -> Result<(), Error> {
     Ok(())
 }
 
-fn launch_vm(kernel_file: File, app_file: File) -> Result<(), Error> {
-    let mut kvm = kvmvm::KvmVm::vm_create_default(kernel_file, app_file, 0)?;
+fn launch_vm(shim_file: File, code_file: File) -> Result<(), Error> {
+    let mut kvm = kvmvm::KvmVm::vm_create_default(shim_file, code_file, 0)?;
 
     loop {
         let ret = kvm.cpu_fd.get(0).unwrap().run()?;
