@@ -20,18 +20,28 @@ use memory::Page;
 use sgx_types::page::{Flags, SecInfo};
 use sgx_types::tcs::Tcs;
 use span::Span;
+use structopt::StructOpt;
+
+use std::path::PathBuf;
+
+#[derive(Debug, StructOpt)]
+#[structopt(name = "enarx-keep-sgx", about = "Launches an Enarx Keep on SGX.")]
+struct Opt {
+    /// The SGX shim
+    #[structopt(short, long, parse(from_os_str))]
+    shim: PathBuf,
+
+    /// The code to run
+    #[structopt(short, long, parse(from_os_str))]
+    code: PathBuf,
+}
 
 fn load() -> enclave::Enclave {
-    const USAGE: &str = "Usage: enarx-keep-sgx <shim> <code>";
-
-    // Get the arguments.
-    let mut args = std::env::args();
-    let shim = args.nth(1).expect(USAGE);
-    let code = args.next().expect(USAGE);
+    let opt = Opt::from_args();
 
     // Parse the shim and code and validate assumptions.
-    let shim = Component::from_path(shim).expect("Unable to parse shim");
-    let mut code = Component::from_path(code).expect("Unable to parse code");
+    let shim = Component::from_path(opt.shim).expect("Unable to parse shim");
+    let mut code = Component::from_path(opt.code).expect("Unable to parse code");
     assert!(!shim.pie);
     assert!(code.pie);
 
