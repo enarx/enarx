@@ -44,6 +44,50 @@ pub enum VmSyscall {
     },
 }
 
+impl core::fmt::Debug for VmSyscall {
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+        match self {
+            VmSyscall::Madvise {
+                addr,
+                length,
+                advice,
+            } => write!(
+                f,
+                "madvise(addr={:#x}, length={}, advice={:#x})",
+                addr, length, advice
+            ),
+            VmSyscall::Mmap {
+                addr,
+                length,
+                prot,
+                flags,
+            } => write!(
+                f,
+                "mmap(addr={:#x}, length={}, prot={:#x}, flags={:#x})",
+                addr, length, prot, flags
+            ),
+            VmSyscall::Mremap {
+                old_address,
+                old_size,
+                new_size,
+                flags,
+            } => write!(
+                f,
+                "mremap(old_address={:#x}, old_size={}, new_size={}, flags={:#x})",
+                old_address, old_size, new_size, flags
+            ),
+            VmSyscall::Munmap { addr, length } => {
+                write!(f, "munmap(addr={:#x}, length={})", addr, length)
+            }
+            VmSyscall::Mprotect { addr, length, prot } => write!(
+                f,
+                "mprotect(addr={:#x}, length={}, prot={:#x})",
+                addr, length, prot
+            ),
+        }
+    }
+}
+
 #[allow(clippy::large_enum_variant, missing_docs)]
 pub enum VmSyscallRet {
     Madvise(Result<i32, ErrNo>),
