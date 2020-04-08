@@ -1,7 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 
-//! syscall serialize/deserialize
-//!
 //! Currently it uses a hard coded page and an I/O trigger.
 //! We might want to switch to MMIO.
 
@@ -9,11 +7,9 @@
 #![deny(clippy::all)]
 #![no_std]
 
-use serde::{Deserialize, Serialize};
+/// A Linux ErrNo (see libc crate)
+pub type ErrNo = i32;
 
-/// The syscalls to be serialized/deserialized via serde
-/// for the Hypervisor <-> VM syscall proxy
-#[derive(Serialize, Deserialize, Debug)]
 pub enum VmSyscall {
     /// int madvise(void *addr, size_t length, int advice);
     Madvise {
@@ -65,30 +61,12 @@ pub enum VmSyscall {
     // Todo: extend with needed hypervisor proxy syscalls
 }
 
-/// The return value of the syscalls to be serialized/deserialized via serde
 /// for the Hypervisor <-> VM syscall proxy
-#[derive(Serialize, Deserialize, Debug)]
+#[allow(clippy::large_enum_variant)]
 pub enum VmSyscallRet {
-    /// int madvise(void *addr, size_t length, int advice);
-    Madvise(Result<i32, Error>),
-    /// void *mmap(void *addr, size_t length, int prot, int flags, …);
-    Mmap(Result<usize, Error>),
-    /// void *mremap(void *old_address, size_t old_size, size_t new_size, int flags, ... /* void *new_address */);
-    Mremap(Result<usize, Error>),
-    /// int munmap(void *addr, size_t length);
-    Munmap(Result<i32, Error>),
-    /// int mprotect(void *addr, size_t len, int prot);
-    Mprotect(Result<i32, Error>),
-}
-
-/// The error codes of the syscalls to be serialized/deserialized via serde
-/// for the Hypervisor <-> VM syscall proxy
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
-pub enum Error {
-    /// standard error
-    Errno(i64),
-    /// serialize error
-    SerializeError,
-    /// deserialize error
-    DeSerializeError,
+    Madvise(Result<i32, ErrNo>),
+    Mmap(Result<usize, ErrNo>),
+    Mremap(Result<usize, ErrNo>),
+    Munmap(Result<i32, ErrNo>),
+    Mprotect(Result<i32, ErrNo>),
 }
