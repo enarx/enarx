@@ -10,6 +10,7 @@
 #![deny(clippy::all)]
 #![no_std]
 
+pub mod bootinfo;
 pub mod memory_map;
 
 /// maximum length of write buffer
