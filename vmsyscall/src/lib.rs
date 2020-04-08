@@ -10,6 +10,8 @@
 #![deny(clippy::all)]
 #![no_std]
 
+pub mod memory_map;
+
 /// maximum length of write buffer
 pub const WRITE_BUF_LEN: usize = 4000;
 
