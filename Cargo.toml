@@ -16,6 +16,7 @@ members = [
     "enarx-keep-sgx-shim",
 
     "enumerate",
+    "memory",
     "units",
     "span",
     "vdso",
