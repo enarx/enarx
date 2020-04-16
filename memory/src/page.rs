@@ -3,7 +3,7 @@
 /// A single page of memory
 ///
 /// This type is page-aligned and page-sized.
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
 #[repr(C, align(4096))]
 pub struct Page([[u64; 32]; 16]);
 
