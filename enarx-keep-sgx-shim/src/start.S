@@ -60,6 +60,28 @@
     pop     %rbx
 .endm
 
+# Clear the extended CPU state (clobbers %rax and %rdx)
+.macro zerox
+    movq    $~0,                    %rdx            # set mask for xrstor in rdx
+    movq    $~0,                    %rax            # set mask for xrstor in rax
+    xrstor  xsave(%rip)                             # clear xtd cpu state with synthetic state
+.endm
+
+    .section .rodata
+    .align 64
+xsave:                          # An initialized synthetic xsave area
+# Legacy
+    .fill   1, 4, 0x037F        # FCW
+    .fill   5, 4, 0
+    .fill   1, 4, 0x1F80        # MXCSR
+    .fill   1, 4, 0xFFFF        # MXCSR_MASK
+    .fill   60, 8, 0
+
+# Header
+    .fill   1, 8, 0             # XSTATE_BV
+    .fill   1, 8, 1 << 63       # XCOMP_BV (compaction mode)
+    .fill   6, 8, 0
+
 # This function is called during EENTER. Its inputs are as follows:
 #  %rax = The current SSA index. (i.e. %rbx->cssa)
 #  %rbx = The address of the TCS.
@@ -76,10 +98,15 @@ enclave:
     cmp     $0,                     %rax            # If CSSA > 0...
     jne     .Levent                                 # ... restore stack from AEX[CSSA-1].
 
-    # Clear unused registers, set the stack pointer and jump to Rust
+    # Clear unused registers and clear extended CPU state
     zerop
     zerot
     xor     %rax,                   %rax
+    push    %rdx
+    zerox
+    pop     %rdx
+
+    # Set the stack pointer and jump to Rust
     mov     STACK(%rcx),            %rsp
     jmp     entry
 
@@ -130,6 +157,7 @@ enclave:
 .Leexit:
     loadp                                           # Load preserved registers
     pop     %rsp                                    # Restore the untrusted stack
+    zerox                                           # Clear the extended CPU state
     mov     $4,                     %rax
     enclu
 
@@ -142,8 +170,14 @@ enclave:
 .Lsyscall:
     movq    $0,                     SRSP(%r11)      # Clear syscall return stack pointer field
     mov     %rax,                   %rsp            # Restore the syscall return stack pointer
-    mov     %rdi,                   %rax            # Correct syscall return value register
     loadp                                           # Restore trusted preserved registers
+
+    movq    $~0,                    %rdx            # Set mask for xrstor in rdx
+    movq    $~0,                    %rax            # Set mask for xrstor in rax
+    xrstor  (%rsp)                                  # Restore extended CPU state
+    mov     %rbx,                   %rsp            # Restore stack after aligned xsave area
+
+    mov     %rdi,                   %rax            # Correct syscall return value register
     zeroa                                           # Clear the argument registers
     zerot                                           # Clear the temporary registers
     zerof   %r11                                    # Clear CPU flags
@@ -154,6 +188,27 @@ enclave:
     .globl syscall
     .type syscall, @function
 syscall:
+    # Save stack pointer, allocate space, and set
+    # 64-byte alignment on stack for xsavec
+    mov     %rsp,                   %rbx
+    sub     $4096,                  %rsp
+    and     $(-0x40),               %rsp
+
+    # Zero the xsave header area on stack
+    movq    $0,        512(%rsp)
+    movq    $0,        520(%rsp)
+    movq    $0,        528(%rsp)
+    movq    $0,        536(%rsp)
+    movq    $0,        544(%rsp)
+    movq    $0,        552(%rsp)
+    movq    $0,        560(%rsp)
+    movq    $0,        568(%rsp)
+
+    # Set mask and perform xsavec
+    movq    $~0,                   %rdx
+    movq    $~0,                   %rax
+    xsavec (%rsp)
+
     savep                                           # Save preserved registers
     mov     %rsp,                   SRSP(%rcx)      # Save restoration stack pointer
 
