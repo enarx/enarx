@@ -10,9 +10,21 @@
 #![deny(clippy::all)]
 #![no_std]
 
+/// maximum length of write buffer
+pub const WRITE_BUF_LEN: usize = 4000;
+
 /// System call requests originating from the microkernel.
 #[allow(clippy::large_enum_variant, missing_docs)]
 pub enum VmSyscall {
+    Read {
+        fd: u32,
+        count: usize,
+    },
+    Write {
+        fd: u32,
+        count: usize,
+        data: [u8; WRITE_BUF_LEN],
+    },
     Madvise {
         addr: usize,
         length: usize,
@@ -44,6 +56,10 @@ pub enum VmSyscall {
 impl core::fmt::Debug for VmSyscall {
     fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
         match self {
+            VmSyscall::Read { fd, count } => write!(f, "read(fd={}, count={})", fd, count),
+            VmSyscall::Write { fd, count, data } => {
+                write!(f, "write(fd={}, count={}, data={:?})", fd, count, &data[..])
+            }
             VmSyscall::Madvise {
                 addr,
                 length,
@@ -115,6 +131,31 @@ impl<T: ProxiedSyscall + Copy> SyscallRet<T> {
     /// very well be an empty struct and therefore not relevant.
     pub fn data(&self) -> T {
         self.data
+    }
+}
+
+/// The result of a proxied Read syscall.
+#[derive(Copy, Clone)]
+pub struct ReadRet {
+    /// The bytes read during the syscall.
+    pub buf: [u8; WRITE_BUF_LEN],
+}
+impl ProxiedSyscall for ReadRet {}
+
+impl Into<i32> for SyscallRet<ReadRet> {
+    fn into(self) -> i32 {
+        self.ret as _
+    }
+}
+
+/// The result of a proxied Write syscall.
+#[derive(Copy, Clone)]
+pub struct WriteRet;
+impl ProxiedSyscall for WriteRet {}
+
+impl Into<i32> for SyscallRet<WriteRet> {
+    fn into(self) -> i32 {
+        self.ret as _
     }
 }
 
