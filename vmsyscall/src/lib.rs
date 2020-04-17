@@ -10,9 +10,6 @@
 #![deny(clippy::all)]
 #![no_std]
 
-/// A Linux ErrNo (see libc crate)
-pub type ErrNo = i32;
-
 /// System call requests originating from the microkernel.
 #[allow(clippy::large_enum_variant, missing_docs)]
 pub enum VmSyscall {
@@ -88,11 +85,90 @@ impl core::fmt::Debug for VmSyscall {
     }
 }
 
-#[allow(clippy::large_enum_variant, missing_docs)]
-pub enum VmSyscallRet {
-    Madvise(Result<i32, ErrNo>),
-    Mmap(Result<usize, ErrNo>),
-    Mremap(Result<usize, ErrNo>),
-    Munmap(Result<i32, ErrNo>),
-    Mprotect(Result<i32, ErrNo>),
+/// Marker trait for non-enum syscall return values.
+pub trait ProxiedSyscall {}
+
+/// The result of a proxied syscall. The enclosed trait-constrained type
+/// can be used to provide "output" parameters to the microkernel so that
+/// it may unpack them and write to its own pages. For example, a read
+/// call must write bytes into a buffer. This allows us to copy that
+/// buffer to the shared syscall page so the microkernel can unpack
+/// it. Furthermore, this type allows more flexibility for expressing what
+/// the return value is by implementing core::convert::Into<U> for each
+/// concrete instance of a SyscallRet.
+#[derive(Copy, Clone)]
+pub struct SyscallRet<T: ProxiedSyscall> {
+    /// Data region containing "output" parameters that are modified
+    /// during the syscall and therefore the microkernel must unpack
+    /// these and update the appropriate data items to complete the syscall.
+    data: T,
+    ret: usize,
+}
+
+impl<T: ProxiedSyscall + Copy> SyscallRet<T> {
+    /// Construct a new SyscallRet value.
+    pub fn new(ret: usize, data: T) -> Self {
+        Self { data, ret }
+    }
+
+    /// Expose the "output" parameter data. For many syscalls this may
+    /// very well be an empty struct and therefore not relevant.
+    pub fn data(&self) -> T {
+        self.data
+    }
+}
+
+/// The result of a proxied Madvise syscall.
+#[derive(Copy, Clone)]
+pub struct MadviseRet;
+impl ProxiedSyscall for MadviseRet {}
+
+impl Into<i32> for SyscallRet<MadviseRet> {
+    fn into(self) -> i32 {
+        self.ret as _
+    }
+}
+
+/// The result of a proxied Mmap syscall.
+#[derive(Copy, Clone)]
+pub struct MmapRet;
+impl ProxiedSyscall for MmapRet {}
+
+impl Into<memory::Address<usize, ()>> for SyscallRet<MmapRet> {
+    fn into(self) -> memory::Address<usize, ()> {
+        unsafe { memory::Address::unchecked(self.ret) }
+    }
+}
+
+/// The result of a proxied Mremap syscall.
+#[derive(Copy, Clone)]
+pub struct MremapRet;
+impl ProxiedSyscall for MremapRet {}
+
+impl Into<memory::Address<usize, ()>> for SyscallRet<MremapRet> {
+    fn into(self) -> memory::Address<usize, ()> {
+        unsafe { memory::Address::unchecked(self.ret) }
+    }
+}
+
+/// The result of a proxied Munmap syscall.
+#[derive(Copy, Clone)]
+pub struct MunmapRet;
+impl ProxiedSyscall for MunmapRet {}
+
+impl Into<i32> for SyscallRet<MunmapRet> {
+    fn into(self) -> i32 {
+        self.ret as _
+    }
+}
+
+/// The result of a proxied Mprotect syscall.
+#[derive(Copy, Clone)]
+pub struct MprotectRet;
+impl ProxiedSyscall for MprotectRet {}
+
+impl Into<i32> for SyscallRet<MprotectRet> {
+    fn into(self) -> i32 {
+        self.ret as _
+    }
 }
