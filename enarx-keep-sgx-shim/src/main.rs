@@ -14,6 +14,32 @@ fn panic(_info: &core::panic::PanicInfo) -> ! {
     loop {}
 }
 
+/// _Unwind_Resume is only needed in the `debug` profile
+///
+/// even though this project has `panic=abort`
+/// it seems like the debug libc.rlib has some references
+/// with unwinding
+/// See also: https://github.com/rust-lang/rust/issues/47493
+#[cfg(not(test))]
+#[cfg(debug_assertions)]
+#[no_mangle]
+extern "C" fn _Unwind_Resume() {
+    unimplemented!();
+}
+
+/// rust_eh_personality is only needed in the `debug` profile
+///
+/// even though this project has `panic=abort`
+/// it seems like the debug libc.rlib has some references
+/// with unwinding
+/// See also: https://github.com/rust-lang/rust/issues/47493
+#[cfg(not(test))]
+#[cfg(debug_assertions)]
+#[no_mangle]
+pub extern "C" fn rust_eh_personality() {
+    unimplemented!();
+}
+
 #[cfg(test)]
 fn main() {}
 
@@ -24,7 +50,6 @@ mod entry;
 mod event;
 mod handler;
 mod heap;
-mod libc;
 
 use span::Line;
 

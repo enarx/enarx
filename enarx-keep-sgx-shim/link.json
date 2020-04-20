@@ -9,6 +9,8 @@
             ".*crt.\\.o": []
         },
 
+        "append-target-rlib": [ "libc" ],
+
         "debug": false
     },
 
