@@ -6,7 +6,7 @@ edition = "2018"
 license = "Apache-2.0"
 
 [dependencies]
-sev = { git = "https://github.com/enarx/sev", features = ["openssl"] }
+sev = { path = "../sev", features = ["openssl"] }
 tiny_http = "0.6.2"
 reqwest = { version = "0.10", features= ["blocking"] }
 codicon = "2.1.0"
