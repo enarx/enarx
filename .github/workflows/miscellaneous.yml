@@ -30,6 +30,17 @@ jobs:
     # Ensure all diagrams are up-to-date.
     - name: All diagrams are up-to-date
       run: .tests/misc-diagrams
+  
+  misc-consistent-linked-issues:
+    runs-on: ubuntu-latest
+    container: quay.io/enarx/fedora-test
+    steps:
+    - uses: actions/checkout@v2
+    
+    # Ensure issues mentioned in commits are also present in the PR description
+    # and properly linked.
+    - name: Linked issues are consistent between commits and PR description
+      run: .tests/misc-consistent-linked-issues ${{ secrets.GITHUB_TOKEN }} $GITHUB_REPOSITORY $GITHUB_EVENT_PATH
 
   # Ensure required lints are enabled.
   misc-lints-clippy-all:
