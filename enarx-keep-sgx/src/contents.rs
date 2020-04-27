@@ -2,6 +2,7 @@
 
 use super::map;
 
+use memory::Page;
 use span::Span;
 
 use std::fs::File;
@@ -18,8 +19,7 @@ impl Contents {
     /// truncated to fit into the memory region.
     pub fn from_file(size: usize, file: &File, mut span: Span<usize, usize>) -> Result<Self> {
         // Get the page size and check size alignment.
-        let page = super::page::size()?;
-        let mask = page - 1;
+        let mask = Page::size() - 1;
         if size & mask != 0 {
             return Err(Error::from_raw_os_error(libc::EINVAL));
         }

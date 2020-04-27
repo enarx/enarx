@@ -10,7 +10,6 @@ mod component;
 mod contents;
 mod enclave;
 mod map;
-mod page;
 
 use intel_types::Exception;
 use sgx_types::page::SecInfo;
