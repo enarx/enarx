@@ -1,0 +1,78 @@
+[env]
+CARGO_MAKE_EXTEND_WORKSPACE_MAKEFILE = "true"
+CARGO_MAKE_WORKSPACE_EMULATION = true
+CARGO_MAKE_CRATE_WORKSPACE_MEMBERS = [
+	"crt0stack",
+	"enarx-keep-sgx",
+	"enarx-keep-sgx-shim",
+	"enumerate",
+	"intel-types",
+	"iocuddle",
+	"iocuddle-sgx",
+	"memory",
+	"nolibc",
+	"payload",
+	"sev",
+	"sev-show",
+	"sev-types",
+	"sgx-crypto",
+	"sgx-show",
+	"sgx-types",
+	"span",
+	"testing",
+	"units",
+	"vdso",
+	"vmsyscall"
+]
+CARGO_WORKSPACE_ROOT = { script = ["git rev-parse --show-toplevel"] }
+
+[tasks.deny]
+install_crate = "cargo-deny"
+command = "cargo"
+args = ["deny", "check", "licenses"]
+
+[tasks.misc-lints-missing-docs]
+command = "${CARGO_WORKSPACE_ROOT}/.tests/misc-lints-missing-docs"
+
+[tasks.cargo-toml-package-edition]
+install_script = [''' which toml || cargo install toml-cli ''']
+command = "${CARGO_WORKSPACE_ROOT}/.tests/cargo-toml-package-edition"
+
+[tasks.misc-lints-clippy-all]
+command = "${CARGO_WORKSPACE_ROOT}/.tests/misc-lints-clippy-all"
+
+[tasks.misc-licenses-rs-spdx]
+command = "${CARGO_WORKSPACE_ROOT}/.tests/misc-licenses-rs-spdx"
+
+[tasks.misc-licenses-asm-spdx]
+command = "${CARGO_WORKSPACE_ROOT}/.tests/misc-licenses-asm-spdx"
+
+[tasks.misc-diagrams]
+workspace = false
+# This is the only non-crate-level task. To prevent the pre-ci-flow
+# from spuriously triggering this *inside* member crates, let's just
+# detect whether we're in a crate directory and if we are, this test
+# will be skipped. It doesn't make sense to run inside a crate directory.
+condition = { env_not_set = ["CARGO_MAKE_CRATE_NAME"]}
+command = "${CARGO_WORKSPACE_ROOT}/.tests/misc-diagrams"
+
+[tasks.cargo-toml-package-license]
+command = "${CARGO_WORKSPACE_ROOT}/.tests/cargo-toml-package-license"
+
+[tasks.misc-licenses-crate]
+command = "${CARGO_WORKSPACE_ROOT}/.tests/misc-licenses-crate"
+
+# Add additional tests to the predefined 'ci-flow' target.
+[tasks.pre-ci-flow]
+dependencies = [
+	"cargo-toml-package-edition",
+	"cargo-toml-package-license",
+	"check-format",
+	"deny",
+	"misc-diagrams",
+	"misc-licenses-asm-spdx",
+	"misc-licenses-crate",
+	"misc-licenses-rs-spdx",
+	"misc-lints-clippy-all",
+	"misc-lints-missing-docs",
+]

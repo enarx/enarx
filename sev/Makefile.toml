@@ -1,0 +1,3 @@
+[tasks.test]
+command = "cargo"
+args = ["test", "--features=openssl"]
