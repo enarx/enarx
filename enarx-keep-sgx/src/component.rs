@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use super::contents::Contents;
-use super::page::size as pagesize;
 use sgx_types::page::Flags;
 
 use goblin::elf::{header::*, program_header::*, Elf};
+use memory::Page;
 use span::Span;
 
 use std::cmp::{max, min};
@@ -41,8 +41,7 @@ impl<'a> Segment {
             rwx |= Flags::X;
         }
 
-        let page = pagesize()?;
-        let mask = page - 1;
+        let mask = Page::size() - 1;
 
         let src = Span {
             start: ph.p_offset as _,

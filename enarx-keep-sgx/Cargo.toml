@@ -11,6 +11,7 @@ intel-types = { path = "../intel-types" }
 sgx-crypto = { path = "../sgx-crypto" }
 sgx-types = { path = "../sgx-types" }
 enumerate = { path = "../enumerate" }
+memory = { path = "../memory" }
 span = { path = "../span" }
 vdso = { path = "../vdso" }
 bitflags = "1.2"
