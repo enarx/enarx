@@ -9,3 +9,6 @@ edition = "2018"
 openssl = { version = "0.10", features = [ "vendored" ] }
 sgx-types = { path = "../sgx-types" }
 memory = { path = "../memory" }
+
+[patch.crates-io]
+openssl = { git = 'https://github.com/npmccallum/rust-openssl', branch='patch' }

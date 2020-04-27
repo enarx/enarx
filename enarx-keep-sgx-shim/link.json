@@ -1,7 +1,7 @@
 {
     "build": {
         "prepend": [
-            "-Wl,--script=enarx-keep-sgx-shim/layout.ld",
+            "-Wl,--script=layout.ld",
             "-Wl,--gc-keep-exported"
         ],
 

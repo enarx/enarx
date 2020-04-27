@@ -3,34 +3,6 @@ name: misc
 on: [pull_request]
 
 jobs:
-  # Miscellaneous organizational tests.
-  # Enforce correct license files and headers.
-  misc-licenses:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v2
-    
-    # Ensure that all crates have a top-level Apache 2.0 license.
-    - name: Crate-level licenses present
-      run: .tests/misc-licenses-crate
-
-    # Ensure all .rs files have an Apache 2.0 SPDX license ID.
-    - name: All .rs files have SPDX IDs
-      run: .tests/misc-licenses-rs-spdx
-
-    # Ensure all .s and .S files have an Apache 2.0 SPDX license ID.
-    - name: All .s/.S files have SPDX IDs
-      run: .tests/misc-licenses-asm-spdx
-      
-  misc-diagrams:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v2
-
-    # Ensure all diagrams are up-to-date.
-    - name: All diagrams are up-to-date
-      run: .tests/misc-diagrams
-  
   misc-consistent-linked-issues:
     runs-on: ubuntu-latest
     container: quay.io/enarx/fedora-test
@@ -41,23 +13,3 @@ jobs:
     # and properly linked.
     - name: Linked issues are consistent between commits and PR description
       run: .tests/misc-consistent-linked-issues ${{ secrets.GITHUB_TOKEN }} $GITHUB_REPOSITORY $GITHUB_EVENT_PATH
-
-  # Ensure required lints are enabled.
-  misc-lints-clippy-all:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v2
-  
-    # Ensure that the `clippy::all` lint is enabled.
-    - name: All Rust crates have `clippy::all` enabled
-      run: .tests/misc-lints-clippy-all
-  
-  # Ensure required lints are enabled.
-  misc-lints-missing-docs:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v2
-
-    # Ensure that the `missing_docs` lint is enabled.
-    - name: All Rust crates have `missing_docs` enabled
-      run: .tests/misc-lints-missing-docs

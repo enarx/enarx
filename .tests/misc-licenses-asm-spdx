@@ -1,12 +1,11 @@
 #!/bin/bash -e
 set -o pipefail
 
-top=$(git rev-parse --show-toplevel)
 status=0
 while read -r file; do
     if ! awk '# SPDX-License-Identifier: Apache-2.0$/ { exit 0 } { exit 1 }' "$file"; then
         echo "$file does not have an Apache 2.0 SPDX ID on the first line of the file."
         status=1
     fi
-done < <(find "$top" -regex '.*/target' -prune -o -type f -regex '.*\.\(s\|S|\)' -print)
+done < <(find . -regex '.*/target' -prune -o -type f -regex '.*\.\(s\|S|\)' -print)
 exit $status

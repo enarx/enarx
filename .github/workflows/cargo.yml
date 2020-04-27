@@ -3,87 +3,11 @@ name: cargo
 on: [pull_request]
 
 jobs:
-  # Ensure all Rust code is properly formatted with `rustfmt`.
-  cargo-fmt:
+  # Run the entire CI suite
+  cargo-make-ci-flow:
     runs-on: ubuntu-latest
     container: quay.io/enarx/fedora-test
     steps:
-    - uses: actions/checkout@v2
-    
-    - name: rustfmt
-      run: cargo fmt -- --check
-
-  # Build the Enarx workspace.
-  cargo-build:
-    runs-on: ubuntu-latest
-    container: quay.io/enarx/fedora-test
-    steps:
-    - uses: actions/checkout@v2
-    
-    # Ensure the project builds correctly.
-    - name: Build
-      run: cargo build
-
-  # Test the Enarx workspace.
-  cargo-test:
-    runs-on: ubuntu-latest
-    container: quay.io/enarx/fedora-test
-    steps:
-    - uses: actions/checkout@v2
-    
-    # Run any specified Rust tests.
-    - name: Run tests
-      run: cargo test
-
-    # Run Rust tests with OpenSSL-specific features enabled for SEV.
-    - name: Run tests (SEV-specific)
-      run: cargo test --manifest-path sev/Cargo.toml --verbose --features=openssl
-
-  # Lint check with rust-clippy.
-  cargo-clippy:
-    runs-on: ubuntu-latest
-    container: quay.io/enarx/fedora-test
-    steps:
-    - uses: actions/checkout@v2
-    - name: cargo-clippy
-      run: cargo clippy
-      
-  # Vulnerability check with cargo audit.
-  cargo-audit:
-    runs-on: ubuntu-latest
-    container: quay.io/enarx/fedora-test
-    steps:
-    - uses: actions/checkout@v2
-    - name: cargo-audit
-      run: cargo audit
-
-  # Check that dependencies have Apache 2.0-compatible licenses.
-  cargo-deny-check-licenses:
-    runs-on: ubuntu-latest
-    container: quay.io/enarx/fedora-test
-    steps:
-    - uses: actions/checkout@v2
-    - name: cargo-deny-check-licenses
-      run: cargo deny check licenses
-
-  # Enforce the edition field in Cargo.toml files.
-  cargo-toml-package-edition:
-    runs-on: ubuntu-latest
-    container: quay.io/enarx/fedora-test
-    steps:
-    - uses: actions/checkout@v2
-    
-    # Ensure Cargo edition is correct.
-    - name: Cargo edition is correct
-      run: .tests/cargo-toml-package-edition
-
-  # Enforce the license field in Cargo.toml files.
-  cargo-toml-package-license:
-    runs-on: ubuntu-latest
-    container: quay.io/enarx/fedora-test
-    steps:
-    - uses: actions/checkout@v2
-    
-    # Ensure Cargo.toml's license field is Apache 2.0.
-    - name: All Cargo.toml files have a license field
-      run: .tests/cargo-toml-package-license
+      - uses: actions/checkout@v2
+      - name: Code passes the continuous integration suite
+        run: cargo make ci-flow

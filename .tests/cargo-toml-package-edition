@@ -1,15 +1,10 @@
 #!/bin/bash -e
 set -o pipefail
 
-top=$(git rev-parse --show-toplevel)
 status=0
-while read -r file; do
-    [ "$(toml get "$file" package)" == "null" ] && continue
-
-    if [ "$(toml get "$file" package.edition)" != '"2018"' ]; then
-        echo "$file is not using edition = \"2018\"."
-        echo "Please ensure the field is present and includes the correct Rust edition."        
-        status=1
-    fi
-done < <(find "$top" -name Cargo.toml)
+if [ "$(toml get "Cargo.toml" package.edition)" != '"2018"' ]; then
+	echo "$PWD is not using edition = \"2018\"."
+	echo "Please ensure the field is present and includes the correct Rust edition."
+	status=1
+fi
 exit $status
