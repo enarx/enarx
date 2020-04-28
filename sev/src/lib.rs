@@ -9,22 +9,10 @@
 #![allow(missing_docs)]
 
 use sev_types::platform;
+use sev_types::Build;
 
 pub mod certs;
 pub mod firmware;
 pub mod launch;
 #[cfg(feature = "openssl")]
 pub mod session;
-
-#[repr(C)]
-#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
-pub struct Build {
-    pub version: platform::Version,
-    pub build: u8,
-}
-
-impl std::fmt::Display for Build {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "{}.{}", self.version, self.build)
-    }
-}
