@@ -132,7 +132,7 @@ impl<'a> Handler<'a> {
     /// we trip the circuit breaker and exit the enclave. Any attempt to
     /// re-enter the enclave after tripping the circuit breaker causes the
     /// enclave to immediately EEXIT.
-    fn attacked(&mut self) -> ! {
+    pub fn attacked(&mut self) -> ! {
         self.exit(1)
     }
 
