@@ -342,6 +342,27 @@ impl StateSaveArea {
 }
 
 #[cfg(test)]
+mod et {
+
+    use super::*;
+
+    #[test]
+    fn exc() {
+        let mut ssa = StateSaveArea::default();
+        assert_eq!(None, ssa.gpr.exitinfo.exception());
+
+        ssa.gpr.exitinfo = ExitInfo::new(ExitType::Hardware, Exception::InvalidOpcode);
+        assert_eq!(ssa.gpr.exitinfo.exception(), Some(Exception::InvalidOpcode));
+
+        ssa.gpr.exitinfo = ExitInfo::new(ExitType::Software, Exception::InvalidOpcode);
+        assert_eq!(ssa.gpr.exitinfo.exception(), Some(Exception::InvalidOpcode));
+
+        ssa.gpr.exitinfo = ExitInfo::new(ExitType::Hardware, Exception::DivideByZero);
+        assert_ne!(ssa.gpr.exitinfo.exception(), Some(Exception::InvalidOpcode));
+    }
+}
+
+#[cfg(test)]
 testaso! {
     struct Gpr: 8, 184 => {
         rax: 0,
