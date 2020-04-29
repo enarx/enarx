@@ -474,4 +474,25 @@ impl<'a> Handler<'a> {
         let mut heap = unsafe { crate::heap::Heap::new(self.layout.heap.into()) };
         heap.brk(self.aex.gpr.rdi as _) as _
     }
+
+    /// Do a uname() system call
+    pub fn uname(&mut self) -> u64 {
+        self.trace("uname", 1);
+
+        fn fill(buf: &mut [u8], with: &str) {
+            let src = with.as_bytes();
+            for (i, b) in buf.iter_mut().enumerate() {
+                *b = *src.get(i).unwrap_or(&0);
+            }
+        }
+
+        let utsname = unsafe { &mut *(self.aex.gpr.rdi as *mut nolibc::UtsName) };
+        fill(&mut utsname.sysname, "Linux");
+        fill(&mut utsname.nodename, "localhost.localdomain");
+        fill(&mut utsname.release, "5.6.0");
+        fill(&mut utsname.version, "#1");
+        fill(&mut utsname.machine, "x86_64");
+
+        0
+    }
 }
