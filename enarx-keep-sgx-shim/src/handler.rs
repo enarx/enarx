@@ -519,4 +519,12 @@ impl<'a> Handler<'a> {
             self.aex.gpr.r9 as _,
         ) as _
     }
+
+    /// Do a munmap() system call
+    pub fn munmap(&mut self) -> u64 {
+        self.trace("munmap", 2);
+
+        let mut heap = unsafe { crate::heap::Heap::new(self.layout.heap.into()) };
+        heap.munmap(self.aex.gpr.rdi as _, self.aex.gpr.rsi as _) as _
+    }
 }
