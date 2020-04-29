@@ -36,6 +36,7 @@ pub extern "C" fn event(
                 SysCall::BRK => h.brk(),
                 SysCall::UNAME => h.uname(),
                 SysCall::MPROTECT => h.mprotect(),
+                SysCall::MMAP => h.mmap(),
 
                 syscall => {
                     h.print("unsupported syscall: ");

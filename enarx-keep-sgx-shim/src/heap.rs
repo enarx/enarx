@@ -4,6 +4,7 @@ use core::mem::size_of;
 use core::slice::from_raw_parts_mut as slice;
 
 use memory::Page;
+use nolibc::x86_64::error::Number as ErrNo;
 use span::{Line, Span};
 
 type Word = usize;
@@ -61,6 +62,16 @@ impl Heap {
         self.allocated[idx] & (1 << bit) != 0
     }
 
+    fn is_allocated_range(&self, range: core::ops::Range<usize>) -> bool {
+        for i in range {
+            if self.is_allocated(i) {
+                return true;
+            }
+        }
+
+        false
+    }
+
     fn allocate(&mut self, page: usize) {
         let (idx, bit) = Self::idx_bit(page);
         self.allocated[idx] |= 1 << bit;
@@ -116,5 +127,44 @@ impl Heap {
 
         self.metadata.brk.end = brk;
         brk
+    }
+
+    pub fn mmap(
+        &mut self,
+        addr: usize,
+        length: usize,
+        prot: usize,
+        flags: usize,
+        fd: isize,
+        offset: usize,
+    ) -> usize {
+        const RWX: u64 = nolibc::PROT_READ | nolibc::PROT_WRITE | nolibc::PROT_EXEC;
+        const PA: u64 = nolibc::MAP_PRIVATE | nolibc::MAP_ANONYMOUS;
+
+        let prot = prot as u64 & !RWX;
+        if addr != 0 || fd != -1 || offset != 0 || prot != 0 || flags as u64 != PA {
+            return ErrNo::EINVAL.into_syscall() as _;
+        }
+
+        // The number of pages we need for the given length.
+        let pages = (length + Page::size() - 1) / Page::size();
+
+        // Find the brk page offset.
+        let brk = self.offset_page_up(self.metadata.brk.end).unwrap();
+
+        // Search for pages from the end to the front.
+        for i in (brk..=self.pages.len() - pages).rev() {
+            let range = i..i + pages;
+
+            if !self.is_allocated_range(range.clone()) {
+                for page in range.clone() {
+                    self.allocate(page);
+                }
+
+                return self.pages[range].as_ptr() as _;
+            }
+        }
+
+        ErrNo::ENOMEM.into_syscall() as _
     }
 }

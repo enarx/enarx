@@ -504,4 +504,19 @@ impl<'a> Handler<'a> {
 
         0
     }
+
+    /// Do a mmap() system call
+    pub fn mmap(&mut self) -> u64 {
+        self.trace("mmap", 6);
+
+        let mut heap = unsafe { crate::heap::Heap::new(self.layout.heap.into()) };
+        heap.mmap(
+            self.aex.gpr.rdi as _,
+            self.aex.gpr.rsi as _,
+            self.aex.gpr.rdx as _,
+            self.aex.gpr.r10 as _,
+            self.aex.gpr.r8 as _,
+            self.aex.gpr.r9 as _,
+        ) as _
+    }
 }
