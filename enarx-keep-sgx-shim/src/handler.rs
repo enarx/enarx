@@ -528,6 +528,39 @@ impl<'a> Handler<'a> {
         heap.munmap(self.aex.gpr.rdi as _, self.aex.gpr.rsi as _) as _
     }
 
+    /// Do a rt_sigaction() system call
+    // We don't support signals yet. So, fake success.
+    pub fn rt_sigaction(&mut self) -> u64 {
+        type SigAction = [u64; 4];
+
+        static mut ACTIONS: [SigAction; 64] = [[0; 4]; 64];
+
+        self.trace("rt_sigaction", 4);
+
+        let signal = self.aex.gpr.rdi as usize;
+        let new = self.aex.gpr.rsi as *const SigAction;
+        let old = self.aex.gpr.rdx as *mut SigAction;
+        let size = self.aex.gpr.r10;
+
+        if signal >= unsafe { ACTIONS.len() } || size != 8 {
+            return ErrNo::EINVAL.into_syscall();
+        }
+
+        unsafe {
+            let tmp = ACTIONS[signal];
+
+            if !new.is_null() {
+                ACTIONS[signal] = *new;
+            }
+
+            if !old.is_null() {
+                *old = tmp;
+            }
+        }
+
+        0
+    }
+
     /// Do a rt_sigprocmask() system call
     // We don't support signals yet. So, fake success.
     pub fn rt_sigprocmask(&mut self) -> u64 {
