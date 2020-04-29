@@ -38,6 +38,7 @@ pub extern "C" fn event(
                 SysCall::MPROTECT => h.mprotect(),
                 SysCall::MMAP => h.mmap(),
                 SysCall::MUNMAP => h.munmap(),
+                SysCall::RT_SIGPROCMASK => h.rt_sigprocmask(),
                 SysCall::SIGALTSTACK => h.sigaltstack(),
 
                 syscall => {

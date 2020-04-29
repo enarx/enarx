@@ -528,6 +528,14 @@ impl<'a> Handler<'a> {
         heap.munmap(self.aex.gpr.rdi as _, self.aex.gpr.rsi as _) as _
     }
 
+    /// Do a rt_sigprocmask() system call
+    // We don't support signals yet. So, fake success.
+    pub fn rt_sigprocmask(&mut self) -> u64 {
+        self.trace("rt_sigprocmask", 4);
+
+        0
+    }
+
     /// Do a sigaltstack() system call
     // We don't support signals yet. So, fake success.
     pub fn sigaltstack(&mut self) -> u64 {
