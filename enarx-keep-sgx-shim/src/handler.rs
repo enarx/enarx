@@ -527,4 +527,12 @@ impl<'a> Handler<'a> {
         let mut heap = unsafe { crate::heap::Heap::new(self.layout.heap.into()) };
         heap.munmap(self.aex.gpr.rdi as _, self.aex.gpr.rsi as _) as _
     }
+
+    /// Do a sigaltstack() system call
+    // We don't support signals yet. So, fake success.
+    pub fn sigaltstack(&mut self) -> u64 {
+        self.trace("sigaltstack", 2);
+
+        0
+    }
 }
