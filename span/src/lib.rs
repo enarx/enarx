@@ -14,8 +14,8 @@
 mod line;
 mod span;
 
-pub use line::Line;
-pub use span::Span;
+pub use crate::line::Line;
+pub use crate::span::Span;
 
 /// Determines whether a set contains an element
 pub trait Contains<T> {
