@@ -495,4 +495,13 @@ impl<'a> Handler<'a> {
 
         0
     }
+
+    /// Do a mprotect() system call
+    // Until EDMM, we can't change any page permissions.
+    // What you get is what you get. Fake success.
+    pub fn mprotect(&mut self) -> u64 {
+        self.trace("mprotect", 3);
+
+        0
+    }
 }
