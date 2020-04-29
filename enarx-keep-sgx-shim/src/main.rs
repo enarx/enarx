@@ -23,6 +23,7 @@ mod elf;
 mod entry;
 mod event;
 mod handler;
+mod heap;
 mod libc;
 
 use span::Line;
