@@ -167,4 +167,32 @@ impl Heap {
 
         ErrNo::ENOMEM.into_syscall() as _
     }
+
+    pub fn munmap(&mut self, addr: usize, length: usize) -> usize {
+        if addr % Page::size() != 0 {
+            return ErrNo::EINVAL.into_syscall() as _;
+        }
+
+        let brk = self.offset_page_up(self.metadata.brk.end).unwrap();
+
+        let bot = match self.offset_page_down(addr) {
+            Some(page) => page,
+            None => return ErrNo::EINVAL.into_syscall() as _,
+        };
+
+        let top = match self.offset_page_up(addr + length) {
+            Some(page) => page,
+            None => return ErrNo::EINVAL.into_syscall() as _,
+        };
+
+        if bot < brk {
+            return ErrNo::EINVAL.into_syscall() as _;
+        }
+
+        for page in bot..top {
+            self.deallocate(page);
+        }
+
+        0
+    }
 }
