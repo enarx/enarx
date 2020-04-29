@@ -49,3 +49,14 @@ impl<'a> AsMut<[u8]> for Iovec<'a> {
         unsafe { core::slice::from_raw_parts_mut(self.base, self.size) }
     }
 }
+
+const UTSNAME_LENGTH: usize = 65;
+
+#[repr(C)]
+pub struct UtsName {
+    pub sysname: [u8; UTSNAME_LENGTH],
+    pub nodename: [u8; UTSNAME_LENGTH],
+    pub release: [u8; UTSNAME_LENGTH],
+    pub version: [u8; UTSNAME_LENGTH],
+    pub machine: [u8; UTSNAME_LENGTH],
+}

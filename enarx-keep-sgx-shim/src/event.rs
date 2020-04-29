@@ -34,6 +34,7 @@ pub extern "C" fn event(
                 SysCall::EXIT_GROUP => h.exit_group(None),
                 SysCall::SET_TID_ADDRESS => h.set_tid_address(),
                 SysCall::BRK => h.brk(),
+                SysCall::UNAME => h.uname(),
 
                 syscall => {
                     h.print("unsupported syscall: ");
