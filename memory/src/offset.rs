@@ -40,7 +40,7 @@ where
     /// Get the number of bytes
     #[inline]
     pub fn bytes(self) -> T {
-        self.0 * Self(size_of::<U>(), PhantomData).into().items()
+        self.0 * Offset(size_of::<U>(), PhantomData).into().items()
     }
 }
 
