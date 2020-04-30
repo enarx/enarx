@@ -61,14 +61,14 @@ where
     #[inline]
     pub fn raise<V>(self) -> Address<T, V> {
         let align: T = Offset::from_items(align_of::<V>()).into().items();
-        Self((self.0 + align - T::ONE) / align * align, PhantomData)
+        Address((self.0 + align - T::ONE) / align * align, PhantomData)
     }
 
     /// Cast an existing `Address` into an `Address` of a different type by aligning down
     #[inline]
     pub fn lower<V>(self) -> Address<T, V> {
         let align: T = Offset::from_items(align_of::<V>()).into().items();
-        Self(self.0 / align * align, PhantomData)
+        Address(self.0 / align * align, PhantomData)
     }
 }
 
@@ -87,7 +87,7 @@ where
 {
     #[inline]
     fn from(value: &U) -> Self {
-        Self(value as *const U as usize, PhantomData).into()
+        Address(value as *const U as usize, PhantomData).into()
     }
 }
 
