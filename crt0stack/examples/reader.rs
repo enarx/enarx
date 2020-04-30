@@ -8,7 +8,7 @@ fn main() {
     }
 
     let reader = unsafe { Reader::from_environ(&*environ) }.prev().prev();
-    assert_eq!(reader.count(), 1);
+    assert_eq!(reader.count(), std::env::args().count());
 
     let mut reader = reader.done();
     for arg in &mut reader {
