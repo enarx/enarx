@@ -21,3 +21,20 @@ impl core::fmt::Display for Version {
         write!(f, "{}.{}", self.major, self.minor)
     }
 }
+
+/// The firmware 'Build' is the Build ID for a particular API version.
+#[repr(C)]
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
+pub struct Build {
+    /// The firmware's version.
+    pub version: Version,
+
+    ///  Build ID.
+    pub build: u8,
+}
+
+impl core::fmt::Display for Build {
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+        write!(f, "{}.{}", self.version, self.build)
+    }
+}
