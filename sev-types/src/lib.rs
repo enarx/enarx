@@ -16,22 +16,9 @@
 //! the SEV API specification document version; the specification publication
 //! date; the link to the SEV API specification.
 
+#![no_std]
 #![deny(missing_docs)]
 #![deny(clippy::all)]
-#![allow(missing_docs)]
 
 pub mod command;
 pub mod platform;
-
-#[repr(C)]
-#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
-pub struct Build {
-    pub version: platform::Version,
-    pub build: u8,
-}
-
-impl std::fmt::Display for Build {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "{}.{}", self.version, self.build)
-    }
-}
