@@ -1,6 +1,6 @@
 #!/bin/bash
 
-diagram_dir="./docs/attestation/"
+diagram_dir="./docs/"
 diagrams=$(make --quiet -C "$diagram_dir" diagrams)
 
 status=0
