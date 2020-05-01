@@ -3,7 +3,7 @@
 
 import json
 import sys
-from github import Github
+import github
 
 # A mapping between labels and projects to add when they're applied.
 LABEL_PROJECTS = {
@@ -17,7 +17,7 @@ LABEL_PROJECTS = {
 (token, repository, path) = sys.argv[1:4]
 
 # Initialize repo
-repo = Github(token).get_repo(repository)
+repo = github.Github(token).get_repo(repository)
 
 # Open Github event JSON
 with open(path) as f:
@@ -38,15 +38,26 @@ except KeyError:
     content_id = event["pull_request"]["id"]
 
 # Fetch the project we want to add to or remove from
-project = [p for p in repo.get_projects() if p.name == LABEL_PROJECTS[label_name]][1]
+try:
+    project = [p for p in repo.get_projects() if p.name == LABEL_PROJECTS[label_name]][0]
+except KeyError:
+    print("Label is not actionable.")
+    sys.exit(0)
 
 # If the label was added, we want to add to the project. If removed, we want to
 # remove from the project.
 if action == "labeled":
     project_column = project.get_columns()[1]
-    project_column.create_card(content_id=content_id, content_type=content_type)
+    try:
+        project_column.create_card(content_id=content_id, content_type=content_type)
+    except github.GithubException as e:
+        error = e.data["errors"][0]
+        if error["resource"] != "ProjectCard" or error["code"] != "unprocessable":
+            raise
+        print("Card already in project.")
 elif action == "unlabeled":
     for column in project.get_columns():
         for card in column.get_cards():
-            if card.get_content() is not None and card.get_content().id == content_id:
+            card_content = card.get_content()
+            if card_content is not None and card_content.id == content_id:
                 card.delete()
