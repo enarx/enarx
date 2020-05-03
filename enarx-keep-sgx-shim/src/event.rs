@@ -8,6 +8,11 @@ use sgx_types::ssa::StateSaveArea;
 use crate::handler::{Context, Handler, Print};
 use crate::Layout;
 
+// Opcode constants, details in Volume 2 of the Intel 64 and IA-32 Architectures Software
+// Developer's Manual
+const OP_SYSCALL: &[u8] = &[0x0f, 0x05];
+const OP_CPUID: &[u8] = &[0x0f, 0xa2];
+
 #[no_mangle]
 pub extern "C" fn event(
     _rdi: u64,
@@ -25,8 +30,7 @@ pub extern "C" fn event(
     match h.aex.gpr.exitinfo.exception() {
         Some(Exception::InvalidOpcode) => {
             match unsafe { core::slice::from_raw_parts(h.aex.gpr.rip as *const u8, 2) } {
-                // syscall
-                [0x0f, 0x05] => {
+                OP_SYSCALL => {
                     aex.gpr.rax = match h.aex.gpr.rax.into() {
                         SysCall::READ => h.read(),
                         SysCall::READV => h.readv(),
@@ -57,8 +61,7 @@ pub extern "C" fn event(
                     aex.gpr.rip += 2;
                 }
 
-                // cpuid
-                [0x0f, 0xa2] => {
+                OP_CPUID => {
                     let (rax, rbx, rcx, rdx) = match (h.aex.gpr.rax, h.aex.gpr.rcx) {
                         (0, _) => (0, 0x756e_6547, 0x6c65_746e, 0x4965_6e69), // "GenuineIntel"
 
