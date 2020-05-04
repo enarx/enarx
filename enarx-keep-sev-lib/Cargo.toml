@@ -1,5 +1,5 @@
 [package]
-name = "vmsyscall"
+name = "enarx-keep-sev-lib"
 version = "0.1.0"
 authors = ["Harald Hoyer <harald@redhat.com>"]
 license = "Apache-2.0"
