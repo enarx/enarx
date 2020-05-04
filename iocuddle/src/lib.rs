@@ -50,10 +50,7 @@
 //! use std::os::raw::{c_void, c_int, c_uint};
 //! use iocuddle::*;
 //!
-//! let mut file = match std::fs::File::open("/dev/tty") {
-//!     Err(_) => std::process::exit(0),
-//!     Ok(f) => f,
-//! };
+//! let mut file = std::fs::File::open("/dev/tty").unwrap_or_else(|_| std::process::exit(0));
 //!
 //! // This is the simplist ioctl call. The request number is provided via the
 //! // Ioctl::classic() constructor. This ioctl reads a C integer from the
