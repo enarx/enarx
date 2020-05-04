@@ -14,4 +14,5 @@ keywords = [
 ]
 
 [dependencies]
-serde = { version = "1.0", default-features = false, features = ["derive"] }
+libc = { version = "0.2.69", features = [] }
+memory = { path = "../memory" }
