@@ -5,120 +5,81 @@
 //! project literature. This is a very thin and low-level layer that is meant to
 //! be as transparent as possible.
 
-use memory::Register;
+use core::mem::size_of;
+use memory::{Page, Register};
 
-/// The `Message` struct is the most minimal representation of the register context
-/// needed for service requests between the microkernel and the hypervisor. An example
-/// of such a service would be proxying a system call.
+/// A request
 ///
-/// This struct contains a number of convenient setter/getter functions to avoid accidentally
-/// mixing up registers when implementing requests.
+/// The `Request` struct is the most minimal representation of the register context
+/// needed for service requests from the microkernel to the hypervisor. An example
+/// of such a request would be proxying a system call.
 #[repr(C)]
-#[derive(Copy, Clone)]
-pub struct Message {
-    /// The `rax` register is where the microkernel will indicate what kind of request
-    /// (or syscall number) the hypervisor should carry out on its behalf. The hypervisor
-    /// will write the return code to this register once it has completed its work.
+#[derive(Copy, Clone, Default)]
+pub struct Request {
+    /// The syscall number for the request
     ///
-    /// Note: this register context corresponds to the x86_64 `syscall` instruction style
-    /// calling convention.
-    pub rax: Register<u64>,
-    /// 1st parameter register.
-    pub rdi: Register<u64>,
-    /// 2nd parameter register.
-    pub rsi: Register<u64>,
-    /// 3rd parameter register.
-    pub rdx: Register<u64>,
-    /// 4th parameter register.
-    pub r10: Register<u64>,
-    /// 5th parameter register.
-    pub r8: Register<u64>,
-    /// 6th parameter register.
-    pub r9: Register<u64>,
+    /// See, for example, libc::SYS_exit.
+    pub num: Register<usize>,
+
+    /// The syscall argument registers
+    ///
+    /// At most 6 syscall arguments can be provided.
+    pub arg: [Register<usize>; 6],
 }
 
-impl Message {
-    /// Construct a new `Message`.
-    pub fn new(rax: Register<u64>) -> Self {
-        Self {
-            rax,
-            rdi: Register::from_raw(0),
-            rsi: Register::from_raw(0),
-            rdx: Register::from_raw(0),
-            r10: Register::from_raw(0),
-            r8: Register::from_raw(0),
-            r9: Register::from_raw(0),
+/// A reply
+///
+/// The `Reply` struct is the most minimal representation of the register context
+/// needed for service replies from the hypervisor to the microkernel. An example
+/// of such a reply would be the return value from a proxied system call.
+///
+/// Although most architectures collapse this to a single register value
+/// with error numbers above `usize::max_value() - 4096`, `ppc64` uses
+/// the `cr0.SO` flag to indicate error instead. Unfortunately, we also
+/// can't use the built-in `Result` type for this, since its memory layout
+/// is undefined. Therefore, we use this layout with conversions for `Result`.
+#[repr(C)]
+#[derive(Copy, Clone, Default)]
+pub struct Reply {
+    val: Register<usize>,
+    err: bool,
+}
+
+impl From<Result<Register<usize>, libc::c_int>> for Reply {
+    #[inline]
+    fn from(value: Result<Register<usize>, libc::c_int>) -> Self {
+        match value {
+            Ok(val) => Self { val, err: false },
+            Err(val) => Self {
+                val: Register::from_raw(val as usize),
+                err: true,
+            },
         }
     }
+}
 
-    /// Assign a value to the first parameter register (rdi).
-    pub fn first(mut self, val: Register<u64>) -> Self {
-        self.rdi = val;
-        self
-    }
-
-    /// Access the first parameter register (rdi).
-    pub fn get_first(&self) -> Register<u64> {
-        self.rdi
-    }
-
-    /// Assign a value to the second parameter register (rsi).
-    pub fn second(mut self, val: Register<u64>) -> Self {
-        self.rsi = val;
-        self
-    }
-
-    /// Access the second parameter register (rsi).
-    pub fn get_second(&self) -> Register<u64> {
-        self.rsi
-    }
-
-    /// Assign a value to the third parameter register (rdx).
-    pub fn third(mut self, val: Register<u64>) -> Self {
-        self.rdx = val;
-        self
-    }
-
-    /// Access the third parameter register (rdx).
-    pub fn get_third(&self) -> Register<u64> {
-        self.rdx
-    }
-
-    /// Assign a value to the fourth parameter register (r10).
-    pub fn fourth(mut self, val: Register<u64>) -> Self {
-        self.r10 = val;
-        self
-    }
-
-    /// Access the fourth parameter register (r10)
-    pub fn get_fourth(&self) -> Register<u64> {
-        self.r10
-    }
-
-    /// Assign a value to the fifth parameter register (r8).
-    pub fn fifth(mut self, val: Register<u64>) -> Self {
-        self.r8 = val;
-        self
-    }
-
-    /// Access the fifth parameter register (r8).
-    pub fn get_fifth(&self) -> Register<u64> {
-        self.r8
-    }
-
-    /// Assign a value to the sixth parameter register (r9).
-    pub fn sixth(mut self, val: Register<u64>) -> Self {
-        self.r9 = val;
-        self
-    }
-
-    /// Access the sixth parameter register (r9)
-    pub fn get_sixth(&self) -> Register<u64> {
-        self.r9
+impl From<Reply> for Result<Register<usize>, libc::c_int> {
+    #[inline]
+    fn from(value: Reply) -> Self {
+        if value.err {
+            Err(value.val.raw() as _)
+        } else {
+            Ok(value.val)
+        }
     }
 }
 
-/// The `Block` struct encloses the Message's register context but also provides
+/// A message, which is either a request or a reply
+#[derive(Copy, Clone)]
+pub union Message {
+    /// A request
+    pub req: Request,
+
+    /// A reply
+    pub rep: Reply,
+}
+
+/// The `Block` struct encloses the Message's register contexts but also provides
 /// a data buffer used to store data that might be required to service the request.
 /// For example, bytes that must be written out by the host could be stored in the
 /// `Block`'s `buf` field. It is expected that the trusted microkernel has copied
@@ -128,28 +89,38 @@ impl Message {
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub struct Block {
-    /// The register context corresponding to the request.
+    /// The register contexts for this message; either a request or a reply.
     pub msg: Message,
+
     /// A buffer where any additional request components may be stored. For example,
     /// a series of bytes to be written out in a proxied `write` syscall.
     ///
     /// Note that this buffer size is *less than* a page, since the buffer shares
     /// space with the `Message` that describes it.
-    pub buf: [u8; Block::buf_capacity()],
-}
-
-impl Block {
-    /// Get the maximum capacity of the data buffer.
-    pub const fn buf_capacity() -> usize {
-        memory::Page::size() - core::mem::size_of::<Message>()
-    }
+    pub buf: [u8; Page::size() - size_of::<Message>()],
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_req_size() {
+        assert_eq!(size_of::<Request>(), size_of::<usize>() * 7);
+    }
+
+    #[test]
+    fn test_rep_size() {
+        assert_eq!(size_of::<Reply>(), size_of::<usize>() * 2);
+    }
+
+    #[test]
+    fn test_msg_size() {
+        assert_eq!(size_of::<Message>(), size_of::<usize>() * 7);
+    }
+
     #[test]
     fn test_block_size() {
-        assert_eq!(memory::Page::size(), core::mem::size_of::<Block>());
+        assert_eq!(size_of::<Block>(), Page::size());
     }
 }
