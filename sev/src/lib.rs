@@ -8,7 +8,6 @@
 #![deny(missing_docs)]
 #![allow(missing_docs)]
 
-use sev_types::platform;
 use sev_types::platform::Build;
 
 pub mod certs;
