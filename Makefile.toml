@@ -16,6 +16,7 @@ CARGO_MAKE_CRATE_WORKSPACE_MEMBERS = [
 	"sev",
 	"sev-show",
 	"sev-types",
+	"sevctl",
 	"sgx-crypto",
 	"sgx-show",
 	"sgx-types",
