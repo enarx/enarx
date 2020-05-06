@@ -1,5 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
+//! `sevctl` is a tool for managing the AMD Secure Encrypted Virtualization (SEV) Platform
+//! Secure Processor (PSP).
+
+#![deny(clippy::all)]
+#![deny(missing_docs)]
+
 use clap::ArgMatches;
 
 use codicon::*;
