@@ -9,9 +9,10 @@ license = "Apache-2.0"
 crt0stack = { path = "../crt0stack" }
 intel-types = { path = "../intel-types" }
 sgx-types = { path = "../sgx-types" }
-nolibc = { path = "../nolibc" }
 memory = { path = "../memory" }
 span = { path = "../span" }
+libc = { version = "0.2", features = [] }
+enumerate = { path = "../enumerate" }
 
 [build-dependencies]
 cc = "*"

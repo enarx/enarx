@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
+use core::convert::TryInto;
 use intel_types::Exception;
 use memory::Register;
-use nolibc::x86_64::error::Number as ErrNo;
-use nolibc::x86_64::syscall::Number as SysCall;
 use sgx_types::ssa::StateSaveArea;
 
 use crate::handler::{Context, Handler, Print};
@@ -32,32 +31,42 @@ pub extern "C" fn event(
         Some(Exception::InvalidOpcode) => {
             match unsafe { core::slice::from_raw_parts(h.aex.gpr.rip.raw() as *const u8, 2) } {
                 OP_SYSCALL => {
-                    aex.gpr.rax = Register::from_raw(match h.aex.gpr.rax.raw().into() {
-                        SysCall::READ => h.read(),
-                        SysCall::READV => h.readv(),
-                        SysCall::WRITE => h.write(),
-                        SysCall::WRITEV => h.writev(),
-                        SysCall::EXIT => h.exit(None),
-                        SysCall::GETUID => h.getuid(),
-                        SysCall::ARCH_PRCTL => h.arch_prctl(),
-                        SysCall::EXIT_GROUP => h.exit_group(None),
-                        SysCall::SET_TID_ADDRESS => h.set_tid_address(),
-                        SysCall::BRK => h.brk(),
-                        SysCall::UNAME => h.uname(),
-                        SysCall::MPROTECT => h.mprotect(),
-                        SysCall::MMAP => h.mmap(),
-                        SysCall::MUNMAP => h.munmap(),
-                        SysCall::RT_SIGACTION => h.rt_sigaction(),
-                        SysCall::RT_SIGPROCMASK => h.rt_sigprocmask(),
-                        SysCall::SIGALTSTACK => h.sigaltstack(),
+                    aex.gpr.rax = Register::from_raw(
+                        match h
+                            .aex
+                            .gpr
+                            .rax
+                            .raw()
+                            .try_into()
+                            .unwrap_or(h.aex.gpr.rax.raw() as i64)
+                        {
+                            libc::SYS_read => h.read(),
+                            libc::SYS_readv => h.readv(),
+                            libc::SYS_write => h.write(),
+                            libc::SYS_writev => h.writev(),
+                            libc::SYS_exit => h.exit(None),
+                            libc::SYS_getuid => h.getuid(),
+                            libc::SYS_arch_prctl => h.arch_prctl(),
+                            libc::SYS_exit_group => h.exit_group(None),
+                            libc::SYS_set_tid_address => h.set_tid_address(),
+                            libc::SYS_brk => h.brk(),
+                            libc::SYS_uname => h.uname(),
+                            libc::SYS_mprotect => h.mprotect(),
+                            libc::SYS_mmap => h.mmap(),
+                            libc::SYS_munmap => h.munmap(),
+                            libc::SYS_rt_sigaction => h.rt_sigaction(),
+                            libc::SYS_rt_sigprocmask => h.rt_sigprocmask(),
+                            libc::SYS_sigaltstack => h.sigaltstack(),
 
-                        syscall => {
-                            h.print("unsupported syscall: ");
-                            h.print(&syscall);
-                            h.print("\n");
-                            ErrNo::ENOSYS.into_syscall()
-                        }
-                    });
+                            syscall => {
+                                h.print("unsupported syscall: ");
+                                // Restore the value after forcing cast to i64
+                                h.print(&(syscall as u64));
+                                h.print("\n");
+                                -libc::ENOSYS as u64
+                            }
+                        },
+                    );
 
                     aex.gpr.rip = Register::from_raw(aex.gpr.rip.raw() + 2);
                 }
