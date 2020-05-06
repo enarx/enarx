@@ -254,7 +254,7 @@ mod export {
 
 mod verify {
     use super::*;
-    use colored::Colorize;
+    use colorful::*;
     use std::convert::TryInto;
     use std::fmt::Display;
 
