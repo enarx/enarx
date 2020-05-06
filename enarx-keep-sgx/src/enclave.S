@@ -34,7 +34,6 @@ eenter:
     dpush   0x48(%rsp)
     dpush   0x48(%rsp)
 
-    mov     0x70(%rsp), %eax    # Leaf
     call    *0x68(%rsp)         # __vdso_sgx_enter_enclave()
 
     add    $0x20, %rsp

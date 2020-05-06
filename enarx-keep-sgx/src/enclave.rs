@@ -23,7 +23,7 @@ extern "C" {
         rdi: usize,
         rsi: usize,
         rdx: usize,
-        rcx: usize,
+        leaf: Leaf,
         r8: usize,
         r9: usize,
         tcs: usize,
@@ -40,7 +40,6 @@ extern "C" {
             exc: &ExceptionInfo,
         ) -> i32,
         vdso: usize,
-        cmd: Leaf,
     ) -> i32;
 }
 
@@ -121,7 +120,7 @@ impl Enclave {
 
         let ret = unsafe {
             eenter(
-                rdi, rsi, rdx, 0, r8, r9, self.tcs, &mut exc, handle, self.fnc, leaf,
+                rdi, rsi, rdx, leaf, r8, r9, self.tcs, &mut exc, handle, self.fnc,
             )
         };
 
