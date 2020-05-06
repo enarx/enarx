@@ -14,7 +14,7 @@ use span::Span;
 
 use std::convert::TryFrom;
 use std::fs::{File, OpenOptions};
-use std::io::{Error, Result};
+use std::io::Result;
 
 fn f2p(flags: Flags) -> libc::c_int {
     let mut prot = libc::PROT_NONE;
@@ -52,13 +52,14 @@ impl Builder {
             .open("/dev/sgx/enclave")?;
 
         // Map the memory for the enclave
+        let zero = File::open("/dev/zero")?;
         let mmap = unsafe {
             map::map(
                 span.start,
                 span.count,
                 libc::PROT_NONE,
                 libc::MAP_SHARED | libc::MAP_FIXED_NOREPLACE,
-                Some(&file),
+                Some(&zero),
                 0,
             )?;
             map::Unmap::new(span)
@@ -124,17 +125,22 @@ impl Builder {
         // Fix up mapped permissions.
         self.perm.sort_by(|l, r| l.0.start.cmp(&r.0.start));
         for (span, si) in self.perm {
-            #[rustfmt::skip]
             let rwx = match si.class {
                 Class::Tcs => libc::PROT_READ | libc::PROT_WRITE,
                 Class::Reg => f2p(si.flags),
                 _ => panic!("Unsupported class!"),
             };
+
             // Change the permissions on an existing region of memory.
             unsafe {
-                if libc::mprotect(span.start as _, span.count, rwx) != 0 {
-                    return Err(Error::last_os_error());
-                }
+                map::map(
+                    span.start,
+                    span.count,
+                    rwx,
+                    libc::MAP_SHARED | libc::MAP_FIXED,
+                    Some(&self.file),
+                    0,
+                )?;
             }
 
             //let line = span::Line::from(span);
