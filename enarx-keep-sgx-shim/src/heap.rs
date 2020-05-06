@@ -4,7 +4,6 @@ use core::mem::size_of;
 use core::slice::from_raw_parts_mut as slice;
 
 use memory::Page;
-use nolibc::x86_64::error::Number as ErrNo;
 use span::{Line, Span};
 
 type Word = usize;
@@ -138,12 +137,12 @@ impl Heap {
         fd: isize,
         offset: usize,
     ) -> usize {
-        const RWX: u64 = nolibc::PROT_READ | nolibc::PROT_WRITE | nolibc::PROT_EXEC;
-        const PA: u64 = nolibc::MAP_PRIVATE | nolibc::MAP_ANONYMOUS;
+        const RWX: i32 = libc::PROT_READ | libc::PROT_WRITE | libc::PROT_EXEC;
+        const PA: i32 = libc::MAP_PRIVATE | libc::MAP_ANONYMOUS;
 
-        let prot = prot as u64 & !RWX;
-        if addr != 0 || fd != -1 || offset != 0 || prot != 0 || flags as u64 != PA {
-            return ErrNo::EINVAL.into_syscall() as _;
+        let prot = prot as u64 & !(RWX as u64);
+        if addr != 0 || fd != -1 || offset != 0 || prot != 0 || flags as u64 != PA as u64 {
+            return -libc::EINVAL as _;
         }
 
         // The number of pages we need for the given length.
@@ -165,28 +164,28 @@ impl Heap {
             }
         }
 
-        ErrNo::ENOMEM.into_syscall() as _
+        -libc::ENOMEM as _
     }
 
     pub fn munmap(&mut self, addr: usize, length: usize) -> usize {
         if addr % Page::size() != 0 {
-            return ErrNo::EINVAL.into_syscall() as _;
+            return -libc::EINVAL as _;
         }
 
         let brk = self.offset_page_up(self.metadata.brk.end).unwrap();
 
         let bot = match self.offset_page_down(addr) {
             Some(page) => page,
-            None => return ErrNo::EINVAL.into_syscall() as _,
+            None => return -libc::EINVAL as _,
         };
 
         let top = match self.offset_page_up(addr + length) {
             Some(page) => page,
-            None => return ErrNo::EINVAL.into_syscall() as _,
+            None => return -libc::EINVAL as _,
         };
 
         if bot < brk {
-            return ErrNo::EINVAL.into_syscall() as _;
+            return -libc::EINVAL as _;
         }
 
         for page in bot..top {
@@ -194,5 +193,14 @@ impl Heap {
         }
 
         0
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn const_values() {
+        assert_eq!(1u64, libc::PROT_READ as u64);
+        assert_eq!(1u64 as libc::c_int, libc::PROT_READ);
     }
 }

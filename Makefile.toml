@@ -12,7 +12,6 @@ CARGO_MAKE_CRATE_WORKSPACE_MEMBERS = [
 	"iocuddle",
 	"iocuddle-sgx",
 	"memory",
-	"nolibc",
 	"payload",
 	"sallyport",
 	"sev",

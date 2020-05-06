@@ -2,15 +2,25 @@
 
 use crate::Layout;
 
-use nolibc::x86_64::error::Number as ErrNo;
-use nolibc::x86_64::syscall::Number as SysCall;
-use nolibc::{ArchPrctlTask, Iovec};
 use sgx_types::ssa::StateSaveArea;
 use span::{Contains, Line, Span};
 
 use core::{mem::size_of, slice::from_raw_parts_mut};
 
 const TRACE: bool = false;
+// The last 4095 numbers are errnos
+const ERRNO_BASE: u64 = !0xfff;
+
+// arch_prctl syscalls not available in the libc crate as of version 0.2.69
+enumerate::enumerate! {
+    #[derive(Copy, Clone)]
+    enum ArchPrctlTask: u64 {
+        ArchSetGs = 0x1001,
+        ArchSetFs = 0x1002,
+        ArchGetFs = 0x1003,
+        ArchGetGs = 0x1004,
+    }
+}
 
 extern "C" {
     #[no_mangle]
@@ -22,7 +32,7 @@ extern "C" {
         r8: u64,
         r9: u64,
         r10: u64,
-        rax: SysCall,
+        rax: u64,
         ctx: &Context,
     ) -> u64;
 }
@@ -55,7 +65,15 @@ impl<'a> Print<str> for Handler<'a> {
             core::ptr::copy_nonoverlapping(bytes.as_ptr(), map, bytes.len());
 
             // Do the syscall; replace encrypted memory with unencrypted memory.
-            self.syscall(SysCall::WRITE, nolibc::STDERR, map as _, len, 0, 0, 0);
+            self.syscall(
+                -libc::SYS_write as u64,
+                -libc::STDERR_FILENO as u64,
+                map as _,
+                len,
+                0,
+                0,
+                0,
+            );
 
             self.ufree(map, len);
         }
@@ -115,7 +133,7 @@ impl<'a> Handler<'a> {
     #[inline(always)]
     unsafe fn syscall(
         &mut self,
-        rax: SysCall,
+        rax: u64,
         rdi: u64,
         rsi: u64,
         rdx: u64,
@@ -137,14 +155,14 @@ impl<'a> Handler<'a> {
     }
 
     /// Allocate a chunk of untrusted memory.
-    fn ualloc(&mut self, bytes: u64) -> Result<*mut u8, ErrNo> {
+    fn ualloc(&mut self, bytes: u64) -> Result<*mut u8, i64> {
         let ret = unsafe {
             self.syscall(
-                SysCall::MMAP,
+                -libc::SYS_mmap as u64,
                 0,
                 bytes,
-                nolibc::x86_64::PROT_READ | nolibc::x86_64::PROT_WRITE,
-                nolibc::x86_64::MAP_PRIVATE | nolibc::x86_64::MAP_ANONYMOUS,
+                -libc::PROT_READ as u64 | -libc::PROT_WRITE as u64,
+                -libc::MAP_PRIVATE as u64 | -libc::MAP_ANONYMOUS as u64,
                 !0,
                 0,
             )
@@ -159,8 +177,8 @@ impl<'a> Handler<'a> {
             self.attacked();
         }
 
-        if let Some(errno) = ErrNo::from_syscall(ret) {
-            return Err(errno);
+        if ret > ERRNO_BASE {
+            return Err(-(ret as i64));
         }
 
         Ok(ret as *mut u8)
@@ -168,7 +186,7 @@ impl<'a> Handler<'a> {
 
     /// Free a chunk of untrusted memory.
     unsafe fn ufree(&mut self, map: *mut u8, bytes: u64) -> u64 {
-        self.syscall(SysCall::MUNMAP, map as _, bytes, 0, 0, 0, 0)
+        self.syscall(-libc::SYS_munmap as u64, map as _, bytes, 0, 0, 0, 0)
     }
 
     fn trace(&mut self, name: &str, argc: usize) {
@@ -209,7 +227,7 @@ impl<'a> Handler<'a> {
             .map(|x| x.into())
             .unwrap_or_else(|| self.aex.gpr.rdi.raw());
         loop {
-            unsafe { self.syscall(SysCall::EXIT, code, 0, 0, 0, 0, 0) };
+            unsafe { self.syscall(-libc::SYS_exit as u64, code, 0, 0, 0, 0, 0) };
         }
     }
 
@@ -226,7 +244,7 @@ impl<'a> Handler<'a> {
             .map(|x| x.into())
             .unwrap_or_else(|| self.aex.gpr.rdi.raw());
         loop {
-            unsafe { self.syscall(SysCall::EXIT_GROUP, code, 0, 0, 0, 0, 0) };
+            unsafe { self.syscall(-libc::SYS_exit_group as u64, code, 0, 0, 0, 0, 0) };
         }
     }
 
@@ -234,7 +252,7 @@ impl<'a> Handler<'a> {
     pub fn getuid(&mut self) -> u64 {
         self.trace("getuid", 0);
 
-        unsafe { self.syscall(SysCall::GETUID, 0, 0, 0, 0, 0, 0) }
+        unsafe { self.syscall(-libc::SYS_getuid as u64, 0, 0, 0, 0, 0, 0) }
     }
 
     /// Do a read() syscall
@@ -247,16 +265,16 @@ impl<'a> Handler<'a> {
 
         // Allocate some unencrypted memory.
         let map = match self.ualloc(size) {
-            Err(errno) => return errno.into_syscall(),
+            Err(errno) => return errno as u64,
             Ok(map) => map,
         };
 
         unsafe {
             // Do the syscall; replace encrypted memory with unencrypted memory.
-            let ret = self.syscall(SysCall::READ, fd, map as _, size, 0, 0, 0);
+            let ret = self.syscall(-libc::SYS_read as u64, fd, map as _, size, 0, 0, 0);
 
             // Copy the unencrypted input into encrypted memory.
-            if ErrNo::from_syscall(ret).is_none() {
+            if ret <= ERRNO_BASE {
                 if ret > size {
                     self.attacked();
                 }
@@ -279,7 +297,7 @@ impl<'a> Handler<'a> {
 
         // Allocate some unencrypted memory.
         let map = match self.ualloc(size) {
-            Err(errno) => return errno.into_syscall(),
+            Err(errno) => return errno as u64,
             Ok(map) => map,
         };
 
@@ -288,10 +306,10 @@ impl<'a> Handler<'a> {
             core::ptr::copy_nonoverlapping(buf, map, size as _);
 
             // Do the syscall; replace encrypted memory with unencrypted memory.
-            let ret = self.syscall(SysCall::WRITE, fd, map as _, size, 0, 0, 0);
+            let ret = self.syscall(-libc::SYS_write as u64, fd, map as _, size, 0, 0, 0);
             self.ufree(map, size);
 
-            if ErrNo::from_syscall(ret).is_none() && ret > size {
+            if ret <= ERRNO_BASE && ret > size {
                 self.attacked();
             }
 
@@ -321,7 +339,7 @@ impl<'a> Handler<'a> {
             }
 
             // TODO: Fix me
-            ArchPrctlTask::ArchGetFs => ErrNo::ENOSYS.into_syscall(),
+            ArchPrctlTask::ArchGetFs => -libc::ENOSYS as u64,
 
             ArchPrctlTask::ArchSetGs => {
                 self.aex.gpr.gsbase = self.aex.gpr.rsi;
@@ -329,9 +347,9 @@ impl<'a> Handler<'a> {
             }
 
             // TODO: Fix me
-            ArchPrctlTask::ArchGetGs => ErrNo::ENOSYS.into_syscall(),
+            ArchPrctlTask::ArchGetGs => -libc::ENOSYS as u64,
 
-            _ => ErrNo::EINVAL.into_syscall(),
+            _ => -libc::EINVAL as u64,
         }
     }
 
@@ -342,19 +360,19 @@ impl<'a> Handler<'a> {
         let fd = self.aex.gpr.rdi.raw();
         let trusted = unsafe {
             from_raw_parts_mut(
-                self.aex.gpr.rsi.raw() as *mut Iovec,
+                self.aex.gpr.rsi.raw() as *mut libc::iovec,
                 self.aex.gpr.rdx.raw() as usize,
             )
         };
 
         // Add up total size of buffers and size of iovec array.
-        let bufsize = trusted.iter().fold(0, |a, e| a + e.size);
-        let iovecsize = size_of::<Iovec>() * trusted.len();
+        let bufsize = trusted.iter().fold(0, |a, e| a + e.iov_len);
+        let iovecsize = size_of::<libc::iovec>() * trusted.len();
         let size = bufsize + iovecsize;
 
         // Allocate some unencrypted memory.
         let map = match self.ualloc(size as u64) {
-            Err(errno) => return errno.into_syscall(),
+            Err(errno) => return errno as u64,
             Ok(map) => unsafe { from_raw_parts_mut(map, size as usize) },
         };
 
@@ -362,7 +380,7 @@ impl<'a> Handler<'a> {
         let (uiovec, ubuffer) = map.split_at_mut(iovecsize);
 
         // Convert the prefix from a byte slice into an iovec slice.
-        let (_, untrusted, _) = unsafe { uiovec.align_to_mut::<Iovec>() };
+        let (_, untrusted, _) = unsafe { uiovec.align_to_mut::<libc::iovec>() };
         if untrusted.len() != trusted.len() {
             self.attacked();
         }
@@ -372,15 +390,15 @@ impl<'a> Handler<'a> {
         // array, measured in bytes.
         let mut offset = 0;
         for (t, mut u) in trusted.iter_mut().zip(untrusted.iter_mut()) {
-            u.base = ubuffer[offset..].as_mut_ptr();
-            u.size = t.size;
-            offset += t.size;
+            u.iov_base = ubuffer[offset..].as_mut_ptr() as *mut _;
+            u.iov_len = t.iov_len;
+            offset += t.iov_len;
         }
 
         // Do the syscall; replace encrypted memory with unencrypted memory.
         let ret = unsafe {
             self.syscall(
-                SysCall::READV,
+                -libc::SYS_readv as u64,
                 fd,
                 untrusted.as_ptr() as _,
                 untrusted.len() as u64,
@@ -391,19 +409,20 @@ impl<'a> Handler<'a> {
         };
 
         // Copy the unencrypted input into encrypted memory.
-        if ErrNo::from_syscall(ret).is_none() {
+        if ret <= ERRNO_BASE {
             if ret > size as u64 {
                 self.attacked();
             }
 
             let mut offset = 0;
             for (t, u) in trusted.iter_mut().zip(untrusted.iter_mut()) {
-                if u.base != ubuffer[offset..].as_mut_ptr() || u.size != t.size {
+                if u.iov_base != ubuffer[offset..].as_mut_ptr() as *mut _ || u.iov_len != t.iov_len
+                {
                     self.attacked();
                 }
 
-                t.as_mut().copy_from_slice(u.as_ref());
-                offset += t.size;
+                t.clone_from(u);
+                offset += t.iov_len;
             }
         }
 
@@ -418,19 +437,19 @@ impl<'a> Handler<'a> {
         let fd = self.aex.gpr.rdi.raw();
         let trusted = unsafe {
             from_raw_parts_mut(
-                self.aex.gpr.rsi.raw() as *mut Iovec,
+                self.aex.gpr.rsi.raw() as *mut libc::iovec,
                 self.aex.gpr.rdx.raw() as usize,
             )
         };
 
         // Add up total size of buffers and size of iovec array.
-        let bufsize = trusted.iter().fold(0, |a, e| a + e.size);
-        let iovecsize = size_of::<Iovec>() * trusted.len();
+        let bufsize = trusted.iter().fold(0, |a, e| a + e.iov_len);
+        let iovecsize = size_of::<libc::iovec>() * trusted.len();
         let size = bufsize + iovecsize;
 
         // Allocate some unencrypted memory.
         let map = match self.ualloc(size as u64) {
-            Err(errno) => return errno.into_syscall(),
+            Err(errno) => return errno as u64,
             Ok(map) => unsafe { from_raw_parts_mut(map, size as usize) },
         };
 
@@ -439,7 +458,7 @@ impl<'a> Handler<'a> {
         let (uiovec, ubuffer) = map.split_at_mut(iovecsize);
 
         // Convert the prefix from a byte slice into an iovec slice.
-        let (_, untrusted, _) = unsafe { uiovec.align_to_mut::<Iovec>() };
+        let (_, untrusted, _) = unsafe { uiovec.align_to_mut::<libc::iovec>() };
         if untrusted.len() != trusted.len() {
             self.attacked();
         }
@@ -451,16 +470,16 @@ impl<'a> Handler<'a> {
         // measured in bytes.
         let mut offset = 0;
         for (t, mut u) in trusted.iter_mut().zip(untrusted.iter_mut()) {
-            u.base = ubuffer[offset..].as_mut_ptr();
-            u.size = t.size;
-            u.as_mut().copy_from_slice(t.as_ref());
-            offset += t.size;
+            u.iov_base = ubuffer[offset..].as_mut_ptr() as *mut _;
+            u.iov_len = t.iov_len;
+            u.clone_from(t);
+            offset += t.iov_len;
         }
 
         // Do the syscall; replace encrypted memory with unencrypted memory.
         let ret = unsafe {
             self.syscall(
-                SysCall::WRITEV,
+                -libc::SYS_writev as u64,
                 fd,
                 untrusted.as_ptr() as _,
                 untrusted.len() as u64,
@@ -472,7 +491,7 @@ impl<'a> Handler<'a> {
 
         unsafe { self.ufree(map.as_ptr() as *mut u8, size as u64) };
 
-        if ErrNo::from_syscall(ret).is_none() && ret > size as u64 {
+        if ret <= ERRNO_BASE && ret > size as u64 {
             self.attacked()
         }
 
@@ -491,14 +510,14 @@ impl<'a> Handler<'a> {
     pub fn uname(&mut self) -> u64 {
         self.trace("uname", 1);
 
-        fn fill(buf: &mut [u8], with: &str) {
+        fn fill(buf: &mut [i8; 65], with: &str) {
             let src = with.as_bytes();
             for (i, b) in buf.iter_mut().enumerate() {
-                *b = *src.get(i).unwrap_or(&0);
+                *b = *src.get(i).unwrap_or(&0) as i8;
             }
         }
 
-        let utsname = unsafe { &mut *(self.aex.gpr.rdi.raw() as *mut nolibc::UtsName) };
+        let utsname = unsafe { &mut *(self.aex.gpr.rdi.raw() as *mut libc::utsname) };
         fill(&mut utsname.sysname, "Linux");
         fill(&mut utsname.nodename, "localhost.localdomain");
         fill(&mut utsname.release, "5.6.0");
@@ -555,7 +574,7 @@ impl<'a> Handler<'a> {
         let size = self.aex.gpr.r10.raw();
 
         if signal >= unsafe { ACTIONS.len() } || size != 8 {
-            return ErrNo::EINVAL.into_syscall();
+            return -libc::EINVAL as u64;
         }
 
         unsafe {
@@ -587,5 +606,21 @@ impl<'a> Handler<'a> {
         self.trace("sigaltstack", 2);
 
         0
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn errno_values() {
+        assert_eq!(-22i64 as u64, -libc::EINVAL as u64);
+        // ERRNO return values are the last 4096 numbers in a u64
+        let ret = -libc::EINVAL as u64;
+        assert_eq!(Some(libc::EINVAL as i64), Some(-(ret as i64)));
+    }
+    #[test]
+    fn syscall_values() {
+        assert_eq!(0u64, libc::SYS_read as u64);
+        assert_eq!(libc::SYS_read, 0i64 as i64);
     }
 }
