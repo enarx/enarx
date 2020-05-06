@@ -39,4 +39,5 @@ pub struct Layout {
     pub heap: Line<u64>,
     pub stack: Line<u64>,
     pub shim: Line<u64>,
+    pub xsave: u64,
 }

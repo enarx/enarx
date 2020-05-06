@@ -42,7 +42,7 @@ pub struct Builder {
 }
 
 impl Builder {
-    pub fn new(span: impl Into<Span<usize>>) -> Result<Self> {
+    pub fn new(span: impl Into<Span<usize>>, sign: Parameters) -> Result<Self> {
         let span = span.into();
 
         // Open the device.
@@ -69,7 +69,6 @@ impl Builder {
         let hash = Hasher::new(span.count, StateSaveArea::frame_size());
 
         // Create the enclave.
-        let sign = Parameters::default();
         let secs = Secs::new(span, StateSaveArea::frame_size(), sign);
         let create = sgx::Create::new(&secs);
         sgx::ENCLAVE_CREATE.ioctl(&mut file, &create)?;

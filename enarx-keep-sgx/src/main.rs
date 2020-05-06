@@ -18,6 +18,7 @@ use enclave::Leaf;
 use intel_types::Exception;
 use memory::Page;
 use sgx_types::page::{Flags, SecInfo};
+use sgx_types::sig::Parameters;
 use sgx_types::tcs::Tcs;
 use span::Span;
 use structopt::StructOpt;
@@ -45,8 +46,11 @@ fn load() -> enclave::Enclave {
     assert!(!shim.pie);
     assert!(code.pie);
 
-    // Calculate the memory layout for the enclave.
-    let layout = layout::Layout::calculate(shim.region(), code.region());
+    // Generate Signature parameters and calculate the memory layout
+    // for the enclave.
+    let params = Parameters::default();
+    let xfrm = params.attr.data.xfrm() & params.attr.mask.xfrm();
+    let layout = layout::Layout::calculate(shim.region(), code.region(), xfrm);
 
     // Relocate the code binary.
     code.entry += layout.code.start;
@@ -96,7 +100,7 @@ fn load() -> enclave::Enclave {
     ];
 
     // Initiate the enclave building process.
-    let mut builder = Builder::new(layout.enclave).expect("Unable to create builder");
+    let mut builder = Builder::new(layout.enclave, params).expect("Unable to create builder");
     builder.load(&internal).unwrap();
     builder.load(&shim.segments).unwrap();
     builder.load(&code.segments).unwrap();
