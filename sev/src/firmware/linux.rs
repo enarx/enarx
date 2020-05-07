@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use std::fs::File;
+use std::fs::{File, OpenOptions};
 use std::mem::{size_of_val, MaybeUninit};
 use std::os::raw::{c_int, c_ulong};
 use std::os::unix::io::AsRawFd;
@@ -52,7 +52,9 @@ impl Firmware {
     }
 
     pub fn open() -> std::io::Result<Firmware> {
-        Ok(Firmware(File::open("/dev/sev")?))
+        Ok(Firmware(
+            OpenOptions::new().read(true).write(true).open("/dev/sev")?,
+        ))
     }
 
     pub fn platform_reset(&self) -> Result<(), Indeterminate<Error>> {
