@@ -6,11 +6,12 @@
 #![deny(clippy::all)]
 #![deny(missing_docs)]
 
+mod platform;
+
 use clap::ArgMatches;
 
 use codicon::*;
 
-use ::sev::certs::builtin::naples::*;
 use ::sev::certs::*;
 use ::sev::firmware::{Firmware, Status};
 
@@ -253,7 +254,10 @@ mod verify {
 
     pub fn cmd(matches: &ArgMatches) -> ! {
         let mut schain = sev_chain(matches.value_of("sev"));
-        let cchain = ca_chain(matches.value_of("ca"));
+        let cchain = match matches.value_of("ca") {
+            Some(ca) => ca_chain(ca),
+            None => ca_chain_builtin(&schain),
+        };
         let quiet = matches.is_present("quiet");
         let mut err = false;
 
@@ -316,19 +320,16 @@ mod verify {
         }
     }
 
-    fn ca_chain(filename: Option<&str>) -> ca::Chain {
-        match filename {
-            Some(f) => {
-                let mut file = File::open(&f).expect("unable to open CA certificate chain file");
+    fn ca_chain(filename: &str) -> ca::Chain {
+        let mut file = File::open(&filename).expect("unable to open CA certificate chain file");
+        ca::Chain::decode(&mut file, ()).expect("unable to decode chain")
+    }
 
-                ca::Chain::decode(&mut file, ()).expect("unable to decode chain")
-            }
-
-            None => ca::Chain {
-                ask: ca::Certificate::decode(&mut &ASK[..], ()).unwrap(),
-                ark: ca::Certificate::decode(&mut &ARK[..], ()).unwrap(),
-            },
-        }
+    fn ca_chain_builtin(chain: &sev::Chain) -> ca::Chain {
+        use std::convert::TryFrom;
+        platform::Generation::try_from(chain)
+            .unwrap_or(platform::Generation::Rome)
+            .into()
     }
 }
 
