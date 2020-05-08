@@ -13,6 +13,7 @@ use core::{
 };
 use enumerate::enumerate;
 use intel_types::*;
+use memory::Register;
 #[cfg(test)]
 use testing::testaso;
 
@@ -91,64 +92,64 @@ impl ExitInfo {
 #[repr(C)]
 pub struct Gpr {
     /// Register rax
-    pub rax: u64,
+    pub rax: Register<u64>,
 
     /// Register rcx
-    pub rcx: u64,
+    pub rcx: Register<u64>,
 
     /// Register rdx
-    pub rdx: u64,
+    pub rdx: Register<u64>,
 
     /// Register rbx
-    pub rbx: u64,
+    pub rbx: Register<u64>,
 
     /// Register rsp
-    pub rsp: u64,
+    pub rsp: Register<u64>,
 
     /// Register rbp
-    pub rbp: u64,
+    pub rbp: Register<u64>,
 
     /// Register rsi
-    pub rsi: u64,
+    pub rsi: Register<u64>,
 
     /// Register rdi
-    pub rdi: u64,
+    pub rdi: Register<u64>,
 
     /// Register r8
-    pub r8: u64,
+    pub r8: Register<u64>,
 
     /// Register r9
-    pub r9: u64,
+    pub r9: Register<u64>,
 
     /// Register r10
-    pub r10: u64,
+    pub r10: Register<u64>,
 
     /// Register r11
-    pub r11: u64,
+    pub r11: Register<u64>,
 
     /// Register r12
-    pub r12: u64,
+    pub r12: Register<u64>,
 
     /// Register r13
-    pub r13: u64,
+    pub r13: Register<u64>,
 
     /// Register r14
-    pub r14: u64,
+    pub r14: Register<u64>,
 
     /// Register r15
-    pub r15: u64,
+    pub r15: Register<u64>,
 
     /// Register flags
     pub rflags: Rflags,
 
     /// Register rip
-    pub rip: u64,
+    pub rip: Register<u64>,
 
     /// Register ursp
-    pub ursp: u64,
+    pub ursp: Register<u64>,
 
     /// Register urbp
-    pub urbp: u64,
+    pub urbp: Register<u64>,
 
     /// ExitInfo struct
     pub exitinfo: ExitInfo,
@@ -157,10 +158,10 @@ pub struct Gpr {
     pub reserved: u32,
 
     /// FS base
-    pub fsbase: u64,
+    pub fsbase: Register<u64>,
 
     /// GS base
-    pub gsbase: u64,
+    pub gsbase: Register<u64>,
 }
 
 bitflags! {

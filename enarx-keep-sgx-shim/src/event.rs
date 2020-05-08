@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use intel_types::Exception;
+use memory::Register;
 use nolibc::x86_64::error::Number as ErrNo;
 use nolibc::x86_64::syscall::Number as SysCall;
 use sgx_types::ssa::StateSaveArea;
@@ -29,9 +30,9 @@ pub extern "C" fn event(
     // Exception Vector Table
     match h.aex.gpr.exitinfo.exception() {
         Some(Exception::InvalidOpcode) => {
-            match unsafe { core::slice::from_raw_parts(h.aex.gpr.rip as *const u8, 2) } {
+            match unsafe { core::slice::from_raw_parts(h.aex.gpr.rip.raw() as *const u8, 2) } {
                 OP_SYSCALL => {
-                    aex.gpr.rax = match h.aex.gpr.rax.into() {
+                    aex.gpr.rax = Register::from_raw(match h.aex.gpr.rax.raw().into() {
                         SysCall::READ => h.read(),
                         SysCall::READV => h.readv(),
                         SysCall::WRITE => h.write(),
@@ -56,13 +57,13 @@ pub extern "C" fn event(
                             h.print("\n");
                             ErrNo::ENOSYS.into_syscall()
                         }
-                    };
+                    });
 
-                    aex.gpr.rip += 2;
+                    aex.gpr.rip = Register::from_raw(aex.gpr.rip.raw() + 2);
                 }
 
                 OP_CPUID => {
-                    let (rax, rbx, rcx, rdx) = match (h.aex.gpr.rax, h.aex.gpr.rcx) {
+                    let (rax, rbx, rcx, rdx) = match (h.aex.gpr.rax.raw(), h.aex.gpr.rcx.raw()) {
                         (0, _) => (0, 0x756e_6547, 0x6c65_746e, 0x4965_6e69), // "GenuineIntel"
 
                         (a, c) => {
@@ -76,11 +77,11 @@ pub extern "C" fn event(
                         }
                     };
 
-                    aex.gpr.rax = rax;
-                    aex.gpr.rbx = rbx;
-                    aex.gpr.rcx = rcx;
-                    aex.gpr.rdx = rdx;
-                    aex.gpr.rip += 2;
+                    aex.gpr.rax = Register::from_raw(rax);
+                    aex.gpr.rbx = Register::from_raw(rbx);
+                    aex.gpr.rcx = Register::from_raw(rcx);
+                    aex.gpr.rdx = Register::from_raw(rdx);
+                    aex.gpr.rip = Register::from_raw(aex.gpr.rip.raw() + 2);
                 }
 
                 // unsupported opcode

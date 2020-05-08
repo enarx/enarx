@@ -204,7 +204,10 @@ impl<'a> Handler<'a> {
     pub fn exit<T: Into<Option<u8>>>(&mut self, code: T) -> ! {
         self.trace("exit", 1);
 
-        let code = code.into().map(|x| x.into()).unwrap_or(self.aex.gpr.rdi);
+        let code = code
+            .into()
+            .map(|x| x.into())
+            .unwrap_or(self.aex.gpr.rdi.raw());
         loop {
             unsafe { self.syscall(SysCall::EXIT, code, 0, 0, 0, 0, 0) };
         }
@@ -218,7 +221,10 @@ impl<'a> Handler<'a> {
     pub fn exit_group<T: Into<Option<u8>>>(&mut self, code: T) -> ! {
         self.trace("exit_group", 1);
 
-        let code = code.into().map(|x| x.into()).unwrap_or(self.aex.gpr.rdi);
+        let code = code
+            .into()
+            .map(|x| x.into())
+            .unwrap_or(self.aex.gpr.rdi.raw());
         loop {
             unsafe { self.syscall(SysCall::EXIT_GROUP, code, 0, 0, 0, 0, 0) };
         }
@@ -235,9 +241,9 @@ impl<'a> Handler<'a> {
     pub fn read(&mut self) -> u64 {
         self.trace("read", 3);
 
-        let fd = self.aex.gpr.rdi;
-        let buf = self.aex.gpr.rsi as *mut u8;
-        let size = self.aex.gpr.rdx;
+        let fd = self.aex.gpr.rdi.raw();
+        let buf = self.aex.gpr.rsi.raw() as *mut u8;
+        let size = self.aex.gpr.rdx.raw();
 
         // Allocate some unencrypted memory.
         let map = match self.ualloc(size) {
@@ -267,9 +273,9 @@ impl<'a> Handler<'a> {
     pub fn write(&mut self) -> u64 {
         self.trace("write", 3);
 
-        let fd = self.aex.gpr.rdi;
-        let buf = self.aex.gpr.rsi as *const u8;
-        let size = self.aex.gpr.rdx;
+        let fd = self.aex.gpr.rdi.raw();
+        let buf = self.aex.gpr.rsi.raw() as *const u8;
+        let size = self.aex.gpr.rdx.raw();
 
         // Allocate some unencrypted memory.
         let map = match self.ualloc(size) {
@@ -308,7 +314,7 @@ impl<'a> Handler<'a> {
 
         self.trace("arch_prctl", 2);
 
-        match ArchPrctlTask::from(self.aex.gpr.rdi) {
+        match ArchPrctlTask::from(self.aex.gpr.rdi.raw()) {
             ArchPrctlTask::ArchSetFs => {
                 self.aex.gpr.fsbase = self.aex.gpr.rsi;
                 0
@@ -333,9 +339,12 @@ impl<'a> Handler<'a> {
     pub fn readv(&mut self) -> u64 {
         self.trace("readv", 3);
 
-        let fd = self.aex.gpr.rdi;
+        let fd = self.aex.gpr.rdi.raw();
         let trusted = unsafe {
-            from_raw_parts_mut(self.aex.gpr.rsi as *mut Iovec, self.aex.gpr.rdx as usize)
+            from_raw_parts_mut(
+                self.aex.gpr.rsi.raw() as *mut Iovec,
+                self.aex.gpr.rdx.raw() as usize,
+            )
         };
 
         // Add up total size of buffers and size of iovec array.
@@ -406,9 +415,12 @@ impl<'a> Handler<'a> {
     pub fn writev(&mut self) -> u64 {
         self.trace("writev", 3);
 
-        let fd = self.aex.gpr.rdi;
+        let fd = self.aex.gpr.rdi.raw();
         let trusted = unsafe {
-            from_raw_parts_mut(self.aex.gpr.rsi as *mut Iovec, self.aex.gpr.rdx as usize)
+            from_raw_parts_mut(
+                self.aex.gpr.rsi.raw() as *mut Iovec,
+                self.aex.gpr.rdx.raw() as usize,
+            )
         };
 
         // Add up total size of buffers and size of iovec array.
@@ -472,7 +484,7 @@ impl<'a> Handler<'a> {
         self.trace("brk", 1);
 
         let mut heap = unsafe { crate::heap::Heap::new(self.layout.heap.into()) };
-        heap.brk(self.aex.gpr.rdi as _) as _
+        heap.brk(self.aex.gpr.rdi.raw() as _) as _
     }
 
     /// Do a uname() system call
@@ -486,7 +498,7 @@ impl<'a> Handler<'a> {
             }
         }
 
-        let utsname = unsafe { &mut *(self.aex.gpr.rdi as *mut nolibc::UtsName) };
+        let utsname = unsafe { &mut *(self.aex.gpr.rdi.raw() as *mut nolibc::UtsName) };
         fill(&mut utsname.sysname, "Linux");
         fill(&mut utsname.nodename, "localhost.localdomain");
         fill(&mut utsname.release, "5.6.0");
@@ -511,12 +523,12 @@ impl<'a> Handler<'a> {
 
         let mut heap = unsafe { crate::heap::Heap::new(self.layout.heap.into()) };
         heap.mmap(
-            self.aex.gpr.rdi as _,
-            self.aex.gpr.rsi as _,
-            self.aex.gpr.rdx as _,
-            self.aex.gpr.r10 as _,
-            self.aex.gpr.r8 as _,
-            self.aex.gpr.r9 as _,
+            self.aex.gpr.rdi.raw() as _,
+            self.aex.gpr.rsi.raw() as _,
+            self.aex.gpr.rdx.raw() as _,
+            self.aex.gpr.r10.raw() as _,
+            self.aex.gpr.r8.raw() as _,
+            self.aex.gpr.r9.raw() as _,
         ) as _
     }
 
@@ -525,7 +537,7 @@ impl<'a> Handler<'a> {
         self.trace("munmap", 2);
 
         let mut heap = unsafe { crate::heap::Heap::new(self.layout.heap.into()) };
-        heap.munmap(self.aex.gpr.rdi as _, self.aex.gpr.rsi as _) as _
+        heap.munmap(self.aex.gpr.rdi.raw() as _, self.aex.gpr.rsi.raw() as _) as _
     }
 
     /// Do a rt_sigaction() system call
@@ -537,10 +549,10 @@ impl<'a> Handler<'a> {
 
         self.trace("rt_sigaction", 4);
 
-        let signal = self.aex.gpr.rdi as usize;
-        let new = self.aex.gpr.rsi as *const SigAction;
-        let old = self.aex.gpr.rdx as *mut SigAction;
-        let size = self.aex.gpr.r10;
+        let signal = self.aex.gpr.rdi.raw() as usize;
+        let new = self.aex.gpr.rsi.raw() as *const SigAction;
+        let old = self.aex.gpr.rdx.raw() as *mut SigAction;
+        let size = self.aex.gpr.r10.raw();
 
         if signal >= unsafe { ACTIONS.len() } || size != 8 {
             return ErrNo::EINVAL.into_syscall();
