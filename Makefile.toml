@@ -4,6 +4,7 @@ CARGO_MAKE_WORKSPACE_EMULATION = true
 CARGO_MAKE_CRATE_WORKSPACE_MEMBERS = [
 	"crt0stack",
 	"enarx-keep-sev",
+	"enarx-keep-sev-shim",
 	"enarx-keep-sgx",
 	"enarx-keep-sgx-shim",
 	"enumerate",

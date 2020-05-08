@@ -1,0 +1,17 @@
+[package]
+name = "enarx-keep-sev-shim"
+version = "0.1.0"
+authors = ["Harald Hoyer <harald@redhat.com>"]
+edition = "2018"
+license = "Apache-2.0"
+
+[dependencies]
+
+[build-dependencies]
+cc = "1.0.37"
+
+[profile.dev]
+panic = "abort"
+
+[profile.release]
+panic = "abort"
