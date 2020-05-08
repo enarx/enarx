@@ -12,6 +12,7 @@ bitflags = "1.2"
 span  = { path = "../span" }
 enumerate  = { path = "../enumerate" }
 intel-types = { path = "../intel-types" }
+memory = { path = "../memory" }
 
 [dev-dependencies]
 testing  = { path = "../testing" }
