@@ -2,6 +2,7 @@
 
 #[cfg(target_os = "linux")]
 mod linux;
+mod types;
 
 use super::*;
 use std::fmt::Debug;
