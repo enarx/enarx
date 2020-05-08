@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
+mod ioctl;
+
 use std::fs::{File, OpenOptions};
 use std::mem::{size_of_val, MaybeUninit};
 use std::os::raw::{c_int, c_ulong};
@@ -7,13 +9,14 @@ use std::os::unix::io::AsRawFd;
 
 use super::*;
 use crate::certs::sev::Certificate;
+use linux::ioctl::*;
+use types::*;
 
 #[repr(u32)]
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 enum Code {
     PlatformReset = 0,
-    PlatformStatus,
-    PekGenerate,
+    PekGenerate = 2,
     PekCertificateSigningRequest,
     PdhGenerate,
     PdhCertificateExport,
@@ -60,33 +63,22 @@ impl Firmware {
         Ok(())
     }
 
-    pub fn platform_status(&self) -> Result<Status, Indeterminate<Error>> {
-        #[repr(C, packed)]
-        struct Info {
-            api_major: u8,
-            api_minor: u8,
-            state: u8,
-            flags: u32,
-            build: u8,
-            guest_count: u32,
-        }
-
-        #[allow(clippy::uninit_assumed_init)]
-        let i: Info = self.cmd(Code::PlatformStatus, unsafe {
-            MaybeUninit::uninit().assume_init()
-        })?;
+    pub fn platform_status(&mut self) -> Result<Status, Indeterminate<Error>> {
+        let mut info: PlatformStatus = Default::default();
+        PLATFORM_STATUS.ioctl(&mut self.0, &mut Command::new(&mut info))?;
+        let config = info.config;
 
         Ok(Status {
             build: Build {
                 version: Version {
-                    major: i.api_major,
-                    minor: i.api_minor,
+                    major: info.version.major,
+                    minor: info.version.minor,
                 },
-                build: i.build,
+                build: config.build() as _,
             },
-            guests: i.guest_count,
-            flags: Flags::from_bits_truncate(i.flags),
-            state: match i.state {
+            guests: info.guest_count,
+            flags: Flags::from_bits_truncate(info.flags.bits().into()),
+            state: match info.state {
                 0 => State::Uninitialized,
                 1 => State::Initialized,
                 2 => State::Working,

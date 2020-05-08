@@ -13,3 +13,5 @@ dangerous_tests = []
 openssl = { version = "0.10", optional = true, features = [ "vendored" ] }
 bitflags = "1.2.1"
 codicon = "2.1.0"
+bitfield = "0.13"
+iocuddle = { path = "../iocuddle" }

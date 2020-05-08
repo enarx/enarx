@@ -12,7 +12,7 @@ fn platform_reset() {
 #[cfg_attr(not(has_sev), ignore)]
 #[test]
 fn platform_status() {
-    let fw = Firmware::open().unwrap();
+    let mut fw = Firmware::open().unwrap();
     let status = fw.platform_status().unwrap();
     assert!(
         status.build
