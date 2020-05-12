@@ -8,7 +8,10 @@
 
 use structopt::StructOpt;
 
+mod error;
+
 use std::error::Error;
+
 use std::fs::File;
 use std::path::PathBuf;
 
@@ -29,14 +32,19 @@ fn main() {
     if let Err(err) = run(args) {
         let name = std::env::current_exe().expect("Couldn't get executable name");
         eprintln!("{} has encountered an error:", name.display());
-        eprintln!("{:?}", err);
+        eprintln!("{}", err);
         std::process::exit(1);
     }
 }
 
 fn run(args: Args) -> Result<(), Box<dyn Error>> {
-    let _kernel = File::open(args.shim)?;
-    let _code = File::open(args.code)?;
+    let kernel_path = args.shim.clone().into_os_string();
+    let _kernel = File::open(args.shim)
+        .map_err(|err| context!(format!("Couldn't open shim image: {:?}", kernel_path), err))?;
+
+    let code_path = args.code.clone().into_os_string();
+    let _code = File::open(args.code)
+        .map_err(|err| context!(format!("Couldn't open code image: {:?}", code_path), err))?;
 
     // TODO: KVM context creation
 
