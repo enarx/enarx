@@ -52,16 +52,9 @@ impl Builder {
             .open("/dev/sgx/enclave")?;
 
         // Map the memory for the enclave
-        let zero = File::open("/dev/zero")?;
+        let flags = libc::MAP_PRIVATE | libc::MAP_ANONYMOUS | libc::MAP_FIXED_NOREPLACE;
         let mmap = unsafe {
-            map::map(
-                span.start,
-                span.count,
-                libc::PROT_NONE,
-                libc::MAP_SHARED | libc::MAP_FIXED_NOREPLACE,
-                Some(&zero),
-                0,
-            )?;
+            map::map(span.start, span.count, libc::PROT_NONE, flags, None, 0)?;
             map::Unmap::new(span)
         };
 
