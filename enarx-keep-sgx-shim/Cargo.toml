@@ -21,3 +21,6 @@ panic = "abort"
 
 [profile.release]
 panic = "abort"
+codegen-units = 1
+incremental = false
+lto = true
