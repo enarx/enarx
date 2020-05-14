@@ -1,7 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use sev_types::platform;
-
 use super::*;
 use bitflags::bitflags;
 
@@ -21,7 +19,7 @@ bitflags! {
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
 pub struct Policy {
     pub flags: PolicyFlags,
-    pub minfw: platform::Version,
+    pub minfw: Version,
 }
 
 #[repr(C)]

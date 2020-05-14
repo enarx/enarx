@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use sev_types::platform::Version;
-
-use sev::{certs::sev::Usage, firmware::Firmware, Build};
+use sev::{certs::sev::Usage, firmware::Firmware, Build, Version};
 
 #[cfg_attr(not(all(has_sev, feature = "dangerous_tests")), ignore)]
 #[test]

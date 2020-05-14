@@ -173,8 +173,7 @@ impl Session<Verified> {
 #[cfg(test)]
 mod initialized {
     use super::*;
-    use crate::{launch, session::Session, Build};
-    use sev_types::platform::Version;
+    use crate::{launch, session::Session, Build, Version};
 
     #[test]
     fn session() {
