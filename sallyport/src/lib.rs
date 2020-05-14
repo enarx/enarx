@@ -105,7 +105,14 @@ pub struct Block {
     ///
     /// Note that this buffer size is *less than* a page, since the buffer shares
     /// space with the `Message` that describes it.
-    pub buf: [u8; Page::size() - size_of::<Message>()],
+    pub buf: [u8; Block::buf_capacity()],
+}
+
+impl Block {
+    /// Returns the capacity of `Block.buf`
+    pub const fn buf_capacity() -> usize {
+        Page::size() - size_of::<Message>()
+    }
 }
 
 #[cfg(test)]
