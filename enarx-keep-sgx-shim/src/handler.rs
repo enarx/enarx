@@ -207,7 +207,7 @@ impl<'a> Handler<'a> {
         let code = code
             .into()
             .map(|x| x.into())
-            .unwrap_or(self.aex.gpr.rdi.raw());
+            .unwrap_or_else(|| self.aex.gpr.rdi.raw());
         loop {
             unsafe { self.syscall(SysCall::EXIT, code, 0, 0, 0, 0, 0) };
         }
@@ -224,7 +224,7 @@ impl<'a> Handler<'a> {
         let code = code
             .into()
             .map(|x| x.into())
-            .unwrap_or(self.aex.gpr.rdi.raw());
+            .unwrap_or_else(|| self.aex.gpr.rdi.raw());
         loop {
             unsafe { self.syscall(SysCall::EXIT_GROUP, code, 0, 0, 0, 0, 0) };
         }
