@@ -9,7 +9,7 @@
 #![allow(missing_docs)]
 
 use sev_types::platform;
-use sev_types::platform::Build;
+use sev_types::Build;
 
 pub mod certs;
 pub mod firmware;
