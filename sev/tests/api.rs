@@ -2,9 +2,7 @@
 
 use sev_types::platform::Version;
 
-use sev::{certs::sev::Usage, firmware::Firmware};
-
-use sev_types::Build;
+use sev::{certs::sev::Usage, firmware::Firmware, Build};
 
 #[cfg_attr(not(all(has_sev, feature = "dangerous_tests")), ignore)]
 #[test]
