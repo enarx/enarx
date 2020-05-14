@@ -19,5 +19,3 @@
 #![no_std]
 #![deny(missing_docs)]
 #![deny(clippy::all)]
-
-pub mod platform;
