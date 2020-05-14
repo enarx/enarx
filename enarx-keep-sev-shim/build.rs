@@ -39,5 +39,5 @@ fn main() {
         println!("cargo:rerun-if-changed={}", e.to_str().unwrap());
     }
     println!("cargo:rerun-if-changed=build.rs");
-    println!("cargo:rerun-if-changed=layout.ld");
+    println!("cargo:rerun-if-changed=link.json");
 }
