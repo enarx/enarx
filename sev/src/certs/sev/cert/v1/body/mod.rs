@@ -2,14 +2,12 @@
 
 pub mod key;
 
-use sev_types::platform;
-
 use super::*;
 
 #[repr(C, packed)]
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct Data {
-    pub firmware: platform::Version,
+    pub firmware: crate::Version,
     pub reserved: u16,
     pub key: key::PubKey,
 }

@@ -5,8 +5,6 @@ use std::mem::{size_of_val, MaybeUninit};
 use std::os::raw::{c_int, c_ulong};
 use std::os::unix::io::AsRawFd;
 
-use sev_types::platform;
-
 use super::*;
 use crate::certs::sev::Certificate;
 
@@ -80,7 +78,7 @@ impl Firmware {
 
         Ok(Status {
             build: Build {
-                version: platform::Version {
+                version: Version {
                     major: i.api_major,
                     minor: i.api_minor,
                 },
