@@ -8,4 +8,11 @@ license = "Apache-2.0"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+kvm-bindings = "0.2.0"
+kvm-ioctls = "0.5.0"
+libc = "0.2.71"
+mmap = { path = "../mmap" }
+span = { path = "../span" }
 structopt = "0.3"
+units = { path = "../units" }
+x86_64 = { version = "0.11.0", default-features = false, features = ["stable"] }
