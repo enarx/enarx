@@ -1,11 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 
+//! The SGX shim
+//!
+//! This crate contains the system that traps the syscalls (and cpuid
+//! instructions) from the enclave code and proxies them to the host.
+
 #![no_std]
 #![cfg_attr(not(test), no_main)]
 #![deny(clippy::all)]
-// TODO: https://github.com/enarx/enarx/issues/343
 #![deny(missing_docs)]
-#![allow(missing_docs)]
 
 #[cfg(not(test))]
 #[panic_handler]
@@ -53,15 +56,26 @@ mod heap;
 
 use span::Line;
 
-// NOTE: this must be kept in sync with enarx-keep-sgx
+/// The enclave layout
+/// NOTE: this must be kept in sync with enarx-keep-sgx
 #[repr(C)]
 #[derive(Copy, Clone, Default, Debug, PartialEq, Eq)]
 pub struct Layout {
+    /// The boundaries of the enclave.
     pub enclave: Line<u64>,
 
+    /// The boundaries of the prefix.
     pub prefix: Line<u64>,
+
+    /// The boundaries of the code.
     pub code: Line<u64>,
+
+    /// The boundaries of the heap.
     pub heap: Line<u64>,
+
+    /// The boundaries of the stack.
     pub stack: Line<u64>,
+
+    /// The boundaries of the shim.
     pub shim: Line<u64>,
 }
