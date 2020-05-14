@@ -20,5 +20,4 @@
 #![deny(missing_docs)]
 #![deny(clippy::all)]
 
-pub mod command;
 pub mod platform;
