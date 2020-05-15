@@ -51,6 +51,26 @@ impl<T, U> Address<T, U> {
 impl<T, U> Address<T, U>
 where
     Offset<usize, ()>: Into<Offset<T, ()>>,
+    T: Rem<T, Output = T>,
+    T: Zero,
+    T: PartialEq,
+{
+    /// Try casting an existing `Address` into an `Address` of a different type
+    ///
+    /// Succeeds only, if they have the same alignment
+    #[inline]
+    pub fn try_cast<V>(self) -> Result<Address<T, V>, ()> {
+        let align: T = Offset::from_items(align_of::<V>()).into().items();
+        if self.0 % align != T::ZERO {
+            return Err(());
+        }
+        Ok(Address(self.0, PhantomData))
+    }
+}
+
+impl<T, U> Address<T, U>
+where
+    Offset<usize, ()>: Into<Offset<T, ()>>,
     T: Add<T, Output = T>,
     T: Sub<T, Output = T>,
     T: Mul<T, Output = T>,
@@ -88,6 +108,28 @@ where
     #[inline]
     fn from(value: &U) -> Self {
         Address(value as *const U as usize, PhantomData).into()
+    }
+}
+
+/// Convert a mutable pointer to an `Address` with the same type
+impl<T, U> From<*mut U> for Address<T, *mut U>
+where
+    Address<usize, *mut U>: Into<Address<T, *mut U>>,
+{
+    #[inline]
+    fn from(value: *mut U) -> Self {
+        Address(value as usize, PhantomData).into()
+    }
+}
+
+/// Convert a const pointer to an `Address` with the same type
+impl<T, U> From<*const U> for Address<T, *const U>
+where
+    Address<usize, *const U>: Into<Address<T, *const U>>,
+{
+    #[inline]
+    fn from(value: *const U) -> Self {
+        Address(value as usize, PhantomData).into()
     }
 }
 
