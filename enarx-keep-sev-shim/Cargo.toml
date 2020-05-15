@@ -6,9 +6,16 @@ edition = "2018"
 license = "Apache-2.0"
 
 [dependencies]
+span = { path = "../span" }
+units = { path = "../units" }
+memory = { path = "../memory" }
+sallyport = { path = "../sallyport" }
+libc = { version = "0.2.69", features = [] }
+x86_64 = { version = "0.11.0", default-features = false, features = ["stable"] }
 
 [build-dependencies]
 cc = "1.0.37"
+walkdir = "2"
 
 [profile.dev]
 panic = "abort"

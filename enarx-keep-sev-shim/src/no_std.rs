@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
+//! Stubs to satisfy the compiler in `no_std`
+
 /// _Unwind_Resume is only needed in the `debug` profile
 ///
 /// even though this project has `panic=abort`
@@ -24,15 +26,6 @@ extern "C" fn _Unwind_Resume() {
 #[no_mangle]
 pub extern "C" fn rust_eh_personality() {
     unimplemented!();
-}
-
-#[cfg(not(test))]
-#[panic_handler]
-#[allow(clippy::empty_loop)]
-#[allow(missing_docs)]
-fn panic(_info: &core::panic::PanicInfo) -> ! {
-    use crate::asm::hlt_loop;
-    hlt_loop()
 }
 
 #[cfg(not(target_feature = "crt-static"))]

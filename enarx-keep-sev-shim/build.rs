@@ -2,29 +2,32 @@
 
 extern crate cc;
 use std::ffi::OsString;
-use std::{env, fs, path::PathBuf};
+use std::{env, path::PathBuf};
+use walkdir::WalkDir;
 
 fn main() {
     let manifest_dir = env::var_os("CARGO_MANIFEST_DIR").unwrap();
     let manifest_dir = manifest_dir.to_string_lossy();
 
-    let mut asm_dir = PathBuf::from(manifest_dir.as_ref());
-    asm_dir.push("asm");
-    let entries = fs::read_dir(&asm_dir)
-        .unwrap()
+    let mut src_dir = PathBuf::from(manifest_dir.as_ref());
+    src_dir.push("src");
+
+    let entries = WalkDir::new(&src_dir)
+        .into_iter()
         .filter_map(|f| {
             f.ok().and_then(|e| {
                 let path = e.path();
                 match path.extension() {
-                    Some(ext) if ext.eq(&OsString::from("c")) => Some(path),
-                    Some(ext) if ext.eq(&OsString::from("s")) => Some(path),
-                    Some(ext) if ext.eq(&OsString::from("S")) => Some(path),
+                    Some(ext) if ext.eq(&OsString::from("c")) => Some(e.into_path()),
+                    Some(ext) if ext.eq(&OsString::from("s")) => Some(e.into_path()),
+                    Some(ext) if ext.eq(&OsString::from("S")) => Some(e.into_path()),
                     _ => None,
                 }
             })
         })
         .collect::<Vec<_>>();
 
+    dbg!(&entries);
     cc::Build::new()
         .no_default_flags(true)
         .flag("-O2")
