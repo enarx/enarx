@@ -52,17 +52,20 @@ impl<T: One, U: Copy> One for Offset<T, U> {
     const ONE: Offset<T, U> = Offset::from_items(T::ONE);
 }
 
-impl<T, U> From<Register<T>> for Offset<T, U> {
+impl<T: From<Register<T>>, U> From<Register<T>> for Offset<T, U> {
     #[inline]
     fn from(value: Register<T>) -> Self {
-        Self::from_items(value.raw())
+        Self::from_items(T::from(value))
     }
 }
 
-impl<T, U> From<Offset<T, U>> for Register<T> {
+impl<T, U> From<Offset<T, U>> for Register<T>
+where
+    Register<T>: From<T>,
+{
     #[inline]
     fn from(value: Offset<T, U>) -> Self {
-        Self::from_raw(value.0)
+        Self::from(value.0)
     }
 }
 
