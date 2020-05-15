@@ -92,18 +92,21 @@ where
 }
 
 // Convert from a `Register` to an untyped `Address`.
-impl<T> From<Register<T>> for Address<T, ()> {
+impl<T: From<Register<T>>> From<Register<T>> for Address<T, ()> {
     #[inline]
     fn from(value: Register<T>) -> Self {
-        Self::from(value.raw())
+        Self::from(T::from(value))
     }
 }
 
 // Convert from an `Address` to a `Register`, discarding type.
-impl<T, U> From<Address<T, U>> for Register<T> {
+impl<T, U> From<Address<T, U>> for Register<T>
+where
+    Register<T>: From<T>,
+{
     #[inline]
     fn from(value: Address<T, U>) -> Self {
-        Self::from_raw(value.0)
+        Self::from(value.0)
     }
 }
 
