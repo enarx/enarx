@@ -117,7 +117,15 @@ where
         }
 
         msg.encode(&mut ver, Body)?;
-        ver.verify(&sig.sig)?;
-        Ok(())
+        ver.verify(&sig.sig).map(|ok| {
+            // OpenSSL's verify will return Ok(true) if the signature
+            // is verified and Ok(false) if not. This patches the result
+            // to return Err if OpenSSL returns Ok(false).
+            if ok {
+                Ok(())
+            } else {
+                Err(ErrorKind::NotFound.into())
+            }
+        })?
     }
 }
