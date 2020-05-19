@@ -5,8 +5,8 @@ use std::mem::{size_of_val, MaybeUninit};
 use std::os::raw::{c_int, c_ulong};
 use std::os::unix::io::AsRawFd;
 
-use super::*;
 use crate::certs::sev::Certificate;
+use crate::firmware::*;
 
 #[repr(u32)]
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]

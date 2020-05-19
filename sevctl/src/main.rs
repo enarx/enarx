@@ -11,7 +11,8 @@ use clap::ArgMatches;
 use codicon::*;
 
 use ::sev::certs::*;
-use ::sev::firmware::{Firmware, Status};
+use ::sev::firmware::linux::ioctl::Firmware;
+use ::sev::firmware::Status;
 
 use std::fs::File;
 use std::process::exit;

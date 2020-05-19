@@ -1,15 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #[cfg(target_os = "linux")]
-mod linux;
+pub mod linux;
 
 use super::*;
 use std::fmt::Debug;
 
 use bitflags::bitflags;
-
-#[cfg(target_os = "linux")]
-pub use linux::Firmware;
 
 #[derive(Debug)]
 pub enum Indeterminate<T: Debug> {
