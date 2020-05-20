@@ -1,3 +1,6 @@
+[config]
+default_to_workspace = false
+
 [env]
 CARGO_MAKE_EXTEND_WORKSPACE_MAKEFILE = "true"
 CARGO_MAKE_WORKSPACE_EMULATION = true
@@ -27,6 +30,8 @@ CARGO_MAKE_CRATE_WORKSPACE_MEMBERS = [
 ]
 CARGO_WORKSPACE_ROOT = { script = ["git rev-parse --show-toplevel"] }
 
+################### TASK DEFINITIONS ############################
+
 [tasks.deny]
 install_crate = "cargo-deny"
 command = "cargo"
@@ -49,12 +54,6 @@ command = "${CARGO_WORKSPACE_ROOT}/.tests/misc-licenses-rs-spdx"
 command = "${CARGO_WORKSPACE_ROOT}/.tests/misc-licenses-asm-spdx"
 
 [tasks.misc-diagrams]
-workspace = false
-# This is the only non-crate-level task. To prevent the pre-ci-flow
-# from spuriously triggering this *inside* member crates, let's just
-# detect whether we're in a crate directory and if we are, this test
-# will be skipped. It doesn't make sense to run inside a crate directory.
-condition = { env_not_set = ["CARGO_MAKE_CRATE_NAME"]}
 command = "${CARGO_WORKSPACE_ROOT}/.tests/misc-diagrams"
 
 [tasks.cargo-toml-package-license]
@@ -63,17 +62,77 @@ command = "${CARGO_WORKSPACE_ROOT}/.tests/cargo-toml-package-license"
 [tasks.misc-licenses-crate]
 command = "${CARGO_WORKSPACE_ROOT}/.tests/misc-licenses-crate"
 
-# Add additional tests to the predefined 'ci-flow' target.
-[tasks.pre-ci-flow]
-dependencies = [
+####################### FLOW DEFINITIONS ##########################
+
+# Always run this task on the crate level.
+[tasks.format]
+workspace = true
+
+# Always run this task on the crate level.
+[tasks.build]
+workspace = true
+
+# Always run this task on the crate level.
+[tasks.test]
+workspace = true
+
+# Always run this task on the crate level.
+[tasks.dev-test-flow]
+workspace = true
+
+# Always run this task on the crate level.
+[tasks.clean]
+workspace = true
+
+# Pre-ci tasks to be run at the top level.
+[tasks.top-pre-ci-flow]
+run_task = { name = "misc-diagrams" }
+
+# Pre-ci tasks to be run at the crate level.
+[tasks.crate-pre-ci-flow]
+workspace = true
+run_task = { name = [
 	"cargo-toml-package-edition",
 	"cargo-toml-package-license",
 	"check-format",
 	"deny",
-	"misc-diagrams",
 	"misc-licenses-asm-spdx",
 	"misc-licenses-crate",
 	"misc-licenses-rs-spdx",
 	"misc-lints-clippy-all",
 	"misc-lints-missing-docs",
-]
+] }
+
+# These ci tasks are meant to be run at the crate level.
+# It is equivalent to the default ci flow, with these changes:
+# 1. It does not include the test-flow, which should be run from 
+#    top level.
+# 2. It includes only the subset of the pre-ci-flow that should be
+#    run at crate level.
+[tasks.crate-level-ci]
+workspace = true
+run_task = { name = [
+    "crate-pre-ci-flow", 
+    "print-env-flow",
+    "pre-build",
+    "check-format-ci-flow",
+    "clippy-ci-flow",
+    "build",
+    "post-build",
+    "examples-ci-flow",
+    "bench-ci-flow",
+    "outdated-ci-flow",
+    "ci-coverage-flow",
+    "post-ci-flow"
+] }
+
+# The top level and crate level ci tasks have been separated, and are all
+# called from here. crate-level-ci includes crate-level pre-ci-flow.
+[tasks.ci-flow]
+clear = true
+run_task = { name = ["top-pre-ci-flow", "crate-level-ci", "test-flow"] }
+
+# These are tests to run at the top level. Currently, including them in
+# the post-test task achieves this. However, they do not *need* to be run
+# as post-test if we require other, crate-level post-tests.
+[tasks.post-test]
