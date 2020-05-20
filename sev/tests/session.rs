@@ -3,7 +3,7 @@
 #![cfg(feature = "openssl")]
 
 mod initialized {
-    use ::sev::{certs::*, launch, session::Session};
+    use ::sev::{certs::builtin::naples::*, certs::*, launch, session::Session};
     use codicon::Decoder;
     use std::convert::*;
 
@@ -14,8 +14,6 @@ mod initialized {
 
     #[test]
     fn start() {
-        const ARK: &[u8] = include_bytes!("naples/ark.cert");
-        const ASK: &[u8] = include_bytes!("naples/ask.cert");
         const CEK: &[u8] = include_bytes!("naples/cek.cert");
         const OCA: &[u8] = include_bytes!("naples/oca.cert");
         const PEK: &[u8] = include_bytes!("naples/pek.cert");

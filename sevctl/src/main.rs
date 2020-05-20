@@ -10,6 +10,7 @@ use clap::ArgMatches;
 
 use codicon::*;
 
+use ::sev::certs::builtin::naples::*;
 use ::sev::certs::*;
 use ::sev::firmware::{Firmware, Status};
 
@@ -18,8 +19,6 @@ use std::process::exit;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 const AUTHORS: &str = env!("CARGO_PKG_AUTHORS");
-const ARK: &[u8] = include_bytes!("naples/ark.cert");
-const ASK: &[u8] = include_bytes!("naples/ask.cert");
 
 fn download(rsp: reqwest::Result<reqwest::blocking::Response>, usage: Usage) -> sev::Certificate {
     let mut rsp = rsp.expect(&format!("unable to contact {} server", usage));
