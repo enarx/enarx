@@ -51,3 +51,7 @@ Enarx is a software project in the [Confidential Computing Consortium](https://c
 ### Red Hat
 
 Red Hat employs many of the engineers who work on this project.
+
+### Packet
+
+[Packet](https://www.packet.com) currently provides development and testing infrastructure to the Enarx project from their easy to use bare-metal cloud.
