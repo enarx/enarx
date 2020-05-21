@@ -39,3 +39,15 @@ See the list of [people](https://github.com/orgs/enarx/people) who participate i
 ## License
 
 This project is licensed under the Apache 2.0 license - see the [LICENSE](LICENSE) file for details
+
+## Sponsors
+
+Enarx would not be possible without the support of its sponsors. Many thanks to all who contribute to the long term succes of this project!
+
+### Confidential Computing Consortium
+
+Enarx is a software project in the [Confidential Computing Consortium](https://confidentialcomputing.io), a project community at the Linux Foundation dedicated to defining and accelerating the adoption of confidential computing.
+
+### Red Hat
+
+Red Hat employs many of the engineers who work on this project.
