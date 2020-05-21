@@ -62,6 +62,36 @@ command = "${CARGO_WORKSPACE_ROOT}/.tests/cargo-toml-package-license"
 [tasks.misc-licenses-crate]
 command = "${CARGO_WORKSPACE_ROOT}/.tests/misc-licenses-crate"
 
+[tasks.build-sgx-payload-reqs]
+workspace = true
+env = { "CARGO_MAKE_WORKSPACE_INCLUDE_MEMBERS" = ["enarx-keep-sgx", "enarx-keep-sgx-shim", "payload"] }
+run_task = "build"
+
+#Find paths required by the SGX payload test.
+[tasks.find-sgx-paths]
+dependencies = ["build-sgx-payload-reqs"]
+env = { "SGX_KEEP" = { script = [
+"find ${CARGO_WORKSPACE_ROOT}/enarx-keep-sgx/target/ -name enarx-keep-sgx"
+] }, "SGX_SHIM" = { script = [
+"find ${CARGO_WORKSPACE_ROOT}/enarx-keep-sgx-shim/target/ -name enarx-keep-sgx-shim"
+] } }
+
+# Find path for the payload for SGX and (future) SEV tests.
+[tasks.find-payload]
+dependencies = ["build-sgx-payload-reqs"]
+env = { "PAYLOAD" = { script = [ "find ${CARGO_WORKSPACE_ROOT}/payload/target/ -name payload" ] } }
+
+# Detects whether SGX is present on the system.
+[tasks.detect-sgx]
+env = { "SGX_SYSTEM" = { script = [ "[ -e '/dev/sgx/enclave' ] && echo true || echo false" ] } }
+
+# Test that the payload binary runs correctly on SGX.
+[tasks.run-sgx-payload]
+dependencies = ["find-sgx-paths", "find-payload", "detect-sgx"]
+condition = {env_set = ["SGX_KEEP", "PAYLOAD", "SGX_SHIM"], env = { "SGX_SYSTEM" = "true"} }
+command = "${SGX_KEEP}"
+args = ["--code", "${PAYLOAD}", "--shim", "${SGX_SHIM}"]
+
 ####################### FLOW DEFINITIONS ##########################
 
 # Always run this task on the crate level.
@@ -136,3 +166,4 @@ run_task = { name = ["top-pre-ci-flow", "crate-level-ci", "test-flow"] }
 # the post-test task achieves this. However, they do not *need* to be run
 # as post-test if we require other, crate-level post-tests.
 [tasks.post-test]
+run_task = "run-sgx-payload"
