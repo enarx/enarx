@@ -66,8 +66,8 @@ impl<'a> Print<str> for Handler<'a> {
 
             // Do the syscall; replace encrypted memory with unencrypted memory.
             self.syscall(
-                -libc::SYS_write as u64,
-                -libc::STDERR_FILENO as u64,
+                libc::SYS_write as u64,
+                libc::STDERR_FILENO as u64,
                 map as _,
                 len,
                 0,
@@ -158,11 +158,11 @@ impl<'a> Handler<'a> {
     fn ualloc(&mut self, bytes: u64) -> Result<*mut u8, i64> {
         let ret = unsafe {
             self.syscall(
-                -libc::SYS_mmap as u64,
+                libc::SYS_mmap as u64,
                 0,
                 bytes,
-                -libc::PROT_READ as u64 | -libc::PROT_WRITE as u64,
-                -libc::MAP_PRIVATE as u64 | -libc::MAP_ANONYMOUS as u64,
+                libc::PROT_READ as u64 | libc::PROT_WRITE as u64,
+                libc::MAP_PRIVATE as u64 | libc::MAP_ANONYMOUS as u64,
                 !0,
                 0,
             )
@@ -186,7 +186,7 @@ impl<'a> Handler<'a> {
 
     /// Free a chunk of untrusted memory.
     unsafe fn ufree(&mut self, map: *mut u8, bytes: u64) -> u64 {
-        self.syscall(-libc::SYS_munmap as u64, map as _, bytes, 0, 0, 0, 0)
+        self.syscall(libc::SYS_munmap as u64, map as _, bytes, 0, 0, 0, 0)
     }
 
     fn trace(&mut self, name: &str, argc: usize) {
@@ -227,7 +227,7 @@ impl<'a> Handler<'a> {
             .map(|x| x.into())
             .unwrap_or_else(|| self.aex.gpr.rdi.raw());
         loop {
-            unsafe { self.syscall(-libc::SYS_exit as u64, code, 0, 0, 0, 0, 0) };
+            unsafe { self.syscall(libc::SYS_exit as u64, code, 0, 0, 0, 0, 0) };
         }
     }
 
@@ -244,7 +244,7 @@ impl<'a> Handler<'a> {
             .map(|x| x.into())
             .unwrap_or_else(|| self.aex.gpr.rdi.raw());
         loop {
-            unsafe { self.syscall(-libc::SYS_exit_group as u64, code, 0, 0, 0, 0, 0) };
+            unsafe { self.syscall(libc::SYS_exit_group as u64, code, 0, 0, 0, 0, 0) };
         }
     }
 
@@ -252,7 +252,7 @@ impl<'a> Handler<'a> {
     pub fn getuid(&mut self) -> u64 {
         self.trace("getuid", 0);
 
-        unsafe { self.syscall(-libc::SYS_getuid as u64, 0, 0, 0, 0, 0, 0) }
+        unsafe { self.syscall(libc::SYS_getuid as u64, 0, 0, 0, 0, 0, 0) }
     }
 
     /// Do a read() syscall
@@ -271,7 +271,7 @@ impl<'a> Handler<'a> {
 
         unsafe {
             // Do the syscall; replace encrypted memory with unencrypted memory.
-            let ret = self.syscall(-libc::SYS_read as u64, fd, map as _, size, 0, 0, 0);
+            let ret = self.syscall(libc::SYS_read as u64, fd, map as _, size, 0, 0, 0);
 
             // Copy the unencrypted input into encrypted memory.
             if ret <= ERRNO_BASE {
@@ -306,7 +306,7 @@ impl<'a> Handler<'a> {
             core::ptr::copy_nonoverlapping(buf, map, size as _);
 
             // Do the syscall; replace encrypted memory with unencrypted memory.
-            let ret = self.syscall(-libc::SYS_write as u64, fd, map as _, size, 0, 0, 0);
+            let ret = self.syscall(libc::SYS_write as u64, fd, map as _, size, 0, 0, 0);
             self.ufree(map, size);
 
             if ret <= ERRNO_BASE && ret > size {
@@ -398,7 +398,7 @@ impl<'a> Handler<'a> {
         // Do the syscall; replace encrypted memory with unencrypted memory.
         let ret = unsafe {
             self.syscall(
-                -libc::SYS_readv as u64,
+                libc::SYS_readv as u64,
                 fd,
                 untrusted.as_ptr() as _,
                 untrusted.len() as u64,
@@ -479,7 +479,7 @@ impl<'a> Handler<'a> {
         // Do the syscall; replace encrypted memory with unencrypted memory.
         let ret = unsafe {
             self.syscall(
-                -libc::SYS_writev as u64,
+                libc::SYS_writev as u64,
                 fd,
                 untrusted.as_ptr() as _,
                 untrusted.len() as u64,
