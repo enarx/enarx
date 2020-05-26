@@ -2,7 +2,6 @@
 
 use super::component::Segment;
 use super::enclave::Enclave;
-use super::map;
 
 use iocuddle_sgx as sgx;
 use memory::Page;
@@ -36,7 +35,7 @@ fn f2p(flags: Flags) -> libc::c_int {
 pub struct Builder {
     sign: Parameters,
     file: File,
-    mmap: map::Unmap,
+    mmap: mmap::Unmap,
     hash: Hasher,
     perm: Vec<(Span<usize>, SecInfo)>,
 }
@@ -54,8 +53,8 @@ impl Builder {
         // Map the memory for the enclave
         let flags = libc::MAP_PRIVATE | libc::MAP_ANONYMOUS | libc::MAP_FIXED_NOREPLACE;
         let mmap = unsafe {
-            map::map(span.start, span.count, libc::PROT_NONE, flags, None, 0)?;
-            map::Unmap::new(span)
+            mmap::map(span.start, span.count, libc::PROT_NONE, flags, None, 0)?;
+            mmap::Unmap::new(span)
         };
 
         // Create the hasher.
@@ -126,7 +125,7 @@ impl Builder {
 
             // Change the permissions on an existing region of memory.
             unsafe {
-                map::map(
+                mmap::map(
                     span.start,
                     span.count,
                     rwx,
