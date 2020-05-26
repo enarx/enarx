@@ -30,8 +30,8 @@ impl VirtualMachine {
             mmap::map(
                 0,
                 mem_size,
-                libc::PROT_NONE,
-                libc::MAP_ANONYMOUS | libc::MAP_HUGE_2MB,
+                libc::PROT_READ | libc::PROT_WRITE,
+                libc::MAP_PRIVATE | libc::MAP_ANONYMOUS | libc::MAP_HUGE_2MB,
                 None,
                 0,
             )?
