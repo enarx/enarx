@@ -9,7 +9,6 @@ mod builder;
 mod component;
 mod enclave;
 mod layout;
-mod map;
 
 use builder::Builder;
 use component::{Component, Segment};

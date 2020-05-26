@@ -4,7 +4,7 @@ use enumerate::enumerate;
 use intel_types::Exception;
 use std::mem::MaybeUninit;
 
-use super::map::Unmap;
+use mmap::Unmap;
 
 extern "C" {
     fn handle(
