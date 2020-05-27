@@ -40,6 +40,17 @@
     cld
 .endm
 
+# Clear the extended CPU state
+.macro zerox
+    push    %rax                                    # Save %rax
+    push    %rdx                                    # Save %rdx
+    movq    $~0,                    %rdx            # Set mask for xrstor in %rdx
+    movq    $~0,                    %rax            # Set mask for xrstor in %rax
+    xrstor  xsave(%rip)                             # Clear xCPU state with synthetic state
+    pop     %rdx                                    # Restore %rdx
+    pop     %rax                                    # Restore %rax
+.endm
+
 # Save preserved registers (except %rsp)
 .macro  savep
     push    %rbx
@@ -60,6 +71,21 @@
     pop     %rbx
 .endm
 
+    .section .rodata
+    .align 64
+xsave:                          # An initialized synthetic xsave area
+# Legacy
+    .fill   1, 4, 0x037F        # FCW
+    .fill   5, 4, 0
+    .fill   1, 4, 0x1F80        # MXCSR
+    .fill   1, 4, 0xFFFF        # MXCSR_MASK
+    .fill   60, 8, 0
+
+# Header
+    .fill   1, 8, 0             # XSTATE_BV
+    .fill   1, 8, 1 << 63       # XCOMP_BV (compaction mode)
+    .fill   6, 8, 0
+
 # This function is called during EENTER. Its inputs are as follows:
 #  %rax = The current SSA index. (i.e. %rbx->cssa)
 #  %rbx = The address of the TCS.
@@ -76,11 +102,12 @@ enclave:
     cmp     $0,                     %rax            # If CSSA > 0...
     jne     .Levent                                 # ... restore stack from AEX[CSSA-1].
 
-    # Clear unused registers, set the stack pointer and jump to Rust
+    # Set stack pointer, clear unused registers and xCPU state, and jump to Rust
+    mov     STACK(%rcx),            %rsp
     zerop
     zerot
+    zerox
     xor     %rax,                   %rax
-    mov     STACK(%rcx),            %rsp
     jmp     entry
 
 # CSSA != 0
@@ -124,6 +151,7 @@ enclave:
     zerot                                           # Clear temporary registers
     zeroa                                           # Clear argument registers
     zerof   %r11                                    # Clear CPU flags
+    zerox                                           # Clear xCPU state
     mov     $~0,                    %r11            # Indicate ERESUME to VDSO handler
 
     # ENCLU[EEXIT]
@@ -156,13 +184,15 @@ enclave:
 syscall:
     savep                                           # Save preserved registers
     mov     %rsp,                   SRSP(%rcx)      # Save restoration stack pointer
+    
+    zerox                                           # Clear xCPU state
+    xor     %rcx,                   %rcx            # Clear %rcx
+    zerof   %rcx                                    # Clear CPU flags
 
     mov     0x38(%rsp),             %r10            # Export %r10
     mov     0x40(%rsp),             %r11            # Export %rax in %r11
     mov     0x48(%rsp),             %rsp            # Get the exit context
 
-    xor     %rcx,                   %rcx            # Clear %rcx
-    zerof   %rcx                                    # Clear CPU flags
     jmp     .Leexit
 
     # _Noreturn void exit(code);
