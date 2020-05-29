@@ -12,10 +12,10 @@ use x86_64::VirtAddr;
 const DEFAULT_MEM_SIZE: usize = units::bytes!(1; GiB);
 
 pub struct VirtualMachine {
-    kvm: Kvm,
-    fd: VmFd,
-    address_space: Vec<MemoryRegion>,
-    mmap_handles: Vec<mmap::Unmap>,
+    _kvm: Kvm,
+    _fd: VmFd,
+    _address_space: Vec<MemoryRegion>,
+    _mmap_handles: Vec<mmap::Unmap>,
 }
 
 impl VirtualMachine {
@@ -71,10 +71,10 @@ impl VirtualMachine {
         }
 
         Ok(Self {
-            kvm,
-            fd,
-            address_space: vec![region],
-            mmap_handles: vec![unmap],
+            _kvm: kvm,
+            _fd: fd,
+            _address_space: vec![region],
+            _mmap_handles: vec![unmap],
         })
     }
 }
