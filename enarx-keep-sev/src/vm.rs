@@ -7,7 +7,7 @@ use std::error::Error;
 use kvm_bindings::kvm_userspace_memory_region as MemoryRegion;
 use kvm_ioctls::{Kvm, VmFd};
 use x86_64::structures::paging::page_table::PageTableFlags;
-use x86_64::PhysAddr;
+use x86_64::VirtAddr;
 
 const DEFAULT_MEM_SIZE: usize = units::bytes!(1; GiB);
 
@@ -56,16 +56,18 @@ impl VirtualMachine {
 
         // Set up the page tables
         let mut page_tables = PageTables::default();
-        let pdpte = PhysAddr::try_new(PDPTE_START).map_err(|_| PhysAddrNotValid(PDPTE_START))?;
+        let pdpte = PDPTE_START;
         page_tables.pml4t[0].set_addr(pdpte, PageTableFlags::WRITABLE | PageTableFlags::PRESENT);
 
         page_tables.pml3t_ident[0].set_flags(
             PageTableFlags::HUGE_PAGE | PageTableFlags::WRITABLE | PageTableFlags::PRESENT,
         );
 
-        let guest_pg_addr = (region.userspace_addr + PML4_START) as *mut PageTables;
+        // Install the page tables into the guest address space
         unsafe {
-            guest_pg_addr.write(page_tables);
+            VirtAddr::new(region.userspace_addr + PML4_START.as_u64())
+                .as_mut_ptr::<PageTables>()
+                .write(page_tables);
         }
 
         Ok(Self {
