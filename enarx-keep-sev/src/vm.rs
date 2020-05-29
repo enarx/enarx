@@ -2,7 +2,7 @@
 
 use crate::x86_64::*;
 
-use std::error::Error;
+use std::io;
 
 use kvm_bindings::kvm_userspace_memory_region as MemoryRegion;
 use kvm_ioctls::{Kvm, VmFd};
@@ -19,7 +19,7 @@ pub struct VirtualMachine {
 }
 
 impl VirtualMachine {
-    pub fn new() -> Result<Self, Box<dyn Error>> {
+    pub fn new() -> Result<Self, io::Error> {
         // Create a KVM context
         let kvm = Kvm::new()?;
         let fd = kvm.create_vm()?;
