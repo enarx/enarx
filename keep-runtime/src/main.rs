@@ -5,10 +5,10 @@
 //! It can be used to run a Wasm file with given command-line
 //! arguments and environment variables.
 //!
-//! ## Example invocation
+//! ## Example build and invocation
 //!
 //! ```console
-//! $ RUST_LOG=keep_runtime=info RUST_BACKTRACE=1 cargo run target/debug/fixtures/return_1.wasm
+//! $ RUST_LOG=keep_runtime=info RUST_BACKTRACE=1 cargo run fixtures/return_1.wat
 //!    Compiling keep-runtime v0.1.0 (/home/steveej/src/job-redhat/enarx/github_enarx_enarx/keep-runtime)
 //!     Finished dev [unoptimized + debuginfo] target(s) in 4.36s
 //!      Running `target/debug/keep-runtime`
@@ -17,6 +17,19 @@
 //!             1,
 //!         ),
 //!     ]
+//! ```
+//! ## Example build and invocation with binary
+//!
+//! ```console
+//! $ cargo build --release
+//! Finished release [optimized] target(s) in 0.06s
+//! $ RUST_LOG=keep_runtime=info RUST_BACKTRACE=1 ./target/x86_64-unknown-linux-musl/release/
+//!    keep-runtime fixtures/wasi_snapshot1.wat
+//! [2020-05-31T10:30:34Z INFO  keep_runtime] got result: [
+//!        I32(
+//!            0,
+//!        ),
+//!    ]
 //! ```
 #![deny(missing_docs)]
 #![deny(clippy::all)]
