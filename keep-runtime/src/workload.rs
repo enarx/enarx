@@ -1,4 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
+static LOCAL_FS_DIR: &str = "fixtures/external";
+static WORKLOAD_DIR: &str = "external";
+use std::fs::File;
 
 /// The error codes of workload execution.
 #[derive(Debug)]
@@ -38,6 +41,9 @@ pub fn run<T: AsRef<[u8]>, U: AsRef<[u8]>, V: std::borrow::Borrow<(U, U)>>(
     // Instantiate WASI
     let mut builder = wasi_common::WasiCtxBuilder::new();
     builder.args(args).envs(envs);
+    //provide workload with access to a directory for filesystem operations
+    builder.preopened_dir(provide_dir(LOCAL_FS_DIR), WORKLOAD_DIR);
+
     let ctx = builder.build().or(Err(Error::RuntimeError))?;
     let wasi_snapshot_preview1 = wasmtime_wasi::Wasi::new(&store, ctx);
 
@@ -80,6 +86,18 @@ pub fn run<T: AsRef<[u8]>, U: AsRef<[u8]>, V: std::borrow::Borrow<(U, U)>>(
 
     // Invoke the function.
     function.call(Default::default()).or(Err(Error::CallFailed))
+}
+
+/// provide a directory - could be Virtual Directory in future implementations
+fn provide_dir(fs_dir: &str) -> File {
+    let path = std::path::Path::new(fs_dir);
+    let display = path.display();
+
+    let mut file = match File::open(&path) {
+        Err(why) => panic!("couldn't create {}", display),
+        Ok(file) => file,
+    };
+    file
 }
 
 #[cfg(test)]
