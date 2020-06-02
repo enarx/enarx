@@ -8,6 +8,7 @@ CARGO_MAKE_CRATE_WORKSPACE_MEMBERS = [
 	"enarx-keep-sgx",
 	"enarx-keep-sgx-shim",
 	"enumerate",
+	"integration-tests",
 	"intel-types",
 	"iocuddle",
 	"iocuddle-sgx",
@@ -63,6 +64,21 @@ command = "${CARGO_WORKSPACE_ROOT}/.tests/cargo-toml-package-license"
 
 [tasks.misc-licenses-crate]
 command = "${CARGO_WORKSPACE_ROOT}/.tests/misc-licenses-crate"
+
+[tasks.integration]
+workspace = false
+env = { "CARGO_MAKE_WORKSPACE_INCLUDE_MEMBERS" = "integration-tests" }
+run_task = { name = "integration-test", fork = true }
+
+[tasks.integration-test]
+command = "cargo"
+args = ["test"]
+
+[tasks.integration-ci]
+workspace = false
+run_task = [
+    { name = ["ci-flow", "integration"], fork = true },
+]
 
 # Add additional tests to the predefined 'ci-flow' target.
 [tasks.pre-ci-flow]
