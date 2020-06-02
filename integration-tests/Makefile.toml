@@ -1,0 +1,10 @@
+# `cargo make test` is disabled for this crate so that 
+# integration tests are not run with unit tests; specifically, tests
+# in this crate should only be run after builds have completed in all
+# other crates in the emuated workspace. 
+#
+# Tests in this crate can be invoked instead with `cargo make 
+# integration` at the top level, or simply by running `cargo test` 
+# inside this crate.
+[tasks.test]
+disabled = true
