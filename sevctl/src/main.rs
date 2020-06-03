@@ -275,7 +275,7 @@ mod verify {
         err |= status("   ", &schain.cek, &schain.pek, quiet);
         err |= status("      ", &cchain.ask, &schain.cek, quiet);
         err |= status("         ", &cchain.ark, &cchain.ask, quiet);
-
+        println!("\n • = self signed, ⬑ = signs, •̷ = invalid self sign, ⬑̸ = invalid signs");
         exit(err as i32)
     }
 
@@ -287,24 +287,32 @@ mod verify {
         (&'a P, &'a P): Verifiable,
         (&'a P, &'a C): Verifiable,
     {
-        let sig = (p, c).verify().is_ok();
-        let lnk = if sig { "⮤".green() } else { "⮤".red() };
+        let sig_valid = (p, c).verify().is_ok();
+        let lnk = if sig_valid {
+            "⬑".green()
+        } else {
+            "⬑̸".red()
+        };
 
         !match p.try_into().unwrap() {
             Usage::OCA | Usage::ARK => {
-                let selfsig = (p, p).verify().is_ok();
-                let slf = if selfsig { "•".green() } else { "•".red() };
+                let selfsig_valid = (p, p).verify().is_ok();
+                let slf = if selfsig_valid {
+                    "•".green()
+                } else {
+                    "•̷".red()
+                };
                 if !quiet {
                     println!("{}{}{} {}", pfx, slf, lnk, p);
                 }
-                sig && selfsig
+                sig_valid && selfsig_valid
             }
 
             _ => {
                 if !quiet {
                     println!("{}{}{} {}", pfx, " ", lnk, p);
                 }
-                sig
+                sig_valid
             }
         }
     }
