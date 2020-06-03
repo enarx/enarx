@@ -1,4 +1,4 @@
-FROM quay.io/enarx/fedora
+FROM quay.io/enarx/fedora:latest
 
 # This container is only for testing utilities.
 # Development-only utilities belong in the parent container.
