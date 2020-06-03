@@ -5,9 +5,7 @@ ENV RUSTUP_HOME=/usr/local/rustup \
     CARGO_HOME=/usr/local/cargo \
     PATH=/usr/local/cargo/bin:$PATH
 
-# Enable the musl repo (for musl libc)
-RUN dnf -y install dnf-plugins-core
-RUN dnf -y copr enable taocris/musl
+# Install musl libc with static library
 RUN dnf -y install musl-devel musl-libc-static musl-gcc musl-clang
 
 # Install General Utilities
@@ -29,6 +27,9 @@ RUN dnf -y install mscgen graphviz
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y -q
 RUN rustup target add x86_64-unknown-linux-musl
 RUN rustup component add rustfmt rls clippy
+
+# Install binary crates
+RUN cargo install --force cargo-make
 
 # NOTE: Always keep these as the last steps to ensure up-to-date packages.
 RUN rustup update
