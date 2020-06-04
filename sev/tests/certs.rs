@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 mod naples;
+mod rome;
 
 use ::sev::certs::*;
 use codicon::Decoder;
