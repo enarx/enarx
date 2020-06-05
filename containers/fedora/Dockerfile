@@ -9,7 +9,7 @@ ENV RUSTUP_HOME=/usr/local/rustup \
 RUN dnf -y install musl-devel musl-libc-static musl-gcc musl-clang
 
 # Install General Utilities
-RUN dnf -y install procps iproute findutils man file
+RUN dnf -y install procps iproute findutils man file diff
 
 # Install General Development Tools
 RUN dnf -y install git git-subtree vim gdb lldb valgrind strace diffstat patch hub
