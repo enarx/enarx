@@ -30,6 +30,13 @@ RUN rustup component add rustfmt rls clippy
 
 # Install binary crates
 RUN cargo install --force cargo-make
+RUN cargo install --force cargo-audit
+RUN cargo install --force cargo-deny
+RUN cargo install --force toml-cli
+
+# Install PyGithub
+RUN dnf -y install python3-pip
+RUN python3 -m pip install PyGithub
 
 # NOTE: Always keep these as the last steps to ensure up-to-date packages.
 RUN rustup update
