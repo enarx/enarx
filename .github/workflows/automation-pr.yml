@@ -11,7 +11,7 @@ on:
 jobs:
   mirror-labels-to-pr:
     runs-on: ubuntu-latest
-    container: quay.io/enarx/fedora-test
+    container: quay.io/enarx/fedora
     steps:
     - uses: actions/checkout@v2
     

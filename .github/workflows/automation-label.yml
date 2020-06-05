@@ -9,7 +9,7 @@ on:
 jobs:
   add-to-project-when-labeled:
     runs-on: ubuntu-latest
-    container: quay.io/enarx/fedora-test
+    container: quay.io/enarx/fedora
     steps:
     - uses: actions/checkout@v2
     
