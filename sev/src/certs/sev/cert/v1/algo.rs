@@ -49,7 +49,7 @@ impl TryFrom<Algorithm> for hash::MessageDigest {
             }
 
             Algorithm::RSA_SHA384 | Algorithm::ECDSA_SHA384 | Algorithm::ECDH_SHA384 => {
-                Ok(hash::MessageDigest::sha256())
+                Ok(hash::MessageDigest::sha384())
             }
 
             _ => Err(ErrorKind::InvalidInput.into()),

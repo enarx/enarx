@@ -2,6 +2,8 @@
 
 use super::*;
 
+use openssl::hash;
+
 const NAPLES_ARK_SIG: &[u8] = include_bytes!("../../../../tests/naples/ark.cert.sig");
 const NAPLES_ARK: Preamble = Preamble {
     ver: 1u32.to_le(),
@@ -18,6 +20,15 @@ const NAPLES_ARK: Preamble = Preamble {
 enum Size {
     Small,
     Large,
+}
+
+impl Into<hash::MessageDigest> for Size {
+    fn into(self) -> hash::MessageDigest {
+        match self {
+            Self::Small => hash::MessageDigest::sha256(),
+            Self::Large => hash::MessageDigest::sha384(),
+        }
+    }
 }
 
 #[repr(C, packed)]
@@ -223,7 +234,8 @@ impl TryFrom<Certificate> for Signature {
 
     #[inline]
     fn try_from(value: Certificate) -> Result<Self> {
-        let sig = match unsafe { value.preamble.size()? } {
+        let size = unsafe { value.preamble.size()? };
+        let sig = match size {
             Size::Small => unsafe { &value.small.signature[..] },
             Size::Large => unsafe { &value.large.signature[..] },
         };
@@ -232,7 +244,7 @@ impl TryFrom<Certificate> for Signature {
             id: Some(unsafe { value.preamble.data.sid }),
             sig: sig.iter().rev().cloned().collect(),
             kind: pkey::Id::RSA,
-            hash: hash::MessageDigest::sha256(),
+            hash: size.into(),
             usage: Usage::ARK.into(),
         })
     }
@@ -244,7 +256,8 @@ impl TryFrom<Certificate> for PublicKey<Usage> {
 
     #[inline]
     fn try_from(v: Certificate) -> Result<Self> {
-        let (n, e) = match unsafe { v.preamble.size()? } {
+        let size = unsafe { v.preamble.size()? };
+        let (n, e) = match size {
             Size::Small => unsafe { (&v.small.body.modulus[..], &v.small.body.pubexp[..]) },
 
             Size::Large => unsafe { (&v.large.body.modulus[..], &v.large.body.pubexp[..]) },
@@ -257,7 +270,7 @@ impl TryFrom<Certificate> for PublicKey<Usage> {
 
         Ok(Self {
             usage: unsafe { v.preamble.data.usage },
-            hash: hash::MessageDigest::sha256(),
+            hash: size.into(),
             id: Some(unsafe { v.preamble.data.kid }),
             key,
         })

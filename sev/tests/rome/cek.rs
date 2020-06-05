@@ -19,8 +19,6 @@ fn encode() {
 }
 
 #[cfg(feature = "openssl")]
-// FIXME: https://github.com/enarx/enarx/issues/581
-#[ignore]
 #[test]
 fn verify() {
     let ask = ca::Certificate::decode(&mut ASK, ()).unwrap();
