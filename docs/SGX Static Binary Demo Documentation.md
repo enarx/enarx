@@ -1,9 +1,9 @@
 ## Intel SGX 2 Static Binary Demo
 
-This demo is designed to illustrate a static binary running in an SGX Enclave. This demo does not include attestation.
+This demo is designed to illustrate a static binary running in an SGX Enclave. This demo *does not* include attestation.
 
 ### Hardware Requirements
-SGX2 support is required to run this demo. Check with your hardware manufacturer to determine if your hardware has SGX2 support enabled. Alternatively, you may reference the linked Wiki page for an incomplete but growing list of SGX enabled hardware.
+SGX2 support is required to run this demo. Check with your hardware manufacturer to determine if your hardware has SGX2 support enabled. Alternatively, you may reference the following page for an incomplete but growing list of SGX enabled hardware:
 https://github.com/ayeks/SGX-hardware/#hardware-with-sgx2-support
 
 ### Software Requirements
