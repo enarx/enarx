@@ -178,4 +178,25 @@ mod tests {
     fn block_size() {
         assert_eq!(size_of::<Block>(), Page::size());
     }
+
+    #[test]
+    fn syscall() {
+        // Test syscall failure, including bidirectional conversion.
+        let req = Request::new(libc::SYS_close, &[(-1isize as usize).into()]);
+        let rep = unsafe { req.syscall() };
+        assert_eq!(rep, Err(libc::EBADF).into());
+        assert_eq!(libc::EBADF, Result::from(rep).unwrap_err());
+
+        // Test dup() success.
+        let req = Request::new(libc::SYS_dup, &[0usize.into()]);
+        let rep = unsafe { req.syscall() };
+        let res = Result::from(rep).unwrap()[0].into();
+        assert_eq!(3usize, res);
+
+        // Test close() success.
+        let req = Request::new(libc::SYS_close, &[3usize.into()]);
+        let rep = unsafe { req.syscall() };
+        let res = Result::from(rep).unwrap()[0].into();
+        assert_eq!(0usize, res);
+    }
 }
