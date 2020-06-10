@@ -139,22 +139,22 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_req_size() {
+    fn req_size() {
         assert_eq!(size_of::<Request>(), size_of::<usize>() * 8);
     }
 
     #[test]
-    fn test_rep_size() {
+    fn rep_size() {
         assert_eq!(size_of::<Reply>(), size_of::<usize>() * 2);
     }
 
     #[test]
-    fn test_msg_size() {
+    fn msg_size() {
         assert_eq!(size_of::<Message>(), size_of::<usize>() * 8);
     }
 
     #[test]
-    fn test_block_size() {
+    fn block_size() {
         assert_eq!(size_of::<Block>(), Page::size());
     }
 }
