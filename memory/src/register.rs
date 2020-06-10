@@ -191,7 +191,7 @@ implptr! {
 /// underlying types so long as the conversion does not truncate. For example,
 /// `Register<u64>` can be converted to `Register<usize>` on 64-bit systems.
 /// Likewise, `Register<usize>` can be converted to and from a pointer.
-#[derive(Copy, Clone, Debug, Default)]
+#[derive(Copy, Clone, Debug, Default, PartialEq)]
 #[repr(transparent)]
 pub struct Register<T>(T);
 
