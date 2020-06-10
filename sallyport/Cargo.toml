@@ -16,3 +16,6 @@ keywords = [
 [dependencies]
 libc = { version = "0.2.69", features = [] }
 memory = { path = "../memory" }
+
+[build-dependencies]
+cc = "*"
