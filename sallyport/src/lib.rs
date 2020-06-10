@@ -21,7 +21,7 @@ use memory::{Page, Register};
 /// needed for service requests from the microkernel to the hypervisor. An example
 /// of such a request would be proxying a system call.
 #[repr(C)]
-#[derive(Copy, Clone, Default)]
+#[derive(Copy, Clone, Default, PartialEq, Debug)]
 pub struct Request {
     /// The syscall number for the request
     ///
@@ -46,7 +46,7 @@ pub struct Request {
 /// can't use the built-in `Result` type for this, since its memory layout
 /// is undefined. Therefore, we use this layout with conversions for `Result`.
 #[repr(C)]
-#[derive(Copy, Clone, Default)]
+#[derive(Copy, Clone, Default, PartialEq, Debug)]
 pub struct Reply {
     val: Register<usize>,
     err: bool,
