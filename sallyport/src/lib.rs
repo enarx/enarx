@@ -51,6 +51,21 @@ impl Request {
             ],
         }
     }
+
+    /// Issues the requested syscall and returns the reply
+    ///
+    /// # Safety
+    ///
+    /// This function is unsafe because syscalls can't be made generically safe.
+    pub unsafe fn syscall(&self) -> Reply {
+        extern "C" {
+            fn sallyport_syscall(req: &Request, rep: &mut Reply);
+        }
+
+        let mut reply = core::mem::MaybeUninit::uninit().assume_init();
+        sallyport_syscall(self, &mut reply);
+        reply
+    }
 }
 
 /// A reply
