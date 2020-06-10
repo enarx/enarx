@@ -67,30 +67,36 @@ impl Request {
 #[repr(C)]
 #[derive(Copy, Clone, Default, PartialEq, Debug)]
 pub struct Reply {
-    val: Register<usize>,
-    err: bool,
+    ret: [Register<usize>; 2],
+    err: Register<usize>,
 }
 
-impl From<Result<Register<usize>, libc::c_int>> for Reply {
+#[cfg(all(target_os = "linux", target_arch = "x86_64"))]
+impl From<Result<[Register<usize>; 2], libc::c_int>> for Reply {
     #[inline]
-    fn from(value: Result<Register<usize>, libc::c_int>) -> Self {
+    fn from(value: Result<[Register<usize>; 2], libc::c_int>) -> Self {
         match value {
-            Ok(val) => Self { val, err: false },
+            Ok(val) => Self {
+                ret: val,
+                err: Default::default(),
+            },
             Err(val) => Self {
-                val: Register::from_raw(val as usize),
-                err: true,
+                ret: [(-val as usize).into(), Default::default()],
+                err: Default::default(),
             },
         }
     }
 }
 
-impl From<Reply> for Result<Register<usize>, libc::c_int> {
+#[cfg(all(target_os = "linux", target_arch = "x86_64"))]
+impl From<Reply> for Result<[Register<usize>; 2], libc::c_int> {
     #[inline]
     fn from(value: Reply) -> Self {
-        if value.err {
-            Err(value.val.raw() as _)
+        let reg: usize = value.ret[0].into();
+        if reg > -4096isize as usize {
+            Err(-(reg as libc::c_int))
         } else {
-            Ok(value.val)
+            Ok(value.ret)
         }
     }
 }
@@ -145,7 +151,7 @@ mod tests {
 
     #[test]
     fn rep_size() {
-        assert_eq!(size_of::<Reply>(), size_of::<usize>() * 2);
+        assert_eq!(size_of::<Reply>(), size_of::<usize>() * 3);
     }
 
     #[test]
