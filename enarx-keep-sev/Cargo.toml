@@ -16,6 +16,3 @@ span = { path = "../span" }
 structopt = "0.3"
 units = { path = "../units" }
 x86_64 = { version = "0.11.0", default-features = false, features = ["stable"] }
-
-[patch.crates-io]
-vmm-sys-util = { git = "https://github.com/rust-vmm/vmm-sys-util.git", rev = "80abb6f" }
