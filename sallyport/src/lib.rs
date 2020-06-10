@@ -30,8 +30,8 @@ pub struct Request {
 
     /// The syscall argument registers
     ///
-    /// At most 6 syscall arguments can be provided.
-    pub arg: [Register<usize>; 6],
+    /// At most 7 syscall arguments can be provided.
+    pub arg: [Register<usize>; 7],
 }
 
 /// A reply
@@ -121,7 +121,7 @@ mod tests {
 
     #[test]
     fn test_req_size() {
-        assert_eq!(size_of::<Request>(), size_of::<usize>() * 7);
+        assert_eq!(size_of::<Request>(), size_of::<usize>() * 8);
     }
 
     #[test]
@@ -131,7 +131,7 @@ mod tests {
 
     #[test]
     fn test_msg_size() {
-        assert_eq!(size_of::<Message>(), size_of::<usize>() * 7);
+        assert_eq!(size_of::<Message>(), size_of::<usize>() * 8);
     }
 
     #[test]
