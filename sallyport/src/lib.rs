@@ -34,6 +34,25 @@ pub struct Request {
     pub arg: [Register<usize>; 7],
 }
 
+impl Request {
+    /// Create a new request
+    #[inline]
+    pub fn new(num: impl Into<Register<usize>>, arg: &[Register<usize>]) -> Self {
+        Self {
+            num: num.into(),
+            arg: [
+                arg.get(0).copied().unwrap_or_default(),
+                arg.get(1).copied().unwrap_or_default(),
+                arg.get(2).copied().unwrap_or_default(),
+                arg.get(3).copied().unwrap_or_default(),
+                arg.get(4).copied().unwrap_or_default(),
+                arg.get(5).copied().unwrap_or_default(),
+                arg.get(6).copied().unwrap_or_default(),
+            ],
+        }
+    }
+}
+
 /// A reply
 ///
 /// The `Reply` struct is the most minimal representation of the register context
