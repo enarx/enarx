@@ -1,94 +1,36 @@
 // SPDX-License-Identifier: Apache-2.0
 
+//! A helper crate for loading ELF binaries. These can
+//! be referred to as "components" in Enarx parlance
+//! (for example: shim and code components).
+
+#![deny(clippy::all)]
+#![deny(missing_docs)]
+
+pub mod segment;
+
+use segment::Segment;
+
 use goblin::elf::{header::*, program_header::*, Elf};
 
 use memory::Page;
-use sgx_types::page::{Flags, SecInfo};
 use span::{Line, Span};
 
 use std::cmp::{max, min};
 use std::io::Result;
-use std::ops::Range;
 use std::path::Path;
-
-/// A loadable segment of code
-pub struct Segment {
-    pub src: Vec<Page>,
-    pub dst: usize,
-    pub si: SecInfo,
-}
-
-impl<'a> Segment {
-    /// Creates a segment from a `ProgramHeader`.
-    fn from_ph(file: &[u8], ph: &ProgramHeader) -> Result<Option<Self>> {
-        if ph.p_type != PT_LOAD {
-            return Ok(None);
-        }
-
-        let mut rwx = Flags::empty();
-
-        if ph.p_flags & PF_R != 0 {
-            rwx |= Flags::R;
-        }
-
-        if ph.p_flags & PF_W != 0 {
-            rwx |= Flags::W;
-        }
-
-        if ph.p_flags & PF_X != 0 {
-            rwx |= Flags::X;
-        }
-
-        let src = Span {
-            start: ph.p_offset as usize,
-            count: ph.p_filesz as usize,
-        };
-
-        let unaligned = Line::from(Span {
-            start: ph.p_vaddr as usize,
-            count: ph.p_memsz as usize,
-        });
-
-        let frame = Line {
-            start: unaligned.start / Page::size(),
-            end: (unaligned.end + Page::size() - 1) / Page::size(),
-        };
-
-        let aligned = Line {
-            start: frame.start * Page::size(),
-            end: frame.end * Page::size(),
-        };
-
-        let subslice = Span::from(Line {
-            start: unaligned.start - aligned.start,
-            end: unaligned.end - aligned.start,
-        });
-
-        let subslice = Range::from(Span {
-            start: subslice.start,
-            count: min(subslice.count, src.count),
-        });
-
-        let src = &file[Range::from(src)];
-        let mut buf = vec![Page::default(); Span::from(frame).count];
-        unsafe { buf.align_to_mut() }.1[subslice].copy_from_slice(src);
-
-        Ok(Some(Self {
-            si: SecInfo::reg(rwx),
-            dst: aligned.start,
-            src: buf,
-        }))
-    }
-}
 
 /// A collection of code segments and the entry point
 pub struct Component {
+    /// The segments in the ELF binary
     pub segments: Vec<Segment>,
+    /// The entry point for the ELF binary
     pub entry: usize,
+    /// Is this a position-independent executable?
     pub pie: bool,
 }
 
-impl<'a> Component {
+impl Component {
     /// Loads a binary from a file
     pub fn from_path(path: impl AsRef<Path>) -> Result<Self> {
         let file = std::fs::File::open(path)?;

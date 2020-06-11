@@ -6,13 +6,12 @@
 #![deny(missing_docs)]
 
 mod builder;
-mod component;
 mod enclave;
 mod layout;
 
-use builder::Builder;
-use component::{Component, Segment};
+use builder::{Builder, Segment};
 use enclave::Leaf;
+use loader::{segment, Component};
 
 use intel_types::Exception;
 use memory::Page;
@@ -94,11 +93,34 @@ fn load() -> enclave::Enclave {
         },
     ];
 
+    let to_si_seg = |s: segment::Segment| {
+        let mut rwx = Flags::empty();
+
+        if s.perms.read {
+            rwx |= Flags::R;
+        }
+        if s.perms.write {
+            rwx |= Flags::W;
+        }
+        if s.perms.execute {
+            rwx |= Flags::X;
+        }
+
+        Segment {
+            si: SecInfo::reg(rwx),
+            dst: s.dst,
+            src: s.src,
+        }
+    };
+
+    let shim_segs: Vec<Segment> = shim.segments.into_iter().map(to_si_seg).collect();
+    let code_segs: Vec<Segment> = code.segments.into_iter().map(to_si_seg).collect();
+
     // Initiate the enclave building process.
     let mut builder = Builder::new(layout.enclave).expect("Unable to create builder");
     builder.load(&internal).unwrap();
-    builder.load(&shim.segments).unwrap();
-    builder.load(&code.segments).unwrap();
+    builder.load(&shim_segs).unwrap();
+    builder.load(&code_segs).unwrap();
     builder.done(layout.prefix.start).unwrap()
 }
 
