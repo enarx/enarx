@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use super::component::Segment;
 use super::enclave::Enclave;
 
 use iocuddle_sgx as sgx;
@@ -14,6 +13,12 @@ use span::Span;
 use std::convert::TryFrom;
 use std::fs::{File, OpenOptions};
 use std::io::Result;
+
+pub struct Segment {
+    pub src: Vec<Page>,
+    pub dst: usize,
+    pub si: SecInfo,
+}
 
 fn f2p(flags: Flags) -> libc::c_int {
     let mut prot = libc::PROT_NONE;

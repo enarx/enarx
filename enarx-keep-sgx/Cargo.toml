@@ -6,8 +6,10 @@ edition = "2018"
 license = "Apache-2.0"
 
 [dependencies]
+goblin = "0.2.3"
 iocuddle-sgx = { path = "../iocuddle-sgx" }
 intel-types = { path = "../intel-types" }
+loader = { path = "../loader" }
 sgx-crypto = { path = "../sgx-crypto" }
 sgx-types = { path = "../sgx-types" }
 enumerate = { path = "../enumerate" }
@@ -18,7 +20,6 @@ vdso = { path = "../vdso" }
 structopt = { version = "0.3", default-features = false }
 bitflags = "1.2"
 openssl = "0.10"
-goblin = "0.2"
 libc = "0.2.68"
 mmap = { path = "../mmap" }
 
