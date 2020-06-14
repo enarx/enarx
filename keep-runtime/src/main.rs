@@ -8,7 +8,7 @@
 //! ## Example invocation
 //!
 //! ```console
-//! $ RUST_LOG=keep_runtime=info RUST_BACKTRACE=1 cargo run fixtures/return_1.wasm
+//! $ RUST_LOG=keep_runtime=info RUST_BACKTRACE=1 cargo run target/debug/fixtures/return_1.wasm
 //!    Compiling keep-runtime v0.1.0 (/home/steveej/src/job-redhat/enarx/github_enarx_enarx/keep-runtime)
 //!     Finished dev [unoptimized + debuginfo] target(s) in 4.36s
 //!      Running `target/debug/keep-runtime`
