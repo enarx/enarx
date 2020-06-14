@@ -42,7 +42,8 @@ pub fn run<T: AsRef<[u8]>, U: AsRef<[u8]>, V: std::borrow::Borrow<(U, U)>>(
     let wasi_snapshot_preview1 = wasmtime_wasi::Wasi::new(&store, ctx);
 
     let instance = {
-        let module = wasmtime::Module::new(&store, bytes).or(Err(Error::RuntimeError))?;
+        let module = wasmtime::Module::from_binary(&store.engine(), bytes.as_ref())
+            .or(Err(Error::RuntimeError))?;
         let imports = module
             .imports()
             .map(|import| {
@@ -64,7 +65,7 @@ pub fn run<T: AsRef<[u8]>, U: AsRef<[u8]>, V: std::borrow::Borrow<(U, U)>>(
             })
             .collect::<Result<Vec<_>>>()?;
 
-        wasmtime::Instance::new(&module, &imports).or(Err(Error::RuntimeError))?
+        wasmtime::Instance::new(&store, &module, &imports).or(Err(Error::RuntimeError))?
     };
 
     let function = if instance.exports().any(|export| export.name().is_empty()) {
@@ -89,9 +90,7 @@ pub(crate) mod test {
 
     #[test]
     fn workload_run_return_1() {
-        let path = std::path::Path::new("fixtures").join("return_1.wat");
-
-        let bytes = wat::parse_file(&path).unwrap();
+        let bytes = include_bytes!(concat!(env!("OUT_DIR"), "/fixtures/return_1.wasm")).to_vec();
 
         let results: Vec<i32> = workload::run(&bytes, empty::<&str>(), empty::<(&str, &str)>())
             .unwrap()
@@ -104,9 +103,7 @@ pub(crate) mod test {
 
     #[test]
     fn workload_run_no_export() {
-        let path = std::path::Path::new("fixtures").join("no_export.wat");
-
-        let bytes = wat::parse_file(&path).unwrap();
+        let bytes = include_bytes!(concat!(env!("OUT_DIR"), "/fixtures/no_export.wasm")).to_vec();
 
         match workload::run(&bytes, empty::<&str>(), empty::<(&str, &str)>()) {
             Err(workload::Error::ExportNotFound) => {}
@@ -116,9 +113,8 @@ pub(crate) mod test {
 
     #[test]
     fn workload_run_wasi_snapshot1() {
-        let path = std::path::Path::new("fixtures").join("wasi_snapshot1.wat");
-
-        let bytes = wat::parse_file(&path).unwrap();
+        let bytes =
+            include_bytes!(concat!(env!("OUT_DIR"), "/fixtures/wasi_snapshot1.wasm")).to_vec();
 
         let results: Vec<i32> = workload::run(
             &bytes,
