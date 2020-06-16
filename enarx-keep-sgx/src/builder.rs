@@ -107,9 +107,8 @@ impl Builder {
         let key = rsa::Rsa::generate_with_e(3072, &exp)?;
 
         // Create the enclave signature.
-        let vendor = Vendor::UNKNOWN.author(0, 0);
-        let sig = key.sign(vendor, self.hash.finish(self.sign))?;
-
+        let author = Author::new(0, 0);
+        let sig = key.sign(author, self.hash.finish(self.sign))?;
         // Initialize the enclave.
         let init = sgx::Init::new(&sig);
         sgx::ENCLAVE_INIT.ioctl(&mut self.file, &init)?;

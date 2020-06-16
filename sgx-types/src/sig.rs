@@ -10,36 +10,6 @@ use intel_types::Masked;
 #[cfg(test)]
 use testing::testaso;
 
-/// Holds an ID that specifies the vendor of the enclave.
-#[repr(transparent)]
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
-pub struct Vendor(u32);
-
-impl Vendor {
-    /// Vendor ID for unknown vendor.
-    pub const UNKNOWN: Vendor = Vendor(0x0000);
-    /// Vendor ID for Intel.
-    pub const INTEL: Vendor = Vendor(0x8086);
-
-    /// Creates a new Vendor based on vendor ID.
-    pub const fn new(id: u32) -> Self {
-        Self(id)
-    }
-
-    #[allow(clippy::unreadable_literal)]
-    /// Creates a new Author from a date and software defined value.
-    pub const fn author(self, date: u32, swdefined: u32) -> Author {
-        Author {
-            header1: u128::from_be(0x06000000E10000000000010000000000),
-            vendor: self,
-            date,
-            header2: u128::from_be(0x01010000600000006000000001000000),
-            swdefined,
-            reserved: [0; 21],
-        }
-    }
-}
-
 /// The `Author` of an enclave
 ///
 /// This structure encompasses the first block of fields from `SIGSTRUCT`
@@ -51,7 +21,7 @@ pub struct Author {
     /// Constant byte string.
     header1: u128,
     /// Vendor.
-    pub vendor: Vendor,
+    pub vendor: u32,
     /// YYYYMMDD in BCD.
     pub date: u32,
     /// Constant byte string.
@@ -59,6 +29,21 @@ pub struct Author {
     /// Software-defined value.
     pub swdefined: u32,
     reserved: [u32; 21],
+}
+
+impl Author {
+    #[allow(clippy::unreadable_literal)]
+    /// Creates a new Author from a date and software defined value.
+    pub const fn new(date: u32, swdefined: u32) -> Self {
+        Self {
+            header1: u128::from_be(0x06000000E10000000000010000000000),
+            vendor: 0u32,
+            date,
+            header2: u128::from_be(0x01010000600000006000000001000000),
+            swdefined,
+            reserved: [0; 21],
+        }
+    }
 }
 
 /// The enclave parameters
@@ -232,5 +217,25 @@ testaso! {
         reserved: 1028,
         q1: 1040,
         q2: 1424
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn author_instantiation() {
+        let author = Author::new(20000330, 0u32);
+        assert_eq!(
+            author.header1,
+            u128::from_be(0x06000000E10000000000010000000000)
+        );
+        assert_eq!(author.vendor, 0u32);
+        assert_eq!(
+            author.header2,
+            u128::from_be(0x01010000600000006000000001000000)
+        );
+        assert_eq!(author.swdefined, 0u32);
+        assert_eq!(author.reserved, [0; 21]);
     }
 }
