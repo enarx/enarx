@@ -32,12 +32,15 @@
 #![cfg_attr(not(test), no_std)]
 #![deny(missing_docs)]
 #![deny(clippy::all)]
+#![deny(clippy::integer_arithmetic)]
 
 pub mod auxv;
 pub use auxv::Entry;
 
 use auxv::Key;
 use core::marker::PhantomData;
+use core::mem::{self, size_of};
+const STACK_ALIGNMENT: usize = 16;
 
 /// Indicates too many arguments for `serialize`
 ///
@@ -58,21 +61,17 @@ impl Serializable for usize {
     #[inline]
     fn into_buf(&self, dst: &mut [u8]) -> Result<usize> {
         let (_prefix, dst, suffix) = unsafe { dst.align_to_mut::<usize>() };
-        if dst.is_empty() {
-            return Err(OutOfSpace);
-        }
-        dst[dst.len() - 1] = *self;
-        Ok(suffix.len() + core::mem::size_of::<usize>())
+        dst[dst.len().checked_sub(1).ok_or(OutOfSpace)?] = *self;
+        let len = suffix.len();
+        let len = len.checked_add(size_of::<usize>()).ok_or(OutOfSpace)?;
+        Ok(len)
     }
 }
 
 impl Serializable for u8 {
     #[inline]
     fn into_buf(&self, dst: &mut [u8]) -> Result<usize> {
-        if dst.is_empty() {
-            return Err(OutOfSpace);
-        }
-        dst[dst.len() - 1] = *self;
+        dst[dst.len().checked_sub(1).ok_or(OutOfSpace)?] = *self;
         Ok(1)
     }
 }
@@ -80,10 +79,7 @@ impl Serializable for u8 {
 impl Serializable for &[u8] {
     #[inline]
     fn into_buf(&self, dst: &mut [u8]) -> Result<usize> {
-        if dst.len() < self.len() {
-            return Err(OutOfSpace);
-        }
-        let start = dst.len() - self.len();
+        let start = dst.len().checked_sub(self.len()).ok_or(OutOfSpace)?;
         let end = dst.len();
         dst[start..end].copy_from_slice(self);
         Ok(self.len())
@@ -152,7 +148,8 @@ impl<'a, T> Builder<'a, T> {
     // Returns a reference to the serialized input within the data section.
     #[inline]
     fn push_data(&mut self, val: impl Serializable) -> Result<*const ()> {
-        self.data -= val.into_buf(&mut self.stack[..self.data])?;
+        let val_len = val.into_buf(&mut self.stack[..self.data])?;
+        self.data = self.data.checked_sub(val_len).ok_or(OutOfSpace)?;
         if self.data <= self.items {
             Err(OutOfSpace)
         } else {
@@ -172,8 +169,15 @@ impl<'a, T> Builder<'a, T> {
             return Err(OutOfSpace);
         }
         dst[0] = val;
-        self.items += prefix.len() + core::mem::size_of::<usize>();
-        Ok(())
+        let len = prefix.len();
+        let len = len.checked_add(size_of::<usize>()).ok_or(OutOfSpace)?;
+        self.items = self.items.checked_add(len).ok_or(OutOfSpace)?;
+
+        if self.data <= self.items {
+            Err(OutOfSpace)
+        } else {
+            Ok(())
+        }
     }
 }
 
@@ -187,7 +191,7 @@ impl<'a> Builder<'a, Arg> {
         Self {
             stack,
             data: len,
-            items: core::mem::size_of::<usize>(),
+            items: size_of::<usize>(),
             state: PhantomData,
         }
     }
@@ -215,7 +219,11 @@ impl<'a> Builder<'a, Arg> {
         if dst.is_empty() {
             return Err(OutOfSpace);
         }
-        dst[0] = ((self.items - prefix.len()) / core::mem::size_of::<usize>()) - 2; // argc
+
+        // Calculate argc = (self.items - prefix.len()) / size_of::<usize> - 2
+        dst[0] = self.items.checked_sub(prefix.len()).ok_or(OutOfSpace)?;
+        dst[0] = dst[0].checked_div(size_of::<usize>()).ok_or(OutOfSpace)?;
+        dst[0] = dst[0].checked_sub(2).ok_or(OutOfSpace)?;
 
         Ok(Builder {
             stack: self.stack,
@@ -300,24 +308,49 @@ impl<'a> Builder<'a, Aux> {
 
         let start_idx = {
             // at the end, copy the items of the item section from the bottom to the top of the stack
-            let (bottom, top) = self.stack.split_at_mut(self.items);
 
-            let (_prefix, src, _suffix) = unsafe { bottom.align_to_mut::<usize>() };
+            /*
 
-            let (prefix, dst, _suffix) = {
-                let end = self.data - self.items;
-                unsafe { top[0..end].align_to_mut::<usize>() }
-            };
-            let start = dst.len() - src.len();
-            let end = dst.len();
-            dst[start..end].copy_from_slice(src);
-            self.items + (prefix.len() + start) * core::mem::size_of::<usize>()
+            +------------------------+  len           +------------------------+  len
+            |                        |                |                        |
+            |          data          |                |          data          |
+            |                        |                |                        |
+            +------------------------+                +------------------------+
+            |                        |                |                        |
+            |                        |                |         items          |
+            |                        |  +---------->  |                        |
+            |                        |                +------------------------+ <---+ stack pointer
+            +------------------------+                |                        |
+            |                        |                |                        |
+            |         items          |                |                        |
+            |                        |                |                        |
+            +------------------------+  0             +------------------------+  0
+
+            */
+
+            // align down the destination pointer
+            let dst_start_idx = self.data.checked_sub(self.items).ok_or(OutOfSpace)?;
+
+            #[allow(clippy::integer_arithmetic)]
+            let align_offset = (&self.stack[dst_start_idx] as *const u8 as usize) % STACK_ALIGNMENT;
+
+            let dst_start_idx = dst_start_idx.checked_sub(align_offset).ok_or(OutOfSpace)?;
+
+            // Align the source start index
+            #[allow(clippy::integer_arithmetic)]
+            let src_start_idx = self.items % size_of::<usize>();
+
+            self.stack
+                .copy_within(src_start_idx..self.items, dst_start_idx);
+
+            dst_start_idx
         };
         Ok(Handle(self.stack, start_idx))
     }
 }
 
 // Convert a usize (pointer) to a string.
+#[allow(clippy::integer_arithmetic)]
 unsafe fn u2s<'a>(ptr: usize) -> core::result::Result<&'a str, core::str::Utf8Error> {
     let ptr = ptr as *const u8;
 
@@ -390,6 +423,7 @@ impl<'a> Iterator for Reader<'a, Arg> {
 impl<'a> Reader<'a, Arg> {
     /// Rewind to the start of this section
     #[inline]
+    #[allow(clippy::integer_arithmetic)]
     pub fn rewind(&mut self) {
         // Go to the end of this section.
         while unsafe { *self.stack } != 0 {
@@ -515,7 +549,7 @@ impl<'a> Iterator for Reader<'a, Aux> {
     fn next(&mut self) -> Option<Self::Item> {
         let val = unsafe { *self.stack.add(1) };
 
-        let entry = match unsafe { core::mem::transmute(*self.stack) } {
+        let entry = match unsafe { mem::transmute(*self.stack) } {
             Key::Null => return None,
             Key::ExecFd => Entry::ExecFd(val),
             Key::PHdr => Entry::PHdr(val),
@@ -582,8 +616,8 @@ mod tests {
 
         #[inline(always)]
         fn pop_l<T: Sized + Copy>(&mut self) -> T {
-            let mut val = core::mem::MaybeUninit::<T>::uninit();
-            let size = core::mem::size_of::<T>();
+            let mut val = mem::MaybeUninit::<T>::uninit();
+            let size = size_of::<T>();
             assert!((self.idx + size) <= self.stack.len(), "Stack underflow");
 
             unsafe {
@@ -596,7 +630,7 @@ mod tests {
 
         #[inline(always)]
         fn pop_slice<T: Sized + Copy>(&mut self, val: &mut [T]) {
-            let size = core::mem::size_of::<T>() * val.len();
+            let size = size_of::<T>() * val.len();
             assert!((self.idx + size) <= self.stack.len(), "Stack underflow");
 
             unsafe {
@@ -748,7 +782,7 @@ mod tests {
         let key: Key = prep_stack.pop_l();
         let value: usize = prep_stack.pop_l();
         assert_eq!(key, Key::Random);
-        let s: &[u8; 16] = unsafe { core::mem::transmute(value) };
+        let s: &[u8; 16] = unsafe { mem::transmute(value) };
         assert_eq!(s, &[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]);
 
         let key: Key = prep_stack.pop_l();
