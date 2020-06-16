@@ -102,13 +102,12 @@ enclave:
     cmp     $0,                     %rax            # If CSSA > 0...
     jne     .Levent                                 # ... restore stack from AEX[CSSA-1].
 
-    # Set stack pointer, clear unused registers and xCPU state, and jump to Rust
-    mov     STACK(%rcx),            %rsp
-    zerop
-    zerot
-    zerox
-    xor     %rax,                   %rax
-    jmp     entry
+    mov     STACK(%rcx),            %rsp            # Set stack pointer
+    zerop                                           # Clear preserved registers
+    zerot                                           # Clear temporary registers
+    zerox                                           # Clear xCPU state
+    xor     %rax,                   %rax            # Clear %rax
+    call    entry                                   # Jump to Rust
 
 # CSSA != 0
 .Levent:

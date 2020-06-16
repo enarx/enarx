@@ -10,14 +10,6 @@ extern "C" {
     fn exit(code: u8) -> !;
 }
 
-// There is a GPF for an unknown reason when the stack is aligned to anything
-// less than 32. The GPF occurs when trying to add Entry::Random. We should
-// investigate why. Work around it for now.
-//
-// https://github.com/enarx/enarx/issues/385
-#[repr(C, align(32))]
-struct Stack<T>(pub T);
-
 fn random() -> u64 {
     let mut r: u64 = 0;
 
@@ -77,9 +69,9 @@ pub extern "C" fn entry(_rdi: u64, _rsi: u64, _rdx: u64, layout: &Layout, _r8: u
     }
 
     // Prepare the crt0 stack.
-    let mut crt0 = Stack([0u8; 1024]);
+    let mut crt0 = [0u8; 1024];
     let space = random() as usize & 0xf0;
-    let handle = match crt0setup(layout, hdr, &mut crt0.0[space..]) {
+    let handle = match crt0setup(layout, hdr, &mut crt0[space..]) {
         Err(OutOfSpace) => unsafe { exit(1) },
         Ok(handle) => handle,
     };
