@@ -106,16 +106,10 @@ impl Builder {
         let exp = bn::BigNum::try_from(3u32)?;
         let key = rsa::Rsa::generate_with_e(3072, &exp)?;
 
-<<<<<<< HEAD
-        // Create the enclave signature.
-        let author = Author::new(0, 0);
-        let sig = key.sign(author, self.hash.finish(self.sign))?;
-=======
         // Create the enclave signature
         let vendor = Author::new(0, 0);
         let sig = key.sign(vendor, self.hash.finish(self.sign))?;
 
->>>>>>> 9b13b6ab2843acaac24bbb337189c0013d0991d1
         // Initialize the enclave.
         let init = sgx::Init::new(&sig);
         sgx::ENCLAVE_INIT.ioctl(&mut self.file, &init)?;
