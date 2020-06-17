@@ -177,7 +177,7 @@ mod test {
         hasher.add(&page, REG_OFFSET, SecInfo::reg(perms), measure);
 
         // Initialize the enclave.
-        let author = sig::Vendor::INTEL.author(0, 0);
+        let author = sig::Author::new(0, 0);
         let sig = key.sign(author, hasher.finish(None)).unwrap();
         ENCLAVE_INIT.ioctl(&mut file, &Init::new(&sig)).unwrap();
     }
