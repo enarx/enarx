@@ -5,11 +5,13 @@ use crate::Layout;
 use sgx_types::ssa::StateSaveArea;
 use span::{Contains, Line, Span};
 
+use core::fmt::Write;
 use core::mem::size_of;
 use core::ptr::copy_nonoverlapping;
 use core::slice::{from_raw_parts, from_raw_parts_mut};
 
 const TRACE: bool = false;
+
 // The last 4095 numbers are errnos
 const ERRNO_BASE: u64 = !0xfff;
 
@@ -39,10 +41,6 @@ extern "C" {
     ) -> u64;
 }
 
-pub trait Print<T: ?Sized> {
-    fn print(&mut self, data: &T);
-}
-
 pub enum Context {}
 
 pub struct Handler<'a> {
@@ -51,20 +49,23 @@ pub struct Handler<'a> {
     ctx: &'a Context,
 }
 
-impl<'a> Print<str> for Handler<'a> {
-    fn print(&mut self, data: &str) {
-        let bytes = data.as_bytes();
+impl<'a> Write for Handler<'a> {
+    fn write_str(&mut self, s: &str) -> core::fmt::Result {
+        let bytes = s.as_bytes();
         let len = bytes.len() as _;
+        if len == 0 {
+            return Ok(());
+        }
 
         // Allocate some unencrypted memory.
         let map = match self.ualloc(len) {
-            Err(_) => return,
+            Err(_) => return Err(core::fmt::Error),
             Ok(map) => map,
         };
 
         unsafe {
             // Copy the encrypted input into unencrypted memory.
-            copy_nonoverlapping(bytes.as_ptr(), map, bytes.len());
+            core::ptr::copy_nonoverlapping(bytes.as_ptr(), map, bytes.len());
 
             // Do the syscall; replace encrypted memory with unencrypted memory.
             self.syscall(
@@ -79,49 +80,8 @@ impl<'a> Print<str> for Handler<'a> {
 
             self.ufree(map, len);
         }
-    }
-}
 
-fn hex(byte: u8) -> u8 {
-    match byte & 0xf {
-        0x0 => b'0',
-        0x1 => b'1',
-        0x2 => b'2',
-        0x3 => b'3',
-        0x4 => b'4',
-        0x5 => b'5',
-        0x6 => b'6',
-        0x7 => b'7',
-        0x8 => b'8',
-        0x9 => b'9',
-        0xa => b'a',
-        0xb => b'b',
-        0xc => b'c',
-        0xd => b'd',
-        0xe => b'e',
-        0xf => b'f',
-        _ => panic!(),
-    }
-}
-
-// Print a reverse hex dump for types that implement Copy
-//
-// The most common use for this is printing numbers, which are little endian.
-// Reversing the bytes makes the output big-endian hex.
-impl<'a, T: Copy> Print<T> for Handler<'a> {
-    fn print(&mut self, data: &T) {
-        let mut output = [*data, *data];
-        let output = unsafe { output.align_to_mut::<u8>().1 };
-
-        let input = [*data];
-        let input = unsafe { input.align_to::<u8>().1 };
-
-        for (i, byte) in input.iter().rev().cloned().enumerate() {
-            output[i * 2] = hex(byte >> 4);
-            output[i * 2 + 1] = hex(byte);
-        }
-
-        self.print(unsafe { core::str::from_utf8_unchecked(&output) })
+        Ok(())
     }
 }
 
@@ -203,17 +163,13 @@ impl<'a> Handler<'a> {
             self.aex.gpr.r9,
         ];
 
-        self.print(name);
-        self.print("(");
-        for (i, arg) in argv[..argc].iter().enumerate() {
-            if i > 0 {
-                self.print(", ");
-            }
-
-            self.print(arg);
+        debug!(self, "{}(", name);
+        for (i, arg) in argv[..argc].iter().copied().enumerate() {
+            let prefix = if i > 0 { ", " } else { "" };
+            debug!(self, "{}0x{:x}", prefix, u64::from(arg));
         }
 
-        self.print(")\n");
+        debugln!(self, ")");
     }
 
     /// Proxy an exit() syscall
