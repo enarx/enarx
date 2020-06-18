@@ -7,7 +7,7 @@ use span::{Contains, Line, Span};
 
 use core::mem::size_of;
 use core::ptr::copy_nonoverlapping;
-use core::slice::from_raw_parts_mut;
+use core::slice::{from_raw_parts, from_raw_parts_mut};
 
 const TRACE: bool = false;
 // The last 4095 numbers are errnos
@@ -418,13 +418,15 @@ impl<'a> Handler<'a> {
 
             let mut offset = 0;
             for (t, u) in trusted.iter_mut().zip(untrusted.iter_mut()) {
-                if u.iov_base != ubuffer[offset..].as_mut_ptr() as *mut _ || u.iov_len != t.iov_len
-                {
+                let us = &mut ubuffer[offset..][..t.iov_len];
+                offset += t.iov_len;
+
+                if u.iov_base != us.as_mut_ptr() as *mut _ || u.iov_len != t.iov_len {
                     self.attacked();
                 }
 
-                t.clone_from(u);
-                offset += t.iov_len;
+                let ts = unsafe { from_raw_parts_mut(t.iov_base as *mut u8, t.iov_len) };
+                ts.copy_from_slice(us);
             }
         }
 
@@ -472,10 +474,14 @@ impl<'a> Handler<'a> {
         // measured in bytes.
         let mut offset = 0;
         for (t, mut u) in trusted.iter_mut().zip(untrusted.iter_mut()) {
-            u.iov_base = ubuffer[offset..].as_mut_ptr() as *mut _;
-            u.iov_len = t.iov_len;
-            u.clone_from(t);
+            let ts = unsafe { from_raw_parts(t.iov_base as *const u8, t.iov_len) };
+            let us = &mut ubuffer[offset..][..t.iov_len];
             offset += t.iov_len;
+
+            us.copy_from_slice(ts);
+
+            u.iov_base = us.as_mut_ptr() as *mut _;
+            u.iov_len = us.len();
         }
 
         // Do the syscall; replace encrypted memory with unencrypted memory.
