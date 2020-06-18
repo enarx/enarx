@@ -5,7 +5,9 @@ use crate::Layout;
 use sgx_types::ssa::StateSaveArea;
 use span::{Contains, Line, Span};
 
-use core::{mem::size_of, slice::from_raw_parts_mut};
+use core::mem::size_of;
+use core::ptr::copy_nonoverlapping;
+use core::slice::from_raw_parts_mut;
 
 const TRACE: bool = false;
 // The last 4095 numbers are errnos
@@ -62,7 +64,7 @@ impl<'a> Print<str> for Handler<'a> {
 
         unsafe {
             // Copy the encrypted input into unencrypted memory.
-            core::ptr::copy_nonoverlapping(bytes.as_ptr(), map, bytes.len());
+            copy_nonoverlapping(bytes.as_ptr(), map, bytes.len());
 
             // Do the syscall; replace encrypted memory with unencrypted memory.
             self.syscall(
@@ -279,7 +281,7 @@ impl<'a> Handler<'a> {
                     self.attacked();
                 }
 
-                core::ptr::copy_nonoverlapping(map, buf, ret as _);
+                copy_nonoverlapping(map, buf, ret as _);
             }
 
             self.ufree(map, size);
@@ -303,7 +305,7 @@ impl<'a> Handler<'a> {
 
         unsafe {
             // Copy the encrypted input into unencrypted memory.
-            core::ptr::copy_nonoverlapping(buf, map, size as _);
+            copy_nonoverlapping(buf, map, size as _);
 
             // Do the syscall; replace encrypted memory with unencrypted memory.
             let ret = self.syscall(libc::SYS_write as u64, fd, map as _, size, 0, 0, 0);
