@@ -48,6 +48,25 @@ fn main() {}
 
 // ============== REAL CODE HERE ===============
 
+macro_rules! debug {
+    ($dst:expr, $($arg:tt)*) => {
+        #[allow(unused_must_use)] {
+            use core::fmt::Write;
+            write!($dst, $($arg)*);
+        }
+    };
+}
+
+macro_rules! debugln {
+    ($dst:expr) => { debugln!($dst,) };
+    ($dst:expr, $($arg:tt)*) => {
+        #[allow(unused_must_use)] {
+            use core::fmt::Write;
+            writeln!($dst, $($arg)*);
+        }
+    };
+}
+
 mod elf;
 mod entry;
 mod event;

@@ -5,7 +5,7 @@ use intel_types::Exception;
 use memory::Register;
 use sgx_types::ssa::StateSaveArea;
 
-use crate::handler::{Context, Handler, Print};
+use crate::handler::{Context, Handler};
 use crate::Layout;
 
 // Opcode constants, details in Volume 2 of the Intel 64 and IA-32 Architectures Software
@@ -59,10 +59,7 @@ pub extern "C" fn event(
                             libc::SYS_sigaltstack => h.sigaltstack(),
 
                             syscall => {
-                                h.print("unsupported syscall: ");
-                                // Restore the value after forcing cast to i64
-                                h.print(&(syscall as u64));
-                                h.print("\n");
+                                debugln!(h, "unsupported syscall: 0x{:x}", syscall as u64);
                                 -libc::ENOSYS as u64
                             }
                         },
@@ -74,14 +71,8 @@ pub extern "C" fn event(
                 OP_CPUID => {
                     let (rax, rbx, rcx, rdx) = match (h.aex.gpr.rax.raw(), h.aex.gpr.rcx.raw()) {
                         (0, _) => (0, 0x756e_6547, 0x6c65_746e, 0x4965_6e69), // "GenuineIntel"
-
                         (a, c) => {
-                            h.print("unsupported cpuid: (");
-                            h.print(&a);
-                            h.print(", ");
-                            h.print(&c);
-                            h.print(")\n");
-
+                            debugln!(h, "unsupported cpuid: (0x{:x}, 0x{:x})", a, c);
                             (0, 0, 0, 0)
                         }
                     };
@@ -95,10 +86,7 @@ pub extern "C" fn event(
 
                 // unsupported opcode
                 r => {
-                    let opcode = (r[0] as u16) << 8 | r[1] as u16;
-                    h.print("unsupported opcode: ");
-                    h.print(&opcode);
-                    h.print("\n");
+                    debugln!(h, "unsupported opcode: {:?}", r);
                     h.exit(1)
                 }
             }
