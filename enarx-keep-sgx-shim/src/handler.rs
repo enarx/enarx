@@ -146,12 +146,10 @@ impl<'a> Handler<'a> {
         syscall(rdi, rsi, rdx, self.aex, r8, r9, r10, rax, self.ctx)
     }
 
-    /// TODO: https://github.com/enarx/enarx/issues/337
-    ///
-    /// We probably want a circuit breaker here. When we are under attack,
-    /// we trip the circuit breaker and exit the enclave. Any attempt to
-    /// re-enter the enclave after tripping the circuit breaker causes the
-    /// enclave to immediately EEXIT.
+    /// When we are under attack, we trip this circuit breaker and
+    /// exit the enclave. Any attempt to re-enter the enclave after
+    /// tripping the circuit breaker causes the enclave to immediately
+    /// EEXIT.
     pub fn attacked(&mut self) -> ! {
         self.exit(1)
     }
