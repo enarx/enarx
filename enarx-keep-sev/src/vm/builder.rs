@@ -1,31 +1,30 @@
 // SPDX-License-Identifier: Apache-2.0
 
+use super::mem::{KvmUserspaceMemoryRegion, Region};
+use super::VirtualMachine;
+
 use crate::x86_64::*;
-
-use std::io;
-
-use kvm_bindings::kvm_userspace_memory_region as MemoryRegion;
-use kvm_ioctls::{Kvm, VmFd};
+use kvm_ioctls::Kvm;
+use loader::segment::Segment;
+use loader::Component;
+use memory::Page;
 use x86_64::structures::paging::page_table::PageTableFlags;
 use x86_64::VirtAddr;
 
+use std::io;
+
 const DEFAULT_MEM_SIZE: usize = units::bytes!(1; GiB);
 
-pub struct VirtualMachine {
-    _kvm: Kvm,
-    _fd: VmFd,
-    _address_space: Vec<MemoryRegion>,
-    _mmap_handles: Vec<mmap::Unmap>,
+pub struct Builder {
+    vm: VirtualMachine,
 }
 
-impl VirtualMachine {
+impl Builder {
     pub fn new() -> Result<Self, io::Error> {
-        // Create a KVM context
         let kvm = Kvm::new()?;
         let fd = kvm.create_vm()?;
 
-        // Create the guest address space
-        let mem_size = DEFAULT_MEM_SIZE; // Just use a default size for now.
+        let mem_size = DEFAULT_MEM_SIZE;
         let guest_addr_start = unsafe {
             mmap::map(
                 0,
@@ -42,7 +41,7 @@ impl VirtualMachine {
                 count: mem_size,
             })
         };
-        let region = MemoryRegion {
+        let region = KvmUserspaceMemoryRegion {
             slot: 0,
             flags: 0,
             guest_phys_addr: 0,
@@ -70,11 +69,39 @@ impl VirtualMachine {
                 .write(page_tables);
         }
 
-        Ok(Self {
+        let vm = VirtualMachine {
             _kvm: kvm,
             _fd: fd,
-            _address_space: vec![region],
-            _mmap_handles: vec![unmap],
-        })
+            address_space: Region::new(region, unmap),
+        };
+
+        Ok(Self { vm })
+    }
+
+    pub fn load(&mut self, component: &Component) -> Result<VirtAddr, io::Error> {
+        self.load_segments(&component.segments)?;
+
+        let addr_space = self.vm.address_space.as_virt();
+        Ok(VirtAddr::new(
+            addr_space.start.as_u64() + component.entry as u64,
+        ))
+    }
+
+    fn load_segments(&mut self, segs: &[Segment]) -> Result<(), io::Error> {
+        let addr_space = self.vm.address_space.as_virt();
+        for seg in segs {
+            let destination = {
+                let raw = addr_space.start.as_u64() + seg.dst as u64;
+                let addr = VirtAddr::new(raw);
+                unsafe { std::slice::from_raw_parts_mut(addr.as_mut_ptr::<Page>(), seg.src.len()) }
+            };
+
+            destination.copy_from_slice(&seg.src[..]);
+        }
+        Ok(())
+    }
+
+    pub fn build(self) -> VirtualMachine {
+        self.vm
     }
 }
