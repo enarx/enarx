@@ -959,4 +959,43 @@ mod tests {
         assert_eq!(reader.next(), None); // terminator
         assert_eq!(reader.next(), None); // don't overrun
     }
+
+    #[test]
+    fn crt0_stack_alignment() {
+        // Prepare the crt0 stack.
+        #[repr(C, align(32))]
+        struct Aligned<T>(T);
+
+        let mut aligned = Aligned([0u8; 1024]);
+        let mut error = false;
+        for i in 0..32 {
+            let mut builder = Builder::new(&mut aligned.0[i..]);
+            builder.push("arg").unwrap();
+            // Set the environment
+            let mut builder = builder.done().unwrap();
+            builder.push("LANG=C").unwrap();
+
+            // Set the aux vector
+            let mut builder = builder.done().unwrap();
+            builder.push(&Entry::ExecFilename("/init")).unwrap();
+            builder.push(&Entry::Platform("x86_64")).unwrap();
+            builder.push(&Entry::Uid(1000)).unwrap();
+            builder.push(&Entry::EUid(1000)).unwrap();
+            builder.push(&Entry::Gid(1000)).unwrap();
+            builder.push(&Entry::EGid(1000)).unwrap();
+            builder.push(&Entry::PageSize(4096)).unwrap();
+            builder.push(&Entry::Secure(false)).unwrap();
+            builder.push(&Entry::ClockTick(100)).unwrap();
+            builder.push(&Entry::Flags(0)).unwrap(); // TODO: https://github.com/enarx/enarx/issues/386
+            builder.push(&Entry::HwCap(0)).unwrap(); // TODO: https://github.com/enarx/enarx/issues/386
+            builder.push(&Entry::HwCap2(0)).unwrap(); // TODO: https://github.com/enarx/enarx/issues/386
+            builder.push(&Entry::Random([0u8; 16])).unwrap();
+
+            let handle = builder.done().unwrap();
+            let alignment = (handle.start_ptr() as *const () as usize) % STACK_ALIGNMENT;
+            eprintln!("offset: {}, alignment: {}", i, alignment);
+            error |= alignment != 0;
+        }
+        assert!(!error);
+    }
 }
