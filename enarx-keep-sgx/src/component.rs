@@ -91,10 +91,20 @@ pub struct Component {
 impl<'a> Component {
     /// Loads a binary from a file
     pub fn from_path(path: impl AsRef<Path>) -> Result<Self> {
-        let data = std::fs::read(path)?;
+        let file = std::fs::File::open(path)?;
+        let len = file.metadata()?.len() as usize;
+        let (data, _unmap) = unsafe {
+            let addr = mmap::map(0, len, libc::PROT_READ, libc::MAP_PRIVATE, Some(&file), 0)?;
+            let data = std::slice::from_raw_parts(addr as *const u8, len);
+            let unmap = mmap::Unmap::new(Span {
+                start: addr,
+                count: len,
+            });
+            (data, unmap)
+        };
 
         // Parse the file.
-        let elf = Elf::parse(data.as_ref()).unwrap();
+        let elf = Elf::parse(data).unwrap();
 
         // Validate identity assumptions.
         assert_eq!(elf.header.e_ident[EI_CLASS], ELFCLASS64);
