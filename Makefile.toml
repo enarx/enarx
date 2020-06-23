@@ -27,7 +27,6 @@ CARGO_MAKE_CRATE_WORKSPACE_MEMBERS = [
 	"units",
 	"vdso"
 ]
-CARGO_WORKSPACE_ROOT = { script = ["git rev-parse --show-toplevel"] }
 
 [tasks.deny]
 install_crate = "cargo-deny"
@@ -35,20 +34,20 @@ command = "cargo"
 args = ["deny", "check", "licenses"]
 
 [tasks.misc-lints-missing-docs]
-command = "${CARGO_WORKSPACE_ROOT}/.tests/misc-lints-missing-docs"
+command = "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/.tests/misc-lints-missing-docs"
 
 [tasks.cargo-toml-package-edition]
 install_script = [''' which toml || cargo install toml-cli ''']
-command = "${CARGO_WORKSPACE_ROOT}/.tests/cargo-toml-package-edition"
+command = "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/.tests/cargo-toml-package-edition"
 
 [tasks.misc-lints-clippy-all]
-command = "${CARGO_WORKSPACE_ROOT}/.tests/misc-lints-clippy-all"
+command = "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/.tests/misc-lints-clippy-all"
 
 [tasks.misc-licenses-rs-spdx]
-command = "${CARGO_WORKSPACE_ROOT}/.tests/misc-licenses-rs-spdx"
+command = "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/.tests/misc-licenses-rs-spdx"
 
 [tasks.misc-licenses-asm-spdx]
-command = "${CARGO_WORKSPACE_ROOT}/.tests/misc-licenses-asm-spdx"
+command = "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/.tests/misc-licenses-asm-spdx"
 
 [tasks.misc-diagrams]
 workspace = false
@@ -57,13 +56,13 @@ workspace = false
 # detect whether we're in a crate directory and if we are, this test
 # will be skipped. It doesn't make sense to run inside a crate directory.
 condition = { env_not_set = ["CARGO_MAKE_CRATE_NAME"]}
-command = "${CARGO_WORKSPACE_ROOT}/.tests/misc-diagrams"
+command = "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/.tests/misc-diagrams"
 
 [tasks.cargo-toml-package-license]
-command = "${CARGO_WORKSPACE_ROOT}/.tests/cargo-toml-package-license"
+command = "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/.tests/cargo-toml-package-license"
 
 [tasks.misc-licenses-crate]
-command = "${CARGO_WORKSPACE_ROOT}/.tests/misc-licenses-crate"
+command = "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/.tests/misc-licenses-crate"
 
 [tasks.integration]
 workspace = false
