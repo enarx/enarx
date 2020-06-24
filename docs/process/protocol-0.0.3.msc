@@ -1,0 +1,83 @@
+#MSC for Enarx
+msc {
+  hscale="3";
+
+  Tenant,Keepmanager,Contractmanager,CPUfirmware,Keeploader,Keep;
+
+  Tenant note Keep [label="Contracts query", textbgcolour="red", textcolour="white"];
+  Tenant -> Keepmanager [label="GET /contract"];
+  Keepmanager -> Contractmanager [label="retrieve contracts"];
+  Contractmanager -> Keepmanager [label="send contracts"];
+  Keepmanager -> Tenant [label="200, <contracts>"];
+
+  ...;
+
+  Tenant note Keep [label="Keep creation", textbgcolour="red", textcolour="white"];
+  Tenant -> Keepmanager [label="POST /contract/<cuuid>, [<secret>]"];
+  Keepmanager note Contractmanager [label="HTTP here?", textbgcolour="silver"];
+  Keepmanager -> Contractmanager [label="cuuid"];
+  Contractmanager -> Keepmanager [label="auth/pay methods"];
+  Keepmanager -> Tenant [label="401/402, <auth/pay methods>"];
+
+  Tenant -> Keepmanager [label="POST /contract/<cuuid>, [<secret>], <auth/pay>"];
+  Keepmanager -> Contractmanager [label="cuuid, auth/pay"];
+  Contractmanager -> Keepmanager [label="OK"];
+  Keepmanager -> Tenant [label="201, Location: /keep/<kuuid>, <cookie>"];
+  Keepmanager -> CPUfirmware [label="new keep"];
+  CPUfirmware -> Keeploader [label="create, <cookie>"];
+  CPUfirmware -> Keepmanager [label="ready <kuuid>, <Keep-loader-pid>"];
+  Keepmanager note Contractmanager [label="Does the C/M need the kuuid?", textbgcolour="silver"];
+  Keepmanager -> Contractmanager [label="reserve <kuuid> <contract>"];
+  Contractmanager -> Keepmanager [label="OK"];
+  Keepmanager note Keeploader [label="HTTP here?", textbgcolour="silver"];
+  Keepmanager -> Keeploader [label="load file, <cookie>"];
+  Keeploader -> Keepmanager [label="OK"];
+  Keepmanager -> CPUfirmware [label="attest? <kuuid>"];
+  CPUfirmware -> Keepmanager [label="attest <kuuid> <attestation-data>"];
+  CPUfirmware abox CPUfirmware [label="perform attestation"];
+  CPUfirmware -> Keep [label="start"];
+  Keep abox Keep [label="generate key -> <key>"];
+  Keep abox Keep [label="bind to URL -> <url>"];
+  Keep -> CPUfirmware [label="<key> <url>"];
+  CPUfirmware note Keepmanager [label="keep attestation data with key for identity binding"];
+  CPUfirmware -> Keepmanager [label="<attestation-data + key> <url> <kuuid>"];
+
+...;
+
+  Tenant note Keep [label="Keep deletion", textbgcolour="red", textcolour="white"];
+  
+  Tenant -> Keepmanager [label="DELETE /keep/<kuuid>, <cookie|secret>"];
+  Keepmanager -> Tenant [label="200"];
+  Keepmanager -> Contractmanager [label="delete <kuuid> <contract>"];
+
+  ...;
+
+  Tenant note Keep [label="Attestation reset", textbgcolour="red", textcolour="white"];
+
+  Tenant -> Keepmanager [label="DELETE /keep/<kuuid>/attest, <cookie|secret>"];
+  Keepmanager -> Tenant [label="200"];
+
+  ...;
+
+  Tenant note Keep [label="Attestation request", textbgcolour="red", textcolour="white"];
+  Tenant -> Keepmanager [label="POST /keep/<kuuid>/attest, <cookie|secret>, <data>, <done?>"];
+  Keepmanager -> Tenant [label="<attestation-data + key>, <url>, <cookie|secret>"];
+  Keepmanager -> Contractmanager [label="start <kuuid>, <contract>"];
+
+  ...;
+
+  Tenant note Keep [label="Workload loading", textbgcolour="red", textcolour="white"];
+  Tenant abox Keep [label="DH exchange"];
+  Tenant abox Keep [label="session key established"];
+  Keepmanager note Keeploader [label="HTTPS here, or HTTP?  If HTTPS, DH under that?", textbgcolour="silver"];
+  Tenant -> Keeploader[label="POST <url>/workload-accept <workload>"];
+  Keeploader -> Tenant[label="200"];
+
+  ...;
+
+  Tenant note Keep [label="Workload deletion", textbgcolour="red", textcolour="white"];
+  Tenant abox Keep [label="Same points about DH/HTTPS as for Workload loading above"];
+  Tenant -> Keeploader[label="POST <url>/workload-delete"];
+  Keeploader -> Tenant[label="200"];
+
+}
