@@ -2,8 +2,9 @@
 msc {
   hscale="3";
 
-  Tenant,Keepmanager,Contractmanager,CPUfirmware,Keeploader,Keep;
+  Tenant,Keepmanager,Contractmanager,CPUfirmware,Keeploader,Keep,Apploader;
 
+  Tenant note Keep [label="Contracts query", textbgcolour="red", textcolour="white"];
   Tenant -> Keepmanager [label="GET /contract"];
   Keepmanager -> Contractmanager [label="retrieve contracts"];
   Contractmanager -> Keepmanager [label="send contracts"];
@@ -11,7 +12,7 @@ msc {
 
   ...;
 
-  Tenant note Keepmanager [label="What exactly is this secret, what is its scope?", textbgcolour="silver"];
+  Tenant note Keep [label="Keep creation", textbgcolour="red", textcolour="white"];
   Tenant -> Keepmanager [label="POST /contract/<cuuid>, [<secret>]"];
   Keepmanager note Contractmanager [label="HTTP here?", textbgcolour="silver"];
   Keepmanager -> Contractmanager [label="cuuid"];
@@ -40,7 +41,6 @@ msc {
   Keep -> CPUfirmware [label="<key> <url>"];
   CPUfirmware note Keepmanager [label="keep attestation data with key for identity binding"];
   CPUfirmware -> Keepmanager [label="<attestation-data + key> <url> <kuuid>"];
-  Keepmanager -> Tenant [label="<attestation-data + key> <url> <cookie|secret>"];
 
 ...;
 
@@ -61,11 +61,23 @@ msc {
 
   Tenant note Keep [label="Attestation request", textbgcolour="red", textcolour="white"];
   Tenant -> Keepmanager [label="POST /keep/<kuuid>/attest, <cookie|secret>, <data>, <done?>"];
-  Keepmanager -> Tenant [label="200, <attestation-data + key>, <url>"];
+  Keepmanager -> Tenant [label="<attestation-data + key>, <url>, <cookie|secret>"];
   Keepmanager -> Contractmanager [label="start <kuuid>, <contract>"];
 
   ...;
 
-  Tenant note Keep [label="Workload-loading", textbgcolour="red", textcolour="white"];
+  Tenant note Keep [label="Workload loading", textbgcolour="red", textcolour="white"];
   Tenant abox Keep [label="DH exchange"];
+  Tenant abox Keep [label="session key established"];
+  Tenant note Apploader [label="HTTPS here, or HTTP?  If HTTPS, DH under that?", textbgcolour="silver"];
+  Tenant -> Apploader[label="POST <url>/workload-accept <workload>"];
+  Apploader -> Tenant[label="200"];
+
+  ...;
+
+  Tenant note Keep [label="Workload deletion", textbgcolour="red", textcolour="white"];
+  Tenant abox Keep [label="Same points about DH/HTTPS as for Workload loading above"];
+  Tenant -> Apploader[label="POST <url>/workload-delete"];
+  Apploader -> Tenant[label="200"];
+
 }
