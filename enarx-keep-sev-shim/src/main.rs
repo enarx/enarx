@@ -16,9 +16,12 @@ fn main() {}
 
 pub mod addr;
 pub mod asm;
+pub mod gdt;
 pub mod hostcall;
 pub mod no_std;
 pub mod print;
+pub mod syscall;
+pub mod usermode;
 
 use addr::ShimVirtAddr;
 use core::convert::TryFrom;
@@ -52,6 +55,7 @@ entry_point!(shim_main);
 /// The entry point for the shim
 pub fn shim_main(boot_info: *mut BootInfo) -> ! {
     HostCall::init(ShimVirtAddr::try_from(Address::from(boot_info).try_cast().unwrap()).unwrap());
+    gdt::init();
     eprintln!("Hello World!");
     hostcall::shim_exit(0);
 }
