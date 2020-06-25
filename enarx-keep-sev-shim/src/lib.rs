@@ -50,7 +50,7 @@ const ALIGN_SECTION: usize = bytes!(1; MiB);
 
 #[cfg(not(debug_assertions))]
 #[allow(clippy::integer_arithmetic)]
-const REGION_ALIGN: usize = bytes!(4; KiB);
+const ALIGN_SECTION: usize = bytes!(4; KiB);
 
 #[inline(always)]
 #[allow(clippy::integer_arithmetic)]
