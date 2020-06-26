@@ -31,6 +31,11 @@ impl Page {
         core::mem::size_of::<Self>()
     }
 
+    /// Returns a Page full of zeroes
+    pub const fn zeroed() -> Self {
+        Self([[0; 32]; 16])
+    }
+
     /// Copy a value into the start of a page
     ///
     /// All unused bytes are zero.
