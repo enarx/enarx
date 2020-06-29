@@ -15,7 +15,7 @@ RUN dnf -y install procps iproute findutils man file diffutils
 RUN dnf -y install git git-subtree vim gdb lldb valgrind strace diffstat patch hub
 
 # Install C Development Environment
-RUN dnf -y install gcc clang make
+RUN dnf -y install gcc clang make ccache
 
 # Install Build Dependencies
 RUN dnf -y install glibc-static clang-devel llvm-devel openssl-devel
