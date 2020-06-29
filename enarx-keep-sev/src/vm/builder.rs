@@ -36,7 +36,7 @@ impl Builder {
             )?
         };
         let unmap = unsafe {
-            mmap::Unmap::new(span::Span {
+            mmap::Unmap::new(bounds::Span {
                 start: guest_addr_start,
                 count: mem_size,
             })

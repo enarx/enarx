@@ -9,7 +9,7 @@ edition = "2018"
 
 [dependencies]
 bitflags = "1.2"
-span  = { path = "../span" }
+bounds  = { path = "../bounds" }
 enumerate  = { path = "../enumerate" }
 intel-types = { path = "../intel-types" }
 memory = { path = "../memory" }

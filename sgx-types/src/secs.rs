@@ -8,8 +8,8 @@
 //! by the means of ENCLS(ECREATE) leaf.
 
 use super::{attr, isv, misc::MiscSelect, sig::Parameters};
+use bounds::Span;
 use core::num::{NonZeroU32, NonZeroUsize};
-use span::Span;
 
 #[cfg(test)]
 use testing::testaso;

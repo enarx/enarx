@@ -2,8 +2,8 @@
 
 use crate::Layout;
 
+use bounds::{Contains, Line, Span};
 use sgx_types::ssa::StateSaveArea;
-use span::{Contains, Line, Span};
 
 use core::fmt::Write;
 use core::mem::size_of;

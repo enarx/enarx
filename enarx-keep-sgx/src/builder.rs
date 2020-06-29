@@ -2,13 +2,13 @@
 
 use super::enclave::Enclave;
 
+use bounds::Span;
 use iocuddle_sgx as sgx;
 use memory::Page;
 use openssl::{bn, rsa};
 use sgx_crypto::{Hasher, Signer};
 use sgx_types::page::{Class, Flags, SecInfo};
 use sgx_types::{secs::*, sig::*, ssa::StateSaveArea};
-use span::Span;
 
 use std::convert::TryFrom;
 use std::fs::{File, OpenOptions};
@@ -140,7 +140,7 @@ impl Builder {
                 )?;
             }
 
-            //let line = span::Line::from(span);
+            //let line = bounds::Line::from(span);
             //eprintln!("{:016x}-{:016x} {:?}", line.start, line.end, si);
         }
 

@@ -2,6 +2,7 @@
 CARGO_MAKE_EXTEND_WORKSPACE_MAKEFILE = "true"
 CARGO_MAKE_WORKSPACE_EMULATION = true
 CARGO_MAKE_CRATE_WORKSPACE_MEMBERS = [
+	"bounds",
 	"crt0stack",
 	"enarx-keep-sev",
 	"enarx-keep-sev-shim",
@@ -23,7 +24,6 @@ CARGO_MAKE_CRATE_WORKSPACE_MEMBERS = [
 	"sgx-crypto",
 	"sgx-show",
 	"sgx-types",
-	"span",
 	"testing",
 	"units",
 	"vdso"

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use span::Span;
+use bounds::Span;
 
 use std::fs::File;
 use std::io::{Error, Result};

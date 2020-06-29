@@ -13,8 +13,8 @@ use segment::Segment;
 
 use goblin::elf::{header::*, program_header::*, Elf};
 
+use bounds::{Line, Span};
 use memory::Page;
-use span::{Line, Span};
 
 use std::cmp::{max, min};
 use std::io::Result;
