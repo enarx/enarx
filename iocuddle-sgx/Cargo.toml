@@ -14,7 +14,7 @@ memory = { path = "../memory" }
 bitflags = "1.2"
 
 [dev-dependencies]
-openssl = { version = "0.10", features = [ "vendored" ] }
+openssl = { version = "=0.10.29", features = [ "vendored" ] }
 sgx-crypto = { path = "../sgx-crypto" }
 span = { path = "../span" }
 rstest = "0.6"

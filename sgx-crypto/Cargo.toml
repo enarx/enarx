@@ -6,7 +6,7 @@ license = "Apache-2.0"
 edition = "2018"
 
 [dependencies]
-openssl = { version = "0.10", features = [ "vendored" ] }
+openssl = { version = "=0.10.29", features = [ "vendored" ] }
 sgx-types = { path = "../sgx-types" }
 memory = { path = "../memory" }
 
