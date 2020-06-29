@@ -12,4 +12,4 @@ goblin = "0.2.3"
 libc = "0.2.71"
 mmap = { path = "../mmap" }
 memory = { path = "../memory" }
-span = { path = "../span" }
+bounds = { path = "../bounds" }

@@ -73,7 +73,7 @@ mod event;
 mod handler;
 mod heap;
 
-use span::Line;
+use bounds::Line;
 
 /// The enclave layout
 /// NOTE: this must be kept in sync with enarx-keep-sgx

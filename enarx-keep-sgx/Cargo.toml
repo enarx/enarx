@@ -15,7 +15,7 @@ sgx-types = { path = "../sgx-types" }
 enumerate = { path = "../enumerate" }
 memory = { path = "../memory" }
 units = { path = "../units" }
-span = { path = "../span" }
+bounds = { path = "../bounds" }
 vdso = { path = "../vdso" }
 structopt = { version = "0.3", default-features = false }
 bitflags = "1.2"

@@ -10,7 +10,7 @@ crt0stack = { path = "../crt0stack" }
 intel-types = { path = "../intel-types" }
 sgx-types = { path = "../sgx-types" }
 memory = { path = "../memory" }
-span = { path = "../span" }
+bounds = { path = "../bounds" }
 libc = { version = "0.2", features = [] }
 enumerate = { path = "../enumerate" }
 

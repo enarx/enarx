@@ -115,11 +115,11 @@ mod test {
     use std::fs::File;
     use std::num::NonZeroU32;
 
+    use bounds::Span;
     use openssl::{bn, pkey, rsa};
     use rstest::*;
     use sgx_crypto::{Hasher, Signer};
     use sgx_types::{page::Flags as Perms, secs};
-    use span::Span;
 
     #[fixture]
     fn file() -> File {

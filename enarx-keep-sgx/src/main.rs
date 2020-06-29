@@ -13,11 +13,11 @@ use builder::{Builder, Segment};
 use enclave::Leaf;
 use loader::{segment, Component};
 
+use bounds::Span;
 use intel_types::Exception;
 use memory::Page;
 use sgx_types::page::{Flags, SecInfo};
 use sgx_types::tcs::Tcs;
-use span::Span;
 use structopt::StructOpt;
 
 use std::path::PathBuf;

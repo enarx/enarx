@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
+use bounds::Span;
 pub use kvm_bindings::kvm_userspace_memory_region as KvmUserspaceMemoryRegion;
 use mmap::Unmap;
-use span::Span;
 use x86_64::VirtAddr;
 
 pub struct Region {

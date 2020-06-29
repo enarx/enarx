@@ -9,4 +9,4 @@ license = "Apache-2.0"
 
 [dependencies]
 libc = "0.2.71"
-span = { path = "../span" }
+bounds = { path = "../bounds" }

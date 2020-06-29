@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use span::{Contains as _, Line, Span};
+use bounds::{Contains as _, Line, Span};
 
 const PREFIX: usize = units::bytes![4; MiB];
 const ALIGN: usize = units::bytes![2; MiB];

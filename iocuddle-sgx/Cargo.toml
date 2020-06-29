@@ -16,7 +16,7 @@ bitflags = "1.2"
 [dev-dependencies]
 openssl = { version = "=0.10.29", features = [ "vendored" ] }
 sgx-crypto = { path = "../sgx-crypto" }
-span = { path = "../span" }
+bounds = { path = "../bounds" }
 rstest = "0.6"
 
 [patch.crates-io]
