@@ -145,7 +145,7 @@ impl Builder<New> {
 /// shim may be loaded into it.
 impl Builder<AddressSpace> {
     pub fn load_shim(mut self, mut shim: Component) -> Result<Builder<Shim>, io::Error> {
-        self.load_component(&mut shim, units::bytes!(4; MiB))?;
+        self.load_component(&mut shim, units::bytes!(1; MiB))?;
         self.data.shim_entry = Some(PhysAddr::new(shim.entry as _));
 
         Ok(Builder {
