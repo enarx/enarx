@@ -9,10 +9,11 @@
 mod vm;
 mod x86_64;
 
+use vm::builder::New;
+
 use loader::Component;
 use structopt::StructOpt;
 
-use std::fs::File;
 use std::io;
 use std::path::PathBuf;
 
@@ -40,14 +41,13 @@ fn main() {
 
 fn run(args: Args) -> Result<(), io::Error> {
     let shim = Component::from_path(&args.shim)?;
-    let _code = File::open(args.code)?;
+    let code = Component::from_path(&args.code)?;
 
-    let mut builder = vm::Builder::new()?;
-    let shim_entry = builder.load(&shim)?;
-
-    let _vm = builder.build();
-
-    // TODO: code loading
+    let vm = vm::Builder::<New>::new()?
+        .with_mem_size(units::bytes![1; GiB])?
+        .load_shim(shim)?
+        .load_code(code)?
+        .build()?;
 
     // TODO: Run the KVM VM + have event loop for servicing requests from the shim
 

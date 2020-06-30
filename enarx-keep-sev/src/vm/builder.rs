@@ -1,34 +1,96 @@
 // SPDX-License-Identifier: Apache-2.0
 
+//! A typestate builder to enforce the virtual machine is constructed in the right
+//! order (i.e., you can't load a component before it has an address space; you
+//! can't run the shim before it's been loaded; you can't calculate the BootInfo
+//! before the other components are in place, etc).
+
 use super::mem::{KvmUserspaceMemoryRegion, Region};
 use super::VirtualMachine;
 
 use crate::x86_64::*;
-use kvm_ioctls::Kvm;
+use kvm_ioctls::{Kvm, VmFd};
 use loader::segment::Segment;
 use loader::Component;
 use memory::Page;
 use x86_64::structures::paging::page_table::PageTableFlags;
-use x86_64::VirtAddr;
+use x86_64::{PhysAddr, VirtAddr};
 
 use std::io;
+use std::marker::PhantomData;
 
-const DEFAULT_MEM_SIZE: usize = units::bytes!(1; GiB);
+// Marker structs for the typestate machine
 
-pub struct Builder {
-    vm: VirtualMachine,
+/// An empty virtual machine
+pub struct New;
+
+/// A virtual machine with an address space
+pub struct AddressSpace;
+
+/// A virtual machine with a shim loaded into it
+pub struct Shim;
+
+/// A virtual machine with user code loaded into it
+pub struct Code;
+
+/// Marker trait for the Builder states
+pub trait State {}
+impl State for New {}
+impl State for AddressSpace {}
+impl State for Shim {}
+impl State for Code {}
+
+/// Utility marker trait so states that are capable of
+/// loading ELF binaries can share code.
+pub trait Load {}
+impl Load for AddressSpace {}
+impl Load for Shim {}
+
+/// Constructing the virtual machine requires state to
+/// be persistent and carried through to future construction
+/// states. Fields are enclosed in `Option`s to simplify the
+/// initial construction of the data because these fields are
+/// set at different states.
+struct Data {
+    kvm: Option<Kvm>,
+    fd: Option<VmFd>,
+    /// Used for address translation between guest and host
+    /// (also manages the lifetime of the backing host memory)
+    address_space: Option<Region>,
+    /// The shim's entry point
+    shim_entry: Option<PhysAddr>,
 }
 
-impl Builder {
-    pub fn new() -> Result<Self, io::Error> {
+pub struct Builder<T: State> {
+    data: Data,
+    _phantom: PhantomData<T>,
+}
+
+/// The initial state simply creates a KVM context.
+impl<T: State> Builder<T> {
+    pub fn new() -> Result<Builder<New>, io::Error> {
         let kvm = Kvm::new()?;
         let fd = kvm.create_vm()?;
+        Ok(Builder {
+            data: Data {
+                kvm: Some(kvm),
+                fd: Some(fd),
+                address_space: None,
+                shim_entry: None,
+            },
+            _phantom: PhantomData,
+        })
+    }
+}
 
-        let mem_size = DEFAULT_MEM_SIZE;
+/// A newly initialized Builder prepares the guest's address
+/// space.
+impl Builder<New> {
+    pub fn with_mem_size(mut self, mem_size: u64) -> Result<Builder<AddressSpace>, io::Error> {
         let guest_addr_start = unsafe {
             mmap::map(
                 0,
-                mem_size,
+                mem_size as _,
                 libc::PROT_READ | libc::PROT_WRITE,
                 libc::MAP_PRIVATE | libc::MAP_ANONYMOUS | libc::MAP_HUGE_2MB,
                 None,
@@ -38,7 +100,7 @@ impl Builder {
         let unmap = unsafe {
             mmap::Unmap::new(bounds::Span {
                 start: guest_addr_start,
-                count: mem_size,
+                count: mem_size as _,
             })
         };
         let region = KvmUserspaceMemoryRegion {
@@ -49,6 +111,7 @@ impl Builder {
             userspace_addr: guest_addr_start as _,
         };
 
+        let fd = self.data.fd.as_ref().unwrap();
         unsafe {
             fd.set_user_memory_region(region)?;
         }
@@ -69,26 +132,57 @@ impl Builder {
                 .write(page_tables);
         }
 
-        let vm = VirtualMachine {
-            _kvm: kvm,
-            _fd: fd,
-            address_space: Region::new(region, unmap),
-        };
+        self.data.address_space = Some(Region::new(region, unmap));
 
-        Ok(Self { vm })
+        Ok(Builder {
+            data: self.data,
+            _phantom: PhantomData,
+        })
     }
+}
 
-    pub fn load(&mut self, component: &Component) -> Result<VirtAddr, io::Error> {
+/// Once the guest's address space has been created, the
+/// shim may be loaded into it.
+impl Builder<AddressSpace> {
+    pub fn load_shim(mut self, mut shim: Component) -> Result<Builder<Shim>, io::Error> {
+        self.load_component(&mut shim, units::bytes!(4; MiB))?;
+        self.data.shim_entry = Some(PhysAddr::new(shim.entry as _));
+
+        Ok(Builder {
+            data: self.data,
+            _phantom: PhantomData,
+        })
+    }
+}
+
+/// Once the shim as been loaded, the code layer may be loaded.
+impl Builder<Shim> {
+    pub fn load_code(mut self, mut code: Component) -> Result<Builder<Code>, io::Error> {
+        // Pass for now
+        Ok(Builder {
+            data: self.data,
+            _phantom: PhantomData,
+        })
+    }
+}
+
+impl<T: Load + State> Builder<T> {
+    fn load_component(
+        &mut self,
+        component: &mut Component,
+        offset: usize,
+    ) -> Result<(), io::Error> {
+        if component.pie {
+            Self::relocate(component, offset);
+        }
+
         self.load_segments(&component.segments)?;
 
-        let addr_space = self.vm.address_space.as_virt();
-        Ok(VirtAddr::new(
-            addr_space.start.as_u64() + component.entry as u64,
-        ))
+        Ok(())
     }
 
     fn load_segments(&mut self, segs: &[Segment]) -> Result<(), io::Error> {
-        let addr_space = self.vm.address_space.as_virt();
+        let addr_space = self.data.address_space.as_ref().unwrap().as_virt();
         for seg in segs {
             let destination = {
                 let raw = addr_space.start.as_u64() + seg.dst as u64;
@@ -101,7 +195,28 @@ impl Builder {
         Ok(())
     }
 
-    pub fn build(self) -> VirtualMachine {
-        self.vm
+    fn relocate(component: &mut Component, offset: usize) {
+        component.entry += offset;
+
+        for seg in &mut component.segments {
+            seg.dst += offset;
+        }
+    }
+}
+
+/// Once both the shim and code have been loaded into the guest,
+/// we can finally configure the dual-purpose bootinfo page and
+/// prepare the startup vCPU.
+impl Builder<Code> {
+    pub fn build(self) -> Result<VirtualMachine, io::Error> {
+        let addr_space = self.data.address_space.as_ref().unwrap().as_virt();
+
+        let mut vm = VirtualMachine {
+            kvm: self.data.kvm.unwrap(),
+            fd: self.data.fd.unwrap(),
+            address_space: self.data.address_space.unwrap(),
+        };
+
+        Ok(vm)
     }
 }
