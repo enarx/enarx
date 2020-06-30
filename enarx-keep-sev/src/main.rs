@@ -49,7 +49,7 @@ fn run(args: Args) -> Result<(), io::Error> {
         .load_code(code)?
         .build()?;
 
-    // TODO: Run the KVM VM + have event loop for servicing requests from the shim
+    vm.start()?;
 
     Ok(())
 }

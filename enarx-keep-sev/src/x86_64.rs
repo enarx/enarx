@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
+pub use kvm_bindings::kvm_segment as KvmSegment;
 use x86_64::structures::paging::page_table::PageTable;
 use x86_64::PhysAddr;
 
