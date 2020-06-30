@@ -10,6 +10,9 @@ pub const PML4_START: PhysAddr = PhysAddr::new_truncate(0x9000);
 /// The first page table entry.
 pub const PDPTE_START: PhysAddr = PhysAddr::new_truncate(0xA000);
 
+/// The *guest* physical address of the shared syscall page.
+pub const BOOT_INFO_START: PhysAddr = PhysAddr::new_truncate(0x1000);
+
 #[repr(C)]
 pub struct PageTables {
     pub pml4t: PageTable,

@@ -7,10 +7,9 @@ mod mem;
 pub use builder::Builder;
 use mem::Region;
 
-use kvm_ioctls::{Kvm, VcpuFd, VmFd};
-use x86_64::PhysAddr;
-
 use kvm_bindings::KVM_MAX_CPUID_ENTRIES;
+use kvm_ioctls::{Kvm, VcpuExit, VcpuFd, VmFd};
+use x86_64::PhysAddr;
 
 use std::io;
 
@@ -24,6 +23,20 @@ pub struct VirtualMachine {
 impl VirtualMachine {
     pub fn start(&self) -> Result<(), io::Error> {
         let cpu0 = self.cpus.first().unwrap();
+
+        loop {
+            match cpu0.run()? {
+                VcpuExit::IoOut(port, data) => {
+                    println!("IoOut: received {} bytes from port {}", data.len(), port);
+                }
+                exit_reason => {
+                    println!("{:?}", exit_reason);
+                    println!("{:?}", cpu0.get_regs());
+                    println!("{:?}", cpu0.get_sregs());
+                    break;
+                }
+            }
+        }
 
         Ok(())
     }

@@ -9,6 +9,8 @@ use super::mem::{KvmUserspaceMemoryRegion, Region};
 use super::VirtualMachine;
 
 use crate::x86_64::*;
+use bounds::Line;
+use enarx_keep_sev_shim::BootInfo;
 use kvm_ioctls::{Kvm, VmFd};
 use loader::segment::Segment;
 use loader::Component;
@@ -27,6 +29,9 @@ pub struct New;
 /// A virtual machine with an address space
 pub struct AddressSpace;
 
+/// A virtual machine whose BootInfo has been calculated
+pub struct BootBlock;
+
 /// A virtual machine with a shim loaded into it
 pub struct Shim;
 
@@ -37,13 +42,14 @@ pub struct Code;
 pub trait State {}
 impl State for New {}
 impl State for AddressSpace {}
+impl State for BootBlock {}
 impl State for Shim {}
 impl State for Code {}
 
 /// Utility marker trait so states that are capable of
 /// loading ELF binaries can share code.
 pub trait Load {}
-impl Load for AddressSpace {}
+impl Load for BootBlock {}
 impl Load for Shim {}
 
 /// Constructing the virtual machine requires state to
@@ -57,6 +63,7 @@ struct Data {
     /// Used for address translation between guest and host
     /// (also manages the lifetime of the backing host memory)
     address_space: Option<Region>,
+    boot_info: Option<BootInfo>,
     /// The shim's entry point
     shim_entry: Option<PhysAddr>,
 }
@@ -76,6 +83,7 @@ impl<T: State> Builder<T> {
                 kvm: Some(kvm),
                 fd: Some(fd),
                 address_space: None,
+                boot_info: None,
                 shim_entry: None,
             },
             _phantom: PhantomData,
@@ -141,11 +149,38 @@ impl Builder<New> {
     }
 }
 
-/// Once the guest's address space has been created, the
-/// shim may be loaded into it.
+/// Once the guest's address space has been created, component
+/// relocations can be calculated.
 impl Builder<AddressSpace> {
+    pub fn component_sizes(
+        mut self,
+        shim_region: Line<usize>,
+        code_region: Line<usize>,
+    ) -> Result<Builder<BootBlock>, io::Error> {
+        let memsz = self.data.address_space.as_ref().unwrap().as_virt().count;
+        let prefix = Line {
+            start: 0,
+            end: (PML4_START.as_u64() as usize) + std::mem::size_of::<PageTables>(),
+        };
+        let boot_info =
+            BootInfo::calculate(memsz as _, prefix, shim_region.into(), code_region.into())
+                .map_err(|_| io::Error::from_raw_os_error(libc::ENOMEM))?;
+
+        self.data.boot_info = Some(boot_info);
+
+        Ok(Builder {
+            data: self.data,
+            _phantom: PhantomData,
+        })
+    }
+}
+
+/// Once component relocations have been calculated, we can load
+/// the shim.
+impl Builder<BootBlock> {
     pub fn load_shim(mut self, mut shim: Component) -> Result<Builder<Shim>, io::Error> {
-        self.load_component(&mut shim, units::bytes!(1; MiB))?;
+        let offset = self.data.boot_info.as_ref().unwrap().shim.start;
+        self.load_component(&mut shim, offset)?;
         self.data.shim_entry = Some(PhysAddr::new(shim.entry as _));
 
         Ok(Builder {
@@ -158,7 +193,9 @@ impl Builder<AddressSpace> {
 /// Once the shim as been loaded, the code layer may be loaded.
 impl Builder<Shim> {
     pub fn load_code(mut self, mut code: Component) -> Result<Builder<Code>, io::Error> {
-        // Pass for now
+        let offset = self.data.boot_info.as_ref().unwrap().code.start;
+        self.load_component(&mut code, offset)?;
+
         Ok(Builder {
             data: self.data,
             _phantom: PhantomData,
@@ -210,6 +247,13 @@ impl<T: Load + State> Builder<T> {
 impl Builder<Code> {
     pub fn build(self) -> Result<VirtualMachine, io::Error> {
         let addr_space = self.data.address_space.as_ref().unwrap().as_virt();
+        let boot_info = self.data.boot_info.unwrap();
+
+        let syscall_page = Page::copy(boot_info);
+        let destination = VirtAddr::new(addr_space.start.as_u64() + BOOT_INFO_START.as_u64());
+        unsafe {
+            destination.as_mut_ptr::<Page>().write(syscall_page);
+        }
 
         let mut vm = VirtualMachine {
             kvm: self.data.kvm.unwrap(),
@@ -220,6 +264,14 @@ impl Builder<Code> {
 
         // Create startup CPU
         let vcpu = vm.fd.create_vcpu(0)?;
+
+        // The shim expects a couple of parameters in registers,
+        // we'll set those for the startup vCPU.
+        let mut regs = vcpu.get_regs()?;
+        regs.rsi = boot_info.shim.start as _;
+        regs.rdi = BOOT_INFO_START.as_u64();
+        vcpu.set_regs(&regs)?;
+
         vm.add_vcpu(vcpu, self.data.shim_entry.unwrap())?;
 
         Ok(vm)
