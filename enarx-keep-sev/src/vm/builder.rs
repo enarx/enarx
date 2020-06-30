@@ -215,7 +215,12 @@ impl Builder<Code> {
             kvm: self.data.kvm.unwrap(),
             fd: self.data.fd.unwrap(),
             address_space: self.data.address_space.unwrap(),
+            cpus: vec![],
         };
+
+        // Create startup CPU
+        let vcpu = vm.fd.create_vcpu(0)?;
+        vm.add_vcpu(vcpu, self.data.shim_entry.unwrap())?;
 
         Ok(vm)
     }
