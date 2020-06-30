@@ -45,6 +45,7 @@ fn run(args: Args) -> Result<(), io::Error> {
 
     let vm = vm::Builder::<New>::new()?
         .with_mem_size(units::bytes![1; GiB])?
+        .component_sizes(shim.region(), code.region())?
         .load_shim(shim)?
         .load_code(code)?
         .build()?;
