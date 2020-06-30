@@ -10,7 +10,7 @@ use mem::Region;
 use kvm_ioctls::{Kvm, VmFd};
 
 pub struct VirtualMachine {
-    _kvm: Kvm,
-    _fd: VmFd,
+    kvm: Kvm,
+    fd: VmFd,
     address_space: Region,
 }
