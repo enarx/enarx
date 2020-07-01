@@ -15,8 +15,11 @@ use x86_64::structures::gdt::{
 use x86_64::structures::tss::TaskStateSegment;
 use x86_64::{PrivilegeLevel, VirtAddr};
 
-static mut TSS: Option<TaskStateSegment> = None;
-pub(crate) static mut GDT: Option<(GlobalDescriptorTable, Selectors)> = None;
+const STACK_NUM_PAGES: usize = 5;
+static mut STACKS: [[Page; STACK_NUM_PAGES]; 7] = [[Page::zeroed(); STACK_NUM_PAGES]; 7];
+
+pub(crate) static mut TSS: TaskStateSegment = TaskStateSegment::new();
+pub(crate) static mut GDT: GlobalDescriptorTable = GlobalDescriptorTable::new();
 
 /// The user data segment
 ///
@@ -32,24 +35,13 @@ const USER_DATA_SEGMENT: u64 = (USER_DATA_SEGMENT_INDEX << 3) | (PrivilegeLevel:
 const USER_CODE_SEGMENT_INDEX: u64 = 4;
 const USER_CODE_SEGMENT: u64 = (USER_CODE_SEGMENT_INDEX << 3) | (PrivilegeLevel::Ring3 as u64);
 
-const STACK_NUM_PAGES: usize = 5;
-
-/// The selectors used for the GDT
-pub struct Selectors {
-    /// The code selector of the shim
-    pub code_selector: SegmentSelector,
-    /// The data selector of the shim
-    pub data_selector: SegmentSelector,
-    /// The data selector of the payload
-    pub user_data_selector: SegmentSelector,
-    /// The code selector of the payload
-    pub user_code_selector: SegmentSelector,
-    /// The tss selector
-    pub tss_selector: SegmentSelector,
-}
-
 /// Initialize the GDT
-pub fn init() {
+///
+/// # Safety
+///
+/// `unsafe` because the caller has to ensure it is only called once
+/// and in a single-threaded context.
+pub unsafe fn init(level_0_stack: VirtAddr) {
     #[cfg(debug_assertions)]
     eprintln!("init_gdt");
 
@@ -59,93 +51,57 @@ pub fn init() {
         stack_start + num_pages * Page::size()
     }
 
-    unsafe {
-        TSS = Some({
-            let mut tss = TaskStateSegment::new();
+    TSS.privilege_stack_table[0] = level_0_stack;
 
-            static mut STACKS: [[Page; STACK_NUM_PAGES]; 8] =
-                [[Page::zeroed(); STACK_NUM_PAGES]; 8];
+    // Assign the stacks for the exceptions and interrupts
+    TSS.interrupt_stack_table
+        .iter_mut()
+        .zip(&STACKS)
+        .for_each(|(p, v)| *p = stack_end(VirtAddr::from_ptr(v), STACK_NUM_PAGES));
+    debug_assert_eq!(STACKS.len(), TSS.interrupt_stack_table.len());
 
-            // The stack for RING 0
-            tss.privilege_stack_table[0] =
-                stack_end(VirtAddr::from_ptr(&STACKS[0]), STACK_NUM_PAGES);
+    // `syscall` loads segments from STAR MSR assuming a data_segment follows `kernel_code_segment`
+    // so the ordering is crucial here. Star::write() will panic otherwise later.
+    let code_sel = GDT.add_entry(Descriptor::kernel_code_segment());
 
-            // The stacks for the exceptions and interrupts
-            for i in 0..7 {
-                tss.interrupt_stack_table[i] =
-                    stack_end(VirtAddr::from_ptr(&STACKS[i + 1]), STACK_NUM_PAGES);
-            }
-            tss
-        });
-    }
+    use DescriptorFlags as Flags;
+    let flags = Flags::USER_SEGMENT | Flags::PRESENT | Flags::WRITABLE;
 
-    unsafe {
-        GDT = Some({
-            use DescriptorFlags as Flags;
+    let data_sel = GDT.add_entry(Descriptor::UserSegment(flags.bits()));
 
-            let mut gdt = GlobalDescriptorTable::new();
+    // `sysret` loads segments from STAR MSR assuming `user_code_segment` follows `user_data_segment`
+    // so the ordering is crucial here. Star::write() will panic otherwise later.
+    let user_data_sel = GDT.add_entry(Descriptor::user_data_segment());
+    debug_assert_eq!(USER_DATA_SEGMENT, user_data_sel.0 as u64);
 
-            // `syscall` loads segments from STAR MSR assuming a data_segment follows `kernel_code_segment`
-            // so the ordering is crucial here. Star::write() will panic otherwise later.
-            let code_selector = gdt.add_entry(Descriptor::kernel_code_segment());
-            let flags = Flags::USER_SEGMENT | Flags::PRESENT | Flags::WRITABLE;
-            let data_selector = gdt.add_entry(Descriptor::UserSegment(flags.bits()));
+    let user_code_sel = GDT.add_entry(Descriptor::user_code_segment());
+    debug_assert_eq!(USER_CODE_SEGMENT, user_code_sel.0 as u64);
 
-            // `sysret` loads segments from STAR MSR assuming `user_code_segment` follows `user_data_segment`
-            // so the ordering is crucial here. Star::write() will panic otherwise later.
-            let user_data_selector = gdt.add_entry(Descriptor::user_data_segment());
-            debug_assert_eq!(USER_DATA_SEGMENT, user_data_selector.0 as u64);
+    let tss_sel = GDT.add_entry(Descriptor::tss_segment(&TSS));
 
-            let user_code_selector = gdt.add_entry(Descriptor::user_code_segment());
-            debug_assert_eq!(USER_CODE_SEGMENT, user_code_selector.0 as u64);
+    GDT.load();
 
-            let tss_selector = gdt.add_entry(Descriptor::tss_segment(TSS.as_ref().unwrap()));
-            (
-                gdt,
-                Selectors {
-                    code_selector,
-                    data_selector,
-                    user_data_selector,
-                    user_code_selector,
-                    tss_selector,
-                },
-            )
-        });
-    }
+    // Setup the segment registers with the corresponding selectors
+    set_cs(code_sel);
+    load_ss(data_sel);
+    load_tss(tss_sel);
 
-    let gdt = unsafe { GDT.as_ref().unwrap() };
+    // Clear the other segment registers
+    load_ss(SegmentSelector(0));
+    load_ds(SegmentSelector(0));
+    load_es(SegmentSelector(0));
+    load_fs(SegmentSelector(0));
+    load_gs(SegmentSelector(0));
 
-    gdt.0.load();
+    // Set the selectors to be set when userspace uses `syscall`
+    Star::write(user_code_sel, user_data_sel, code_sel, data_sel).unwrap();
 
-    unsafe {
-        // Setup the segment registers with the corresponding selectors
-        set_cs(gdt.1.code_selector);
-        load_ss(gdt.1.data_selector);
-        load_tss(gdt.1.tss_selector);
+    // Set the pointer to the function to be called when userspace uses `syscall`
+    LStar::write(VirtAddr::new(_syscall_enter as usize as u64));
 
-        // Clear the other segment registers
-        load_ss(SegmentSelector(0));
-        load_ds(SegmentSelector(0));
-        load_es(SegmentSelector(0));
-        load_fs(SegmentSelector(0));
-        load_gs(SegmentSelector(0));
+    // Clear trap flag and interrupt enable
+    SFMask::write(RFlags::INTERRUPT_FLAG | RFlags::TRAP_FLAG);
 
-        // Set the selectors to be set when userspace uses `syscall`
-        Star::write(
-            gdt.1.user_code_selector,
-            gdt.1.user_data_selector,
-            gdt.1.code_selector,
-            gdt.1.data_selector,
-        )
-        .unwrap();
-
-        // Set the pointer to the function to be called when userspace uses `syscall`
-        LStar::write(VirtAddr::new(_syscall_enter as usize as u64));
-
-        // Clear trap flag and interrupt enable
-        SFMask::write(RFlags::INTERRUPT_FLAG | RFlags::TRAP_FLAG);
-
-        // Set the kernel gs base to the TSS to be used in `_syscall_enter`
-        KernelGsBase::write(VirtAddr::new(TSS.as_ref().unwrap() as *const _ as u64));
-    }
+    // Set the kernel gs base to the TSS to be used in `_syscall_enter`
+    KernelGsBase::write(VirtAddr::new(&TSS as *const _ as u64));
 }

@@ -27,8 +27,9 @@ use addr::ShimVirtAddr;
 use core::convert::TryFrom;
 use enarx_keep_sev_shim::BootInfo;
 use hostcall::HostCall;
-use memory::Address;
+use memory::{Address, Page};
 use x86_64::instructions::hlt;
+use x86_64::VirtAddr;
 
 /// Defines the entry point function.
 ///
@@ -52,11 +53,18 @@ macro_rules! entry_point {
 
 entry_point!(shim_main);
 
+/// FIXME: will be replaced by a dynamically allocated stack with safe guards
+pub static mut LEVEL_0_STACK: [Page; 5] = [Page::zeroed(); 5];
+
 /// The entry point for the shim
 pub fn shim_main(boot_info: *mut BootInfo) -> ! {
     HostCall::init(ShimVirtAddr::try_from(Address::from(boot_info).try_cast().unwrap()).unwrap());
-    gdt::init();
+
+    unsafe {
+        gdt::init(VirtAddr::from_ptr(&LEVEL_0_STACK));
+    }
     eprintln!("Hello World!");
+
     hostcall::shim_exit(0);
 }
 
