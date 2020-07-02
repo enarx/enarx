@@ -12,6 +12,8 @@ memory = { path = "../memory" }
 sallyport = { path = "../sallyport" }
 libc = { version = "0.2.69", features = [] }
 x86_64 = { version = "0.11.0", default-features = false, features = ["stable"] }
+spinning = { version = "0.0", default-features = false}
+lazy_static = { version = "1.4.0", default-features = false, features = ["spin_no_std"] }
 
 [build-dependencies]
 cc = "1.0.37"
