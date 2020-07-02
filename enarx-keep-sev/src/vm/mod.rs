@@ -41,9 +41,9 @@ impl VirtualMachine {
         Ok(())
     }
 
-    fn add_vcpu(&mut self, vcpu: VcpuFd, entry: PhysAddr) -> Result<(), io::Error> {
+    fn add_vcpu(&mut self, vcpu: VcpuFd, entry: PhysAddr, cr3: u64) -> Result<(), io::Error> {
         cpu::set_gen_regs(&vcpu, entry)?;
-        cpu::set_special_regs(&vcpu)?;
+        cpu::set_special_regs(&vcpu, cr3)?;
         vcpu.set_cpuid2(&self.kvm.get_supported_cpuid(KVM_MAX_CPUID_ENTRIES)?)?;
 
         self.cpus.push(vcpu);
