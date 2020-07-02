@@ -14,21 +14,29 @@
 #[cfg(test)]
 fn main() {}
 
+#[macro_use]
+extern crate lazy_static;
+
 pub mod addr;
 pub mod asm;
 pub mod gdt;
 pub mod hostcall;
 pub mod no_std;
+#[macro_use]
 pub mod print;
 pub mod syscall;
 pub mod usermode;
 
-use addr::ShimVirtAddr;
-use core::convert::TryFrom;
 use enarx_keep_sev_shim::BootInfo;
-use hostcall::HostCall;
-use memory::{Address, Page};
+use memory::Page;
+use spinning::RwLock;
 use x86_64::VirtAddr;
+
+static BOOT_INFO: RwLock<Option<BootInfo>> =
+    RwLock::<Option<BootInfo>>::const_new(spinning::RawRwLock::const_new(), None);
+
+static SHIM_HOSTCALL_VIRT_ADDR: RwLock<Option<VirtAddr>> =
+    RwLock::<Option<VirtAddr>>::const_new(spinning::RawRwLock::const_new(), None);
 
 /// Defines the entry point function.
 ///
@@ -37,15 +45,25 @@ use x86_64::VirtAddr;
 /// This macro just creates a function named `_start_main`, which the assembler
 /// stub will use as the entry point. The advantage of using this macro instead
 /// of providing an own `_start_main` function is that the macro ensures that the
-/// function and argument types are correct.
+/// function and argument types are correct and that the global variables, which
+/// are needed later on, are initialized.
 macro_rules! entry_point {
     ($path:path) => {
         #[doc(hidden)]
         #[export_name = "_start_main"]
-        pub extern "C" fn __impl_start(boot_info: *mut BootInfo) -> ! {
+        pub unsafe extern "C" fn __impl_start(boot_info: *mut BootInfo) -> ! {
             // validate the signature of the program entry point
-            let f: fn(*mut BootInfo) -> ! = $path;
-            f(boot_info)
+            let f: fn() -> ! = $path;
+
+            SHIM_HOSTCALL_VIRT_ADDR
+                .write()
+                .replace(VirtAddr::from_ptr(boot_info));
+
+            // make a local copy of boot_info, before the shared page gets overwritten
+            let boot_info = boot_info.read_volatile();
+            BOOT_INFO.write().replace(boot_info);
+
+            f()
         }
     };
 }
@@ -56,12 +74,12 @@ entry_point!(shim_main);
 pub static mut LEVEL_0_STACK: [Page; 5] = [Page::zeroed(); 5];
 
 /// The entry point for the shim
-pub fn shim_main(boot_info: *mut BootInfo) -> ! {
-    HostCall::init(ShimVirtAddr::try_from(Address::from(boot_info).try_cast().unwrap()).unwrap());
-
+pub fn shim_main() -> ! {
     unsafe {
         gdt::init(VirtAddr::from_ptr(&LEVEL_0_STACK));
     }
+
+    #[cfg(debug_assertions)]
     eprintln!("Hello World!");
 
     hostcall::shim_exit(0);
