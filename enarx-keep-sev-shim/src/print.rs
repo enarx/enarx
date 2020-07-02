@@ -113,3 +113,26 @@ macro_rules! eprintln {
     ($fmt:expr) => ($crate::eprint!(concat!($fmt, "\n")));
     ($fmt:expr, $($arg:tt)*) => ($crate::eprint!(concat!($fmt, "\n"), $($arg)*));
 }
+
+/// Prints and returns the value of a given expression for quick and dirty
+/// debugging.
+#[macro_export]
+macro_rules! dbg {
+    () => {
+        $crate::eprintln!("[{}:{}]", file!(), line!());
+    };
+    ($val:expr $(,)?) => {
+        // Use of `match` here is intentional because it affects the lifetimes
+        // of temporaries - https://stackoverflow.com/a/48732525/1063961
+        match $val {
+            tmp => {
+                $crate::eprintln!("[{}:{}] {} = {:#?}",
+                    file!(), line!(), stringify!($val), &tmp);
+                tmp
+            }
+        }
+    };
+    ($($val:expr),+ $(,)?) => {
+        ($($crate::dbg!($val)),+,)
+    };
+}
