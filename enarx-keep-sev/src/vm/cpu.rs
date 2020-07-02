@@ -19,7 +19,7 @@ pub fn set_gen_regs(vcpu: &VcpuFd, entry: PhysAddr) -> Result<(), io::Error> {
     Ok(())
 }
 
-pub fn set_special_regs(vcpu: &VcpuFd) -> Result<(), io::Error> {
+pub fn set_special_regs(vcpu: &VcpuFd, cr3: u64) -> Result<(), io::Error> {
     let mut sregs = vcpu.get_sregs()?;
 
     let cs = KvmSegment {
@@ -46,7 +46,7 @@ pub fn set_special_regs(vcpu: &VcpuFd) -> Result<(), io::Error> {
         | Cr0Flags::PAGING
         | Cr0Flags::MONITOR_COPROCESSOR)
         .bits();
-    sregs.cr3 = PML4_START.as_u64();
+    sregs.cr3 = cr3;
     sregs.cr4 = (Cr4Flags::PHYSICAL_ADDRESS_EXTENSION).bits();
 
     vcpu.set_sregs(&sregs)?;

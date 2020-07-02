@@ -20,6 +20,7 @@ use x86_64::{PhysAddr, VirtAddr};
 
 use std::io;
 use std::marker::PhantomData;
+use std::mem::MaybeUninit;
 
 // Marker structs for the typestate machine
 
@@ -124,22 +125,6 @@ impl Builder<New> {
             fd.set_user_memory_region(region)?;
         }
 
-        // Set up the page tables
-        let mut page_tables = PageTables::default();
-        let pdpte = PDPTE_START;
-        page_tables.pml4t[0].set_addr(pdpte, PageTableFlags::WRITABLE | PageTableFlags::PRESENT);
-
-        page_tables.pml3t_ident[0].set_flags(
-            PageTableFlags::HUGE_PAGE | PageTableFlags::WRITABLE | PageTableFlags::PRESENT,
-        );
-
-        // Install the page tables into the guest address space
-        unsafe {
-            VirtAddr::new(region.userspace_addr + PML4_START.as_u64())
-                .as_mut_ptr::<PageTables>()
-                .write(page_tables);
-        }
-
         self.data.address_space = Some(Region::new(region, unmap));
 
         Ok(Builder {
@@ -158,12 +143,12 @@ impl Builder<AddressSpace> {
         code_region: Line<usize>,
     ) -> Result<Builder<BootBlock>, io::Error> {
         let memsz = self.data.address_space.as_ref().unwrap().as_virt().count;
-        let prefix = Line {
+        let vm_setup = Line {
             start: 0,
-            end: (PML4_START.as_u64() as usize) + std::mem::size_of::<PageTables>(),
+            end: std::mem::size_of::<VMSetup>(),
         };
         let boot_info =
-            BootInfo::calculate(memsz as _, prefix, shim_region.into(), code_region.into())
+            BootInfo::calculate(memsz as _, vm_setup, shim_region.into(), code_region.into())
                 .map_err(|_| io::Error::from_raw_os_error(libc::ENOMEM))?;
 
         self.data.boot_info = Some(boot_info);
@@ -249,11 +234,29 @@ impl Builder<Code> {
         let addr_space = self.data.address_space.as_ref().unwrap().as_virt();
         let boot_info = self.data.boot_info.unwrap();
 
-        let syscall_page = Page::copy(boot_info);
-        let destination = VirtAddr::new(addr_space.start.as_u64() + BOOT_INFO_START.as_u64());
-        unsafe {
-            destination.as_mut_ptr::<Page>().write(syscall_page);
-        }
+        // To finish guest setup, certain values must be written into the guest
+        // address space via host-side pointers since the memory we are writing
+        // to is backed by the host address space.
+        let host_setup = unsafe {
+            let dst = addr_space.start;
+            let vm_setup = dst.as_mut_ptr::<MaybeUninit<VMSetup>>();
+            // zero the struct
+            vm_setup.write(MaybeUninit::<VMSetup>::zeroed());
+            &mut *dst.as_mut_ptr::<VMSetup>()
+        };
+        host_setup.shared_page = Page::copy(boot_info);
+
+        // The guest's setup region in memory is located at guest physical address zero.
+        // This pointer simplifies things for setting up the guest's CPU and shared page states
+        // as any addresses we reference through this pointer will be correct for the guest.
+        let guest_setup = unsafe { &*(std::ptr::null() as *const VMSetup) };
+
+        // Set up the page tables
+        let pdpte = PhysAddr::new(&guest_setup.pml3t_ident as *const _ as u64);
+        host_setup.pml4t[0].set_addr(pdpte, PageTableFlags::WRITABLE | PageTableFlags::PRESENT);
+        host_setup.pml3t_ident[0].set_flags(
+            PageTableFlags::HUGE_PAGE | PageTableFlags::WRITABLE | PageTableFlags::PRESENT,
+        );
 
         let mut vm = VirtualMachine {
             kvm: self.data.kvm.unwrap(),
@@ -269,10 +272,11 @@ impl Builder<Code> {
         // we'll set those for the startup vCPU.
         let mut regs = vcpu.get_regs()?;
         regs.rsi = boot_info.shim.start as _;
-        regs.rdi = BOOT_INFO_START.as_u64();
+        regs.rdi = &guest_setup.shared_page as *const _ as _;
         vcpu.set_regs(&regs)?;
 
-        vm.add_vcpu(vcpu, self.data.shim_entry.unwrap())?;
+        let cr3 = &guest_setup.pml4t as *const _ as _;
+        vm.add_vcpu(vcpu, self.data.shim_entry.unwrap(), cr3)?;
 
         Ok(vm)
     }

@@ -1,27 +1,22 @@
 // SPDX-License-Identifier: Apache-2.0
 
 pub use kvm_bindings::kvm_segment as KvmSegment;
+use memory::Page;
 use x86_64::structures::paging::page_table::PageTable;
-use x86_64::PhysAddr;
-
-/// The *guest* physical address of the root page table structure.
-pub const PML4_START: PhysAddr = PhysAddr::new_truncate(0x9000);
-
-/// The first page table entry.
-pub const PDPTE_START: PhysAddr = PhysAddr::new_truncate(0xA000);
-
-/// The *guest* physical address of the shared syscall page.
-pub const BOOT_INFO_START: PhysAddr = PhysAddr::new_truncate(0x1000);
 
 #[repr(C)]
-pub struct PageTables {
+pub struct VMSetup {
+    pub zero_page: Page,
+    pub shared_page: Page,
     pub pml4t: PageTable,
     pub pml3t_ident: PageTable,
 }
 
-impl Default for PageTables {
+impl Default for VMSetup {
     fn default() -> Self {
-        PageTables {
+        VMSetup {
+            zero_page: Page::default(),
+            shared_page: Page::default(),
             pml4t: PageTable::new(),
             pml3t_ident: PageTable::new(),
         }
