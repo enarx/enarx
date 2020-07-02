@@ -16,6 +16,7 @@ libc = "0.2.71"
 loader = { path = "../loader" }
 memory = { path = "../memory" }
 mmap = { path = "../mmap" }
+sallyport = { path = "../sallyport" }
 structopt = "0.3"
 units = { path = "../units" }
 x86_64 = { version = "0.11.0", default-features = false, features = ["stable"] }

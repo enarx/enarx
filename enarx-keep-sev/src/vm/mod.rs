@@ -3,13 +3,15 @@
 pub mod builder;
 mod cpu;
 mod mem;
+mod syscall;
 
 pub use builder::Builder;
 use mem::Region;
 
+use enarx_keep_sev_shim::SYSCALL_TRIGGER_PORT;
 use kvm_bindings::KVM_MAX_CPUID_ENTRIES;
 use kvm_ioctls::{Kvm, VcpuExit, VcpuFd, VmFd};
-use x86_64::PhysAddr;
+use x86_64::{PhysAddr, VirtAddr};
 
 use std::io;
 
@@ -18,6 +20,7 @@ pub struct VirtualMachine {
     fd: VmFd,
     address_space: Region,
     cpus: Vec<VcpuFd>,
+    sallyport: VirtAddr,
 }
 
 impl VirtualMachine {
@@ -26,9 +29,19 @@ impl VirtualMachine {
 
         loop {
             match cpu0.run()? {
-                VcpuExit::IoOut(port, data) => {
-                    println!("IoOut: received {} bytes from port {}", data.len(), port);
-                }
+                VcpuExit::IoOut(port, _) => match port {
+                    SYSCALL_TRIGGER_PORT => {
+                        let req = self.sallyport.as_mut_ptr::<sallyport::Request>();
+                        let fixup_offset = self.address_space.as_virt().start.as_u64();
+                        unsafe {
+                            let reply = syscall::syscall(*req, fixup_offset);
+                            self.sallyport
+                                .as_mut_ptr::<sallyport::Reply>()
+                                .write_volatile(reply);
+                        };
+                    }
+                    _ => return Err(io::ErrorKind::InvalidInput.into()),
+                },
                 exit_reason => {
                     println!("{:?}", exit_reason);
                     println!("{:?}", cpu0.get_regs());

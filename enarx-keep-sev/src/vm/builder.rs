@@ -263,6 +263,7 @@ impl Builder<Code> {
             fd: self.data.fd.unwrap(),
             address_space: self.data.address_space.unwrap(),
             cpus: vec![],
+            sallyport: VirtAddr::new(&host_setup.shared_page as *const _ as _),
         };
 
         // Create startup CPU
