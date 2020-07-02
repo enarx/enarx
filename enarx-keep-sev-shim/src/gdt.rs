@@ -2,6 +2,7 @@
 
 //! Global Descriptor Table init
 
+#[cfg(debug_assertions)]
 use crate::eprintln;
 use crate::syscall::_syscall_enter;
 use memory::Page;

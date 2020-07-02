@@ -7,14 +7,10 @@ use x86_64::instructions::port::Port;
 
 use crate::addr::{ShimPhysAddr, ShimVirtAddr};
 use crate::asm::_enarx_asm_triple_fault;
+use crate::mutex_singleton;
 use core::convert::TryFrom;
-use core::sync::atomic::{AtomicU64, Ordering};
 use enarx_keep_sev_shim::SYSCALL_TRIGGER_PORT;
 use memory::{Address, Page, Register};
-use x86_64::instructions::hlt;
-
-/// The address of the unencrypted page used to communicate with the host
-static mut HOSTCALL_VIRT_ADDR: AtomicU64 = AtomicU64::new(0);
 
 /// Host file descriptor
 #[derive(Copy, Clone)]
@@ -45,71 +41,33 @@ impl HostFd {
     }
 }
 
-/// Communication with the Host
-pub struct HostCall<'a>(&'a mut Block);
+mutex_singleton! {
+    static mut HOST_CALL: HostCallMutex<HostCall<'static>>;
+}
 
-impl<'a> HostCall<'a> {
+impl HostCallMutex {
     /// Initialize the HostCall machinery with the address of the shared page
     ///
     /// # Panics
     ///
     /// Panics, if it is initialized more than once.
-    #[inline(always)]
-    pub fn init(address: ShimVirtAddr<*mut Page>) {
-        let prev = unsafe {
-            HOSTCALL_VIRT_ADDR.swap(
-                Address::<u64, *mut Page>::from(address).raw(),
-                Ordering::Release,
-            )
-        };
-        if prev != 0 {
-            panic!("HostCall already initialized");
-        }
-    }
-
-    /// Acquire a HostCall instance to communicate with the host.
-    ///
-    /// Returns None, if it is already in use, which might happen in an interrupt;
-    /// or if there are multiple CPUs.
     ///
     /// # Safety
     ///
-    /// exclusive mutable access is ensured via an Atomic variable
+    /// Unsafe, because the caller has to ensure the page is used only once
+    /// and defined to be used as a communication with the host.
     #[inline(always)]
-    pub fn try_lock() -> Option<Self> {
-        // Try to take out the virtual address out of the global variable
-        let address = unsafe { HOSTCALL_VIRT_ADDR.swap(0, Ordering::Acquire) };
-        if address == 0 {
-            // Already in use
-            None
-        } else {
-            Some(unsafe { Self(&mut *(address as *mut Block)) })
-        }
+    pub unsafe fn init(address: ShimVirtAddr<*mut Page>) {
+        HostCallMutex::init_global(HostCall(
+            &mut *(Address::<u64, *mut Page>::from(address).raw() as *mut Block),
+        ));
     }
+}
 
-    /// Acquire a HostCall instance to communicate with the host.
-    ///
-    /// # Caution
-    ///
-    /// Do not call this in interrupts, as it can cause deadlocks
-    ///
-    /// # Safety
-    ///
-    /// exclusive mutable access is ensured via an Atomic variable
-    #[inline(always)]
-    pub fn lock() -> Self {
-        loop {
-            // Try to take out the virtual address out of the global variable
-            let address = unsafe { HOSTCALL_VIRT_ADDR.swap(0, Ordering::Acquire) };
-            if address == 0 {
-                // Already in use
-                core::sync::atomic::spin_loop_hint();
-            } else {
-                return unsafe { Self(&mut *(address as *mut Block)) };
-            }
-        }
-    }
+/// Communication with the Host
+pub struct HostCall<'a>(&'a mut Block);
 
+impl<'a> HostCall<'a> {
     /// Causes a `#VMEXIT` for the host to process the data in the shared memory
     ///
     /// Returns the contents of the shared memory reply status, the host might have
@@ -165,14 +123,6 @@ impl<'a> HostCall<'a> {
     }
 }
 
-impl<'a> Drop for HostCall<'a> {
-    fn drop(&mut self) {
-        // Put back in the virtual address in the global variable
-        let prev = unsafe { HOSTCALL_VIRT_ADDR.swap(self.0 as *mut _ as _, Ordering::Release) };
-        assert_eq!(prev, 0);
-    }
-}
-
 /// Write all `bytes` to a host file descriptor `fd`
 #[inline(always)]
 pub fn shim_write_all(fd: HostFd, bytes: &[u8]) -> Result<(), libc::c_int> {
@@ -180,7 +130,7 @@ pub fn shim_write_all(fd: HostFd, bytes: &[u8]) -> Result<(), libc::c_int> {
     let bytes_len = bytes.len();
     let mut to_write = bytes_len;
 
-    let mut host_call = HostCall::try_lock().ok_or(libc::EIO)?;
+    let mut host_call = HostCallMutex::try_lock().ok_or(libc::EIO)?;
 
     loop {
         let written = unsafe {
@@ -204,14 +154,10 @@ pub fn shim_write_all(fd: HostFd, bytes: &[u8]) -> Result<(), libc::c_int> {
 /// Reverts to a triple fault, which causes a `#VMEXIT` and a KVM shutdown,
 /// if it cannot talk to the host.
 pub fn shim_exit(status: u32) -> ! {
-    if let Some(mut host_call) = HostCall::try_lock() {
+    if let Some(mut host_call) = HostCallMutex::try_lock() {
         host_call.exit_group(status)
     }
 
     // provoke triple fault, causing a VM shutdown
     unsafe { _enarx_asm_triple_fault() };
-    // in case the triple fault did not cause a shutdown
-    loop {
-        hlt()
-    }
 }

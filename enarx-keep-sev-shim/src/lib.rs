@@ -21,7 +21,7 @@
 //! for further communication with the host.
 //!
 //! The `setup` area must not be touched, unless the shim sets up the page tables,
-//! the GDT and the IDT. After that the prefix area is used as free memory except for the pages
+//! the GDT and the IDT. After that the setup area is used as free memory except for the pages
 //! to communicate with the host.
 //!
 //! To proxy a syscall to the host, the shim triggers a `#VMEXIT` via I/O on the
@@ -85,6 +85,8 @@ pub struct BootInfo {
     pub code: Line<usize>,
     /// Memory where the `shim` is / has to be loaded
     pub shim: Line<usize>,
+    /// Memory size
+    pub mem_size: usize,
 }
 
 /// Error returned, if the virtual machine memory is to small for the shim to operate.
@@ -95,7 +97,7 @@ pub struct NoMemory(());
 impl BootInfo {
     /// Calculates the memory layout of various components
     ///
-    /// Given the size of the available memory `mem_size`, the addresses of `prefix`
+    /// Given the size of the available memory `mem_size`, the addresses of `setup`
     /// and the size of `shim` and `code`, this function calculates
     /// the layout for the `shim` and `code`.
     ///
@@ -105,11 +107,11 @@ impl BootInfo {
     #[inline]
     pub fn calculate(
         mem_size: usize,
-        prefix: Line<usize>,
+        setup: Line<usize>,
         shim: Span<usize>,
         code: Span<usize>,
     ) -> Result<Self, NoMemory> {
-        let shim: Line<usize> = above(prefix, shim.count).ok_or(NoMemory(()))?.into();
+        let shim: Line<usize> = above(setup, shim.count).ok_or(NoMemory(()))?.into();
         let code: Line<usize> = above(shim, code.count).ok_or(NoMemory(()))?.into();
 
         // FIXME: add more space for needed stack + heap + other stuff
@@ -119,9 +121,10 @@ impl BootInfo {
         }
 
         Ok(Self {
-            setup: prefix,
+            setup,
             code,
             shim,
+            mem_size,
         })
     }
 }

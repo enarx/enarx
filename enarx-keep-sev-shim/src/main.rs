@@ -16,20 +16,27 @@ fn main() {}
 
 pub mod addr;
 pub mod asm;
+pub mod frame_allocator;
 pub mod gdt;
 pub mod hostcall;
 pub mod no_std;
+pub mod paging;
+pub mod shim_stack;
+#[macro_use]
+pub mod singleton;
+#[macro_use]
 pub mod print;
 pub mod syscall;
 pub mod usermode;
 
-use addr::ShimVirtAddr;
+use crate::addr::ShimVirtAddr;
+use crate::frame_allocator::ShimFrameAllocatorRWLock;
+use crate::hostcall::HostCallMutex;
+use crate::paging::ShimPageTableRWLock;
 use core::convert::TryFrom;
 use enarx_keep_sev_shim::BootInfo;
-use hostcall::HostCall;
-use memory::{Address, Page};
-use x86_64::instructions::hlt;
-use x86_64::VirtAddr;
+use memory::Address;
+use shim_stack::init_shim_stack;
 
 /// Defines the entry point function.
 ///
@@ -43,9 +50,9 @@ macro_rules! entry_point {
     ($path:path) => {
         #[doc(hidden)]
         #[export_name = "_start_main"]
-        pub extern "C" fn __impl_start(boot_info: *mut BootInfo) -> ! {
+        pub unsafe extern "C" fn __impl_start(boot_info: *mut BootInfo) -> ! {
             // validate the signature of the program entry point
-            let f: fn(*mut BootInfo) -> ! = $path;
+            let f: unsafe fn(*mut BootInfo) -> ! = $path;
             f(boot_info)
         }
     };
@@ -53,17 +60,32 @@ macro_rules! entry_point {
 
 entry_point!(shim_main);
 
-/// FIXME: will be replaced by a dynamically allocated stack with safe guards
-pub static mut LEVEL_0_STACK: [Page; 5] = [Page::zeroed(); 5];
-
 /// The entry point for the shim
-pub fn shim_main(boot_info: *mut BootInfo) -> ! {
-    HostCall::init(ShimVirtAddr::try_from(Address::from(boot_info).try_cast().unwrap()).unwrap());
+///
+/// # Safety
+///
+/// Unsafe, because the caller has to ensure the `BootInfo` pointer is valid
+pub unsafe fn shim_main(boot_info: *mut BootInfo) -> ! {
+    let boot_info_addr = Address::from(boot_info).try_cast().unwrap();
 
-    unsafe {
-        gdt::init(VirtAddr::from_ptr(&LEVEL_0_STACK));
-    }
+    // make a local copy of boot_info, before the shared page gets overwritten
+    let boot_info = boot_info.read_volatile();
+
+    let shared_page = ShimVirtAddr::try_from(boot_info_addr).unwrap();
+
+    // Warning: No println!()/eprintln!() before this point!
+    HostCallMutex::init(shared_page);
+
+    dbg!(boot_info);
+
     eprintln!("Hello World!");
+
+    ShimFrameAllocatorRWLock::init(&boot_info);
+    ShimPageTableRWLock::init();
+
+    let stack_ptr = init_shim_stack();
+
+    gdt::init(stack_ptr);
 
     hostcall::shim_exit(0);
 }
@@ -84,7 +106,10 @@ pub fn panic(info: &core::panic::PanicInfo) -> ! {
     static mut ALREADY_IN_PANIC: AtomicBool = AtomicBool::new(false);
 
     unsafe {
-        if !ALREADY_IN_PANIC.swap(true, Ordering::AcqRel) {
+        if ALREADY_IN_PANIC
+            .compare_exchange(false, true, Ordering::Acquire, Ordering::Relaxed)
+            .is_ok()
+        {
             eprintln!("{}", info);
             // FIXME: might want to have a custom panic hostcall
             hostcall::shim_exit(255);
@@ -93,8 +118,4 @@ pub fn panic(info: &core::panic::PanicInfo) -> ! {
 
     // provoke triple fault, causing a VM shutdown
     unsafe { _enarx_asm_triple_fault() };
-    // in case the triple fault did not cause a shutdown
-    loop {
-        hlt()
-    }
 }

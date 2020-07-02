@@ -12,6 +12,7 @@ memory = { path = "../memory" }
 sallyport = { path = "../sallyport" }
 libc = { version = "0.2.69", features = [] }
 x86_64 = { version = "0.11.0", default-features = false, features = ["stable"] }
+spinning = { version = "0.0", default-features = false}
 
 [build-dependencies]
 cc = "1.0.37"
