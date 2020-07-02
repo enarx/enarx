@@ -19,14 +19,18 @@ extern crate lazy_static;
 
 pub mod addr;
 pub mod asm;
+pub mod frame_allocator;
 pub mod gdt;
 pub mod hostcall;
 pub mod no_std;
+pub mod paging;
+pub mod shim_stack;
 #[macro_use]
 pub mod print;
 pub mod syscall;
 pub mod usermode;
 
+use core::ops::Deref;
 use enarx_keep_sev_shim::BootInfo;
 use spinning::RwLock;
 use x86_64::VirtAddr;
@@ -71,12 +75,14 @@ entry_point!(shim_main);
 
 /// The entry point for the shim
 pub fn shim_main() -> ! {
-    unsafe {
-        gdt::init();
-    }
+    dbg!(BOOT_INFO.read().deref());
 
     #[cfg(debug_assertions)]
     eprintln!("Hello World!");
+
+    unsafe {
+        gdt::init();
+    }
 
     hostcall::shim_exit(0);
 }
@@ -97,7 +103,10 @@ pub fn panic(info: &core::panic::PanicInfo) -> ! {
     static mut ALREADY_IN_PANIC: AtomicBool = AtomicBool::new(false);
 
     unsafe {
-        if !ALREADY_IN_PANIC.swap(true, Ordering::AcqRel) {
+        if ALREADY_IN_PANIC
+            .compare_exchange(false, true, Ordering::Acquire, Ordering::Relaxed)
+            .is_ok()
+        {
             eprintln!("{}", info);
             // FIXME: might want to have a custom panic hostcall
             hostcall::shim_exit(255);
