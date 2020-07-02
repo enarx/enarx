@@ -22,10 +22,13 @@ mod param {
     pub const R9: usize = 5;
 }
 
+use param::RSI;
+
 /// Get the fixup table for a given syscall number, if any.
 #[inline]
 fn syscall_fixup_table(syscall: libc::c_long) -> Option<SyscallFixup> {
     match syscall {
+        libc::SYS_write => Some(&[RSI]),
         _ => None,
     }
 }
