@@ -2,6 +2,7 @@
 
 //! Global Descriptor Table init
 
+use crate::shim_stack::init_shim_stack;
 use crate::syscall::_syscall_enter;
 use core::ops::Deref;
 use memory::Page;
@@ -18,9 +19,6 @@ use x86_64::{PrivilegeLevel, VirtAddr};
 const STACK_NUM_PAGES: usize = 5;
 static mut STACKS: [[Page; STACK_NUM_PAGES]; 7] = [[Page::zeroed(); STACK_NUM_PAGES]; 7];
 
-/// FIXME: will be replaced by a dynamically allocated stack with safe guards
-pub static mut LEVEL_0_STACK: [Page; 5] = [Page::zeroed(); 5];
-
 lazy_static! {
     /// The global TSS
     pub static ref TSS: TaskStateSegment = {
@@ -32,9 +30,7 @@ lazy_static! {
             stack_start + num_pages * Page::size()
         }
 
-        unsafe {
-            tss.privilege_stack_table[0] = VirtAddr::from_ptr(&LEVEL_0_STACK);
-        }
+        tss.privilege_stack_table[0] = init_shim_stack();
 
         // Assign the stacks for the exceptions and interrupts
         unsafe {

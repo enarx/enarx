@@ -7,7 +7,7 @@
 /// physical address + `SHIM_VIRT_OFFSET` = shim virtual address
 ///
 /// FIXME: change to dynamic offset with ASLR https://github.com/enarx/enarx/issues/624
-const SHIM_VIRT_OFFSET: u64 = 0xFFFF_FF80_0000_0000;
+pub const SHIM_VIRT_OFFSET: u64 = 0xFFFF_FF80_0000_0000;
 
 use core::convert::TryFrom;
 use memory::Address;
@@ -43,7 +43,22 @@ impl<U> TryFrom<Address<u64, U>> for ShimVirtAddr<U> {
     }
 }
 
+impl<U> From<ShimVirtAddr<U>> for *const U {
+    #[inline(always)]
+    fn from(shim_virt_addr: ShimVirtAddr<U>) -> Self {
+        shim_virt_addr.0.raw() as _
+    }
+}
+
+impl<U> From<ShimVirtAddr<U>> for *mut U {
+    #[inline(always)]
+    fn from(shim_virt_addr: ShimVirtAddr<U>) -> Self {
+        shim_virt_addr.0.raw() as _
+    }
+}
+
 impl<U> From<ShimVirtAddr<U>> for ShimPhysAddr<U> {
+    #[inline(always)]
     fn from(shim_virt_addr: ShimVirtAddr<U>) -> Self {
         // Safety: checked, that it is in the shim virtual address space earlier
         #[allow(clippy::integer_arithmetic)]
@@ -52,6 +67,7 @@ impl<U> From<ShimVirtAddr<U>> for ShimPhysAddr<U> {
 }
 
 impl<U> From<ShimVirtAddr<U>> for Address<u64, U> {
+    #[inline(always)]
     fn from(shim_virt_addr: ShimVirtAddr<U>) -> Self {
         shim_virt_addr.0
     }
