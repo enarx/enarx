@@ -5,7 +5,7 @@ msc {
   Tenant,Keepmanager,Contractmanager,CPUfirmware,Keeploader,Keep,Apploader;
 
   Tenant note Keep [label="Contracts query", textbgcolour="red", textcolour="white"];
-  Tenant -> Keepmanager [label="GET /contract"];
+  Tenant -> Keepmanager [label="get /contract"];
   Keepmanager -> Contractmanager [label="retrieve contracts"];
   Contractmanager -> Keepmanager [label="send contracts"];
   Keepmanager -> Tenant [label="200, <contracts>"];
@@ -13,49 +13,54 @@ msc {
   ...;
 
   Tenant note Keep [label="Keep creation", textbgcolour="red", textcolour="white"];
-  Tenant -> Keepmanager [label="POST /contract/<cuuid>, [<secret>]"];
-  Keepmanager note Contractmanager [label="HTTP here?", textbgcolour="silver"];
+  Keepmanager note Keep [label="DH prime = p, DH random integer = N", textbgcolour="silver"];
+  Tenant -> Keepmanager [label="send /contract/<cuuid>, [<secret>]"];
+
   Keepmanager -> Contractmanager [label="cuuid"];
   Contractmanager -> Keepmanager [label="auth/pay methods"];
-  Keepmanager -> Tenant [label="401/402, <auth/pay methods>"];
+  Keepmanager -> Tenant [label="send <auth/pay methods>"];
 
-  Tenant -> Keepmanager [label="POST /contract/<cuuid>, [<secret>], <auth/pay>"];
+  Tenant -> Keepmanager [label="send /contract/<cuuid>, [<secret>], <auth/pay>, <T-pub>, <p>, <N>"];
   Keepmanager -> Contractmanager [label="cuuid, auth/pay"];
   Contractmanager -> Keepmanager [label="OK"];
-  Keepmanager -> Tenant [label="201, Location: /keep/<kuuid>, <cookie>"];
+
   Keepmanager -> CPUfirmware [label="new keep"];
-  CPUfirmware -> Keeploader [label="create, <cookie>"];
   CPUfirmware -> Keepmanager [label="ready <kuuid>, <Keep-loader-pid>"];
-  Keepmanager note Contractmanager [label="Does the C/M need the kuuid?", textbgcolour="silver"];
+  Keepmanager -> CPUfirmware [label="attest? <kuuid>"];
+  CPUfirmware -> Keepmanager [label="attest OK"];
+  Keepmanager -> Keeploader [label="initialise <cookie>, <T-pub>, <p>, <N>"];
+  Keeploader -> Keep [label="initialise <cookie>, <T-pub>, <p>, <N>"];
+  Keep abox Keep [label="generate key -> <K-key-pair>, hash K-pub -> <K-pub-hash>, derive session-key <s-key>"];
+  Keep -> Keeploader [label="<K-pub-hash>, <K-pub>"];
+  Keeploader -> CPUfirmware [label="<K-pub-hash>"];
+
+  CPUfirmware note Keepmanager [label="keep attestation data with key for identity binding"];
+  CPUfirmware -> Keepmanager [label="attest <kuuid> <attestation-data + K-pub-hash>, <kuuid>"];
+
   Keepmanager -> Contractmanager [label="reserve <kuuid> <contract>"];
   Contractmanager -> Keepmanager [label="OK"];
-  Keepmanager note Keeploader [label="HTTP here?", textbgcolour="silver"];
-  Keepmanager -> Keeploader [label="load file, <cookie>"];
-  Keeploader -> Keepmanager [label="OK"];
-  Keepmanager -> CPUfirmware [label="attest? <kuuid>"];
-  CPUfirmware -> Keepmanager [label="attest <kuuid> <attestation-data>"];
-  CPUfirmware abox CPUfirmware [label="perform attestation"];
-  CPUfirmware -> Keep [label="start"];
-  Keep abox Keep [label="generate key -> <key>"];
-  Keep abox Keep [label="bind to URL -> <url>"];
-  Keep -> CPUfirmware [label="<key> <url>"];
-  CPUfirmware note Keepmanager [label="keep attestation data with key for identity binding"];
-  CPUfirmware -> Keepmanager [label="<attestation-data + key> <url> <kuuid>"];
+  Keepmanager -> Tenant [label="attested, Location: /keep/<kuuid>, <cookie>, <K-pub>, <K-pub-hash>"];
+  Tenant abox Tenant [label="derive session-key <s-key>"];
+  Tenant abox Keepmanager [label="Check Keep is truly ours", textbgcolour="silver"];
+  Tenant abox Keep [label="NOTE: we could perform a full round-trip with session key, but this is harder to control from the host's point of view"];
+  Tenant abox Tenant [label="generate <challenge> from <nonce> with <session-key>"];
+  Tenant -> Keepmanager [label="challenge <challenge>"];
+  Keepmanager -> Keeploader [label="challenge <challenge>"];
+  Keeploader -> Keep [label="challenge <challenge>"];
+  Keep abox Keep [label="generate <nonce> from <challenge> + <session-key>"];
+  Keep abox Keep [label="generate <response> from <nonce+1> + <session-key>"];
+  Keep -> Keeploader [label="response <response>"];
+  Keeploader -> Keepmanager [label="response <response>"];
+  Keepmanager -> Tenant [label="response <response>"];
+  Tenant abox Tenant [label="generate <nonce+1> from <response> + <session-key>"];
+  Tenant abox Tenant [label="assert <nonce+1> == <nonce>+1"];
+  Tenant -> Keepmanager [label="attestation OK <contract> <kuuid>"];
 
-...;
-
-  Tenant note Keep [label="Keep deletion", textbgcolour="red", textcolour="white"];
-  
-  Tenant -> Keepmanager [label="DELETE /keep/<kuuid>, <cookie|secret>"];
-  Keepmanager -> Tenant [label="200"];
-  Keepmanager -> Contractmanager [label="delete <kuuid> <contract>"];
-
-  ...;
+ ...;
 
   Tenant note Keep [label="Attestation reset", textbgcolour="red", textcolour="white"];
-
   Tenant -> Keepmanager [label="DELETE /keep/<kuuid>/attest, <cookie|secret>"];
-  Keepmanager -> Tenant [label="200"];
+  Keepmanager -> Tenant [label="OK"];
 
   ...;
 
@@ -64,20 +69,56 @@ msc {
   Keepmanager -> Tenant [label="<attestation-data + key>, <url>, <cookie|secret>"];
   Keepmanager -> Contractmanager [label="start <kuuid>, <contract>"];
 
-  ...;
+...;
+
+  Tenant note Keep [label="Keep ready", textbgcolour="red", textcolour="white"];
+  Tenant -> Keeploader [label="ready-state <kuuid>, <contract>"];
+  Keeploader -> Keep [label="bind"];
+  Tenant abox Keep [label="Ensure that the binding is to our Keep", textbgcolour="silver"];
+  Keep abox Keep [label="bind <uri>, generate <uri-signature> from <uri> + <K-priv>"];
+  Keep -> Keeploader [label="bound <uri>, <uri-signature>"];
+  Keeploader -> Keepmanager [label="bound <uri>, <uri-signature>"];
+  Keepmanager -> Tenant [label="start, Location: /keep/<kuuid>, <uri>, <uri-signature>"];
+  Tenant abox Tenant [label="assert <uri-signature> valid with <K-pub>"];
+  Tenant -> Keepmanager [label="start <kuuid>, <contract>"];
+  Keepmanager -> Contractmanager [label="start <contract> <kuuid>"];
+  Contractmanager -> Keepmanager [label="OK <contract> <kuuid>"];
+  Keepmanager -> Keeploader [label="Keep ready"];
+  Keeploader -> Keep [label="Keep ready"];
+  Keep -> Apploader [label="Ready on <uri>"];
+  Apploader abox Apploader [label="Ready state"];
+ ...;
 
   Tenant note Keep [label="Workload loading", textbgcolour="red", textcolour="white"];
-  Tenant abox Keep [label="DH exchange"];
-  Tenant abox Keep [label="session key established"];
-  Tenant note Apploader [label="HTTPS here, or HTTP?  If HTTPS, DH under that?", textbgcolour="silver"];
-  Tenant -> Apploader[label="POST <url>/workload-accept <workload>"];
-  Apploader -> Tenant[label="200"];
+  Tenant abox Tenant [label="generate <encrypted-workload> from <workload image> + <session-key>"];
+  Tenant -> Apploader[label="send <encrypted-workload>"];
+  Apploader abox Apploader[label="generate <workload> from <encrypted-workload> + <session-key>"];
+  Apploader -> Tenant[label="OK"];
+  Apploader abox Apploader[label="Run workload"];
 
+ 
+...;
+
+  Tenant note Keep [label="Contract renewal", textbgcolour="red", textcolour="white"];
+  
+  Tenant -> Keepmanager [label="Renew /keep/<kuuid>, <cookie|secret>, <auth>"];
+  Keepmanager -> Contractmanager [label="renew /keep/<kuuid>, <cookie|secret>, <auth>"];
+  Keepmanager -> Contractmanager [label="OK <kuuid> <contract>"];
+
+...;
+
+  Tenant note Keep [label="Keep deletion", textbgcolour="red", textcolour="white"];
+  
+  Tenant -> Keepmanager [label="delete /keep/<kuuid>, <cookie|secret>"];
+  Keepmanager -> Tenant [label="OK"];
+  Keepmanager -> Contractmanager [label="delete <kuuid> <contract>"];
+
+ 
   ...;
 
   Tenant note Keep [label="Workload deletion", textbgcolour="red", textcolour="white"];
-  Tenant abox Keep [label="Same points about DH/HTTPS as for Workload loading above"];
-  Tenant -> Apploader[label="POST <url>/workload-delete"];
-  Apploader -> Tenant[label="200"];
+  Tenant abox Keep [label="NOTE: only available with multi-threaded Keeps"];
+  Tenant -> Apploader[label="delete <uri>/workload-delete"];
+  Apploader -> Tenant[label="ok"];
 
 }
