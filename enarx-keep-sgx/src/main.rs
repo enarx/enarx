@@ -81,7 +81,7 @@ fn load() -> enclave::Enclave {
         },
         // Heap
         Segment {
-            si: SecInfo::reg(Flags::R | Flags::W),
+            si: SecInfo::reg(Flags::R | Flags::W | Flags::X),
             dst: layout.heap.start,
             src: vec![Page::default(); Span::from(layout.heap).count / Page::size()],
         },
