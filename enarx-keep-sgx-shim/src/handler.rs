@@ -569,6 +569,44 @@ impl<'a> Handler<'a> {
 
         0
     }
+
+    /// Do a getrandom() syscall
+    pub fn getrandom(&mut self) -> u64 {
+        self.trace("getrandom", 3);
+
+        let flags = self.aex.gpr.rdx.raw();
+        let flags = flags & !((libc::GRND_NONBLOCK | libc::GRND_RANDOM) as u64);
+
+        if flags != 0 {
+            return -libc::EINVAL as u64;
+        }
+
+        let trusted = unsafe {
+            from_raw_parts_mut(
+                self.aex.gpr.rdi.raw() as *mut u8,
+                self.aex.gpr.rsi.raw() as usize,
+            )
+        };
+
+        for (i, chunk) in trusted.chunks_mut(8).enumerate() {
+            let mut el = 0u64;
+            loop {
+                if unsafe { core::arch::x86_64::_rdrand64_step(&mut el) } == 1 {
+                    chunk.copy_from_slice(&el.to_ne_bytes()[..chunk.len()]);
+                    break;
+                } else {
+                    if (flags & libc::GRND_NONBLOCK as u64) != 0 {
+                        return -libc::EAGAIN as u64;
+                    }
+                    if (flags & libc::GRND_RANDOM as u64) != 0 {
+                        return (i * 8) as u64;
+                    }
+                }
+            }
+        }
+
+        trusted.len() as u64
+    }
 }
 
 #[cfg(test)]
