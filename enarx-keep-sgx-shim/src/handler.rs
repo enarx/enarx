@@ -242,7 +242,10 @@ impl<'a> Handler<'a> {
     pub fn getuid(&mut self) -> u64 {
         self.trace("getuid", 0);
 
-        unsafe { self.syscall(libc::SYS_getuid as u64, 0, 0, 0, 0, 0, 0) }
+        match unsafe { self.proxy(Request::new(libc::SYS_getuid as usize, &[])) } {
+            Ok(res) => res[0].raw() as u64,
+            Err(code) => code as u64,
+        }
     }
 
     /// Do a read() syscall
