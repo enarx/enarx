@@ -351,79 +351,67 @@ impl<'a> Handler<'a> {
     pub fn readv(&mut self) -> u64 {
         self.trace("readv", 3);
 
-        let fd = self.aex.gpr.rdi.raw();
-        let trusted = unsafe {
-            from_raw_parts_mut(
-                self.aex.gpr.rsi.raw() as *mut libc::iovec,
-                self.aex.gpr.rdx.raw() as usize,
-            )
+        let tiovec: &mut [libc::iovec] =
+            unsafe { self.aex.gpr.rsi.as_slice_mut(self.aex.gpr.rdx.into()) };
+
+        // Allocate the correct number of iovecs in untrusted memory.
+        let cursor = self.block.cursor();
+        let uiovec: &mut [libc::iovec] = match unsafe { cursor.alloc::<libc::iovec>(tiovec.len()) }
+        {
+            Ok(slice) => slice,
+            Err(_) => return -libc::EMSGSIZE as u64,
         };
 
-        // Add up total size of buffers and size of iovec array.
-        let bufsize = trusted.iter().fold(0, |a, e| a + e.iov_len);
-        let iovecsize = size_of::<libc::iovec>() * trusted.len();
-        let size = bufsize + iovecsize;
-
-        // Allocate some unencrypted memory.
-        let map = match self.ualloc(size as u64) {
-            Err(errno) => return errno as u64,
-            Ok(map) => unsafe { from_raw_parts_mut(map, size as usize) },
-        };
-
-        // Split allocated memory into that used by the iovec struct array and that used by its buffers.
-        let (uiovec, ubuffer) = map.split_at_mut(iovecsize);
-
-        // Convert the prefix from a byte slice into an iovec slice.
-        let (_, untrusted, _) = unsafe { uiovec.align_to_mut::<libc::iovec>() };
-        if untrusted.len() != trusted.len() {
-            self.attacked();
-        }
-
-        // Set pointers in unencrypted iovec slice to use the rest of the allocated memory.
-        // The offset is into the buffer area allocated immediately after the iovec struct
-        // array, measured in bytes.
-        let mut offset = 0;
-        for (t, mut u) in trusted.iter_mut().zip(untrusted.iter_mut()) {
-            u.iov_base = ubuffer[offset..].as_mut_ptr() as *mut _;
+        // Update pointers from iovecs to buffers in untrusted memory.
+        let mut size = 0;
+        for (t, u) in tiovec.iter().zip(uiovec.iter_mut()) {
+            size += t.iov_len;
             u.iov_len = t.iov_len;
-            offset += t.iov_len;
+            u.iov_base = match unsafe { cursor.alloc(t.iov_len) } {
+                Ok(base) => base.as_mut_ptr(),
+                Err(_) => return -libc::EMSGSIZE as u64,
+            };
         }
 
         // Do the syscall; replace encrypted memory with unencrypted memory.
-        let ret = unsafe {
-            self.syscall(
-                libc::SYS_readv as u64,
-                fd,
-                untrusted.as_ptr() as _,
-                untrusted.len() as u64,
-                0,
-                0,
-                0,
-            )
-        };
+        let req = request!(libc::SYS_readv => self.aex.gpr.rdi, uiovec, uiovec.len());
+        let res = unsafe { self.proxy(req) };
 
-        // Copy the unencrypted input into encrypted memory.
-        if ret <= ERRNO_BASE {
-            if ret > size as u64 {
-                self.attacked();
-            }
-
-            let mut offset = 0;
-            for (t, u) in trusted.iter_mut().zip(untrusted.iter_mut()) {
-                let us = &mut ubuffer[offset..][..t.iov_len];
-                offset += t.iov_len;
-
-                if u.iov_base != us.as_mut_ptr() as *mut _ || u.iov_len != t.iov_len {
+        match res {
+            Ok(res) => {
+                let mut read = res[0].into();
+                if size < read {
                     self.attacked();
                 }
 
-                let ts = unsafe { from_raw_parts_mut(t.iov_base as *mut u8, t.iov_len) };
-                ts.copy_from_slice(us);
-            }
-        }
+                // Allocate the correct number of iovecs in untrusted memory.
+                // We reallocate again here to keep the Rust compiler happy.
+                let cursor = self.block.cursor();
+                let uiovec: &mut [libc::iovec] =
+                    match unsafe { cursor.alloc::<libc::iovec>(tiovec.len()) } {
+                        Ok(slice) => slice,
+                        Err(_) => return -libc::EMSGSIZE as u64,
+                    };
 
-        unsafe { self.ufree(map.as_ptr() as *mut u8, size as u64) };
-        ret
+                for (t, u) in tiovec.iter_mut().zip(uiovec.iter_mut()) {
+                    u.iov_len = t.iov_len;
+                    u.iov_base = match unsafe { cursor.alloc(t.iov_len) } {
+                        Ok(base) => base.as_mut_ptr(),
+                        Err(_) => return -libc::EMSGSIZE as u64,
+                    };
+
+                    // Grab data from untrusted buffers and copy to trusted buffers.
+                    let ubuf = unsafe { from_raw_parts(u.iov_base as *mut u8, u.iov_len) };
+                    let tbuf = unsafe { from_raw_parts_mut(t.iov_base as *mut u8, t.iov_len) };
+                    let sz = core::cmp::min(tbuf.len(), read);
+                    tbuf[..sz].copy_from_slice(&ubuf[..sz]);
+                    read -= sz;
+                }
+
+                res[0].into()
+            }
+            Err(code) => code as u64,
+        }
     }
 
     /// Do a writev() syscall
