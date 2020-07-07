@@ -87,3 +87,8 @@ impl<'a> PekCsr<'a> {
         }
     }
 }
+
+/// (Re)generate the Platform Diffie-Hellman (PDH).
+///
+/// (Chapter 5.10)
+pub struct PdhGen;

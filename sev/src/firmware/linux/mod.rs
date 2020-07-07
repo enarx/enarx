@@ -15,8 +15,7 @@ use types::*;
 #[repr(u32)]
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 enum Code {
-    PdhGenerate = 4,
-    PdhCertificateExport,
+    PdhCertificateExport = 5,
     PekCertificateImport,
     GetIdentifier,
 }
@@ -98,8 +97,8 @@ impl Firmware {
         Ok(pek)
     }
 
-    pub fn pdh_generate(&self) -> Result<(), Indeterminate<Error>> {
-        self.cmd(Code::PdhGenerate, ())?;
+    pub fn pdh_generate(&mut self) -> Result<(), Indeterminate<Error>> {
+        PDH_GEN.ioctl(&mut self.0, &mut Command::new(&mut PdhGen))?;
         Ok(())
     }
 
