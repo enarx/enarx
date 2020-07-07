@@ -39,6 +39,7 @@ code! {
     PlatformStatus = 1,
     PekGen = 2,
     PekCsr<'_> = 3,
+    PdhGen = 4,
 }
 
 const SEV: Group = Group::new(b'S');
@@ -52,6 +53,8 @@ pub const PLATFORM_STATUS: Ioctl<WriteRead, &Command<PlatformStatus>> =
 pub const PEK_GEN: Ioctl<WriteRead, &Command<PekGen>> = unsafe { SEV.write_read(0) };
 /// Take ownership of the platform.
 pub const PEK_CSR: Ioctl<WriteRead, &Command<PekCsr<'_>>> = unsafe { SEV.write_read(0) };
+/// (Re)generate the Platform Diffie-Hellman (PDH).
+pub const PDH_GEN: Ioctl<WriteRead, &Command<PdhGen>> = unsafe { SEV.write_read(0) };
 
 /// The Rust-flavored, FFI-friendly version of `struct kvm_sev_cmd` which is
 /// used to pass arguments to the SEV ioctl implementation.

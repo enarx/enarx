@@ -44,7 +44,7 @@ fn pek_csr() {
 #[cfg_attr(not(all(has_sev, feature = "dangerous_tests")), ignore)]
 #[test]
 fn pdh_generate() {
-    let fw = Firmware::open().unwrap();
+    let mut fw = Firmware::open().unwrap();
     fw.pdh_generate().unwrap();
 }
 
