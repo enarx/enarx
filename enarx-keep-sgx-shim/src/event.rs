@@ -3,6 +3,7 @@
 use core::convert::TryInto;
 use intel_types::Exception;
 use memory::Register;
+use sallyport::Block;
 use sgx_types::ssa::StateSaveArea;
 
 use crate::handler::{Context, Handler};
@@ -15,7 +16,7 @@ const OP_CPUID: &[u8] = &[0x0f, 0xa2];
 
 #[no_mangle]
 pub extern "C" fn event(
-    _rdi: u64,
+    block: &mut Block,
     _rsi: u64,
     _rdx: u64,
     layout: &Layout,
@@ -24,7 +25,7 @@ pub extern "C" fn event(
     aex: &mut StateSaveArea,
     ctx: &Context,
 ) {
-    let mut h = Handler::new(layout, aex, ctx);
+    let mut h = Handler::new(layout, aex, ctx, block);
 
     // Exception Vector Table
     match h.aex.gpr.exitinfo.exception() {

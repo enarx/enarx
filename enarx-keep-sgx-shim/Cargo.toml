@@ -8,6 +8,7 @@ license = "Apache-2.0"
 [dependencies]
 crt0stack = { path = "../crt0stack" }
 intel-types = { path = "../intel-types" }
+sallyport = { path = "../sallyport" }
 sgx-types = { path = "../sgx-types" }
 memory = { path = "../memory" }
 bounds = { path = "../bounds" }
