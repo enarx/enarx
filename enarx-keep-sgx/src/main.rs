@@ -16,6 +16,7 @@ use loader::{segment, Component};
 use bounds::Span;
 use intel_types::Exception;
 use memory::Page;
+use sallyport::Block;
 use sgx_types::page::{Flags, SecInfo};
 use sgx_types::tcs::Tcs;
 use structopt::StructOpt;
@@ -127,6 +128,8 @@ fn load() -> enclave::Enclave {
 fn main() {
     let enclave = load();
 
+    let mut block = Block::default();
+
     // The main loop event handing is divided into two halves.
     //
     //   1. EEXIT events (including syscall proxying and ERESUMEs [CSSA--])
@@ -137,7 +140,7 @@ fn main() {
     //   2. Asynchronous exits (AEX) are handled here to minimize the amount
     //      of assembly code used.
     loop {
-        match enclave.enter(0, 0, 0, Leaf::Enter, 0, 0) {
+        match enclave.enter(&mut block as *const _ as _, 0, 0, Leaf::Enter, 0, 0) {
             // On InvalidOpcode: re-enter the enclave with EENTER (CSSA++).
             Err(Some(ei)) if ei.trap == Exception::InvalidOpcode => (),
 

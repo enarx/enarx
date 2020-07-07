@@ -10,6 +10,7 @@ goblin = "0.2.3"
 iocuddle-sgx = { path = "../iocuddle-sgx" }
 intel-types = { path = "../intel-types" }
 loader = { path = "../loader" }
+sallyport = { path = "../sallyport" }
 sgx-crypto = { path = "../sgx-crypto" }
 sgx-types = { path = "../sgx-types" }
 enumerate = { path = "../enumerate" }
