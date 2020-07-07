@@ -2,6 +2,10 @@
 
 use crate::Version;
 
+use crate::certs::sev;
+
+use std::marker::PhantomData;
+
 /// Reset the platform's persistent state.
 ///
 /// (Chapter 5.5)
@@ -63,3 +67,23 @@ pub struct PlatformStatus {
 ///
 /// (Chapter 5.7)
 pub struct PekGen;
+
+/// Request certificate signing.
+///
+/// (Chapter 5.8; Table 27)
+#[repr(C, packed)]
+pub struct PekCsr<'a> {
+    addr: u64,
+    len: u32,
+    _phantom: PhantomData<&'a ()>,
+}
+
+impl<'a> PekCsr<'a> {
+    pub fn new(cert: &'a mut sev::Certificate) -> Self {
+        Self {
+            addr: cert as *mut _ as _,
+            len: std::mem::size_of_val(cert) as _,
+            _phantom: PhantomData,
+        }
+    }
+}

@@ -36,7 +36,7 @@ fn pek_generate() {
 #[cfg_attr(not(has_sev), ignore)]
 #[test]
 fn pek_csr() {
-    let fw = Firmware::open().unwrap();
+    let mut fw = Firmware::open().unwrap();
     let pek = fw.pek_csr().unwrap();
     assert_eq!(pek, Usage::PEK);
 }

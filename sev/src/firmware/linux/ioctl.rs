@@ -12,7 +12,7 @@ use std::marker::PhantomData;
 /// on its own enumeration values of the SEV commands. This trait
 /// enforces that our type-safe ioctls also export the Linux
 /// kernel enum ordinal value.
-pub trait Code: 'static + Sized {
+pub trait Code {
     /// The integer value that corresponds to the Linux kernel's
     /// enum value for a SEV ioctl.
     const CODE: u32;
@@ -38,6 +38,7 @@ code! {
     PlatformReset = 0,
     PlatformStatus = 1,
     PekGen = 2,
+    PekCsr<'_> = 3,
 }
 
 const SEV: Group = Group::new(b'S');
@@ -49,6 +50,8 @@ pub const PLATFORM_STATUS: Ioctl<WriteRead, &Command<PlatformStatus>> =
     unsafe { SEV.write_read(0) };
 /// Generate a new Platform Endorsement Key (PEK).
 pub const PEK_GEN: Ioctl<WriteRead, &Command<PekGen>> = unsafe { SEV.write_read(0) };
+/// Take ownership of the platform.
+pub const PEK_CSR: Ioctl<WriteRead, &Command<PekCsr<'_>>> = unsafe { SEV.write_read(0) };
 
 /// The Rust-flavored, FFI-friendly version of `struct kvm_sev_cmd` which is
 /// used to pass arguments to the SEV ioctl implementation.
