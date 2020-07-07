@@ -3,6 +3,7 @@
 use crate::Layout;
 
 use bounds::{Contains, Line, Span};
+use sallyport::Block;
 use sgx_types::ssa::StateSaveArea;
 
 use core::fmt::Write;
@@ -47,6 +48,7 @@ pub struct Handler<'a> {
     pub aex: &'a mut StateSaveArea,
     layout: &'a Layout,
     ctx: &'a Context,
+    block: &'a mut Block,
 }
 
 impl<'a> Write for Handler<'a> {
@@ -87,8 +89,18 @@ impl<'a> Write for Handler<'a> {
 
 impl<'a> Handler<'a> {
     /// Create a new handler
-    pub fn new(layout: &'a Layout, aex: &'a mut StateSaveArea, ctx: &'a Context) -> Self {
-        Self { aex, ctx, layout }
+    pub fn new(
+        layout: &'a Layout,
+        aex: &'a mut StateSaveArea,
+        ctx: &'a Context,
+        block: &'a mut Block,
+    ) -> Self {
+        Self {
+            aex,
+            ctx,
+            layout,
+            block,
+        }
     }
 
     #[allow(clippy::too_many_arguments)]
