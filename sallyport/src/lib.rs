@@ -148,6 +148,17 @@ pub struct Block {
     pub buf: [u8; Block::buf_capacity()],
 }
 
+impl Default for Block {
+    fn default() -> Self {
+        Self {
+            msg: Message {
+                req: Request::default(),
+            },
+            buf: [0u8; Block::buf_capacity()],
+        }
+    }
+}
+
 impl Block {
     /// Returns the capacity of `Block.buf`
     pub const fn buf_capacity() -> usize {
