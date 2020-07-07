@@ -15,8 +15,7 @@ use types::*;
 #[repr(u32)]
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 enum Code {
-    PekCertificateSigningRequest = 3,
-    PdhGenerate,
+    PdhGenerate = 4,
     PdhCertificateExport,
     PekCertificateImport,
     GetIdentifier,
@@ -90,23 +89,11 @@ impl Firmware {
         Ok(())
     }
 
-    pub fn pek_csr(&self) -> Result<Certificate, Indeterminate<Error>> {
-        #[repr(C, packed)]
-        struct Cert {
-            addr: u64,
-            len: u32,
-        }
-
+    pub fn pek_csr(&mut self) -> Result<Certificate, Indeterminate<Error>> {
         #[allow(clippy::uninit_assumed_init)]
         let mut pek: Certificate = unsafe { MaybeUninit::uninit().assume_init() };
-
-        self.cmd(
-            Code::PekCertificateSigningRequest,
-            Cert {
-                addr: &mut pek as *mut _ as u64,
-                len: size_of_val(&pek) as u32,
-            },
-        )?;
+        let mut csr = PekCsr::new(&mut pek);
+        PEK_CSR.ioctl(&mut self.0, &mut Command::new(&mut csr))?;
 
         Ok(pek)
     }
