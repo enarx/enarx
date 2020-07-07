@@ -15,7 +15,6 @@ use types::*;
 #[repr(u32)]
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 enum Code {
-    PlatformReset = 0,
     PekGenerate = 2,
     PekCertificateSigningRequest,
     PdhGenerate,
@@ -58,8 +57,8 @@ impl Firmware {
         ))
     }
 
-    pub fn platform_reset(&self) -> Result<(), Indeterminate<Error>> {
-        self.cmd(Code::PlatformReset, ())?;
+    pub fn platform_reset(&mut self) -> Result<(), Indeterminate<Error>> {
+        PLATFORM_RESET.ioctl(&mut self.0, &mut Command::new(&mut PlatformReset))?;
         Ok(())
     }
 

@@ -35,11 +35,14 @@ macro_rules! code {
 // These enum ordinal values are defined in the Linux kernel
 // source code: include/uapi/linux/psp-sev.h
 code! {
+    PlatformReset = 0,
     PlatformStatus = 1,
 }
 
 const SEV: Group = Group::new(b'S');
 
+/// Resets the SEV platform's persistent state.
+pub const PLATFORM_RESET: Ioctl<WriteRead, &Command<PlatformReset>> = unsafe { SEV.write_read(0) };
 /// Gathers a status report from the SEV firmware.
 pub const PLATFORM_STATUS: Ioctl<WriteRead, &Command<PlatformStatus>> =
     unsafe { SEV.write_read(0) };

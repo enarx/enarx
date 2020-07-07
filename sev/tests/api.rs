@@ -5,7 +5,7 @@ use sev::{certs::sev::Usage, firmware::Firmware, Build, Version};
 #[cfg_attr(not(all(has_sev, feature = "dangerous_tests")), ignore)]
 #[test]
 fn platform_reset() {
-    let fw = Firmware::open().unwrap();
+    let mut fw = Firmware::open().unwrap();
     fw.platform_reset().unwrap();
 }
 
@@ -71,7 +71,7 @@ fn pdh_cert_export() {
 fn pek_cert_import() {
     use sev::certs::{sev::Certificate, Signer, Verifiable};
 
-    let fw = Firmware::open().unwrap();
+    let mut fw = Firmware::open().unwrap();
 
     let (mut oca, key) = Certificate::generate(Usage::OCA).unwrap();
     key.sign(&mut oca).unwrap();
