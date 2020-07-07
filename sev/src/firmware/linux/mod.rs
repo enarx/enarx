@@ -15,8 +15,7 @@ use types::*;
 #[repr(u32)]
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 enum Code {
-    PekGenerate = 2,
-    PekCertificateSigningRequest,
+    PekCertificateSigningRequest = 3,
     PdhGenerate,
     PdhCertificateExport,
     PekCertificateImport,
@@ -86,8 +85,8 @@ impl Firmware {
         })
     }
 
-    pub fn pek_generate(&self) -> Result<(), Indeterminate<Error>> {
-        self.cmd(Code::PekGenerate, ())?;
+    pub fn pek_generate(&mut self) -> Result<(), Indeterminate<Error>> {
+        PEK_GEN.ioctl(&mut self.0, &mut Command::new(&mut PekGen))?;
         Ok(())
     }
 

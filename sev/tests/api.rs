@@ -29,7 +29,7 @@ fn platform_status() {
 #[cfg_attr(not(all(has_sev, feature = "dangerous_tests")), ignore)]
 #[test]
 fn pek_generate() {
-    let fw = Firmware::open().unwrap();
+    let mut fw = Firmware::open().unwrap();
     fw.pek_generate().unwrap();
 }
 

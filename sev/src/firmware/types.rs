@@ -58,3 +58,8 @@ pub struct PlatformStatus {
     /// The number of valid guests maintained by the SEV firmware.
     pub guest_count: u32,
 }
+
+/// Generate a new Platform Endorsement Key (PEK).
+///
+/// (Chapter 5.7)
+pub struct PekGen;
