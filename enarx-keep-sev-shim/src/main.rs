@@ -26,9 +26,11 @@ pub mod gdt;
 pub mod hostcall;
 pub mod no_std;
 pub mod paging;
+pub mod payload;
 pub mod shim_stack;
 #[macro_use]
 pub mod print;
+pub mod random;
 pub mod syscall;
 pub mod usermode;
 
@@ -79,14 +81,11 @@ entry_point!(shim_main);
 pub fn shim_main() -> ! {
     dbg!(BOOT_INFO.read().deref());
 
-    #[cfg(debug_assertions)]
-    eprintln!("Hello World!");
-
     unsafe {
         gdt::init();
     }
 
-    hostcall::shim_exit(0);
+    payload::execute_payload()
 }
 
 /// The panic function

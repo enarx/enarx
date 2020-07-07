@@ -54,6 +54,16 @@ where
     }
 }
 
+impl<T, U> From<Address<T, U>> for ShimPhysAddr<U>
+where
+    Address<T, U>: Into<Address<u64, U>>,
+{
+    #[inline(always)]
+    fn from(val: Address<T, U>) -> Self {
+        Self(val.into())
+    }
+}
+
 /// Address in the shim virtual address space
 pub struct ShimVirtAddr<U>(Address<u64, U>);
 
@@ -92,6 +102,15 @@ impl<U> From<ShimVirtAddr<U>> for ShimPhysAddr<U> {
         // Safety: checked, that it is in the shim virtual address space earlier
         #[allow(clippy::integer_arithmetic)]
         ShimPhysAddr(unsafe { Address::unchecked(shim_virt_addr.0.raw() - SHIM_VIRT_OFFSET) })
+    }
+}
+
+impl<U> From<ShimPhysAddr<U>> for ShimVirtAddr<U> {
+    #[inline(always)]
+    fn from(shim_phys_addr: ShimPhysAddr<U>) -> Self {
+        // Safety: checked, that it is in the shim virtual address space earlier
+        #[allow(clippy::integer_arithmetic)]
+        ShimVirtAddr(unsafe { Address::unchecked(shim_phys_addr.0.raw() + SHIM_VIRT_OFFSET) })
     }
 }
 

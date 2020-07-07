@@ -6,4 +6,6 @@
 
 extern "C" {
     pub fn _enarx_asm_triple_fault() -> !;
+    pub fn _rdfsbase() -> u64;
+    pub fn _wrfsbase(val: u64);
 }
