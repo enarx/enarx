@@ -37,6 +37,7 @@ macro_rules! code {
 code! {
     PlatformReset = 0,
     PlatformStatus = 1,
+    PekGen = 2,
 }
 
 const SEV: Group = Group::new(b'S');
@@ -46,6 +47,8 @@ pub const PLATFORM_RESET: Ioctl<WriteRead, &Command<PlatformReset>> = unsafe { S
 /// Gathers a status report from the SEV firmware.
 pub const PLATFORM_STATUS: Ioctl<WriteRead, &Command<PlatformStatus>> =
     unsafe { SEV.write_read(0) };
+/// Generate a new Platform Endorsement Key (PEK).
+pub const PEK_GEN: Ioctl<WriteRead, &Command<PekGen>> = unsafe { SEV.write_read(0) };
 
 /// The Rust-flavored, FFI-friendly version of `struct kvm_sev_cmd` which is
 /// used to pass arguments to the SEV ioctl implementation.
