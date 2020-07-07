@@ -103,6 +103,25 @@ impl<'a> Handler<'a> {
         }
     }
 
+    #[inline(never)]
+    unsafe fn proxy(&mut self) -> u64 {
+        let ret = syscall(
+            self.block.msg.req.arg[0].raw() as u64, // rdi
+            self.block.msg.req.arg[1].raw() as u64, // rsi
+            self.block.msg.req.arg[2].raw() as u64, // rdx
+            self.aex,
+            self.block.msg.req.arg[4].raw() as u64, // r8
+            self.block.msg.req.arg[5].raw() as u64, // r9
+            self.block.msg.req.arg[3].raw() as u64, // r10
+            self.block.msg.req.num.raw() as u64,    // rax
+            self.ctx,
+        );
+
+        self.block.msg.rep = Ok([ret.into(), 0usize.into()]).into();
+
+        ret
+    }
+
     #[allow(clippy::too_many_arguments)]
     #[inline(always)]
     unsafe fn syscall(
