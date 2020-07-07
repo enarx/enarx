@@ -284,29 +284,28 @@ impl<'a> Handler<'a> {
     pub fn write(&mut self) -> u64 {
         self.trace("write", 3);
 
-        let fd = self.aex.gpr.rdi.raw();
-        let buf = self.aex.gpr.rsi.raw() as *const u8;
-        let size = self.aex.gpr.rdx.raw();
+        let input = unsafe { self.aex.gpr.rsi.as_slice(self.aex.gpr.rdx.into()) };
 
-        // Allocate some unencrypted memory.
-        let map = match self.ualloc(size) {
-            Err(errno) => return errno as u64,
-            Ok(map) => map,
+        if input.len() > self.block.buf.len() {
+            return -libc::EMSGSIZE as u64;
+        }
+
+        // Copy the encrypted input into unencrypted memory.
+        self.block.buf[..input.len()].copy_from_slice(input);
+
+        // Do the syscall; replace encrypted memory with unencrypted memory.
+        let res = unsafe {
+            self.proxy(request!(libc::SYS_write => self.aex.gpr.rdi, &self.block.buf, input.len()))
         };
 
-        unsafe {
-            // Copy the encrypted input into unencrypted memory.
-            copy_nonoverlapping(buf, map, size as _);
-
-            // Do the syscall; replace encrypted memory with unencrypted memory.
-            let ret = self.syscall(libc::SYS_write as u64, fd, map as _, size, 0, 0, 0);
-            self.ufree(map, size);
-
-            if ret <= ERRNO_BASE && ret > size {
-                self.attacked();
+        match res {
+            Ok(res) => {
+                if usize::from(res[0]) > input.len() {
+                    self.attacked();
+                }
+                res[0].into()
             }
-
-            ret
+            Err(code) => -code as u64,
         }
     }
 
