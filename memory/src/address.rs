@@ -112,9 +112,9 @@ where
 }
 
 /// Convert a mutable pointer to an `Address` with the same type
-impl<T, U> From<*mut U> for Address<T, *mut U>
+impl<T, U> From<*mut U> for Address<T, U>
 where
-    Address<usize, *mut U>: Into<Address<T, *mut U>>,
+    Address<usize, U>: Into<Address<T, U>>,
 {
     #[inline]
     fn from(value: *mut U) -> Self {
@@ -123,9 +123,9 @@ where
 }
 
 /// Convert a const pointer to an `Address` with the same type
-impl<T, U> From<*const U> for Address<T, *const U>
+impl<T, U> From<*const U> for Address<T, U>
 where
-    Address<usize, *const U>: Into<Address<T, *const U>>,
+    Address<usize, U>: Into<Address<T, U>>,
 {
     #[inline]
     fn from(value: *const U) -> Self {
