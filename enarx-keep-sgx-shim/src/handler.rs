@@ -234,7 +234,7 @@ impl<'a> Handler<'a> {
             .map(|x| x.into())
             .unwrap_or_else(|| self.aex.gpr.rdi.raw());
         loop {
-            unsafe { self.syscall(libc::SYS_exit_group as u64, code, 0, 0, 0, 0, 0) };
+            unsafe { self.proxy(Request::new(libc::SYS_exit_group as usize, &[code.into()])) };
         }
     }
 
