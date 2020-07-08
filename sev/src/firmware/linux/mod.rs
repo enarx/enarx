@@ -4,45 +4,15 @@ mod ioctl;
 
 use std::fs::{File, OpenOptions};
 use std::mem::MaybeUninit;
-use std::os::raw::{c_int, c_ulong};
-use std::os::unix::io::AsRawFd;
 
 use super::*;
 use crate::certs::sev::Certificate;
 use linux::ioctl::*;
 use types::*;
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-enum Code {}
-
 pub struct Firmware(File);
 
 impl Firmware {
-    fn cmd<T>(&self, code: Code, mut value: T) -> Result<T, Indeterminate<Error>> {
-        extern "C" {
-            fn ioctl(fd: c_int, request: c_ulong, ...) -> c_int;
-        }
-        const SEV_ISSUE_CMD: c_ulong = 0xc0105300;
-
-        #[repr(C, packed)]
-        struct Command {
-            code: Code,
-            data: u64,
-            error: u32,
-        }
-
-        let mut cmd = Command {
-            data: &mut value as *mut T as u64,
-            error: 0,
-            code,
-        };
-
-        match unsafe { ioctl(self.0.as_raw_fd(), SEV_ISSUE_CMD, &mut cmd) } {
-            0 => Ok(value),
-            _ => Err(cmd.error.into()),
-        }
-    }
-
     pub fn open() -> std::io::Result<Firmware> {
         Ok(Firmware(
             OpenOptions::new().read(true).write(true).open("/dev/sev")?,
