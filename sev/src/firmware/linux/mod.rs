@@ -15,8 +15,7 @@ use types::*;
 #[repr(u32)]
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 enum Code {
-    PdhCertificateExport = 5,
-    PekCertificateImport,
+    PekCertificateImport = 6,
     GetIdentifier,
 }
 
@@ -102,29 +101,14 @@ impl Firmware {
         Ok(())
     }
 
-    pub fn pdh_cert_export(&self) -> Result<certs::sev::Chain, Indeterminate<Error>> {
-        #[repr(C, packed)]
-        struct Certs {
-            pdh_addr: u64,
-            pdh_size: u32,
-            chain_addr: u64,
-            chain_size: u32,
-        }
-
+    pub fn pdh_cert_export(&mut self) -> Result<certs::sev::Chain, Indeterminate<Error>> {
         #[allow(clippy::uninit_assumed_init)]
         let mut chain: [Certificate; 3] = unsafe { MaybeUninit::uninit().assume_init() };
         #[allow(clippy::uninit_assumed_init)]
         let mut pdh: Certificate = unsafe { MaybeUninit::uninit().assume_init() };
 
-        self.cmd(
-            Code::PdhCertificateExport,
-            Certs {
-                pdh_addr: &mut pdh as *mut _ as u64,
-                pdh_size: size_of_val(&pdh) as u32,
-                chain_addr: &mut chain as *mut _ as u64,
-                chain_size: size_of_val(&chain) as u32,
-            },
-        )?;
+        let mut pdh_cert_export = PdhCertExport::new(&mut pdh, &mut chain);
+        PDH_CERT_EXPORT.ioctl(&mut self.0, &mut Command::new(&mut pdh_cert_export))?;
 
         Ok(certs::sev::Chain {
             pdh,

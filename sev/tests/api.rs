@@ -54,7 +54,7 @@ fn pdh_generate() {
 fn pdh_cert_export() {
     use sev::certs::Verifiable;
 
-    let fw = Firmware::open().unwrap();
+    let mut fw = Firmware::open().unwrap();
     let chain = fw.pdh_cert_export().unwrap();
 
     assert_eq!(chain.pdh, Usage::PDH);
