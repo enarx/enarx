@@ -41,6 +41,7 @@ code! {
     PekCsr<'_> = 3,
     PdhGen = 4,
     PdhCertExport<'_> = 5,
+    PekCertImport<'_> = 6,
 }
 
 const SEV: Group = Group::new(b'S');
@@ -58,6 +59,9 @@ pub const PEK_CSR: Ioctl<WriteRead, &Command<PekCsr<'_>>> = unsafe { SEV.write_r
 pub const PDH_GEN: Ioctl<WriteRead, &Command<PdhGen>> = unsafe { SEV.write_read(0) };
 /// Retrieve the PDH and the platform certificate chain.
 pub const PDH_CERT_EXPORT: Ioctl<WriteRead, &Command<PdhCertExport<'_>>> =
+    unsafe { SEV.write_read(0) };
+/// Join the platform to the domain.
+pub const PEK_CERT_IMPORT: Ioctl<WriteRead, &Command<PekCertImport<'_>>> =
     unsafe { SEV.write_read(0) };
 
 /// The Rust-flavored, FFI-friendly version of `struct kvm_sev_cmd` which is

@@ -88,6 +88,30 @@ impl<'a> PekCsr<'a> {
     }
 }
 
+/// Join the platform to the domain.
+///
+/// (Chapter 5.9; Table 29)
+#[repr(C, packed)]
+pub struct PekCertImport<'a> {
+    pek_addr: u64,
+    pek_len: u32,
+    oca_addr: u64,
+    oca_len: u32,
+    _phantom: PhantomData<&'a ()>,
+}
+
+impl<'a> PekCertImport<'a> {
+    pub fn new(pek: &'a sev::Certificate, oca: &'a sev::Certificate) -> Self {
+        Self {
+            pek_addr: pek as *const _ as _,
+            pek_len: std::mem::size_of_val(pek) as _,
+            oca_addr: oca as *const _ as _,
+            oca_len: std::mem::size_of_val(oca) as _,
+            _phantom: PhantomData,
+        }
+    }
+}
+
 /// (Re)generate the Platform Diffie-Hellman (PDH).
 ///
 /// (Chapter 5.10)
