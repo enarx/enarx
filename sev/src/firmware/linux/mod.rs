@@ -20,13 +20,13 @@ impl Firmware {
     }
 
     pub fn platform_reset(&mut self) -> Result<(), Indeterminate<Error>> {
-        PLATFORM_RESET.ioctl(&mut self.0, &mut Command::new(&mut PlatformReset))?;
+        PLATFORM_RESET.ioctl(&mut self.0, &mut Command::from(&PlatformReset))?;
         Ok(())
     }
 
     pub fn platform_status(&mut self) -> Result<Status, Indeterminate<Error>> {
         let mut info: PlatformStatus = Default::default();
-        PLATFORM_STATUS.ioctl(&mut self.0, &mut Command::new(&mut info))?;
+        PLATFORM_STATUS.ioctl(&mut self.0, &mut Command::from_mut(&mut info))?;
         let config = info.config;
 
         Ok(Status {
@@ -49,7 +49,7 @@ impl Firmware {
     }
 
     pub fn pek_generate(&mut self) -> Result<(), Indeterminate<Error>> {
-        PEK_GEN.ioctl(&mut self.0, &mut Command::new(&mut PekGen))?;
+        PEK_GEN.ioctl(&mut self.0, &mut Command::from(&PekGen))?;
         Ok(())
     }
 
@@ -57,13 +57,13 @@ impl Firmware {
         #[allow(clippy::uninit_assumed_init)]
         let mut pek: Certificate = unsafe { MaybeUninit::uninit().assume_init() };
         let mut csr = PekCsr::new(&mut pek);
-        PEK_CSR.ioctl(&mut self.0, &mut Command::new(&mut csr))?;
+        PEK_CSR.ioctl(&mut self.0, &mut Command::from_mut(&mut csr))?;
 
         Ok(pek)
     }
 
     pub fn pdh_generate(&mut self) -> Result<(), Indeterminate<Error>> {
-        PDH_GEN.ioctl(&mut self.0, &mut Command::new(&mut PdhGen))?;
+        PDH_GEN.ioctl(&mut self.0, &mut Command::from(&PdhGen))?;
         Ok(())
     }
 
@@ -74,7 +74,7 @@ impl Firmware {
         let mut pdh: Certificate = unsafe { MaybeUninit::uninit().assume_init() };
 
         let mut pdh_cert_export = PdhCertExport::new(&mut pdh, &mut chain);
-        PDH_CERT_EXPORT.ioctl(&mut self.0, &mut Command::new(&mut pdh_cert_export))?;
+        PDH_CERT_EXPORT.ioctl(&mut self.0, &mut Command::from_mut(&mut pdh_cert_export))?;
 
         Ok(certs::sev::Chain {
             pdh,
@@ -89,8 +89,8 @@ impl Firmware {
         pek: &Certificate,
         oca: &Certificate,
     ) -> Result<(), Indeterminate<Error>> {
-        let mut pek_cert_import = PekCertImport::new(pek, oca);
-        PEK_CERT_IMPORT.ioctl(&mut self.0, &mut Command::new(&mut pek_cert_import))?;
+        let pek_cert_import = PekCertImport::new(pek, oca);
+        PEK_CERT_IMPORT.ioctl(&mut self.0, &mut Command::from(&pek_cert_import))?;
         Ok(())
     }
 
@@ -98,7 +98,7 @@ impl Firmware {
         let mut bytes = [0u8; 64];
         let mut id = GetId::new(&mut bytes);
 
-        GET_ID.ioctl(&mut self.0, &mut Command::new(&mut id))?;
+        GET_ID.ioctl(&mut self.0, &mut Command::from_mut(&mut id))?;
 
         Ok(Identifier(id.as_slice().to_vec()))
     }
