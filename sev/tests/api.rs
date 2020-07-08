@@ -91,7 +91,7 @@ fn pek_cert_import() {
 #[cfg_attr(not(has_sev), ignore)]
 #[test]
 fn get_identifer() {
-    let fw = Firmware::open().unwrap();
+    let mut fw = Firmware::open().unwrap();
     let id = fw.get_identifer().unwrap();
     assert_ne!(Vec::from(id), vec![0u8; 64]);
 }

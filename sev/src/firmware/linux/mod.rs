@@ -3,7 +3,7 @@
 mod ioctl;
 
 use std::fs::{File, OpenOptions};
-use std::mem::{size_of_val, MaybeUninit};
+use std::mem::MaybeUninit;
 use std::os::raw::{c_int, c_ulong};
 use std::os::unix::io::AsRawFd;
 
@@ -12,11 +12,8 @@ use crate::certs::sev::Certificate;
 use linux::ioctl::*;
 use types::*;
 
-#[repr(u32)]
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-enum Code {
-    GetIdentifier = 7,
-}
+enum Code {}
 
 pub struct Firmware(File);
 
@@ -127,20 +124,12 @@ impl Firmware {
         Ok(())
     }
 
-    pub fn get_identifer(&self) -> Result<Identifier, Indeterminate<Error>> {
-        // Per AMD, this interface will change in a future revision.
-        // Future iterations will only ever return one id and its
-        // length will be variable. We handle the current verison of
-        // the API here. We'll adjust to future versions later. We
-        // don't anticipate any future change in *our* public API.
+    pub fn get_identifer(&mut self) -> Result<Identifier, Indeterminate<Error>> {
+        let mut bytes = [0u8; 64];
+        let mut id = GetId::new(&mut bytes);
 
-        #[repr(C, packed)]
-        struct Ids([u8; 64], [u8; 64]);
+        GET_ID.ioctl(&mut self.0, &mut Command::new(&mut id))?;
 
-        #[allow(clippy::uninit_assumed_init)]
-        let ids: Ids = self.cmd(Code::GetIdentifier, unsafe {
-            MaybeUninit::uninit().assume_init()
-        })?;
-        Ok(Identifier(ids.0.to_vec()))
+        Ok(Identifier(id.as_slice().to_vec()))
     }
 }
