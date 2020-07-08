@@ -80,12 +80,26 @@ pub struct Command<'a, T: Code> {
 }
 
 impl<'a, T: Code> Command<'a, T> {
-    /// Create a new SEV command struct that encloses the lifetime of
-    /// its data arguments.
-    pub fn new(subcmd: &'a mut T) -> Self {
+    /// Create an SEV command with the expectation that the host platform/kernel will write to
+    /// the caller's address space either to the data held in the `Command.subcmd` field or some
+    /// other region specified by the `Command.subcmd` field.
+    pub fn from_mut(subcmd: &'a mut T) -> Self {
         Command {
             code: T::CODE,
             data: subcmd as *mut T as u64,
+            error: 0,
+            _phantom: PhantomData,
+        }
+    }
+
+    /// Create an SEV command with the expectation that the host platform/kernel *WILL NOT* mutate
+    /// the caller's address space in its response. Note: this does not actually prevent the host
+    /// platform/kernel from writing to the caller's address space if it wants to. This is primarily
+    /// a semantic tool for programming against the SEV ioctl API.
+    pub fn from(subcmd: &'a T) -> Self {
+        Command {
+            code: T::CODE,
+            data: subcmd as *const T as u64,
             error: 0,
             _phantom: PhantomData,
         }
