@@ -92,3 +92,27 @@ impl<'a> PekCsr<'a> {
 ///
 /// (Chapter 5.10)
 pub struct PdhGen;
+
+/// Retrieve the PDH and the platform certificate chain.
+///
+/// (Chapter 5.11)
+#[repr(C, packed)]
+pub struct PdhCertExport<'a> {
+    pdh_addr: u64,
+    pdh_len: u32,
+    certs_addr: u64,
+    certs_len: u32,
+    _phantom: PhantomData<&'a ()>,
+}
+
+impl<'a> PdhCertExport<'a> {
+    pub fn new(pdh: &'a mut sev::Certificate, certs: &'a mut [sev::Certificate; 3]) -> Self {
+        Self {
+            pdh_addr: pdh as *mut _ as _,
+            pdh_len: std::mem::size_of_val(pdh) as _,
+            certs_addr: certs.as_mut_ptr() as _,
+            certs_len: std::mem::size_of_val(certs) as _,
+            _phantom: PhantomData,
+        }
+    }
+}
