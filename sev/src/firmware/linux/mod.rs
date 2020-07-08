@@ -15,8 +15,7 @@ use types::*;
 #[repr(u32)]
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 enum Code {
-    PekCertificateImport = 6,
-    GetIdentifier,
+    GetIdentifier = 7,
 }
 
 pub struct Firmware(File);
@@ -119,28 +118,12 @@ impl Firmware {
     }
 
     pub fn pek_cert_import(
-        &self,
+        &mut self,
         pek: &Certificate,
         oca: &Certificate,
     ) -> Result<(), Indeterminate<Error>> {
-        #[repr(C, packed)]
-        struct Certs {
-            pek_addr: u64,
-            pek_size: u32,
-            oca_addr: u64,
-            oca_size: u32,
-        }
-
-        self.cmd(
-            Code::PekCertificateImport,
-            Certs {
-                pek_addr: pek as *const _ as u64,
-                pek_size: size_of_val(pek) as u32,
-                oca_addr: oca as *const _ as u64,
-                oca_size: size_of_val(oca) as u32,
-            },
-        )?;
-
+        let mut pek_cert_import = PekCertImport::new(pek, oca);
+        PEK_CERT_IMPORT.ioctl(&mut self.0, &mut Command::new(&mut pek_cert_import))?;
         Ok(())
     }
 
