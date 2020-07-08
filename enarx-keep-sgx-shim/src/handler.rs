@@ -3,7 +3,8 @@
 use crate::Layout;
 
 use bounds::{Contains, Line, Span};
-use sallyport::Block;
+use memory::Register;
+use sallyport::{Block, Request};
 use sgx_types::ssa::StateSaveArea;
 
 use core::fmt::Write;
@@ -104,7 +105,9 @@ impl<'a> Handler<'a> {
     }
 
     #[inline(never)]
-    unsafe fn proxy(&mut self) -> u64 {
+    unsafe fn proxy(&mut self, req: Request) -> Result<[Register<usize>; 2], libc::c_int> {
+        self.block.msg.req = req;
+
         let ret = syscall(
             self.block.msg.req.arg[0].raw() as u64, // rdi
             self.block.msg.req.arg[1].raw() as u64, // rsi
@@ -118,8 +121,7 @@ impl<'a> Handler<'a> {
         );
 
         self.block.msg.rep = Ok([ret.into(), 0usize.into()]).into();
-
-        ret
+        self.block.msg.rep.into()
     }
 
     #[allow(clippy::too_many_arguments)]
