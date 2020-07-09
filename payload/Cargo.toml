@@ -1,9 +1,0 @@
-[package]
-name = "payload"
-version = "0.1.0"
-authors = ["Nathaniel McCallum <npmccallum@redhat.com>"]
-license = "Apache-2.0"
-edition = "2018"
-
-[dependencies]
-crt0stack = { path = "../crt0stack" }
