@@ -49,7 +49,7 @@ pub fn _eprint(args: fmt::Arguments) {
 #[macro_export]
 macro_rules! print {
     ($($arg:tt)*) => {
-        crate::print::_print(format_args!($($arg)*));
+        $crate::print::_print(format_args!($($arg)*));
     };
 }
 
@@ -68,9 +68,9 @@ macro_rules! print {
 /// Panics if writing to the host fails.
 #[macro_export]
 macro_rules! println {
-    () => (crate::serial_print!("\n"));
-    ($fmt:expr) => (crate::serial_print!(concat!($fmt, "\n")));
-    ($fmt:expr, $($arg:tt)*) => (crate::serial_print!(concat!($fmt, "\n"), $($arg)*));
+    () => ($crate::print!("\n"));
+    ($fmt:expr) => ($crate::print!(concat!($fmt, "\n")));
+    ($fmt:expr, $($arg:tt)*) => ($crate::print!(concat!($fmt, "\n"), $($arg)*));
 }
 
 /// Prints to the standard error.
@@ -89,7 +89,7 @@ macro_rules! println {
 #[macro_export]
 macro_rules! eprint {
     ($($arg:tt)*) => {
-        crate::print::_eprint(format_args!($($arg)*));
+        $crate::print::_eprint(format_args!($($arg)*));
     };
 }
 
