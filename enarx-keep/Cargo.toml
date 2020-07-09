@@ -1,0 +1,18 @@
+[package]
+name = "enarx-keep"
+version = "0.1.0"
+authors = ["Nathaniel McCallum <npmccallum@redhat.com>"]
+license = "Apache-2.0"
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+sallyport = { path="../sallyport" }
+bounds = { path = "../bounds" }
+memory = { path = "../memory" }
+mmap = { path = "../mmap" }
+structopt = "0.3"
+colorful = "0.2"
+goblin = "0.2"
+libc = "0.2"
