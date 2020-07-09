@@ -151,8 +151,13 @@ impl Heap {
         // Find the brk page offset.
         let brk = self.offset_page_up(self.metadata.brk.end).unwrap();
 
+        let end = match self.pages.len().checked_sub(pages) {
+            Some(end) => end,
+            None => return -libc::ENOMEM as _,
+        };
+
         // Search for pages from the end to the front.
-        for i in (brk..=self.pages.len() - pages).rev() {
+        for i in (brk..=end).rev() {
             let range = i..i + pages;
 
             if !self.is_allocated_range(range.clone()) {
