@@ -448,4 +448,26 @@ impl<'a> Handler<'a> {
 
         Ok([trusted.len().into(), Default::default()])
     }
+
+    // Do clock_gettime syscall
+    pub fn clock_gettime(&mut self) -> sallyport::Result {
+        self.trace("clock_gettime", 2);
+
+        let clk_id = self.aex.gpr.rdi;
+        let trusted = unsafe { self.aex.gpr.rsi.into_slice_mut(1usize) };
+
+        let cursor = self.block.cursor();
+        let untrusted = unsafe { cursor.alloc::<libc::timespec>(1).or(Err(libc::EMSGSIZE))? };
+        let req = request!(libc::SYS_clock_gettime => clk_id, untrusted);
+        let res = unsafe { self.proxy(req)? };
+
+        if 0usize != res[0].into() {
+            self.attacked();
+        }
+
+        let cursor = self.block.cursor();
+        let untrusted = unsafe { cursor.alloc::<libc::timespec>(1).or(Err(libc::EMSGSIZE))? };
+        trusted.copy_from_slice(untrusted);
+        Ok(res)
+    }
 }
