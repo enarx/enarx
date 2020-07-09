@@ -23,7 +23,6 @@ CARGO_MAKE_CRATE_WORKSPACE_MEMBERS = [
 	"sev-show",
 	"sevctl",
 	"sgx-crypto",
-	"sgx-show",
 	"sgx-types",
 	"testing",
 	"units",
