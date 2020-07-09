@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
+pub mod sgx;
+
 use std::io::Result;
 use std::path::PathBuf;
 use std::sync::Arc;

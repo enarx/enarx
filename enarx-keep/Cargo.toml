@@ -8,7 +8,8 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-sallyport = { path="../sallyport" }
+sallyport = { path = "../sallyport" }
+sgx-types = { path = "../sgx-types" }
 bounds = { path = "../bounds" }
 memory = { path = "../memory" }
 mmap = { path = "../mmap" }
