@@ -20,9 +20,7 @@ usermode:
     # prepare the stack for iretq
     pushq    $USER_DATA_SEGMENT
     pushq    %rsi                                   # stack pointer
-# FIXME: disable interrupts for now, until we need them
-#   movq     $(1 << 9),             %r12            # RFlags - set interrupt enable flag
-    pushq    $0x0                                   # RFlags
+    pushq    $(1 << 9)                              # RFlags - set interrupt enable flag
     pushq    $USER_CODE_SEGMENT
     pushq    %rdi                                   # instruction pointer
 
