@@ -49,7 +49,7 @@ pub extern "C" fn event(
                         libc::SYS_rt_sigprocmask => h.rt_sigprocmask(),
                         libc::SYS_sigaltstack => h.sigaltstack(),
                         libc::SYS_getrandom => h.getrandom(),
-
+                        libc::SYS_clock_gettime => h.clock_gettime(),
                         syscall => {
                             debugln!(h, "unsupported syscall: 0x{:x}", syscall as u64);
                             Err(libc::ENOSYS).into()
