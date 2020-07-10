@@ -3,6 +3,8 @@
 pub mod kvm;
 pub mod sgx;
 
+mod probe;
+
 use std::io::Result;
 use std::path::PathBuf;
 use std::sync::Arc;

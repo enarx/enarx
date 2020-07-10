@@ -1,13 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::backend;
+use crate::backend::probe::x86_64::CpuId;
 use crate::backend::Datum;
 use crate::binary::Component;
 
 use sgx_types::attr::{Flags, Xfrm};
 use sgx_types::misc::MiscSelect;
 
-use std::arch::x86_64::{CpuidResult, __cpuid_count};
+use std::arch::x86_64::__cpuid_count;
 use std::fs::File;
 use std::io::Result;
 use std::mem::transmute;
@@ -37,13 +38,6 @@ fn humanize(mut size: f64) -> (f64, &'static str) {
     };
 
     (size, suffix)
-}
-
-struct CpuId {
-    name: &'static str,
-    leaf: u32,
-    subl: u32,
-    func: fn(CpuidResult) -> (bool, Option<String>),
 }
 
 const CPUIDS: &[CpuId] = &[
@@ -183,23 +177,9 @@ impl backend::Backend for Backend {
         let mut data = vec![];
 
         data.push(dev_sgx_enclave());
+        data.extend(CPUIDS.iter().map(|c| c.into()));
 
         let max = unsafe { __cpuid_count(0x00000000, 0x00000000) }.eax;
-        data.extend(CPUIDS.iter().map(|x| {
-            let (pass, info) = if x.leaf <= max {
-                (x.func)(unsafe { __cpuid_count(x.leaf, x.subl) })
-            } else {
-                (false, None)
-            };
-
-            Datum {
-                name: x.name.into(),
-                mesg: None,
-                pass,
-                info,
-            }
-        }));
-
         data.push(epc_size(max));
 
         data
