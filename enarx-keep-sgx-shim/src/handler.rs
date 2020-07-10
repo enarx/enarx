@@ -54,37 +54,22 @@ pub struct Handler<'a> {
 
 impl<'a> Write for Handler<'a> {
     fn write_str(&mut self, s: &str) -> core::fmt::Result {
-        let bytes = s.as_bytes();
-        let len = bytes.len() as _;
-        if len == 0 {
+        if s.as_bytes().len() == 0 {
             return Ok(());
         }
 
-        // Allocate some unencrypted memory.
-        let map = match self.ualloc(len) {
-            Err(_) => return Err(core::fmt::Error),
-            Ok(map) => map,
-        };
+        let mut cursor = self.block.cursor();
+        let untrusted = cursor.copy_slice(s.as_bytes()).or(Err(core::fmt::Error))?;
 
-        unsafe {
-            // Copy the encrypted input into unencrypted memory.
-            core::ptr::copy_nonoverlapping(bytes.as_ptr(), map, bytes.len());
+        // Do the syscall; replace encrypted memory with unencrypted memory.
+        let req = request!(libc::SYS_write => libc::STDERR_FILENO, untrusted, untrusted.len());
+        let res = unsafe { self.proxy(req) };
 
-            // Do the syscall; replace encrypted memory with unencrypted memory.
-            self.syscall(
-                libc::SYS_write as u64,
-                libc::STDERR_FILENO as u64,
-                map as _,
-                len,
-                0,
-                0,
-                0,
-            );
-
-            self.ufree(map, len);
+        match res {
+            Ok(res) if usize::from(res[0]) > s.bytes().len() => self.attacked(),
+            Ok(res) if usize::from(res[0]) == s.bytes().len() => Ok(()),
+            _ => Err(core::fmt::Error),
         }
-
-        Ok(())
     }
 }
 
