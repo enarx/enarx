@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 pub mod kvm;
+pub mod sev;
 pub mod sgx;
 
 mod probe;
