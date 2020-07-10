@@ -131,9 +131,15 @@ macro_rules! implfrom {
 }
 
 implfrom! {
-    u8:i8       [u16:i16 u32:i32 u64:i64 u128:i128],
-    u16:i16     [u32:i32 u64:i64 u128:i128],
-    u32:i32     [u64:i64 u128:i128],
+    u8:i8       [u16:i16 u32:i32 u64:i64 u128:i128 usize:isize],
+    u16:i16     [u32:i32 u64:i64 u128:i128 usize:isize],
+
+    #[cfg(target_pointer_width = "64")]
+    u32:i32     [u64:i64 u128:i128 usize:isize],
+
+    #[cfg(target_pointer_width = "32")]
+    u32:i32     [u64:i64 u128:i128] usize:isize,
+
     u64:i64     [u128:i128],
     u128:i128   [],
 
@@ -204,5 +210,23 @@ impl<T> Register<T> {
     /// Returns the raw value
     pub fn raw(self) -> T {
         self.0
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Register;
+
+    #[test]
+    fn integers() {
+        Register::<usize>::from(0u8);
+        Register::<usize>::from(0u16);
+        Register::<usize>::from(0u32);
+        Register::<usize>::from(0i8);
+        Register::<usize>::from(0i16);
+        Register::<usize>::from(0i32);
+
+        Register::<u64>::from(0usize);
+        Register::<u64>::from(0isize);
     }
 }
