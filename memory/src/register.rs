@@ -164,9 +164,25 @@ macro_rules! implptr {
             }
 
             $(#[$attr])?
+            impl<T: Sized> From<Register<$t>> for *const T {
+                #[inline]
+                fn from(value: Register<$t>) -> *const T {
+                    value.0 as _
+                }
+            }
+
+            $(#[$attr])?
             impl<T: Sized> From<*mut T> for Register<$t> {
                 #[inline]
                 fn from(value: *mut T) -> Register<$t> {
+                    Self(value as _)
+                }
+            }
+
+            $(#[$attr])?
+            impl<T: Sized> From<*const T> for Register<$t> {
+                #[inline]
+                fn from(value: *const T) -> Register<$t> {
                     Self(value as _)
                 }
             }
@@ -180,9 +196,25 @@ macro_rules! implptr {
             }
 
             $(#[$attr])?
+            impl<T: Sized> From<&[T]> for Register<$t> {
+                #[inline]
+                fn from(value: &[T]) -> Register<$t> {
+                    Self(value.as_ptr() as $t)
+                }
+            }
+
+            $(#[$attr])?
             impl<T: Sized> From<&mut T> for Register<$t> {
                 #[inline]
                 fn from(value: &mut T) -> Register<$t> {
+                    Self(value as *mut T as $t)
+                }
+            }
+
+            $(#[$attr])?
+            impl<T: Sized> From<&T> for Register<$t> {
+                #[inline]
+                fn from(value: &T) -> Register<$t> {
                     Self(value as *const T as $t)
                 }
             }
@@ -224,6 +256,36 @@ impl<T> Register<T> {
     pub fn raw(self) -> T {
         self.0
     }
+
+    /// Converts a register value to a slice
+    ///
+    /// # Safety
+    ///
+    /// This function is unsafe because we are converting an integer to a
+    /// pointer and then dereferencing it. The caller MUST ensure that
+    /// the value of this register points to valid memory.
+    #[inline]
+    pub unsafe fn as_slice<'a, U>(self, len: usize) -> &'a [U]
+    where
+        Self: Into<*const U>,
+    {
+        core::slice::from_raw_parts(self.into(), len)
+    }
+
+    /// Converts a register value to a mutable slice
+    ///
+    /// # Safety
+    ///
+    /// This function is unsafe because we are converting an integer to a
+    /// pointer and then dereferencing it. The caller MUST ensure that
+    /// the value of this register is valid memory.
+    #[inline]
+    pub unsafe fn as_slice_mut<'a, U>(self, len: usize) -> &'a mut [U]
+    where
+        Self: Into<*mut U>,
+    {
+        core::slice::from_raw_parts_mut(self.into(), len)
+    }
 }
 
 #[cfg(test)]
@@ -245,8 +307,28 @@ mod tests {
 
     #[test]
     fn pointers() {
+        <*const u8>::from(Register::<usize>::from(0));
+        Register::<usize>::from(&0u8);
+        Register::<usize>::from(&0u8 as *const u8);
+
+        <*mut u8>::from(Register::<usize>::from(0));
         Register::<usize>::from(&mut 0u8);
-        Register::<usize>::from(&mut [0u8; 32]);
         Register::<usize>::from(&mut 0u8 as *mut u8);
+    }
+
+    #[test]
+    fn slice() {
+        let mut buf = [7u8, 5, 3, 9, 4, 7, 2, 6];
+
+        let reg = Register::<usize>::from(&buf[..]);
+        let slc: &[u8] = unsafe { reg.as_slice(8) };
+        assert_eq!(slc[2], buf[2]);
+
+        let reg = Register::<usize>::from(&mut buf[..]);
+        let slc: &mut [u8] = unsafe { reg.as_slice_mut(8) };
+        assert_eq!(slc[3], buf[3]);
+
+        slc[3] = 0;
+        assert_eq!(buf[3], 0);
     }
 }
