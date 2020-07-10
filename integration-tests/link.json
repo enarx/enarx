@@ -1,0 +1,18 @@
+{
+    "build": {
+        "prepend": [
+            "-static-pie"
+        ],
+
+        "replace": {
+            ".*/crt1.o": ["/usr/x86_64-linux-musl/lib64/rcrt1.o"],
+            "-no-pie": []
+        },
+
+        "debug": false
+    },
+
+    "test": {
+        "debug": false
+    }
+}
