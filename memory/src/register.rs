@@ -153,26 +153,39 @@ implfrom! {
 macro_rules! implptr {
     () => {};
 
-    ($(#[$attr:meta])? $t:ident $m:tt) => {
-        impl<T> From<Register<$t>> for *$m T {
-            #[inline]
-            fn from(value: Register<$t>) -> *$m T {
-                value.0 as _
-            }
-        }
-
-        impl<T> From<*$m T> for Register<$t> {
-            #[inline]
-            fn from(value: *$m T) -> Register<$t> {
-                Self(value as _)
-            }
-        }
-    };
-
     ($($(#[$attr:meta])? $t:ident),* $(,)?) => {
         $(
-            implptr! { $(#[$attr])? $t const }
-            implptr! { $(#[$attr])? $t mut }
+            $(#[$attr])?
+            impl<T: Sized> From<Register<$t>> for *mut T {
+                #[inline]
+                fn from(value: Register<$t>) -> *mut T {
+                    value.0 as _
+                }
+            }
+
+            $(#[$attr])?
+            impl<T: Sized> From<*mut T> for Register<$t> {
+                #[inline]
+                fn from(value: *mut T) -> Register<$t> {
+                    Self(value as _)
+                }
+            }
+
+            $(#[$attr])?
+            impl<T: Sized> From<&mut [T]> for Register<$t> {
+                #[inline]
+                fn from(value: &mut [T]) -> Register<$t> {
+                    Self(value.as_mut_ptr() as $t)
+                }
+            }
+
+            $(#[$attr])?
+            impl<T: Sized> From<&mut T> for Register<$t> {
+                #[inline]
+                fn from(value: &mut T) -> Register<$t> {
+                    Self(value as *const T as $t)
+                }
+            }
         )*
     };
 }
@@ -228,5 +241,12 @@ mod tests {
 
         Register::<u64>::from(0usize);
         Register::<u64>::from(0isize);
+    }
+
+    #[test]
+    fn pointers() {
+        Register::<usize>::from(&mut 0u8);
+        Register::<usize>::from(&mut [0u8; 32]);
+        Register::<usize>::from(&mut 0u8 as *mut u8);
     }
 }
