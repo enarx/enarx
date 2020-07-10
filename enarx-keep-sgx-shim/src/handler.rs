@@ -9,7 +9,6 @@ use sgx_types::ssa::StateSaveArea;
 
 use core::fmt::Write;
 use core::mem::size_of;
-use core::ptr::copy_nonoverlapping;
 use core::slice::{from_raw_parts, from_raw_parts_mut};
 
 const TRACE: bool = false;
@@ -239,31 +238,39 @@ impl<'a> Handler<'a> {
     pub fn read(&mut self) -> u64 {
         self.trace("read", 3);
 
-        let fd = self.aex.gpr.rdi.raw();
-        let buf = self.aex.gpr.rsi.raw() as *mut u8;
-        let size = self.aex.gpr.rdx.raw();
-
-        // Allocate some unencrypted memory.
-        let map = match self.ualloc(size) {
-            Err(errno) => return errno as u64,
-            Ok(map) => map,
+        // Allocate some unencrypted memory from the Block.
+        let cursor = self.block.cursor();
+        let slice: &mut [u8] = match unsafe { cursor.alloc(self.aex.gpr.rdx.into()) } {
+            Ok(slice) => slice,
+            Err(_) => return -libc::EMSGSIZE as u64,
         };
 
-        unsafe {
-            // Do the syscall; replace encrypted memory with unencrypted memory.
-            let ret = self.syscall(libc::SYS_read as u64, fd, map as _, size, 0, 0, 0);
+        // Do the syscall; replace encrypted memory with unencrypted memory.
+        let req = request!(libc::SYS_read => self.aex.gpr.rdi, slice, slice.len());
+        let res = unsafe { self.proxy(req) };
 
-            // Copy the unencrypted input into encrypted memory.
-            if ret <= ERRNO_BASE {
-                if ret > size {
+        match res {
+            Ok(res) => {
+                if usize::from(res[0]) > self.aex.gpr.rdx.into() {
                     self.attacked();
                 }
 
-                copy_nonoverlapping(map, buf, ret as _);
+                let tbuf = unsafe { self.aex.gpr.rsi.as_slice_mut(self.aex.gpr.rdx.into()) };
+
+                // Reallocate some unencrypted memory from the Block.
+                let cursor = self.block.cursor();
+                let slice: &mut [u8] = match unsafe { cursor.alloc(self.aex.gpr.rdx.into()) } {
+                    Ok(slice) => slice,
+                    Err(_) => return -libc::EMSGSIZE as u64,
+                };
+
+                // Copy the unencrypted memory into encrypted memory.
+                tbuf.copy_from_slice(&slice[..tbuf.len()]);
+
+                res[0].into()
             }
 
-            self.ufree(map, size);
-            ret
+            Err(code) => -code as u64,
         }
     }
 
