@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
+pub mod kvm;
 pub mod sgx;
 
 use std::io::Result;
