@@ -15,6 +15,30 @@
 use core::mem::size_of;
 use memory::{Page, Register};
 
+/// Creates a Request instance
+#[macro_export]
+macro_rules! request {
+    ($num:expr) => {
+        $crate::Request { num: $num.into(), arg: [Register::default(); 7] }
+    };
+
+    ($num:expr => $($arg:expr),*) => {{
+        let args = [$($arg.into()),*];
+        $crate::Request {
+            num: $num.into(),
+            arg: [
+                args.get(0).copied().unwrap_or_default(),
+                args.get(1).copied().unwrap_or_default(),
+                args.get(2).copied().unwrap_or_default(),
+                args.get(3).copied().unwrap_or_default(),
+                args.get(4).copied().unwrap_or_default(),
+                args.get(5).copied().unwrap_or_default(),
+                args.get(6).copied().unwrap_or_default(),
+            ]
+        }
+    }};
+}
+
 /// A request
 ///
 /// The `Request` struct is the most minimal representation of the register context
@@ -193,21 +217,54 @@ mod tests {
     #[test]
     fn syscall() {
         // Test syscall failure, including bidirectional conversion.
-        let req = Request::new(libc::SYS_close, &[(-1isize as usize).into()]);
+        let req = request!(libc::SYS_close => -1isize);
         let rep = unsafe { req.syscall() };
         assert_eq!(rep, Err(libc::EBADF).into());
         assert_eq!(libc::EBADF, Result::from(rep).unwrap_err());
 
         // Test dup() success.
-        let req = Request::new(libc::SYS_dup, &[0usize.into()]);
+        let req = request!(libc::SYS_dup => 0usize);
         let rep = unsafe { req.syscall() };
         let res = Result::from(rep).unwrap()[0].into();
         assert_eq!(3usize, res);
 
         // Test close() success.
-        let req = Request::new(libc::SYS_close, &[3usize.into()]);
+        let req = request!(libc::SYS_close => 3usize);
         let rep = unsafe { req.syscall() };
         let res = Result::from(rep).unwrap()[0].into();
         assert_eq!(0usize, res);
+    }
+
+    #[test]
+    fn request() {
+        let req = request!(0 => 1, 2, 3, 4, 5, 6, 7, 8, 9);
+        assert_eq!(req.num, Register::<usize>::from(0));
+        assert_eq!(req.arg[0], Register::<usize>::from(1));
+        assert_eq!(req.arg[1], Register::<usize>::from(2));
+        assert_eq!(req.arg[2], Register::<usize>::from(3));
+        assert_eq!(req.arg[3], Register::<usize>::from(4));
+        assert_eq!(req.arg[4], Register::<usize>::from(5));
+        assert_eq!(req.arg[5], Register::<usize>::from(6));
+        assert_eq!(req.arg[6], Register::<usize>::from(7));
+
+        let req = request!(0 => 1);
+        assert_eq!(req.num, Register::<usize>::from(0));
+        assert_eq!(req.arg[0], Register::<usize>::from(1));
+        assert_eq!(req.arg[1], Register::<usize>::from(0));
+        assert_eq!(req.arg[2], Register::<usize>::from(0));
+        assert_eq!(req.arg[3], Register::<usize>::from(0));
+        assert_eq!(req.arg[4], Register::<usize>::from(0));
+        assert_eq!(req.arg[5], Register::<usize>::from(0));
+        assert_eq!(req.arg[6], Register::<usize>::from(0));
+
+        let req = request!(17);
+        assert_eq!(req.num, Register::<usize>::from(17));
+        assert_eq!(req.arg[0], Register::<usize>::from(0));
+        assert_eq!(req.arg[1], Register::<usize>::from(0));
+        assert_eq!(req.arg[2], Register::<usize>::from(0));
+        assert_eq!(req.arg[3], Register::<usize>::from(0));
+        assert_eq!(req.arg[4], Register::<usize>::from(0));
+        assert_eq!(req.arg[5], Register::<usize>::from(0));
+        assert_eq!(req.arg[6], Register::<usize>::from(0));
     }
 }
