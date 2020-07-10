@@ -43,6 +43,7 @@ enum Options {
 fn main() -> Result<()> {
     let mut backends = HashMap::<String, Box<dyn Backend>>::new();
 
+    backends.insert("kvm".into(), Box::new(backend::kvm::Backend));
     backends.insert("sgx".into(), Box::new(backend::sgx::Backend));
 
     match Options::from_args() {
