@@ -59,23 +59,6 @@ pub struct Request {
 }
 
 impl Request {
-    /// Create a new request
-    #[inline]
-    pub fn new(num: impl Into<Register<usize>>, arg: &[Register<usize>]) -> Self {
-        Self {
-            num: num.into(),
-            arg: [
-                arg.get(0).copied().unwrap_or_default(),
-                arg.get(1).copied().unwrap_or_default(),
-                arg.get(2).copied().unwrap_or_default(),
-                arg.get(3).copied().unwrap_or_default(),
-                arg.get(4).copied().unwrap_or_default(),
-                arg.get(5).copied().unwrap_or_default(),
-                arg.get(6).copied().unwrap_or_default(),
-            ],
-        }
-    }
-
     /// Issues the requested syscall and returns the reply
     ///
     /// # Safety
