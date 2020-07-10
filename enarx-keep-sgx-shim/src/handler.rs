@@ -216,6 +216,7 @@ impl<'a> Handler<'a> {
             .map(|x| x.into())
             .unwrap_or_else(|| self.aex.gpr.rdi.raw());
 
+        #[allow(unused_must_use)]
         loop {
             unsafe { self.proxy(request!(libc::SYS_exit => code)) };
         }
@@ -233,6 +234,7 @@ impl<'a> Handler<'a> {
             .into()
             .map(|x| x.into())
             .unwrap_or_else(|| self.aex.gpr.rdi.raw());
+        #[allow(unused_must_use)]
         loop {
             unsafe { self.proxy(request!(libc::SYS_exit_group => code)) };
         }
