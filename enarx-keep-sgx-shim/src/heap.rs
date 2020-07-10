@@ -200,12 +200,3 @@ impl Heap {
         0
     }
 }
-
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn const_values() {
-        assert_eq!(1u64, libc::PROT_READ as u64);
-        assert_eq!(1u64 as libc::c_int, libc::PROT_READ);
-    }
-}

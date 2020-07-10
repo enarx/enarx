@@ -645,19 +645,3 @@ impl<'a> Handler<'a> {
         trusted.len() as u64
     }
 }
-
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn errno_values() {
-        assert_eq!(-22i64 as u64, -libc::EINVAL as u64);
-        // ERRNO return values are the last 4096 numbers in a u64
-        let ret = -libc::EINVAL as u64;
-        assert_eq!(Some(libc::EINVAL as i64), Some(-(ret as i64)));
-    }
-    #[test]
-    fn syscall_values() {
-        assert_eq!(0u64, libc::SYS_read as u64);
-        assert_eq!(libc::SYS_read, 0i64 as i64);
-    }
-}
