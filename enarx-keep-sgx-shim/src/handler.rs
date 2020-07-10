@@ -4,7 +4,7 @@ use crate::Layout;
 
 use bounds::{Contains, Line, Span};
 use memory::Register;
-use sallyport::{Block, Request};
+use sallyport::{request, Block, Request};
 use sgx_types::ssa::StateSaveArea;
 
 use core::fmt::Write;
@@ -217,7 +217,7 @@ impl<'a> Handler<'a> {
             .unwrap_or_else(|| self.aex.gpr.rdi.raw());
 
         loop {
-            unsafe { self.proxy(Request::new(libc::SYS_exit as usize, &[code.into()])) };
+            unsafe { self.proxy(request!(libc::SYS_exit => code)) };
         }
     }
 
@@ -234,7 +234,7 @@ impl<'a> Handler<'a> {
             .map(|x| x.into())
             .unwrap_or_else(|| self.aex.gpr.rdi.raw());
         loop {
-            unsafe { self.proxy(Request::new(libc::SYS_exit_group as usize, &[code.into()])) };
+            unsafe { self.proxy(request!(libc::SYS_exit_group => code)) };
         }
     }
 
@@ -242,7 +242,7 @@ impl<'a> Handler<'a> {
     pub fn getuid(&mut self) -> u64 {
         self.trace("getuid", 0);
 
-        match unsafe { self.proxy(Request::new(libc::SYS_getuid as usize, &[])) } {
+        match unsafe { self.proxy(request!(libc::SYS_getuid)) } {
             Ok(res) => res[0].raw() as u64,
             Err(code) => code as u64,
         }

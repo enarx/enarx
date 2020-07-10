@@ -2,7 +2,7 @@
 
 //! Host <-> Shim Communication
 
-use sallyport::{Block, Request};
+use sallyport::{request, Block};
 use x86_64::instructions::port::Port;
 
 use crate::addr::{ShimPhysAddr, ShimVirtAddr};
@@ -139,14 +139,8 @@ impl<'a> HostCall<'a> {
         let buf_address = Address::from(self.0.buf.as_mut_ptr());
         let shim_virt_address = ShimVirtAddr::try_from(buf_address).map_err(|_| libc::EFAULT)?;
 
-        let request = Request::new(
-            libc::SYS_write as usize,
-            &[
-                fd.into(),
-                ShimPhysAddr::from(shim_virt_address).into(),
-                bytes.len().into(),
-            ],
-        );
+        let phys = ShimPhysAddr::from(shim_virt_address);
+        let request = request!(libc::SYS_write => fd, phys, bytes.len());
 
         self.0.msg.req = request;
         self.0.buf[..bytes.len()].copy_from_slice(bytes);
@@ -161,7 +155,7 @@ impl<'a> HostCall<'a> {
     #[inline(always)]
     pub fn exit_group(&mut self, status: u32) -> ! {
         unsafe {
-            let request = Request::new(libc::SYS_exit_group as usize, &[(status as usize).into()]);
+            let request = request!(libc::SYS_exit_group => status);
             self.0.msg.req = request;
 
             let _ = self.hostcall();
