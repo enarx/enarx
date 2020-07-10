@@ -19,7 +19,6 @@ CARGO_MAKE_CRATE_WORKSPACE_MEMBERS = [
 	"memory",
 	"sallyport",
 	"sev",
-	"sev-show",
 	"sevctl",
 	"sgx-crypto",
 	"sgx-types",
