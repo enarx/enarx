@@ -29,6 +29,7 @@ CARGO_MAKE_CRATE_WORKSPACE_MEMBERS = [
 	"vdso"
 ]
 ENARX_TEST_DIR = "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/.tests"
+ENARX_DOCS_DIR = "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/docs"
 
 [tasks.deny]
 command = "cargo"
@@ -57,7 +58,9 @@ workspace = false
 # detect whether we're in a crate directory and if we are, this test
 # will be skipped. It doesn't make sense to run inside a crate directory.
 condition = { env_not_set = ["CARGO_MAKE_CRATE_NAME"]}
-command = "${ENARX_TEST_DIR}/misc-diagrams"
+command = "cargo"
+args = ["make", "check-diagrams"]
+cwd = "${ENARX_DOCS_DIR}"
 
 [tasks.cargo-toml-package-license]
 command = "${ENARX_TEST_DIR}/cargo-toml-package-license"
