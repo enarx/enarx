@@ -26,7 +26,7 @@ RUN dnf -y install mscgen graphviz
 # Install Rust via rustup
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y -q
 RUN rustup target add x86_64-unknown-linux-musl
-RUN rustup component add rustfmt rls clippy
+RUN rustup component add rustfmt rls clippy rust-src
 
 # Install binary crates
 RUN cargo install --force cargo-make
