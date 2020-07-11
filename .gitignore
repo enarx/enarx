@@ -1,3 +1,6 @@
 Cargo.lock
 target/
 .idea/
+.vscode/
+.devcontainer/
+*.code-workspace
