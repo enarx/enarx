@@ -2,5 +2,4 @@
 
 fn main() {
     loop {}
-    unreachable!();
 }
