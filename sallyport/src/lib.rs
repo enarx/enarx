@@ -171,6 +171,46 @@ impl Block {
     pub const fn buf_capacity() -> usize {
         Page::size() - size_of::<Message>()
     }
+
+    /// Returns a Cursor for the Block
+    pub fn cursor<'a>(&'a mut self) -> Cursor<'a> {
+        Cursor(&mut self.buf)
+    }
+}
+
+/// Helper for allocation of untrusted memory in a Block.
+pub struct Cursor<'a>(&'a mut [u8]);
+
+impl<'a> Cursor<'a> {
+    /// Allocates an array, containing count number of T items. The result is uninitialized.
+    ///
+    /// # Safety
+    ///
+    /// This function is unsafe because it returns an uninitialized array.
+    pub unsafe fn alloc<T>(&'a mut self, count: usize) -> Result<&'a mut [T], ()> {
+        let mid = {
+            let (padding, data, _) = self.0.align_to_mut::<T>();
+
+            if data.len() < count {
+                return Err(());
+            }
+
+            padding.len() + size_of::<T>() * count
+        };
+
+        let (data, next) = self.0.split_at_mut(mid);
+
+        self.0 = next;
+
+        Ok(data.align_to_mut::<T>().1)
+    }
+
+    /// Copies data from a value into a slice using self.alloc().
+    pub fn copy_slice<T: Copy>(&'a mut self, value: &[T]) -> Result<&'a [T], ()> {
+        let slice: &mut [T] = unsafe { self.alloc(value.len())? };
+        slice.copy_from_slice(value);
+        return Ok(slice);
+    }
 }
 
 #[cfg(test)]
@@ -249,5 +289,20 @@ mod tests {
         assert_eq!(req.arg[4], Register::<usize>::from(0));
         assert_eq!(req.arg[5], Register::<usize>::from(0));
         assert_eq!(req.arg[6], Register::<usize>::from(0));
+    }
+
+    #[test]
+    fn cursor() {
+        let mut block = Block::default();
+
+        let mut c = block.cursor();
+        assert_eq!(unsafe { c.alloc::<usize>(4096usize) }, Err(()));
+
+        let mut c = block.cursor();
+        assert_eq!(unsafe { c.alloc::<usize>(42usize) }.unwrap().len(), 42);
+
+        let mut c = block.cursor();
+        let slice = c.copy_slice(&[87, 2, 3]).unwrap();
+        assert_eq!(&slice, &[87, 2, 3]);
     }
 }
