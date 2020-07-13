@@ -17,7 +17,6 @@ CARGO_MAKE_CRATE_WORKSPACE_MEMBERS = [
 	"keep-runtime",
 	"loader",
 	"memory",
-	"payload",
 	"sallyport",
 	"sev",
 	"sev-show",
