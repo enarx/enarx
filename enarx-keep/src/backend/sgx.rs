@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::backend;
-use crate::backend::probe::x86_64::CpuId;
+use crate::backend::probe::x86_64::{CpuId, Vendor};
 use crate::backend::Datum;
 use crate::binary::Component;
 
@@ -50,30 +50,35 @@ const CPUIDS: &[CpuId] = &[
             let name = from_utf8(&name[..]).unwrap();
             (name == "GenuineIntel", Some(name.into()))
         },
+        vend: None,
     },
     CpuId {
         name: " SGX Support",
         leaf: 0x00000007,
         subl: 0x00000000,
         func: |res| (res.ebx & (1 << 2) != 0, None),
+        vend: Some(Vendor::Intel),
     },
     CpuId {
         name: "  Version 1",
         leaf: 0x00000012,
         subl: 0x00000000,
         func: |res| (res.eax & (1 << 0) != 0, None),
+        vend: Some(Vendor::Intel),
     },
     CpuId {
         name: "  Version 2",
         leaf: 0x00000012,
         subl: 0x00000000,
         func: |res| (res.eax & (1 << 1) != 0, None),
+        vend: Some(Vendor::Intel),
     },
     CpuId {
         name: "  FLC Support",
         leaf: 0x00000007,
         subl: 0x00000000,
         func: |res| (res.ecx & (1 << 30) != 0, None),
+        vend: Some(Vendor::Intel),
     },
     CpuId {
         name: "  Max Size (32-bit)",
@@ -84,6 +89,7 @@ const CPUIDS: &[CpuId] = &[
             let (n, s) = humanize((1u64 << bits) as f64);
             (true, Some(format!("{:.0} {}", n, s)))
         },
+        vend: Some(Vendor::Intel),
     },
     CpuId {
         name: "  Max Size (64-bit)",
@@ -94,6 +100,7 @@ const CPUIDS: &[CpuId] = &[
             let (n, s) = humanize((1u64 << bits) as f64);
             (true, Some(format!("{:.0} {}", n, s)))
         },
+        vend: Some(Vendor::Intel),
     },
     CpuId {
         name: "  MiscSelect",
@@ -103,6 +110,7 @@ const CPUIDS: &[CpuId] = &[
             Some(ms) => (true, Some(format!("{:?}", ms))),
             None => (false, None),
         },
+        vend: Some(Vendor::Intel),
     },
     CpuId {
         name: "  Flags",
@@ -112,6 +120,7 @@ const CPUIDS: &[CpuId] = &[
             Some(flags) => (true, Some(format!("{:?}", flags))),
             None => (false, None),
         },
+        vend: Some(Vendor::Intel),
     },
     CpuId {
         name: "  Xfrm",
@@ -121,6 +130,7 @@ const CPUIDS: &[CpuId] = &[
             Some(flags) => (true, Some(format!("{:?}", flags))),
             None => (false, None),
         },
+        vend: Some(Vendor::Intel),
     },
 ];
 
