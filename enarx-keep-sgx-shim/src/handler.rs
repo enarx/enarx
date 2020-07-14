@@ -286,19 +286,19 @@ impl<'a> Handler<'a> {
     pub fn write(&mut self) -> u64 {
         self.trace("write", 3);
 
-        let input = unsafe { self.aex.gpr.rsi.as_slice(self.aex.gpr.rdx.into()) };
-
-        if input.len() > self.block.buf.len() {
-            return -libc::EMSGSIZE as u64;
-        }
+        let input: &[u8] = unsafe { self.aex.gpr.rsi.as_slice(self.aex.gpr.rdx.into()) };
 
         // Copy the encrypted input into unencrypted memory.
-        self.block.buf[..input.len()].copy_from_slice(input);
+        let mut cursor = self.block.cursor();
+        let untrusted = match cursor.copy_slice(input).or(Err(libc::EMSGSIZE)) {
+            Ok(slice) => slice,
+            Err(e) => return -e as u64,
+        };
+
+        let req = request!(libc::SYS_write => self.aex.gpr.rdi, untrusted, input.len());
 
         // Do the syscall; replace encrypted memory with unencrypted memory.
-        let res = unsafe {
-            self.proxy(request!(libc::SYS_write => self.aex.gpr.rdi, &self.block.buf, input.len()))
-        };
+        let res = unsafe { self.proxy(req) };
 
         match res {
             Ok(res) => {
