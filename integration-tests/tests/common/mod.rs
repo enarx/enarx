@@ -1,10 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 
-//! This crate contains the common code for integration tests
-
-#![deny(clippy::all)]
-#![deny(missing_docs)]
-
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::time::Duration;
