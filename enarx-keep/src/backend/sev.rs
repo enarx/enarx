@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::backend::probe::x86_64::CpuId;
+use crate::backend::probe::x86_64::{CpuId, Vendor};
 use crate::backend::{self, Datum, Keep};
 use crate::binary::Component;
 
@@ -22,6 +22,7 @@ const CPUIDS: &[CpuId] = &[
             let name = from_utf8(&name[..]).unwrap();
             (name == "AuthenticAMD", Some(name.into()))
         },
+        vend: None,
     },
     CpuId {
         name: " Microcode support",
@@ -43,12 +44,14 @@ const CPUIDS: &[CpuId] = &[
 
             (cpu_name.to_uppercase().contains("EPYC"), Some(cpu_name))
         },
+        vend: Some(Vendor::Amd),
     },
     CpuId {
         name: " Secure Memory Encryption (SME)",
         leaf: 0x8000001f,
         subl: 0x00000000,
         func: |res| (res.eax & 0x1 != 0, None),
+        vend: Some(Vendor::Amd),
     },
     CpuId {
         name: "  Physical address bit reduction",
@@ -58,6 +61,7 @@ const CPUIDS: &[CpuId] = &[
             let field = res.ebx & 0b1111_1100_0000 >> 6;
             (true, Some(format!("{}", field)))
         },
+        vend: Some(Vendor::Amd),
     },
     CpuId {
         name: "  C-bit location in page table entry",
@@ -67,36 +71,42 @@ const CPUIDS: &[CpuId] = &[
             let field = res.ebx & 0b01_1111;
             (true, Some(format!("{}", field)))
         },
+        vend: Some(Vendor::Amd),
     },
     CpuId {
         name: " Secure Encrypted Virtualization (SEV)",
         leaf: 0x8000001f,
         subl: 0x00000000,
         func: |res| (res.eax & (1 << 1) != 0, None),
+        vend: Some(Vendor::Amd),
     },
     CpuId {
         name: "  Number of encrypted guests supported simultaneously",
         leaf: 0x8000001f,
         subl: 0x00000000,
         func: |res| (true, Some(format!("{}", res.ecx))),
+        vend: Some(Vendor::Amd),
     },
     CpuId {
         name: "  Minimum ASID value for SEV-enabled, SEV-ES disabled guest",
         leaf: 0x8000001f,
         subl: 0x00000000,
         func: |res| (true, Some(format!("{}", res.edx))),
+        vend: Some(Vendor::Amd),
     },
     CpuId {
         name: " Secure Encrypted Virtualization Encrypted State (SEV-ES)",
         leaf: 0x8000001f,
         subl: 0x00000000,
         func: |res| (res.eax & (1 << 3) != 0, None),
+        vend: Some(Vendor::Amd),
     },
     CpuId {
         name: " Page Flush MSR available",
         leaf: 0x8000001f,
         subl: 0x00000000,
         func: |res| (res.eax & (1 << 2) != 0, None),
+        vend: Some(Vendor::Amd),
     },
 ];
 
