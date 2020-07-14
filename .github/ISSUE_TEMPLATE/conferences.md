@@ -2,10 +2,11 @@
 name: Conference
 about: Submit a conference for the Enarx project to present at.
 title: Event name - date
-labels: conferences
+labels: conference
 assignees: ''
 
 ---
+
 **Info**
 - Conference / Event URL
 - Any other relevant information
@@ -23,4 +24,4 @@ Venue, City, (State,) Country
 
 **CFP**
 URL to the Call for Proposals / Papers:
-- 
+-

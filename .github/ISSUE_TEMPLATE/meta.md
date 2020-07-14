@@ -1,11 +1,13 @@
 ---
 name: Meta
-about: For larger, medium/long-term tasks that should be broken into easily-digestible pieces.
+about: For larger, medium/long-term tasks that should be broken into easily-digestible
+  pieces.
 title: Description of the eventual goal
-labels: 'meta'
+labels: meta
 assignees: ''
 
 ---
+
 **Description**
 What needs to be improved? What should be done? Has there been any related work before? Any relevant links or material?
 
