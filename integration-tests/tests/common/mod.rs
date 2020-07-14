@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
+use std::io::Write;
 use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::process::{Command, Stdio};
 use std::time::Duration;
 use wait_timeout::ChildExt;
 
@@ -67,7 +68,14 @@ impl IntegrationTest {
         }
     }
 
-    pub fn run(self, timeout: u64, exit_status: i32) {
+    pub fn run(
+        self,
+        timeout: u64,
+        exit_status: i32,
+        stdin: impl AsRef<[u8]>,
+        stdout: impl AsRef<[u8]>,
+        stderr: impl AsRef<[u8]>,
+    ) {
         let seconds = Duration::from_secs(timeout);
 
         let mut cmd = Command::new(self.keep)
@@ -76,9 +84,17 @@ impl IntegrationTest {
             .arg(self.code)
             .arg("--shim")
             .arg(self.shim)
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
             .spawn()
             .expect("failed to run the test");
 
+        cmd.stdin
+            .as_mut()
+            .unwrap()
+            .write_all(stdin.as_ref())
+            .expect("Failed to write stdin");
         let ecode = match cmd.wait_timeout(seconds).unwrap() {
             Some(status) => status.code(),
             None => {
@@ -86,7 +102,12 @@ impl IntegrationTest {
                 panic!("killed by watchdog!");
             }
         };
+        let output = cmd
+            .wait_with_output()
+            .expect("Failed to read stdout/stderr");
 
+        assert_eq!(stdout.as_ref(), output.stdout.as_slice());
+        assert_eq!(stderr.as_ref(), output.stderr.as_slice());
         assert_eq!(exit_status, ecode.unwrap());
     }
 }
