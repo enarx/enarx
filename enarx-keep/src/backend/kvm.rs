@@ -1,13 +1,18 @@
 // SPDX-License-Identifier: Apache-2.0
 
+mod vm;
+
+use vm::builder::New;
+
 use crate::backend::{self, Datum, Keep};
 use crate::binary::Component;
 
 use kvm_ioctls::Kvm;
 
-use std::io::Result;
+use std::io::{Error, ErrorKind, Result};
+use std::num::NonZeroUsize;
 use std::path::PathBuf;
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 
 fn dev_kvm() -> Datum {
     let dev_kvm = std::path::Path::new("/dev/kvm");
@@ -42,10 +47,33 @@ impl backend::Backend for Backend {
     }
 
     fn shim(&self) -> Result<PathBuf> {
-        unimplemented!()
+        #[cfg(debug_assertions)]
+        const PROFILE: &str = "debug";
+
+        #[cfg(not(debug_assertions))]
+        const PROFILE: &str = "release";
+
+        let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .ok_or_else(|| Error::from(ErrorKind::NotFound))?
+            .join("enarx-keep-sev-shim")
+            .join("target")
+            .join("x86_64-unknown-linux-musl")
+            .join(PROFILE)
+            .join("enarx-keep-sev-shim");
+
+        Ok(path)
     }
 
-    fn build(&self, _shim: Component, _code: Component) -> Result<Arc<dyn Keep>> {
-        unimplemented!()
+    fn build(&self, shim: Component, code: Component) -> Result<Arc<dyn Keep>> {
+        let vm = vm::Builder::<New>::new()?
+            .with_max_cpus(NonZeroUsize::new(256).unwrap())?
+            .with_mem_size(units::bytes![1; GiB])?
+            .calculate_layout(shim.region(), code.region())?
+            .load_shim(shim)?
+            .load_code(code)?
+            .build()?;
+
+        Ok(Arc::new(RwLock::new(vm)))
     }
 }

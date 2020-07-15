@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::x86_64::VMSetup;
+use crate::backend::kvm::vm::x86_64::VMSetup;
 
 use bounds::Span;
 pub use kvm_bindings::kvm_userspace_memory_region as KvmUserspaceMemoryRegion;
