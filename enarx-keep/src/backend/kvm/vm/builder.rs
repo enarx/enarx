@@ -5,14 +5,15 @@
 //! can't run the shim before it's been loaded; you can't calculate the BootInfo
 //! before the other components are in place, etc).
 
+use super::cpu::Allocator;
 use super::mem::{KvmUserspaceMemoryRegion, Region};
 use super::VirtualMachine;
+
+use crate::binary::{Component, Segment};
 
 use bounds::Line;
 use enarx_keep_sev_shim::BootInfo;
 use kvm_ioctls::{Kvm, VmFd};
-use loader::segment::Segment;
-use loader::Component;
 use memory::Page;
 use x86_64::structures::paging::page_table::{PageTable, PageTableFlags};
 use x86_64::{PhysAddr, VirtAddr};
@@ -258,11 +259,13 @@ impl Builder<Code> {
     pub fn build(self) -> Result<VirtualMachine, io::Error> {
         let boot_info = self.data.boot_info.unwrap();
 
-        let mut vm = VirtualMachine {
+        let vm = VirtualMachine {
             kvm: self.data.kvm.unwrap(),
             fd: self.data.fd.unwrap(),
+            id_alloc: Allocator::new(),
             address_space: self.data.address_space.unwrap(),
-            cpus: vec![],
+            shim_entry: self.data.shim_entry.unwrap(),
+            shim_start: PhysAddr::new(boot_info.shim.start as _),
         };
 
         let host_setup = vm.address_space.prefix_mut();
@@ -283,19 +286,6 @@ impl Builder<Code> {
         host_setup.pml3t_ident[0].set_flags(
             PageTableFlags::HUGE_PAGE | PageTableFlags::WRITABLE | PageTableFlags::PRESENT,
         );
-
-        // Create startup CPU
-        let vcpu = vm.fd.create_vcpu(0)?;
-
-        // The shim expects a couple of parameters in registers,
-        // we'll set those for the startup vCPU.
-        let mut regs = vcpu.get_regs()?;
-        regs.rsi = boot_info.shim.start as _;
-        regs.rdi = to_guest(&host_setup.shared_pages[0] as *const _ as u64).as_u64();
-        vcpu.set_regs(&regs)?;
-
-        let cr3 = to_guest(&*host_setup.pml4t as *const _ as u64).as_u64();
-        vm.add_vcpu(vcpu, self.data.shim_entry.unwrap(), cr3)?;
 
         Ok(vm)
     }
