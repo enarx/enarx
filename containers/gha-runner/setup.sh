@@ -3,7 +3,7 @@
 set -e -o pipefail
 
 function gettag() {
-    python -c 'import sys; import json; print(json.loads(sys.stdin.read())["tag_name"])'
+    python3 -c 'import sys; import json; print(json.loads(sys.stdin.read())["tag_name"])'
 }
 
 rel="https://api.github.com/repos/actions/runner/releases/latest"
