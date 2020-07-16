@@ -13,7 +13,7 @@ use std::io::Result;
 use std::mem::transmute;
 use std::path::PathBuf;
 use std::str::from_utf8;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 fn humanize(mut size: f64) -> (f64, &'static str) {
     let mut iter = 0;
