@@ -134,16 +134,16 @@ impl<'a> HostCall<'a> {
     ///
     /// The parameters returned can't be trusted.
     pub unsafe fn write(&mut self, fd: usize, bytes: &[u8]) -> Result<libc::c_int, libc::c_int> {
-        let bytes = &bytes[..core::cmp::min(bytes.len(), Block::buf_capacity())];
+        let mut cursor = self.0.cursor();
+        let buf = cursor.copy_slice(bytes).or(Err(libc::EMSGSIZE))?;
 
-        let buf_address = Address::from(self.0.buf.as_mut_ptr());
+        let buf_address = Address::from(buf.as_ptr());
         let shim_virt_address = ShimVirtAddr::try_from(buf_address).map_err(|_| libc::EFAULT)?;
 
         let phys = ShimPhysAddr::from(shim_virt_address);
-        let request = request!(libc::SYS_write => fd, phys, bytes.len());
+        let request = request!(libc::SYS_write => fd, phys, buf.len());
 
         self.0.msg.req = request;
-        self.0.buf[..bytes.len()].copy_from_slice(bytes);
         self.hostcall().map(|r| r[0].raw() as _)
     }
 

@@ -152,7 +152,7 @@ pub struct Block {
     ///
     /// Note that this buffer size is *less than* a page, since the buffer shares
     /// space with the `Message` that describes it.
-    pub buf: [u8; Block::buf_capacity()],
+    buf: [u8; Block::buf_capacity()],
 }
 
 impl Default for Block {
