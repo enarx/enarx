@@ -85,8 +85,12 @@ impl Heap {
         let base = self.pages.as_ptr() as usize;
         let ceil = base + self.pages.len() * Page::size();
 
-        if base <= addr && addr < ceil {
-            return Some(addr - base);
+        if base <= addr {
+            if addr < ceil {
+                return Some(addr - base);
+            } else {
+                return Some(ceil - base);
+            }
         }
 
         None
@@ -198,5 +202,126 @@ impl Heap {
         }
 
         0
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    const ERRNO_BASE: usize = !0xfff;
+    const PROT: usize = libc::PROT_READ as _;
+    const FLAGS: usize = (libc::MAP_PRIVATE | libc::MAP_ANONYMOUS) as _;
+    const NUM_PAGES: usize = 10;
+
+    fn new_checked(bytes: &mut [u8]) -> Heap {
+        let aligned = unsafe { bytes.align_to_mut::<Page>().1 };
+        let span = Span {
+            start: aligned.as_mut_ptr() as _,
+            count: (aligned.len() * Page::size()) as _,
+        };
+        let heap = unsafe { Heap::new(span) };
+
+        // brk points to the first page
+        assert_eq!(heap.metadata.brk.start, heap.pages.as_ptr() as _);
+        assert_eq!(heap.metadata.brk.end, heap.pages.as_ptr() as _);
+
+        // exclude 2 pages for metadata and allocation map
+        assert_eq!(heap.pages.len(), aligned.len() - 2);
+
+        // no pages are allocated
+        for page in 0..heap.pages.len() {
+            assert!(!heap.is_allocated(page));
+        }
+
+        heap
+    }
+
+    fn oneshot(heap: &mut Heap, pages: usize) {
+        let brk_page = heap.pages.len() - pages;
+        let brk = heap.metadata.brk.start + brk_page * Page::size();
+        let ret = heap.brk(brk);
+        assert_eq!(ret, brk);
+
+        let steps = [
+            (Page::size(), 1),
+            (Page::size() / 2, 1),
+            (Page::size() + Page::size() / 2, 2),
+            (pages * Page::size(), pages),
+        ];
+
+        for (s, allocated) in steps.iter() {
+            let addr = heap.mmap(0, *s, PROT, FLAGS, -1, 0);
+            assert!(addr <= ERRNO_BASE);
+
+            for page in brk_page..heap.pages.len() - allocated {
+                assert!(!heap.is_allocated(page));
+            }
+            for page in heap.pages.len() - allocated..heap.pages.len() {
+                assert!(heap.is_allocated(page));
+            }
+
+            let ret = heap.munmap(addr, *s);
+            assert!(ret <= ERRNO_BASE);
+        }
+
+        // try to allocate memory whose size exceeds the total heap size
+        let ret = heap.mmap(0, heap.pages.len() * Page::size() + 1, PROT, FLAGS, -1, 0);
+        assert_eq!(ret, -libc::ENOMEM as _);
+    }
+
+    #[test]
+    fn mmap_munmap_oneshot() {
+        let bytes = &mut [0; Page::size() * NUM_PAGES];
+        let mut heap = new_checked(bytes);
+
+        let pages = heap.pages.len();
+        oneshot(&mut heap, pages);
+        oneshot(&mut heap, pages / 2);
+    }
+
+    fn incremental(heap: &mut Heap, pages: usize) {
+        let brk_page = heap.pages.len() - pages;
+        let brk = heap.metadata.brk.start + brk_page * Page::size();
+        let ret = heap.brk(brk);
+        assert_eq!(ret, brk);
+
+        let steps = [Page::size(), Page::size() / 2];
+
+        for s in steps.iter() {
+            let mut addrs = [0usize; NUM_PAGES];
+
+            for i in brk_page..heap.pages.len() {
+                let addr = heap.mmap(0, *s, PROT, FLAGS, -1, 0);
+                assert!(addr <= ERRNO_BASE);
+                addrs[i] = addr;
+            }
+
+            for page in brk_page..heap.pages.len() {
+                assert!(heap.is_allocated(page));
+            }
+
+            // try to allocate memory but no free pages
+            let ret = heap.mmap(0, *s, PROT, FLAGS, -1, 0);
+            assert_eq!(ret, -libc::ENOMEM as _);
+
+            for i in brk_page..heap.pages.len() {
+                let ret = heap.munmap(addrs[i], *s);
+                assert!(ret <= ERRNO_BASE);
+            }
+
+            for page in brk_page..heap.pages.len() {
+                assert!(!heap.is_allocated(page));
+            }
+        }
+    }
+
+    #[test]
+    fn mmap_munmap_incremental() {
+        let bytes = &mut [0; Page::size() * NUM_PAGES];
+        let mut heap = new_checked(bytes);
+
+        let pages = heap.pages.len();
+        incremental(&mut heap, pages);
+        incremental(&mut heap, pages / 2);
     }
 }
