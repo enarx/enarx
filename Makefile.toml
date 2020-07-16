@@ -52,11 +52,6 @@ command = "${ENARX_TEST_DIR}/misc-licenses-asm-spdx"
 
 [tasks.misc-diagrams]
 workspace = false
-# This is the only non-crate-level task. To prevent the pre-ci-flow
-# from spuriously triggering this *inside* member crates, let's just
-# detect whether we're in a crate directory and if we are, this test
-# will be skipped. It doesn't make sense to run inside a crate directory.
-condition = { env_not_set = ["CARGO_MAKE_CRATE_NAME"]}
 command = "cargo"
 args = ["make", "check-diagrams"]
 cwd = "${ENARX_DOCS_DIR}"
@@ -82,6 +77,13 @@ run_task = [
     { name = ["ci-flow", "integration"], fork = true },
 ]
 
+# Single run tests for the entire project rather than per crate
+[tasks.ci-project]
+workspace = false
+dependencies = [
+	"misc-diagrams"
+]
+
 # Add additional tests to the predefined 'ci-flow' target.
 [tasks.pre-ci-flow]
 dependencies = [
@@ -89,7 +91,6 @@ dependencies = [
 	"cargo-toml-package-license",
 	"check-format",
 	"deny",
-	"misc-diagrams",
 	"misc-licenses-asm-spdx",
 	"misc-licenses-crate",
 	"misc-licenses-rs-spdx",
