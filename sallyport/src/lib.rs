@@ -173,7 +173,7 @@ impl Block {
     }
 
     /// Returns a Cursor for the Block
-    pub fn cursor<'a>(&'a mut self) -> Cursor<'a> {
+    pub fn cursor(&mut self) -> Cursor<'_> {
         Cursor(UnsafeCell::new(&mut self.buf))
     }
 }
@@ -181,13 +181,13 @@ impl Block {
 /// Helper for allocation of untrusted memory in a Block.
 pub struct Cursor<'a>(UnsafeCell<&'a mut [u8]>);
 
-impl<'a> Cursor<'a> {
+impl Cursor<'_> {
     /// Allocates an array, containing count number of T items. The result is uninitialized.
     ///
     /// # Safety
     ///
     /// This function is unsafe because it returns an uninitialized array.
-    pub unsafe fn alloc<T>(&'a self, count: usize) -> Result<&'a mut [T], ()> {
+    pub unsafe fn alloc<T>(&self, count: usize) -> Result<&mut [T], ()> {
         let inner_ptr = self.0.get();
         let mid = {
             let (padding, data, _) = (*inner_ptr).align_to_mut::<T>();
@@ -207,10 +207,10 @@ impl<'a> Cursor<'a> {
     }
 
     /// Copies data from a value into a slice using self.alloc().
-    pub fn copy_slice<T: Copy>(&'a self, value: &[T]) -> Result<&'a [T], ()> {
+    pub fn copy_slice<T: Copy>(&self, value: &[T]) -> Result<&mut [T], ()> {
         let slice: &mut [T] = unsafe { self.alloc(value.len())? };
         slice.copy_from_slice(value);
-        return Ok(slice);
+        Ok(slice)
     }
 }
 
