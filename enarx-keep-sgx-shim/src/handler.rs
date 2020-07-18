@@ -289,7 +289,7 @@ impl<'a> Handler<'a> {
         let input: &[u8] = unsafe { self.aex.gpr.rsi.as_slice(self.aex.gpr.rdx.into()) };
 
         // Copy the encrypted input into unencrypted memory.
-        let mut cursor = self.block.cursor();
+        let cursor = self.block.cursor();
         let untrusted = match cursor.copy_slice(input).or(Err(libc::EMSGSIZE)) {
             Ok(slice) => slice,
             Err(e) => return -e as u64,
