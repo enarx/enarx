@@ -306,3 +306,28 @@ mod tests {
         assert_eq!(&slice, &[87, 2, 3]);
     }
 }
+
+#[test]
+fn cursor_multiple_allocs() {
+    let mut block = Block::default();
+
+    let mut c = block.cursor();
+    assert_eq!(
+        unsafe { c.alloc::<usize>(42usize) }
+            .expect("allocating slab of 42 usize values the first time")
+            .len(),
+        42
+    );
+    assert_eq!(
+        unsafe { c.alloc::<usize>(42usize) }
+            .expect("allocating slab of 42 usize values the second time")
+            .len(),
+        42
+    );
+    assert_eq!(
+        unsafe { c.alloc::<usize>(42usize) }
+            .expect("allocating slab of 42 usize values the third time")
+            .len(),
+        42
+    );
+}
