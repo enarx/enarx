@@ -93,10 +93,16 @@ pub struct Reply {
     err: Register<usize>,
 }
 
+/// The result of a syscall
+///
+/// This is isomorphic with `Reply`, which is like `Result`, but has a stable
+/// memory layout.
+pub type Result = core::result::Result<[Register<usize>; 2], libc::c_int>;
+
 #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
-impl From<Result<[Register<usize>; 2], libc::c_int>> for Reply {
+impl From<Result> for Reply {
     #[inline]
-    fn from(value: Result<[Register<usize>; 2], libc::c_int>) -> Self {
+    fn from(value: Result) -> Self {
         match value {
             Ok(val) => Self {
                 ret: val,
@@ -111,7 +117,7 @@ impl From<Result<[Register<usize>; 2], libc::c_int>> for Reply {
 }
 
 #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
-impl From<Reply> for Result<[Register<usize>; 2], libc::c_int> {
+impl From<Reply> for Result {
     #[inline]
     fn from(value: Reply) -> Self {
         let reg: usize = value.ret[0].into();
@@ -187,7 +193,7 @@ impl Cursor<'_> {
     /// # Safety
     ///
     /// This function is unsafe because it returns an uninitialized array.
-    pub unsafe fn alloc<T>(&self, count: usize) -> Result<&mut [T], ()> {
+    pub unsafe fn alloc<T>(&self, count: usize) -> core::result::Result<&mut [T], ()> {
         let inner_ptr = self.0.get();
         let mid = {
             let (padding, data, _) = (*inner_ptr).align_to_mut::<T>();
@@ -207,7 +213,7 @@ impl Cursor<'_> {
     }
 
     /// Copies data from a value into a slice using self.alloc().
-    pub fn copy_slice<T: Copy>(&self, value: &[T]) -> Result<&mut [T], ()> {
+    pub fn copy_slice<T: Copy>(&self, value: &[T]) -> core::result::Result<&mut [T], ()> {
         let slice: &mut [T] = unsafe { self.alloc(value.len())? };
         slice.copy_from_slice(value);
         Ok(slice)
