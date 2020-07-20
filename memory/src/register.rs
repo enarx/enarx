@@ -255,11 +255,11 @@ impl<T> Register<T> {
     /// pointer and then dereferencing it. The caller MUST ensure that
     /// the value of this register points to valid memory.
     #[inline]
-    pub unsafe fn as_slice<'a, U>(self, len: usize) -> &'a [U]
+    pub unsafe fn into_slice<'a, U>(self, len: impl Into<usize>) -> &'a [U]
     where
         Self: Into<*const U>,
     {
-        core::slice::from_raw_parts(self.into(), len)
+        core::slice::from_raw_parts(self.into(), len.into())
     }
 
     /// Converts a register value to a mutable slice
@@ -270,11 +270,11 @@ impl<T> Register<T> {
     /// pointer and then dereferencing it. The caller MUST ensure that
     /// the value of this register is valid memory.
     #[inline]
-    pub unsafe fn as_slice_mut<'a, U>(self, len: usize) -> &'a mut [U]
+    pub unsafe fn into_slice_mut<'a, U>(self, len: impl Into<usize>) -> &'a mut [U]
     where
         Self: Into<*mut U>,
     {
-        core::slice::from_raw_parts_mut(self.into(), len)
+        core::slice::from_raw_parts_mut(self.into(), len.into())
     }
 }
 
@@ -311,11 +311,11 @@ mod tests {
         let mut buf = [7u8, 5, 3, 9, 4, 7, 2, 6];
 
         let reg = Register::<usize>::from(&buf[..]);
-        let slc: &[u8] = unsafe { reg.as_slice(8) };
+        let slc: &[u8] = unsafe { reg.into_slice(8usize) };
         assert_eq!(slc[2], buf[2]);
 
         let reg = Register::<usize>::from(&mut buf[..]);
-        let slc: &mut [u8] = unsafe { reg.as_slice_mut(8) };
+        let slc: &mut [u8] = unsafe { reg.into_slice_mut(8usize) };
         assert_eq!(slc[3], buf[3]);
 
         slc[3] = 0;

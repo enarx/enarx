@@ -180,7 +180,7 @@ impl<'a> Handler<'a> {
         self.trace("read", 3);
 
         let cursor = self.block.cursor();
-        let trusted: &mut [u8] = unsafe { self.aex.gpr.rsi.as_slice_mut(self.aex.gpr.rdx.into()) };
+        let trusted: &mut [u8] = unsafe { self.aex.gpr.rsi.into_slice_mut(self.aex.gpr.rdx) };
         let untrusted: &mut [u8] = unsafe { cursor.alloc(trusted.len()).or(Err(libc::EMSGSIZE))? };
 
         let req = request!(libc::SYS_read => self.aex.gpr.rdi, untrusted, untrusted.len());
@@ -201,7 +201,7 @@ impl<'a> Handler<'a> {
         self.trace("write", 3);
 
         let cursor = self.block.cursor();
-        let trusted: &[u8] = unsafe { self.aex.gpr.rsi.as_slice(self.aex.gpr.rdx.into()) };
+        let trusted: &[u8] = unsafe { self.aex.gpr.rsi.into_slice(self.aex.gpr.rdx) };
         let untrusted = cursor.copy_slice(trusted).or(Err(libc::EMSGSIZE))?;
 
         let req = request!(libc::SYS_write => self.aex.gpr.rdi, untrusted, untrusted.len());
@@ -245,7 +245,7 @@ impl<'a> Handler<'a> {
 
         let mut size = 0usize;
         let cursor = self.block.cursor();
-        let trusted = unsafe { self.aex.gpr.rsi.as_slice_mut(self.aex.gpr.rdx.into()) };
+        let trusted = unsafe { self.aex.gpr.rsi.into_slice_mut(self.aex.gpr.rdx) };
         let untrusted: &mut [libc::iovec] = cursor.copy_slice(trusted).or(Err(libc::EMSGSIZE))?;
 
         for (t, u) in trusted.iter_mut().zip(untrusted.iter_mut()) {
@@ -281,7 +281,7 @@ impl<'a> Handler<'a> {
 
         let mut size = 0usize;
         let cursor = self.block.cursor();
-        let trusted = unsafe { self.aex.gpr.rsi.as_slice_mut(self.aex.gpr.rdx.into()) };
+        let trusted = unsafe { self.aex.gpr.rsi.into_slice_mut(self.aex.gpr.rdx) };
         let untrusted: &mut [libc::iovec] = cursor.copy_slice(trusted).or(Err(libc::EMSGSIZE))?;
 
         for (t, mut u) in trusted.iter_mut().zip(untrusted.iter_mut()) {
@@ -427,7 +427,7 @@ impl<'a> Handler<'a> {
             return Err(libc::EINVAL);
         }
 
-        let trusted: &mut [u8] = unsafe { self.aex.gpr.rdi.as_slice_mut(self.aex.gpr.rsi.into()) };
+        let trusted: &mut [u8] = unsafe { self.aex.gpr.rdi.into_slice_mut(self.aex.gpr.rsi) };
 
         for (i, chunk) in trusted.chunks_mut(8).enumerate() {
             let mut el = 0u64;
