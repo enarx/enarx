@@ -28,7 +28,7 @@ pub extern "C" fn event(
     // Exception Vector Table
     match h.aex.gpr.exitinfo.exception() {
         Some(Exception::InvalidOpcode) => {
-            match unsafe { h.aex.gpr.rip.as_slice(2) } {
+            match unsafe { h.aex.gpr.rip.into_slice(2usize) } {
                 OP_SYSCALL => {
                     let ret = match h.aex.gpr.rax.into() {
                         libc::SYS_read => h.read(),
