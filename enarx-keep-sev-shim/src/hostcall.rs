@@ -121,7 +121,7 @@ impl<'a> HostCall<'a> {
     #[inline(always)]
     unsafe fn hostcall(&mut self) -> Result<[Register<usize>; 2], libc::c_int> {
         let mut port = Port::<u16>::new(SYSCALL_TRIGGER_PORT);
-        port.write(1 as u16);
+        port.write(1);
         self.0.msg.rep.into()
     }
 
