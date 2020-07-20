@@ -8,12 +8,17 @@ assignees: ''
 
 ---
 
+<!--
+If you're new to the project, welcome!
+
+All new issues will be discussed and organized during triage, at our standup.
+Feel free to attend the next scheduled one after you submit yours if you'd like
+to discuss it; for more information, see our wiki:
+https://github.com/enarx/enarx/wiki
+-->
+
 **Description**
-What needs to be improved? What should be done? Has there been any related work before? Any relevant links or material?
 
-**Organization**
-If you have the appropriate repo permissions, please don't forget:
-- Properly label your issue and place it in the appropriate project.
-- If you assign yourself or someone else, please ensure the project status is updated to "Assigned".
-
-Finally, please delete any template boilerplate before submitting!
+<!--What needs to be improved? What should be done? Has there been any related work
+before? Any relevant links or material?
+-->
