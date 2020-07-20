@@ -247,16 +247,6 @@ implptr! {
 pub struct Register<T>(T);
 
 impl<T> Register<T> {
-    /// Create a `Register` value from the raw contents
-    pub fn from_raw(value: T) -> Self {
-        Self(value)
-    }
-
-    /// Returns the raw value
-    pub fn raw(self) -> T {
-        self.0
-    }
-
     /// Converts a register value to a slice
     ///
     /// # Safety
