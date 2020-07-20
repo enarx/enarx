@@ -15,7 +15,7 @@ const TRACE: bool = false;
 // arch_prctl syscalls not available in the libc crate as of version 0.2.69
 enumerate::enumerate! {
     #[derive(Copy, Clone)]
-    enum ArchPrctlTask: u64 {
+    enum ArchPrctlTask: usize {
         ArchSetGs = 0x1001,
         ArchSetFs = 0x1002,
         ArchGetFs = 0x1003,
@@ -143,7 +143,7 @@ impl<'a> Handler<'a> {
         let code = code
             .into()
             .map(|x| x.into())
-            .unwrap_or_else(|| self.aex.gpr.rdi.raw());
+            .unwrap_or_else(|| self.aex.gpr.rdi);
 
         #[allow(unused_must_use)]
         loop {
@@ -162,7 +162,7 @@ impl<'a> Handler<'a> {
         let code = code
             .into()
             .map(|x| x.into())
-            .unwrap_or_else(|| self.aex.gpr.rdi.raw());
+            .unwrap_or_else(|| self.aex.gpr.rdi);
         #[allow(unused_must_use)]
         loop {
             unsafe { self.proxy(request!(libc::SYS_exit_group => code)) };
@@ -228,7 +228,7 @@ impl<'a> Handler<'a> {
 
         // TODO: Check that addr in %rdx does not point to an unmapped address
         // and is not outside of the process address space.
-        match ArchPrctlTask::from(self.aex.gpr.rdi.raw()) {
+        match ArchPrctlTask::from(usize::from(self.aex.gpr.rdi)) {
             ArchPrctlTask::ArchSetFs => self.aex.gpr.fsbase = self.aex.gpr.rsi,
             ArchPrctlTask::ArchSetGs => self.aex.gpr.gsbase = self.aex.gpr.rsi,
             ArchPrctlTask::ArchGetFs => return Err(libc::ENOSYS),
@@ -321,12 +321,13 @@ impl<'a> Handler<'a> {
             }
         }
 
-        let utsname = unsafe { &mut *(self.aex.gpr.rdi.raw() as *mut libc::utsname) };
-        fill(&mut utsname.sysname, "Linux");
-        fill(&mut utsname.nodename, "localhost.localdomain");
-        fill(&mut utsname.release, "5.6.0");
-        fill(&mut utsname.version, "#1");
-        fill(&mut utsname.machine, "x86_64");
+        let u: *mut libc::utsname = self.aex.gpr.rdi.into();
+        let u = unsafe { &mut *u };
+        fill(&mut u.sysname, "Linux");
+        fill(&mut u.nodename, "localhost.localdomain");
+        fill(&mut u.release, "5.6.0");
+        fill(&mut u.version, "#1");
+        fill(&mut u.machine, "x86_64");
 
         Ok(Default::default())
     }
@@ -419,19 +420,14 @@ impl<'a> Handler<'a> {
     pub fn getrandom(&mut self) -> sallyport::Result {
         self.trace("getrandom", 3);
 
-        let flags = self.aex.gpr.rdx.raw();
-        let flags = flags & !((libc::GRND_NONBLOCK | libc::GRND_RANDOM) as u64);
+        let flags: libc::c_uint = self.aex.gpr.rdx.try_into().or(Err(libc::EINVAL))?;
+        let flags = flags & !(libc::GRND_NONBLOCK | libc::GRND_RANDOM);
 
         if flags != 0 {
             return Err(libc::EINVAL);
         }
 
-        let trusted = unsafe {
-            from_raw_parts_mut(
-                self.aex.gpr.rdi.raw() as *mut u8,
-                self.aex.gpr.rsi.raw() as usize,
-            )
-        };
+        let trusted: &mut [u8] = unsafe { self.aex.gpr.rdi.as_slice_mut(self.aex.gpr.rsi.into()) };
 
         for (i, chunk) in trusted.chunks_mut(8).enumerate() {
             let mut el = 0u64;
@@ -440,10 +436,10 @@ impl<'a> Handler<'a> {
                     chunk.copy_from_slice(&el.to_ne_bytes()[..chunk.len()]);
                     break;
                 } else {
-                    if (flags & libc::GRND_NONBLOCK as u64) != 0 {
+                    if flags & libc::GRND_NONBLOCK != 0 {
                         return Err(libc::EAGAIN);
                     }
-                    if (flags & libc::GRND_RANDOM as u64) != 0 {
+                    if flags & libc::GRND_RANDOM != 0 {
                         return Ok([(i * 8).into(), Default::default()]);
                     }
                 }

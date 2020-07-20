@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use intel_types::Exception;
-use memory::Register;
 use sallyport::Block;
 use sgx_types::ssa::StateSaveArea;
 
@@ -29,7 +28,7 @@ pub extern "C" fn event(
     // Exception Vector Table
     match h.aex.gpr.exitinfo.exception() {
         Some(Exception::InvalidOpcode) => {
-            match unsafe { core::slice::from_raw_parts(h.aex.gpr.rip.raw() as *const u8, 2) } {
+            match unsafe { h.aex.gpr.rip.as_slice(2) } {
                 OP_SYSCALL => {
                     let ret = match h.aex.gpr.rax.into() {
                         libc::SYS_read => h.read(),
@@ -68,7 +67,10 @@ pub extern "C" fn event(
                 }
 
                 OP_CPUID => {
-                    let (rax, rbx, rcx, rdx) = match (h.aex.gpr.rax.raw(), h.aex.gpr.rcx.raw()) {
+                    let rax: usize = h.aex.gpr.rax.into();
+                    let rcx: usize = h.aex.gpr.rcx.into();
+
+                    let (rax, rbx, rcx, rdx) = match (rax, rcx) {
                         (0, _) => (0, 0x756e_6547, 0x6c65_746e, 0x4965_6e69), // "GenuineIntel"
                         (a, c) => {
                             debugln!(h, "unsupported cpuid: (0x{:x}, 0x{:x})", a, c);
@@ -76,11 +78,11 @@ pub extern "C" fn event(
                         }
                     };
 
-                    aex.gpr.rax = Register::from_raw(rax);
-                    aex.gpr.rbx = Register::from_raw(rbx);
-                    aex.gpr.rcx = Register::from_raw(rcx);
-                    aex.gpr.rdx = Register::from_raw(rdx);
-                    aex.gpr.rip = Register::from_raw(aex.gpr.rip.raw() + 2);
+                    aex.gpr.rax = rax.into();
+                    aex.gpr.rbx = rbx.into();
+                    aex.gpr.rcx = rcx.into();
+                    aex.gpr.rdx = rdx.into();
+                    aex.gpr.rip = (usize::from(aex.gpr.rip) + 2).into();
                 }
 
                 // unsupported opcode

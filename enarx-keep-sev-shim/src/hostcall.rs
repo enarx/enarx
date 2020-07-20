@@ -133,7 +133,7 @@ impl<'a> HostCall<'a> {
     /// # Safety
     ///
     /// The parameters returned can't be trusted.
-    pub unsafe fn write(&mut self, fd: usize, bytes: &[u8]) -> Result<libc::c_int, libc::c_int> {
+    pub unsafe fn write(&mut self, fd: usize, bytes: &[u8]) -> Result<usize, libc::c_int> {
         let cursor = self.0.cursor();
         let buf = cursor.copy_slice(bytes).or(Err(libc::EMSGSIZE))?;
 
@@ -144,7 +144,7 @@ impl<'a> HostCall<'a> {
         let request = request!(libc::SYS_write => fd, phys, buf.len());
 
         self.0.msg.req = request;
-        self.hostcall().map(|r| r[0].raw() as _)
+        Ok(self.hostcall()?[0].into())
     }
 
     /// Exit the shim with a `status` code
@@ -188,9 +188,7 @@ pub fn shim_write_all(fd: HostFd, bytes: &[u8]) -> Result<(), libc::c_int> {
             host_call.write(fd, &bytes[next..])?
         };
         // be careful with `written` as it is untrusted
-        to_write = to_write
-            .checked_sub(usize::try_from(written).map_err(|_| libc::EIO)?)
-            .ok_or(libc::EIO)?;
+        to_write = to_write.checked_sub(written).ok_or(libc::EIO)?;
         if to_write == 0 {
             break;
         }
