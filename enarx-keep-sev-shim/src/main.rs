@@ -28,7 +28,6 @@ use core::convert::TryFrom;
 use enarx_keep_sev_shim::BootInfo;
 use hostcall::HostCall;
 use memory::{Address, Page};
-use x86_64::instructions::hlt;
 use x86_64::VirtAddr;
 
 /// Defines the entry point function.
@@ -95,6 +94,6 @@ pub fn panic(info: &core::panic::PanicInfo) -> ! {
     unsafe { _enarx_asm_triple_fault() };
     // in case the triple fault did not cause a shutdown
     loop {
-        hlt()
+        x86_64::instructions::hlt()
     }
 }
