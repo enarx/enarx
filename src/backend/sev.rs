@@ -159,6 +159,16 @@ fn dev_sev_writable() -> Datum {
     }
 }
 
+fn has_kvm_support() -> Datum {
+    use crate::backend::Backend;
+    Datum {
+        name: "KVM support".into(),
+        pass: backend::kvm::Backend.have(),
+        info: None,
+        mesg: None,
+    }
+}
+
 pub struct Backend;
 
 impl backend::Backend for Backend {
@@ -169,6 +179,7 @@ impl backend::Backend for Backend {
         data.push(sev_enabled_in_kernel());
         data.push(dev_sev_readable());
         data.push(dev_sev_writable());
+        data.push(has_kvm_support());
         data
     }
 
