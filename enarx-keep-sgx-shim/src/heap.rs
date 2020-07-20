@@ -132,21 +132,21 @@ impl Heap {
         brk
     }
 
-    pub fn mmap(
+    pub fn mmap<T>(
         &mut self,
-        addr: usize,
-        length: usize,
-        prot: usize,
-        flags: usize,
-        fd: isize,
-        offset: usize,
-    ) -> usize {
-        const RWX: i32 = libc::PROT_READ | libc::PROT_WRITE | libc::PROT_EXEC;
-        const PA: i32 = libc::MAP_PRIVATE | libc::MAP_ANONYMOUS;
+        addr: libc::size_t,
+        length: libc::size_t,
+        prot: libc::c_int,
+        flags: libc::c_int,
+        fd: libc::c_int,
+        offset: libc::off_t,
+    ) -> Result<*mut T, libc::c_int> {
+        const RWX: libc::c_int = libc::PROT_READ | libc::PROT_WRITE | libc::PROT_EXEC;
+        const PA: libc::c_int = libc::MAP_PRIVATE | libc::MAP_ANONYMOUS;
 
-        let prot = prot as u64 & !(RWX as u64);
-        if addr != 0 || fd != -1 || offset != 0 || prot != 0 || flags as u64 != PA as u64 {
-            return -libc::EINVAL as _;
+        let prot = prot & !RWX;
+        if addr != 0 || fd != -1 || offset != 0 || prot != 0 || flags != PA {
+            return Err(libc::EINVAL);
         }
 
         // The number of pages we need for the given length.
@@ -157,7 +157,7 @@ impl Heap {
 
         let end = match self.pages.len().checked_sub(pages) {
             Some(end) => end,
-            None => return -libc::ENOMEM as _,
+            None => return Err(libc::ENOMEM),
         };
 
         // Search for pages from the end to the front.
@@ -169,48 +169,52 @@ impl Heap {
                     self.allocate(page);
                 }
 
-                return self.pages[range].as_ptr() as _;
+                return Ok(self.pages[range].as_mut_ptr() as *mut T);
             }
         }
 
-        -libc::ENOMEM as _
+        Err(libc::ENOMEM)
     }
 
-    pub fn munmap(&mut self, addr: usize, length: usize) -> usize {
+    pub fn munmap<T>(&mut self, addr: *const T, length: usize) -> Result<(), libc::c_int> {
+        let addr = addr as usize;
+
         if addr % Page::size() != 0 {
-            return -libc::EINVAL as _;
+            return Err(libc::EINVAL);
         }
 
         let brk = self.offset_page_up(self.metadata.brk.end).unwrap();
 
         let bot = match self.offset_page_down(addr) {
             Some(page) => page,
-            None => return -libc::EINVAL as _,
+            None => return Err(libc::EINVAL),
         };
 
         let top = match self.offset_page_up(addr + length) {
             Some(page) => page,
-            None => return -libc::EINVAL as _,
+            None => return Err(libc::EINVAL),
         };
 
         if bot < brk {
-            return -libc::EINVAL as _;
+            return Err(libc::EINVAL);
         }
 
         for page in bot..top {
             self.deallocate(page);
         }
 
-        0
+        Ok(())
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    const ERRNO_BASE: usize = !0xfff;
-    const PROT: usize = libc::PROT_READ as _;
-    const FLAGS: usize = (libc::MAP_PRIVATE | libc::MAP_ANONYMOUS) as _;
+    use core::ptr::null_mut;
+    use libc::c_void;
+
+    const PROT: libc::c_int = libc::PROT_READ;
+    const FLAGS: libc::c_int = libc::MAP_PRIVATE | libc::MAP_ANONYMOUS;
     const NUM_PAGES: usize = 10;
 
     fn new_checked(bytes: &mut [u8]) -> Heap {
@@ -250,8 +254,7 @@ mod tests {
         ];
 
         for (s, allocated) in steps.iter() {
-            let addr = heap.mmap(0, *s, PROT, FLAGS, -1, 0);
-            assert!(addr <= ERRNO_BASE);
+            let addr = heap.mmap(0, *s, PROT, FLAGS, -1, 0).unwrap();
 
             for page in brk_page..heap.pages.len() - allocated {
                 assert!(!heap.is_allocated(page));
@@ -260,13 +263,13 @@ mod tests {
                 assert!(heap.is_allocated(page));
             }
 
-            let ret = heap.munmap(addr, *s);
-            assert!(ret <= ERRNO_BASE);
+            heap.munmap::<c_void>(addr, *s).unwrap();
         }
 
         // try to allocate memory whose size exceeds the total heap size
-        let ret = heap.mmap(0, heap.pages.len() * Page::size() + 1, PROT, FLAGS, -1, 0);
-        assert_eq!(ret, -libc::ENOMEM as _);
+        let len = heap.pages.len() * Page::size() + 1;
+        let ret = heap.mmap::<c_void>(0, len, PROT, FLAGS, -1, 0);
+        assert_eq!(ret.unwrap_err(), libc::ENOMEM);
     }
 
     #[test]
@@ -288,11 +291,10 @@ mod tests {
         let steps = [Page::size(), Page::size() / 2];
 
         for s in steps.iter() {
-            let mut addrs = [0usize; NUM_PAGES];
+            let mut addrs = [null_mut::<libc::c_void>(); NUM_PAGES];
 
             for i in brk_page..heap.pages.len() {
-                let addr = heap.mmap(0, *s, PROT, FLAGS, -1, 0);
-                assert!(addr <= ERRNO_BASE);
+                let addr = heap.mmap(0, *s, PROT, FLAGS, -1, 0).unwrap();
                 addrs[i] = addr;
             }
 
@@ -301,12 +303,11 @@ mod tests {
             }
 
             // try to allocate memory but no free pages
-            let ret = heap.mmap(0, *s, PROT, FLAGS, -1, 0);
-            assert_eq!(ret, -libc::ENOMEM as _);
+            let ret = heap.mmap::<c_void>(0, *s, PROT, FLAGS, -1, 0);
+            assert_eq!(ret.unwrap_err(), libc::ENOMEM);
 
             for i in brk_page..heap.pages.len() {
-                let ret = heap.munmap(addrs[i], *s);
-                assert!(ret <= ERRNO_BASE);
+                heap.munmap(addrs[i], *s).unwrap();
             }
 
             for page in brk_page..heap.pages.len() {
