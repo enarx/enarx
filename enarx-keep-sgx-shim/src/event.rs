@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use core::convert::TryInto;
 use intel_types::Exception;
 use memory::Register;
 use sallyport::Block;
@@ -32,42 +31,40 @@ pub extern "C" fn event(
         Some(Exception::InvalidOpcode) => {
             match unsafe { core::slice::from_raw_parts(h.aex.gpr.rip.raw() as *const u8, 2) } {
                 OP_SYSCALL => {
-                    aex.gpr.rax = Register::from_raw(
-                        match h
-                            .aex
-                            .gpr
-                            .rax
-                            .raw()
-                            .try_into()
-                            .unwrap_or(h.aex.gpr.rax.raw() as i64)
-                        {
-                            libc::SYS_read => h.read(),
-                            libc::SYS_readv => h.readv(),
-                            libc::SYS_write => h.write(),
-                            libc::SYS_writev => h.writev(),
-                            libc::SYS_exit => h.exit(None),
-                            libc::SYS_getuid => h.getuid(),
-                            libc::SYS_arch_prctl => h.arch_prctl(),
-                            libc::SYS_exit_group => h.exit_group(None),
-                            libc::SYS_set_tid_address => h.set_tid_address(),
-                            libc::SYS_brk => h.brk(),
-                            libc::SYS_uname => h.uname(),
-                            libc::SYS_mprotect => h.mprotect(),
-                            libc::SYS_mmap => h.mmap(),
-                            libc::SYS_munmap => h.munmap(),
-                            libc::SYS_rt_sigaction => h.rt_sigaction(),
-                            libc::SYS_rt_sigprocmask => h.rt_sigprocmask(),
-                            libc::SYS_sigaltstack => h.sigaltstack(),
-                            libc::SYS_getrandom => h.getrandom(),
+                    let ret = match h.aex.gpr.rax.into() {
+                        libc::SYS_read => h.read(),
+                        libc::SYS_readv => h.readv(),
+                        libc::SYS_write => h.write(),
+                        libc::SYS_writev => h.writev(),
+                        libc::SYS_exit => h.exit(None),
+                        libc::SYS_getuid => h.getuid(),
+                        libc::SYS_arch_prctl => h.arch_prctl(),
+                        libc::SYS_exit_group => h.exit_group(None),
+                        libc::SYS_set_tid_address => h.set_tid_address(),
+                        libc::SYS_brk => h.brk(),
+                        libc::SYS_uname => h.uname(),
+                        libc::SYS_mprotect => h.mprotect(),
+                        libc::SYS_mmap => h.mmap(),
+                        libc::SYS_munmap => h.munmap(),
+                        libc::SYS_rt_sigaction => h.rt_sigaction(),
+                        libc::SYS_rt_sigprocmask => h.rt_sigprocmask(),
+                        libc::SYS_sigaltstack => h.sigaltstack(),
+                        libc::SYS_getrandom => h.getrandom(),
 
-                            syscall => {
-                                debugln!(h, "unsupported syscall: 0x{:x}", syscall as u64);
-                                -libc::ENOSYS as u64
-                            }
-                        },
-                    );
+                        syscall => {
+                            debugln!(h, "unsupported syscall: 0x{:x}", syscall as u64);
+                            Err(libc::ENOSYS).into()
+                        }
+                    };
 
-                    aex.gpr.rip = Register::from_raw(aex.gpr.rip.raw() + 2);
+                    aex.gpr.rip = (usize::from(aex.gpr.rip) + 2).into();
+                    match ret {
+                        Err(e) => aex.gpr.rax = (-e).into(),
+                        Ok([rax, rdx]) => {
+                            aex.gpr.rax = rax.into();
+                            aex.gpr.rdx = rdx.into();
+                        }
+                    }
                 }
 
                 OP_CPUID => {
