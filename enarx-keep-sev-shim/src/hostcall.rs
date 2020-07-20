@@ -134,7 +134,7 @@ impl<'a> HostCall<'a> {
     ///
     /// The parameters returned can't be trusted.
     pub unsafe fn write(&mut self, fd: usize, bytes: &[u8]) -> Result<libc::c_int, libc::c_int> {
-        let mut cursor = self.0.cursor();
+        let cursor = self.0.cursor();
         let buf = cursor.copy_slice(bytes).or(Err(libc::EMSGSIZE))?;
 
         let buf_address = Address::from(buf.as_ptr());
