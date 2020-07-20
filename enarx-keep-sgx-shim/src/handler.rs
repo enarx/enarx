@@ -533,14 +533,17 @@ impl<'a> Handler<'a> {
         self.trace("mmap", 6);
 
         let mut heap = unsafe { crate::heap::Heap::new(self.layout.heap.into()) };
-        heap.mmap(
+        match heap.mmap::<libc::c_void>(
             self.aex.gpr.rdi.raw() as _,
             self.aex.gpr.rsi.raw() as _,
             self.aex.gpr.rdx.raw() as _,
             self.aex.gpr.r10.raw() as _,
             self.aex.gpr.r8.raw() as _,
             self.aex.gpr.r9.raw() as _,
-        ) as _
+        ) {
+            Ok(addr) => addr as _,
+            Err(e) => -e as _,
+        }
     }
 
     /// Do a munmap() system call
@@ -548,7 +551,11 @@ impl<'a> Handler<'a> {
         self.trace("munmap", 2);
 
         let mut heap = unsafe { crate::heap::Heap::new(self.layout.heap.into()) };
-        heap.munmap(self.aex.gpr.rdi.raw() as _, self.aex.gpr.rsi.raw() as _) as _
+        match heap.munmap::<libc::c_void>(self.aex.gpr.rdi.raw() as _, self.aex.gpr.rsi.raw() as _)
+        {
+            Err(e) => -e as _,
+            Ok(()) => 0,
+        }
     }
 
     /// Do a rt_sigaction() system call
