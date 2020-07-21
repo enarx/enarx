@@ -28,7 +28,6 @@ pub mod syscall;
 pub mod usermode;
 
 use enarx_keep_sev_shim::BootInfo;
-use memory::Page;
 use spinning::RwLock;
 use x86_64::VirtAddr;
 
@@ -70,13 +69,10 @@ macro_rules! entry_point {
 
 entry_point!(shim_main);
 
-/// FIXME: will be replaced by a dynamically allocated stack with safe guards
-pub static mut LEVEL_0_STACK: [Page; 5] = [Page::zeroed(); 5];
-
 /// The entry point for the shim
 pub fn shim_main() -> ! {
     unsafe {
-        gdt::init(VirtAddr::from_ptr(&LEVEL_0_STACK));
+        gdt::init();
     }
 
     #[cfg(debug_assertions)]
