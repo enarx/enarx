@@ -2,7 +2,7 @@
 
 pub mod builder;
 mod cpu;
-mod mem;
+pub mod mem;
 
 pub use builder::Builder;
 use mem::Region;

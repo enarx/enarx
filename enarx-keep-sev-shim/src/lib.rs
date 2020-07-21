@@ -79,7 +79,7 @@ fn above(rel: impl Into<Line<usize>>, size: usize) -> Option<Span<usize>> {
 #[derive(Copy, Clone, Default, Debug, PartialEq, Eq)]
 pub struct BootInfo {
     /// Memory for the loader to place page tables, GDT and IDT and the
-    /// shared page
+    /// shared pages
     pub setup: Line<usize>,
     /// Memory where the `code` is / has to be loaded
     pub code: Line<usize>,
