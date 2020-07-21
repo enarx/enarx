@@ -11,7 +11,6 @@ use core::convert::TryFrom;
 use core::sync::atomic::{AtomicU64, Ordering};
 use enarx_keep_sev_shim::SYSCALL_TRIGGER_PORT;
 use memory::{Address, Page, Register};
-use x86_64::instructions::hlt;
 
 /// The address of the unencrypted page used to communicate with the host
 static mut HOSTCALL_VIRT_ADDR: AtomicU64 = AtomicU64::new(0);
@@ -208,8 +207,4 @@ pub fn shim_exit(status: u32) -> ! {
 
     // provoke triple fault, causing a VM shutdown
     unsafe { _enarx_asm_triple_fault() };
-    // in case the triple fault did not cause a shutdown
-    loop {
-        hlt()
-    }
 }
