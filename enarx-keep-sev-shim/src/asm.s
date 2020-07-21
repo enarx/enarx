@@ -18,6 +18,9 @@ _enarx_asm_triple_fault:
     lea _enarx_asm_Hose_IDTR(%rip), %rdi
     lidt (%rdi)
     ud2
+1:
+    hlt
+    jmp 1b
 .pushsection .bss
 _enarx_asm_Hose_IDTR:
 .space 10

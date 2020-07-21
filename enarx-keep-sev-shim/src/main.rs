@@ -92,8 +92,4 @@ pub fn panic(info: &core::panic::PanicInfo) -> ! {
 
     // provoke triple fault, causing a VM shutdown
     unsafe { _enarx_asm_triple_fault() };
-    // in case the triple fault did not cause a shutdown
-    loop {
-        x86_64::instructions::hlt()
-    }
 }
