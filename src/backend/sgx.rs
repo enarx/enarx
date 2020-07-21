@@ -5,8 +5,10 @@ use crate::backend::probe::x86_64::{CpuId, Vendor};
 use crate::backend::Datum;
 use crate::binary::Component;
 
-use sgx_types::attr::{Flags, Xfrm};
-use sgx_types::misc::MiscSelect;
+use sgx::types::{
+    attr::{Flags, Xfrm},
+    misc::MiscSelect,
+};
 
 use std::arch::x86_64::__cpuid_count;
 use std::fs::File;
