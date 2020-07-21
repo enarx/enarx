@@ -14,8 +14,6 @@ use core::{
 use enumerate::enumerate;
 use intel_types::*;
 use memory::Register;
-#[cfg(test)]
-use testing::testaso;
 
 enumerate! {
     /// Section 38.9.1.1, Table 38-9

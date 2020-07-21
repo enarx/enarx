@@ -7,8 +7,6 @@
 
 use super::{attr::Attributes, isv, misc::MiscSelect};
 use intel_types::Masked;
-#[cfg(test)]
-use testing::testaso;
 
 /// The `Author` of an enclave
 ///

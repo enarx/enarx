@@ -4,7 +4,7 @@ use crate::Layout;
 
 use memory::Register;
 use sallyport::{request, Block, Request};
-use sgx_types::ssa::StateSaveArea;
+use sgx::types::ssa::StateSaveArea;
 
 use core::convert::TryInto;
 use core::fmt::Write;

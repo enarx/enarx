@@ -4,14 +4,12 @@
 //! Section references in further documentation refer to this document.
 //! https://www.intel.com/content/dam/www/public/emea/xe/en/documents/manuals/64-ia-32-architectures-software-developer-vol-3d-part-4-manual.pdf
 
-#![deny(clippy::all)]
-#![allow(clippy::identity_op)]
+#![cfg(feature = "crypto")]
 #![allow(clippy::unreadable_literal)]
-#![deny(missing_docs)]
 
+use crate::types::{page::SecInfo, sig};
 use memory::Page;
 use openssl::{bn, hash, pkey, rsa, sha, sign};
-use sgx_types::{page::SecInfo, sig};
 
 use std::convert::TryInto;
 use std::io::Result;
@@ -157,8 +155,10 @@ impl Signer for rsa::Rsa<pkey::Private> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use sgx_types::page::{Flags as Perms, SecInfo};
-    use sgx_types::sig;
+    use crate::types::{
+        page::{Flags as Perms, SecInfo},
+        sig,
+    };
     use std::fs::File;
     use std::io::Read;
 

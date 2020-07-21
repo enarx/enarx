@@ -1,19 +1,17 @@
 // SPDX-License-Identifier: Apache-2.0
 
-//! This crate implements Intel SGX-related IOCTLs using the iocuddle crate.
+//! This module implements Intel SGX-related IOCTLs using the iocuddle crate.
 //! All references to Section or Tables are from
 //! https://www.intel.com/content/dam/www/public/us/en/documents/manuals/64-ia-32-architectures-software-developer-vol-3d-part-4-manual.pdf
 
-#![deny(clippy::all)]
-#![allow(clippy::identity_op)]
-#![deny(missing_docs)]
+#![cfg(feature = "std")]
 
 use std::marker::PhantomData;
 
+use crate::types::{page::SecInfo, secs, sig};
 use bitflags::bitflags;
 use iocuddle::*;
 use memory::Page;
-use sgx_types::{page::SecInfo, secs, sig};
 
 const SGX: Group = Group::new(0xA4);
 
@@ -115,11 +113,13 @@ mod test {
     use std::fs::File;
     use std::num::NonZeroU32;
 
+    use crate::{
+        crypto::{Hasher, Signer},
+        types::{page::Flags as Perms, secs},
+    };
     use bounds::Span;
     use openssl::{bn, pkey, rsa};
     use rstest::*;
-    use sgx_crypto::{Hasher, Signer};
-    use sgx_types::{page::Flags as Perms, secs};
 
     #[fixture]
     fn file() -> File {

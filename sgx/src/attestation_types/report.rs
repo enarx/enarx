@@ -3,9 +3,7 @@
 //! Section 38.15
 //! The REPORT structure is the output of the EREPORT instruction, and must be 512-Byte aligned.
 
-use sgx_types::{attr::Attributes, isv, misc::MiscSelect};
-#[cfg(test)]
-use testing::testaso;
+use crate::types::{attr::Attributes, isv, misc::MiscSelect};
 
 /// This struct is separated out from the Report to be usable by the Quote struct.
 /// Table 38-21

@@ -13,16 +13,13 @@ CARGO_MAKE_CRATE_WORKSPACE_MEMBERS = [
 	"integration-tests",
 	"intel-types",
 	"iocuddle",
-	"iocuddle-sgx",
 	"keep-runtime",
 	"loader",
 	"memory",
 	"sallyport",
 	"sev",
 	"sevctl",
-	"sgx-crypto",
-	"sgx-types",
-	"testing",
+	"sgx",
 	"units",
 	"vdso"
 ]
