@@ -2,7 +2,7 @@
 
 use intel_types::Exception;
 use sallyport::Block;
-use sgx_types::ssa::StateSaveArea;
+use sgx::types::ssa::StateSaveArea;
 
 use crate::handler::{Context, Handler};
 use crate::Layout;

@@ -7,7 +7,6 @@
 
 use super::report::Body;
 use std::vec::Vec;
-use testing::testaso;
 
 /// The Quote version for DCAP is 3. Must be 2 bytes.
 pub const VERSION: u16 = 3;
@@ -185,6 +184,7 @@ impl Default for Quote {
     }
 }
 
+#[cfg(test)]
 testaso! {
     struct QuoteHeader: 4, 48 => {
         version: 0,

@@ -9,7 +9,7 @@ license = "Apache-2.0"
 crt0stack = { path = "../crt0stack" }
 intel-types = { path = "../intel-types" }
 sallyport = { path = "../sallyport" }
-sgx-types = { path = "../sgx-types" }
+sgx = { path = "../sgx", default-features = false }
 memory = { path = "../memory" }
 bounds = { path = "../bounds" }
 libc = { version = "0.2", features = [] }

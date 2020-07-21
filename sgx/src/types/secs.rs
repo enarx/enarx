@@ -11,9 +11,6 @@ use super::{attr, isv, misc::MiscSelect, sig::Parameters};
 use bounds::Span;
 use core::num::{NonZeroU32, NonZeroUsize};
 
-#[cfg(test)]
-use testing::testaso;
-
 /// Section 38.7
 #[derive(Copy, Clone, Debug)]
 #[repr(C, align(4096))]

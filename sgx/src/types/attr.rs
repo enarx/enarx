@@ -3,9 +3,6 @@
 //! Attributes (Section 38.7.1)
 //! The attributes of an enclave are specified by the struct below as described.
 
-#[cfg(test)]
-use testing::testaso;
-
 bitflags::bitflags! {
     /// Section 38.7.1.
     pub struct Flags: u64 {

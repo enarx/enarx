@@ -1,0 +1,28 @@
+[package]
+name = "sgx"
+version = "0.1.0"
+authors = ["Lily Sturmann <lsturman@redhat.com>", "Nathaniel McCallum <npmccallum@redhat.com>"]
+license = "Apache-2.0"
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[features]
+default = ["std", "crypto"]
+std = ["iocuddle"]
+crypto = ["std", "openssl"]
+
+[dependencies]
+bitflags = "1.2"
+bounds  = { path = "../bounds" }
+enumerate  = { path = "../enumerate" }
+intel-types = { path = "../intel-types" }
+memory = { path = "../memory" }
+openssl = { version = "=0.10.29", features = ["vendored"], optional = true }
+iocuddle = { path = "../iocuddle", optional = true }
+
+[dev-dependencies]
+rstest = "0.6"
+
+[patch.crates-io]
+openssl = { git = 'https://github.com/npmccallum/rust-openssl', branch='patch' }

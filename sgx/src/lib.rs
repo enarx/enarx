@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
-//! This crate enables testing for other crates related to Enarx.
+//! Intel SGX Documentation is available at the following link.
+//! Section references in further documentation refer to this document.
+//! https://www.intel.com/content/dam/www/public/emea/xe/en/documents/manuals/64-ia-32-architectures-software-developer-vol-3d-part-4-manual.pdf
 
-#![no_std]
+#![cfg_attr(not(feature = "std"), no_std)]
 #![deny(clippy::all)]
 #![allow(clippy::identity_op)]
 #![deny(missing_docs)]
@@ -15,7 +17,8 @@
 ///         f2: 8
 ///     }
 /// }
-#[macro_export]
+#[cfg(test)]
+#[macro_use]
 macro_rules! testaso {
     (@off $name:ty=>$field:ident) => {
         &unsafe { &*core::ptr::null::<$name>() }.$field as *const _ as usize
@@ -65,7 +68,17 @@ macro_rules! testaso {
                         stringify!($field)
                     );
                 )*
- 	    )+
+        )+
         }
     };
 }
+
+#[cfg(feature = "crypto")]
+pub mod crypto;
+
+#[cfg(feature = "std")]
+pub mod attestation_types;
+#[cfg(feature = "std")]
+pub mod ioctls;
+
+pub mod types;

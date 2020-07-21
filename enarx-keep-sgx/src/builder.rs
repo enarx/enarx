@@ -3,12 +3,16 @@
 use super::enclave::Enclave;
 
 use bounds::Span;
-use iocuddle_sgx as sgx;
 use memory::Page;
 use openssl::{bn, rsa};
-use sgx_crypto::{Hasher, Signer};
-use sgx_types::page::{Class, Flags, SecInfo};
-use sgx_types::{secs::*, sig::*, ssa::StateSaveArea};
+use sgx::{
+    crypto::{Hasher, Signer},
+    ioctls,
+    types::{
+        page::{Class, Flags, SecInfo},
+        {secs::*, sig::*, ssa::StateSaveArea},
+    },
+};
 
 use std::convert::TryFrom;
 use std::fs::{File, OpenOptions};
@@ -68,8 +72,8 @@ impl Builder {
         // Create the enclave.
         let sign = Parameters::default();
         let secs = Secs::new(span, StateSaveArea::frame_size(), sign);
-        let create = sgx::Create::new(&secs);
-        sgx::ENCLAVE_CREATE.ioctl(&mut file, &create)?;
+        let create = ioctls::Create::new(&secs);
+        ioctls::ENCLAVE_CREATE.ioctl(&mut file, &create)?;
 
         Ok(Self {
             sign,
@@ -81,14 +85,14 @@ impl Builder {
     }
 
     pub fn load(&mut self, segs: &[Segment]) -> Result<()> {
-        const FLAGS: sgx::Flags = sgx::Flags::MEASURE;
+        const FLAGS: ioctls::Flags = ioctls::Flags::MEASURE;
 
         for seg in segs {
             let off = seg.dst - self.mmap.span().start;
 
             // Update the enclave.
-            let mut ap = sgx::AddPages::new(&seg.src, off, &seg.si, FLAGS);
-            sgx::ENCLAVE_ADD_PAGES.ioctl(&mut self.file, &mut ap)?;
+            let mut ap = ioctls::AddPages::new(&seg.src, off, &seg.si, FLAGS);
+            ioctls::ENCLAVE_ADD_PAGES.ioctl(&mut self.file, &mut ap)?;
 
             // Update the hash.
             self.hash.add(&seg.src, off, seg.si, true);
@@ -116,8 +120,8 @@ impl Builder {
         let sig = key.sign(vendor, self.hash.finish(self.sign))?;
 
         // Initialize the enclave.
-        let init = sgx::Init::new(&sig);
-        sgx::ENCLAVE_INIT.ioctl(&mut self.file, &init)?;
+        let init = ioctls::Init::new(&sig);
+        ioctls::ENCLAVE_INIT.ioctl(&mut self.file, &init)?;
 
         // Fix up mapped permissions.
         self.perm.sort_by(|l, r| l.0.start.cmp(&r.0.start));

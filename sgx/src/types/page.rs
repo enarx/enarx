@@ -4,8 +4,6 @@
 //! These structs specify metadata about en enclave page.
 
 use bitflags::bitflags;
-#[cfg(test)]
-use testing::testaso;
 
 bitflags! {
     /// The `Flags` of a page
