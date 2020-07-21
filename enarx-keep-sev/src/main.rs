@@ -15,6 +15,7 @@ use loader::Component;
 use structopt::StructOpt;
 
 use std::io;
+use std::num::NonZeroUsize;
 use std::path::PathBuf;
 
 #[derive(StructOpt, Debug)]
@@ -44,8 +45,9 @@ fn run(args: Args) -> Result<(), io::Error> {
     let code = Component::from_path(&args.code)?;
 
     let vm = vm::Builder::<New>::new()?
+        .with_max_cpus(NonZeroUsize::new(256).unwrap())?
         .with_mem_size(units::bytes![1; GiB])?
-        .component_sizes(shim.region(), code.region())?
+        .calculate_layout(shim.region(), code.region())?
         .load_shim(shim)?
         .load_code(code)?
         .build()?;

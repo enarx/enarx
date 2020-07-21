@@ -8,19 +8,18 @@
 use super::mem::{KvmUserspaceMemoryRegion, Region};
 use super::VirtualMachine;
 
-use crate::x86_64::*;
 use bounds::Line;
 use enarx_keep_sev_shim::BootInfo;
 use kvm_ioctls::{Kvm, VmFd};
 use loader::segment::Segment;
 use loader::Component;
 use memory::Page;
-use x86_64::structures::paging::page_table::PageTableFlags;
+use x86_64::structures::paging::page_table::{PageTable, PageTableFlags};
 use x86_64::{PhysAddr, VirtAddr};
 
 use std::io;
 use std::marker::PhantomData;
-use std::mem::MaybeUninit;
+use std::num::NonZeroUsize;
 
 // Marker structs for the typestate machine
 
@@ -29,6 +28,9 @@ pub struct New;
 
 /// A virtual machine with an address space
 pub struct AddressSpace;
+
+/// A virtual machine with a known CPU capacity
+pub struct CpuCapacity;
 
 /// A virtual machine whose BootInfo has been calculated
 pub struct BootBlock;
@@ -43,6 +45,7 @@ pub struct Code;
 pub trait State {}
 impl State for New {}
 impl State for AddressSpace {}
+impl State for CpuCapacity {}
 impl State for BootBlock {}
 impl State for Shim {}
 impl State for Code {}
@@ -65,6 +68,7 @@ struct Data {
     /// (also manages the lifetime of the backing host memory)
     address_space: Option<Region>,
     boot_info: Option<BootInfo>,
+    max_cpus: Option<usize>,
     /// The shim's entry point
     shim_entry: Option<PhysAddr>,
 }
@@ -85,6 +89,7 @@ impl<T: State> Builder<T> {
                 fd: Some(fd),
                 address_space: None,
                 boot_info: None,
+                max_cpus: None,
                 shim_entry: None,
             },
             _phantom: PhantomData,
@@ -95,6 +100,20 @@ impl<T: State> Builder<T> {
 /// A newly initialized Builder prepares the guest's address
 /// space.
 impl Builder<New> {
+    pub fn with_max_cpus(
+        mut self,
+        max_cpus: NonZeroUsize,
+    ) -> Result<Builder<CpuCapacity>, io::Error> {
+        self.data.max_cpus = Some(max_cpus.get());
+
+        Ok(Builder {
+            data: self.data,
+            _phantom: PhantomData,
+        })
+    }
+}
+
+impl Builder<CpuCapacity> {
     pub fn with_mem_size(mut self, mem_size: u64) -> Result<Builder<AddressSpace>, io::Error> {
         let guest_addr_start = unsafe {
             mmap::map(
@@ -125,7 +144,11 @@ impl Builder<New> {
             fd.set_user_memory_region(region)?;
         }
 
-        self.data.address_space = Some(Region::new(region, unmap));
+        self.data.address_space = Some(Region::new(
+            *self.data.max_cpus.as_ref().unwrap(),
+            region,
+            unmap,
+        ));
 
         Ok(Builder {
             data: self.data,
@@ -137,15 +160,17 @@ impl Builder<New> {
 /// Once the guest's address space has been created, component
 /// relocations can be calculated.
 impl Builder<AddressSpace> {
-    pub fn component_sizes(
+    pub fn calculate_layout(
         mut self,
         shim_region: Line<usize>,
         code_region: Line<usize>,
     ) -> Result<Builder<BootBlock>, io::Error> {
-        let memsz = self.data.address_space.as_ref().unwrap().as_virt().count;
+        let addr_space = self.data.address_space.as_ref().unwrap();
+        let memsz = addr_space.as_virt().count;
+
         let vm_setup = Line {
             start: 0,
-            end: std::mem::size_of::<VMSetup>(),
+            end: addr_space.prefix_mut().size(),
         };
         let boot_info =
             BootInfo::calculate(memsz as _, vm_setup, shim_region.into(), code_region.into())
@@ -231,32 +256,7 @@ impl<T: Load + State> Builder<T> {
 /// prepare the startup vCPU.
 impl Builder<Code> {
     pub fn build(self) -> Result<VirtualMachine, io::Error> {
-        let addr_space = self.data.address_space.as_ref().unwrap().as_virt();
         let boot_info = self.data.boot_info.unwrap();
-
-        // To finish guest setup, certain values must be written into the guest
-        // address space via host-side pointers since the memory we are writing
-        // to is backed by the host address space.
-        let host_setup = unsafe {
-            let dst = addr_space.start;
-            let vm_setup = dst.as_mut_ptr::<MaybeUninit<VMSetup>>();
-            // zero the struct
-            vm_setup.write(MaybeUninit::<VMSetup>::zeroed());
-            &mut *dst.as_mut_ptr::<VMSetup>()
-        };
-        host_setup.shared_page = Page::copy(boot_info);
-
-        // The guest's setup region in memory is located at guest physical address zero.
-        // This pointer simplifies things for setting up the guest's CPU and shared page states
-        // as any addresses we reference through this pointer will be correct for the guest.
-        let guest_setup = unsafe { &*(std::ptr::null() as *const VMSetup) };
-
-        // Set up the page tables
-        let pdpte = PhysAddr::new(&guest_setup.pml3t_ident as *const _ as u64);
-        host_setup.pml4t[0].set_addr(pdpte, PageTableFlags::WRITABLE | PageTableFlags::PRESENT);
-        host_setup.pml3t_ident[0].set_flags(
-            PageTableFlags::HUGE_PAGE | PageTableFlags::WRITABLE | PageTableFlags::PRESENT,
-        );
 
         let mut vm = VirtualMachine {
             kvm: self.data.kvm.unwrap(),
@@ -265,6 +265,25 @@ impl Builder<Code> {
             cpus: vec![],
         };
 
+        let host_setup = vm.address_space.prefix_mut();
+        host_setup.shared_pages[0] = Page::copy(boot_info);
+        host_setup.shared_pages[1..]
+            .iter_mut()
+            .for_each(|page| *page = Page::default());
+        *host_setup.zero = Page::default();
+        *host_setup.pml4t = PageTable::new();
+        *host_setup.pml3t_ident = PageTable::new();
+
+        let addr_virt = vm.address_space.as_virt();
+        let to_guest = |virt_addr| PhysAddr::new(virt_addr - addr_virt.start.as_u64());
+
+        // Set up the page tables
+        let pdpte = to_guest(&*host_setup.pml3t_ident as *const _ as u64);
+        host_setup.pml4t[0].set_addr(pdpte, PageTableFlags::WRITABLE | PageTableFlags::PRESENT);
+        host_setup.pml3t_ident[0].set_flags(
+            PageTableFlags::HUGE_PAGE | PageTableFlags::WRITABLE | PageTableFlags::PRESENT,
+        );
+
         // Create startup CPU
         let vcpu = vm.fd.create_vcpu(0)?;
 
@@ -272,10 +291,10 @@ impl Builder<Code> {
         // we'll set those for the startup vCPU.
         let mut regs = vcpu.get_regs()?;
         regs.rsi = boot_info.shim.start as _;
-        regs.rdi = &guest_setup.shared_page as *const _ as _;
+        regs.rdi = to_guest(&host_setup.shared_pages[0] as *const _ as u64).as_u64();
         vcpu.set_regs(&regs)?;
 
-        let cr3 = &guest_setup.pml4t as *const _ as _;
+        let cr3 = to_guest(&*host_setup.pml4t as *const _ as u64).as_u64();
         vm.add_vcpu(vcpu, self.data.shim_entry.unwrap(), cr3)?;
 
         Ok(vm)

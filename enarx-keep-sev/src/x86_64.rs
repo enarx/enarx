@@ -4,21 +4,25 @@ pub use kvm_bindings::kvm_segment as KvmSegment;
 use memory::Page;
 use x86_64::structures::paging::page_table::PageTable;
 
+use std::mem::size_of_val;
+
 #[repr(C)]
-pub struct VMSetup {
-    pub zero_page: Page,
-    pub shared_page: Page,
-    pub pml4t: PageTable,
-    pub pml3t_ident: PageTable,
+pub struct VMSetup<'a> {
+    pub zero: &'a mut Page,
+    pub shared_pages: &'a mut [Page],
+    pub pml4t: &'a mut PageTable,
+    pub pml3t_ident: &'a mut PageTable,
 }
 
-impl Default for VMSetup {
-    fn default() -> Self {
-        VMSetup {
-            zero_page: Page::default(),
-            shared_page: Page::default(),
-            pml4t: PageTable::new(),
-            pml3t_ident: PageTable::new(),
-        }
+impl VMSetup<'_> {
+    pub fn size(&self) -> usize {
+        let addends = [
+            size_of_val(self.zero),
+            size_of_val(self.shared_pages),
+            size_of_val(self.pml4t),
+            size_of_val(self.pml3t_ident),
+        ];
+
+        addends.iter().sum()
     }
 }
