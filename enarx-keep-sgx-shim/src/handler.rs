@@ -351,7 +351,7 @@ impl<'a> Handler<'a> {
             self.aex.gpr.rsi.into(),
             self.aex.gpr.rdx.try_into().or(Err(libc::EINVAL))?,
             self.aex.gpr.r10.try_into().or(Err(libc::EINVAL))?,
-            self.aex.gpr.r8.try_into().or(Err(libc::EINVAL))?,
+            usize::from(self.aex.gpr.r8) as _, // Allow truncation!
             self.aex.gpr.r9.into(),
         )?;
 
