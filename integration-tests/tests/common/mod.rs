@@ -106,8 +106,20 @@ impl IntegrationTest {
             .wait_with_output()
             .expect("Failed to read stdout/stderr");
 
-        assert_eq!(stdout.as_ref(), output.stdout.as_slice());
-        assert_eq!(stderr.as_ref(), output.stderr.as_slice());
+        assert_stdio(stdout, output.stdout);
+        assert_stdio(stderr, output.stderr);
         assert_eq!(exit_status, ecode.unwrap());
     }
+}
+
+fn assert_stdio(lhs: impl AsRef<[u8]>, rhs: impl AsRef<[u8]>) {
+    let lhs_str = String::from_utf8_lossy(lhs.as_ref());
+    let rhs_str = String::from_utf8_lossy(rhs.as_ref());
+    assert_eq!(
+        lhs.as_ref(),
+        rhs.as_ref(),
+        "\n\nEXPECTED:\n\n{}\n\nGIVEN\n\n{}\n\n",
+        lhs_str,
+        rhs_str
+    );
 }
