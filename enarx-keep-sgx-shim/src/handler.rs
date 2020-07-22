@@ -43,8 +43,8 @@ impl<'a> Write for Handler<'a> {
             return Ok(());
         }
 
-        let cursor = self.block.cursor();
-        let untrusted = cursor.copy_slice(s.as_bytes()).or(Err(core::fmt::Error))?;
+        let c = self.block.cursor();
+        let (_, untrusted) = c.copy_slice(s.as_bytes()).or(Err(core::fmt::Error))?;
 
         let req = request!(libc::SYS_write => libc::STDERR_FILENO, untrusted, untrusted.len());
         let res = unsafe { self.proxy(req) };
@@ -158,9 +158,9 @@ impl<'a> Handler<'a> {
     pub fn read(&mut self) -> sallyport::Result {
         self.trace("read", 3);
 
-        let cursor = self.block.cursor();
+        let c = self.block.cursor();
         let trusted: &mut [u8] = unsafe { self.aex.gpr.rsi.into_slice_mut(self.aex.gpr.rdx) };
-        let untrusted: &mut [u8] = unsafe { cursor.alloc(trusted.len()).or(Err(libc::EMSGSIZE))? };
+        let (_, untrusted) = unsafe { c.alloc::<u8>(trusted.len()).or(Err(libc::EMSGSIZE))? };
 
         let req = request!(libc::SYS_read => self.aex.gpr.rdi, untrusted, untrusted.len());
         let ret = unsafe { self.proxy(req)? };
@@ -169,8 +169,8 @@ impl<'a> Handler<'a> {
             self.attacked();
         }
 
-        let cursor = self.block.cursor();
-        let untrusted: &mut [u8] = unsafe { cursor.alloc(trusted.len()).or(Err(libc::EMSGSIZE))? };
+        let c = self.block.cursor();
+        let (_, untrusted) = unsafe { c.alloc(trusted.len()).or(Err(libc::EMSGSIZE))? };
         trusted.copy_from_slice(untrusted);
         Ok(ret)
     }
@@ -179,9 +179,9 @@ impl<'a> Handler<'a> {
     pub fn write(&mut self) -> sallyport::Result {
         self.trace("write", 3);
 
-        let cursor = self.block.cursor();
+        let c = self.block.cursor();
         let trusted: &[u8] = unsafe { self.aex.gpr.rsi.into_slice(self.aex.gpr.rdx) };
-        let untrusted = cursor.copy_slice(trusted).or(Err(libc::EMSGSIZE))?;
+        let (_, untrusted) = c.copy_slice(trusted).or(Err(libc::EMSGSIZE))?;
 
         let req = request!(libc::SYS_write => self.aex.gpr.rdi, untrusted, untrusted.len());
         let res = unsafe { self.proxy(req)? };
@@ -223,12 +223,16 @@ impl<'a> Handler<'a> {
         self.trace("readv", 3);
 
         let mut size = 0usize;
-        let cursor = self.block.cursor();
+        let c = self.block.cursor();
         let trusted = unsafe { self.aex.gpr.rsi.into_slice_mut(self.aex.gpr.rdx) };
-        let untrusted: &mut [libc::iovec] = cursor.copy_slice(trusted).or(Err(libc::EMSGSIZE))?;
+        let (c, untrusted) = c
+            .copy_slice::<libc::iovec>(trusted)
+            .or(Err(libc::EMSGSIZE))?;
 
+        let mut c = c;
         for (t, u) in trusted.iter_mut().zip(untrusted.iter_mut()) {
-            let us: &mut [u8] = unsafe { cursor.alloc(t.iov_len).or(Err(libc::EMSGSIZE))? };
+            let (nc, us) = unsafe { c.alloc::<u8>(t.iov_len).or(Err(libc::EMSGSIZE))? };
+            c = nc;
             u.iov_base = us.as_mut_ptr() as _;
             size += u.iov_len;
         }
@@ -241,11 +245,14 @@ impl<'a> Handler<'a> {
             self.attacked();
         }
 
-        let cursor = self.block.cursor();
-        let _: &mut [libc::iovec] = unsafe { cursor.alloc(trusted.len()).or(Err(libc::EMSGSIZE))? };
+        let c = self.block.cursor();
+        let (c, _) = unsafe { c.alloc::<libc::iovec>(trusted.len()) }.or(Err(libc::EMSGSIZE))?;
+
+        let mut c = c;
         for t in trusted.iter_mut() {
             let ts: &mut [u8] = unsafe { from_raw_parts_mut(t.iov_base as _, t.iov_len) };
-            let us: &mut [u8] = unsafe { cursor.alloc(ts.len()).or(Err(libc::EMSGSIZE))? };
+            let (nc, us) = unsafe { c.alloc::<u8>(ts.len()).or(Err(libc::EMSGSIZE))? };
+            c = nc;
             let sz = core::cmp::min(ts.len(), read);
             ts[..sz].copy_from_slice(&us[..sz]);
             read -= sz;
@@ -259,13 +266,17 @@ impl<'a> Handler<'a> {
         self.trace("writev", 3);
 
         let mut size = 0usize;
-        let cursor = self.block.cursor();
+        let c = self.block.cursor();
         let trusted = unsafe { self.aex.gpr.rsi.into_slice_mut(self.aex.gpr.rdx) };
-        let untrusted: &mut [libc::iovec] = cursor.copy_slice(trusted).or(Err(libc::EMSGSIZE))?;
+        let (c, untrusted) = c
+            .copy_slice::<libc::iovec>(trusted)
+            .or(Err(libc::EMSGSIZE))?;
 
+        let mut c = c;
         for (t, mut u) in trusted.iter_mut().zip(untrusted.iter_mut()) {
             let ts = unsafe { from_raw_parts(t.iov_base as *const u8, t.iov_len) };
-            let us = cursor.copy_slice(ts).or(Err(libc::EMSGSIZE))?;
+            let (nc, us) = c.copy_slice(ts).or(Err(libc::EMSGSIZE))?;
+            c = nc;
             u.iov_base = us.as_mut_ptr() as _;
             size += u.iov_len;
         }
@@ -435,8 +446,8 @@ impl<'a> Handler<'a> {
         let clk_id = self.aex.gpr.rdi;
         let trusted = unsafe { self.aex.gpr.rsi.into_slice_mut(1usize) };
 
-        let cursor = self.block.cursor();
-        let untrusted = unsafe { cursor.alloc::<libc::timespec>(1).or(Err(libc::EMSGSIZE))? };
+        let c = self.block.cursor();
+        let (_, untrusted) = unsafe { c.alloc::<libc::timespec>(1).or(Err(libc::EMSGSIZE))? };
         let req = request!(libc::SYS_clock_gettime => clk_id, untrusted);
         let res = unsafe { self.proxy(req)? };
 
@@ -444,8 +455,8 @@ impl<'a> Handler<'a> {
             self.attacked();
         }
 
-        let cursor = self.block.cursor();
-        let untrusted = unsafe { cursor.alloc::<libc::timespec>(1).or(Err(libc::EMSGSIZE))? };
+        let c = self.block.cursor();
+        let (_, untrusted) = unsafe { c.alloc::<libc::timespec>(1).or(Err(libc::EMSGSIZE))? };
         trusted.copy_from_slice(untrusted);
         Ok(res)
     }

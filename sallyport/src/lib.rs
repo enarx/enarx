@@ -12,7 +12,7 @@
 //! project literature. This is a very thin and low-level layer that is meant to
 //! be as transparent as possible.
 
-use core::{cell::UnsafeCell, mem::size_of};
+use core::mem::size_of;
 use memory::{Page, Register};
 
 /// Creates a Request instance
@@ -179,24 +179,26 @@ impl Block {
     }
 
     /// Returns a Cursor for the Block
-    pub fn cursor(&mut self) -> Cursor<'_> {
-        Cursor(UnsafeCell::new(&mut self.buf))
+    pub fn cursor(&mut self) -> Cursor {
+        Cursor(&mut self.buf)
     }
 }
 
 /// Helper for allocation of untrusted memory in a Block.
-pub struct Cursor<'a>(UnsafeCell<&'a mut [u8]>);
+pub struct Cursor<'a>(&'a mut [u8]);
 
-impl Cursor<'_> {
+impl<'a> Cursor<'a> {
     /// Allocates an array, containing count number of T items. The result is uninitialized.
     ///
     /// # Safety
     ///
     /// This function is unsafe because it returns an uninitialized array.
-    pub unsafe fn alloc<T>(&self, count: usize) -> core::result::Result<&mut [T], ()> {
-        let inner_ptr = self.0.get();
+    pub unsafe fn alloc<T>(
+        self,
+        count: usize,
+    ) -> core::result::Result<(Cursor<'a>, &'a mut [T]), ()> {
         let mid = {
-            let (padding, data, _) = (*inner_ptr).align_to_mut::<T>();
+            let (padding, data, _) = self.0.align_to_mut::<T>();
 
             if data.len() < count {
                 return Err(());
@@ -205,18 +207,19 @@ impl Cursor<'_> {
             padding.len() + size_of::<T>() * count
         };
 
-        let (data, next) = (*inner_ptr).split_at_mut(mid);
+        let (data, next) = self.0.split_at_mut(mid);
 
-        *inner_ptr = next;
-
-        Ok(data.align_to_mut::<T>().1)
+        Ok((Cursor(next), data.align_to_mut::<T>().1))
     }
 
     /// Copies data from a value into a slice using self.alloc().
-    pub fn copy_slice<T: Copy>(&self, value: &[T]) -> core::result::Result<&mut [T], ()> {
-        let slice: &mut [T] = unsafe { self.alloc(value.len())? };
+    pub fn copy_slice<T: Copy>(
+        self,
+        value: &[T],
+    ) -> core::result::Result<(Cursor<'a>, &'a mut [T]), ()> {
+        let (c, slice) = unsafe { self.alloc(value.len())? };
         slice.copy_from_slice(value);
-        Ok(slice)
+        Ok((c, slice))
     }
 }
 
@@ -303,13 +306,13 @@ mod tests {
         let mut block = Block::default();
 
         let c = block.cursor();
-        assert_eq!(unsafe { c.alloc::<usize>(4096usize) }, Err(()));
+        assert!(unsafe { c.alloc::<usize>(4096usize).is_err() });
 
         let c = block.cursor();
-        assert_eq!(unsafe { c.alloc::<usize>(42usize) }.unwrap().len(), 42);
+        assert_eq!(unsafe { c.alloc::<usize>(42usize) }.unwrap().1.len(), 42);
 
         let c = block.cursor();
-        let slice = c.copy_slice(&[87, 2, 3]).unwrap();
+        let (_c, slice) = c.copy_slice(&[87, 2, 3]).unwrap();
         assert_eq!(&slice, &[87, 2, 3]);
     }
 
@@ -318,19 +321,19 @@ mod tests {
         let mut block = Block::default();
 
         let c = block.cursor();
-        let slab1 = unsafe {
+        let (c, slab1) = unsafe {
             c.alloc::<usize>(2)
                 .expect("allocate slab of 42 usize values for the first time")
         };
         slab1.copy_from_slice(&[1, 2]);
 
-        let slab2 = unsafe {
+        let (c, slab2) = unsafe {
             c.alloc::<usize>(2)
                 .expect("allocate slab of 42 usize values for the second time")
         };
         slab2.copy_from_slice(&[3, 4]);
 
-        let slab3 = unsafe {
+        let (_c, slab3) = unsafe {
             c.alloc::<usize>(2)
                 .expect("allocate slab of 42 usize values for the third time")
         };
@@ -341,7 +344,7 @@ mod tests {
         assert_eq!(slab3, &[5, 6]);
 
         let c = block.cursor();
-        let slab_all = unsafe {
+        let (_c, slab_all) = unsafe {
             c.alloc::<usize>(6)
                 .expect("re-allocate slab of 6 42 usize values already initialized")
         };
