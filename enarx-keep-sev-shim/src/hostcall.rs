@@ -85,7 +85,7 @@ impl<'a> HostCall<'a> {
     /// The parameters returned can't be trusted.
     pub unsafe fn write(&mut self, fd: usize, bytes: &[u8]) -> Result<usize, libc::c_int> {
         let cursor = self.0.cursor();
-        let buf = cursor.copy_slice(bytes).or(Err(libc::EMSGSIZE))?;
+        let (_, buf) = cursor.copy_slice(bytes).or(Err(libc::EMSGSIZE))?;
 
         let buf_address = Address::from(buf.as_ptr());
         let shim_virt_address = ShimVirtAddr::try_from(buf_address).map_err(|_| libc::EFAULT)?;
