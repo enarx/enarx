@@ -1,8 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
 
-#define EENTER  2
-#define ERESUME 3
-
 .macro dpush arg
     push                    \arg
     .cfi_adjust_cfa_offset  8
@@ -46,25 +43,3 @@ eenter:
     dpop    %r15
     ret
     .cfi_endproc
-
-    .text
-    .global handle
-    .type handle, @function
-handle:
-    mov     16(%rsp),   %rax        # %rax = ret parameter
-    cmp     $0,         %rax        # enclave EEXIT
-    je      .Leexit
-    ret
-
-.Leexit:
-    cmp     $~0,        %r11        # Is a syscall?
-    jne     .Lsyscall
-    mov     $ERESUME,   %rax
-    ret
-
-.Lsyscall:
-    mov     %r11,       %rax        # %rax is passed in %r11
-    syscall
-    mov     %rax,       %rdi        # Pass return value in %rdi
-    mov     $EENTER,    %rax        # %rax = EENTER
-    ret

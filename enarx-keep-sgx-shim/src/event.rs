@@ -11,6 +11,7 @@ use crate::Layout;
 // Developer's Manual
 const OP_SYSCALL: &[u8] = &[0x0f, 0x05];
 const OP_CPUID: &[u8] = &[0x0f, 0xa2];
+const SYS_ERESUME: usize = !0;
 
 #[no_mangle]
 pub extern "C" fn event(
@@ -98,4 +99,6 @@ pub extern "C" fn event(
             h.attacked();
         }
     }
+
+    block.msg.req.num = SYS_ERESUME.into();
 }

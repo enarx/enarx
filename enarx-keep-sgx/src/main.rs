@@ -131,22 +131,38 @@ fn main() {
     let enclave = load();
 
     let mut block = Block::default();
+    let mut leaf = Leaf::Enter;
+    const SYS_ERESUME: usize = !0;
 
-    // The main loop event handing is divided into two halves.
+    // The main loop event handles different types of enclave exits and
+    // re-enters the enclave with specific parameters.
     //
-    //   1. EEXIT events (including syscall proxying and ERESUMEs [CSSA--])
-    //      are handled by the handler callback to the vDSO function. See
-    //      enclave.rs and enclave.S. This allows us to pass registers
-    //      directly to the syscall instruction.
+    //   1. Asynchronous exits (AEX) with an invalid opcode indicate
+    //      that a syscall should be performed. Execution continues in
+    //      the enclave with EENTER[CSSSA = 1]. The syscall
+    //      is proxied and potentially passed back out to the host.
     //
-    //   2. Asynchronous exits (AEX) are handled here to minimize the amount
-    //      of assembly code used.
+    //   2. OK with a syscall number other than SYS_ERESUME indicates the syscall
+    //      to be performed. The syscall is performed here and enclave
+    //      execution resumes with EENTER[CSSA = 1].
+    //
+    //   3. OK with a syscall number of SYS_ERESUME indicates that a syscall has
+    //      been performed as well as handled internally in the enclave
+    //      and normal enclave execution should resume
+    //      with ERESUME[CSSA = 0].
+    //
+    //   4. Asynchronous exits other than invalid opcode will panic.
     loop {
-        match enclave.enter(&mut block as *const _ as _, 0, 0, Leaf::Enter, 0, 0) {
-            // On InvalidOpcode: re-enter the enclave with EENTER (CSSA++).
-            Err(Some(ei)) if ei.trap == Exception::InvalidOpcode => (),
+        leaf = match enclave.enter(&mut block as *const _ as _, 0, 0, leaf, 0, 0) {
+            Err(Some(ei)) if ei.trap == Exception::InvalidOpcode => Leaf::Enter,
 
-            // We don't currently know how to handle other AEX events.
+            Ok(_) if SYS_ERESUME == unsafe { block.msg.req.num }.into() => Leaf::Resume,
+
+            Ok(_) => {
+                block.msg.rep = unsafe { block.msg.req.syscall() };
+                Leaf::Enter
+            }
+
             e => panic!("Unexpected AEX: {:?}", e),
         }
     }
