@@ -87,7 +87,7 @@ impl<'a> Handler<'a> {
     unsafe fn proxy(&mut self, req: Request) -> sallyport::Result {
         self.block.msg.req = req;
 
-        let ret = syscall(
+        let _ = syscall(
             self.block.msg.req.arg[0].into(), // rdi
             self.block.msg.req.arg[1].into(), // rsi
             self.block.msg.req.arg[2].into(), // rdx
@@ -99,7 +99,6 @@ impl<'a> Handler<'a> {
             self.ctx,
         );
 
-        self.block.msg.rep = Ok([ret.into(), 0usize.into()]).into();
         self.block.msg.rep.into()
     }
 

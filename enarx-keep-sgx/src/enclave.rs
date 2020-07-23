@@ -7,18 +7,6 @@ use std::mem::MaybeUninit;
 use mmap::Unmap;
 
 extern "C" {
-    fn handle(
-        rdi: usize,
-        rsi: usize,
-        rdx: usize,
-        ursp: usize,
-        r8: usize,
-        r9: usize,
-        tcs: usize,
-        ret: i32,
-        exc: &ExceptionInfo,
-    ) -> i32;
-
     fn eenter(
         rdi: usize,
         rsi: usize,
@@ -28,17 +16,19 @@ extern "C" {
         r9: usize,
         tcs: usize,
         exc: &mut ExceptionInfo,
-        handler: unsafe extern "C" fn(
-            rdi: usize,
-            rsi: usize,
-            rdx: usize,
-            ursp: usize,
-            r8: usize,
-            r9: usize,
-            tcs: usize,
-            ret: i32,
-            exc: &ExceptionInfo,
-        ) -> i32,
+        handler: Option<
+            unsafe extern "C" fn(
+                rdi: usize,
+                rsi: usize,
+                rdx: usize,
+                ursp: usize,
+                r8: usize,
+                r9: usize,
+                tcs: usize,
+                ret: i32,
+                exc: &ExceptionInfo,
+            ) -> i32,
+        >,
         vdso: usize,
     ) -> i32;
 }
@@ -120,7 +110,7 @@ impl Enclave {
 
         let ret = unsafe {
             eenter(
-                rdi, rsi, rdx, leaf, r8, r9, self.tcs, &mut exc, handle, self.fnc,
+                rdi, rsi, rdx, leaf, r8, r9, self.tcs, &mut exc, None, self.fnc,
             )
         };
 
