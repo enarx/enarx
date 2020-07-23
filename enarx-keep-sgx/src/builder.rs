@@ -88,6 +88,11 @@ impl Builder {
         const FLAGS: ioctls::Flags = ioctls::Flags::MEASURE;
 
         for seg in segs {
+            // Ignore segments with no pages.
+            if seg.src.len() == 0 {
+                continue;
+            }
+
             let off = seg.dst - self.mmap.span().start;
 
             // Update the enclave.
