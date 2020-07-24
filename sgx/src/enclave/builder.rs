@@ -1,26 +1,29 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use super::enclave::Enclave;
-
-use bounds::Span;
-use memory::Page;
-use openssl::{bn, rsa};
-use sgx::{
+use super::{enclave::Enclave, ioctls};
+use crate::{
     crypto::{Hasher, Signer},
-    ioctls,
     types::{
         page::{Class, Flags, SecInfo},
         {secs::*, sig::*, ssa::StateSaveArea},
     },
 };
 
+use bounds::Span;
+use memory::Page;
+use openssl::{bn, rsa};
+
 use std::convert::TryFrom;
 use std::fs::{File, OpenOptions};
 use std::io::Result;
 
+/// A loadable segment of code
 pub struct Segment {
+    /// Segment data
     pub src: Vec<Page>,
+    /// The address where this segment starts
     pub dst: usize,
+    /// The security information (`SecInfo`) about a page
     pub si: SecInfo,
 }
 
@@ -41,6 +44,9 @@ fn f2p(flags: Flags) -> libc::c_int {
     prot
 }
 
+/// An SGX enclave builder
+///
+/// TODO add more comprehensive docs.
 pub struct Builder {
     sign: Parameters,
     file: File,
@@ -50,6 +56,10 @@ pub struct Builder {
 }
 
 impl Builder {
+    /// Creates a new `Builder` instance. The input linear memory `span` is mapped
+    /// into SGX's EPC. This function issues `ECREATE` instruction.
+    ///
+    /// TODO add more comprehensive docs
     pub fn new(span: impl Into<Span<usize>>) -> Result<Self> {
         let span = span.into();
 
@@ -84,6 +94,10 @@ impl Builder {
         })
     }
 
+    /// Loads a segment of memory into the SGX enclave. This function issues `EADD`
+    /// instruction.
+    ///
+    /// TODO add more comprehensive docs.
     pub fn load(&mut self, segs: &[Segment]) -> Result<()> {
         const FLAGS: ioctls::Flags = ioctls::Flags::MEASURE;
 
@@ -115,7 +129,12 @@ impl Builder {
         Ok(())
     }
 
-    pub fn done(mut self, tcs: usize) -> Result<Enclave> {
+    /// Consumes this `Builder` and finalizes SGX enclave by generating
+    /// signing keys, initializing the enclave, etc. This function issues
+    /// `EINIT` instruction.
+    ///
+    /// TODO add more comprehensive docs.
+    pub fn build(mut self, tcs: usize) -> Result<Enclave> {
         // Generate a signing key.
         let exp = bn::BigNum::try_from(3u32)?;
         let key = rsa::Rsa::generate_with_e(3072, &exp)?;

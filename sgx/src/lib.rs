@@ -79,6 +79,6 @@ pub mod crypto;
 #[cfg(feature = "std")]
 pub mod attestation_types;
 #[cfg(feature = "std")]
-pub mod ioctls;
+pub mod enclave;
 
 pub mod types;

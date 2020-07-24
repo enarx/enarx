@@ -11,19 +11,12 @@ intel-types = { path = "../intel-types" }
 loader = { path = "../loader" }
 sallyport = { path = "../sallyport" }
 sgx = { path = "../sgx" }
-enumerate = { path = "../enumerate" }
 memory = { path = "../memory" }
 units = { path = "../units" }
 bounds = { path = "../bounds" }
-vdso = { path = "../vdso" }
 structopt = { version = "0.3", default-features = false }
 bitflags = "1.2"
 openssl = "=0.10.29"
-libc = "0.2.68"
-mmap = { path = "../mmap" }
-
-[build-dependencies]
-cc = "1.0"
 
 [patch.crates-io]
 openssl = { git = 'https://github.com/npmccallum/rust-openssl', branch='patch' }

@@ -9,7 +9,7 @@ edition = "2018"
 
 [features]
 default = ["std", "crypto"]
-std = ["iocuddle"]
+std = ["iocuddle", "libc", "mmap", "vdso"]
 crypto = ["std", "openssl"]
 
 [dependencies]
@@ -18,11 +18,17 @@ bounds  = { path = "../bounds" }
 enumerate  = { path = "../enumerate" }
 intel-types = { path = "../intel-types" }
 memory = { path = "../memory" }
+mmap = { path = "../mmap", optional = true }
+vdso = { path = "../vdso", optional = true }
 openssl = { version = "=0.10.29", features = ["vendored"], optional = true }
 iocuddle = { path = "../iocuddle", optional = true }
+libc = { version = "0.2.73", optional = true }
 
 [dev-dependencies]
 rstest = "0.6"
+
+[build-dependencies]
+cc = "1.0"
 
 [patch.crates-io]
 openssl = { git = 'https://github.com/npmccallum/rust-openssl', branch='patch' }

@@ -6,4 +6,8 @@ fn main() {
     if Path::new("/dev/sgx/enclave").exists() {
         println!("cargo:rustc-cfg=has_sgx");
     }
+
+    cc::Build::new()
+        .file("src/enclave/enclave.S")
+        .compile("enclave");
 }
