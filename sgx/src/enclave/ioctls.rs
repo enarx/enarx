@@ -75,6 +75,7 @@ impl<'a> AddPages<'a> {
         }
     }
 
+    #[allow(dead_code)]
     /// WIP
     pub fn count(&self) -> u64 {
         self.count
@@ -95,10 +96,12 @@ impl<'a> Init<'a> {
 
 #[repr(C)]
 #[derive(Debug)]
+#[allow(dead_code)]
 /// Struct for setting enclave attributes - WIP - ERESUME? EREMOVE?
 pub struct SetAttribute<'a>(u64, PhantomData<&'a ()>);
 
 impl<'a> SetAttribute<'a> {
+    #[allow(dead_code)]
     /// A new SetAttribute struct must wrap a file descriptor.
     pub fn new(fd: &'a impl std::os::unix::io::AsRawFd) -> Self {
         SetAttribute(fd.as_raw_fd() as _, PhantomData)
