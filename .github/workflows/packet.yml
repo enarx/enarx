@@ -1,0 +1,18 @@
+name: packet
+
+on: [pull_request]
+
+jobs:
+  # Run the CI suite on each technology
+  cargo-make-integration-sev:
+    runs-on: [self-hosted, linux, sev]
+    steps:
+      - uses: actions/checkout@v2
+      - name: Code passes the continuous integration suite on SEV
+        run: cargo make integration-ci
+  cargo-make-integration-sgx1:
+    runs-on: [self-hosted, linux, sgx1]
+    steps:
+      - uses: actions/checkout@v2
+      - name: Code passes the continuous integration suite on SGX1
+        run: cargo make integration-ci
