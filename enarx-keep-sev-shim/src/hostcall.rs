@@ -7,7 +7,7 @@ use crate::asm::_enarx_asm_triple_fault;
 use crate::SHIM_HOSTCALL_VIRT_ADDR;
 use core::convert::TryFrom;
 use enarx_keep_sev_shim::SYSCALL_TRIGGER_PORT;
-use memory::{Address, Page, Register};
+use memory::{Address, Page};
 use sallyport::{request, Block};
 use spinning::Mutex;
 use x86_64::instructions::port::Port;
@@ -69,7 +69,7 @@ impl<'a> HostCall<'a> {
     ///
     /// The parameters returned can't be trusted.
     #[inline(always)]
-    unsafe fn hostcall(&mut self) -> Result<[Register<usize>; 2], libc::c_int> {
+    unsafe fn hostcall(&mut self) -> sallyport::Result {
         let mut port = Port::<u16>::new(SYSCALL_TRIGGER_PORT);
         port.write(1);
         self.0.msg.rep.into()
@@ -83,7 +83,7 @@ impl<'a> HostCall<'a> {
     /// # Safety
     ///
     /// The parameters returned can't be trusted.
-    pub unsafe fn write(&mut self, fd: usize, bytes: &[u8]) -> Result<usize, libc::c_int> {
+    pub unsafe fn write(&mut self, fd: usize, bytes: &[u8]) -> sallyport::Result {
         let cursor = self.0.cursor();
         let buf = cursor.copy_slice(bytes).or(Err(libc::EMSGSIZE))?;
 
@@ -91,10 +91,9 @@ impl<'a> HostCall<'a> {
         let shim_virt_address = ShimVirtAddr::try_from(buf_address).map_err(|_| libc::EFAULT)?;
 
         let phys = ShimPhysAddr::from(shim_virt_address);
-        let request = request!(libc::SYS_write => fd, phys, buf.len());
 
-        self.0.msg.req = request;
-        Ok(self.hostcall()?[0].into())
+        self.0.msg.req = request!(libc::SYS_write => fd, phys, buf.len());
+        self.hostcall()
     }
 
     /// Exit the shim with a `status` code
@@ -127,8 +126,10 @@ pub fn shim_write_all(fd: HostFd, bytes: &[u8]) -> Result<(), libc::c_int> {
     loop {
         let written = unsafe {
             let next = bytes_len.checked_sub(to_write).ok_or(libc::EFAULT)?;
-            host_call.write(fd, &bytes[next..])?
-        };
+            host_call
+                .write(fd, &bytes[next..])
+                .map(|regs| usize::from(regs[0]))
+        }?;
         // be careful with `written` as it is untrusted
         to_write = to_write.checked_sub(written).ok_or(libc::EIO)?;
         if to_write == 0 {
