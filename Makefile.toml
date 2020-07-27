@@ -32,6 +32,21 @@ ENARX_DOCS_DIR = "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/docs"
 workspace = false
 dependencies = ["fork-for-crate-ci-flows", "workspace-ci-flows"]
 
+# ! WARNING !
+#
+# This target will run a number of tests that will directly
+# manipulate the hardware on the platform you're running on
+# (if equipped). Only invoke this task if you know what
+# you're doing.
+#
+# You probably want the 'ci' task, not this one.
+[tasks.deep-ci]
+workspace = false
+dependencies = [
+	"fork-for-crate-deep-ci-flows",
+	"workspace-deep-ci-flows",
+]
+
 # Tasks that must be ran once at the workspace root (i.e., they don't
 # make sense to run for individual crates).
 [tasks.workspace-ci-flows]
@@ -40,6 +55,10 @@ dependencies = [
 	"misc-diagrams",
 	"integration",
 ]
+
+[tasks.workspace-deep-ci-flows]
+workspace = false
+dependencies = ["workspace-ci-flows"]
 
 # Wrapper task for crate-specific tasks. Using this wrapper
 # allows the crate-ci-flows to be expressed as an array of
@@ -50,10 +69,19 @@ dependencies = [
 [tasks.fork-for-crate-ci-flows]
 run_task = { name = "crate-ci-flows", fork = true }
 
+[tasks.fork-for-crate-deep-ci-flows]
+run_task = { name = "crate-deep-ci-flows", fork = true }
+
 # Tasks that must be ran against individual crates.
 [tasks.crate-ci-flows]
 dependencies = [
 	"ci-flow"
+]
+
+[tasks.crate-deep-ci-flows]
+dependencies = [
+	"crate-ci-flows",
+	"deep-test",
 ]
 
 # Run real code against real Enarx keeps to test various bits
@@ -88,6 +116,14 @@ run_task = { name = "_test", fork = true }
 [tasks._test]
 command = "cargo"
 args = ["test"]
+
+# !WARNING!
+#
+# See warning message under [tasks.deep-ci]
+[tasks.deep-test]
+# Stubbed. Crates must override this specifically if there's
+# anything special to be done to "turn on" the deep testing
+# requirements.
 
 [tasks.deny]
 command = "cargo"

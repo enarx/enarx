@@ -1,3 +1,7 @@
 [tasks.test]
 command = "cargo"
 args = ["test", "--features=openssl"]
+
+[tasks.deep-test]
+command = "cargo"
+args = ["test", "--features=openssl,dangerous_tests"]
