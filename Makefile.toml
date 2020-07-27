@@ -37,7 +37,8 @@ dependencies = ["fork-for-crate-ci-flows", "workspace-ci-flows"]
 [tasks.workspace-ci-flows]
 workspace = false
 dependencies = [
-	"misc-diagrams"
+	"misc-diagrams",
+	"integration",
 ]
 
 # Wrapper task for crate-specific tasks. Using this wrapper
@@ -54,6 +55,39 @@ run_task = { name = "crate-ci-flows", fork = true }
 dependencies = [
 	"ci-flow"
 ]
+
+# Run real code against real Enarx keeps to test various bits
+# and bobs of functionality.
+[tasks.integration]
+workspace = false
+dependencies = [
+	"pre-integration",
+	"integration-test",
+]
+
+# Builds the required crates for the integration tests. You
+# probably want to run the "integration" task, not this one.
+# The "integration" task will invoke this automatically.
+[tasks.pre-integration]
+workspace = false
+env = { "CARGO_MAKE_WORKSPACE_INCLUDE_MEMBERS" = ["enarx-keep", "enarx-keep-sgx", "enarx-keep-sgx-shim", "enarx-keep-sev", "enarx-keep-sev-shim"] }
+run_task = { name = "build", fork = true }
+
+# Launches the integration tests. You probably want to run
+# the "integration" task, not this one. The "integration" task
+# will run this automatically once the dependencies have been built.
+[tasks.integration-test]
+workspace = false
+env = { "CARGO_MAKE_WORKSPACE_INCLUDE_MEMBERS" = "integration-tests" }
+run_task = { name = "_test", fork = true }
+
+# The integration-tests crate disables the regular "test" target to avoid
+# accidentally misfiring during the regular ci-flows since its dependent
+# targets might not be built and would therefore spuriously fail. You don't
+# want to run this task manually.
+[tasks._test]
+command = "cargo"
+args = ["test"]
 
 [tasks.deny]
 command = "cargo"
@@ -86,21 +120,6 @@ command = "${ENARX_TEST_DIR}/cargo-toml-package-license"
 
 [tasks.misc-licenses-crate]
 command = "${ENARX_TEST_DIR}/misc-licenses-crate"
-
-[tasks.integration]
-workspace = false
-env = { "CARGO_MAKE_WORKSPACE_INCLUDE_MEMBERS" = "integration-tests" }
-run_task = { name = "integration-test", fork = true }
-
-[tasks.integration-test]
-command = "cargo"
-args = ["test"]
-
-[tasks.integration-ci]
-workspace = false
-run_task = [
-    { name = ["ci-flow", "integration"], fork = true },
-]
 
 # Add additional tests to the predefined 'ci-flow' target.
 [tasks.pre-ci-flow]
