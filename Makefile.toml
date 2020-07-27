@@ -26,6 +26,35 @@ CARGO_MAKE_CRATE_WORKSPACE_MEMBERS = [
 ENARX_TEST_DIR = "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/.tests"
 ENARX_DOCS_DIR = "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/docs"
 
+# Run all automated unit and integration tests locally (except
+# for any tests that modify platform state).
+[tasks.ci]
+workspace = false
+dependencies = ["fork-for-crate-ci-flows", "workspace-ci-flows"]
+
+# Tasks that must be ran once at the workspace root (i.e., they don't
+# make sense to run for individual crates).
+[tasks.workspace-ci-flows]
+workspace = false
+dependencies = [
+	"misc-diagrams"
+]
+
+# Wrapper task for crate-specific tasks. Using this wrapper
+# allows the crate-ci-flows to be expressed as an array of
+# dependencies. It is important to fork so that cargo-make's
+# child process detects that it is running in a workspace
+# member crate, and it will shed the previous "workspace = false"
+# constraint.
+[tasks.fork-for-crate-ci-flows]
+run_task = { name = "crate-ci-flows", fork = true }
+
+# Tasks that must be ran against individual crates.
+[tasks.crate-ci-flows]
+dependencies = [
+	"ci-flow"
+]
+
 [tasks.deny]
 command = "cargo"
 args = ["deny", "check", "licenses"]
@@ -71,13 +100,6 @@ args = ["test"]
 workspace = false
 run_task = [
     { name = ["ci-flow", "integration"], fork = true },
-]
-
-# Single run tests for the entire project rather than per crate
-[tasks.ci-project]
-workspace = false
-dependencies = [
-	"misc-diagrams"
 ]
 
 # Add additional tests to the predefined 'ci-flow' target.
