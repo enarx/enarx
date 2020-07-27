@@ -2,6 +2,7 @@
 
 use super::*;
 
+#[cfg(feature = "openssl")]
 use openssl::hash;
 
 const NAPLES_ARK_SIG: &[u8] = include_bytes!("../../../../tests/naples/ark.cert.sig");
@@ -22,6 +23,7 @@ enum Size {
     Large,
 }
 
+#[cfg(feature = "openssl")]
 impl Into<hash::MessageDigest> for Size {
     fn into(self) -> hash::MessageDigest {
         match self {
