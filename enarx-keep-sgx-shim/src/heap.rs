@@ -19,7 +19,7 @@ pub struct Heap {
 }
 
 impl Heap {
-    pub unsafe fn new(heap: Span<u64>) -> Self {
+    pub unsafe fn new(heap: Span<usize>) -> Self {
         // Bits per page
         const BPP: usize = Page::size() * 8;
 

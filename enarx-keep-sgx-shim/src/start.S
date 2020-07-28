@@ -7,6 +7,7 @@
 #define SRSP    (MISC - 8)
 
 #define STACK   (9 * 8)
+#define SHIM    (10 * 8)
 
 # Clear all preserved (callee-saved) registers (except %rsp)
 .macro  zerop
@@ -93,10 +94,12 @@ xsave:                          # An initialized synthetic xsave area
 #
 #  If %rax == 0, we are doing normal execution.
 #  Otherwise, we are handling an exception.
-    .text
-    .globl enclave
-    .type enclave, @function
-enclave:
+   .text
+   .hidden _DYNAMIC
+   .globl _dyn_reloc
+   .globl _start
+   .type _start, @function
+_start:
     xchg    %rbx,                   %rcx            # Swap TCS and next instruction.
     add     $4096,                  %rcx            # %rcx = &Layout
     cmp     $0,                     %rax            # If CSSA > 0...
@@ -107,7 +110,35 @@ enclave:
     zerot                                           # Clear temporary registers
     zerox                                           # Clear xCPU state
     xor     %rax,                   %rax            # Clear %rax
-    call    entry                                   # Jump to Rust
+
+    pushq   %rdi
+    pushq   %rsi
+    pushq   %rdx
+    pushq   %rcx
+    pushq   %r8
+    pushq   %r9
+    pushq   %r10
+    pushq   %r11
+
+    # relocate the dynamic symbols
+    # %rdi - address of _DYNAMIC section
+    # %rsi - shim load offset from Layout.shim.start
+    mov    SHIM(%rcx),              %rsi
+    lea    _DYNAMIC(%rip),          %rdi
+    call   _dyn_reloc
+
+    popq    %r11
+    popq    %r10
+    popq    %r9
+    popq    %r8
+    popq    %rcx
+    popq    %rdx
+    popq    %rsi
+    popq    %rdi
+
+    xor     %rax,                   %rax            # Clear %rax
+
+    call *_entry_l(%rip)                            # Jump to Rust
 
 # CSSA != 0
 .Levent:
@@ -207,3 +238,9 @@ exit:
 jump:
     mov     %rdi,                   %rsp
     jmp     *%rsi
+
+    .data
+    .global entry
+    .align 8
+_entry_l:
+    .quad   entry

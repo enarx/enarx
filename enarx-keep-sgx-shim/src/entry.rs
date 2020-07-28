@@ -28,7 +28,7 @@ fn crt0setup<'a>(
     crt0: &'a mut [u8],
 ) -> Result<Handle<'a>, OutOfSpace> {
     let rand = unsafe { core::mem::transmute([random(), random()]) };
-    let phdr = layout.code.start + hdr.e_phoff;
+    let phdr = layout.code.start as u64 + hdr.e_phoff;
 
     // Set the arguments
     let mut builder = Builder::new(crt0);
@@ -79,7 +79,7 @@ pub extern "C" fn entry(_rdi: u64, _rsi: u64, _rdx: u64, layout: &Layout, _r8: u
     unsafe {
         jump(
             handle.start_ptr() as *const _ as _,
-            layout.code.start + hdr.e_entry,
+            layout.code.start as u64 + hdr.e_entry,
         )
     }
 }
