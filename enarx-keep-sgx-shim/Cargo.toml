@@ -14,6 +14,11 @@ memory = { path = "../memory" }
 bounds = { path = "../bounds" }
 libc = { version = "0.2", features = [] }
 enumerate = { path = "../enumerate" }
+units = { path = "../units" }
+rcrt1 = { path = "../rcrt1" }
+
+[profile.dev.package.rcrt1]
+opt-level = 3
 
 [build-dependencies]
 cc = "*"

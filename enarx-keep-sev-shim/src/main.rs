@@ -17,6 +17,8 @@ fn main() {}
 #[macro_use]
 extern crate lazy_static;
 
+extern crate rcrt1;
+
 pub mod addr;
 pub mod asm;
 pub mod frame_allocator;

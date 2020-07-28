@@ -7,7 +7,6 @@
 
 mod builder;
 mod enclave;
-mod layout;
 
 use builder::{Builder, Segment};
 use enclave::Leaf;
@@ -41,13 +40,19 @@ fn load() -> enclave::Enclave {
     let opt = Opt::from_args();
 
     // Parse the shim and code and validate assumptions.
-    let shim = Component::from_path(opt.shim).expect("Unable to parse shim");
+    let mut shim = Component::from_path(opt.shim).expect("Unable to parse shim");
     let mut code = Component::from_path(opt.code).expect("Unable to parse code");
-    assert!(!shim.pie);
+    assert!(shim.pie);
     assert!(code.pie);
 
     // Calculate the memory layout for the enclave.
-    let layout = layout::Layout::calculate(shim.region(), code.region());
+    let layout = enarx_keep_sgx_shim::Layout::calculate(shim.region(), code.region());
+
+    // Relocate the shim binary.
+    shim.entry += layout.shim.start;
+    for seg in shim.segments.iter_mut() {
+        seg.dst += layout.shim.start;
+    }
 
     // Relocate the code binary.
     code.entry += layout.code.start;

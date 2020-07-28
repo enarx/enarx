@@ -8,7 +8,6 @@ fn main() {
 
     // Re-run this build script on linker changes.
     println!("cargo:rerun-if-changed=link.json");
-    println!("cargo:rerun-if-changed=layout.ld");
 
     // Touch the main file to rebuild due to link.json changes.
     std::fs::OpenOptions::new()

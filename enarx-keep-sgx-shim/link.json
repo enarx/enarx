@@ -1,12 +1,12 @@
 {
     "build": {
         "prepend": [
-            "-Wl,--script=layout.ld",
-            "-Wl,--gc-keep-exported"
+            "-static-pie"
         ],
 
         "replace": {
-            ".*crt.\\.o": []
+            ".*/r?crt.\\.o": [],
+            "-no-pie": []
         },
 
         "append-target-rlib": [ "libc" ],

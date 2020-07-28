@@ -1,5 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
+//! The common Layout for `enarx-keep-sgx` and `enarx-keep-sgx-shim`
+
+#![no_std]
+#![deny(clippy::all)]
+#![deny(missing_docs)]
+
 use bounds::{Contains as _, Line, Span};
 
 const PREFIX: usize = units::bytes![4; MiB];
@@ -30,21 +36,43 @@ fn below(rel: impl Into<Line<usize>>, size: usize) -> Span<usize> {
     }
 }
 
-// NOTE: this structure MUST be kept in sync with enarx-keep-sgx-shim
+/// The enclave layout
 #[repr(C)]
 #[derive(Copy, Clone, Default, Debug, PartialEq, Eq)]
 pub struct Layout {
+    /// The boundaries of the enclave.
     pub enclave: Line<usize>,
 
+    /// The boundaries of the prefix.
     pub prefix: Line<usize>,
+
+    /// The boundaries of the code.
     pub code: Line<usize>,
+
+    /// The boundaries of the heap.
     pub heap: Line<usize>,
+
+    /// The boundaries of the stack.
     pub stack: Line<usize>,
+
+    /// The boundaries of the shim.
     pub shim: Line<usize>,
 }
 
 impl Layout {
+    /// Calculate the memory layout of the SGX keep
     pub fn calculate(shim: Line<usize>, code: Line<usize>) -> Self {
+        assert_eq!(shim.start, 0);
+
+        let shim: Line<usize> = above(
+            Span {
+                start: units::bytes!(32; TiB) + units::bytes!(63;GiB),
+                count: 0,
+            },
+            Span::from(shim).count,
+        )
+        .into();
+
         let enclave = Line::from(Span {
             start: lower(shim.end, SIZE),
             count: SIZE,

@@ -6,6 +6,7 @@ edition = "2018"
 license = "Apache-2.0"
 
 [dependencies]
+rcrt1 = { path = "../rcrt1" }
 bounds = { path = "../bounds" }
 units = { path = "../units" }
 memory = { path = "../memory" }
@@ -14,6 +15,9 @@ libc = { version = "0.2.69", features = [] }
 x86_64 = { version = "0.11.0", default-features = false, features = ["stable"] }
 spinning = { version = "0.0", default-features = false}
 lazy_static = { version = "1.4.0", default-features = false, features = ["spin_no_std"] }
+
+[profile.dev.package.rcrt1]
+opt-level = 3
 
 [build-dependencies]
 cc = "1.0.37"
