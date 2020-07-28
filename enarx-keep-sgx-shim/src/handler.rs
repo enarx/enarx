@@ -25,17 +25,7 @@ enumerate::enumerate! {
 
 extern "C" {
     #[no_mangle]
-    fn syscall(
-        rdi: u64,
-        rsi: u64,
-        rdx: u64,
-        aex: &mut StateSaveArea,
-        r8: u64,
-        r9: u64,
-        r10: u64,
-        rax: u64,
-        ctx: &Context,
-    ) -> u64;
+    fn syscall(aex: &mut StateSaveArea, ctx: &Context) -> u64;
 }
 
 pub enum Context {}
@@ -87,17 +77,7 @@ impl<'a> Handler<'a> {
     unsafe fn proxy(&mut self, req: Request) -> sallyport::Result {
         self.block.msg.req = req;
 
-        let _ = syscall(
-            self.block.msg.req.arg[0].into(), // rdi
-            self.block.msg.req.arg[1].into(), // rsi
-            self.block.msg.req.arg[2].into(), // rdx
-            self.aex,
-            self.block.msg.req.arg[4].into(), // r8
-            self.block.msg.req.arg[5].into(), // r9
-            self.block.msg.req.arg[3].into(), // r10
-            self.block.msg.req.num.into(),    // rax
-            self.ctx,
-        );
+        let _ret = syscall(self.aex, self.ctx);
 
         self.block.msg.rep.into()
     }

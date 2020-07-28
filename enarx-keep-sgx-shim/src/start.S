@@ -176,21 +176,18 @@ enclave:
     zerof   %r11                                    # Clear CPU flags
     ret                                             # Jump to address on the stack
 
-    # int syscall(rdi, rsi, rdx, aex, r8, r9, r10, rax, ctx);
+    # int syscall(rdi = aex, rsi = ctx);
     .text
     .globl syscall
     .type syscall, @function
 syscall:
     savep                                           # Save preserved registers
-    mov     %rsp,                   SRSP(%rcx)      # Save restoration stack pointer
+    mov     %rsp,                   SRSP(%rdi)      # Save restoration stack pointer
     
     zerox                                           # Clear xCPU state
     xor     %rcx,                   %rcx            # Clear %rcx
     zerof   %rcx                                    # Clear CPU flags
-
-    mov     0x38(%rsp),             %r10            # Export %r10
-    mov     0x40(%rsp),             %r11            # Export %rax in %r11
-    mov     0x48(%rsp),             %rsp            # Get the exit context
+    mov     %rsi,                   %rsp            # Get exit context
 
     jmp     .Leexit
 
