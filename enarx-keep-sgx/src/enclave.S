@@ -19,24 +19,23 @@
     .global eenter
     .type eenter, @function
 eenter:
+    # Preserve registers not preserved by vDSO
     .cfi_startproc
     rpush   %r15
     rpush   %r14
     rpush   %r13
     rpush   %r12
-    rpush   %rbx
 
-    dpush   $0
-    dpush   0x48(%rsp)
-    dpush   0x48(%rsp)
-    dpush   0x48(%rsp)
+    # Prepare stack for vDSO
+    dpush   0x38(%rsp)          # exit handler
+    dpush   0x38(%rsp)          # exception info
+    dpush   0x38(%rsp)          # tcs
 
-    call    *0x68(%rsp)         # __vdso_sgx_enter_enclave()
+    call    *0x58(%rsp)         # __vdso_sgx_enter_enclave()
 
-    add    $0x20, %rsp
-    .cfi_adjust_cfa_offset  -0x20
+    add    $0x18, %rsp
+    .cfi_adjust_cfa_offset  -0x18
 
-    dpop    %rbx
     dpop    %r12
     dpop    %r13
     dpop    %r14
