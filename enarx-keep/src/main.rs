@@ -14,6 +14,7 @@ use structopt::StructOpt;
 
 use backend::{Backend, Command};
 use binary::Component;
+use std::path::PathBuf;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 const AUTHORS: &str = env!("CARGO_PKG_AUTHORS");
@@ -28,6 +29,9 @@ struct Exec {
     /// The specific keep backend to use
     #[structopt(short, long)]
     keep: Option<String>,
+
+    #[structopt(short, long, parse(from_os_str))]
+    shim: Option<PathBuf>,
 
     /// The payload to run inside the keep
     code: String,
@@ -96,7 +100,8 @@ fn exec(backends: HashMap<String, Box<dyn Backend>>, opts: Exec) -> Result<()> {
         .next()
         .expect("No supported backend found!");
 
-    let shim = Component::from_path(&backend.shim()?)?;
+    let shim = Component::from_path(opts.shim.unwrap_or(backend.shim()?))?;
+
     let keep = backend.build(shim, code)?;
 
     let mut thread = keep.clone().add_thread()?;
