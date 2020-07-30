@@ -2,7 +2,7 @@
 
 //! Host <-> Shim Communication
 
-use crate::addr::{ShimPhysAddr, ShimVirtAddr};
+use crate::addr::{HostVirtAddr, ShimPhysAddr, ShimVirtAddr};
 use crate::asm::_enarx_asm_triple_fault;
 use crate::SHIM_HOSTCALL_VIRT_ADDR;
 use core::convert::TryFrom;
@@ -89,10 +89,9 @@ impl<'a> HostCall<'a> {
 
         let buf_address = Address::from(buf.as_ptr());
         let shim_virt_address = ShimVirtAddr::try_from(buf_address).map_err(|_| libc::EFAULT)?;
+        let host_virt: HostVirtAddr<_> = ShimPhysAddr::from(shim_virt_address).into();
 
-        let phys = ShimPhysAddr::from(shim_virt_address);
-
-        self.0.msg.req = request!(libc::SYS_write => fd, phys, buf.len());
+        self.0.msg.req = request!(libc::SYS_write => fd, host_virt, buf.len());
         self.hostcall()
     }
 

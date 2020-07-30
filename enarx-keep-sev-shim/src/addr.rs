@@ -9,8 +9,37 @@
 /// FIXME: change to dynamic offset with ASLR https://github.com/enarx/enarx/issues/624
 pub const SHIM_VIRT_OFFSET: u64 = 0xFFFF_FF80_0000_0000;
 
+use crate::BOOT_INFO;
 use core::convert::TryFrom;
 use memory::Address;
+
+/// Address in the host virtual address space
+pub struct HostVirtAddr<U>(Address<u64, U>);
+
+impl<U> From<ShimPhysAddr<U>> for HostVirtAddr<U> {
+    #[inline(always)]
+    fn from(val: ShimPhysAddr<U>) -> Self {
+        let offset = BOOT_INFO.read().unwrap().virt_offset;
+        unsafe { Address::<u64, U>::unchecked(val.0.raw() + offset as u64) }.into()
+    }
+}
+
+impl<U> From<Address<u64, U>> for HostVirtAddr<U> {
+    #[inline(always)]
+    fn from(val: Address<u64, U>) -> Self {
+        Self(val)
+    }
+}
+
+impl<T, U> From<HostVirtAddr<U>> for memory::Register<T>
+where
+    memory::Register<T>: From<memory::Register<u64>>,
+{
+    #[inline(always)]
+    fn from(val: HostVirtAddr<U>) -> Self {
+        memory::Register::<u64>::from(val.0).into()
+    }
+}
 
 /// Address in the shim physical address space
 pub struct ShimPhysAddr<U>(Address<u64, U>);

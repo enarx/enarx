@@ -87,6 +87,8 @@ pub struct BootInfo {
     pub shim: Line<usize>,
     /// Memory size
     pub mem_size: usize,
+    /// Loader virtual memory offset to shim physical memory
+    pub virt_offset: usize,
 }
 
 /// Error returned, if the virtual machine memory is to small for the shim to operate.
@@ -107,6 +109,7 @@ impl BootInfo {
     #[inline]
     pub fn calculate(
         mem_size: usize,
+        virt_offset: usize,
         setup: Line<usize>,
         shim: Span<usize>,
         code: Span<usize>,
@@ -125,6 +128,7 @@ impl BootInfo {
             code,
             shim,
             mem_size,
+            virt_offset,
         })
     }
 }
