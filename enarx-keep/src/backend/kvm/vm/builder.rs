@@ -173,9 +173,14 @@ impl Builder<AddressSpace> {
             start: 0,
             end: addr_space.prefix_mut().size(),
         };
-        let boot_info =
-            BootInfo::calculate(memsz as _, vm_setup, shim_region.into(), code_region.into())
-                .map_err(|_| io::Error::from_raw_os_error(libc::ENOMEM))?;
+        let boot_info = BootInfo::calculate(
+            memsz as _,
+            addr_space.as_virt().start.as_u64() as _,
+            vm_setup,
+            shim_region.into(),
+            code_region.into(),
+        )
+        .map_err(|_| io::Error::from_raw_os_error(libc::ENOMEM))?;
 
         self.data.boot_info = Some(boot_info);
 
