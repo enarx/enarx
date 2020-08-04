@@ -14,7 +14,7 @@ openssl = { version = "=0.10.29", optional = true, features = [ "vendored" ] }
 bitflags = "1.2.1"
 codicon = "2.1.0"
 bitfield = "0.13"
-iocuddle = { path = "../iocuddle" }
+iocuddle = { git = "https://github.com/enarx/iocuddle" }
 
 [patch.crates-io]
 openssl = { git = 'https://github.com/npmccallum/rust-openssl', branch='patch' }
