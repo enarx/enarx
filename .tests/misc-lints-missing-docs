@@ -1,4 +1,4 @@
 #!/bin/bash -e
 crate_roots=$(find src/ -name lib.rs -o -name main.rs)
 echo "The following files do not #![deny(missing_docs)]:"
-! git grep -LF '#![deny(missing_docs)]' "$crate_roots"
+! git grep -LF '#![deny(missing_docs)]' -- "$crate_roots"
