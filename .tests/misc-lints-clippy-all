@@ -1,4 +1,4 @@
 #!/bin/bash -e
 crate_roots=$(find ./src/ -name lib.rs -o -name main.rs)
 echo "The following files do not #![deny(clippy::all)]:"
-! git grep -LF '#![deny(clippy::all)]' "$crate_roots"
+! git grep -LF '#![deny(clippy::all)]' -- "$crate_roots"
