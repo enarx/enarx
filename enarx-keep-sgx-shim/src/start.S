@@ -138,7 +138,7 @@ _start:
 
     xor     %rax,                   %rax            # Clear %rax
 
-    call *_entry_l(%rip)                            # Jump to Rust
+    call    entry                                   # Jump to Rust
 
 # CSSA != 0
 .Levent:
@@ -214,7 +214,7 @@ _start:
 syscall:
     savep                                           # Save preserved registers
     mov     %rsp,                   SRSP(%rdi)      # Save restoration stack pointer
-    
+
     zerox                                           # Clear xCPU state
     xor     %rcx,                   %rcx            # Clear %rcx
     zerof   %rcx                                    # Clear CPU flags
@@ -238,9 +238,3 @@ exit:
 jump:
     mov     %rdi,                   %rsp
     jmp     *%rsi
-
-    .data
-    .global entry
-    .align 8
-_entry_l:
-    .quad   entry
