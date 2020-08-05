@@ -104,7 +104,7 @@ _trampoline:
 
     # jump to _start_main
     xor %rbp,%rbp
-    jmp *_start_main_l(%rip)
+    jmp _start_main
 
 .L100:  # some paranoid code preventing speculative execution
     hlt
@@ -114,12 +114,6 @@ _trampoline:
 .align 4096
 _initial_shim_stack:
 .space SIZE_OF_INITIAL_STACK
-
-.section .data
-.align 8
-_start_main_l:
-.quad   _start_main
-.global _start_main
 
 #
 # # Page Tables:
