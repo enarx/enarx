@@ -11,4 +11,6 @@ fn main() {
     unsafe {
         clock_gettime(libc::CLOCK_MONOTONIC, &mut ts as *mut _);
     }
+
+    assert_ne!(ts.tv_sec, 0);
 }

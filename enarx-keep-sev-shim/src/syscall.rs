@@ -123,6 +123,7 @@ pub extern "C" fn syscall_rust(
         libc::SYS_brk => h.brk(),
         libc::SYS_ioctl => h.ioctl(),
         libc::SYS_mprotect => h.mprotect(),
+        libc::SYS_clock_gettime => h.clock_gettime(),
 
         syscall => {
             //panic!("SC> unsupported syscall: {}", syscall);
@@ -494,5 +495,33 @@ impl Handler {
         eprintln!("SC> getrandom(…) = {}", trusted.len());
 
         Ok(trusted.len())
+    }
+
+    pub fn clock_gettime(&self) -> Result<usize, libc::c_int> {
+        let clk_id = self.a;
+        let trusted = self.b as *mut libc::timespec;
+
+        let mut host_call = HOST_CALL.try_lock().ok_or(libc::EIO)?;
+
+        let block = host_call.as_mut_block();
+
+        let c = block.cursor();
+        let (_, buf) = unsafe { c.alloc::<libc::timespec>(1).or(Err(libc::EMSGSIZE))? };
+
+        let buf_address = Address::from(buf.as_ptr());
+        let shim_virt_address = ShimVirtAddr::try_from(buf_address).map_err(|_| libc::EFAULT)?;
+        let host_virt: HostVirtAddr<_> = ShimPhysAddr::from(shim_virt_address).into();
+
+        block.msg.req = request!(libc::SYS_clock_gettime => clk_id, host_virt);
+        let result = unsafe { host_call.hostcall() }.map(|r| r[0].into())?;
+
+        let block = host_call.as_mut_block();
+        let c = block.cursor();
+        let (_, untrusted) = unsafe { c.alloc::<libc::timespec>(1).or(Err(libc::EMSGSIZE))? };
+        unsafe {
+            trusted.write_volatile(untrusted[0]);
+        }
+
+        Ok(result)
     }
 }

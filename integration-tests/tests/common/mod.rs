@@ -47,9 +47,21 @@ impl IntegrationTest {
     ) {
         let seconds = Duration::from_secs(timeout);
 
+        // FIXME: https://github.com/enarx/enarx/issues/832
+        #[cfg(has_sgx)]
+        let keep = "sgx";
+        #[cfg(has_sev)]
+        let keep = "sev";
+        #[cfg(all(not(any(has_sev, has_sgx)), has_kvm))]
+        let keep = "kvm";
+        #[cfg(not(any(has_sev, has_sgx, has_kvm)))]
+        let keep = "unknown";
+
         let mut cmd = Command::new(self.keep)
             .current_dir(self.root)
             .arg("exec")
+            .arg("--keep")
+            .arg(keep)
             .arg(self.code)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
