@@ -8,5 +8,7 @@ fn main() {
 
     if std::path::Path::new("/dev/sgx/enclave").exists() {
         println!("cargo:rustc-cfg=has_sgx");
+    } else if std::path::Path::new("/dev/kvm").exists() {
+        println!("cargo:rustc-cfg=has_kvm");
     }
 }

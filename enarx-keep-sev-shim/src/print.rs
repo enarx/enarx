@@ -8,6 +8,9 @@ struct HostWrite(HostFd);
 
 use core::fmt;
 
+// FIXME: remove, if https://github.com/enarx/enarx/issues/831 is fleshed out
+const TRACE: bool = false;
+
 impl fmt::Write for HostWrite {
     #[inline(always)]
     fn write_str(&mut self, s: &str) -> fmt::Result {
@@ -21,6 +24,10 @@ impl fmt::Write for HostWrite {
 pub fn _print(args: fmt::Arguments) {
     use fmt::Write;
 
+    if !TRACE {
+        return;
+    }
+
     HostWrite(unsafe { HostFd::from_raw_fd(libc::STDOUT_FILENO) })
         .write_fmt(args)
         .expect("Printing via Host fd 1 failed");
@@ -30,6 +37,10 @@ pub fn _print(args: fmt::Arguments) {
 #[inline(always)]
 pub fn _eprint(args: fmt::Arguments) {
     use fmt::Write;
+
+    if !TRACE {
+        return;
+    }
 
     HostWrite(unsafe { HostFd::from_raw_fd(libc::STDERR_FILENO) })
         .write_fmt(args)
