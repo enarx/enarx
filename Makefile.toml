@@ -169,3 +169,10 @@ dependencies = [
 	"misc-lints-clippy-all",
 	"misc-lints-missing-docs",
 ]
+
+# Remove Cargo.lock files in cases where compilation fails
+# due to incorrect library update propogation
+[tasks.dist-clean]
+dependencies = ["clean"]
+command = "rm"
+args = ["-f", "Cargo.lock"]
