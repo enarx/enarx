@@ -69,10 +69,20 @@ impl<'a> HostCall<'a> {
     ///
     /// The parameters returned can't be trusted.
     #[inline(always)]
-    unsafe fn hostcall(&mut self) -> sallyport::Result {
+    pub unsafe fn hostcall(&mut self) -> sallyport::Result {
         let mut port = Port::<u16>::new(SYSCALL_TRIGGER_PORT);
         port.write(1);
         self.0.msg.rep.into()
+    }
+
+    /// Return reference to the inner `Block`
+    pub fn as_block(&self) -> &Block {
+        self.0
+    }
+
+    /// Return mutable reference to the inner `Block`
+    pub fn as_mut_block(&mut self) -> &mut Block {
+        self.0
     }
 
     /// Write `bytes` to a host file descriptor `fd`

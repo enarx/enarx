@@ -2,12 +2,16 @@
 
 //! syscall interface layer between assembler and rust
 
+use crate::addr::{HostVirtAddr, ShimPhysAddr, ShimVirtAddr};
 use crate::eprintln;
 use crate::frame_allocator::FRAME_ALLOCATOR;
 use crate::hostcall::{self, shim_write_all, HostFd, HOST_CALL};
 use crate::paging::SHIM_PAGETABLE;
 use crate::payload::{NEXT_BRK_RWLOCK, NEXT_MMAP_RWLOCK};
+use core::convert::TryFrom;
 use core::ops::{Deref, DerefMut};
+use memory::Address;
+use sallyport::request;
 use x86_64::structures::paging::{Page, PageTableFlags, Size4KiB};
 use x86_64::{align_up, VirtAddr};
 
@@ -39,6 +43,7 @@ pub extern "C" fn syscall_rust(
     let res = match nr as i64 {
         libc::SYS_exit => h.exit(),
         libc::SYS_exit_group => h.exit_group(),
+        libc::SYS_read => h.read(),
         libc::SYS_write => h.write(),
         libc::SYS_writev => h.writev(),
         libc::SYS_mmap => h.mmap(),
@@ -83,6 +88,39 @@ impl Handler {
     pub fn exit_group(&self) -> ! {
         eprintln!("SC> exit_group({})", self.a);
         hostcall::shim_exit(self.a as _);
+    }
+
+    pub fn read(&self) -> Result<usize, libc::c_int> {
+        let fd = self.a;
+        let data = self.b as *mut u8;
+        let len = self.c;
+        let mut host_call = HOST_CALL.try_lock().ok_or(libc::EIO)?;
+
+        let trusted: &mut [u8] = unsafe { core::slice::from_raw_parts_mut(data, len) };
+
+        let block = host_call.as_mut_block();
+
+        let c = block.cursor();
+        let (_, buf) = unsafe { c.alloc::<u8>(trusted.len()).or(Err(libc::EMSGSIZE))? };
+
+        let buf_address = Address::from(buf.as_ptr());
+        let shim_virt_address = ShimVirtAddr::try_from(buf_address).map_err(|_| libc::EFAULT)?;
+        let host_virt: HostVirtAddr<_> = ShimPhysAddr::from(shim_virt_address).into();
+
+        block.msg.req = request!(libc::SYS_read => fd, host_virt, len);
+        let result = unsafe { host_call.hostcall() };
+        let result_len: usize = result.map(|r| r[0].into())?;
+
+        if trusted.len() < result_len {
+            panic!("syscall read buffer overflow");
+        }
+
+        let block = host_call.as_mut_block();
+        let c = block.cursor();
+        let (_, untrusted) = unsafe { c.alloc(result_len).or(Err(libc::EMSGSIZE))? };
+        trusted[..result_len].copy_from_slice(untrusted);
+
+        Ok(result_len)
     }
 
     pub fn write(&self) -> Result<usize, libc::c_int> {
