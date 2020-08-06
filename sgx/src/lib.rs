@@ -20,11 +20,11 @@
 #[cfg(test)]
 #[macro_use]
 macro_rules! testaso {
-    (@off $name:ty=>$field:ident) => {
-        &unsafe { &*core::ptr::null::<$name>() }.$field as *const _ as usize
+    (@off $name:path=>$field:ident) => {
+        memoffset::offset_of!($name, $field)
     };
 
-    ($(struct $name:ty: $align:expr, $size:expr => { $($field:ident: $offset:expr),* })+) => {
+    ($(struct $name:path: $align:expr, $size:expr => { $($field:ident: $offset:expr),* })+) => {
         #[cfg(test)]
         #[test]
         fn align() {
