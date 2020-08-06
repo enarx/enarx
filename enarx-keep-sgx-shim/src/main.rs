@@ -69,7 +69,6 @@ macro_rules! debugln {
     };
 }
 
-mod elf;
 #[cfg(not(test))]
 mod entry;
 mod event;

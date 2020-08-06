@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use crt0stack::{Builder, Entry, Handle, OutOfSpace};
+use goblin::elf::header::{header64::Header, ELFMAG};
 
-use crate::elf;
 use crate::Layout;
 
 extern "C" {
@@ -24,7 +24,7 @@ fn random() -> u64 {
 
 fn crt0setup<'a>(
     layout: &Layout,
-    hdr: &elf::Header,
+    hdr: &Header,
     crt0: &'a mut [u8],
 ) -> Result<Handle<'a>, OutOfSpace> {
     let rand = unsafe { core::mem::transmute([random(), random()]) };
@@ -63,8 +63,9 @@ fn crt0setup<'a>(
 #[no_mangle]
 pub extern "C" fn entry(_rdi: u64, _rsi: u64, _rdx: u64, layout: &Layout, _r8: u64, _r9: u64) -> ! {
     // Validate the ELF header.
-    let hdr = unsafe { &*(layout.code.start as *const elf::Header) };
-    if hdr.ei_magic != elf::MAGIC {
+    let hdr = unsafe { &*(layout.code.start as *const Header) };
+
+    if !hdr.e_ident[..ELFMAG.len()].eq(ELFMAG) {
         unsafe { exit(1) };
     }
 
