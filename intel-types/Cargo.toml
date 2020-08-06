@@ -11,3 +11,5 @@ edition = "2018"
 enumerate = { path = "../enumerate" }
 bitflags = "1.2.1"
 
+[dev-dependencies]
+memoffset = "0.5.5"

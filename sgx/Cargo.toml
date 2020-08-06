@@ -26,6 +26,7 @@ libc = { version = "0.2.73", optional = true }
 
 [dev-dependencies]
 rstest = "0.6"
+memoffset = "0.5.5"
 
 [build-dependencies]
 cc = "1.0"
