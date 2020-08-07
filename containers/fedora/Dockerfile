@@ -24,9 +24,15 @@ RUN dnf -y install glibc-static clang-devel llvm-devel openssl-devel
 RUN dnf -y install mscgen graphviz
 
 # Install Rust via rustup
-RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y -q --channel=nightly
-RUN rustup target add x86_64-unknown-linux-musl --toolchain=nightly
-RUN rustup component add rustfmt rls clippy rust-src
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | \
+    sh -s -- -y -q \
+        --target x86_64-unknown-linux-gnu x86_64-unknown-linux-musl \
+        --component rustfmt rls clippy rust-src
+RUN rustup toolchain install nightly \
+    --allow-downgrade \
+    --profile minimal \
+    --component rust-src \
+    --target x86_64-unknown-linux-gnu x86_64-unknown-linux-musl
 
 # Install binary crates
 RUN cargo install --force cargo-make
