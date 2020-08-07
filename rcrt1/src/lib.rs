@@ -31,6 +31,11 @@ use goblin::elf::reloc::R_X86_64_RELATIVE;
 ///     call   _dyn_reloc
 ///
 /// C version: https://git.musl-libc.org/cgit/musl/tree/ldso/dlstart.c
+///
+/// # Safety
+///
+/// This function is unsafe, because the caller has to ensure the dynamic section
+/// points to the correct memory.
 #[no_mangle]
 pub unsafe extern "C" fn _dyn_reloc(dynamic_section: *const u64, base: u64) {
     let mut dt_rel: u64 = 0;
@@ -53,7 +58,7 @@ pub unsafe extern "C" fn _dyn_reloc(dynamic_section: *const u64, base: u64) {
 
     let rels = core::slice::from_raw_parts((base + dt_rel) as *const Rel, dt_relsz);
 
-    rels.into_iter()
+    rels.iter()
         .filter(|rel| rel.r_info & R_TYPE_MASK == R_X86_64_RELATIVE as u64)
         .for_each(|rel| {
             let rel_addr = (base + rel.r_offset) as *mut u64;
@@ -63,7 +68,7 @@ pub unsafe extern "C" fn _dyn_reloc(dynamic_section: *const u64, base: u64) {
     let relas = core::slice::from_raw_parts((base + dt_rela) as *const Rela, dt_relasz);
 
     relas
-        .into_iter()
+        .iter()
         .filter(|rela| rela.r_info & R_TYPE_MASK == R_X86_64_RELATIVE as u64)
         .for_each(|rela| {
             let rel_addr_0 = (base + rela.r_offset) as *mut u64;
