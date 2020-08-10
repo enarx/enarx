@@ -31,7 +31,7 @@ RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | \
 RUN rustup toolchain install nightly \
     --allow-downgrade \
     --profile minimal \
-    --component rust-src \
+    --component rust-src clippy \
     --target x86_64-unknown-linux-gnu x86_64-unknown-linux-musl
 
 # Install binary crates
