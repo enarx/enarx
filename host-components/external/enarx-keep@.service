@@ -1,0 +1,18 @@
+[Unit]
+Description=Enarx Keep-Loader
+;Documentation=man:rsyslogd(8)
+Documentation=https://github.com/enarx/
+
+[Service]
+Type=simple
+Environment="SCRIPT_ARGS=%I"
+ExecStart=/home/mike/programming/enarx/host-components/target/debug/keep-loader $SCRIPT_ARGS
+UMask=0066
+;StandardOutput=null
+StandardOutput=file:/home/mike/keeploader.log
+StandardError=file:/home/mike/keeploader.err
+
+[Install]
+;WantedBy=multi-user.target
+
+;note - link to /etc/systemd/user/

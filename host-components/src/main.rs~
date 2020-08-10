@@ -1,0 +1,58 @@
+#[macro_use]
+extern crate serde_derive;
+
+use std::collections::HashMap;
+use warp::http::StatusCode;
+use warp::Filter;
+
+#[derive(Serialize, Deserialize)]
+struct Keep_loader {
+    kuuid: Vec<u8>,
+    contract: Keep_contract,
+}
+
+#[derive(Serialize, Deserialize)]
+struct Keep_contract {
+    contractid: Vec<u8>,
+    //we could have look-up tables instead
+    teevendor: Vec<u8>,
+    teearch: Vec<u8>,
+    teeversion: Vec<u8>,
+}
+
+pub const PROTO_VERSION: f32 = 0.1;
+pub const PROTO_NAME: String = "Enarx-Keep-Manager";
+
+#[tokio::main]
+async fn main() {
+    // Match the basic "/" request and return
+    let declare = warp::path!("").map(|| {
+        format!(
+            "Protocol_name {} Protocol_version {}",
+            PROTO_NAME, PROTO_VERSION
+        )
+    });
+    /*
+        // POST /payload
+        let workload = warp::post()
+            .and(warp::path("payload"))
+            .and(warp::body::json())
+            .and_then(payload_parse);
+    */
+
+    let routes = declare;
+    warp::serve(routes)
+        .tls()
+        .cert_path("key-material/server.crt")
+        .key_path("key-material/server.key")
+        .run(([127, 0, 0, 1], 3030))
+        .await;
+}
+
+async fn payload_parse(payload: Payload) -> Result<impl warp::Reply, warp::Rejection> {
+    println!("Payload encoding {}", &payload.encoding);
+    Ok(warp::reply::with_status(
+        "Payload accepted",
+        warp::http::StatusCode::OK,
+    ))
+}

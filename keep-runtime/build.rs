@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
-
+fn main() {}
+/*
 use std::path::Path;
 
 fn main() {
@@ -23,3 +24,4 @@ fn main() {
         }
     }
 }
+*/

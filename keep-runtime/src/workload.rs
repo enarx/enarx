@@ -28,16 +28,14 @@ pub fn run<T: AsRef<[u8]>, U: AsRef<[u8]>, V: std::borrow::Borrow<(U, U)>>(
     args: impl IntoIterator<Item = T>,
     envs: impl IntoIterator<Item = V>,
 ) -> Result<Box<[wasmtime::Val]>> {
-    let mut config = wasmtime::Config::new();
-    // Prefer dynamic memory allocation style over static memory
-    config.static_memory_maximum_size(0);
-    let engine = wasmtime::Engine::new(&config);
+    let engine = wasmtime::Engine::default();
     let store = wasmtime::Store::new(&engine);
     let mut linker = wasmtime::Linker::new(&store);
 
     // Instantiate WASI.
     let mut builder = wasi_common::WasiCtxBuilder::new();
     builder.args(args).envs(envs);
+
     let ctx = builder.build().or(Err(Error::InstantiationFailed))?;
     let wasi = wasmtime_wasi::Wasi::new(linker.store(), ctx);
     wasi.add_to_linker(&mut linker)
@@ -63,7 +61,9 @@ pub(crate) mod test {
 
     #[test]
     fn workload_run_return_1() {
-        let bytes = include_bytes!(concat!(env!("OUT_DIR"), "/fixtures/return_1.wasm")).to_vec();
+        let path = std::path::Path::new("fixtures").join("return_1.wat");
+
+        let bytes = wat::parse_file(&path).unwrap();
 
         let results: Vec<i32> = workload::run(&bytes, empty::<&str>(), empty::<(&str, &str)>())
             .unwrap()
@@ -76,7 +76,9 @@ pub(crate) mod test {
 
     #[test]
     fn workload_run_no_export() {
-        let bytes = include_bytes!(concat!(env!("OUT_DIR"), "/fixtures/no_export.wasm")).to_vec();
+        let path = std::path::Path::new("fixtures").join("no_export.wat");
+
+        let bytes = wat::parse_file(&path).unwrap();
 
         match workload::run(&bytes, empty::<&str>(), empty::<(&str, &str)>()) {
             Err(workload::Error::ExportNotFound) => {}
@@ -86,8 +88,9 @@ pub(crate) mod test {
 
     #[test]
     fn workload_run_wasi_snapshot1() {
-        let bytes =
-            include_bytes!(concat!(env!("OUT_DIR"), "/fixtures/wasi_snapshot1.wasm")).to_vec();
+        let path = std::path::Path::new("fixtures").join("wasi_snapshot1.wat");
+
+        let bytes = wat::parse_file(&path).unwrap();
 
         let results: Vec<i32> = workload::run(
             &bytes,

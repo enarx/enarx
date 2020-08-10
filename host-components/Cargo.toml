@@ -1,0 +1,45 @@
+[package]
+name = "host-components"
+version = "0.1.0"
+authors = ["MikeCamel <mike@p2ptrust.org>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+openssl = { version = "0.10", features = ["vendored"] }
+hyper = "0.13"
+reqwest = { version = "0.10.7", features = ["blocking", "json", "native-tls"] }
+rand = "0.7.3"
+
+tokio = { version = "0.2", features = ["macros"] }
+warp = { version = "0.2", features = ["tls"] }
+serde = "1.0"
+serde_json = "1.0"
+serde_derive = "1.0"
+
+glob = "0.3.0"
+
+subprocess = "0.2.4"
+fork = "0.1.17"
+
+
+[[bin]]
+name = "keep-manager"
+path = "src/main.rs"
+
+[[bin]]
+name = "keep-manager-tester"
+path = "src/keep-manager-tester.rs"
+
+[[bin]]
+name = "keep-loader"
+path = "src/keep-loader.rs"
+
+[[bin]]
+name = "keep-loader-tester"
+path = "src/keep-loader-tester.rs"
+
+[[bin]]
+name = "app-loader-tester"
+path = "src/app-loader-tester.rs"
