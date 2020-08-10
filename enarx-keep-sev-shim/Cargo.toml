@@ -13,10 +13,11 @@ memory = { path = "../memory" }
 sallyport = { path = "../sallyport" }
 crt0stack = { path = "../crt0stack" }
 libc = { version = "0.2.69", features = [] }
-x86_64 = { version = "0.11.0", default-features = false, features = ["stable"] }
+x86_64 = { version = "0.11.2", default-features = false, features = ["array-init", "inline_asm"] }
 spinning = { version = "0.0", default-features = false}
 lazy_static = { version = "1.4.0", default-features = false, features = ["spin_no_std"] }
 goblin = { version = "0.2", default-features = false, features = [ "elf64" ] }
+memoffset = { git = "https://github.com/Gilnaa/memoffset", features = ["unstable_const", "unstable_raw"] }
 
 [profile.dev.package.rcrt1]
 opt-level = 3

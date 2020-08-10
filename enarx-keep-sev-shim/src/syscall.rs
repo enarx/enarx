@@ -12,11 +12,77 @@ use core::convert::TryFrom;
 use core::ops::{Deref, DerefMut};
 use memory::Address;
 use sallyport::request;
+use x86_64::registers::wrfsbase;
 use x86_64::structures::paging::{Page, PageTableFlags, Size4KiB};
+use x86_64::structures::tss::TaskStateSegment;
 use x86_64::{align_up, VirtAddr};
 
-extern "C" {
-    pub fn _syscall_enter() -> !;
+/// syscall service routine
+///
+/// # Safety
+///
+/// This function is not be called from rust.
+#[inline(never)]
+#[naked]
+pub unsafe fn _syscall_enter() -> ! {
+    use crate::gdt::{USER_CODE_SEGMENT, USER_DATA_SEGMENT};
+    // TaskStateSegment.privilege_stack_table[0]
+    const KERNEL_RSP_OFF: usize = memoffset::offset_of!(TaskStateSegment, privilege_stack_table);
+    // TaskStateSegment.privilege_stack_table[3]
+    const USR_RSP_OFF: usize = memoffset::offset_of!(TaskStateSegment, privilege_stack_table)
+        + 3 * core::mem::size_of::<u64>();
+
+    asm!("
+    # prepare the stack for iretq and load the kernel rsp
+    swapgs                                            # set gs segment to TSS
+    mov    QWORD PTR gs:{0},        rsp               # save userspace rsp
+    mov    rsp,                     QWORD PTR gs:{1}  # load kernel rsp
+    push   {2}
+    push   QWORD PTR gs:{0}                           # push userspace rsp - stack_pointer_ring_3
+    mov    QWORD PTR gs:{0},        0x0               # clear userspace rsp in the TSS
+    push   r11                                        # push RFLAGS stored in r11
+    push   {3}
+    push   rcx                                        # push userspace return pointer
+    swapgs                                            # restore gs
+
+    # Arguments in registers:
+    # SYSV:    rdi, rsi, rdx, rcx, r8, r9
+    # SYSCALL: rdi, rsi, rdx, r10, r8, r9 and syscall number in rax
+    mov    rcx,                     r10
+
+    # save registers
+    push   rdi
+    push   rsi
+    push   rdx
+    push   r10
+    push   r8
+    push   r9
+
+    # syscall number on the stack as the seventh argument
+    push   rax
+
+    call   {4}
+
+    # skip %rax pop, as it is the return value
+    add    rsp,                     0x8
+
+    # restore registers
+    pop    r9
+    pop    r8
+    pop    r10
+    pop    rdx
+    pop    rsi
+    pop    rdi
+
+    iretq
+    ",
+    const USR_RSP_OFF,
+    const KERNEL_RSP_OFF,
+    const USER_DATA_SEGMENT,
+    const USER_CODE_SEGMENT,
+    sym syscall_rust,
+    options(noreturn)
+    );
 }
 
 #[allow(clippy::many_single_char_names)]
@@ -155,8 +221,6 @@ impl Handler {
     }
 
     pub fn arch_prctl(&self) -> Result<usize, libc::c_int> {
-        use crate::asm::_wrfsbase;
-
         const ARCH_SET_GS: usize = 0x1001;
         const ARCH_SET_FS: usize = 0x1002;
         const ARCH_GET_FS: usize = 0x1003;
@@ -166,7 +230,7 @@ impl Handler {
             ARCH_SET_FS => {
                 let value: u64 = self.b as _;
                 unsafe {
-                    _wrfsbase(value);
+                    wrfsbase(value);
                 }
                 eprintln!("SC> arch_prctl(ARCH_SET_FS, {:#X}) = 0", value);
                 Ok(0)

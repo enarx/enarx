@@ -102,14 +102,16 @@ lazy_static! {
 /// For performance and simplicity reasons, this is a constant
 /// in the assembler code and here for debug_assert!()
 const USER_DATA_SEGMENT_INDEX: u64 = 3;
-const USER_DATA_SEGMENT: u64 = (USER_DATA_SEGMENT_INDEX << 3) | (PrivilegeLevel::Ring3 as u64);
+/// The User Data Segment as a constant to be used in asm!() blocks
+pub const USER_DATA_SEGMENT: u64 = (USER_DATA_SEGMENT_INDEX << 3) | (PrivilegeLevel::Ring3 as u64);
 
 /// The user code segment
 ///
 /// For performance and simplicity reasons, this is a constant
 /// in the assembler code and here for debug_assert!()
 const USER_CODE_SEGMENT_INDEX: u64 = 4;
-const USER_CODE_SEGMENT: u64 = (USER_CODE_SEGMENT_INDEX << 3) | (PrivilegeLevel::Ring3 as u64);
+/// The User Code Segment as a constant to be used in asm!() blocks
+pub const USER_CODE_SEGMENT: u64 = (USER_CODE_SEGMENT_INDEX << 3) | (PrivilegeLevel::Ring3 as u64);
 
 /// Initialize the GDT
 ///
