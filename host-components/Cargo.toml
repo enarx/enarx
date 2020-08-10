@@ -23,6 +23,9 @@ glob = "0.3.0"
 subprocess = "0.2.4"
 fork = "0.1.17"
 
+[lib]
+name = "host_components"
+path = "src/lib.rs"
 
 [[bin]]
 name = "keep-manager"

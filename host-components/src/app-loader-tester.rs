@@ -1,9 +1,7 @@
 extern crate reqwest;
-//extern crate rocket_contrib;
 #[macro_use]
 extern crate serde_derive;
 
-//use rocket_contrib::json::{Json, JsonValue};
 use reqwest::Identity;
 use std::collections::HashMap;
 use std::fs::File;
@@ -61,18 +59,4 @@ fn main() {
         .json(&payload)
         .send();
     println!("{:#?}", res);
-
-    /*
-    match TcpStream::connect("localhost:3333") {
-            Ok(mut stream) => {
-                println!("Successfully connected to server in port 3333");
-                println!("Sending our data");
-                stream.write_all(&in_contents).unwrap();
-            }
-            Err(e) => {
-                println!("Failed to connect: {}", e);
-            }
-        }
-        println!("Terminated.");
-    */
 }

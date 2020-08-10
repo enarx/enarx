@@ -1,6 +1,7 @@
 #[macro_use]
 extern crate serde_derive;
 
+use ::host_components::*;
 use serde_json::{Deserializer, Value};
 use std::collections::HashMap;
 use std::error::Error;
@@ -22,19 +23,6 @@ pub const KEEP_LOADER_STATE_LISTENING: u8 = 1;
 pub const KEEP_LOADER_STATE_STARTED: u8 = 2;
 pub const KEEP_LOADER_STATE_COMPLETE: u8 = 3;
 pub const KEEP_LOADER_STATE_ERROR: u8 = 15;
-
-//TODO - put in a shared space
-#[derive(Serialize, Deserialize, Clone)]
-struct KeepAppLoader {
-    state: u8,
-    kuuid: usize,
-    app_loader_bind_port: u16,
-    bindaddress: String,
-    //we may wish to add information here about whether we're happy to share
-    // all of this information with external parties, but since the keeploader
-    // is operating outside the TEE boundary, there's only so much we can do
-    // to keep this information confidential
-}
 
 //TODO - put in a shared space
 #[derive(Serialize, Deserialize)]
@@ -100,8 +88,8 @@ fn build_keepapploader(
     kuuid: usize,
     app_loader_bind_port: u16,
     bindaddress: String,
-) -> KeepAppLoader {
-    KeepAppLoader {
+) -> KeepLoader {
+    KeepLoader {
         state: state,
         kuuid: kuuid,
         app_loader_bind_port: app_loader_bind_port,
@@ -109,7 +97,7 @@ fn build_keepapploader(
     }
 }
 
-fn keep_loader_connection(mut stream: UnixStream, keepapploader: Arc<Mutex<KeepAppLoader>>) {
+fn keep_loader_connection(mut stream: UnixStream, keepapploader: Arc<Mutex<KeepLoader>>) {
     let mut app_port: u16 = 0;
     let mut json_pair: serde_json::value::Value;
     let mut stream = &stream;
@@ -129,9 +117,7 @@ fn keep_loader_connection(mut stream: UnixStream, keepapploader: Arc<Mutex<KeepA
                         // to provision information before starting.
                         app_port = json_command.commandcontents.parse().unwrap();
                         println!("About to spawn, listening on port {}", app_port.to_string());
-                        let child_spawn_result = Command::new(
-                            "/home/mike/programming/enarx/keep-runtime/target/x86_64-unknown-linux-musl/debug/keep-runtime",
-                        )
+                        let child_spawn_result = Command::new(WASM_RUNTIME_BINARY_PATH)
                             .arg(app_port.to_string())
                             .spawn();
                         match &child_spawn_result {
@@ -152,9 +138,9 @@ fn keep_loader_connection(mut stream: UnixStream, keepapploader: Arc<Mutex<KeepA
                     }
                     KEEP_INFO_COMMAND => {
                         //provide information back
-                        let keepresponse: KeepAppLoader = kal.lock().unwrap().clone();
+                        let keepresponse: KeepLoader = kal.lock().unwrap().clone();
                         println!(
-                            "Sending data about KeepAppLoader, status {}",
+                            "Sending data about KeepLoader, status {}",
                             &keepresponse.state
                         );
                         let serializedjson =
@@ -172,10 +158,7 @@ fn keep_loader_connection(mut stream: UnixStream, keepapploader: Arc<Mutex<KeepA
     }
 }
 
-fn set_state(
-    desired_state: u8,
-    keeploaderapp: Arc<Mutex<KeepAppLoader>>,
-) -> Result<String, String> {
+fn set_state(desired_state: u8, keeploaderapp: Arc<Mutex<KeepLoader>>) -> Result<String, String> {
     let mut keep_app = keeploaderapp.lock().unwrap();
     let mut transition_ok = false;
     println!(

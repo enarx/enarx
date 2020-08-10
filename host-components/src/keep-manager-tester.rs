@@ -2,23 +2,13 @@ extern crate reqwest;
 #[macro_use]
 extern crate serde_derive;
 
+use ::host_components::*;
 use reqwest::blocking::Response;
 use std::collections::HashMap;
 //TODO - better user input
 use std::io;
 
 fn main() {
-    //TODO - share this via lib.rs or similar
-    #[derive(Serialize, Deserialize, Clone)]
-    pub struct KeepLoader {
-        pub kuuid: usize,
-        pub app_loader_bind_port: u16,
-        //TODO - extend this
-    }
-    #[derive(Serialize, Deserialize, Clone)]
-    pub struct KeepLoaderVec {
-        pub klvec: Vec<KeepLoader>,
-    }
     let mut user_input = String::new();
 
     let mut command1: HashMap<String, String> = HashMap::new();
