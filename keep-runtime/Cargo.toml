@@ -8,9 +8,9 @@ license = "Apache-2.0"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-wasmtime = "0.18.0"
-wasmtime-wasi = "0.18.0"
-wasi-common = "0.18.0"
+wasmtime = { version = "0.19.0", default-features = false }
+wasmtime-wasi = { version = "0.19.1", default-features = false }
+wasi-common = { version = "0.19.1", default-features = false }
 
 env_logger = "0.7"
 log = "0.4"
