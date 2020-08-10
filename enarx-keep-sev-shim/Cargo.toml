@@ -12,12 +12,12 @@ units = { path = "../units" }
 memory = { path = "../memory" }
 sallyport = { path = "../sallyport" }
 crt0stack = { path = "../crt0stack" }
+enarx-keep-sev-lib = { path = "../enarx-keep-sev-lib" }
 libc = { version = "0.2.69", features = [] }
 x86_64 = { version = "0.11.0", default-features = false, features = ["stable"] }
 spinning = { version = "0.0", default-features = false}
 lazy_static = { version = "1.4.0", default-features = false, features = ["spin_no_std"] }
 goblin = { version = "0.2", default-features = false, features = [ "elf64" ] }
-
 [profile.dev.package.rcrt1]
 opt-level = 3
 

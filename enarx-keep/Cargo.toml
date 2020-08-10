@@ -8,7 +8,7 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-enarx-keep-sev-shim = { path = "../enarx-keep-sev-shim" }
+enarx-keep-sev-lib = { path = "../enarx-keep-sev-lib" }
 sallyport = { path = "../sallyport" }
 sgx = { path = "../sgx", default-features = false }
 bounds = { path = "../bounds" }

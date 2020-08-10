@@ -5,6 +5,7 @@ CARGO_MAKE_CRATE_WORKSPACE_MEMBERS = [
 	"bounds",
 	"crt0stack",
 	"enarx-keep",
+	"enarx-keep-sev-lib",
 	"enarx-keep-sev-shim",
 	"enarx-keep-sgx",
 	"enarx-keep-sgx-shim",

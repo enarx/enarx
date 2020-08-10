@@ -5,7 +5,7 @@ use super::VirtualMachine;
 
 use crate::backend::{Command, Thread};
 
-use enarx_keep_sev_shim::SYSCALL_TRIGGER_PORT;
+use enarx_keep_sev_lib::SYSCALL_TRIGGER_PORT;
 use kvm_ioctls::{VcpuExit, VcpuFd};
 use x86_64::registers::control::{Cr0Flags, Cr4Flags};
 use x86_64::registers::model_specific::EferFlags;

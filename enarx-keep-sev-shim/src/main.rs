@@ -35,7 +35,7 @@ pub mod syscall;
 pub mod usermode;
 
 use core::ops::Deref;
-use enarx_keep_sev_shim::BootInfo;
+use enarx_keep_sev_lib::BootInfo;
 use spinning::RwLock;
 use x86_64::VirtAddr;
 
