@@ -10,6 +10,15 @@
 #![deny(clippy::integer_arithmetic)]
 #![deny(missing_docs)]
 #![cfg_attr(not(test), no_main)]
+#![feature(asm, naked_functions)]
+// FIXME: needed for memoffset
+#![feature(
+    raw_ref_macros,
+    ptr_offset_from,
+    const_raw_ptr_deref,
+    const_ptr_offset_from,
+    const_maybe_uninit_as_ptr
+)]
 
 #[cfg(test)]
 fn main() {}
