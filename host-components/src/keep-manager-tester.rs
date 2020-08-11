@@ -11,22 +11,15 @@ use std::io;
 fn main() {
     let mut user_input = String::new();
 
-    let mut command1: HashMap<String, String> = HashMap::new();
-    command1.insert("command".to_string(), "list-all".to_string());
-    let mut command2: HashMap<String, String> = HashMap::new();
-    command2.insert("command".to_string(), "new-keep".to_string());
-    command2.insert("keep-arch".to_string(), "wasi".to_string());
-    command2.insert("auth-token".to_string(), "a3f9cb07".to_string());
-    let mut command3: HashMap<String, String> = HashMap::new();
-    command3.insert("command".to_string(), "list-keeps".to_string());
+    let mut command_list_all: HashMap<String, String> = HashMap::new();
+    command_list_all.insert("command".to_string(), "list-all".to_string());
+    let mut command_new_keep: HashMap<String, String> = HashMap::new();
+    command_new_keep.insert("command".to_string(), "new-keep".to_string());
+    command_new_keep.insert("keep-arch".to_string(), "wasi".to_string());
+    command_new_keep.insert("auth-token".to_string(), "a3f9cb07".to_string());
+    let mut command_list_keeps: HashMap<String, String> = HashMap::new();
+    command_list_keeps.insert("command".to_string(), "list-keeps".to_string());
 
-    /*
-       //    let args: Vec<String> = std::env::args().collect();
-       //    let kuuid = args[1].clone();
-       let mut command4: HashMap<String, String> = HashMap::new();
-       command4.insert("command".to_string(), "start-keep".to_string());
-       command4.insert("kuuid".to_string(), kuuid);
-    */
     println!("Welcome to the Enarx keep-manager tester.");
     println!("We will step through a number of tests.  First ensure that you are running a");
     println!("keep-manager on localhost port 3030 (the default).");
@@ -43,7 +36,7 @@ fn main() {
         .build()
         .unwrap()
         .post("https://localhost:3032/contracts_post/")
-        .json(&command1);
+        .json(&command_list_all);
     let res = builder.send();
     println!("{:#?}", res);
 
@@ -60,7 +53,7 @@ fn main() {
         .build()
         .unwrap()
         .post("https://localhost:3030/keeps_post/")
-        .json(&command2)
+        .json(&command_new_keep)
         .send()
         .expect("Possible issues");
 
@@ -79,7 +72,7 @@ fn main() {
         .build()
         .unwrap()
         .post("https://localhost:3030/keeps_post/")
-        .json(&command2)
+        .json(&command_new_keep)
         .send()
         .expect("Possible issues");
     //let content2 = res2.text();
@@ -101,7 +94,7 @@ fn main() {
         .build()
         .unwrap()
         .post("https://localhost:3030/keeps_post/")
-        .json(&command3)
+        .json(&command_list_keeps)
         .send()
         .expect("Possible issues");
     let keeploadervec: KeepLoaderVec = res3.json().expect("Possible issues");
@@ -113,7 +106,9 @@ fn main() {
     let number_of_kls = &keeploadervec.klvec.len();
     println!("We have {} Keep-loaders", number_of_kls);
     println!("");
-
+    if *number_of_kls < 1 {
+        panic!("We don't have any keep-loaders to start, sorry!  This is an error.");
+    }
     println!("Press <Enter> to start the most recently created Keep");
 
     io::stdin()
@@ -122,18 +117,18 @@ fn main() {
 
     println!(
         "About to send start-keep command for kuuid {}, to listen on port {}",
-        &keeploadervec.klvec[number_of_kls - 1].kuuid.to_string(),
+        &keeploadervec.klvec.last().unwrap().kuuid.to_string(),
         &keeploadervec.klvec[number_of_kls - 1]
             .app_loader_bind_port
             .to_string()
     );
-    let mut command4: HashMap<String, String> = HashMap::new();
-    command4.insert("command".to_string(), "start-keep".to_string());
-    command4.insert(
+    let mut command_start_keep: HashMap<String, String> = HashMap::new();
+    command_start_keep.insert("command".to_string(), "start-keep".to_string());
+    command_start_keep.insert(
         "kuuid".to_string(),
-        keeploadervec.klvec[number_of_kls - 1].kuuid.to_string(),
+        keeploadervec.klvec.last().unwrap().kuuid.to_string(),
     );
-    command4.insert(
+    command_start_keep.insert(
         "app-loader-bind-port".to_string(),
         keeploadervec.klvec[number_of_kls - 1]
             .app_loader_bind_port
@@ -146,7 +141,7 @@ fn main() {
         .build()
         .unwrap()
         .post("https://localhost:3030/keeps_post/")
-        .json(&command4)
+        .json(&command_start_keep)
         .send()
         .expect("Possible issues");
 

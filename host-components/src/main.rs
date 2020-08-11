@@ -68,6 +68,7 @@ mod models {
         let mut kllvec = new_empty_KeepLoaderList();
         for existing_keeps in glob("/tmp/enarx-keep-*.sock").expect("Failed to read glob pattern") {
             //println!("keep-loader = {:?}", &existing_keeps);
+            //TODO - rework this code - it's fairly brittle.  As an iterator.next(), maybe?
             match existing_keeps {
                 Ok(path) => {
                     let stream_result = UnixStream::connect(path.clone());

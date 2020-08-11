@@ -18,7 +18,9 @@ fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let connect_port: u16 = args[0].parse().unwrap();
 
+    //TODO - add loading of files from command-line
     let in_path = Path::new("external/return_1.wasm");
+
     let in_contents = match std::fs::read(in_path) {
         Ok(in_contents) => {
             println!("Contents = of {} bytes", &in_contents.len());
@@ -50,6 +52,10 @@ fn main() {
         .expect("certificate reading problems");
 
     let connect_uri = format!("https://localhost:{}/payload", connect_port);
+    //we accept invalid certs here because in the longer term, we will have mechanism
+    // for finding out what the cert should be dynamically, and adding it, but currently,
+    // we don't know what to expect as cert is dynamically generated and self-signed
+    //TODO: add certs dynamically as part of protocol
     let res = reqwest::blocking::Client::builder()
         .danger_accept_invalid_certs(true)
         .identity(pkcs12_client_id)

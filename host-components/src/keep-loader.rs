@@ -15,7 +15,7 @@ use std::thread;
 // remove link file in /etc/systemd/user/
 // recreate link file in /etc/systemd/user/
 // `systemctl --user daemon-reload`
-
+/*
 pub const KEEP_INFO_COMMAND: &str = "keep-info";
 pub const KEEP_APP_LOADER_START_COMMAND: &str = "apploader-start"; // requires app_loader_bind_port to be provided
 pub const KEEP_LOADER_STATE_UNDEF: u8 = 0;
@@ -23,7 +23,7 @@ pub const KEEP_LOADER_STATE_LISTENING: u8 = 1;
 pub const KEEP_LOADER_STATE_STARTED: u8 = 2;
 pub const KEEP_LOADER_STATE_COMPLETE: u8 = 3;
 pub const KEEP_LOADER_STATE_ERROR: u8 = 15;
-
+*/
 //TODO - put in a shared space
 #[derive(Serialize, Deserialize)]
 struct JsonCommand {
@@ -165,6 +165,7 @@ fn set_state(desired_state: u8, keeploaderapp: Arc<Mutex<KeepLoader>>) -> Result
         "Attempting to move from state {} to state {}",
         &keep_app.state, &desired_state
     );
+    //DEBT: this code works, but is ugly.  Re-write needed.
     //logic for state machine here - there are lots of ways to do this, and this version
     // can probably be optimised
     // options:
@@ -212,15 +213,12 @@ fn set_state(desired_state: u8, keeploaderapp: Arc<Mutex<KeepLoader>>) -> Result
         println!("State not recognised");
     }
 
-    match transition_ok {
-        true => {
-            keep_app.state = desired_state;
-            println!("Transitioning to {} state", &keep_app.state);
-            Ok(format!("State transitioned to {}", &keep_app.state))
-        }
-        false => {
-            println!("Staying in {} state", &keep_app.state);
-            Err(format!("No state transition, still in {}", &keep_app.state))
-        }
+    if transition_ok {
+        keep_app.state = desired_state;
+        println!("Transitioning to {} state", &keep_app.state);
+        Ok(format!("State transitioned to {}", &keep_app.state))
+    } else {
+        println!("Staying in {} state", &keep_app.state);
+        Err(format!("No state transition, still in {}", &keep_app.state))
     }
 }

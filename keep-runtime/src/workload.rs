@@ -28,7 +28,11 @@ pub fn run<T: AsRef<[u8]>, U: AsRef<[u8]>, V: std::borrow::Borrow<(U, U)>>(
     args: impl IntoIterator<Item = T>,
     envs: impl IntoIterator<Item = V>,
 ) -> Result<Box<[wasmtime::Val]>> {
-    let engine = wasmtime::Engine::default();
+    let mut config = wasmtime::Config::new();
+    // Prefer dynamic memory allocation style over static memory
+    config.static_memory_maximum_size(0);
+    let engine = wasmtime::Engine::new(&config);
+
     let store = wasmtime::Store::new(&engine);
     let mut linker = wasmtime::Linker::new(&store);
 
