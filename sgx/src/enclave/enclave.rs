@@ -1,10 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use enumerate::enumerate;
-use intel_types::Exception;
+use std::sync::{Arc, RwLock};
 use std::{fmt, mem::MaybeUninit};
 
+use bounds::Span;
+use enumerate::enumerate;
+use intel_types::Exception;
 use mmap::Unmap;
+
+use crate::types::tcs::Tcs;
 
 extern "C" {
     fn eenter(
@@ -14,7 +18,7 @@ extern "C" {
         leaf: Leaf,
         r8: usize,
         r9: usize,
-        tcs: usize,
+        tcs: *mut Tcs,
         exc: &mut ExceptionInfo,
         handler: Option<
             unsafe extern "C" fn(
@@ -29,7 +33,7 @@ extern "C" {
                 exc: &ExceptionInfo,
             ) -> i32,
         >,
-        vdso: usize,
+        vdso: &'static vdso::Symbol,
     ) -> i32;
 }
 
@@ -95,22 +99,51 @@ impl fmt::Debug for ExceptionInfo {
 ///
 /// TODO add more comprehensive docs
 pub struct Enclave {
-    #[allow(dead_code)]
     mem: Unmap,
-    tcs: usize,
-    fnc: usize,
+    tcs: Vec<*mut Tcs>,
 }
 
 impl Enclave {
     // Use `sgx::enclave::Builder::build` to create a new SGX `Enclave`
     // instance.
-    pub(super) fn new(mem: Unmap, tcs: usize) -> Self {
+    pub(super) fn new(mem: Unmap, tcs: Vec<*mut Tcs>) -> Self {
+        Self { mem, tcs }
+    }
+
+    /// Get the memory region of the enclave
+    pub fn span(&self) -> Span<usize> {
+        self.mem.span()
+    }
+}
+
+/// A single thread of execution inside an enclave.
+pub struct Thread {
+    enc: Arc<RwLock<Enclave>>,
+    tcs: *mut Tcs,
+    fnc: &'static vdso::Symbol,
+}
+
+impl Drop for Thread {
+    fn drop(&mut self) {
+        self.enc.write().unwrap().tcs.push(self.tcs)
+    }
+}
+
+impl Thread {
+    /// Create a new thread of execuation for an enclave.
+    pub fn new(enc: Arc<RwLock<Enclave>>) -> Option<Self> {
+        let tcs = enc.write().unwrap().tcs.pop()?;
+
         let fnc = vdso::Vdso::locate()
             .expect("vDSO not found")
             .lookup("__vdso_sgx_enter_enclave")
-            .expect("__vdso_sgx_enter_enclave not found") as *const _ as _;
+            .expect("__vdso_sgx_enter_enclave not found");
 
-        Self { mem, tcs, fnc }
+        Some(Self {
+            enc: enc.clone(),
+            tcs,
+            fnc,
+        })
     }
 
     /// Issues `EENTER` instruction to the enclave.
