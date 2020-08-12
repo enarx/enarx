@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 extern crate reqwest;
 #[macro_use]
 extern crate serde_derive;

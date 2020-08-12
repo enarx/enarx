@@ -1,7 +1,7 @@
 [package]
 name = "keep-runtime"
 version = "0.1.0"
-authors = ["Stefan Junker <mail@stefanjunker.de>", "Daiki Ueno <dueno@redhat.com>"]
+authors = ["Stefan Junker <mail@stefanjunker.de>", "Daiki Ueno <dueno@redhat.com>", "MikeCamel <mike@p2ptrust.org>"]
 edition = "2018"
 license = "Apache-2.0"
 
