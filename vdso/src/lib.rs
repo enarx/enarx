@@ -78,7 +78,7 @@ impl Header {
         None
     }
 
-    unsafe fn symbol(&self, name: &str) -> Option<&()> {
+    unsafe fn symbol(&self, name: &str) -> Option<&Symbol> {
         let symstrtab: &[c_char] = self.section(elf::SHT_STRTAB)?;
         let symtab: &[elf::Sym] = self.section(elf::SHT_DYNSYM)?;
 
@@ -90,7 +90,7 @@ impl Header {
             let cstr = CStr::from_ptr(&symstrtab[sym.st_name as usize]);
             if let Ok(s) = cstr.to_str() {
                 if s == name {
-                    let addr = self.ptr(sym.st_value) as *const ();
+                    let addr = self.ptr(sym.st_value) as *const Symbol;
                     return Some(&*addr);
                 }
             }
@@ -99,6 +99,12 @@ impl Header {
         None
     }
 }
+
+/// A resolved symbol
+///
+/// Since vDSO symbols have no type information, this type is opaque.
+/// Generally, you will cast a `&Symbol` to the appropriate reference type.
+pub enum Symbol {}
 
 /// This structure represents the Linux vDSO
 pub struct Vdso<'a>(&'a Header);
@@ -122,7 +128,7 @@ impl<'a> Vdso<'a> {
     ///
     /// The return type is essentially a void pointer. You will need to cast
     /// it for the type of the symbol you are looking up.
-    pub fn lookup(&'a self, name: &str) -> Option<&'a ()> {
+    pub fn lookup(&'a self, name: &str) -> Option<&'a Symbol> {
         unsafe { self.0.symbol(name) }
     }
 }
