@@ -12,7 +12,7 @@ use intel_types::Exception;
 use memory::Page;
 use sallyport::Block;
 use sgx::{
-    enclave::{Builder, Enclave, Leaf, Segment},
+    enclave::{Builder, Enclave, Leaf, Segment, Thread},
     types::{
         page::{Flags, SecInfo},
         tcs::Tcs,
@@ -21,6 +21,7 @@ use sgx::{
 use structopt::StructOpt;
 
 use std::path::PathBuf;
+use std::sync::{Arc, RwLock};
 
 #[derive(Debug, StructOpt)]
 #[structopt(name = "enarx-keep-sgx", about = "Launches an Enarx Keep on SGX.")]
@@ -34,7 +35,8 @@ struct Opt {
     code: PathBuf,
 }
 
-fn load() -> Enclave {
+#[inline(never)]
+fn load() -> Arc<RwLock<Enclave>> {
     let opt = Opt::from_args();
 
     // Parse the shim and code and validate assumptions.
@@ -127,11 +129,12 @@ fn load() -> Enclave {
     builder.load(&internal).unwrap();
     builder.load(&shim_segs).unwrap();
     builder.load(&code_segs).unwrap();
-    builder.build(layout.prefix.start).unwrap()
+    builder.build().unwrap()
 }
 
 fn main() {
     let enclave = load();
+    let thread = Thread::new(enclave).unwrap();
 
     let mut block = Block::default();
     let mut leaf = Leaf::Enter;
@@ -156,7 +159,7 @@ fn main() {
     //
     //   4. Asynchronous exits other than invalid opcode will panic.
     loop {
-        leaf = match enclave.enter(&mut block as *const _ as _, 0, 0, leaf, 0, 0) {
+        leaf = match thread.enter(&mut block as *const _ as _, 0, 0, leaf, 0, 0) {
             Err(Some(ei)) if ei.trap == Exception::InvalidOpcode => Leaf::Enter,
 
             Ok(_) if SYS_ERESUME == unsafe { block.msg.req.num }.into() => Leaf::Resume,

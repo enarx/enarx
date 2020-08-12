@@ -5,6 +5,7 @@ use crate::{
     crypto::{Hasher, Signer},
     types::{
         page::{Class, Flags, SecInfo},
+        tcs::Tcs,
         {secs::*, sig::*, ssa::StateSaveArea},
     },
 };
@@ -16,6 +17,7 @@ use openssl::{bn, rsa};
 use std::convert::TryFrom;
 use std::fs::{File, OpenOptions};
 use std::io::Result;
+use std::sync::{Arc, RwLock};
 
 /// A loadable segment of code
 pub struct Segment {
@@ -53,6 +55,7 @@ pub struct Builder {
     mmap: mmap::Unmap,
     hash: Hasher,
     perm: Vec<(Span<usize>, SecInfo)>,
+    tcsp: Vec<*mut Tcs>,
 }
 
 impl Builder {
@@ -91,6 +94,7 @@ impl Builder {
             mmap,
             hash,
             perm: Vec::new(),
+            tcsp: Vec::new(),
         })
     }
 
@@ -124,6 +128,13 @@ impl Builder {
                 },
                 seg.si,
             ));
+
+            if seg.si.class == Class::Tcs {
+                for i in 0..seg.src.len() {
+                    let addr = seg.dst + i * Page::size();
+                    self.tcsp.push(addr as _);
+                }
+            }
         }
 
         Ok(())
@@ -134,7 +145,7 @@ impl Builder {
     /// `EINIT` instruction.
     ///
     /// TODO add more comprehensive docs.
-    pub fn build(mut self, tcs: usize) -> Result<Enclave> {
+    pub fn build(mut self) -> Result<Arc<RwLock<Enclave>>> {
         // Generate a signing key.
         let exp = bn::BigNum::try_from(3u32)?;
         let key = rsa::Rsa::generate_with_e(3072, &exp)?;
@@ -172,6 +183,6 @@ impl Builder {
             //eprintln!("{:016x}-{:016x} {:?}", line.start, line.end, si);
         }
 
-        Ok(Enclave::new(self.mmap, tcs))
+        Ok(Arc::new(RwLock::new(Enclave::new(self.mmap, self.tcsp))))
     }
 }
