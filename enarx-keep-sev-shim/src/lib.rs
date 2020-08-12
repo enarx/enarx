@@ -87,8 +87,11 @@ pub struct BootInfo {
     pub shim: Line<usize>,
     /// Memory size
     pub mem_size: usize,
+    /// FIXME: remove volatile `virt_offset`
     /// Loader virtual memory offset to shim physical memory
     pub virt_offset: usize,
+    /// Log level
+    pub shim_log_level: u8,
 }
 
 /// Error returned, if the virtual machine memory is to small for the shim to operate.
@@ -129,6 +132,7 @@ impl BootInfo {
             shim,
             mem_size,
             virt_offset,
+            shim_log_level: 0,
         })
     }
 }

@@ -27,7 +27,7 @@ pub trait Backend {
     fn shim(&self) -> Result<PathBuf>;
 
     /// Create a keep instance on this backend
-    fn build(&self, shim: Component, code: Component) -> Result<Arc<dyn Keep>>;
+    fn build(&self, shim: Component, code: Component, shim_log_level: u8) -> Result<Arc<dyn Keep>>;
 }
 
 pub struct Datum {

@@ -6,6 +6,7 @@ use crate::hostcall::{self, HostFd};
 
 struct HostWrite(HostFd);
 
+use crate::BOOT_INFO;
 use core::fmt;
 
 impl fmt::Write for HostWrite {
@@ -21,6 +22,10 @@ impl fmt::Write for HostWrite {
 pub fn _print(args: fmt::Arguments) {
     use fmt::Write;
 
+    if BOOT_INFO.read().unwrap().shim_log_level < 2 {
+        return;
+    }
+
     HostWrite(unsafe { HostFd::from_raw_fd(libc::STDOUT_FILENO) })
         .write_fmt(args)
         .expect("Printing via Host fd 1 failed");
@@ -30,6 +35,10 @@ pub fn _print(args: fmt::Arguments) {
 #[inline(always)]
 pub fn _eprint(args: fmt::Arguments) {
     use fmt::Write;
+
+    if BOOT_INFO.read().unwrap().shim_log_level < 1 {
+        return;
+    }
 
     HostWrite(unsafe { HostFd::from_raw_fd(libc::STDERR_FILENO) })
         .write_fmt(args)

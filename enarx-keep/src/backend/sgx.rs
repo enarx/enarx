@@ -202,7 +202,12 @@ impl backend::Backend for Backend {
     }
 
     /// Create a keep instance on this backend
-    fn build(&self, shim: Component, code: Component) -> Result<Arc<dyn backend::Keep>> {
+    fn build(
+        &self,
+        shim: Component,
+        code: Component,
+        shim_log_level: u8,
+    ) -> Result<Arc<dyn backend::Keep>> {
         unimplemented!()
     }
 }

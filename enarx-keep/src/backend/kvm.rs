@@ -65,12 +65,12 @@ impl backend::Backend for Backend {
         Ok(path)
     }
 
-    fn build(&self, shim: Component, code: Component) -> Result<Arc<dyn Keep>> {
+    fn build(&self, shim: Component, code: Component, shim_log_level: u8) -> Result<Arc<dyn Keep>> {
         let vm = vm::Builder::<New>::new()?
             .with_max_cpus(NonZeroUsize::new(256).unwrap())?
             .with_mem_size(units::bytes![1; GiB])?
             .calculate_layout(shim.region(), code.region())?
-            .load_shim(shim)?
+            .load_shim(shim, shim_log_level)?
             .load_code(code)?
             .build()?;
 

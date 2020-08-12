@@ -187,7 +187,7 @@ impl backend::Backend for Backend {
         unimplemented!()
     }
 
-    fn build(&self, shim: Component, code: Component) -> Result<Arc<dyn Keep>> {
+    fn build(&self, shim: Component, code: Component, shim_log_level: u8) -> Result<Arc<dyn Keep>> {
         unimplemented!()
     }
 }

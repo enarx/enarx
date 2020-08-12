@@ -194,11 +194,15 @@ impl Builder<AddressSpace> {
 /// Once component relocations have been calculated, we can load
 /// the shim.
 impl Builder<BootBlock> {
-    pub fn load_shim(mut self, mut shim: Component) -> Result<Builder<Shim>, io::Error> {
+    pub fn load_shim(
+        mut self,
+        mut shim: Component,
+        shim_log_level: u8,
+    ) -> Result<Builder<Shim>, io::Error> {
         let offset = self.data.boot_info.as_ref().unwrap().shim.start;
         self.load_component(&mut shim, offset)?;
         self.data.shim_entry = Some(PhysAddr::new(shim.entry as _));
-
+        self.data.boot_info.unwrap().shim_log_level = shim_log_level;
         Ok(Builder {
             data: self.data,
             _phantom: PhantomData,

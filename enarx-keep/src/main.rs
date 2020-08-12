@@ -33,6 +33,10 @@ struct Exec {
     #[structopt(short, long, parse(from_os_str))]
     shim: Option<PathBuf>,
 
+    // FIXME: https://github.com/enarx/enarx/issues/831
+    #[structopt(short = "l", long = "shim-log-level", default_value = "0")]
+    shim_log_level: u8,
+
     /// The payload to run inside the keep
     code: String,
 }
@@ -102,7 +106,7 @@ fn exec(backends: HashMap<String, Box<dyn Backend>>, opts: Exec) -> Result<()> {
 
     let shim = Component::from_path(opts.shim.unwrap_or(backend.shim()?))?;
 
-    let keep = backend.build(shim, code)?;
+    let keep = backend.build(shim, code, opts.shim_log_level)?;
 
     let mut thread = keep.clone().add_thread()?;
     loop {
