@@ -10,10 +10,6 @@ use std::ffi::CStr;
 use std::os::raw::c_char;
 use std::slice::from_raw_parts;
 
-extern "C" {
-    static environ: *const *const c_char;
-}
-
 #[cfg(target_pointer_width = "64")]
 mod elf {
     pub use goblin::elf64::dynamic::*;
@@ -110,7 +106,7 @@ pub struct Vdso<'a>(&'a Header);
 impl Vdso<'static> {
     /// Locates the vDSO by parsing the auxiliary vectors
     pub fn locate() -> Option<Self> {
-        for aux in unsafe { Reader::from_environ(&*environ) }.done() {
+        for aux in Reader::from_environ().done() {
             if let Entry::SysInfoEHdr(addr) = aux {
                 let hdr = unsafe { Header::from_ptr(&*(addr as *const _))? };
                 return Some(Self(hdr));
