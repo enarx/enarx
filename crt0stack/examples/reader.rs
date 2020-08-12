@@ -3,11 +3,7 @@
 use crt0stack::Reader;
 
 fn main() {
-    extern "C" {
-        static environ: *const *const std::os::raw::c_char;
-    }
-
-    let reader = unsafe { Reader::from_environ(&*environ) }.prev().prev();
+    let reader = Reader::from_environ().prev().prev();
     assert_eq!(reader.count(), std::env::args().count());
 
     let mut reader = reader.done();

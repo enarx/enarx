@@ -29,7 +29,7 @@
 //! let handle = builder.done().unwrap();
 //! ```
 
-#![cfg_attr(not(test), no_std)]
+#![cfg_attr(not(any(test, feature = "std")), no_std)]
 #![deny(missing_docs)]
 #![deny(clippy::all)]
 #![deny(clippy::integer_arithmetic)]
@@ -487,18 +487,15 @@ impl<'a> Iterator for Reader<'a, Env> {
 
 impl<'a> Reader<'a, Env> {
     /// Create a new Reader from the POSIX `environ` pointer
-    ///
-    /// # Safety
-    ///
-    /// This function creates a reader by taking a pointer to the environment
-    /// section of a hopefully well-crafted crt0 stack. We have no way to
-    /// validate that this is the case. If the pointer points to some other
-    /// kind of data, there will likely be crashes. So be sure you get this
-    /// right.
     #[inline]
-    pub unsafe fn from_environ<T>(environ: &'a *const T) -> Self {
+    #[cfg(any(test, feature = "std"))]
+    pub fn from_environ() -> Self {
+        extern "C" {
+            static environ: *const usize;
+        }
+
         Reader {
-            stack: environ as *const _ as *const usize,
+            stack: unsafe { environ },
             state: PhantomData,
         }
     }
@@ -903,11 +900,7 @@ mod tests {
 
     #[test]
     fn reader_real() {
-        extern "C" {
-            static environ: *const *const std::os::raw::c_char;
-        }
-
-        let reader = unsafe { Reader::from_environ(&*environ) }.prev().prev();
+        let reader = Reader::from_environ().prev().prev();
         assert_eq!(reader.count(), std::env::args().count());
 
         let mut reader = reader.done();

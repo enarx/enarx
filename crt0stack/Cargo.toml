@@ -24,3 +24,6 @@ keywords = [
 
 [dependencies]
 enumerate = { path = "../enumerate" }
+
+[features]
+std = []
