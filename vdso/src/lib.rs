@@ -128,7 +128,7 @@ impl<'a> Vdso<'a> {
     ///
     /// The return type is essentially a void pointer. You will need to cast
     /// it for the type of the symbol you are looking up.
-    pub fn lookup(&'a self, name: &str) -> Option<&'a Symbol> {
+    pub fn lookup(&self, name: &str) -> Option<&'a Symbol> {
         unsafe { self.0.symbol(name) }
     }
 }
