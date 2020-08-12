@@ -3,16 +3,12 @@
 /// The error codes of workload execution.
 #[derive(Debug)]
 pub enum Error {
-    /// import module not found
-    ImportModuleNotFound(String),
-    /// import field not found
-    ImportFieldNotFound(String, String),
     /// export not found
     ExportNotFound,
+    /// module instantiation failed
+    InstantiationFailed,
     /// call failed
     CallFailed,
-    /// runtime error
-    RuntimeError,
     /// I/O error
     IoError(std::io::Error),
 }
@@ -37,50 +33,24 @@ pub fn run<T: AsRef<[u8]>, U: AsRef<[u8]>, V: std::borrow::Borrow<(U, U)>>(
     config.static_memory_maximum_size(0);
     let engine = wasmtime::Engine::new(&config);
     let store = wasmtime::Store::new(&engine);
+    let mut linker = wasmtime::Linker::new(&store);
 
-    // Instantiate WASI
+    // Instantiate WASI.
     let mut builder = wasi_common::WasiCtxBuilder::new();
     builder.args(args).envs(envs);
-    let ctx = builder.build().or(Err(Error::RuntimeError))?;
-    let wasi_snapshot_preview1 = wasmtime_wasi::Wasi::new(&store, ctx);
+    let ctx = builder.build().or(Err(Error::InstantiationFailed))?;
+    let wasi = wasmtime_wasi::Wasi::new(linker.store(), ctx);
+    wasi.add_to_linker(&mut linker)
+        .or(Err(Error::InstantiationFailed))?;
 
-    let instance = {
-        let module = wasmtime::Module::from_binary(&store.engine(), bytes.as_ref())
-            .or(Err(Error::RuntimeError))?;
-        let imports = module
-            .imports()
-            .map(|import| {
-                let module_name = import.module();
-                let field_name = import.name();
-                let export = match module_name {
-                    "wasi_snapshot_preview1" => Ok(wasi_snapshot_preview1.get_export(field_name)),
-                    _ => Err(Error::ImportModuleNotFound(module_name.to_string())),
-                }?;
+    // Instantiate the command module.
+    let module = wasmtime::Module::from_binary(&linker.store().engine(), bytes.as_ref())
+        .or(Err(Error::InstantiationFailed))?;
+    linker
+        .module("", &module)
+        .or(Err(Error::InstantiationFailed))?;
 
-                if let Some(export) = export {
-                    Ok(export.clone().into())
-                } else {
-                    Err(Error::ImportFieldNotFound(
-                        module_name.to_string(),
-                        field_name.to_string(),
-                    ))
-                }
-            })
-            .collect::<Result<Vec<_>>>()?;
-
-        wasmtime::Instance::new(&store, &module, &imports).or(Err(Error::RuntimeError))?
-    };
-
-    let function = if instance.exports().any(|export| export.name().is_empty()) {
-        // Launch the default command export.
-        instance.get_func("")
-    } else {
-        // If the module doesn't have a default command
-        // export, launch the _start function if one is
-        // present, as a compatibility measure.
-        instance.get_func("_start")
-    }
-    .ok_or(Error::ExportNotFound)?;
+    let function = linker.get_default("").or(Err(Error::ExportNotFound))?;
 
     // Invoke the function.
     function.call(Default::default()).or(Err(Error::CallFailed))
