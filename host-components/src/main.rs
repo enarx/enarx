@@ -257,6 +257,15 @@ mod filters {
             "list-keeps" => {
                 let kllvec = keeploaderlist.lock().await;
                 let kllvec: Vec<KeepLoader> = kllvec.clone().into_iter().collect();
+                /*for keeploader in &kllvec {
+                    println!(
+                        "Keep kuuid {}, state {}, listening on {}:{}",
+                        keeploader.kuuid,
+                        keeploader.state,
+                        keeploader.bindaddress,
+                        keeploader.app_loader_bind_port
+                    );
+                }*/
                 let json_keeploadervec = KeepLoaderVec { klvec: kllvec };
 
                 json_reply = warp::reply::json(&json_keeploadervec);

@@ -101,8 +101,19 @@ fn main() {
         .expect("Possible issues");
     let keeploadervec: KeepLoaderVec = res3.json().expect("Possible issues");
     //TODO - output
+    println!("State 0  = undefined (awaiting start)");
+    println!("State 1  = listening for commands");
+    println!("State 2  = started (awaiting workload)");
+    println!("State 3  = completed");
+    println!("State 15 = error state\n");
     for keeploader in &keeploadervec.klvec {
-        println!("kuuid {}", keeploader.kuuid);
+        println!(
+            "Keep kuuid {}, state {}, listening on {}:{}",
+            keeploader.kuuid,
+            keeploader.state,
+            keeploader.bindaddress,
+            keeploader.app_loader_bind_port
+        );
     }
 
     let number_of_kls = &keeploadervec.klvec.len();
