@@ -139,11 +139,7 @@ impl Thread {
             .lookup("__vdso_sgx_enter_enclave")
             .expect("__vdso_sgx_enter_enclave not found");
 
-        Some(Self {
-            enc: enc.clone(),
-            tcs,
-            fnc,
-        })
+        Some(Self { enc, tcs, fnc })
     }
 
     /// Issues `EENTER` instruction to the enclave.

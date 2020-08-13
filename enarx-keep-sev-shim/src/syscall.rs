@@ -64,7 +64,7 @@ pub extern "C" fn syscall_rust(
             Err(libc::ENOSYS)
         }
     };
-    res.unwrap_or_else(|e| (-e) as usize) as usize
+    res.unwrap_or_else(|e| e.checked_neg().unwrap() as usize) as usize
 }
 
 struct Handler {
@@ -77,6 +77,7 @@ struct Handler {
 }
 
 impl Handler {
+    #[allow(clippy::many_single_char_names)]
     pub fn new(a: usize, b: usize, c: usize, d: usize, e: usize, f: usize) -> Self {
         Self { a, b, c, d, e, f }
     }
@@ -139,7 +140,9 @@ impl Handler {
         let fd = unsafe { HostFd::from_raw_fd(self.a as _) };
         let iovec =
             unsafe { core::slice::from_raw_parts_mut(self.b as *mut libc::iovec, self.c as usize) };
-        let bufsize = iovec.iter().fold(0, |a, e| a + e.iov_len);
+        let bufsize = iovec
+            .iter()
+            .fold(0, |a: usize, e| a.checked_add(e.iov_len).unwrap());
 
         for vec in iovec {
             let data = unsafe {
@@ -290,12 +293,12 @@ impl Handler {
                 Ok(next_brk.as_u64() as _)
             }
             n => {
-                len = n - next_brk.as_u64() as usize;
+                len = n.checked_sub(next_brk.as_u64() as usize).unwrap();
 
                 // FIXME
                 assert_eq!(
-                    len % (Page::<Size4KiB>::SIZE as usize),
-                    0,
+                    len.checked_rem(Page::<Size4KiB>::SIZE as usize),
+                    Some(0),
                     "brk not page aligned"
                 );
 
@@ -418,8 +421,8 @@ impl Handler {
                         return Err(libc::EAGAIN);
                     }
                     if (flags & libc::GRND_RANDOM as u64) != 0 {
-                        eprintln!("SC> getrandom(…) = {}", i * 8);
-                        return Ok(i * 8);
+                        eprintln!("SC> getrandom(…) = {}", i.checked_mul(8).unwrap());
+                        return Ok(i.checked_mul(8).unwrap());
                     }
                 }
             }

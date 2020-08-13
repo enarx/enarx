@@ -150,13 +150,13 @@ impl Signature {
     pub fn is_empty(&self) -> bool {
         match self.usage {
             Usage::OCA | Usage::CEK | Usage::PEK | Usage::PDH | Usage::ARK | Usage::ASK => {
-                match self.algo {
+                !matches!(
+                    self.algo,
                     Algorithm::RSA_SHA256
-                    | Algorithm::RSA_SHA384
-                    | Algorithm::ECDSA_SHA256
-                    | Algorithm::ECDSA_SHA384 => false,
-                    _ => true,
-                }
+                        | Algorithm::RSA_SHA384
+                        | Algorithm::ECDSA_SHA256
+                        | Algorithm::ECDSA_SHA384
+                )
             }
             _ => true,
         }

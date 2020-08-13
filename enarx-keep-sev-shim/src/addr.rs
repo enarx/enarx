@@ -20,7 +20,8 @@ impl<U> From<ShimPhysAddr<U>> for HostVirtAddr<U> {
     #[inline(always)]
     fn from(val: ShimPhysAddr<U>) -> Self {
         let offset = BOOT_INFO.read().unwrap().virt_offset;
-        unsafe { Address::<u64, U>::unchecked(val.0.raw() + offset as u64) }.into()
+        unsafe { Address::<u64, U>::unchecked(val.0.raw().checked_add(offset as u64).unwrap()) }
+            .into()
     }
 }
 

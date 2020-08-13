@@ -107,7 +107,7 @@ impl Builder {
 
         for seg in segs {
             // Ignore segments with no pages.
-            if seg.src.len() == 0 {
+            if seg.src.is_empty() {
                 continue;
             }
 

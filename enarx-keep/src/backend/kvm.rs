@@ -26,7 +26,7 @@ fn dev_kvm() -> Datum {
 }
 
 fn kvm_version() -> Datum {
-    let version = Kvm::new().and_then(|kvm| Ok(kvm.get_api_version()));
+    let version = Kvm::new().map(|kvm| kvm.get_api_version());
     let (pass, info) = match version {
         Ok(v) => (v == 12, Some(v.to_string())),
         Err(_) => (false, None),
