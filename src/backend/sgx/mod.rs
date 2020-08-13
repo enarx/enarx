@@ -20,6 +20,29 @@ use std::sync::{Arc, RwLock};
 
 mod data;
 
+impl From<crate::binary::Segment> for Segment {
+    #[inline]
+    fn from(value: crate::binary::Segment) -> Self {
+        let mut rwx = Flags::empty();
+
+        if value.perms.read {
+            rwx |= Flags::R;
+        }
+        if value.perms.write {
+            rwx |= Flags::W;
+        }
+        if value.perms.execute {
+            rwx |= Flags::X;
+        }
+
+        Self {
+            si: SecInfo::reg(rwx),
+            dst: value.dst,
+            src: value.src,
+        }
+    }
+}
+
 pub struct Backend;
 
 impl crate::backend::Backend for Backend {
@@ -120,28 +143,8 @@ impl crate::backend::Backend for Backend {
             },
         ];
 
-        let to_si_seg = |s: crate::binary::Segment| {
-            let mut rwx = Flags::empty();
-
-            if s.perms.read {
-                rwx |= Flags::R;
-            }
-            if s.perms.write {
-                rwx |= Flags::W;
-            }
-            if s.perms.execute {
-                rwx |= Flags::X;
-            }
-
-            Segment {
-                si: SecInfo::reg(rwx),
-                dst: s.dst,
-                src: s.src,
-            }
-        };
-
-        let shim_segs: Vec<Segment> = shim.segments.into_iter().map(to_si_seg).collect();
-        let code_segs: Vec<Segment> = code.segments.into_iter().map(to_si_seg).collect();
+        let shim_segs: Vec<_> = shim.segments.into_iter().map(Segment::from).collect();
+        let code_segs: Vec<_> = code.segments.into_iter().map(Segment::from).collect();
 
         // Initiate the enclave building process.
         let mut builder = Builder::new(layout.enclave).expect("Unable to create builder");
