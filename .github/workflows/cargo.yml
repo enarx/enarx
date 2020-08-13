@@ -4,7 +4,7 @@ on: [pull_request]
 
 jobs:
   # Run the entire CI suite
-  cargo-make-ci-flow:
+  cargo-make-ci:
     runs-on: ubuntu-latest
     container: quay.io/enarx/fedora
     steps:
