@@ -22,7 +22,7 @@ const VERSION: &str = env!("CARGO_PKG_VERSION");
 const AUTHORS: &str = env!("CARGO_PKG_AUTHORS");
 
 fn download(rsp: reqwest::Result<reqwest::blocking::Response>, usage: Usage) -> sev::Certificate {
-    let mut rsp = rsp.expect(&format!("unable to contact {} server", usage));
+    let mut rsp = rsp.unwrap_or_else(|err| panic!("unable to contact {} server: {}", usage, err));
 
     if !rsp.status().is_success() {
         panic!("received failure from {} server: {}", usage, rsp.status());
@@ -30,10 +30,10 @@ fn download(rsp: reqwest::Result<reqwest::blocking::Response>, usage: Usage) -> 
 
     let mut buf = Vec::new();
     rsp.copy_to(&mut buf)
-        .expect(&format!("unable to complete {} download", usage));
+        .unwrap_or_else(|err| panic!("unable to complete {} download: {}", usage, err));
 
     sev::Certificate::decode(&mut &buf[..], ())
-        .expect(&format!("unable to parse downloaded {}", usage))
+        .unwrap_or_else(|err| panic!("unable to parse downloaded {}: {}", usage, err))
 }
 
 fn firmware() -> Firmware {
@@ -67,7 +67,7 @@ fn main() {
 
     let matches = App::new("SEV Platform Control")
         .version(VERSION)
-        .author(AUTHORS.split(";").nth(0).unwrap())
+        .author(AUTHORS.split(';').next().unwrap())
         .about("Utilities for managing the SEV environement")
         .subcommand(SubCommand::with_name("reset").about("Resets the SEV platform"))
         .subcommand(
@@ -310,7 +310,7 @@ mod verify {
 
             _ => {
                 if !quiet {
-                    println!("{}{}{} {}", pfx, " ", lnk, p);
+                    println!("{} {} {}", pfx, lnk, p);
                 }
                 sig_valid
             }
@@ -436,7 +436,7 @@ mod serve {
     fn sign(req: &mut Request, key: &PrivateKey<sev::Usage>, buf: &mut [u8]) -> Result<(), u16> {
         // Read in the provided PEK CSR
         if req.body_length() != Some(buf.len()) {
-            Err(413u16)?
+            return Err(413u16);
         }
         req.as_reader()
             .read_exact(&mut &mut buf[..])
@@ -485,15 +485,13 @@ mod rotate {
             firmware()
                 .pek_cert_import(&pek, &oca)
                 .expect("unable to import PEK and OCA");
+        } else if platform_status().flags.contains(Flags::OWNED) {
+            eprintln!("not rotating owned system; see --adopt option");
+            exit(1);
         } else {
-            if platform_status().flags.contains(Flags::OWNED) {
-                eprintln!("not rotating owned system; see --adopt option");
-                exit(1);
-            } else {
-                firmware()
-                    .pek_generate()
-                    .expect("unable to rotate OCA, PEK and PDH");
-            }
+            firmware()
+                .pek_generate()
+                .expect("unable to rotate OCA, PEK and PDH");
         }
 
         exit(0)

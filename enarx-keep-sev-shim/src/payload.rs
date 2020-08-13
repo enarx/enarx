@@ -28,6 +28,7 @@ const PAYLOAD_BRK_VIRT_ADDR_BASE: VirtAddr = VirtAddr::new_truncate(0x5555_0000_
 const PAYLOAD_STACK_VIRT_ADDR_BASE: VirtAddr = VirtAddr::new_truncate(0x7ff0_0000_0000);
 
 /// Initial payload stack size
+#[allow(clippy::integer_arithmetic)]
 const PAYLOAD_STACK_SIZE: u64 = bytes![16; MiB];
 
 lazy_static! {
@@ -53,12 +54,14 @@ lazy_static! {
     /// The global NextMMap RwLock
     pub static ref NEXT_MMAP_RWLOCK: RwLock<VirtAddr> = {
         let boot_info = BOOT_INFO.read().unwrap();
+        let start = boot_info.code.start;
+        let end = boot_info.code.end;
+        let code_len = end.checked_sub(start).unwrap();
 
-        let mmap_start = (*PAYLOAD_VIRT_ADDR.read().deref() + (boot_info.code.end - boot_info.code.start)).align_up(4096u64);
+        let mmap_start = *PAYLOAD_VIRT_ADDR.read().deref() + code_len;
+        let mmap_start = mmap_start.align_up(Page::<Size4KiB>::SIZE);
 
-        RwLock::<VirtAddr>::const_new(
-            spinning::RawRwLock::const_new(),
-            mmap_start)
+        RwLock::<VirtAddr>::const_new(spinning::RawRwLock::const_new(), mmap_start)
     };
 }
 
@@ -80,6 +83,7 @@ fn map_elf(app_virt_start: VirtAddr) -> &'static Header {
     }
 
     let headers: &[ProgramHeader] = unsafe {
+        #[allow(clippy::cast_ptr_alignment)]
         core::slice::from_raw_parts(
             (header_ptr as usize as *const u8).offset(header.e_phoff as _) as *const ProgramHeader,
             header.e_phnum as _,
@@ -87,7 +91,7 @@ fn map_elf(app_virt_start: VirtAddr) -> &'static Header {
     };
 
     for ph in headers.iter().filter(|ph| ph.p_type == PT_LOAD) {
-        let map_from = PhysAddr::new(code_start as u64 + ph.p_paddr);
+        let map_from = PhysAddr::new((code_start as u64).checked_add(ph.p_paddr).unwrap());
         debug_assert!(map_from.as_u64() < code_end as u64);
 
         let map_to = app_virt_start + ph.p_vaddr;

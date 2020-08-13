@@ -80,11 +80,11 @@ pub struct Builder<T: State> {
 }
 
 /// The initial state simply creates a KVM context.
-impl<T: State> Builder<T> {
-    pub fn new() -> Result<Builder<New>, io::Error> {
+impl Builder<New> {
+    pub fn new() -> Result<Self, io::Error> {
         let kvm = Kvm::new()?;
         let fd = kvm.create_vm()?;
-        Ok(Builder {
+        Ok(Self {
             data: Data {
                 kvm: Some(kvm),
                 fd: Some(fd),

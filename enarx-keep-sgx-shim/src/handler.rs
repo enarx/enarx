@@ -39,7 +39,7 @@ pub struct Handler<'a> {
 
 impl<'a> Write for Handler<'a> {
     fn write_str(&mut self, s: &str) -> core::fmt::Result {
-        if s.as_bytes().len() == 0 {
+        if s.as_bytes().is_empty() {
             return Ok(());
         }
 

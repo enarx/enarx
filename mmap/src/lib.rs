@@ -13,10 +13,17 @@ use std::os::unix::io::AsRawFd;
 pub struct Unmap(Span<usize, usize>);
 
 impl Unmap {
+    /// Create a new Unmap from a `Span`
+    ///
+    /// # Safety
+    ///
+    /// The caller has to ensure, that nothing else uses the memory region,
+    /// if the `Unmap` object is dropped.
     pub unsafe fn new(span: Span<usize, usize>) -> Self {
         Self(span)
     }
 
+    /// Return the inner Span
     pub fn span(&self) -> Span<usize, usize> {
         self.0
     }
@@ -28,6 +35,11 @@ impl Drop for Unmap {
     }
 }
 
+/// mmap a memory region
+///
+/// # Safety
+///
+/// This is a hint, that any usage of the memory region mapped is unsafe.
 pub unsafe fn map(
     addr: usize,
     len: usize,

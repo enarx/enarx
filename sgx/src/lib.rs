@@ -78,7 +78,10 @@ pub mod crypto;
 
 #[cfg(feature = "std")]
 pub mod attestation_types;
+
 #[cfg(feature = "std")]
+// FIXME:
+#[allow(clippy::module_inception)]
 pub mod enclave;
 
 pub mod types;

@@ -53,7 +53,7 @@ pub extern "C" fn event(
                         libc::SYS_clock_gettime => h.clock_gettime(),
                         syscall => {
                             debugln!(h, "unsupported syscall: 0x{:x}", syscall as u64);
-                            Err(libc::ENOSYS).into()
+                            Err(libc::ENOSYS)
                         }
                     };
 
