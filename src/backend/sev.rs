@@ -173,6 +173,10 @@ fn has_kvm_support() -> Datum {
 pub struct Backend;
 
 impl backend::Backend for Backend {
+    fn name(&self) -> &'static str {
+        "sev"
+    }
+
     fn data(&self) -> Vec<Datum> {
         let mut data = vec![];
         data.extend(CPUIDS.iter().map(|c| c.into()));

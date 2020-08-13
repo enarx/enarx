@@ -1,11 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::backend;
 use crate::backend::probe::x86_64::{CpuId, Vendor};
 use crate::backend::Datum;
-use crate::binary::Component;
-
-use anyhow::Result;
 
 use sgx::types::{
     attr::{Flags, Xfrm},
@@ -15,9 +11,7 @@ use sgx::types::{
 use std::arch::x86_64::__cpuid_count;
 use std::fs::File;
 use std::mem::transmute;
-use std::path::PathBuf;
 use std::str::from_utf8;
-use std::sync::Arc;
 
 fn humanize(mut size: f64) -> (f64, &'static str) {
     let mut iter = 0;
@@ -43,7 +37,7 @@ fn humanize(mut size: f64) -> (f64, &'static str) {
     (size, suffix)
 }
 
-const CPUIDS: &[CpuId] = &[
+pub const CPUIDS: &[CpuId] = &[
     CpuId {
         name: "CPU Manufacturer",
         leaf: 0x00000000,
@@ -137,7 +131,7 @@ const CPUIDS: &[CpuId] = &[
     },
 ];
 
-fn epc_size(max: u32) -> Datum {
+pub fn epc_size(max: u32) -> Datum {
     let mut pass = false;
     let mut info = None;
 
@@ -168,7 +162,7 @@ fn epc_size(max: u32) -> Datum {
     }
 }
 
-fn dev_sgx_enclave() -> Datum {
+pub fn dev_sgx_enclave() -> Datum {
     let mut pass = false;
 
     if File::open("/dev/sgx/enclave").is_ok() {
@@ -180,30 +174,5 @@ fn dev_sgx_enclave() -> Datum {
         pass,
         info: Some("/dev/sgx/enclave".into()),
         mesg: None,
-    }
-}
-
-pub struct Backend;
-
-impl backend::Backend for Backend {
-    fn data(&self) -> Vec<Datum> {
-        let mut data = vec![];
-
-        data.push(dev_sgx_enclave());
-        data.extend(CPUIDS.iter().map(|c| c.into()));
-
-        let max = unsafe { __cpuid_count(0x00000000, 0x00000000) }.eax;
-        data.push(epc_size(max));
-
-        data
-    }
-
-    fn shim(&self) -> Result<PathBuf> {
-        unimplemented!()
-    }
-
-    /// Create a keep instance on this backend
-    fn build(&self, _shim: Component, _code: Component) -> Result<Arc<dyn backend::Keep>> {
-        unimplemented!()
     }
 }
