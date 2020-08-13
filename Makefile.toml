@@ -125,6 +125,12 @@ args = ["test"]
 # anything special to be done to "turn on" the deep testing
 # requirements.
 
+# This is invoked by the ci-flow, but it will only run if
+# it detects it is using nightly Rust. Override this flow
+# to run on both stable and nightly so it runs with ci-flow.
+[tasks.clippy-ci-flow]
+condition = { channels = ["stable", "nightly"] }
+
 [tasks.deny]
 command = "cargo"
 args = ["deny", "check", "licenses"]
