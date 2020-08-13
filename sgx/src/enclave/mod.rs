@@ -8,6 +8,8 @@
 
 #[cfg(feature = "crypto")]
 mod builder;
+
+#[allow(clippy::module_inception)]
 mod enclave;
 mod ioctls;
 

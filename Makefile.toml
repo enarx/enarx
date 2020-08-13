@@ -7,13 +7,11 @@ CARGO_MAKE_CRATE_WORKSPACE_MEMBERS = [
 	"crt0stack",
 	"enarx-keep",
 	"enarx-keep-sev-shim",
-	"enarx-keep-sgx",
 	"enarx-keep-sgx-shim",
 	"enumerate",
 	"integration-tests",
 	"intel-types",
 	"keep-runtime",
-	"loader",
 	"memory",
 	"rcrt1",
 	"sallyport",
@@ -98,7 +96,7 @@ dependencies = [
 # The "integration" task will invoke this automatically.
 [tasks.pre-integration]
 workspace = false
-env = { "CARGO_MAKE_WORKSPACE_INCLUDE_MEMBERS" = ["enarx-keep", "enarx-keep-sgx", "enarx-keep-sgx-shim", "enarx-keep-sev-shim"] }
+env = { "CARGO_MAKE_WORKSPACE_INCLUDE_MEMBERS" = ["enarx-keep", "enarx-keep-sgx-shim", "enarx-keep-sev-shim"] }
 run_task = { name = "build", fork = true }
 
 # Launches the integration tests. You probably want to run

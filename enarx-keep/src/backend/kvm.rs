@@ -41,6 +41,10 @@ fn kvm_version() -> Datum {
 pub struct Backend;
 
 impl backend::Backend for Backend {
+    fn name(&self) -> &'static str {
+        "kvm"
+    }
+
     fn data(&self) -> Vec<Datum> {
         vec![dev_kvm(), kvm_version()]
     }

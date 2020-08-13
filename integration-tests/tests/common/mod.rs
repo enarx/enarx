@@ -6,31 +6,12 @@ use std::process::{Command, Stdio};
 use std::time::Duration;
 use wait_timeout::ChildExt;
 
-#[cfg(has_sgx)]
-const KEEP: &str = "enarx-keep-sgx";
-
-#[cfg(has_sev)]
-const KEEP: &str = "enarx-keep-sev";
-
-#[cfg(not(any(has_sgx, has_sev)))]
-const KEEP: &str = "";
-
-#[cfg(has_sgx)]
-const SHIM: &str = "enarx-keep-sgx-shim";
-
-#[cfg(has_sev)]
-const SHIM: &str = "enarx-keep-sev-shim";
-
-#[cfg(not(any(has_sgx, has_sev)))]
-const SHIM: &str = "";
-
 const CRATE: &str = env!("CARGO_MANIFEST_DIR");
 const PROFILE: &str = env!("PROFILE");
 
 pub struct IntegrationTest {
     root: PathBuf,
     keep: PathBuf,
-    shim: PathBuf,
     code: PathBuf,
 }
 
@@ -41,18 +22,11 @@ impl IntegrationTest {
         let root = crate_dir.parent().unwrap().to_path_buf();
 
         let keep = root
-            .join(KEEP)
+            .join("enarx-keep")
             .join("target")
             .join(".") // Assume no target triple
             .join(PROFILE)
-            .join(KEEP);
-
-        let shim = root
-            .join(SHIM)
-            .join("target")
-            .join("x86_64-unknown-linux-musl")
-            .join(PROFILE)
-            .join(SHIM);
+            .join("enarx-keep");
 
         let code = crate_dir
             .join("target")
@@ -60,12 +34,7 @@ impl IntegrationTest {
             .join(PROFILE)
             .join(bin);
 
-        Self {
-            root,
-            keep,
-            code,
-            shim,
-        }
+        Self { root, keep, code }
     }
 
     pub fn run(
@@ -80,10 +49,8 @@ impl IntegrationTest {
 
         let mut cmd = Command::new(self.keep)
             .current_dir(self.root)
-            .arg("--code")
+            .arg("exec")
             .arg(self.code)
-            .arg("--shim")
-            .arg(self.shim)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
