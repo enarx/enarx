@@ -15,6 +15,9 @@ use anyhow::Result;
 use sallyport::Block;
 
 pub trait Backend {
+    /// The name of the backend
+    fn name(&self) -> &'static str;
+
     /// Whether or not the platform has support for this keep type
     fn have(&self) -> bool {
         !self.data().iter().fold(false, |e, d| e | !d.pass)

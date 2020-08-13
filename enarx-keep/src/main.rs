@@ -14,7 +14,6 @@ use binary::Component;
 use anyhow::Result;
 use structopt::StructOpt;
 
-use std::collections::HashMap;
 use std::path::PathBuf;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -46,11 +45,11 @@ enum Options {
 }
 
 fn main() -> Result<()> {
-    let mut backends = HashMap::<String, Box<dyn Backend>>::new();
-
-    backends.insert("kvm".into(), Box::new(backend::kvm::Backend));
-    backends.insert("sev".into(), Box::new(backend::sev::Backend));
-    backends.insert("sgx".into(), Box::new(backend::sgx::Backend));
+    let backends: &[Box<dyn Backend>] = &[
+        Box::new(backend::sev::Backend),
+        Box::new(backend::sgx::Backend),
+        Box::new(backend::kvm::Backend),
+    ];
 
     match Options::from_args() {
         Options::Info(_) => info(backends),
@@ -58,11 +57,11 @@ fn main() -> Result<()> {
     }
 }
 
-fn info(backends: HashMap<String, Box<dyn Backend>>) -> Result<()> {
+fn info(backends: &[Box<dyn Backend>]) -> Result<()> {
     use colorful::*;
 
-    for (name, backend) in &backends {
-        println!("Backend: {}", name);
+    for backend in backends {
+        println!("Backend: {}", backend.name());
 
         let data = backend.data();
 
@@ -90,15 +89,13 @@ fn info(backends: HashMap<String, Box<dyn Backend>>) -> Result<()> {
 }
 
 #[allow(unreachable_code)]
-fn exec(backends: HashMap<String, Box<dyn Backend>>, opts: Exec) -> Result<()> {
+fn exec(backends: &[Box<dyn Backend>], opts: Exec) -> Result<()> {
     let code = Component::from_path(&opts.code)?;
 
     let backend = backends
-        .into_iter()
-        .filter(|(name, _)| opts.keep.is_none() || opts.keep.as_ref() == Some(name))
-        .filter(|(_, backend)| backend.have())
-        .map(|(_, backend)| backend)
-        .next()
+        .iter()
+        .filter(|b| opts.keep.is_none() || opts.keep == Some(b.name().into()))
+        .find(|b| b.have())
         .expect("No supported backend found!");
 
     let shim = Component::from_path(opts.shim.unwrap_or(backend.shim()?))?;
