@@ -2,14 +2,13 @@
 
 mod vm;
 
-use vm::builder::New;
-
 use crate::backend::{self, Datum, Keep};
 use crate::binary::Component;
 
+use anyhow::Result;
 use kvm_ioctls::Kvm;
 
-use std::io::{Error, ErrorKind, Result};
+use std::io::{Error, ErrorKind};
 use std::num::NonZeroUsize;
 use std::path::PathBuf;
 use std::sync::{Arc, RwLock};
@@ -66,7 +65,7 @@ impl backend::Backend for Backend {
     }
 
     fn build(&self, shim: Component, code: Component) -> Result<Arc<dyn Keep>> {
-        let vm = vm::Builder::<New>::new()?
+        let vm = vm::Builder::new()?
             .with_max_cpus(NonZeroUsize::new(256).unwrap())?
             .with_mem_size(units::bytes![1; GiB])?
             .calculate_layout(shim.region(), code.region())?
