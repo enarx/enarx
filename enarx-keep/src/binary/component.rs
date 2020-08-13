@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
+use anyhow::Result;
 use goblin::elf::{header::*, program_header::*, Elf};
 
 use bounds::{Line, Span};
 use memory::Page;
 
 use std::cmp::{max, min};
-use std::io::Result;
 use std::path::Path;
 
 use super::Segment;

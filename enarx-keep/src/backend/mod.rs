@@ -6,13 +6,13 @@ pub mod sgx;
 
 mod probe;
 
-use std::io::Result;
+use crate::binary::Component;
+
 use std::path::PathBuf;
 use std::sync::Arc;
 
+use anyhow::Result;
 use sallyport::Block;
-
-use super::binary::Component;
 
 pub trait Backend {
     /// Whether or not the platform has support for this keep type

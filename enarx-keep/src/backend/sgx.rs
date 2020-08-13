@@ -5,6 +5,8 @@ use crate::backend::probe::x86_64::{CpuId, Vendor};
 use crate::backend::Datum;
 use crate::binary::Component;
 
+use anyhow::Result;
+
 use sgx::types::{
     attr::{Flags, Xfrm},
     misc::MiscSelect,
@@ -12,7 +14,6 @@ use sgx::types::{
 
 use std::arch::x86_64::__cpuid_count;
 use std::fs::File;
-use std::io::Result;
 use std::mem::transmute;
 use std::path::PathBuf;
 use std::str::from_utf8;
@@ -202,7 +203,7 @@ impl backend::Backend for Backend {
     }
 
     /// Create a keep instance on this backend
-    fn build(&self, shim: Component, code: Component) -> Result<Arc<dyn backend::Keep>> {
+    fn build(&self, _shim: Component, _code: Component) -> Result<Arc<dyn backend::Keep>> {
         unimplemented!()
     }
 }

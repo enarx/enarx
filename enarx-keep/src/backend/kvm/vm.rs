@@ -12,10 +12,10 @@ use mem::Region;
 use crate::backend::{Keep, Thread};
 
 use ::x86_64::PhysAddr;
+use anyhow::Result;
 use kvm_bindings::KVM_MAX_CPUID_ENTRIES;
 use kvm_ioctls::{Kvm, VmFd};
 
-use std::io::Result;
 use std::sync::{Arc, RwLock};
 
 pub struct VirtualMachine {

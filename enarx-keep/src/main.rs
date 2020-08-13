@@ -8,12 +8,13 @@
 mod backend;
 mod binary;
 
-use std::collections::HashMap;
-use std::io::Result;
-use structopt::StructOpt;
-
 use backend::{Backend, Command};
 use binary::Component;
+
+use anyhow::Result;
+use structopt::StructOpt;
+
+use std::collections::HashMap;
 use std::path::PathBuf;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
