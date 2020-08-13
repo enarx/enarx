@@ -2,12 +2,12 @@
 
 //! Types for describing segment data loaded from a program header.
 
+use anyhow::Result;
 use bounds::{Line, Span};
 use goblin::elf::program_header::*;
 use memory::Page;
 
 use std::cmp::min;
-use std::io::Result;
 use std::ops::Range;
 
 use super::Permissions;

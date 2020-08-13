@@ -5,14 +5,14 @@ use super::VirtualMachine;
 
 use crate::backend::{Command, Thread};
 
+use anyhow::{anyhow, Result};
 use enarx_keep_sev_shim::SYSCALL_TRIGGER_PORT;
 use kvm_ioctls::{VcpuExit, VcpuFd};
+use memory::Page;
 use x86_64::registers::control::{Cr0Flags, Cr4Flags};
 use x86_64::registers::model_specific::EferFlags;
 use x86_64::PhysAddr;
 
-use memory::Page;
-use std::io::{Error, ErrorKind, Result};
 use std::sync::{Arc, RwLock};
 
 pub struct Allocator {
@@ -120,9 +120,9 @@ impl Thread for Cpu {
                     };
                     Ok(Command::SysCall(sallyport))
                 }
-                _ => Err(Error::new(ErrorKind::Other, "data from unexpected port")),
+                _ => Err(anyhow!("data from unexpected port: {}", port)),
             },
-            exit_reason => Err(Error::new(ErrorKind::Other, format!("{:?}", exit_reason))),
+            exit_reason => Err(anyhow!("{:?}", exit_reason)),
         }
     }
 }

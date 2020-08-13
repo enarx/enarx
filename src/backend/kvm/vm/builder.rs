@@ -11,6 +11,7 @@ use super::VirtualMachine;
 
 use crate::binary::{Component, Segment};
 
+use anyhow::Result;
 use bounds::Line;
 use enarx_keep_sev_shim::BootInfo;
 use kvm_ioctls::{Kvm, VmFd};
@@ -81,7 +82,7 @@ pub struct Builder<T: State> {
 
 /// The initial state simply creates a KVM context.
 impl Builder<New> {
-    pub fn new() -> Result<Self, io::Error> {
+    pub fn new() -> Result<Self> {
         let kvm = Kvm::new()?;
         let fd = kvm.create_vm()?;
         Ok(Self {
