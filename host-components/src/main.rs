@@ -1,16 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
-#[macro_use]
 extern crate serde_derive;
 
 use ::host_components::*;
-use rand::Rng;
-use std::collections::HashMap;
-use std::fs::File;
-use std::io::{Read, Write};
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
-use std::path::Path;
-use warp::http::StatusCode;
 use warp::Filter;
 
 #[tokio::main]
@@ -53,21 +46,18 @@ async fn main() {
 mod models {
     use ::host_components::*;
     use glob::glob;
-    use serde_derive::{Deserialize, Serialize};
-    use std::fs;
     use std::io::prelude::*;
-    use std::os::unix::net::{UnixListener, UnixStream};
-    use std::path::Path;
+    use std::os::unix::net::UnixStream;
     use std::sync::Arc;
     use tokio::sync::Mutex;
 
-    pub fn new_empty_KeepLoaderList() -> KeepLoaderList {
+    pub fn new_empty_keeploaderlist() -> KeepLoaderList {
         Arc::new(Mutex::new(Vec::new()))
     }
 
     pub async fn find_existing_keep_loaders() -> KeepLoaderList {
         println!("Looking for existing keep-loaders in /tmp");
-        let mut kllvec = new_empty_KeepLoaderList();
+        let kllvec = new_empty_keeploaderlist();
         for existing_keeps in glob("/tmp/enarx-keep-*.sock").expect("Failed to read glob pattern") {
             //println!("keep-loader = {:?}", &existing_keeps);
             //TODO - rework this code - it's fairly brittle.  As an iterator.next(), maybe?
@@ -113,7 +103,7 @@ mod models {
                                         keeploaderlist.push(keeploader);
                                         println!("Pushed keeploader to list");
                                     }
-                                    Err(e) => println!("not a useful reply"),
+                                    Err(e) => println!("not a useful reply {}", e),
                                 }
 
                                 break;
@@ -132,17 +122,11 @@ mod models {
 
 mod filters {
     use ::host_components::*;
-    //    use super::models::{JsonCommand, KeepLoader, KeepLoaderList, KeepLoaderVec, UndefinedReply};
-    use fork::{daemon, setsid, Fork};
-    use rand::Rng;
-    use serde_json::json;
-    use std::collections::HashMap;
+    use std::collections::{HashMap, HashSet};
     use std::convert::Infallible;
     use std::io::prelude::*;
-    use std::os::unix::net::{UnixListener, UnixStream};
-    use std::os::unix::process::CommandExt;
-    use std::process::{Command, Stdio};
-    //    use subprocess::Exec;
+    use std::os::unix::net::UnixStream;
+    use std::process::Command;
     use warp::Filter;
 
     pub fn with_keeploaderlist(
@@ -161,7 +145,7 @@ mod filters {
         //TODO - remove hard-coded systemd-escape sequence ("\x20")
         let service_cmd = format!("enarx-keep@{}\\x20{}.service", new_kuuid, apploaderbindport);
         println!("service_cmd = {}", service_cmd);
-        let mut child = Command::new("systemctl")
+        let _child = Command::new("systemctl")
             .arg("--user")
             .arg("start")
             .arg(service_cmd)
@@ -183,6 +167,24 @@ mod filters {
         new_keeploader
     }
 
+    pub fn assign_port(kllvec: Vec<KeepLoader>) -> u16 {
+        let mut assigned_ports: HashSet<u16> = HashSet::new();
+        for existing in kllvec.iter() {
+            assigned_ports.insert(existing.app_loader_bind_port);
+        }
+        let mut check_port: u16 = APP_LOADER_BIND_PORT_START;
+
+        for check_add in 0..kllvec.len() {
+            check_port = APP_LOADER_BIND_PORT_START + check_add as u16;
+            println!("check_port = {}", &check_port);
+            if !assigned_ports.contains(&check_port) {
+                break;
+            }
+            check_port = check_port + 1;
+        }
+        check_port
+    }
+
     pub async fn keeps_parse(
         command_group: HashMap<String, String>,
         keeploaderlist: KeepLoaderList,
@@ -197,7 +199,7 @@ mod filters {
 
         match command_group.get(KEEP_COMMAND).unwrap().as_str() {
             "new-keep" => {
-                let mut supported: bool = false;
+                let supported: bool;
                 println!("new-keep ...");
                 let authtoken = command_group.get(KEEP_AUTH).unwrap();
                 let keeparch = command_group.get(KEEP_ARCH).unwrap().as_str();
@@ -223,7 +225,12 @@ mod filters {
                     }
                 }
                 if supported {
-                    let mut kllvec = keeploaderlist.lock().await;
+                    let mut kll = keeploaderlist.lock().await;
+                    let kllvec: Vec<KeepLoader> = kll.clone().into_iter().collect();
+                    let ap_bind_port: u16 = assign_port(kllvec);
+
+                    //TODO - remove this old ap_bind_port assignment
+                    //let ap_bind_port: u16 = kll.len() as u16 + APP_LOADER_BIND_PORT_START;
 
                     //we reserve a port for the app-loader to bind on here,
                     // as there's no other point at which we can be sure what's available,
@@ -234,15 +241,14 @@ mod filters {
                     // assured.  This needs thinking about.
                     //
                     //use the Mutex here
-                    let ap_bind_port: u16 = kllvec.len() as u16 + APP_LOADER_BIND_PORT_START;
+                    //
                     let new_keeploader = new_keep(authtoken, ap_bind_port);
                     println!(
                         "Keeploaderlist currently has {} entries, about to add {}",
-                        kllvec.len(),
+                        kll.len(),
                         new_keeploader.kuuid,
                     );
-                    let new_kuuid = (new_keeploader.kuuid).clone();
-                    kllvec.push(new_keeploader.clone());
+                    kll.push(new_keeploader.clone());
                     json_reply = warp::reply::json(&new_keeploader);
                 } else {
                     let new_keeploader = KeepLoader {
@@ -255,8 +261,8 @@ mod filters {
                 }
             }
             "list-keeps" => {
-                let kllvec = keeploaderlist.lock().await;
-                let kllvec: Vec<KeepLoader> = kllvec.clone().into_iter().collect();
+                let kll = keeploaderlist.lock().await;
+                let kllvec: Vec<KeepLoader> = kll.clone().into_iter().collect();
                 /*for keeploader in &kllvec {
                     println!(
                         "Keep kuuid {}, state {}, listening on {}:{}",

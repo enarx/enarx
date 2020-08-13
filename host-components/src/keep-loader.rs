@@ -3,19 +3,16 @@
 extern crate serde_derive;
 
 use ::host_components::*;
-use serde_json::{Deserializer, Value};
-use std::collections::HashMap;
-use std::error::Error;
 use std::io::prelude::*;
 use std::os::unix::net::{UnixListener, UnixStream};
 use std::process::Command;
-use std::sync::{Arc, Mutex, MutexGuard};
+use std::sync::{Arc, Mutex};
 use std::thread;
 
 //IMPORTANT - after every change to this file, the following steps need to be run:
 // remove link file in /etc/systemd/user/
 // recreate link file in /etc/systemd/user/
-// `systemctl --user daemon-reload`
+// `systemctl daemon-reload`
 /*
 pub const KEEP_INFO_COMMAND: &str = "keep-info";
 pub const KEEP_APP_LOADER_START_COMMAND: &str = "apploader-start"; // requires app_loader_bind_port to be provided
@@ -61,15 +58,15 @@ fn main() {
     let listener = UnixListener::bind(bind_socket).unwrap();
     //initialise state as listening
     //TODO - error checking
-    set_state(
-        KEEP_LOADER_STATE_LISTENING,
-        //        keepapploader.lock().unwrap().clone(),
-        keepapploader.clone(),
-    );
+    let set_state_result = set_state(KEEP_LOADER_STATE_LISTENING, keepapploader.clone());
+    match set_state_result {
+        Ok(_v) => {}
+        Err(e) => println!("Error setting state, {}", e),
+    }
 
     //only one bind at a time expected here (check for auth-token?)
     //but our connectee may drop, so keep listening
-    for mut stream in listener.incoming() {
+    for stream in listener.incoming() {
         match stream {
             Ok(stream) => {
                 let childstate = keepapploader.clone();
@@ -98,9 +95,9 @@ fn build_keepapploader(
     }
 }
 
-fn keep_loader_connection(mut stream: UnixStream, keepapploader: Arc<Mutex<KeepLoader>>) {
-    let mut app_port: u16 = 0;
-    let mut json_pair: serde_json::value::Value;
+fn keep_loader_connection(stream: UnixStream, keepapploader: Arc<Mutex<KeepLoader>>) {
+    let mut app_port: u16;
+    //let mut json_pair: serde_json::value::Value;
     let mut stream = &stream;
     let deserializer = serde_json::Deserializer::from_reader(stream);
     let iterator = deserializer.into_iter::<serde_json::Value>();
@@ -122,12 +119,14 @@ fn keep_loader_connection(mut stream: UnixStream, keepapploader: Arc<Mutex<KeepL
                             .arg(app_port.to_string())
                             .spawn();
                         match &child_spawn_result {
-                            Ok(v) => {
+                            Ok(_v) => {
                                 let state_result =
                                     set_state(KEEP_LOADER_STATE_STARTED, kal.clone());
                                 match state_result {
-                                    Ok(v) => println!("Spawned new runtime, set state"),
-                                    Err(e) => println!("Spawned new runtime, no state set!"),
+                                    Ok(_v) => println!("Spawned new runtime, set state"),
+                                    Err(e) => {
+                                        println!("Spawned new runtime, no state set due to {}!", e)
+                                    }
                                 }
                                 println!("Set state attempted");
                                 println!("State = {}", kal.lock().unwrap().state);

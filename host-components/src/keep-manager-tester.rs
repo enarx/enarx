@@ -1,11 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 extern crate reqwest;
-#[macro_use]
 extern crate serde_derive;
 
 use ::host_components::*;
-use reqwest::blocking::Response;
 use std::collections::HashMap;
 //TODO - better user input
 use std::io;
@@ -149,7 +147,7 @@ fn main() {
     );
 
     //start the first keep in our list
-    let res4 = reqwest::blocking::Client::builder()
+    let _res4 = reqwest::blocking::Client::builder()
         .danger_accept_invalid_certs(true)
         .build()
         .unwrap()

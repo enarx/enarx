@@ -4,10 +4,8 @@ extern crate reqwest;
 #[macro_use]
 extern crate serde_derive;
 
-use reqwest::Identity;
-use std::collections::HashMap;
 use std::fs::File;
-use std::io::{Read, Write};
+use std::io::Read;
 use std::path::Path;
 
 #[derive(Serialize, Deserialize)]
