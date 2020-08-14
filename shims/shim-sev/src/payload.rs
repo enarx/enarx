@@ -5,6 +5,7 @@ use crate::addr::{ShimPhysAddr, ShimVirtAddr};
 use crate::frame_allocator::FRAME_ALLOCATOR;
 use crate::paging::SHIM_PAGETABLE;
 use crate::random::random;
+use crate::shim_stack::init_stack_with_guard;
 use crate::usermode::usermode;
 use crate::BOOT_INFO;
 use core::ops::DerefMut;
@@ -127,52 +128,6 @@ fn map_elf(app_virt_start: VirtAddr) -> &'static Header {
     header
 }
 
-/// Allocate the stack for the payload with guard pages
-fn init_payload_stack(map_to: VirtAddr) -> &'static mut [u8] {
-    // guard page
-    FRAME_ALLOCATOR
-        .write()
-        .allocate_and_map_memory(
-            SHIM_PAGETABLE.write().deref_mut(),
-            map_to - Page::<Size4KiB>::SIZE,
-            Page::<Size4KiB>::SIZE as _,
-            PageTableFlags::empty(),
-            PageTableFlags::PRESENT | PageTableFlags::WRITABLE,
-        )
-        .expect("Stack guard page allocation failed");
-
-    let mem_slice = FRAME_ALLOCATOR
-        .write()
-        .allocate_and_map_memory(
-            SHIM_PAGETABLE.write().deref_mut(),
-            map_to,
-            PAYLOAD_STACK_SIZE as _,
-            PageTableFlags::PRESENT
-                | PageTableFlags::WRITABLE
-                | PageTableFlags::USER_ACCESSIBLE
-                | PageTableFlags::NO_EXECUTE,
-            PageTableFlags::PRESENT
-                | PageTableFlags::WRITABLE
-                | PageTableFlags::USER_ACCESSIBLE
-                | PageTableFlags::NO_EXECUTE,
-        )
-        .expect("Stack allocation failed");
-
-    // guard page
-    FRAME_ALLOCATOR
-        .write()
-        .allocate_and_map_memory(
-            SHIM_PAGETABLE.write().deref_mut(),
-            map_to + PAYLOAD_STACK_SIZE,
-            Page::<Size4KiB>::SIZE as _,
-            PageTableFlags::empty(),
-            PageTableFlags::PRESENT | PageTableFlags::WRITABLE,
-        )
-        .expect("Stack guard page allocation failed");
-
-    mem_slice
-}
-
 fn crt0setup(
     app_virt_start: VirtAddr,
     stack_slice: &'static mut [u8],
@@ -223,10 +178,14 @@ fn crt0setup(
 pub fn execute_payload() -> ! {
     let header = map_elf(*PAYLOAD_VIRT_ADDR.read());
 
-    let stack = init_payload_stack(PAYLOAD_STACK_VIRT_ADDR_BASE + (random() & 0xFFFF_F000));
+    let stack = init_stack_with_guard(
+        PAYLOAD_STACK_VIRT_ADDR_BASE + (random() & 0xFFFF_F000),
+        PAYLOAD_STACK_SIZE,
+        PageTableFlags::USER_ACCESSIBLE,
+    );
 
     let (entry, sp_handle) =
-        crt0setup(*PAYLOAD_VIRT_ADDR.read(), stack, header).expect("crt0setup failed");
+        crt0setup(*PAYLOAD_VIRT_ADDR.read(), stack.slice, header).expect("crt0setup failed");
 
     unsafe {
         usermode(entry.as_u64(), sp_handle);

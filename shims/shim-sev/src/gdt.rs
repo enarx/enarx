@@ -2,10 +2,10 @@
 
 //! Global Descriptor Table init
 
-use crate::shim_stack::init_shim_stack;
+use crate::shim_stack::{init_stack_with_guard, GuardedStack};
 use crate::syscall::_syscall_enter;
 use core::ops::Deref;
-use memory::Page;
+use nbytes::bytes;
 use x86_64::instructions::segmentation::{load_ds, load_es, load_fs, load_gs, load_ss, set_cs};
 use x86_64::instructions::tables::load_tss;
 use x86_64::registers::model_specific::{KernelGsBase, LStar, SFMask, Star};
@@ -13,35 +13,50 @@ use x86_64::registers::rflags::RFlags;
 use x86_64::structures::gdt::{
     Descriptor, DescriptorFlags, GlobalDescriptorTable, SegmentSelector,
 };
+use x86_64::structures::paging::{Page, PageTableFlags, Size2MiB, Size4KiB};
 use x86_64::structures::tss::TaskStateSegment;
-use x86_64::{PrivilegeLevel, VirtAddr};
+use x86_64::{align_up, PrivilegeLevel, VirtAddr};
 
-const STACK_NUM_PAGES: usize = 5;
-static mut STACKS: [[Page; STACK_NUM_PAGES]; 7] = [[Page::zeroed(); STACK_NUM_PAGES]; 7];
+/// The virtual address of the main kernel stack
+pub const SHIM_STACK_START: u64 = 0xFFFF_FF48_4800_0000;
+
+/// The size of the main kernel stack
+#[allow(clippy::integer_arithmetic)]
+pub const SHIM_STACK_SIZE: u64 = bytes![4; MiB];
+
+/// The virtual address of the exception kernel stacks
+pub const SHIM_EX_STACK_START: u64 = 0xFFFF_FF48_F000_0000;
+
+/// The size of the main kernel stack
+#[allow(clippy::integer_arithmetic)]
+pub const SHIM_EX_STACK_SIZE: u64 = bytes![2; MiB];
 
 lazy_static! {
     /// The global TSS
     pub static ref TSS: TaskStateSegment = {
         let mut tss = TaskStateSegment::new();
 
-        #[inline(always)]
-        #[allow(clippy::integer_arithmetic)]
-        fn stack_end(stack_start: VirtAddr, num_pages: usize) -> VirtAddr {
-            stack_start + num_pages * Page::size()
-        }
+        let stack = init_stack_with_guard(VirtAddr::new(SHIM_STACK_START), SHIM_STACK_SIZE, PageTableFlags::empty());
 
-        tss.privilege_stack_table[0] = init_shim_stack();
+        tss.privilege_stack_table[0] = stack.pointer;
 
         // Assign the stacks for the exceptions and interrupts
         unsafe {
             tss.interrupt_stack_table
                 .iter_mut()
-                .zip(&STACKS)
-                .for_each(|(p, v)| *p = stack_end(VirtAddr::from_ptr(v), STACK_NUM_PAGES));
+                .enumerate()
+                .for_each(|(idx, p)| {
+                    let offset: u64 = align_up(
+                        SHIM_EX_STACK_SIZE.checked_add(Page::<Size4KiB>::SIZE.checked_mul(2).unwrap()).unwrap(),
+                        Page::<Size2MiB>::SIZE,
+                    );
 
-            debug_assert_eq!(STACKS.len(), tss.interrupt_stack_table.len());
+                    let stack_offset = offset.checked_mul(idx as _).unwrap();
+                    let start = VirtAddr::new(SHIM_EX_STACK_START.checked_add(stack_offset).unwrap());
+
+                    *p = init_stack_with_guard(start, SHIM_EX_STACK_SIZE, PageTableFlags::empty()).pointer;
+                } );
         }
-
         tss
     };
 }
