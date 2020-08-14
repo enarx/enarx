@@ -13,7 +13,7 @@
 // gives the shim immediate 512GB addressable physical memory
 #define SHIM_OFFSET 0xFFFFFF8000000000
 
-#define SIZE_OF_INITIAL_STACK 0x10000
+#define SIZE_OF_INITIAL_STACK (128 * 1024)
 
 .section .text
 .global _start

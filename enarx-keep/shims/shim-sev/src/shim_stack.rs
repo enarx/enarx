@@ -5,26 +5,29 @@
 use crate::frame_allocator::FRAME_ALLOCATOR;
 use crate::paging::SHIM_PAGETABLE;
 use core::ops::DerefMut;
-use nbytes::bytes;
 use x86_64::structures::paging::{Page, PageTableFlags, Size4KiB};
 use x86_64::VirtAddr;
 
-/// The virtual address of the main kernel stack
-pub const SHIM_STACK_START: u64 = 0xFFFF_FF48_4800_0000;
+/// A guarded stack
+pub struct GuardedStack {
+    /// the stack pointer
+    pub pointer: VirtAddr,
+    /// the usable stack memory slice
+    pub slice: &'static mut [u8],
+}
 
-/// The size of the main kernel stack
-#[allow(clippy::integer_arithmetic)]
-pub const SHIM_STACK_SIZE: u64 = bytes![4; MiB];
-
-/// Allocate the stack for the shim with guard pages
-#[allow(clippy::integer_arithmetic)]
-pub fn init_shim_stack() -> VirtAddr {
+/// Allocate a stack with guard pages
+pub fn init_stack_with_guard(
+    start: VirtAddr,
+    stack_size: u64,
+    extra_flags: PageTableFlags,
+) -> GuardedStack {
     // guard page
     FRAME_ALLOCATOR
         .write()
         .allocate_and_map_memory(
             SHIM_PAGETABLE.write().deref_mut(),
-            VirtAddr::new(SHIM_STACK_START - Page::<Size4KiB>::SIZE),
+            start - Page::<Size4KiB>::SIZE,
             Page::<Size4KiB>::SIZE as _,
             PageTableFlags::empty(),
             PageTableFlags::PRESENT | PageTableFlags::WRITABLE,
@@ -35,10 +38,16 @@ pub fn init_shim_stack() -> VirtAddr {
         .write()
         .allocate_and_map_memory(
             SHIM_PAGETABLE.write().deref_mut(),
-            VirtAddr::new(SHIM_STACK_START),
-            SHIM_STACK_SIZE as _,
-            PageTableFlags::PRESENT | PageTableFlags::WRITABLE | PageTableFlags::NO_EXECUTE,
-            PageTableFlags::PRESENT | PageTableFlags::WRITABLE,
+            start,
+            stack_size as _,
+            PageTableFlags::PRESENT
+                | PageTableFlags::WRITABLE
+                | PageTableFlags::NO_EXECUTE
+                | extra_flags,
+            PageTableFlags::PRESENT
+                | PageTableFlags::WRITABLE
+                | PageTableFlags::NO_EXECUTE
+                | extra_flags,
         )
         .expect("Stack allocation failed");
 
@@ -47,7 +56,7 @@ pub fn init_shim_stack() -> VirtAddr {
         .write()
         .allocate_and_map_memory(
             SHIM_PAGETABLE.write().deref_mut(),
-            VirtAddr::new(SHIM_STACK_START + SHIM_STACK_SIZE),
+            start + stack_size,
             Page::<Size4KiB>::SIZE as _,
             PageTableFlags::empty(),
             PageTableFlags::PRESENT | PageTableFlags::WRITABLE,
@@ -55,8 +64,13 @@ pub fn init_shim_stack() -> VirtAddr {
         .expect("Stack guard page allocation failed");
 
     // Point to the end of the stack
-    let stack_ptr = unsafe { mem_slice.as_ptr().offset(SHIM_STACK_SIZE as _) };
+    let stack_ptr = unsafe { mem_slice.as_ptr().add(mem_slice.len()) };
 
     // We know it's aligned to 16, so no need to manually align
-    VirtAddr::from_ptr(stack_ptr)
+    debug_assert_eq!((stack_ptr as u64).checked_rem(16), Some(0));
+
+    GuardedStack {
+        pointer: VirtAddr::from_ptr(stack_ptr),
+        slice: mem_slice,
+    }
 }
