@@ -8,7 +8,6 @@ use crate::binary::Component;
 
 use anyhow::Result;
 use kvm_ioctls::Kvm;
-use nbytes::bytes;
 
 use std::num::NonZeroUsize;
 use std::path::Path;
@@ -57,8 +56,8 @@ impl backend::Backend for Backend {
 
         let vm = vm::Builder::new()?
             .with_max_cpus(NonZeroUsize::new(256).unwrap())?
-            .with_mem_size(bytes![1; GiB])?
             .calculate_layout(shim.region(), code.region())?
+            .add_memory()?
             .load_shim(shim)?
             .load_code(code)?
             .build()?;

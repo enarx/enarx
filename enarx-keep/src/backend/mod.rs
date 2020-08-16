@@ -56,4 +56,5 @@ pub trait Thread {
 
 pub enum Command<'a> {
     SysCall(&'a mut Block),
+    Continue,
 }

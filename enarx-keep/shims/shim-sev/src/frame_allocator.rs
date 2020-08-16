@@ -1,15 +1,19 @@
 // SPDX-License-Identifier: Apache-2.0
 
 //! The global FrameAllocator
+use crate::addr::{HostVirtAddr, ShimPhysAddr, ShimVirtAddr};
+use crate::hostcall::HOST_CALL;
 use crate::BOOT_INFO;
+
 use memory::Page as Page4KiB;
 use memory::{Address, Offset};
 use nbytes::bytes;
 use spinning::RwLock;
+use x86_64::structures::paging::FrameAllocator as _;
 use x86_64::structures::paging::{
     self, Mapper, Page, PageSize, PageTableFlags, PhysFrame, Size2MiB, Size4KiB,
 };
-use x86_64::{align_down, PhysAddr, VirtAddr};
+use x86_64::{align_down, align_up, PhysAddr, VirtAddr};
 
 /// An aligned 2MiB Page
 ///
@@ -30,17 +34,42 @@ lazy_static! {
     };
 }
 
+struct FreeMemListPageHeader {
+    next: Option<&'static mut FreeMemListPage>,
+}
+
+#[derive(Clone, Copy)]
+struct FreeMemListPageEntry {
+    start: usize,
+    end: usize,
+    virt_offset: i64,
+}
+
+/// Number of memory list entries per page
+pub const FREE_MEM_LIST_NUM_ENTRIES: usize = (Page4KiB::size()
+    - core::mem::size_of::<FreeMemListPageHeader>())
+    / core::mem::size_of::<FreeMemListPageEntry>();
+
+#[repr(C, align(4096))]
+struct FreeMemListPage {
+    header: FreeMemListPageHeader,
+    ent: [FreeMemListPageEntry; FREE_MEM_LIST_NUM_ENTRIES],
+}
+
 /// A frame allocator
 pub struct FrameAllocator {
-    max: usize,
+    min_alloc: usize,
+    max_alloc: usize,
+    free_mem: FreeMemListPage,
     next_page: Address<usize, Page4KiB>,
     next_huge_page: Address<usize, Page2MiB>,
 }
 
 impl core::fmt::Debug for FrameAllocator {
     fn fmt(&self, f: &mut core::fmt::Formatter) -> Result<(), core::fmt::Error> {
-        f.debug_struct("ShimFrameAllocator")
-            .field("max", &format_args!("{:#?}", self.max as *const u8))
+        f.debug_struct("FrameAllocator")
+            .field("min_alloc", &self.min_alloc)
+            .field("max_alloc", &self.max_alloc)
             .field(
                 "next_page",
                 &format_args!("{:#?}", self.next_page.raw() as *const u8),
@@ -53,14 +82,186 @@ impl core::fmt::Debug for FrameAllocator {
     }
 }
 
+/// Get the most significant bit set
+/// Poor man's log2
+#[inline]
+#[allow(clippy::integer_arithmetic)]
+fn msb(val: usize) -> usize {
+    let mut val = val;
+    let mut r = 0;
+    loop {
+        val >>= 1;
+
+        if val == 0 {
+            return r;
+        }
+
+        r += 1;
+    }
+}
+
 impl FrameAllocator {
+    #[allow(clippy::integer_arithmetic)]
     unsafe fn new() -> Self {
         let boot_info = BOOT_INFO.read().unwrap();
         let start = Address::from(boot_info.code.end);
-        FrameAllocator {
-            max: boot_info.mem_size,
+        let mut free_mem = FreeMemListPage {
+            header: FreeMemListPageHeader { next: None },
+            ent: [FreeMemListPageEntry {
+                start: 0,
+                end: 0,
+                virt_offset: 0,
+            }; FREE_MEM_LIST_NUM_ENTRIES],
+        };
+
+        let meminfo = {
+            let mut host_call = HOST_CALL.try_lock().unwrap();
+            host_call.mem_info().unwrap()
+        };
+
+        const MIN_EXP: usize = 25; // start with 2^25 = 32 MiB
+        const TARGET_EXP: usize = 47; // we want more than 2^47 = 128 TiB
+
+        debug_assert!(
+            meminfo.mem_slots > (TARGET_EXP - MIN_EXP),
+            "Not enough memory slots available"
+        );
+
+        let log_rest = msb(meminfo.mem_slots - (TARGET_EXP - MIN_EXP));
+        // cap, so that max_exp >= MIN_EXP
+        let max_exp = TARGET_EXP - log_rest.min(TARGET_EXP - MIN_EXP);
+
+        // With mem_slots == 509, this gives 508 slots for ballooning
+        // Starting with 2^25 = 32 MiB to 2^38 = 256 GiB takes 13 slots
+        // gives 495 slots a 2^39 = 512 GiB
+        // equals a maximum memory of 495 * 512 GiB - (32 MiB - 1)
+        // = 247.5 TiB - 32 MiB + 1
+        // which is only a little bit less than the max. 256 TiB
+        // max_mem = (mem_slots - max_exp + MIN_EXP) * (1usize << max_exp)
+        //    - (1usize << (MIN_EXP - 1));
+
+        let min_alloc = 1usize << MIN_EXP;
+        let max_alloc = 1usize << max_exp;
+
+        free_mem.ent[0].start = start.raw();
+        free_mem.ent[0].end = boot_info.mem_size;
+        free_mem.ent[0].virt_offset = meminfo.virt_offset;
+
+        debug_assert_ne!(free_mem.ent[0].end, 0);
+
+        let mut allocator = FrameAllocator {
+            min_alloc,
+            max_alloc,
+            free_mem,
             next_page: start.raise(),
             next_huge_page: start.raise(),
+        };
+
+        // Allocate enough pages to hold all memory slots in advance
+        let num_pages = meminfo.mem_slots / FREE_MEM_LIST_NUM_ENTRIES;
+        // There is already one FreeMemListPage present, so we can ignore the rest of the division.
+        let mut last_page = &mut allocator.free_mem as *mut FreeMemListPage;
+
+        for _ in 0..num_pages {
+            let new_page = allocator.allocate_free_mem_list();
+            (*last_page).header.next = Some(&mut *new_page);
+            last_page = new_page;
+        }
+
+        allocator
+    }
+
+    fn allocate_free_mem_list(&mut self) -> *mut FreeMemListPage {
+        let page: PhysFrame<Size4KiB> = self.allocate_frame().unwrap();
+        // We know that FreeMemListPage is of size Size4KiB
+        let phys_address =
+            Address::<usize, _>::from(page.start_address().as_u64() as *mut FreeMemListPage);
+        let shim_phys_page = ShimPhysAddr::from(phys_address);
+        let shim_page = ShimVirtAddr::from(shim_phys_page);
+        let page: *mut FreeMemListPage = shim_page.into();
+        unsafe {
+            page.write_bytes(0, 1);
+        }
+        page
+    }
+
+    /// Translate a shim virtual address to a host virtual address
+    pub fn phys_to_host<U>(&self, val: ShimPhysAddr<U>) -> HostVirtAddr<U> {
+        let val: u64 = val.raw().raw();
+        let offset = self.get_virt_offset(val as _).unwrap();
+
+        unsafe { Address::<u64, U>::unchecked(val.checked_add(offset as u64).unwrap()) }.into()
+    }
+
+    fn get_virt_offset(&self, addr: usize) -> Option<i64> {
+        let mut free = &self.free_mem;
+        loop {
+            for i in free.ent.iter() {
+                if i.start == 0 {
+                    panic!(
+                        "Trying to get virtual offset from unmmapped location {:#?}",
+                        addr
+                    );
+                }
+                if i.end > addr {
+                    return Some(i.virt_offset);
+                }
+            }
+            match free.header.next {
+                None => return None,
+                Some(ref f) => free = *f,
+            }
+        }
+    }
+
+    fn balloon(&mut self, addr: usize) -> Result<(), ()> {
+        let mut free = &mut self.free_mem;
+        let mut last_end: usize = 0;
+        let mut last_size: usize = self.min_alloc;
+        loop {
+            for i in free.ent.iter_mut() {
+                // An empty slot
+                if i.start == 0 {
+                    loop {
+                        // request new memory from the host
+                        let new_size: usize = 2u64.checked_mul(last_size as u64).unwrap() as _;
+                        let new_size = new_size.min(self.max_alloc);
+                        let num_pages = new_size.checked_div(Page4KiB::size() as _).unwrap();
+                        if let Ok(virt_offset) = HOST_CALL.lock().balloon(num_pages) {
+                            i.virt_offset = virt_offset;
+                            i.start = last_end;
+                            i.end = i.start.checked_add(new_size).unwrap();
+                            return Ok(());
+                        }
+
+                        // Failed to get more memory.
+                        // Try again with half of the memory.
+                        last_size = last_size.checked_div(2).unwrap();
+                        if last_size < Page4KiB::size() {
+                            // Host does not have even a page of memory
+                            return Err(());
+                        }
+                    }
+                }
+                if i.start > addr {
+                    // should never happen
+                    return Err(());
+                }
+                if i.end > addr {
+                    // this slot has enough room
+                    return Ok(());
+                }
+                last_end = i.end;
+                last_size = i.end.checked_sub(i.start).unwrap();
+                last_size = align_up(last_size as _, Page4KiB::size() as _) as _;
+                last_size = last_size.max(self.min_alloc);
+            }
+            // we have reached the end of the free slot page
+            // advance to the next page
+            match free.header.next.as_deref_mut() {
+                None => return Err(()),
+                Some(f) => free = f,
+            }
         }
     }
 
@@ -209,9 +410,14 @@ unsafe impl paging::FrameAllocator<Size4KiB> for FrameAllocator {
             // we have taken a bite out of the next 2MiB page
             // so advance the 2MiB pointer
             self.next_huge_page += Offset::from_items(1);
+
+            if self.balloon(self.next_huge_page.raw()).is_err() {
+                // OOM
+                return None;
+            }
         }
 
-        if self.next_page.raw() > self.max {
+        if self.balloon(self.next_page.raw()).is_err() {
             // OOM
             return None;
         }
@@ -227,7 +433,7 @@ unsafe impl paging::FrameAllocator<Size2MiB> for FrameAllocator {
         let frame_address = self.next_huge_page;
         self.next_huge_page += Offset::from_items(1);
 
-        if self.next_huge_page.raw() > self.max {
+        if self.balloon(self.next_huge_page.raw()).is_err() {
             // OOM
             return None;
         }

@@ -7,9 +7,9 @@ pub use kvm_bindings::kvm_userspace_memory_region as KvmUserspaceMemoryRegion;
 use memory::Page;
 use mmap::Unmap;
 use x86_64::structures::paging::page_table::PageTable;
-use x86_64::VirtAddr;
+use x86_64::{PhysAddr, VirtAddr};
 
-use std::mem::size_of_val;
+use std::mem::{size_of, size_of_val};
 use std::slice::from_raw_parts_mut;
 
 pub struct Region {
@@ -31,11 +31,27 @@ impl Region {
         }
     }
 
+    pub fn as_guest(&self) -> Span<PhysAddr, u64> {
+        Span {
+            start: PhysAddr::new(self.kvm_region.guest_phys_addr),
+            count: self.kvm_region.memory_size,
+        }
+    }
+
     pub fn as_virt(&self) -> Span<VirtAddr, u64> {
         Span {
             start: VirtAddr::new(self.kvm_region.userspace_addr),
             count: self.kvm_region.memory_size,
         }
+    }
+
+    pub fn size_of_setup(num_sally_pages: usize) -> usize {
+        let mut size: usize = 0;
+        size += Page::size();
+        size += Page::size() * num_sally_pages;
+        size += size_of::<PageTable>();
+        size += size_of::<PageTable>();
+        size
     }
 
     pub fn prefix_mut(&self) -> VMSetup<'_> {
