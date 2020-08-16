@@ -3,12 +3,15 @@
 use super::x86_64::*;
 use super::VirtualMachine;
 
+use crate::backend::kvm::shim::{
+    MemInfo, SYSCALL_TRIGGER_PORT, SYS_ENARX_BALLOON_MEMORY, SYS_ENARX_MEM_INFO,
+};
 use crate::backend::{Command, Thread};
 
-use crate::backend::kvm::shim::SYSCALL_TRIGGER_PORT;
 use anyhow::{anyhow, Result};
 use kvm_ioctls::{VcpuExit, VcpuFd};
-use memory::Page;
+use memory::{Page, Register};
+use sallyport::Reply;
 use x86_64::registers::control::{Cr0Flags, Cr4Flags};
 use x86_64::registers::model_specific::EferFlags;
 use x86_64::PhysAddr;
@@ -107,10 +110,9 @@ impl Thread for Cpu {
         match self.fd.run()? {
             VcpuExit::IoOut(port, _) => match port {
                 SYSCALL_TRIGGER_PORT => {
-                    let keep = self.keep.write().unwrap();
-                    let sallyport = {
-                        let page = keep
-                            .address_space
+                    let mut keep = self.keep.write().unwrap();
+                    let mut sallyport = {
+                        let page = keep.regions[0]
                             .prefix_mut()
                             .shared_pages
                             .get_mut(self.id)
@@ -118,7 +120,48 @@ impl Thread for Cpu {
 
                         unsafe { &mut *(page as *mut Page as *mut sallyport::Block) }
                     };
-                    Ok(Command::SysCall(sallyport))
+                    let syscall_nr: i64 = unsafe { sallyport.msg.req.num.into() };
+
+                    match syscall_nr {
+                        0..=512 => Ok(Command::SysCall(sallyport)),
+
+                        SYS_ENARX_BALLOON_MEMORY => {
+                            let pages: u64 = unsafe { sallyport.msg.req.arg[0].into() };
+
+                            let result = keep.add_memory(pages).map(|addr| {
+                                let ok_result: [Register<usize>; 2] = [addr.into(), 0.into()];
+                                ok_result
+                            })?;
+
+                            sallyport.msg.rep = Reply::from(Ok(result));
+                            Ok(Command::Continue)
+                        }
+                        SYS_ENARX_MEM_INFO => {
+                            let mem_slots = keep.kvm.get_nr_memslots();
+                            let virt_offset: i64 =
+                                keep.regions.first().unwrap().as_virt().start.as_u64() as _;
+                            let mem_info: MemInfo = MemInfo {
+                                virt_offset,
+                                mem_slots,
+                            };
+
+                            let c = sallyport.cursor();
+                            let (_, buf) = unsafe {
+                                c.alloc::<MemInfo>(1)
+                                    .map_err(|_| anyhow!("Failed to allocate MemInfo in Block"))?
+                            };
+
+                            buf[0] = mem_info;
+
+                            let ok_result: [Register<usize>; 2] = [0.into(), 0.into()];
+
+                            sallyport.msg.rep = Reply::from(Ok(ok_result));
+
+                            Ok(Command::Continue)
+                        }
+
+                        _ => unimplemented!(),
+                    }
                 }
                 _ => Err(anyhow!("data from unexpected port: {}", port)),
             },

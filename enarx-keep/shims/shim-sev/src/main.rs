@@ -45,7 +45,6 @@ pub mod random;
 pub mod syscall;
 pub mod usermode;
 
-use core::ops::Deref;
 pub use hostlib::BootInfo;
 use spinning::RwLock;
 use x86_64::VirtAddr;
@@ -78,8 +77,10 @@ macro_rules! entry_point {
                 .replace(VirtAddr::from_ptr(boot_info));
 
             // make a local copy of boot_info, before the shared page gets overwritten
-            let boot_info = boot_info.read_volatile();
-            BOOT_INFO.write().replace(boot_info);
+            BOOT_INFO.write().replace(boot_info.read_volatile());
+
+            // Needed for syscalls
+            lazy_static::initialize(&frame_allocator::FRAME_ALLOCATOR);
 
             f()
         }
@@ -90,8 +91,6 @@ entry_point!(shim_main);
 
 /// The entry point for the shim
 pub fn shim_main() -> ! {
-    dbg!(BOOT_INFO.read().deref());
-
     unsafe {
         gdt::init();
     }

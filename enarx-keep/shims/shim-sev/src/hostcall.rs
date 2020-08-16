@@ -4,10 +4,11 @@
 
 use crate::addr::{HostVirtAddr, ShimPhysAddr, ShimVirtAddr};
 use crate::asm::_enarx_asm_triple_fault;
-use crate::hostlib::SYSCALL_TRIGGER_PORT;
+use crate::hostlib::{MemInfo, SYSCALL_TRIGGER_PORT, SYS_ENARX_BALLOON_MEMORY, SYS_ENARX_MEM_INFO};
 use crate::SHIM_HOSTCALL_VIRT_ADDR;
 use core::convert::TryFrom;
-use memory::{Address, Page};
+use core::mem::MaybeUninit;
+use memory::{Address, Page, Register};
 use sallyport::{request, Block};
 use spinning::Mutex;
 use x86_64::instructions::port::Port;
@@ -103,6 +104,29 @@ impl<'a> HostCall<'a> {
 
         self.0.msg.req = request!(libc::SYS_write => fd, host_virt, buf.len());
         self.hostcall()
+    }
+
+    /// Balloon the memory
+    pub fn balloon(&mut self, pages: usize) -> Result<i64, libc::c_int> {
+        self.0.msg.req = request!(SYS_ENARX_BALLOON_MEMORY => pages);
+        Ok(unsafe { self.hostcall() }?[0].into())
+    }
+
+    /// Get host memory info
+    pub fn mem_info(&mut self) -> Result<MemInfo, libc::c_int> {
+        let mut mem_info = MaybeUninit::<MemInfo>::uninit();
+
+        self.0.msg.req = request!(SYS_ENARX_MEM_INFO);
+
+        let _result = unsafe { self.hostcall() }?;
+
+        let block = self.as_mut_block();
+        let c = block.cursor();
+        let (_, untrusted) = unsafe { c.alloc::<MemInfo>(1).or(Err(libc::EMSGSIZE))? };
+        unsafe {
+            mem_info.as_mut_ptr().write_volatile(untrusted[0]);
+            Ok(mem_info.assume_init())
+        }
     }
 
     /// Exit the shim with a `status` code

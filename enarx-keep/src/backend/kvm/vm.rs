@@ -9,6 +9,7 @@ pub use builder::Builder;
 use cpu::{Allocator, Cpu};
 use mem::Region;
 
+use crate::backend::kvm::vm::mem::KvmUserspaceMemoryRegion;
 use crate::backend::{Keep, Thread};
 
 use ::x86_64::PhysAddr;
@@ -22,17 +23,57 @@ pub struct VirtualMachine {
     kvm: Kvm,
     fd: VmFd,
     id_alloc: Allocator,
-    address_space: Region,
+    regions: Vec<Region>,
     shim_entry: PhysAddr,
     shim_start: PhysAddr,
+}
+
+impl VirtualMachine {
+    pub fn add_memory(&mut self, pages: u64) -> Result<i64> {
+        let mem_size = pages * 4096;
+        let last_region = self.regions.last().unwrap().as_guest();
+
+        let guest_addr_start = unsafe {
+            mmap::map(
+                0,
+                mem_size as _,
+                libc::PROT_READ | libc::PROT_WRITE,
+                libc::MAP_PRIVATE | libc::MAP_ANONYMOUS,
+                None,
+                0,
+            )?
+        };
+        let unmap = unsafe {
+            mmap::Unmap::new(bounds::Span {
+                start: guest_addr_start,
+                count: mem_size as _,
+            })
+        };
+        let region = KvmUserspaceMemoryRegion {
+            slot: self.regions.len() as _,
+            flags: 0,
+            guest_phys_addr: last_region.start.as_u64() + last_region.count,
+            memory_size: mem_size as _,
+            userspace_addr: guest_addr_start as _,
+        };
+
+        unsafe {
+            self.fd.set_user_memory_region(region)?;
+        }
+
+        self.regions.push(Region::new(0, region, unmap));
+
+        Ok(guest_addr_start as _)
+    }
 }
 
 impl Keep for RwLock<VirtualMachine> {
     fn add_thread(self: Arc<Self>) -> Result<Box<dyn Thread>> {
         let mut keep = self.write().unwrap();
         let id = keep.id_alloc.next();
-        let address_space = keep.address_space.as_virt();
-        let prefix = keep.address_space.prefix_mut();
+        let region_zero = &keep.regions[0];
+        let address_space = region_zero.as_virt();
+        let prefix = region_zero.prefix_mut();
 
         let vcpu = keep.fd.create_vcpu(id as _)?;
 
