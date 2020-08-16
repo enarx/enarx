@@ -33,6 +33,8 @@ pub mod asm;
 pub mod frame_allocator;
 pub mod gdt;
 pub mod hostcall;
+/// Shared components for the shim and the loader
+pub mod hostlib;
 pub mod no_std;
 pub mod paging;
 pub mod payload;
@@ -44,7 +46,7 @@ pub mod syscall;
 pub mod usermode;
 
 use core::ops::Deref;
-use enarx_keep_sev_shim::BootInfo;
+pub use hostlib::BootInfo;
 use spinning::RwLock;
 use x86_64::VirtAddr;
 

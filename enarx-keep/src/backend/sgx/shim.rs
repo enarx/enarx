@@ -1,12 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-//! The common Layout for `enarx-keep-sgx` and `enarx-keep-sgx-shim`
-
-#![no_std]
-#![deny(clippy::all)]
-#![deny(missing_docs)]
-
-use bounds::{Contains as _, Line, Span};
+use bounds::{Contains as _, Span};
 
 const PREFIX: usize = units::bytes![4; MiB];
 const ALIGN: usize = units::bytes![2; MiB];
@@ -36,28 +30,7 @@ fn below(rel: impl Into<Line<usize>>, size: usize) -> Span<usize> {
     }
 }
 
-/// The enclave layout
-#[repr(C)]
-#[derive(Copy, Clone, Default, Debug, PartialEq, Eq)]
-pub struct Layout {
-    /// The boundaries of the enclave.
-    pub enclave: Line<usize>,
-
-    /// The boundaries of the prefix.
-    pub prefix: Line<usize>,
-
-    /// The boundaries of the code.
-    pub code: Line<usize>,
-
-    /// The boundaries of the heap.
-    pub heap: Line<usize>,
-
-    /// The boundaries of the stack.
-    pub stack: Line<usize>,
-
-    /// The boundaries of the shim.
-    pub shim: Line<usize>,
-}
+include!("../../../shims/shim-sgx/src/hostlib.rs");
 
 impl Layout {
     /// Calculate the memory layout of the SGX keep

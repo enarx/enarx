@@ -8,7 +8,6 @@ mod probe;
 
 use crate::binary::Component;
 
-use std::path::PathBuf;
 use std::sync::Arc;
 
 use anyhow::Result;
@@ -26,11 +25,8 @@ pub trait Backend {
     /// The tests that show platform support for the backend
     fn data(&self) -> Vec<Datum>;
 
-    /// Returns the path for the shim
-    fn shim(&self) -> Result<PathBuf>;
-
     /// Create a keep instance on this backend
-    fn build(&self, shim: Component, code: Component) -> Result<Arc<dyn Keep>>;
+    fn build(&self, code: Component) -> Result<Arc<dyn Keep>>;
 }
 
 pub struct Datum {
