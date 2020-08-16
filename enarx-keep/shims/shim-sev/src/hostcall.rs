@@ -4,9 +4,9 @@
 
 use crate::addr::{HostVirtAddr, ShimPhysAddr, ShimVirtAddr};
 use crate::asm::_enarx_asm_triple_fault;
+use crate::hostlib::SYSCALL_TRIGGER_PORT;
 use crate::SHIM_HOSTCALL_VIRT_ADDR;
 use core::convert::TryFrom;
-use enarx_keep_sev_shim::SYSCALL_TRIGGER_PORT;
 use memory::{Address, Page};
 use sallyport::{request, Block};
 use spinning::Mutex;

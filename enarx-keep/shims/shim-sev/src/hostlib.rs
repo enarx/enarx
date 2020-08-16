@@ -1,39 +1,34 @@
 // SPDX-License-Identifier: Apache-2.0
 
-//! Shared components for the shim and the loader
-//! # Loader
-//!
-//! The loader calls [`BootInfo::calculate`] to get the offset for the shim and the code.
-//!
-//! The loader starts the virtual machine and jumps to the shim entry point.
-//!
-//! The shim expects the following registers:
-//! * `%rdi` = `SYSCALL_PHYS_ADDR`, address of the page, where the loader placed a copy of `BootInfo`
-//!            and which is used later on for the communication with the shim.
-//! * `%rsi` = the start address of the shim memory (contents of `BootInfo.shim.start`)
-//! * `%rip` = the address of the shim entry point taken from the elf header
-//!
-//! Although `%rsi` is redundant, it makes the initial startup function of the `shim` much easier.
-//!
-//! # Shim
-//!
-//! The shim sets the unencrypted flag for the page at `SYSCALL_PHYS_ADDR` and uses that page
-//! for further communication with the host.
-//!
-//! The `setup` area must not be touched, unless the shim sets up the page tables,
-//! the GDT and the IDT. After that the setup area is used as free memory except for the pages
-//! to communicate with the host.
-//!
-//! To proxy a syscall to the host, the shim triggers a `#VMEXIT` via I/O on the
-//! [`SYSCALL_TRIGGER_PORT`].
-//!
-//! [`BootInfo::calculate`]: struct.BootInfo.html#method.calculate
-//! [`SYSCALL_TRIGGER_PORT`]: constant.SYSCALL_TRIGGER_PORT.html
-
-#![no_std]
-#![deny(clippy::all)]
-#![deny(clippy::integer_arithmetic)]
-#![deny(missing_docs)]
+// Shared components for the shim and the loader
+// # Loader
+//
+// The loader calls [`BootInfo::calculate`] to get the offset for the shim and the code.
+//
+// The loader starts the virtual machine and jumps to the shim entry point.
+//
+// The shim expects the following registers:
+// * `%rdi` = `SYSCALL_PHYS_ADDR`, address of the page, where the loader placed a copy of `BootInfo`
+//            and which is used later on for the communication with the shim.
+// * `%rsi` = the start address of the shim memory (contents of `BootInfo.shim.start`)
+// * `%rip` = the address of the shim entry point taken from the elf header
+//
+// Although `%rsi` is redundant, it makes the initial startup function of the `shim` much easier.
+//
+// # Shim
+//
+// The shim sets the unencrypted flag for the page at `SYSCALL_PHYS_ADDR` and uses that page
+// for further communication with the host.
+//
+// The `setup` area must not be touched, unless the shim sets up the page tables,
+// the GDT and the IDT. After that the setup area is used as free memory except for the pages
+// to communicate with the host.
+//
+// To proxy a syscall to the host, the shim triggers a `#VMEXIT` via I/O on the
+// [`SYSCALL_TRIGGER_PORT`].
+//
+// [`BootInfo::calculate`]: struct.BootInfo.html#method.calculate
+// [`SYSCALL_TRIGGER_PORT`]: constant.SYSCALL_TRIGGER_PORT.html
 
 /// I/O port used to trigger a `#VMEXIT`
 ///

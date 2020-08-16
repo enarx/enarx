@@ -14,11 +14,12 @@ use sgx::types::{
 };
 
 use std::arch::x86_64::__cpuid_count;
-use std::io::ErrorKind;
-use std::path::PathBuf;
 use std::sync::{Arc, RwLock};
 
 mod data;
+mod shim;
+
+const SHIM: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/bin/shim-sgx"));
 
 impl From<crate::binary::Segment> for Segment {
     #[inline]
@@ -66,29 +67,12 @@ impl crate::backend::Backend for Backend {
         data
     }
 
-    fn shim(&self) -> Result<PathBuf> {
-        #[cfg(debug_assertions)]
-        const PROFILE: &str = "debug";
-
-        #[cfg(not(debug_assertions))]
-        const PROFILE: &str = "release";
-
-        let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .parent()
-            .ok_or_else(|| std::io::Error::from(ErrorKind::NotFound))?
-            .join("enarx-keep-sgx-shim")
-            .join("target")
-            .join("x86_64-unknown-linux-musl")
-            .join(PROFILE)
-            .join("enarx-keep-sgx-shim");
-
-        Ok(path)
-    }
-
     /// Create a keep instance on this backend
-    fn build(&self, mut shim: Component, mut code: Component) -> Result<Arc<dyn Keep>> {
+    fn build(&self, mut code: Component) -> Result<Arc<dyn Keep>> {
+        let mut shim = Component::from_bytes(SHIM)?;
+
         // Calculate the memory layout for the enclave.
-        let layout = enarx_keep_sgx_shim::Layout::calculate(shim.region(), code.region());
+        let layout = crate::backend::sgx::shim::Layout::calculate(shim.region(), code.region());
 
         // Relocate the shim binary.
         shim.entry += layout.shim.start;

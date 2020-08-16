@@ -5,8 +5,8 @@ use super::VirtualMachine;
 
 use crate::backend::{Command, Thread};
 
+use crate::backend::kvm::shim::SYSCALL_TRIGGER_PORT;
 use anyhow::{anyhow, Result};
-use enarx_keep_sev_shim::SYSCALL_TRIGGER_PORT;
 use kvm_ioctls::{VcpuExit, VcpuFd};
 use memory::Page;
 use x86_64::registers::control::{Cr0Flags, Cr4Flags};

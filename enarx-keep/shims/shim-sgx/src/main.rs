@@ -74,5 +74,6 @@ mod entry;
 mod event;
 mod handler;
 mod heap;
+mod hostlib;
 
-use enarx_keep_sgx_shim::Layout;
+use hostlib::Layout;
