@@ -1,0 +1,11 @@
+[tasks.build]
+toolchain = "nightly"
+
+[tasks.build-release]
+toolchain = "nightly"
+
+[tasks.test]
+toolchain = "nightly"
+
+[tasks.clippy]
+toolchain = "nightly"
