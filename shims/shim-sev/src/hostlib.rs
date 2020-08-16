@@ -43,6 +43,12 @@ use nbytes::bytes;
 #[allow(clippy::integer_arithmetic)]
 const ALIGN_SECTION: usize = bytes!(1; MiB);
 
+/// Enarx syscall extension: get `MemInfo` from the host
+pub const SYS_ENARX_MEM_INFO: i64 = 33333;
+
+/// Enarx syscall extension: request an additional memory region
+pub const SYS_ENARX_BALLOON_MEMORY: i64 = 33334;
+
 #[cfg(not(debug_assertions))]
 #[allow(clippy::integer_arithmetic)]
 const ALIGN_SECTION: usize = bytes!(4; KiB);
@@ -76,14 +82,34 @@ pub struct BootInfo {
     /// Memory for the loader to place page tables, GDT and IDT and the
     /// shared pages
     pub setup: Line<usize>,
-    /// Memory where the `code` is / has to be loaded
-    pub code: Line<usize>,
     /// Memory where the `shim` is / has to be loaded
     pub shim: Line<usize>,
+    /// Memory where the `code` is / has to be loaded
+    pub code: Line<usize>,
     /// Memory size
     pub mem_size: usize,
+}
+
+/// Basic information about the host memory
+#[repr(C)]
+#[derive(Copy, Clone, Default, PartialEq, Eq)]
+pub struct MemInfo {
     /// Loader virtual memory offset to shim physical memory
-    pub virt_offset: usize,
+    pub virt_offset: i64,
+    /// Number of memory slot available for ballooning
+    pub mem_slots: usize,
+}
+
+impl core::fmt::Debug for MemInfo {
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> Result<(), core::fmt::Error> {
+        f.debug_struct("MemInfo")
+            .field(
+                "virt_offset",
+                &format_args!("{:#?}", self.virt_offset as *const u8),
+            )
+            .field("mem_slots", &self.mem_slots)
+            .finish()
+    }
 }
 
 /// Error returned, if the virtual machine memory is to small for the shim to operate.
@@ -103,8 +129,6 @@ impl BootInfo {
     /// `NoMemory`: if there is not enough memory for the shim to operate
     #[inline]
     pub fn calculate(
-        mem_size: usize,
-        virt_offset: usize,
         setup: Line<usize>,
         shim: Span<usize>,
         code: Span<usize>,
@@ -112,18 +136,13 @@ impl BootInfo {
         let shim: Line<usize> = above(setup, shim.count).ok_or(NoMemory(()))?.into();
         let code: Line<usize> = above(shim, code.count).ok_or(NoMemory(()))?.into();
 
-        // FIXME: add more space for needed stack + heap + other stuff
-        if code.end >= mem_size {
-            // shim + code does not fit in VM memory
-            return Err(NoMemory(()));
-        }
+        let mem_size = raise(code.end, 4096).ok_or(NoMemory(()))?;
 
         Ok(Self {
             setup,
-            code,
             shim,
+            code,
             mem_size,
-            virt_offset,
         })
     }
 }

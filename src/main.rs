@@ -111,6 +111,7 @@ fn exec(backends: &[Box<dyn Backend>], opts: Exec) -> Result<()> {
                 Command::SysCall(block) => unsafe {
                     block.msg.rep = block.msg.req.syscall();
                 },
+                Command::Continue => (),
             }
         }
     } else {
