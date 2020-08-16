@@ -1,0 +1,34 @@
+[package]
+name = "shim-sgx"
+version = "0.1.0"
+authors = ["Nathaniel McCallum <npmccallum@redhat.com>"]
+edition = "2018"
+license = "Apache-2.0"
+
+[dependencies]
+goblin = { version = "0.2", default-features = false, features = [ "elf64" ] }
+libc = { version = "0.2", features = [] }
+sgx = { path = "../../../sgx", default-features = false }
+intel-types = { path = "../../../intel-types" }
+crt0stack = { path = "../../../crt0stack" }
+enumerate = { path = "../../../enumerate" }
+sallyport = { path = "../../../sallyport" }
+bounds = { path = "../../../bounds" }
+memory = { path = "../../../memory" }
+rcrt1 = { path = "../../../rcrt1" }
+units = { path = "../../../units" }
+
+[profile.dev.package.rcrt1]
+opt-level = 3
+
+[build-dependencies]
+cc = "*"
+
+[profile.dev]
+panic = "abort"
+
+[profile.release]
+panic = "abort"
+codegen-units = 1
+incremental = false
+lto = true

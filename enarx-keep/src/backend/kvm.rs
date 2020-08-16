@@ -8,10 +8,10 @@ use crate::binary::Component;
 use anyhow::Result;
 use kvm_ioctls::Kvm;
 
-use std::io::{Error, ErrorKind};
 use std::num::NonZeroUsize;
-use std::path::PathBuf;
 use std::sync::{Arc, RwLock};
+
+const SHIM: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/bin/shim-sev"));
 
 fn dev_kvm() -> Datum {
     let dev_kvm = std::path::Path::new("/dev/kvm");
@@ -49,26 +49,9 @@ impl backend::Backend for Backend {
         vec![dev_kvm(), kvm_version()]
     }
 
-    fn shim(&self) -> Result<PathBuf> {
-        #[cfg(debug_assertions)]
-        const PROFILE: &str = "debug";
+    fn build(&self, code: Component) -> Result<Arc<dyn Keep>> {
+        let shim = Component::from_bytes(SHIM)?;
 
-        #[cfg(not(debug_assertions))]
-        const PROFILE: &str = "release";
-
-        let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .parent()
-            .ok_or_else(|| Error::from(ErrorKind::NotFound))?
-            .join("enarx-keep-sev-shim")
-            .join("target")
-            .join("x86_64-unknown-linux-musl")
-            .join(PROFILE)
-            .join("enarx-keep-sev-shim");
-
-        Ok(path)
-    }
-
-    fn build(&self, shim: Component, code: Component) -> Result<Arc<dyn Keep>> {
         let vm = vm::Builder::new()?
             .with_max_cpus(NonZeroUsize::new(256).unwrap())?
             .with_mem_size(units::bytes![1; GiB])?

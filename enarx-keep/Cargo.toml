@@ -4,12 +4,13 @@ version = "0.1.0"
 authors = ["Nathaniel McCallum <npmccallum@redhat.com>"]
 license = "Apache-2.0"
 edition = "2018"
+build = "build.rs"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-enarx-keep-sev-shim = { path = "../enarx-keep-sev-shim" }
-enarx-keep-sgx-shim = { path = "../enarx-keep-sgx-shim" }
+shim-sev = { path = "shims/sev" }
+shim-sgx = { path = "shims/sgx" }
 intel-types = { path = "../intel-types" }
 sallyport = { path = "../sallyport" }
 bounds = { path = "../bounds" }

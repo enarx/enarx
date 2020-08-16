@@ -75,4 +75,4 @@ mod event;
 mod handler;
 mod heap;
 
-use enarx_keep_sgx_shim::Layout;
+use shim_sgx::Layout;
