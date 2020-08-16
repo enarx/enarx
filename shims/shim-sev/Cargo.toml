@@ -1,0 +1,36 @@
+[package]
+name = "shim-sev"
+version = "0.1.0"
+authors = ["Harald Hoyer <harald@redhat.com>"]
+edition = "2018"
+license = "Apache-2.0"
+
+[dependencies]
+crt0stack = { path = "../../../crt0stack" }
+sallyport = { path = "../../../sallyport" }
+bounds = { path = "../../../bounds" }
+memory = { path = "../../../memory" }
+rcrt1 = { path = "../../../rcrt1" }
+units = { path = "../../../units" }
+memoffset = { git = "https://github.com/Gilnaa/memoffset", features = ["unstable_const", "unstable_raw"] }
+x86_64 = { version = "0.11.2", default-features = false, features = ["array-init", "inline_asm"] }
+lazy_static = { version = "1.4.0", default-features = false, features = ["spin_no_std"] }
+goblin = { version = "0.2", default-features = false, features = [ "elf64" ] }
+spinning = { version = "0.0", default-features = false}
+libc = { version = "0.2", features = [] }
+
+[profile.dev.package.rcrt1]
+opt-level = 3
+
+[build-dependencies]
+cc = "1.0"
+walkdir = "2"
+
+[profile.dev]
+panic = "abort"
+
+[profile.release]
+panic = "abort"
+codegen-units = 1
+incremental = false
+lto = true

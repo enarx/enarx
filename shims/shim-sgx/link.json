@@ -1,0 +1,24 @@
+{
+    "build": {
+        "prepend": [
+            "-static-pie"
+        ],
+
+        "replace": {
+            ".*/r?crt.\\.o": [],
+            "-no-pie": []
+        },
+
+        "append-target-rlib": [ "libc" ],
+
+        "debug": false
+    },
+
+    "test": {
+        "replace": {
+            "-lasm": []
+        },
+
+        "debug": false
+    }
+}

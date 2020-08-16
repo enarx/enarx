@@ -22,18 +22,23 @@ impl Component {
     pub fn from_path(path: impl AsRef<Path>) -> Result<Self> {
         let file = std::fs::File::open(path)?;
         let len = file.metadata()?.len() as usize;
-        let (data, _unmap) = unsafe {
+        let (bytes, _unmap) = unsafe {
             let addr = mmap::map(0, len, libc::PROT_READ, libc::MAP_PRIVATE, Some(&file), 0)?;
-            let data = std::slice::from_raw_parts(addr as *const u8, len);
+            let bytes = std::slice::from_raw_parts(addr as *const u8, len);
             let unmap = mmap::Unmap::new(Span {
                 start: addr,
                 count: len,
             });
-            (data, unmap)
+            (bytes, unmap)
         };
 
+        Self::from_bytes(bytes)
+    }
+
+    /// Loads a binary from bytes
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self> {
         // Parse the file.
-        let elf = Elf::parse(data).unwrap();
+        let elf = Elf::parse(bytes).unwrap();
 
         // Validate identity assumptions.
         assert_eq!(elf.header.e_ident[EI_CLASS], ELFCLASS64);
@@ -70,7 +75,7 @@ impl Component {
 
         let mut segments = Vec::new();
         for ph in elf.program_headers.iter() {
-            if let Some(seg) = Segment::from_ph(&data, ph)? {
+            if let Some(seg) = Segment::from_ph(&bytes, ph)? {
                 segments.push(seg);
             }
         }
