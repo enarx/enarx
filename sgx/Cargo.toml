@@ -11,6 +11,7 @@ edition = "2018"
 default = ["std", "crypto"]
 std = ["iocuddle", "libc", "mmap", "vdso"]
 crypto = ["std", "openssl"]
+asm = []
 
 [dependencies]
 bitflags = "1.2"

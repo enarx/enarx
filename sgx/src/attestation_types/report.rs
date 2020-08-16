@@ -7,7 +7,7 @@ use crate::types::{attr::Attributes, isv, misc::MiscSelect};
 
 /// This struct is separated out from the Report to be usable by the Quote struct.
 /// Table 38-21
-#[derive(Default)]
+#[derive(Default, Debug)]
 #[repr(C)]
 pub struct Body {
     /// The security version number of the processor
@@ -49,7 +49,7 @@ pub struct Body {
 }
 
 /// Table 38-21
-#[derive(Default)]
+#[derive(Default, Debug)]
 #[repr(C, align(512))]
 pub struct Report {
     /// The body of the Report
