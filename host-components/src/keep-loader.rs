@@ -39,20 +39,24 @@ fn main() {
     //TODO - remove hard-coding!
     println!("Keep-loader has received {} args", args.len());
     let kuuid = args[1].clone();
-    let app_loader_bind_port = args[2].clone();
-    println!(
-        "kuuid = {}, apploaderbindport = {}",
-        kuuid, app_loader_bind_port
-    );
+    //let app_loader_bind_addr = args[2].clone();
+    //let app_loader_bind_port = args[3].clone();
+    /*println!(
+            "kuuid = {}, apploaderbindaddr = {}, apploaderbindport = {}",
+            kuuid, app_loader_bind_addr, app_loader_bind_port
+    );*/
+    println!("kuuid = {}", kuuid);
     let bind_socket = format!("/tmp/enarx-keep-{}.sock", kuuid);
     println!("binding to {}", bind_socket);
     let keepapploader = Arc::new(Mutex::new(build_keepapploader(
         KEEP_LOADER_STATE_UNDEF,
         kuuid.parse().expect("problems parsing kuuid"),
-        app_loader_bind_port
-            .parse()
-            .expect("problems parsing app_loader_bind_port"),
+        0,
         "".to_string(),
+        //app_loader_bind_port
+        //    .parse()
+        //    .expect("problems parsing app_loader_bind_port"),
+        //app_loader_bind_addr.to_string(),
     )));
 
     let listener = UnixListener::bind(bind_socket).unwrap();
@@ -96,7 +100,10 @@ fn build_keepapploader(
 }
 
 fn keep_loader_connection(stream: UnixStream, keepapploader: Arc<Mutex<KeepLoader>>) {
-    let mut app_port: u16;
+    //the below values are very much fall-backs
+    let mut app_addr: String = String::from("127.0.0.1");
+    let mut app_port: u16 = APP_LOADER_BIND_PORT_START;
+
     //let mut json_pair: serde_json::value::Value;
     let mut stream = &stream;
     let deserializer = serde_json::Deserializer::from_reader(stream);
@@ -109,13 +116,21 @@ fn keep_loader_connection(stream: UnixStream, keepapploader: Arc<Mutex<KeepLoade
             Ok(value) => {
                 let json_command: JsonCommand = serde_json::from_value(value).unwrap();
                 match json_command.commandtype.as_str() {
+                    KEEP_APP_LOADER_ADDR => {
+                        app_addr = json_command.commandcontents;
+                        kal.lock().unwrap().bindaddress = app_addr.clone();
+                    }
+                    KEEP_APP_LOADER_PORT => {
+                        app_port = json_command
+                            .commandcontents
+                            .parse()
+                            .expect("problems parsing port information");
+                        kal.lock().unwrap().app_loader_bind_port = app_port.clone();
+                    }
                     KEEP_APP_LOADER_START_COMMAND => {
-                        //TODO - app_port may be insufficient: need to provide hostname
-                        // as well at some point.  We might also create a separate command
-                        // to provision information before starting.
-                        app_port = json_command.commandcontents.parse().unwrap();
                         println!("About to spawn, listening on port {}", app_port.to_string());
                         let child_spawn_result = Command::new(WASM_RUNTIME_BINARY_PATH)
+                            .arg(&app_addr)
                             .arg(app_port.to_string())
                             .spawn();
                         match &child_spawn_result {

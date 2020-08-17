@@ -21,6 +21,8 @@ pub const KEEP_INFO_COMMAND: &str = "keep-info";
 pub const CONTRACT_COMMAND: &str = "command";
 pub const KEEP_COMMAND: &str = "command";
 pub const KEEP_AUTH: &str = "auth-token";
+pub const KEEP_PORT: &str = "keep-port";
+pub const KEEP_ADDR: &str = "keep-addr";
 pub const KEEP_KUUID: &str = "kuuid";
 pub const KEEP_ARCH: &str = "keep-arch";
 pub const KEEP_ARCH_WASI: &str = "wasi";
@@ -28,8 +30,9 @@ pub const KEEP_ARCH_SEV: &str = "AMD-SEV";
 pub const KEEP_ARCH_SGX: &str = "Intel-SGX";
 pub const KEEP_APP_LOADER_BIND_PORT: &str = "app-loader-bind-port";
 pub const APP_LOADER_BIND_PORT_START: u16 = 3031;
-pub const KEEP_APP_LOADER_STATE_UNDEF: u8 = 0;
-pub const KEEP_APP_LOADER_START_COMMAND: &str = "apploader-start"; // requires app_loader_bind_port to be provided
+pub const KEEP_APP_LOADER_START_COMMAND: &str = "apploader-start";
+pub const KEEP_APP_LOADER_ADDR: &str = "apploader-addr";
+pub const KEEP_APP_LOADER_PORT: &str = "apploader-port";
 
 pub type KeepLoaderList = Arc<Mutex<Vec<KeepLoader>>>;
 
@@ -45,7 +48,7 @@ pub struct KeepLoader {
     // to keep this information confidential
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct JsonCommand {
     pub commandtype: String,
     pub commandcontents: String,

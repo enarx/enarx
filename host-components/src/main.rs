@@ -67,9 +67,8 @@ mod models {
                     match stream_result {
                         Ok(mut stream) => {
                             println!("Able to connect to {:?}", path.display());
-                            //TODO - add to list
                             //this is what we'll add, but first we need to contact the
-                            //keep-loader and find out what the kuuid and app_loader_bind_port are
+                            //keep-loader and find out information about the Keep
                             let jsoncommand = JsonCommand {
                                 commandtype: String::from(KEEP_INFO_COMMAND),
                                 commandcontents: "".to_string(),
@@ -135,7 +134,11 @@ mod filters {
         warp::any().map(move || keeploaderlist.clone())
     }
 
-    pub fn new_keep(authtoken: &str, apploaderbindport: u16) -> KeepLoader {
+    pub fn new_keep(
+        authtoken: &str,
+        apploaderbindport: u16,
+        apploaderbindaddr: &str,
+    ) -> KeepLoader {
         let new_kuuid = rand::random::<usize>();
 
         println!("Received auth_token {}", authtoken);
@@ -143,7 +146,10 @@ mod filters {
         //TODO - the chances should be _pretty_ low, but should
         // we check for an existing keep?
         //TODO - remove hard-coded systemd-escape sequence ("\x20")
-        let service_cmd = format!("enarx-keep@{}\\x20{}.service", new_kuuid, apploaderbindport);
+        let service_cmd = format!(
+            "enarx-keep@{}\\x20{}\\x20{}.service",
+            new_kuuid, apploaderbindaddr, apploaderbindport
+        );
         println!("service_cmd = {}", service_cmd);
         let _child = Command::new("systemctl")
             .arg("--user")
@@ -159,7 +165,7 @@ mod filters {
         );
 
         let new_keeploader = KeepLoader {
-            state: KEEP_APP_LOADER_STATE_UNDEF,
+            state: KEEP_LOADER_STATE_UNDEF,
             kuuid: new_kuuid,
             app_loader_bind_port: apploaderbindport,
             bindaddress: "".to_string(),
@@ -167,22 +173,27 @@ mod filters {
         new_keeploader
     }
 
-    pub fn assign_port(kllvec: Vec<KeepLoader>) -> u16 {
+    pub fn assign_port(kllvec: Vec<KeepLoader>, requestedport: u16) -> u16 {
         let mut assigned_ports: HashSet<u16> = HashSet::new();
         for existing in kllvec.iter() {
             assigned_ports.insert(existing.app_loader_bind_port);
         }
-        let mut check_port: u16 = APP_LOADER_BIND_PORT_START;
-
-        for check_add in 0..kllvec.len() {
-            check_port = APP_LOADER_BIND_PORT_START + check_add as u16;
-            println!("check_port = {}", &check_port);
-            if !assigned_ports.contains(&check_port) {
-                break;
+        let chosen_port: u16;
+        if !assigned_ports.contains(&requestedport) {
+            chosen_port = requestedport;
+        } else {
+            let mut check_port: u16 = APP_LOADER_BIND_PORT_START;
+            for check_add in 0..kllvec.len() {
+                check_port = APP_LOADER_BIND_PORT_START + check_add as u16;
+                println!("check_port = {}", &check_port);
+                if !assigned_ports.contains(&check_port) {
+                    break;
+                }
+                check_port = check_port + 1;
             }
-            check_port = check_port + 1;
+            chosen_port = check_port;
         }
-        check_port
+        chosen_port
     }
 
     pub async fn keeps_parse(
@@ -224,46 +235,63 @@ mod filters {
                         supported = false;
                     }
                 }
+
                 if supported {
                     let mut kll = keeploaderlist.lock().await;
-                    let kllvec: Vec<KeepLoader> = kll.clone().into_iter().collect();
-                    let ap_bind_port: u16 = assign_port(kllvec);
+                    //                    let kllvec: Vec<KeepLoader> = kll.clone().into_iter().collect();
 
-                    //TODO - remove this old ap_bind_port assignment
-                    //let ap_bind_port: u16 = kll.len() as u16 + APP_LOADER_BIND_PORT_START;
+                    /*
+                    match keepaddr_opt {
+                        Some(addr) => {
+                            ap_bind_addr = addr;
+                            //if we have been provided with a port, we use that,
+                            // if not, default to default (APP_LOADER_BIND_PORT_START).
+                            // ASSERT: we cannot be expected to manage all possible
+                            //  IP addresses and associated ports
+                            match keepport_opt {
+                                Some(port) => {
+                                    ap_bind_port = port.parse().expect("Problems parsing port")
+                                }
+                                None => ap_bind_port = APP_LOADER_BIND_PORT_START,
+                            }
+                        }
+                        //if we have no address, then we use localhost and try suggested
+                        // but auto-assign if it's already taken
+                        None => {
+                            ap_bind_addr = "127.0.0.1";
+                            //request the very first available port
+                            // assign_port will grant the next available if
+                            // APP_LOADER_BIND_PORT_START is not available
+                            ap_bind_port = assign_port(kllvec, APP_LOADER_BIND_PORT_START);
+                        }
+                    }*/
 
-                    //we reserve a port for the app-loader to bind on here,
-                    // as there's no other point at which we can be sure what's available,
-                    // and we have a mutex here, so we should use it.  There's obviously
-                    // a possible issue that other apps on the host might take this, but
-                    // there's little we can do about this.  This all assumes, of course,
-                    // that we're listening on the host's IP address, which is not
-                    // assured.  This needs thinking about.
-                    //
-                    //use the Mutex here
-                    //
-                    let new_keeploader = new_keep(authtoken, ap_bind_port);
+                    let new_keeploader = new_keep(authtoken, 0, "");
                     println!(
                         "Keeploaderlist currently has {} entries, about to add {}",
                         kll.len(),
                         new_keeploader.kuuid,
                     );
+                    //add this new new keeploader to the list
                     kll.push(new_keeploader.clone());
                     json_reply = warp::reply::json(&new_keeploader);
                 } else {
                     let new_keeploader = KeepLoader {
-                        state: KEEP_APP_LOADER_STATE_UNDEF,
+                        state: KEEP_LOADER_STATE_ERROR,
                         kuuid: 0,
                         app_loader_bind_port: 0,
                         bindaddress: "".to_string(),
                     };
+                    //this is an empty, unsupported Keep
                     json_reply = warp::reply::json(&new_keeploader);
                 }
             }
             "list-keeps" => {
+                //update list
                 let kll = keeploaderlist.lock().await;
+
                 let kllvec: Vec<KeepLoader> = kll.clone().into_iter().collect();
-                /*for keeploader in &kllvec {
+                for keeploader in &kllvec {
                     println!(
                         "Keep kuuid {}, state {}, listening on {}:{}",
                         keeploader.kuuid,
@@ -271,45 +299,99 @@ mod filters {
                         keeploader.bindaddress,
                         keeploader.app_loader_bind_port
                     );
-                }*/
+                }
                 let json_keeploadervec = KeepLoaderVec { klvec: kllvec };
 
                 json_reply = warp::reply::json(&json_keeploadervec);
             }
             "start-keep" => {
-                // println!("command_group = {:?}", command_group);
+                let mut kll = keeploaderlist.lock().await;
+                let mut kllvec: Vec<KeepLoader> = kll.clone().into_iter().collect();
                 let kuuid: usize = command_group.get(KEEP_KUUID).unwrap().parse().unwrap();
-                //need port binding information, at least
-                //this needs to come from an external source, in case we've recreated the
-                //list of Keeploaders, and don't have port binding info for each
-                let app_loader_bind_port: u16 = command_group
-                    .get(KEEP_APP_LOADER_BIND_PORT)
-                    .unwrap()
-                    .parse()
-                    .unwrap();
-                println!("apploaderbindport = {}", app_loader_bind_port);
-                let bind_socket = format!("/tmp/enarx-keep-{}.sock", kuuid);
-                println!("About to connect to {}", &bind_socket);
 
-                let jsoncommand = JsonCommand {
-                    commandtype: String::from(KEEP_APP_LOADER_START_COMMAND),
-                    commandcontents: app_loader_bind_port.to_string(),
+                let keepaddr_opt = command_group.get(KEEP_ADDR);
+                let keepport_opt = command_group.get(KEEP_PORT);
+                let ap_bind_addr: &str;
+                let ap_bind_port: u16;
+                match keepaddr_opt {
+                    Some(addr) => {
+                        println!("start-keep received {}", &addr);
+                        ap_bind_addr = addr;
+                        //if we have been provided with a port, we use that,
+                        // if not, default to default (APP_LOADER_BIND_PORT_START).
+                        // ASSERT: we cannot be expected to manage all possible
+                        //  IP addresses and associated ports
+                        match keepport_opt {
+                            Some(port) => {
+                                ap_bind_port = port.parse().expect("Problems parsing port")
+                            }
+                            None => ap_bind_port = APP_LOADER_BIND_PORT_START,
+                        }
+                    }
+                    //if we have no address, then we use localhost and try suggested
+                    // but auto-assign if it's already taken
+                    None => {
+                        println!("start-keep received no address, so starting on localhost");
+                        ap_bind_addr = "127.0.0.1";
+                        //request the very first available port
+                        // assign_port will grant the next available if
+                        // APP_LOADER_BIND_PORT_START is not available
+                        ap_bind_port = assign_port(kllvec.clone(), APP_LOADER_BIND_PORT_START);
+                    }
+                }
+                let bind_socket = format!("/tmp/enarx-keep-{}.sock", &kuuid);
+
+                //construct commands with the relevant details
+                let json_set_app_addr = JsonCommand {
+                    commandtype: String::from(KEEP_APP_LOADER_ADDR),
+                    commandcontents: ap_bind_addr.to_string(),
                 };
-                let serializedjson =
-                    serde_json::to_string(&jsoncommand).expect("problem serializing data");
-                /*                let data_part_1 = r#"
-                {
-                    "keep-start": ""#;
-                        let data_part_2 = r#""
-                }"#;
-                        let data = format!("{}{}{}", data_part_1, app_loader_bind_port, data_part_2);*/
-                println!("Sending JSON data\n{}", serializedjson);
-
+                let json_set_app_port = JsonCommand {
+                    commandtype: String::from(KEEP_APP_LOADER_PORT),
+                    commandcontents: ap_bind_port.to_string(),
+                };
+                let json_start_command = JsonCommand {
+                    commandtype: String::from(KEEP_APP_LOADER_START_COMMAND),
+                    commandcontents: "".to_string(),
+                };
+                let serializedjson_addr =
+                    serde_json::to_string(&json_set_app_addr).expect("problem serialising data");
+                let serializedjson_port =
+                    serde_json::to_string(&json_set_app_port).expect("problem serialising data");
+                let serializedjson_start =
+                    serde_json::to_string(&json_start_command).expect("problem serialising data");
+                println!("About to send address, port and start command to keep-loader");
                 let mut stream = UnixStream::connect(bind_socket).expect("failed to connect");
                 &stream
-                    .write_all(&serializedjson.as_bytes())
+                    .write_all(&serializedjson_addr.as_bytes())
                     .expect("failed to write");
+                &stream
+                    .write_all(&serializedjson_port.as_bytes())
+                    .expect("failed to write");
+                &stream
+                    .write_all(&serializedjson_start.as_bytes())
+                    .expect("failed to write");
+                //update the information about this keep-loader
+                //TODO - update with a query on the keep-loader itself?
+                //first find the correct entry in the list
+                for k in 0..kll.len() {
+                    let keeploader = &kll[k];
+                    //for mut keeploader in kll {
+                    if keeploader.kuuid == kuuid {
+                        println!("About to update state for keep-loader with kuuid {}, address {}, port {}", kuuid, &ap_bind_addr, ap_bind_port);
+                        &kll.remove(k);
+                        let new_keeploader = KeepLoader {
+                            state: KEEP_LOADER_STATE_STARTED,
+                            kuuid: kuuid,
+                            app_loader_bind_port: ap_bind_port,
+                            bindaddress: ap_bind_addr.to_string(),
+                        };
+                        &kll.push(new_keeploader.clone());
+                        break;
+                    }
+                }
             }
+
             &_ => {}
         }
         println!(

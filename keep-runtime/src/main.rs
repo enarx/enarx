@@ -33,6 +33,7 @@ use openssl::asn1::Asn1Time;
 use openssl::hash::MessageDigest;
 use openssl::pkey::PKey;
 use openssl::rsa::Rsa;
+use std::net::{IpAddr, SocketAddr};
 use std::path::Path;
 use warp::Filter;
 #[derive(Serialize, Deserialize)]
@@ -49,7 +50,13 @@ pub const KEY_SOURCE: &str = "generate";
 #[tokio::main]
 async fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
-    let listen_port: u16 = args[0].parse().unwrap();
+
+    let listen_address: &str = &args[0];
+    let listen_port: &str = &args[1];
+    let listen_socketaddr = SocketAddr::new(
+        listen_address.parse::<IpAddr>().unwrap(),
+        listen_port.parse().unwrap(),
+    );
     let (server_key, server_cert) = get_credentials_bytes();
 
     // POST /payload
@@ -64,7 +71,9 @@ async fn main() {
         .cert(&server_cert)
         .key(&server_key)
         //TODO - fix this so that we can bind to other IP addresses
-        .run(([127, 0, 0, 1], listen_port))
+        //.run(([127, 0, 0, 1], listen_port.parse().unwrap()))
+        //.run((listen_address, listen_port.parse().unwrap()))
+        .run(listen_socketaddr)
         .await;
 }
 

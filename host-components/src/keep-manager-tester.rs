@@ -157,6 +157,42 @@ fn main() {
         .expect("Possible issues");
 
     println!("");
+    println!("And <Enter> to list all keeps again");
+
+    io::stdin()
+        .read_line(&mut user_input)
+        .expect("Failed to read line");
+
+    //list keeps
+    let res5 = reqwest::blocking::Client::builder()
+        .danger_accept_invalid_certs(true)
+        .build()
+        .unwrap()
+        .post("https://localhost:3030/keeps_post/")
+        .json(&command_list_keeps)
+        .send()
+        .expect("Possible issues");
+    let keeploadervec2: KeepLoaderVec = res5.json().expect("Possible issues");
+    //TODO - output
+    println!("State 0  = undefined (awaiting start)");
+    println!("State 1  = listening for commands");
+    println!("State 2  = started (awaiting workload)");
+    println!("State 3  = completed");
+    println!("State 15 = error state\n");
+    for keeploader in &keeploadervec2.klvec {
+        println!(
+            "Keep kuuid {}, state {}, listening on {}:{}",
+            keeploader.kuuid,
+            keeploader.state,
+            keeploader.bindaddress,
+            keeploader.app_loader_bind_port
+        );
+    }
+
+    let number_of_kls = &keeploadervec2.klvec.len();
+    println!("We have {} Keep-loaders", number_of_kls);
+
+    println!("");
     println!("If you got here with no unexpected errors, then we have succeeded!");
     println!("");
     println!(
