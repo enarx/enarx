@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use crt0stack::{self, Builder, Entry, OutOfSpace};
+use crt0stack::{self, Builder, Entry, OutOfSpace, Stack};
 
-fn exec(initial_stack_ptr: &()) -> ! {
-    println!("initial_stack_ptr={:#?}", initial_stack_ptr as *const ());
+fn exec(initial_stack_ptr: &Stack) -> ! {
+    println!("initial_stack_ptr={:#?}", initial_stack_ptr as *const _);
     // load sp for the elf binary
 
     // execute elf
