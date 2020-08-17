@@ -31,14 +31,9 @@ extern crate serde_derive;
 
 use openssl::asn1::Asn1Time;
 use openssl::hash::MessageDigest;
-use openssl::nid::Nid;
 use openssl::pkey::PKey;
 use openssl::rsa::Rsa;
-use openssl::x509::{X509Name, X509NameBuilder, X509};
-
-//use std::collections::HashMap;
 use std::path::Path;
-//use warp::http::StatusCode;
 use warp::Filter;
 #[derive(Serialize, Deserialize)]
 struct Payload {
@@ -97,8 +92,6 @@ async fn payload_launch(payload: Payload) -> Result<impl warp::Reply, warp::Reje
 }
 
 fn get_credentials_bytes() -> (Vec<u8>, Vec<u8>) {
-    let mut key: Vec<u8> = Vec::new();
-    let mut cert: Vec<u8> = Vec::new();
     let (key, cert) = match KEY_SOURCE {
         "file-system" => (get_key_bytes_fs(), get_cert_bytes_fs()),
         "generate" => (generate_credentials()),
@@ -155,8 +148,16 @@ fn generate_credentials() -> (Vec<u8>, Vec<u8>) {
     let x509_name = x509_name.build();
 
     let mut x509_builder = openssl::x509::X509::builder().unwrap();
-    x509_builder.set_not_before(&Asn1Time::days_from_now(0).unwrap());
-    x509_builder.set_not_after(&Asn1Time::days_from_now(7).unwrap());
+    let set_not_before_result = x509_builder.set_not_before(&Asn1Time::days_from_now(0).unwrap());
+    match set_not_before_result {
+        Ok(_v) => {}
+        Err(e) => println!("Problems with certificate building {}", e),
+    }
+    let set_not_after_result = x509_builder.set_not_after(&Asn1Time::days_from_now(7).unwrap());
+    match set_not_after_result {
+        Ok(_v) => {}
+        Err(e) => println!("Problems with certificate building {}", e),
+    }
     x509_builder.set_subject_name(&x509_name).unwrap();
     x509_builder.set_pubkey(&pkey).unwrap();
     x509_builder.sign(&pkey, MessageDigest::sha256()).unwrap();
