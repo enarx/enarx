@@ -3,7 +3,7 @@
 use super::*;
 
 use core::marker::PhantomData;
-use core::mem::size_of;
+use core::mem::{align_of, size_of};
 
 type Result<T> = core::result::Result<T, OutOfSpace>;
 
@@ -51,8 +51,14 @@ impl<'a> Handle<'a> {
     /// This reference can be used as the initial stack pointer
     /// to execute a Linux ELF binary.
     #[inline]
-    pub fn start_ptr(&self) -> &'a () {
-        unsafe { &*(&self.0[self.1] as *const u8 as *const ()) }
+    pub fn start_ptr(&self) -> &'a Stack {
+        #[repr(C, align(16))]
+        struct Aligned(u128);
+
+        let (pre, body, _) = unsafe { self.0[self.1..].align_to::<Aligned>() };
+        assert!(pre.is_empty());
+
+        unsafe { &*(body.as_ptr() as *const _ as *const _) }
     }
 }
 
@@ -277,21 +283,20 @@ impl<'a> Builder<'a, Aux> {
             */
 
             // align down the destination pointer
-            let dst_start_idx = self.data.checked_sub(self.items).ok_or(OutOfSpace)?;
+            let dst_idx = self.data.checked_sub(self.items).ok_or(OutOfSpace)?;
 
             #[allow(clippy::integer_arithmetic)]
-            let align_offset = (&self.stack[dst_start_idx] as *const u8 as usize) % STACK_ALIGNMENT;
+            let align_offset = (&self.stack[dst_idx] as *const _ as usize) % align_of::<Stack>();
 
-            let dst_start_idx = dst_start_idx.checked_sub(align_offset).ok_or(OutOfSpace)?;
+            let dst_idx = dst_idx.checked_sub(align_offset).ok_or(OutOfSpace)?;
 
             // Align the source start index
             #[allow(clippy::integer_arithmetic)]
             let src_start_idx = self.items % size_of::<usize>();
 
-            self.stack
-                .copy_within(src_start_idx..self.items, dst_start_idx);
+            self.stack.copy_within(src_start_idx..self.items, dst_idx);
 
-            dst_start_idx
+            dst_idx
         };
         Ok(Handle(self.stack, start_idx))
     }
@@ -472,7 +477,7 @@ mod tests {
             builder.push(&Entry::Random([0u8; 16])).unwrap();
 
             let handle = builder.done().unwrap();
-            let alignment = (handle.start_ptr() as *const () as usize) % STACK_ALIGNMENT;
+            let alignment = (handle.start_ptr() as *const _ as usize) % align_of::<Stack>();
             eprintln!("offset: {}, alignment: {}", i, alignment);
             error |= alignment != 0;
         }

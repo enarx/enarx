@@ -35,7 +35,7 @@ impl<'a> Reader<'a, ()> {
     /// points to some other kind of data, there will likely be crashes. So be sure you
     /// get this right.
     #[inline]
-    pub unsafe fn from_stack(stack: &'a ()) -> Self {
+    pub unsafe fn from_stack(stack: &'a Stack) -> Self {
         Self {
             stack: stack as *const _ as _,
             state: PhantomData,
@@ -359,7 +359,10 @@ mod tests {
 
     #[test]
     fn unknown() {
-        let stack = [
+        #[repr(C, align(16))]
+        struct Aligned<T>(T);
+
+        let stack = Aligned([
             0usize,  // argc
             0usize,  // arg terminator
             0usize,  // env terminator
@@ -371,9 +374,9 @@ mod tests {
             1234,    // GID
             AT_NULL, // terminator
             0usize,  // terminator
-        ];
+        ]);
 
-        let reader = unsafe { Reader::from_stack(&*(stack.as_ptr() as *const ())) };
+        let reader = unsafe { Reader::from_stack(&*(stack.0.as_ptr() as *const Stack)) };
         assert_eq!(reader.count(), 0);
 
         let mut reader = reader.done();

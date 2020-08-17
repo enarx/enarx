@@ -42,8 +42,6 @@ pub use builder::Builder;
 pub use entry::Entry;
 pub use reader::Reader;
 
-const STACK_ALIGNMENT: usize = 16;
-
 const AT_NULL: usize = 0;
 const AT_EXECFD: usize = 2;
 const AT_PHDR: usize = 3;
@@ -85,3 +83,7 @@ pub enum Env {}
 
 /// State marker for the argument section
 pub enum Arg {}
+
+/// An opaque stack type used for a stack pointer
+#[repr(C, align(16))]
+pub struct Stack;
