@@ -5,7 +5,7 @@
 #![deny(missing_docs)]
 #![deny(clippy::all)]
 
-use crt0stack::{auxv::Entry, Reader};
+use crt0stack::{Entry, Reader};
 use std::ffi::CStr;
 use std::os::raw::c_char;
 use std::slice::from_raw_parts;

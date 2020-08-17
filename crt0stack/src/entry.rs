@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-//! Types and Constants to create an ELF AUXV
-
-/// AuxvEntry to be used with `Crt0Stack::add_auxv_entry()`
+/// An auxiliary vector entry
 #[derive(Debug, PartialEq)]
 pub enum Entry<'a> {
     /// file descriptor of program
