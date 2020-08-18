@@ -23,7 +23,11 @@ the WebAssembly file
 ## Preparing the demo
 
  - The demo currently only runs on a single machine, as it listens on
-localhost.
+localhost.  Other hosts are supported, but HTTPS certificates do not work.
+To change the host, edit `LOCAL_LISTEN_ADDRESS` in
+`enarx/host-components/src/lib.rs`.  To test, changes are required in the files
+`enarx/host-components/src/keep-manager-tester.rs` and
+`enarx/host-components/src/app-loader-tester.rs`
  - The demo currently has no support for Keeps running in TEEs: it supports
 wasmtime.
  - The demo currently has little support for outputs from a workload.
@@ -36,7 +40,7 @@ JSON is used for communications.
 Communications to the keep-manager from the keep-manager-tester are over HTTPS.
 Communications to the app-loader from the app-loader-tester are over HTTPS
 with both client and server certificates (the latter being created and self-
-signed by the app-loader).
+signed by the app-loader - see note above about non-localhost hosts).
 
 In order to run the demo, you shouldn't need any tools beyond those normally
 required to compile Enarx.
