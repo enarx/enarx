@@ -10,7 +10,7 @@ goblin = { version = "0.2", default-features = false, features = [ "elf64" ] }
 libc = { version = "0.2", features = [] }
 sgx = { path = "../../../sgx", default-features = false }
 intel-types = { path = "../../../intel-types" }
-crt0stack = { path = "../../../crt0stack" }
+crt0stack = { path = "../../../crt0stack", default-features = false }
 enumerate = { path = "../../../enumerate" }
 sallyport = { path = "../../../sallyport" }
 bounds = { path = "../../../bounds" }
