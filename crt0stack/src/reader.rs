@@ -272,7 +272,7 @@ mod tests {
 
         let handle = builder.done().unwrap();
 
-        let reader = unsafe { Reader::from_stack(handle.start_ptr()) };
+        let reader = unsafe { Reader::from_stack(&*handle) };
         assert_eq!(reader.count(), 3);
 
         let mut reader = reader.done();
@@ -317,7 +317,7 @@ mod tests {
 
         let handle = builder.done().unwrap();
 
-        let reader = unsafe { Reader::from_stack(handle.start_ptr()) };
+        let reader = unsafe { Reader::from_stack(&*handle) };
         assert_eq!(reader.count(), 3);
 
         let mut reader = reader.done();
@@ -376,7 +376,8 @@ mod tests {
             0usize,  // terminator
         ]);
 
-        let reader = unsafe { Reader::from_stack(&*(stack.0.as_ptr() as *const Stack)) };
+        let stack = stack.0.as_ptr() as *const Stack;
+        let reader = unsafe { Reader::from_stack(&*stack) };
         assert_eq!(reader.count(), 0);
 
         let mut reader = reader.done();

@@ -43,15 +43,16 @@ impl Serializable for &[u8] {
 
 /// Handle for the stack
 ///
-/// Retains the immutability and immovability of the stack buffer
+/// Retains the immutability and immovability of the stack buffer.
+///
+/// For a reference to the stack suitable for use before execution
+/// of a Linux ELF binary, simply `Deref` the `Handle`.
 pub struct Handle<'a>(&'a mut [u8], usize);
-impl<'a> Handle<'a> {
-    /// Returns a reference to the top of the prepared stack
-    ///
-    /// This reference can be used as the initial stack pointer
-    /// to execute a Linux ELF binary.
-    #[inline]
-    pub fn start_ptr(&self) -> &'a Stack {
+
+impl<'a> core::ops::Deref for Handle<'a> {
+    type Target = Stack;
+
+    fn deref(&self) -> &Stack {
         #[repr(C, align(16))]
         struct Aligned(u128);
 
@@ -477,7 +478,7 @@ mod tests {
             builder.push(&Entry::Random([0u8; 16])).unwrap();
 
             let handle = builder.done().unwrap();
-            let alignment = (handle.start_ptr() as *const _ as usize) % align_of::<Stack>();
+            let alignment = (&*handle as *const _ as usize) % align_of::<Stack>();
             eprintln!("offset: {}, alignment: {}", i, alignment);
             error |= alignment != 0;
         }

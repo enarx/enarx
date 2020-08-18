@@ -68,5 +68,5 @@ fn main() -> core::result::Result<(), OutOfSpace> {
     }
 
     let handle = builder.done()?;
-    exec(handle.start_ptr());
+    exec(&*handle);
 }

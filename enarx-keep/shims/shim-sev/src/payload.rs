@@ -212,7 +212,7 @@ fn crt0setup(
         builder.push(aux).unwrap();
     }
     let handle = builder.done().unwrap();
-    let sp = handle.start_ptr() as *const () as u64;
+    let sp = &*handle as *const _ as u64;
 
     Ok((ph_entry, sp))
 }

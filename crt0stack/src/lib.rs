@@ -38,7 +38,7 @@ mod builder;
 mod entry;
 mod reader;
 
-pub use builder::Builder;
+pub use builder::{Builder, Handle};
 pub use entry::Entry;
 pub use reader::Reader;
 
