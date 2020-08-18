@@ -79,7 +79,7 @@ pub extern "C" fn entry(_rdi: u64, _rsi: u64, _rdx: u64, layout: &Layout, _r8: u
 
     unsafe {
         jump(
-            handle.start_ptr() as *const _ as _,
+            &*handle as *const _ as _,
             layout.code.start as u64 + hdr.e_entry,
         )
     }
