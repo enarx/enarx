@@ -37,10 +37,34 @@
 pub mod auxv;
 pub use auxv::Entry;
 
-use auxv::Key;
 use core::marker::PhantomData;
 use core::mem::{self, size_of};
 const STACK_ALIGNMENT: usize = 16;
+
+const AT_NULL: usize = 0;
+const AT_EXECFD: usize = 2;
+const AT_PHDR: usize = 3;
+const AT_PHENT: usize = 4;
+const AT_PHNUM: usize = 5;
+const AT_PAGESZ: usize = 6;
+const AT_BASE: usize = 7;
+const AT_FLAGS: usize = 8;
+const AT_ENTRY: usize = 9;
+const AT_NOTELF: usize = 10;
+const AT_UID: usize = 11;
+const AT_EUID: usize = 12;
+const AT_GID: usize = 13;
+const AT_EGID: usize = 14;
+const AT_CLKTCK: usize = 17;
+const AT_PLATFORM: usize = 15;
+const AT_HWCAP: usize = 16;
+const AT_SECURE: usize = 23;
+const AT_BASE_PLATFORM: usize = 24;
+const AT_RANDOM: usize = 25;
+const AT_HWCAP2: usize = 26;
+const AT_EXECFN: usize = 31;
+const AT_SYSINFO: usize = 32;
+const AT_SYSINFO_EHDR: usize = 33;
 
 /// Indicates too many arguments for `serialize`
 ///
@@ -261,41 +285,41 @@ impl<'a> Builder<'a, Aux> {
     /// Add a new auxv::Entry
     #[inline]
     pub fn push(&mut self, entry: &auxv::Entry) -> Result<()> {
-        let (key, value): (Key, usize) = match *entry {
+        let (key, value): (usize, usize) = match *entry {
             Entry::Platform(x) => {
                 self.push_data(0u8)?;
-                (Key::Platform, self.push_data(x.as_bytes())? as _)
+                (AT_PLATFORM, self.push_data(x.as_bytes())? as _)
             }
             Entry::BasePlatform(x) => {
                 self.push_data(0u8)?;
-                (Key::BasePlatform, self.push_data(x.as_bytes())? as _)
+                (AT_BASE_PLATFORM, self.push_data(x.as_bytes())? as _)
             }
             Entry::ExecFilename(x) => {
                 self.push_data(0u8)?;
-                (Key::ExecFilename, self.push_data(x.as_bytes())? as _)
+                (AT_EXECFN, self.push_data(x.as_bytes())? as _)
             }
-            Entry::Random(x) => (Key::Random, self.push_data(&x[..])? as _),
-            Entry::ExecFd(v) => (Key::ExecFd, v),
-            Entry::PHdr(v) => (Key::PHdr, v),
-            Entry::PHent(v) => (Key::PHent, v),
-            Entry::PHnum(v) => (Key::PHnum, v),
-            Entry::PageSize(v) => (Key::PageSize, v),
-            Entry::Base(v) => (Key::Base, v),
-            Entry::Flags(v) => (Key::Flags, v),
-            Entry::Entry(v) => (Key::Entry, v),
-            Entry::NotElf(v) => (Key::NotElf, if v { 1 } else { 0 }),
-            Entry::Uid(v) => (Key::Uid, v),
-            Entry::EUid(v) => (Key::EUid, v),
-            Entry::Gid(v) => (Key::Gid, v),
-            Entry::EGid(v) => (Key::EGid, v),
-            Entry::HwCap(v) => (Key::HwCap, v),
-            Entry::ClockTick(v) => (Key::ClockTick, v),
-            Entry::Secure(v) => (Key::Secure, if v { 1 } else { 0 }),
-            Entry::HwCap2(v) => (Key::HwCap2, v),
-            Entry::SysInfo(v) => (Key::SysInfo, v),
-            Entry::SysInfoEHdr(v) => (Key::SysInfoEHdr, v),
+            Entry::Random(x) => (AT_RANDOM, self.push_data(&x[..])? as _),
+            Entry::ExecFd(v) => (AT_EXECFD, v),
+            Entry::PHdr(v) => (AT_PHDR, v),
+            Entry::PHent(v) => (AT_PHENT, v),
+            Entry::PHnum(v) => (AT_PHNUM, v),
+            Entry::PageSize(v) => (AT_PAGESZ, v),
+            Entry::Base(v) => (AT_BASE, v),
+            Entry::Flags(v) => (AT_FLAGS, v),
+            Entry::Entry(v) => (AT_ENTRY, v),
+            Entry::NotElf(v) => (AT_NOTELF, if v { 1 } else { 0 }),
+            Entry::Uid(v) => (AT_UID, v),
+            Entry::EUid(v) => (AT_EUID, v),
+            Entry::Gid(v) => (AT_GID, v),
+            Entry::EGid(v) => (AT_EGID, v),
+            Entry::HwCap(v) => (AT_HWCAP, v),
+            Entry::ClockTick(v) => (AT_CLKTCK, v),
+            Entry::Secure(v) => (AT_SECURE, if v { 1 } else { 0 }),
+            Entry::HwCap2(v) => (AT_HWCAP2, v),
+            Entry::SysInfo(v) => (AT_SYSINFO, v),
+            Entry::SysInfoEHdr(v) => (AT_SYSINFO_EHDR, v),
         };
-        self.push_item(key.into())?;
+        self.push_item(key)?;
         self.push_item(value)?;
         Ok(())
     }
@@ -303,7 +327,7 @@ impl<'a> Builder<'a, Aux> {
     /// Finish the Builder and get the `Handle`
     #[inline]
     pub fn done(mut self) -> Result<Handle<'a>> {
-        self.push_item(Key::Null.into())?;
+        self.push_item(AT_NULL)?;
         self.push_item(0)?;
 
         let start_idx = {
@@ -547,34 +571,34 @@ impl<'a> Iterator for Reader<'a, Aux> {
         let val = unsafe { *self.stack.add(1) };
 
         let entry = match unsafe { mem::transmute(*self.stack) } {
-            Key::Null => return None,
-            Key::ExecFd => Entry::ExecFd(val),
-            Key::PHdr => Entry::PHdr(val),
-            Key::PHent => Entry::PHent(val),
-            Key::PHnum => Entry::PHnum(val),
-            Key::PageSize => Entry::PageSize(val),
-            Key::Base => Entry::Base(val),
-            Key::Flags => Entry::Flags(val),
-            Key::Entry => Entry::Entry(val),
-            Key::NotElf => Entry::NotElf(val != 0),
-            Key::Uid => Entry::Uid(val),
-            Key::EUid => Entry::EUid(val),
-            Key::Gid => Entry::Gid(val),
-            Key::EGid => Entry::EGid(val),
-            Key::Platform => Entry::Platform(unsafe { u2s(val).ok()? }),
-            Key::HwCap => Entry::HwCap(val),
-            Key::ClockTick => Entry::ClockTick(val),
-            Key::Secure => Entry::Secure(val != 0),
-            Key::BasePlatform => Entry::BasePlatform(unsafe { u2s(val).ok()? }),
-            Key::Random => Entry::Random(unsafe { *(val as *const [u8; 16]) }),
-            Key::HwCap2 => Entry::HwCap2(val),
-            Key::ExecFilename => Entry::ExecFilename(unsafe { u2s(val).ok()? }),
+            AT_NULL => return None,
+            AT_EXECFD => Entry::ExecFd(val),
+            AT_PHDR => Entry::PHdr(val),
+            AT_PHENT => Entry::PHent(val),
+            AT_PHNUM => Entry::PHnum(val),
+            AT_PAGESZ => Entry::PageSize(val),
+            AT_BASE => Entry::Base(val),
+            AT_FLAGS => Entry::Flags(val),
+            AT_ENTRY => Entry::Entry(val),
+            AT_NOTELF => Entry::NotElf(val != 0),
+            AT_UID => Entry::Uid(val),
+            AT_EUID => Entry::EUid(val),
+            AT_GID => Entry::Gid(val),
+            AT_EGID => Entry::EGid(val),
+            AT_PLATFORM => Entry::Platform(unsafe { u2s(val).ok()? }),
+            AT_HWCAP => Entry::HwCap(val),
+            AT_CLKTCK => Entry::ClockTick(val),
+            AT_SECURE => Entry::Secure(val != 0),
+            AT_BASE_PLATFORM => Entry::BasePlatform(unsafe { u2s(val).ok()? }),
+            AT_RANDOM => Entry::Random(unsafe { *(val as *const [u8; 16]) }),
+            AT_HWCAP2 => Entry::HwCap2(val),
+            AT_EXECFN => Entry::ExecFilename(unsafe { u2s(val).ok()? }),
 
             #[cfg(target_arch = "x86")]
-            Key::SysInfo => Entry::SysInfo(val),
+            AT_SYSINFO => Entry::SysInfo(val),
 
             #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-            Key::SysInfoEHdr => Entry::SysInfoEHdr(val),
+            AT_SYSINFO_EHDR => Entry::SysInfoEHdr(val),
 
             _ => {
                 return {
@@ -776,39 +800,39 @@ mod tests {
         let arg: *const std::os::raw::c_char = prep_stack.pop_l();
         assert_eq!(arg, core::ptr::null());
 
-        let key: Key = prep_stack.pop_l();
+        let key: usize = prep_stack.pop_l();
         let value: usize = prep_stack.pop_l();
-        assert_eq!(key, Key::Random);
+        assert_eq!(key, AT_RANDOM);
         let s: &[u8; 16] = unsafe { mem::transmute(value) };
         assert_eq!(s, &[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]);
 
-        let key: Key = prep_stack.pop_l();
+        let key: usize = prep_stack.pop_l();
         let value: usize = prep_stack.pop_l();
-        assert_eq!(key, Key::Gid);
+        assert_eq!(key, AT_GID);
         assert_eq!(value, 1000);
 
-        let key: Key = prep_stack.pop_l();
+        let key: usize = prep_stack.pop_l();
         let value: usize = prep_stack.pop_l();
-        assert_eq!(key, Key::Uid);
+        assert_eq!(key, AT_UID);
         assert_eq!(value, 1000);
 
-        let key: Key = prep_stack.pop_l();
+        let key: usize = prep_stack.pop_l();
         let value: usize = prep_stack.pop_l();
-        assert_eq!(key, Key::Platform);
+        assert_eq!(key, AT_PLATFORM);
         let cstr = unsafe { CStr::from_ptr(value as *const u8 as _) };
         let s = cstr.to_string_lossy();
         assert_eq!(s, "x86_64");
 
-        let key: Key = prep_stack.pop_l();
+        let key: usize = prep_stack.pop_l();
         let value: usize = prep_stack.pop_l();
-        assert_eq!(key, Key::ExecFilename);
+        assert_eq!(key, AT_EXECFN);
         let cstr = unsafe { CStr::from_ptr(value as _) };
         let s = cstr.to_string_lossy();
         assert_eq!(s, prog);
 
-        let key: Key = prep_stack.pop_l();
+        let key: usize = prep_stack.pop_l();
         let value: usize = prep_stack.pop_l();
-        assert_eq!(key, Key::Null);
+        assert_eq!(key, AT_NULL);
         assert_eq!(value, 0);
     }
 
@@ -922,17 +946,17 @@ mod tests {
     #[test]
     fn reader_unknown() {
         let stack = [
-            0usize,           // argc
-            0usize,           // arg terminator
-            0usize,           // env terminator
-            Key::Uid.into(),  // UID
-            1234,             // UID
-            0xAAAA,           // unknown
-            0xAAAA,           // unknown
-            Key::Gid.into(),  // GID
-            1234,             // GID
-            Key::Null.into(), // terminator
-            0usize,           // terminator
+            0usize,  // argc
+            0usize,  // arg terminator
+            0usize,  // env terminator
+            AT_UID,  // UID
+            1234,    // UID
+            0xAAAA,  // unknown
+            0xAAAA,  // unknown
+            AT_GID,  // GID
+            1234,    // GID
+            AT_NULL, // terminator
+            0usize,  // terminator
         ];
 
         let reader = unsafe { Reader::from_stack(&*(stack.as_ptr() as *const ())) };
