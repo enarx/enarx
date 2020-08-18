@@ -6,6 +6,7 @@ use tokio::sync::Mutex;
 
 pub const WASM_RUNTIME_BINARY_PATH: &str =
     "/home/mike/programming/enarx/keep-runtime/target/x86_64-unknown-linux-musl/debug/keep-runtime";
+pub const LOCAL_LISTEN_ADDRESS: &str = "192.168.1.202";
 
 pub const PROTO_VERSION: f32 = 0.1;
 pub const PROTO_NAME: &str = "Enarx-Keep-Manager";
@@ -28,7 +29,7 @@ pub const KEEP_ARCH: &str = "keep-arch";
 pub const KEEP_ARCH_WASI: &str = "wasi";
 pub const KEEP_ARCH_SEV: &str = "AMD-SEV";
 pub const KEEP_ARCH_SGX: &str = "Intel-SGX";
-pub const KEEP_APP_LOADER_BIND_PORT: &str = "app-loader-bind-port";
+//pub const KEEP_APP_LOADER_BIND_PORT: &str = "app-loader-bind-port";
 pub const APP_LOADER_BIND_PORT_START: u16 = 3031;
 pub const KEEP_APP_LOADER_START_COMMAND: &str = "apploader-start";
 pub const KEEP_APP_LOADER_ADDR: &str = "apploader-addr";

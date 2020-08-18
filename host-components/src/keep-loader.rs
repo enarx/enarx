@@ -39,12 +39,6 @@ fn main() {
     //TODO - remove hard-coding!
     println!("Keep-loader has received {} args", args.len());
     let kuuid = args[1].clone();
-    //let app_loader_bind_addr = args[2].clone();
-    //let app_loader_bind_port = args[3].clone();
-    /*println!(
-            "kuuid = {}, apploaderbindaddr = {}, apploaderbindport = {}",
-            kuuid, app_loader_bind_addr, app_loader_bind_port
-    );*/
     println!("kuuid = {}", kuuid);
     let bind_socket = format!("/tmp/enarx-keep-{}.sock", kuuid);
     println!("binding to {}", bind_socket);
@@ -53,10 +47,6 @@ fn main() {
         kuuid.parse().expect("problems parsing kuuid"),
         0,
         "".to_string(),
-        //app_loader_bind_port
-        //    .parse()
-        //    .expect("problems parsing app_loader_bind_port"),
-        //app_loader_bind_addr.to_string(),
     )));
 
     let listener = UnixListener::bind(bind_socket).unwrap();

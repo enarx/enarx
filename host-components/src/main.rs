@@ -238,34 +238,6 @@ mod filters {
 
                 if supported {
                     let mut kll = keeploaderlist.lock().await;
-                    //                    let kllvec: Vec<KeepLoader> = kll.clone().into_iter().collect();
-
-                    /*
-                    match keepaddr_opt {
-                        Some(addr) => {
-                            ap_bind_addr = addr;
-                            //if we have been provided with a port, we use that,
-                            // if not, default to default (APP_LOADER_BIND_PORT_START).
-                            // ASSERT: we cannot be expected to manage all possible
-                            //  IP addresses and associated ports
-                            match keepport_opt {
-                                Some(port) => {
-                                    ap_bind_port = port.parse().expect("Problems parsing port")
-                                }
-                                None => ap_bind_port = APP_LOADER_BIND_PORT_START,
-                            }
-                        }
-                        //if we have no address, then we use localhost and try suggested
-                        // but auto-assign if it's already taken
-                        None => {
-                            ap_bind_addr = "127.0.0.1";
-                            //request the very first available port
-                            // assign_port will grant the next available if
-                            // APP_LOADER_BIND_PORT_START is not available
-                            ap_bind_port = assign_port(kllvec, APP_LOADER_BIND_PORT_START);
-                        }
-                    }*/
-
                     let new_keeploader = new_keep(authtoken, 0, "");
                     println!(
                         "Keeploaderlist currently has {} entries, about to add {}",
@@ -306,13 +278,14 @@ mod filters {
             }
             "start-keep" => {
                 let mut kll = keeploaderlist.lock().await;
-                let mut kllvec: Vec<KeepLoader> = kll.clone().into_iter().collect();
+                let kllvec: Vec<KeepLoader> = kll.clone().into_iter().collect();
                 let kuuid: usize = command_group.get(KEEP_KUUID).unwrap().parse().unwrap();
 
                 let keepaddr_opt = command_group.get(KEEP_ADDR);
                 let keepport_opt = command_group.get(KEEP_PORT);
                 let ap_bind_addr: &str;
                 let ap_bind_port: u16;
+                //TODO - need unit tests for this
                 match keepaddr_opt {
                     Some(addr) => {
                         println!("start-keep received {}", &addr);
@@ -323,9 +296,26 @@ mod filters {
                         //  IP addresses and associated ports
                         match keepport_opt {
                             Some(port) => {
-                                ap_bind_port = port.parse().expect("Problems parsing port")
+                                println!("... and port {}", port);
+                                match ap_bind_addr {
+                                    //deal with the case where we're on localhost, in which case
+                                    // we'll auto-assign
+                                    "127.0.0.1" => {
+                                        ap_bind_port =
+                                            assign_port(kllvec.clone(), APP_LOADER_BIND_PORT_START)
+                                    }
+                                    &_ => {
+                                        ap_bind_port = port.parse().expect("Problems parsing port")
+                                    }
+                                }
                             }
-                            None => ap_bind_port = APP_LOADER_BIND_PORT_START,
+                            None => match ap_bind_addr {
+                                "127.0.0.1" => {
+                                    ap_bind_port =
+                                        assign_port(kllvec.clone(), APP_LOADER_BIND_PORT_START)
+                                }
+                                &_ => ap_bind_port = APP_LOADER_BIND_PORT_START,
+                            },
                         }
                     }
                     //if we have no address, then we use localhost and try suggested

@@ -4,6 +4,8 @@ extern crate reqwest;
 #[macro_use]
 extern crate serde_derive;
 
+//Commented out as unused in TEST 1
+//use ::host_components::*;
 use std::fs::File;
 use std::io::Read;
 use std::path::Path;
@@ -51,7 +53,11 @@ fn main() {
     let pkcs12_client_id = reqwest::Identity::from_pkcs12_der(&cert_buf, "enarx-test")
         .expect("certificate reading problems");
 
+    //TEST 1 - localhost:port
     let connect_uri = format!("https://localhost:{}/payload", connect_port);
+    //TEST 2 - other_add:port
+    //let connect_uri = format!("https://{}:{}/payload", LOCAL_LISTEN_ADDRESS, connect_port);
+
     //we accept invalid certs here because in the longer term, we will have mechanism
     // for finding out what the cert should be dynamically, and adding it, but currently,
     // we don't know what to expect as cert is dynamically generated and self-signed

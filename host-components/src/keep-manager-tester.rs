@@ -8,6 +8,7 @@ use std::collections::HashMap;
 //TODO - better user input
 use std::io;
 
+//TODO - this could all use significant improvement in terms of legibility and style
 fn main() {
     let mut user_input = String::new();
 
@@ -75,7 +76,7 @@ fn main() {
         .json(&command_new_keep)
         .send()
         .expect("Possible issues");
-    //let content2 = res2.text();
+
     let keeploader2: KeepLoader = res2.json().expect("Possible issues");
     println!("Keep created with kuuid = {}", keeploader2.kuuid);
 
@@ -133,18 +134,33 @@ fn main() {
             .app_loader_bind_port
             .to_string()
     );
+
+    /*
+    pub const KEEP_PORT: &str = "keep-port";
+    pub const KEEP_ADDR: &str = "keep-addr";
+    pub const KEEP_KUUID: &str = "kuuid";
+     */
     let mut command_start_keep: HashMap<String, String> = HashMap::new();
     command_start_keep.insert("command".to_string(), "start-keep".to_string());
     command_start_keep.insert(
-        "kuuid".to_string(),
+        KEEP_KUUID.to_string(),
         keeploadervec.klvec.last().unwrap().kuuid.to_string(),
     );
-    command_start_keep.insert(
-        "app-loader-bind-port".to_string(),
-        keeploadervec.klvec[number_of_kls - 1]
-            .app_loader_bind_port
-            .to_string(),
-    );
+
+    //TEST CASE 1 - localhost:3031
+    command_start_keep.insert(KEEP_PORT.to_string(), 3031.to_string());
+    command_start_keep.insert(KEEP_ADDR.to_string(), "127.0.0.1".to_string());
+
+    //TEST CASE 2 - localhost:UNASSIGNED
+    //command_start_keep.insert(KEEP_ADDR.to_string(), "127.0.0.1".to_string());
+
+    //TEST CASE 3 - other_addr:3035
+    //NOTE: hard-coded IP address!
+    //command_start_keep.insert(KEEP_PORT.to_string(), 3035.to_string());
+    //command_start_keep.insert(KEEP_ADDR.to_string(), LOCAL_LISTEN_ADDRESS.to_string());
+
+    //TEST CASE 3 - other_addr::UNASSIGNED
+    //command_start_keep.insert(KEEP_ADDR.to_string(), LOCAL_LISTEN_ADDRESS.to_string());
 
     //start the first keep in our list
     let _res4 = reqwest::blocking::Client::builder()
@@ -199,13 +215,8 @@ fn main() {
         "Next, you probably want to load an application into your recently-started Keep using the"
     );
     println!("command eg.app-loader-tester, with a single argument: the port on which it should");
-    println!("be listening:");
-    println!(
-        "   e.g. ./target/debug/app-loader-tester {}",
-        keeploadervec.klvec[number_of_kls - 1]
-            .app_loader_bind_port
-            .to_string()
-    );
+    println!("be listening (see last entry in the list)");
+    println!("   e.g. ./target/debug/app-loader-tester [e.g. 3031]",);
     println!("");
     println!("Good luck!");
     println!("");
