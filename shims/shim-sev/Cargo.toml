@@ -6,7 +6,7 @@ edition = "2018"
 license = "Apache-2.0"
 
 [dependencies]
-crt0stack = { path = "../../../crt0stack" }
+crt0stack = { path = "../../../crt0stack", default-features = false }
 sallyport = { path = "../../../sallyport" }
 bounds = { path = "../../../bounds" }
 memory = { path = "../../../memory" }
