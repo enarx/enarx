@@ -22,12 +22,15 @@ the WebAssembly file
 
 ## Preparing the demo
 
- - The demo currently only runs on a single machine, as it listens on
+ - The demo has only be tested on Fedora 32.
+ - The demo currently runs on a single machine, as it listens on
 localhost.  Other hosts are supported, but HTTPS certificates do not work.
 To change the host, edit `LOCAL_LISTEN_ADDRESS` in
 `enarx/host-components/src/lib.rs`.  To test, changes are required in the files
 `enarx/host-components/src/keep-manager-tester.rs` and
 `enarx/host-components/src/app-loader-tester.rs`
+ - The demo requires sudo or adminisitrator access to the machine, as systemd
+ is used.
  - The demo currently has no support for Keeps running in TEEs: it supports
 wasmtime.
  - The demo currently has little support for outputs from a workload.
@@ -42,33 +45,38 @@ Communications to the app-loader from the app-loader-tester are over HTTPS
 with both client and server certificates (the latter being created and self-
 signed by the app-loader - see note above about non-localhost hosts).
 
+systemd is used to create Keeps that can survive longer than the lifetime of
+the keep-manager process.  Alternatives to systemd are currently not supported.
+
 In order to run the demo, you shouldn't need any tools beyond those normally
-required to compile Enarx.
+required to compile Enarx, but you do require sudo or administrator access
+(to set up the systemd components).
 
 Steps:
 1. download the latest source code from github (the easiest way is to do a
 `git clone` of the repository.
 2. enter the enarx/keep-runtime directory
 3. run `cargo build`
-4. enter the enarx/host-components directory
-5. edit the file `lib.rs` to reflect the location on your system of the
-`keep-runtime` binary created in previous
+4. edit the file `enarx/host-components/src/lib.rs` to reflect the location
+on your system of the `keep-runtime` binary created in the previous
+step (it should be have been created in
+`$YOUR_ROOT/enarx/keep-runtime/target/x86_64-unknown-linux-musl/debug/keep-runtime`)
+5. enter the enarx/host-components directory
 6. run `cargo build`
-7. enter the enarx/host-components directory
-8. edit the file `enarx-keep@.service` to update the `ExecStart` entry
-to reflect the location of the `keep-loader` binary created in the previous
-step
-9. edit the file `enarx-keep@.service` to update the `StandardOutput` and
-`StandardError` entries to reflect your preferred locations for the files to
-record stdio and stderr
-10. run `sudo ln -s enarx-keep@.service /etc/systemd/user/enarx-keep@.service`
-11. run `sudo systemd reload-daemon` (running this with the parameter `--user`
+7. edit the file `enarx/host-components/external/enarx-keep@.service` to
+update the `ExecStart` entry to reflect the location of the `keep-loader`
+binary created in the previous step
+8. edit the file `enarx/host-components/external/enarx-keep@.service` to
+update the `StandardOutput` and `StandardError` entries to reflect your
+preferred locations for the files to record stdio and stderr
+9. run `sudo ln -s enarx-keep@.service /etc/systemd/user/enarx-keep@.service`
+10. run `sudo systemd reload-daemon` (running this with the parameter `--user`
 **may** work)
 
 If you have run the demo before, you should kill old instances
 of the keep-loader.  This is best down by running the command
 `pkill -9 keep-loader`.  You may also wish to delete any keeploader output
-files (the locations of which you set in step 9).  Although it's unlikely to
+files (the locations of which you set in step 8).  Although it's unlikely to
 have any impact on the demo, you may wish to clean up old files with
 `rm /tmp/enarx-keep*.sock`.
 
