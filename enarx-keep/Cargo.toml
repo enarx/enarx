@@ -13,13 +13,13 @@ intel-types = { path = "../intel-types" }
 sallyport = { path = "../sallyport" }
 bounds = { path = "../bounds" }
 memory = { path = "../memory" }
-units = { path = "../units" }
 mmap = { path = "../mmap" }
 sgx = { path = "../sgx" }
 kvm-bindings = "0.3.0"
 kvm-ioctls = "0.5.0"
 structopt = "0.3"
 colorful = "0.2"
+nbytes = "0.1"
 anyhow = "1.0"
 goblin = "0.2"
 libc = "0.2"

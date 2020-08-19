@@ -4,7 +4,6 @@ CARGO_MAKE_EXTEND_WORKSPACE_MAKEFILE = true
 CARGO_MAKE_WORKSPACE_EMULATION = true
 CARGO_MAKE_CRATE_WORKSPACE_MEMBERS = [
 	"bounds",
-	"crt0stack",
 	"enarx-keep",
 	"enarx-keep/shims/shim-sev",
 	"enarx-keep/shims/shim-sgx",
@@ -18,8 +17,6 @@ CARGO_MAKE_CRATE_WORKSPACE_MEMBERS = [
 	"sev",
 	"sevctl",
 	"sgx",
-	"units",
-	"vdso"
 ]
 ENARX_TEST_DIR = "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/.tests"
 ENARX_DOCS_DIR = "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/docs"
