@@ -70,7 +70,7 @@ binary created in the previous step
 update the `StandardOutput` and `StandardError` entries to reflect your
 preferred locations for the files to record stdio and stderr
 9. run `sudo ln -s enarx-keep@.service /etc/systemd/user/enarx-keep@.service`
-10. run `sudo systemd reload-daemon` (running this with the parameter `--user`
+10. run `sudo systemd daemon-reload` (running this with the parameter `--user`
 **may** work)
 
 If you have run the demo before, you should kill old instances
@@ -91,13 +91,13 @@ machine.
 
 Terminal 1 - server:
  - enter the `enarx/host-components` directory
- - run the command `.target/debug/keep-manager`
+ - run the command `cargo run --bin keep-manager`
  - you should see the keep-manager starting up
  - move to Terminal 2 - client.
 
 Terminal 2 - client:
  - enter the `enarx/host-components` directory
- - run the command `.target/debug/keep-manager-tester`
+ - run the command `cargo run --bin keep-manager-tester`
  - follow the instructions
  - once the binary has finished executing, you will be prompted
  to run another command (the app-loader-tester).  Follow these instructions.
@@ -108,7 +108,7 @@ Terminal 2 - client:
 
 Terminal 1 - server:
  - halt the running process with CTRL-C.  Start it again with the command
- `.target/debug/keep-manager`.  You should see that it has found the keep-loaders
+ `cargo run --bin keep-manager`.  You should see that it has found the keep-loaders
  that it created last time, and provided you with some information about them.
  - move to Terminal 2 - client.
 

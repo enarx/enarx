@@ -11,7 +11,3 @@ UMask=0066
 StandardOutput=file:/home/mike/keeploader.log
 StandardError=file:/home/mike/keeploader.err
 
-[Install]
-;WantedBy=multi-user.target
-
-;note - link to /etc/systemd/user/
