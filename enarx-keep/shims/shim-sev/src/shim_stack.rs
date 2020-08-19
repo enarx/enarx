@@ -5,7 +5,7 @@
 use crate::frame_allocator::FRAME_ALLOCATOR;
 use crate::paging::SHIM_PAGETABLE;
 use core::ops::DerefMut;
-use units::bytes;
+use nbytes::bytes;
 use x86_64::structures::paging::{Page, PageTableFlags, Size4KiB};
 use x86_64::VirtAddr;
 

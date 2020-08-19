@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use bounds::{Contains as _, Span};
+use nbytes::bytes;
 
-const PREFIX: usize = units::bytes![4; MiB];
-const ALIGN: usize = units::bytes![2; MiB];
-const STACK: usize = units::bytes![8; MiB];
-const HEAP: usize = units::bytes![128; MiB];
-const SIZE: usize = units::bytes![64; GiB];
+const PREFIX: usize = bytes![4; MiB];
+const ALIGN: usize = bytes![2; MiB];
+const STACK: usize = bytes![8; MiB];
+const HEAP: usize = bytes![128; MiB];
+const SIZE: usize = bytes![64; GiB];
 
 const fn lower(value: usize, boundary: usize) -> usize {
     value / boundary * boundary
@@ -39,7 +40,7 @@ impl Layout {
 
         let shim: Line<usize> = above(
             Span {
-                start: units::bytes!(32; TiB) + units::bytes!(63;GiB),
+                start: bytes!(32; TiB) + bytes!(63;GiB),
                 count: 0,
             },
             Span::from(shim).count,

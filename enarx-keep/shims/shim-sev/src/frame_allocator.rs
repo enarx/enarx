@@ -4,6 +4,7 @@
 use crate::BOOT_INFO;
 use memory::Page as Page4KiB;
 use memory::{Address, Offset};
+use nbytes::bytes;
 use spinning::RwLock;
 use x86_64::structures::paging::{
     self, Mapper, Page, PageSize, PageTableFlags, PhysFrame, Size2MiB, Size4KiB,
@@ -17,7 +18,7 @@ use x86_64::{align_down, PhysAddr, VirtAddr};
 #[derive(Copy, Clone)]
 #[repr(C, align(0x200000))]
 #[allow(clippy::integer_arithmetic)]
-pub struct Page2MiB([u8; units::bytes![2; MiB]]);
+pub struct Page2MiB([u8; bytes![2; MiB]]);
 
 lazy_static! {
     /// The global ShimFrameAllocator RwLock

@@ -13,8 +13,8 @@ use goblin::elf::header::header64::Header;
 use goblin::elf::header::ELFMAG;
 use goblin::elf::program_header::program_header64::*;
 use memory::Address;
+use nbytes::bytes;
 use spinning::RwLock;
-use units::bytes;
 use x86_64::structures::paging::{Page, PageTableFlags, Size4KiB};
 use x86_64::{PhysAddr, VirtAddr};
 
