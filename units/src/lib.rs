@@ -1,11 +1,24 @@
 // SPDX-License-Identifier: Apache-2.0
 
+//! Welcome to units!
+//!
+//! The `units` crate exists to provide compile-time evaluation of various
+//! unit conversions. Currently we support conversions of the various suffixes
+//! related to bytes. For example:
+//!
+//! ```rust
+//! use units::bytes;
+//!
+//! assert_eq!(bytes![2; KiB], 2048);
+//! assert_eq!(bytes![2; kB], 2000);
+//! ```
+
 #![deny(clippy::all)]
 #![no_std]
-// TODO: https://github.com/enarx/enarx/issues/349
 #![deny(missing_docs)]
-#![allow(missing_docs)]
 
+/// This macro implements byte suffixes using the
+/// [JEDEC memory standards](https://en.wikipedia.org/wiki/JEDEC_memory_standards).
 #[macro_export]
 macro_rules! jedec {
     ($n:expr; KB) => { $n * 1024 };
@@ -13,6 +26,7 @@ macro_rules! jedec {
     ($n:expr; GB) => { $crate::jedec![$n * 1024; MB] };
 }
 
+/// This macro implements [SI byte suffixes](https://en.wikipedia.org/wiki/Kilobyte).
 #[macro_export]
 macro_rules! si {
     ($n:expr; kB) => { $n * 1000 };
@@ -25,6 +39,7 @@ macro_rules! si {
     ($n:expr; YB) => { $crate::si![$n * 1000; ZB] };
 }
 
+/// This macro implements [ISO/IEC 80000 byte suffixs](https://en.wikipedia.org/wiki/ISO/IEC_80000).
 #[macro_export]
 macro_rules! iec {
     ($n:expr; KiB) => { $n * 1024 };
@@ -37,6 +52,10 @@ macro_rules! iec {
     ($n:expr; YiB) => { $crate::iec![$n * 1024; ZiB] };
 }
 
+/// A conveneince wrapper for the dominant byte suffixes.
+///
+/// Both the JEDEC and ISO/IEC 80000 byte suffixes are supported.
+/// For more details, see `si!()` and `iec!()`.
 #[macro_export]
 macro_rules! bytes {
     ($n:expr; kB) => { $crate::si![$n; kB] };
