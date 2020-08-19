@@ -4,7 +4,6 @@
 //! The Target Info is used to identify the target enclave that will be able to cryptographically
 //! verify the REPORT structure returned by the EREPORT leaf. Must be 512-byte aligned.
 
-use crate::attestation_types::report;
 use crate::types::{attr::Attributes, misc::MiscSelect};
 
 /// Table 38-22
@@ -33,7 +32,9 @@ impl TargetInfo {
     /// # Safety
     /// This function is unsafe because it executes an `enclu` instruction which
     /// is only available on processors that support SGX.
-    pub unsafe fn get_report(&self, data: &ReportData) -> report::Report {
+    pub unsafe fn get_report(&self, data: &ReportData) -> crate::attestation_types::report::Report {
+        use crate::attestation_types::report;
+
         const EREPORT: usize = 0;
 
         let mut report = core::mem::MaybeUninit::<report::Report>::uninit();
