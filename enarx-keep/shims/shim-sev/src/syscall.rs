@@ -9,6 +9,7 @@ use crate::hostcall::{self, shim_write_all, HostFd, HOST_CALL};
 use crate::paging::SHIM_PAGETABLE;
 use crate::payload::{NEXT_BRK_RWLOCK, NEXT_MMAP_RWLOCK};
 use core::convert::TryFrom;
+use core::mem::MaybeUninit;
 use core::ops::{Deref, DerefMut};
 use memory::Address;
 use sallyport::request;
@@ -124,6 +125,10 @@ pub extern "C" fn syscall_rust(
         libc::SYS_ioctl => h.ioctl(),
         libc::SYS_mprotect => h.mprotect(),
         libc::SYS_clock_gettime => h.clock_gettime(),
+        libc::SYS_uname => h.uname(),
+        libc::SYS_readlink => h.readlink(),
+        libc::SYS_fstat => h.fstat(),
+        libc::SYS_fcntl => h.fcntl(),
 
         syscall => {
             //panic!("SC> unsupported syscall: {}", syscall);
@@ -274,6 +279,10 @@ impl Handler {
                     Ok(flush) => flush.flush(),
                     Err(e) => {
                         dbg!(e);
+                        eprintln!(
+                            "SC> mprotect({:#X}, {}, {}, …) = EINVAL",
+                            self.a, self.b, self.c
+                        );
                         return Err(libc::EINVAL);
                     }
                 }
@@ -358,15 +367,23 @@ impl Handler {
                 Ok(next_brk.as_u64() as _)
             }
             n => {
+                if n <= next_brk.as_u64() as usize {
+                    if n as u64
+                        > next_brk
+                            .as_u64()
+                            .checked_sub(Page::<Size4KiB>::SIZE)
+                            .unwrap()
+                    {
+                        // already mapped
+                        eprintln!("SC> brk({:#X}) = {:#X}", self.a, n);
+                        return Ok(n);
+                    } else {
+                        // n most likely wrong
+                        return Err(libc::EINVAL);
+                    }
+                }
+
                 len = n.checked_sub(next_brk.as_u64() as usize).unwrap();
-
-                // FIXME
-                assert_eq!(
-                    len.checked_rem(Page::<Size4KiB>::SIZE as usize),
-                    Some(0),
-                    "brk not page aligned"
-                );
-
                 let len_aligned = align_up(len as _, Page::<Size4KiB>::SIZE) as _;
                 let _ = FRAME_ALLOCATOR
                     .write()
@@ -398,23 +415,22 @@ impl Handler {
     /// Do a ioctl() syscall
     ///
     pub fn ioctl(&self) -> Result<usize, libc::c_int> {
-        match (self.a, self.b as i32) {
-            (1, libc::TIOCGWINSZ) | (2, libc::TIOCGWINSZ) => {
-                // simulate TIOCGWINSZ
-                let p: *mut libc::winsize = self.c as _;
-                let winsize = libc::winsize {
-                    ws_row: 40,
-                    ws_col: 80,
-                    ws_xpixel: 0,
-                    ws_ypixel: 0,
-                };
-                unsafe {
-                    p.write_volatile(winsize);
-                }
-                eprintln!("SC> ioctl({}, TIOCGWINSZ, {{ws_row=40, ws_col=80, ws_xpixel=0, ws_ypixel=0}}) = 0", self.a);
-                Ok(0)
+        match (self.a as i32, self.b as i32) {
+            (libc::STDIN_FILENO, libc::TIOCGWINSZ)
+            | (libc::STDOUT_FILENO, libc::TIOCGWINSZ)
+            | (libc::STDERR_FILENO, libc::TIOCGWINSZ) => {
+                // the keep has no tty
+                eprintln!("SC> ioctl({}, TIOCGWINSZ, … = -ENOTTY", self.a);
+                Err(libc::ENOTTY)
             }
-            _ => Err(libc::EINVAL),
+            (libc::STDIN_FILENO, _) | (libc::STDOUT_FILENO, _) | (libc::STDERR_FILENO, _) => {
+                eprintln!("SC> ioctl({}, {}), … = -EINVAL", self.a, self.b);
+                Err(libc::EINVAL)
+            }
+            _ => {
+                eprintln!("SC> ioctl({}, {}), … = -EBADFD", self.a, self.b);
+                Err(libc::EBADFD)
+            }
         }
     }
     /// Do a set_tid_address() syscall
@@ -523,5 +539,154 @@ impl Handler {
         }
 
         Ok(result)
+    }
+
+    pub fn uname(&self) -> Result<usize, libc::c_int> {
+        // Faked, because we cannot promise any features provided by Linux in the future.
+        eprintln!(
+            r##"SC> uname({{sysname="Linux", nodename="enarx", release="5.4.8", version="1", machine="x86_64", domainname="(none)"}}) = 0"##
+        );
+
+        let mut uts = unsafe { MaybeUninit::<libc::utsname>::zeroed().assume_init() };
+        uts.sysname[..5].copy_from_slice(TrySigned::try_signed(b"Linux").unwrap());
+        uts.nodename[..5].copy_from_slice(TrySigned::try_signed(b"enarx").unwrap());
+        uts.release[..5].copy_from_slice(TrySigned::try_signed(b"5.4.8").unwrap());
+        uts.version[..6].copy_from_slice(TrySigned::try_signed(b"#1 SMP").unwrap());
+        uts.machine[..6].copy_from_slice(TrySigned::try_signed(b"x86_64").unwrap());
+        unsafe {
+            (self.a as *mut libc::utsname).write_volatile(uts);
+        }
+        Ok(0)
+    }
+
+    pub fn readlink(&self) -> Result<usize, libc::c_int> {
+        // Fake readlink("/proc/self/exe")
+        const PROC_SELF_EXE: &str = "/proc/self/exe";
+
+        let pathname = unsafe {
+            let mut len: isize = 0;
+            let ptr: *const u8 = self.a as _;
+            loop {
+                if ptr.offset(len).read() == 0 {
+                    break;
+                }
+                len = len.checked_add(1).unwrap();
+                if len as usize >= PROC_SELF_EXE.len() {
+                    break;
+                }
+            }
+            core::str::from_utf8_unchecked(core::slice::from_raw_parts(self.a as _, len as _))
+        };
+
+        if !pathname.eq(PROC_SELF_EXE) {
+            return Err(libc::ENOENT);
+        }
+
+        let outbuf = unsafe { core::slice::from_raw_parts_mut(self.b as _, self.c as _) };
+        outbuf[..6].copy_from_slice(b"/init\0");
+        eprintln!("SC> readlink({:#?}, \"/init\", {}) = 5", pathname, self.c);
+        Ok(5)
+    }
+
+    pub fn fstat(&self) -> Result<usize, libc::c_int> {
+        // Fake fstat(0|1|2, ...) done by glibc or rust
+        match self.a as i32 {
+            libc::STDIN_FILENO | libc::STDOUT_FILENO | libc::STDERR_FILENO => {
+                #[allow(clippy::integer_arithmetic)]
+                const fn makedev(x: u64, y: u64) -> u64 {
+                    (((x) & 0xffff_f000u64) << 32)
+                        | (((x) & 0x0000_0fffu64) << 8)
+                        | (((y) & 0xffff_ff00u64) << 12)
+                        | ((y) & 0x0000_00ffu64)
+                }
+
+                let mut p = unsafe { MaybeUninit::<libc::stat>::zeroed().assume_init() };
+
+                p.st_dev = makedev(
+                    0,
+                    match self.a {
+                        0 => 0x19,
+                        _ => 0xc,
+                    },
+                );
+                p.st_ino = 3;
+                p.st_mode = libc::S_IFIFO | 0o600;
+                p.st_nlink = 1;
+                p.st_uid = 1000;
+                p.st_gid = 5;
+                p.st_blksize = 4096;
+                p.st_blocks = 0;
+                p.st_rdev = makedev(0x88, 0);
+                p.st_size = 0;
+
+                p.st_atime = 1_579_507_218 /* 2020-01-21T11:45:08.467721685+0100 */;
+                p.st_atime_nsec = 0;
+                p.st_mtime = 1_579_507_218 /* 2020-01-21T11:45:07.467721685+0100 */;
+                p.st_mtime_nsec = 0;
+                p.st_ctime = 1_579_507_218 /* 2020-01-20T09:00:18.467721685+0100 */;
+                p.st_ctime_nsec = 0;
+
+                unsafe {
+                    (self.b as *mut libc::stat).write_volatile(p);
+                }
+
+                eprintln!("SC> fstat({}, {{st_dev=makedev(0, 0x19), st_ino=3, st_mode=S_IFIFO|0600,\
+                 st_nlink=1, st_uid=1000, st_gid=5, st_blksize=4096, st_blocks=0, st_size=0,\
+                  st_rdev=makedev(0x88, 0), st_atime=1579507218 /* 2020-01-21T11:45:08.467721685+0100 */,\
+                   st_atime_nsec=0, st_mtime=1579507218 /* 2020-01-21T11:45:08.467721685+0100 */,\
+                    st_mtime_nsec=0, st_ctime=1579507218 /* 2020-01-21T11:45:08.467721685+0100 */,\
+                     st_ctime_nsec=0}}) = 0", self.a);
+                Ok(0)
+            }
+            _ => Err(libc::EBADF),
+        }
+    }
+
+    pub fn fcntl(&self) -> Result<usize, libc::c_int> {
+        match (self.a as i32, self.b as i32) {
+            (libc::STDIN_FILENO, libc::F_GETFL) => {
+                eprintln!(
+                    "SC> fcntl({}, F_GETFD) = 0x402 (flags O_RDWR|O_APPEND)",
+                    self.a
+                );
+                Ok((libc::O_RDWR | libc::O_APPEND) as _)
+            }
+            (libc::STDOUT_FILENO, libc::F_GETFL) | (libc::STDERR_FILENO, libc::F_GETFL) => {
+                eprintln!("SC> fcntl({}, F_GETFD) = 0x1 (flags O_WRONLY)", self.a);
+                Ok(libc::O_WRONLY as _)
+            }
+            (libc::STDIN_FILENO, _) | (libc::STDOUT_FILENO, _) | (libc::STDERR_FILENO, _) => {
+                eprintln!("SC> fcntl({}, {}) = -EINVAL", self.a, self.b);
+                Err(libc::EINVAL)
+            }
+            (_, _) => {
+                eprintln!("SC> fcntl({}, {}) = -EBADFD", self.a, self.b);
+                Err(libc::EBADFD)
+            }
+        }
+    }
+}
+
+/// Convert an unsigned slice to a signed slice
+pub trait TrySigned<T>: Sized {
+    /// The type returned in the event of a conversion error.
+    type Error;
+
+    /// Performs the conversion.
+    fn try_signed(value: &[T]) -> Result<Self, Self::Error>;
+}
+
+impl TrySigned<u8> for &[i8] {
+    type Error = core::num::TryFromIntError;
+
+    fn try_signed(value: &[u8]) -> Result<Self, Self::Error> {
+        for c in value {
+            i8::try_from(*c)?;
+        }
+
+        let len = value.len();
+        let ptr = value.as_ptr() as *const i8;
+
+        Ok(unsafe { core::slice::from_raw_parts(ptr, len) })
     }
 }
