@@ -14,6 +14,8 @@ use binary::Component;
 use anyhow::Result;
 use structopt::StructOpt;
 
+use std::path::PathBuf;
+
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 const AUTHORS: &str = env!("CARGO_PKG_AUTHORS");
 
@@ -28,8 +30,12 @@ struct Exec {
     #[structopt(short, long)]
     keep: Option<String>,
 
+    /// The socket to use for preattestation
+    #[structopt(short, long)]
+    sock: Option<PathBuf>,
+
     /// The payload to run inside the keep
-    code: String,
+    code: PathBuf,
 }
 
 #[derive(StructOpt)]
@@ -93,7 +99,7 @@ fn exec(backends: &[Box<dyn Backend>], opts: Exec) -> Result<()> {
         .find(|b| b.have())
         .expect("No supported backend found!");
 
-    let keep = backend.build(code)?;
+    let keep = backend.build(code, opts.sock.as_deref())?;
 
     let mut thread = keep.clone().add_thread()?;
     loop {
