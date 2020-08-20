@@ -14,6 +14,7 @@ use core::{
 use enumerate::enumerate;
 use intel_types::*;
 use memory::Register;
+use xsave::XSave;
 
 enumerate! {
     /// Section 38.9.1.1, Table 38-9
@@ -342,7 +343,6 @@ impl StateSaveArea {
 
 #[cfg(test)]
 mod et {
-
     use super::*;
 
     #[test]
@@ -402,7 +402,7 @@ testaso! {
 
     struct StateSaveArea: 4096, 4096 => {
         xsave: 0,
-        reserved: 576,
+        reserved: 3072,
         misc: 3896,
         gpr: 3912
     }

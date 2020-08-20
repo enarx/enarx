@@ -11,19 +11,20 @@ edition = "2018"
 default = ["std", "crypto"]
 std = ["iocuddle", "libc", "mmap", "vdso"]
 crypto = ["std", "openssl"]
-asm = []
+asm = ["xsave/asm"]
 
 [dependencies]
-bitflags = "1.2"
 bounds  = { path = "../bounds" }
 enumerate  = { path = "../enumerate" }
 intel-types = { path = "../intel-types" }
 memory = { path = "../memory" }
 mmap = { path = "../mmap", optional = true }
 openssl = { version = "=0.10.29", features = ["vendored"], optional = true }
+xsave = { version = "0.1.1", default-features = false }
 iocuddle = { version = "0.1", optional = true }
 libc = { version = "0.2", optional = true }
 vdso = { version = "0.1", optional = true }
+bitflags = "1.2"
 
 [dev-dependencies]
 rstest = "0.6"
