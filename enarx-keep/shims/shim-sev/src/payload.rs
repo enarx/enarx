@@ -179,7 +179,6 @@ fn crt0setup(
     builder.push("/init").unwrap();
     let mut builder = builder.done().unwrap();
     builder.push("LANG=C").unwrap();
-    builder.push("TERM=xterm-256color").unwrap();
     let mut builder = builder.done().unwrap();
 
     let ph_header = app_virt_start + header.e_phoff;
