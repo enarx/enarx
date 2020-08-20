@@ -5,6 +5,9 @@ use std::fs::OpenOptions;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
+const CRATE: &str = env!("CARGO_MANIFEST_DIR");
+const TEST_BINS_IN: &str = "tests/bin";
+
 fn rerun_src(path: impl AsRef<Path>) -> std::io::Result<()> {
     for entry in std::fs::read_dir(path)? {
         let path = entry?.path();
@@ -30,6 +33,36 @@ fn rerun_src(path: impl AsRef<Path>) -> std::io::Result<()> {
     Ok(())
 }
 
+fn build_tests(in_path: &Path, out_path: &Path) {
+    let test_in_dir = Path::new(CRATE).join(TEST_BINS_IN);
+
+    for entry in in_path.read_dir().expect("failed to read tests/bin dir") {
+        let file = entry.expect("failed to read file in tests/bin dir");
+        let filename = file.file_name();
+        let output = file.path().file_stem().unwrap().to_os_string();
+
+        let mut cmd = cc::Build::new()
+            .no_default_flags(true)
+            .get_compiler()
+            .to_command();
+
+        let status = cmd
+            .current_dir(&out_path)
+            .arg("-nostdlib")
+            .arg("-static-pie")
+            .arg("-fPIC")
+            .arg("-o")
+            .arg(output)
+            .arg(test_in_dir.join(&filename))
+            .status()
+            .expect("failed to compile binary");
+
+        if !status.success() {
+            panic!("Failed to compile {:?}", &filename);
+        }
+    }
+}
+
 fn main() {
     println!("cargo:rerun-if-env-changed=OUT_DIR");
     println!("cargo:rerun-if-env-changed=PROFILE");
@@ -45,6 +78,8 @@ fn main() {
         }
         Ok(_) => {}
     }
+
+    build_tests(&Path::new(CRATE).join(TEST_BINS_IN), &out_dir_bin);
 
     let profile: &[&str] = match std::env::var("PROFILE").unwrap().as_str() {
         "release" => &["--release"],
