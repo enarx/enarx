@@ -9,6 +9,7 @@ use anyhow::Result;
 use std::arch::x86_64::__cpuid_count;
 use std::fs::OpenOptions;
 use std::mem::transmute;
+use std::path::Path;
 use std::str::from_utf8;
 use std::sync::Arc;
 
@@ -187,7 +188,7 @@ impl backend::Backend for Backend {
         data
     }
 
-    fn build(&self, _code: Component) -> Result<Arc<dyn Keep>> {
+    fn build(&self, _code: Component, _sock: Option<&Path>) -> Result<Arc<dyn Keep>> {
         unimplemented!()
     }
 }

@@ -14,6 +14,7 @@ use sgx::types::{
 };
 
 use std::arch::x86_64::__cpuid_count;
+use std::path::Path;
 use std::sync::{Arc, RwLock};
 
 mod data;
@@ -68,7 +69,7 @@ impl crate::backend::Backend for Backend {
     }
 
     /// Create a keep instance on this backend
-    fn build(&self, mut code: Component) -> Result<Arc<dyn Keep>> {
+    fn build(&self, mut code: Component, _sock: Option<&Path>) -> Result<Arc<dyn Keep>> {
         let mut shim = Component::from_bytes(SHIM)?;
 
         // Calculate the memory layout for the enclave.
