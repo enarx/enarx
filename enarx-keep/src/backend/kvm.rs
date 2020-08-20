@@ -10,6 +10,7 @@ use anyhow::Result;
 use kvm_ioctls::Kvm;
 
 use std::num::NonZeroUsize;
+use std::path::Path;
 use std::sync::{Arc, RwLock};
 
 const SHIM: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/bin/shim-sev"));
@@ -50,7 +51,7 @@ impl backend::Backend for Backend {
         vec![dev_kvm(), kvm_version()]
     }
 
-    fn build(&self, code: Component) -> Result<Arc<dyn Keep>> {
+    fn build(&self, code: Component, _sock: Option<&Path>) -> Result<Arc<dyn Keep>> {
         let shim = Component::from_bytes(SHIM)?;
 
         let vm = vm::Builder::new()?
