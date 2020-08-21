@@ -9,7 +9,6 @@ build = "build.rs"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-intel-types = { path = "../intel-types" }
 sallyport = { path = "../sallyport" }
 bounds = { path = "../bounds" }
 memory = { path = "../memory" }
