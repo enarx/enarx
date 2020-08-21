@@ -5,11 +5,11 @@ use crate::binary::Component;
 
 use anyhow::{anyhow, Result};
 use bounds::Span;
-use intel_types::Exception;
 use memory::Page;
 use sgx::enclave::{Builder, Enclave, Leaf, Segment};
 use sgx::types::{
     page::{Flags, SecInfo},
+    ssa::Exception,
     tcs::Tcs,
 };
 

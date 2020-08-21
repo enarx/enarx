@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use intel_types::Exception;
 use sallyport::Block;
-use sgx::types::ssa::StateSaveArea;
+use sgx::types::ssa::{Exception, StateSaveArea};
 
 use crate::handler::{Context, Handler};
 use crate::Layout;

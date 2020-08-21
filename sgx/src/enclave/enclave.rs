@@ -5,9 +5,9 @@ use std::{fmt, mem::MaybeUninit};
 
 use bounds::Span;
 use enumerate::enumerate;
-use intel_types::Exception;
 use mmap::Unmap;
 
+use crate::types::ssa::Exception;
 use crate::types::tcs::Tcs;
 
 extern "C" {
