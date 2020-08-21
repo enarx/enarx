@@ -13,15 +13,10 @@ use core::slice::{from_raw_parts, from_raw_parts_mut};
 const TRACE: bool = false;
 
 // arch_prctl syscalls not available in the libc crate as of version 0.2.69
-enumerate::enumerate! {
-    #[derive(Copy, Clone)]
-    enum ArchPrctlTask: usize {
-        ArchSetGs = 0x1001,
-        ArchSetFs = 0x1002,
-        ArchGetFs = 0x1003,
-        ArchGetGs = 0x1004,
-    }
-}
+const ARCH_SET_GS: usize = 0x1001;
+const ARCH_SET_FS: usize = 0x1002;
+const ARCH_GET_FS: usize = 0x1003;
+const ARCH_GET_GS: usize = 0x1004;
 
 extern "C" {
     #[no_mangle]
@@ -207,11 +202,11 @@ impl<'a> Handler<'a> {
 
         // TODO: Check that addr in %rdx does not point to an unmapped address
         // and is not outside of the process address space.
-        match ArchPrctlTask::from(usize::from(self.aex.gpr.rdi)) {
-            ArchPrctlTask::ArchSetFs => self.aex.gpr.fsbase = self.aex.gpr.rsi,
-            ArchPrctlTask::ArchSetGs => self.aex.gpr.gsbase = self.aex.gpr.rsi,
-            ArchPrctlTask::ArchGetFs => return Err(libc::ENOSYS),
-            ArchPrctlTask::ArchGetGs => return Err(libc::ENOSYS),
+        match self.aex.gpr.rdi.into() {
+            ARCH_SET_FS => self.aex.gpr.fsbase = self.aex.gpr.rsi,
+            ARCH_SET_GS => self.aex.gpr.gsbase = self.aex.gpr.rsi,
+            ARCH_GET_FS => return Err(libc::ENOSYS),
+            ARCH_GET_GS => return Err(libc::ENOSYS),
             _ => return Err(libc::EINVAL),
         }
 

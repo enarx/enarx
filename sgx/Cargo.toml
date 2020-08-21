@@ -15,7 +15,6 @@ asm = ["xsave/asm"]
 
 [dependencies]
 bounds  = { path = "../bounds" }
-enumerate  = { path = "../enumerate" }
 memory = { path = "../memory" }
 mmap = { path = "../mmap", optional = true }
 openssl = { version = "=0.10.29", features = ["vendored"], optional = true }

@@ -4,7 +4,6 @@ use std::sync::{Arc, RwLock};
 use std::{fmt, mem::MaybeUninit};
 
 use bounds::Span;
-use enumerate::enumerate;
 use mmap::Unmap;
 
 use crate::types::ssa::Exception;
@@ -37,17 +36,17 @@ extern "C" {
     ) -> i32;
 }
 
-enumerate! {
-    /// Opcodes for non-privileged SGX leaf functions
-    ///
-    /// TODO add more comprehensive docs
-    #[derive(Copy, Clone)]
-    pub enum Leaf: u32 {
-        /// EAX = 2, `EENTER`
-        Enter = 2,
-        /// EAX = 3, `ERESUME`
-        Resume = 3,
-    }
+/// Opcodes for non-privileged SGX leaf functions
+///
+/// TODO add more comprehensive docs
+#[repr(u32)]
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub enum Leaf {
+    /// EAX = 2, `EENTER`
+    Enter = 2,
+
+    /// EAX = 3, `ERESUME`
+    Resume = 3,
 }
 
 /// Memory address where exception occurred.
