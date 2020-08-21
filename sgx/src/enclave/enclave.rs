@@ -19,7 +19,7 @@ extern "C" {
         r8: usize,
         r9: usize,
         tcs: *mut Tcs,
-        exc: &mut ExceptionInfo,
+        exc: *mut ExceptionInfo,
         handler: Option<
             unsafe extern "C" fn(
                 rdi: usize,
@@ -30,7 +30,7 @@ extern "C" {
                 r9: usize,
                 tcs: usize,
                 ret: i32,
-                exc: &ExceptionInfo,
+                exc: *mut ExceptionInfo,
             ) -> i32,
         >,
         vdso: &'static vdso::Symbol,
@@ -158,18 +158,26 @@ impl Thread {
         const FAULT: i32 = -libc::EFAULT;
         const EEXIT: i32 = 0;
 
-        #[allow(clippy::uninit_assumed_init)]
-        let mut exc: ExceptionInfo = unsafe { MaybeUninit::uninit().assume_init() };
+        let mut exc = MaybeUninit::<ExceptionInfo>::uninit();
 
         let ret = unsafe {
             eenter(
-                rdi, rsi, rdx, leaf, r8, r9, self.tcs, &mut exc, None, self.fnc,
+                rdi,
+                rsi,
+                rdx,
+                leaf,
+                r8,
+                r9,
+                self.tcs,
+                exc.as_mut_ptr(),
+                None,
+                self.fnc,
             )
         };
 
         match ret {
             EEXIT => Ok(()),
-            FAULT => Err(Some(exc)),
+            FAULT => Err(Some(unsafe { exc.assume_init() })),
             _ => Err(None),
         }
     }
