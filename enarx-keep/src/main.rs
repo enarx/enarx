@@ -14,7 +14,12 @@ use binary::Component;
 use anyhow::Result;
 use structopt::StructOpt;
 
+use std::ffi::CString;
+use std::io::Error;
+use std::os::raw::c_char;
+use std::os::unix::ffi::OsStrExt;
 use std::path::PathBuf;
+use std::ptr::null;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 const AUTHORS: &str = env!("CARGO_PKG_AUTHORS");
@@ -91,22 +96,31 @@ fn info(backends: &[Box<dyn Backend>]) -> Result<()> {
 
 #[allow(unreachable_code)]
 fn exec(backends: &[Box<dyn Backend>], opts: Exec) -> Result<()> {
-    let code = Component::from_path(&opts.code)?;
-
     let backend = backends
         .iter()
         .filter(|b| opts.keep.is_none() || opts.keep == Some(b.name().into()))
-        .find(|b| b.have())
-        .expect("No supported backend found!");
+        .find(|b| b.have());
 
-    let keep = backend.build(code, opts.sock.as_deref())?;
+    if let Some(backend) = backend {
+        let code = Component::from_path(&opts.code)?;
+        let keep = backend.build(code, opts.sock.as_deref())?;
 
-    let mut thread = keep.clone().add_thread()?;
-    loop {
-        match thread.enter()? {
-            Command::SysCall(block) => unsafe {
-                block.msg.rep = block.msg.req.syscall();
-            },
+        let mut thread = keep.clone().add_thread()?;
+        loop {
+            match thread.enter()? {
+                Command::SysCall(block) => unsafe {
+                    block.msg.rep = block.msg.req.syscall();
+                },
+            }
+        }
+    } else {
+        match opts.keep {
+            Some(name) if name != "nil" => panic!("Keep backend '{}' is unsupported.", name),
+            _ => {
+                let cstr = CString::new(opts.code.as_os_str().as_bytes()).unwrap();
+                unsafe { libc::execl(cstr.as_ptr(), cstr.as_ptr(), null::<c_char>()) };
+                return Err(Error::last_os_error().into());
+            }
         }
     }
 
