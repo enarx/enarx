@@ -11,20 +11,18 @@ use core::{
     mem::{align_of, size_of, MaybeUninit},
     num::NonZeroU32,
 };
-use enumerate::enumerate;
 use memory::Register;
 use xsave::XSave;
 
-enumerate! {
-    /// Section 38.9.1.1, Table 38-9
-    #[derive(Copy, Clone)]
-    pub enum ExitType: u8 {
-        /// Hardware
-        Hardware = 0b011,
+/// Section 38.9.1.1, Table 38-9
+#[repr(u8)]
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub enum ExitType {
+    /// Hardware
+    Hardware = 0b011,
 
-        /// Software
-        Software = 0b110,
-    }
+    /// Software
+    Software = 0b110,
 }
 
 /// Exception Error Codes

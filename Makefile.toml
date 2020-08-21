@@ -7,7 +7,6 @@ CARGO_MAKE_CRATE_WORKSPACE_MEMBERS = [
 	"enarx-keep",
 	"enarx-keep/shims/shim-sev",
 	"enarx-keep/shims/shim-sgx",
-	"enumerate",
 	"integration-tests",
 	"keep-runtime",
 	"memory",
