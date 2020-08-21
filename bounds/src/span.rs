@@ -142,6 +142,7 @@ mod test {
     }
 
     #[test]
+    #[allow(clippy::reversed_empty_ranges)]
     fn contains() {
         assert!(!x!(2..3).contains(&1));
         assert!(x!(2..3).contains(&2));
