@@ -2,7 +2,7 @@
 
 use super::{enclave::Enclave, ioctls};
 use crate::{
-    crypto::{Hasher, Signer},
+    crypto::Hasher,
     types::{
         page::{Class, Flags, SecInfo},
         tcs::Tcs,
@@ -14,7 +14,6 @@ use bounds::Span;
 use memory::Page;
 use openssl::{bn, rsa};
 
-use std::convert::TryFrom;
 use std::fs::{File, OpenOptions};
 use std::io::Result;
 use std::sync::{Arc, RwLock};
@@ -147,12 +146,12 @@ impl Builder {
     /// TODO add more comprehensive docs.
     pub fn build(mut self) -> Result<Arc<RwLock<Enclave>>> {
         // Generate a signing key.
-        let exp = bn::BigNum::try_from(3u32)?;
+        let exp = bn::BigNum::from_u32(3u32)?;
         let key = rsa::Rsa::generate_with_e(3072, &exp)?;
 
         // Create the enclave signature
         let vendor = Author::new(0, 0);
-        let sig = key.sign(vendor, self.hash.finish(self.sign))?;
+        let sig = self.hash.finish(self.sign).sign(vendor, key)?;
 
         // Initialize the enclave.
         let init = ioctls::Init::new(&sig);

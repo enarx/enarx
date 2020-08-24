@@ -9,10 +9,8 @@
 
 use crate::types::{page::SecInfo, sig};
 use memory::Page;
-use openssl::{bn, hash, pkey, rsa, sha, sign};
+use openssl::sha;
 
-use std::convert::TryInto;
-use std::io::Result;
 use std::num::NonZeroU32;
 
 /// This struct creates and updates the MRENCLAVE value associated
@@ -82,85 +80,10 @@ impl Hasher {
     }
 }
 
-trait ToArray {
-    fn to_le_array(&self) -> Result<[u8; 384]>;
-}
-
-impl ToArray for bn::BigNumRef {
-    #[allow(clippy::uninit_assumed_init)]
-    fn to_le_array(&self) -> Result<[u8; 384]> {
-        use std::mem::MaybeUninit;
-
-        let mut buf: [u8; 384] = unsafe { MaybeUninit::uninit().assume_init() };
-        self.to_le_bytes(&mut buf)?;
-        Ok(buf)
-    }
-}
-
-/// A key which can create an enclave signature
-///
-/// This is documented in 38.13.
-pub trait Signer: Sized {
-    /// Create an enclave signature
-    fn sign(&self, author: sig::Author, measurement: sig::Measurement) -> Result<sig::Signature>;
-}
-
-impl Signer for rsa::Rsa<pkey::Private> {
-    fn sign(&self, author: sig::Author, measurement: sig::Measurement) -> Result<sig::Signature> {
-        let a = unsafe {
-            core::slice::from_raw_parts(
-                &author as *const _ as *const u8,
-                core::mem::size_of_val(&author),
-            )
-        };
-
-        let c = unsafe {
-            core::slice::from_raw_parts(
-                &measurement as *const _ as *const u8,
-                core::mem::size_of_val(&measurement),
-            )
-        };
-
-        // Generates signature on Signature author and contents
-        let rsa_key = pkey::PKey::from_rsa(self.clone())?;
-        let md = hash::MessageDigest::sha256();
-        let mut signer = sign::Signer::new(md, &rsa_key)?;
-        signer.update(a)?;
-        signer.update(c)?;
-        let signature = signer.sign_to_vec()?;
-
-        // Generates q1, q2 values for RSA signature verification
-        let s = bn::BigNum::from_be_bytes(&signature)?;
-        let m = self.n();
-
-        let mut ctx = bn::BigNumContext::new()?;
-        let mut q1 = bn::BigNum::new()?;
-        let mut qr = bn::BigNum::new()?;
-
-        q1.div_rem(&mut qr, &(&s * &s), &m, &mut ctx)?;
-        let q2 = &(&s * &qr) / m;
-
-        Ok(sig::Signature::new(
-            author,
-            measurement,
-            self.e().try_into()?,
-            m.to_le_array()?,
-            s.to_le_array()?,
-            q1.to_le_array()?,
-            q2.to_le_array()?,
-        ))
-    }
-}
-
 #[cfg(test)]
-mod test {
+pub(crate) mod test {
     use super::*;
-    use crate::types::{
-        page::{Flags as Perms, SecInfo},
-        sig,
-    };
-    use std::fs::File;
-    use std::io::Read;
+    use crate::types::page::{Flags as Perms, SecInfo};
 
     // A NOTE ABOUT THIS TESTING METHODOLOGY
     //
@@ -177,7 +100,7 @@ mod test {
 
     const DATA: [u8; 4096] = [123u8; 4096];
 
-    fn hash(input: &[(&[Page], SecInfo)]) -> [u8; 32] {
+    pub fn hash(input: &[(&[Page], SecInfo)]) -> [u8; 32] {
         // Add the lengths of all the enclave segments to produce enclave size.
         let size = input.iter().fold(0, |c, x| c + x.0.len() * Page::size());
 
@@ -271,73 +194,5 @@ mod test {
             (&[Page::copy(DATA); 2], SecInfo::reg(Perms::R)),
         ]);
         assert_eq!(question, ANSWER);
-    }
-
-    fn load(path: &str) -> Vec<u8> {
-        let mut file = File::open(path).unwrap();
-        let size = file.metadata().unwrap().len();
-
-        let mut data = vec![0u8; size as usize];
-        file.read_exact(&mut data).unwrap();
-
-        data
-    }
-
-    fn loadsig(path: &str) -> sig::Signature {
-        let mut sig: sig::Signature;
-        let buf: &mut [u8];
-
-        unsafe {
-            sig = std::mem::MaybeUninit::uninit().assume_init();
-            buf = std::slice::from_raw_parts_mut(
-                &mut sig as *mut _ as *mut u8,
-                std::mem::size_of_val(&sig),
-            );
-        }
-
-        let mut file = File::open(path).unwrap();
-        file.read_exact(buf).unwrap();
-
-        sig
-    }
-
-    fn loadkey(path: &str) -> rsa::Rsa<pkey::Private> {
-        let pem = load(path);
-        rsa::Rsa::private_key_from_pem(&pem).unwrap()
-    }
-
-    #[test]
-    fn selftest() {
-        let bin = load("tests/encl.bin");
-        let sig = loadsig("tests/encl.ss");
-        let key = loadkey("tests/encl.pem");
-
-        let len = (bin.len() - 1) / Page::size();
-
-        let mut tcs = [Page::default()];
-        let mut src = vec![Page::default(); len];
-
-        let dst = unsafe { tcs.align_to_mut::<u8>().1 };
-        dst.copy_from_slice(&bin[..Page::size()]);
-
-        let dst = unsafe { src.align_to_mut::<u8>().1 };
-        dst.copy_from_slice(&bin[Page::size()..]);
-
-        // Validate the hash.
-        assert_eq!(
-            sig.measurement().mrenclave(),
-            hash(&[
-                (&tcs, SecInfo::tcs()),
-                (&src, SecInfo::reg(Perms::R | Perms::W | Perms::X))
-            ]),
-            "failed to produce correct mrenclave hash"
-        );
-
-        // Ensure that sign() can reproduce the exact same signature struct.
-        assert_eq!(
-            sig,
-            key.sign(sig.author(), sig.measurement()).unwrap(),
-            "failed to produce correct signature"
-        );
     }
 }
