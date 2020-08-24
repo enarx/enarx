@@ -17,7 +17,7 @@ asm = ["xsave/asm"]
 bounds  = { path = "../bounds" }
 memory = { path = "../memory" }
 mmap = { path = "../mmap", optional = true }
-openssl = { version = "=0.10.30", features = ["vendored"], optional = true }
+openssl = { version = "0.10", features = ["vendored"], optional = true }
 xsave = { version = "0.1.1", default-features = false }
 iocuddle = { version = "0.1", optional = true }
 libc = { version = "0.2", optional = true }
@@ -30,6 +30,3 @@ memoffset = "0.5.5"
 
 [build-dependencies]
 cc = "1.0"
-
-[patch.crates-io]
-openssl = { git = 'https://github.com/npmccallum/rust-openssl', branch='patch' }

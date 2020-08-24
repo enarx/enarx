@@ -10,11 +10,8 @@ default = []
 dangerous_tests = []
 
 [dependencies]
-openssl = { version = "=0.10.30", optional = true, features = [ "vendored" ] }
+openssl = { version = "0.10", optional = true, features = [ "vendored" ] }
 bitflags = "1.2.1"
 codicon = "2.1.0"
 bitfield = "0.13"
 iocuddle = "0.1"
-
-[patch.crates-io]
-openssl = { git = 'https://github.com/npmccallum/rust-openssl', branch='patch' }

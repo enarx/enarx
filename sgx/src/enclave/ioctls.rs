@@ -112,12 +112,11 @@ impl<'a> SetAttribute<'a> {
 mod test {
     use super::*;
 
-    use std::convert::TryFrom;
     use std::fs::File;
     use std::num::NonZeroU32;
 
     use crate::{
-        crypto::{Hasher, Signer},
+        crypto::Hasher,
         types::{page::Flags as Perms, secs},
     };
     use bounds::Span;
@@ -131,7 +130,7 @@ mod test {
 
     #[fixture]
     fn key() -> rsa::Rsa<pkey::Private> {
-        let e = bn::BigNum::try_from(3u32).unwrap();
+        let e = bn::BigNum::from_u32(3u32).unwrap();
         rsa::Rsa::generate_with_e(3072, &e).unwrap()
     }
 
@@ -181,7 +180,7 @@ mod test {
 
         // Initialize the enclave.
         let author = sig::Author::new(0, 0);
-        let sig = key.sign(author, hasher.finish(None)).unwrap();
+        let sig = hasher.finish(None).sign(author, key).unwrap();
         ENCLAVE_INIT.ioctl(&mut file, &Init::new(&sig)).unwrap();
     }
 }
