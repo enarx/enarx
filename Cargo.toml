@@ -14,15 +14,15 @@ bounds = { path = "../bounds" }
 memory = { path = "../memory" }
 mmap = { path = "../mmap" }
 sgx = { path = "../sgx" }
-kvm-bindings = "0.3.0"
-kvm-ioctls = "0.5.0"
+x86_64 = { version = "0.11", default-features = false, features = ["stable"] }
+kvm-bindings = "0.3"
+kvm-ioctls = "0.5"
 structopt = "0.3"
 colorful = "0.2"
 nbytes = "0.1"
 anyhow = "1.0"
 goblin = "0.2"
 libc = "0.2"
-x86_64 = { version = "0.11.0", default-features = false, features = ["stable"] }
 
 [patch.crates-io]
 openssl = { git = 'https://github.com/npmccallum/rust-openssl', branch='patch' }
