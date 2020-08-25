@@ -96,3 +96,8 @@ impl<'a> LaunchMeasure<'a> {
         }
     }
 }
+
+/// Complete the SEV launch flow and transition guest into
+/// ready state.
+#[repr(C)]
+pub struct LaunchFinish;

@@ -96,4 +96,9 @@ impl<'a> Launcher<'a, Measured> {
         LAUNCH_SECRET.ioctl(&mut self.kvm, &mut Command::from(&self.sev, &launch_secret))?;
         Ok(())
     }
+
+    pub fn finish(mut self) -> Result<Handle> {
+        LAUNCH_FINISH.ioctl(&mut self.kvm, &mut Command::from(&self.sev, &LaunchFinish))?;
+        Ok(self.state.0)
+    }
 }

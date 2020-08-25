@@ -17,6 +17,7 @@ impl_const_id! {
     LaunchUpdateData<'_> = 3,
     LaunchSecret<'_> = 5,
     LaunchMeasure<'_> = 6,
+    LaunchFinish = 7,
 }
 
 const ENC_OP: u64 = 0xc008aeba;
@@ -45,6 +46,10 @@ pub const LAUNCH_SECRET: Ioctl<WriteRead, &Command<LaunchSecret>> =
     unsafe { Ioctl::classic(ENC_OP) };
 /// Get the guest's measurement.
 pub const LAUNCH_MEASUREMENT: Ioctl<WriteRead, &Command<LaunchMeasure>> =
+    unsafe { Ioctl::classic(ENC_OP) };
+/// Complete the SEV launch flow and transition the guest into
+/// the ready state.
+pub const LAUNCH_FINISH: Ioctl<WriteRead, &Command<LaunchFinish>> =
     unsafe { Ioctl::classic(ENC_OP) };
 
 #[repr(C)]
