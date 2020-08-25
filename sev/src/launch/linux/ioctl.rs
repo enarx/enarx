@@ -12,6 +12,7 @@ use std::os::unix::io::AsRawFd;
 impl_const_id! {
     pub Id => u32;
     Init = 0,
+    LaunchStart<'_> = 2,
 }
 
 const ENC_OP: u64 = 0xc008aeba;
@@ -30,6 +31,8 @@ const ENC_OP: u64 = 0xc008aeba;
 
 /// Initialize the SEV platform context.
 pub const INIT: Ioctl<WriteRead, &Command<Init>> = unsafe { Ioctl::classic(ENC_OP) };
+/// Create encrypted guest context.
+pub const LAUNCH_START: Ioctl<WriteRead, &Command<LaunchStart>> = unsafe { Ioctl::classic(ENC_OP) };
 
 #[repr(C)]
 pub struct Command<'a, T: Id> {

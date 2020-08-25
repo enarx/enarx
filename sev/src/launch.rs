@@ -4,7 +4,7 @@ mod launcher;
 mod linux;
 mod types;
 
-pub use launcher::Launcher;
+pub use launcher::{Handle, Launcher};
 
 use super::*;
 use bitflags::bitflags;
