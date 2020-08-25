@@ -4,6 +4,7 @@ use crate::impl_const_id;
 use crate::launch::types::*;
 use iocuddle::*;
 
+use std::io::Result;
 use std::marker::PhantomData;
 use std::os::unix::io::AsRawFd;
 
@@ -13,6 +14,7 @@ impl_const_id! {
     pub Id => u32;
     Init = 0,
     LaunchStart<'_> = 2,
+    LaunchUpdateData<'_> = 3,
 }
 
 const ENC_OP: u64 = 0xc008aeba;
@@ -33,6 +35,9 @@ const ENC_OP: u64 = 0xc008aeba;
 pub const INIT: Ioctl<WriteRead, &Command<Init>> = unsafe { Ioctl::classic(ENC_OP) };
 /// Create encrypted guest context.
 pub const LAUNCH_START: Ioctl<WriteRead, &Command<LaunchStart>> = unsafe { Ioctl::classic(ENC_OP) };
+/// Encrypt guest data with its VEK.
+pub const LAUNCH_UPDATE_DATA: Ioctl<WriteRead, &Command<LaunchUpdateData>> =
+    unsafe { Ioctl::classic(ENC_OP) };
 
 #[repr(C)]
 pub struct Command<'a, T: Id> {

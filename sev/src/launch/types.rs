@@ -34,3 +34,21 @@ impl<'a> LaunchStart<'a> {
         }
     }
 }
+
+/// Encrypt guest data with its VEK.
+#[repr(C)]
+pub struct LaunchUpdateData<'a> {
+    addr: u64,
+    len: u32,
+    _phantom: PhantomData<&'a ()>,
+}
+
+impl<'a> LaunchUpdateData<'a> {
+    pub fn new(data: &'a [u8]) -> Self {
+        Self {
+            addr: data.as_ptr() as _,
+            len: data.len() as _,
+            _phantom: PhantomData,
+        }
+    }
+}

@@ -57,3 +57,13 @@ impl<'a> Launcher<'a, New> {
     }
 }
 
+impl<'a> Launcher<'a, Started> {
+    pub fn update_data(&mut self, data: &[u8]) -> Result<()> {
+        let launch_update_data = LaunchUpdateData::new(data);
+        LAUNCH_UPDATE_DATA.ioctl(
+            &mut self.kvm,
+            &mut Command::from(&self.sev, &launch_update_data),
+        )?;
+        Ok(())
+    }
+}
