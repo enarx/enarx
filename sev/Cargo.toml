@@ -15,3 +15,8 @@ bitflags = "1.2.1"
 codicon = "2.1.0"
 bitfield = "0.13"
 iocuddle = "0.1"
+
+[dev-dependencies]
+kvm-bindings = "0.3"
+kvm-ioctls = "0.5"
+libc = "0.2"
