@@ -4,37 +4,16 @@
 //! (SEV) platform. These ioctls are exported by the Linux kernel.
 
 use crate::firmware::types::*;
+use crate::impl_const_id;
+
 use iocuddle::*;
 
 use std::marker::PhantomData;
 
-/// The Linux kernel decides which SEV platform command to dispatch based
-/// on its own enumeration values of the SEV commands. This trait
-/// enforces that our type-safe ioctls also export the Linux
-/// kernel enum ordinal value.
-pub trait Code {
-    /// The integer value that corresponds to the Linux kernel's
-    /// enum value for a SEV ioctl.
-    const CODE: u32;
-}
-
-macro_rules! code {
-    (
-        $(
-            $iocty:ty = $val:expr
-        ),* $(,)*
-    ) => {
-        $(
-            impl $crate::firmware::linux::ioctl::Code for $iocty {
-                const CODE: u32 = $val;
-            }
-        )*
-    };
-}
-
 // These enum ordinal values are defined in the Linux kernel
 // source code: include/uapi/linux/psp-sev.h
-code! {
+impl_const_id! {
+    pub Id => u32;
     PlatformReset = 0,
     PlatformStatus = 1,
     PekGen = 2,
@@ -72,20 +51,20 @@ pub const GET_ID: Ioctl<WriteRead, &Command<GetId<'_>>> = unsafe { SEV.write_rea
 ///
 /// This struct is defined in the Linux kernel: include/uapi/linux/kvm.h
 #[repr(C, packed)]
-pub struct Command<'a, T: Code> {
+pub struct Command<'a, T: Id> {
     code: u32,
     data: u64,
     error: u32,
     _phantom: PhantomData<&'a T>,
 }
 
-impl<'a, T: Code> Command<'a, T> {
+impl<'a, T: Id> Command<'a, T> {
     /// Create an SEV command with the expectation that the host platform/kernel will write to
     /// the caller's address space either to the data held in the `Command.subcmd` field or some
     /// other region specified by the `Command.subcmd` field.
     pub fn from_mut(subcmd: &'a mut T) -> Self {
         Command {
-            code: T::CODE,
+            code: T::ID,
             data: subcmd as *mut T as u64,
             error: 0,
             _phantom: PhantomData,
@@ -98,7 +77,7 @@ impl<'a, T: Code> Command<'a, T> {
     /// a semantic tool for programming against the SEV ioctl API.
     pub fn from(subcmd: &'a T) -> Self {
         Command {
-            code: T::CODE,
+            code: T::ID,
             data: subcmd as *const T as u64,
             error: 0,
             _phantom: PhantomData,

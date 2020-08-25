@@ -13,6 +13,7 @@ pub mod firmware;
 pub mod launch;
 #[cfg(feature = "openssl")]
 pub mod session;
+mod util;
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
