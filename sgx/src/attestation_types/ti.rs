@@ -30,8 +30,10 @@ impl TargetInfo {
     /// Generate a report to the specified target with the included data.
     ///
     /// # Safety
-    /// This function is unsafe because it executes an `enclu` instruction which
-    /// is only available on processors that support SGX.
+    ///
+    /// This function is unsafe because it executes the `enclu[EREPORT]`
+    /// instruction which is only available when the processor is in enclave
+    /// mode.
     pub unsafe fn get_report(&self, data: &ReportData) -> crate::attestation_types::report::Report {
         use crate::attestation_types::report;
 
@@ -40,11 +42,12 @@ impl TargetInfo {
         let mut report = core::mem::MaybeUninit::<report::Report>::uninit();
 
         asm!(
-        "enclu",
-        in("rax") EREPORT,
-        in("rbx") self,
-        in("rcx") data.0.as_ptr(),
-        in("rdx") report.as_mut_ptr(),
+            "enclu",
+
+            in("rax") EREPORT,
+            in("rbx") self,
+            in("rcx") data.0.as_ptr(),
+            in("rdx") report.as_mut_ptr(),
         );
 
         report.assume_init()
