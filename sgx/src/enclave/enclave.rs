@@ -10,16 +10,14 @@ use mmap::Unmap;
 use crate::types::ssa::Exception;
 use crate::types::tcs::Tcs;
 
-/// Opcodes for non-privileged SGX leaf functions
-///
-/// TODO add more comprehensive docs
+/// How to enter an enclave
 #[repr(u32)]
 #[derive(Copy, Clone, Debug, PartialEq)]
-pub enum Leaf {
-    /// EAX = 2, `EENTER`
+pub enum Entry {
+    /// Enter an enclave normally
     Enter = 2,
 
-    /// EAX = 3, `ERESUME`
+    /// Resume an enclave after an asynchronous exit
     Resume = 3,
 }
 
@@ -43,22 +41,27 @@ impl<T: Copy + fmt::LowerHex> fmt::Debug for Address<T> {
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub struct ExceptionInfo {
-    /// Leaf function where exception occurred
-    pub leaf: Leaf,
+    /// Last entry type
+    pub last: Entry,
+
     /// Exception error code
     pub trap: Exception,
+
     unused: u8,
+
     /// Trapping code
     pub code: u16,
+
     /// Memory address where exception occurred
     pub addr: Address<u64>,
+
     reserved: [u64; 2],
 }
 
 impl fmt::Debug for ExceptionInfo {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("ExceptionInfo")
-            .field("leaf", &self.leaf)
+            .field("last", &self.last)
             .field("trap", &self.trap)
             .field("code", &self.code)
             .field("addr", &self.addr)
@@ -117,7 +120,7 @@ impl Thread {
 
     /// Enter an enclave.
     ///
-    /// This function enters an enclave using `Leaf` and provides the
+    /// This function enters an enclave using `Entry` and provides the
     /// specified argument to the enclave in the `rdx` register. On success,
     /// the value of the `rdx` register at enclave exit is returned. There
     /// are two failure cases. If the enclave performs an asynchronous exit
@@ -126,7 +129,7 @@ impl Thread {
     #[inline(always)]
     pub fn enter(
         &self,
-        how: Leaf,
+        how: Entry,
         arg: impl Into<Register<usize>>,
     ) -> Result<Register<usize>, Option<ExceptionInfo>> {
         const FAULT: i32 = -libc::EFAULT;
