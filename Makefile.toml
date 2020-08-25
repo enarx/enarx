@@ -3,7 +3,6 @@ RUST_RECURSION_COUNT = {unset = true }
 CARGO_MAKE_EXTEND_WORKSPACE_MAKEFILE = true
 CARGO_MAKE_WORKSPACE_EMULATION = true
 CARGO_MAKE_CRATE_WORKSPACE_MEMBERS = [
-	"bounds",
 	"enarx-keep",
 	"enarx-keep/shims/shim-sev",
 	"enarx-keep/shims/shim-sgx",

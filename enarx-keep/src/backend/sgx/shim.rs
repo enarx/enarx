@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use bounds::{Contains as _, Span};
+use lset::{Contains as _, Span};
 use nbytes::bytes;
 
 const PREFIX: usize = bytes![4; MiB];

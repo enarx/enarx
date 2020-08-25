@@ -3,7 +3,7 @@
 use std::sync::{Arc, RwLock};
 use std::{fmt, mem::MaybeUninit};
 
-use bounds::Span;
+use lset::Span;
 use mmap::Unmap;
 
 use crate::types::ssa::Exception;

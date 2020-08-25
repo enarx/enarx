@@ -35,7 +35,7 @@
 /// FIXME: might change to another mechanism in the future
 pub const SYSCALL_TRIGGER_PORT: u16 = 0xFF;
 
-use bounds::{Line, Span};
+use lset::{Line, Span};
 use nbytes::bytes;
 
 // page align - to ease debugging, set to 1MiB in debug builds

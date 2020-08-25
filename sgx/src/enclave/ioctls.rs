@@ -119,7 +119,7 @@ mod test {
         crypto::Hasher,
         types::{page::Flags as Perms, secs},
     };
-    use bounds::Span;
+    use lset::Span;
     use openssl::{bn, pkey, rsa};
     use rstest::*;
 

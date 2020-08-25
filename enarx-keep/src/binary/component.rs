@@ -3,7 +3,7 @@
 use anyhow::Result;
 use goblin::elf::{header::*, program_header::*, Elf};
 
-use bounds::{Line, Span};
+use lset::{Line, Span};
 use memory::Page;
 
 use std::cmp::{max, min};

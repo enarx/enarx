@@ -2,7 +2,7 @@
 
 // The common Layout for `enarx-keep-sgx` and `enarx-keep-sgx-shim`
 
-use bounds::Line;
+use lset::Line;
 
 /// The enclave layout
 #[repr(C)]

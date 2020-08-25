@@ -10,7 +10,6 @@ build = "build.rs"
 
 [dependencies]
 sallyport = { path = "../sallyport" }
-bounds = { path = "../bounds" }
 memory = { path = "../memory" }
 mmap = { path = "../mmap" }
 sgx = { path = "../sgx" }
@@ -23,3 +22,4 @@ nbytes = "0.1"
 anyhow = "1.0"
 goblin = "0.2"
 libc = "0.2"
+lset = "0.1"
