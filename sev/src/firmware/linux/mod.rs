@@ -4,6 +4,7 @@ mod ioctl;
 
 use std::fs::{File, OpenOptions};
 use std::mem::MaybeUninit;
+use std::os::unix::io::{AsRawFd, RawFd};
 
 use super::*;
 use crate::certs::sev::Certificate;
@@ -101,5 +102,11 @@ impl Firmware {
         GET_ID.ioctl(&mut self.0, &mut Command::from_mut(&mut id))?;
 
         Ok(Identifier(id.as_slice().to_vec()))
+    }
+}
+
+impl AsRawFd for Firmware {
+    fn as_raw_fd(&self) -> RawFd {
+        self.0.as_raw_fd()
     }
 }
