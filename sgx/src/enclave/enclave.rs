@@ -4,37 +4,11 @@ use std::sync::{Arc, RwLock};
 use std::{fmt, mem::MaybeUninit};
 
 use lset::Span;
+use memory::Register;
 use mmap::Unmap;
 
 use crate::types::ssa::Exception;
 use crate::types::tcs::Tcs;
-
-extern "C" {
-    fn eenter(
-        rdi: usize,
-        rsi: usize,
-        rdx: usize,
-        leaf: Leaf,
-        r8: usize,
-        r9: usize,
-        tcs: *mut Tcs,
-        exc: *mut ExceptionInfo,
-        handler: Option<
-            unsafe extern "C" fn(
-                rdi: usize,
-                rsi: usize,
-                rdx: usize,
-                ursp: usize,
-                r8: usize,
-                r9: usize,
-                tcs: usize,
-                ret: i32,
-                exc: *mut ExceptionInfo,
-            ) -> i32,
-        >,
-        vdso: &'static vdso::Symbol,
-    ) -> i32;
-}
 
 /// Opcodes for non-privileged SGX leaf functions
 ///
@@ -141,41 +115,71 @@ impl Thread {
         Some(Self { enc, tcs, fnc })
     }
 
-    /// Issues `EENTER` instruction to the enclave.
+    /// Enter an enclave.
     ///
-    /// TODO add more comprehensive docs
+    /// This function enters an enclave using `Leaf` and provides the
+    /// specified argument to the enclave in the `rdx` register. On success,
+    /// the value of the `rdx` register at enclave exit is returned. There
+    /// are two failure cases. If the enclave performs an asynchronous exit
+    /// (AEX), the details of the exception are returned. Otherwise, an
+    /// unknown error has occurred.
     #[inline(always)]
     pub fn enter(
         &self,
-        rdi: usize,
-        rsi: usize,
-        rdx: usize,
-        leaf: Leaf,
-        r8: usize,
-        r9: usize,
-    ) -> Result<(), Option<ExceptionInfo>> {
+        how: Leaf,
+        arg: impl Into<Register<usize>>,
+    ) -> Result<Register<usize>, Option<ExceptionInfo>> {
         const FAULT: i32 = -libc::EFAULT;
         const EEXIT: i32 = 0;
 
         let mut exc = MaybeUninit::<ExceptionInfo>::uninit();
+        let mut rdx: usize = arg.into().into();
+        let rax: i32;
 
-        let ret = unsafe {
-            eenter(
-                rdi,
-                rsi,
-                rdx,
-                leaf,
-                r8,
-                r9,
-                self.tcs,
-                exc.as_mut_ptr(),
-                None,
-                self.fnc,
-            )
-        };
+        // The `enclu` instruction consumes `rax`, `rbx` and `rcx`. However,
+        // the vDSO function preserves `rbx` AND sets `rax` as the return
+        // value. All other registers are passed to and from the enclave
+        // unmodified.
+        //
+        // Therefore, we use `rdx` to pass a single argument into and out from
+        // the enclave. We consider all other registers to be clobbered by the
+        // enclave itself.
+        unsafe {
+            asm!(
+                "push rbp",       // save rbp
+                "mov  rbp, rsp",  // save rsp
+                "and  rsp, ~0xf", // align to 16+0
 
-        match ret {
-            EEXIT => Ok(()),
+                "push 0",         // align to 16+8
+                "push 0",         // push exit handler arg
+                "push {}",        // push exception info arg
+                "push {}",        // push tcs page address arg
+                "call {}",        // call vDSO function
+
+                "mov  rsp, rbp",  // restore rsp
+                "pop  rbp",       // restore rbp
+
+                in(reg) exc.as_mut_ptr(),
+                in(reg) self.tcs,
+                in(reg) self.fnc,
+                inout("rdx") rdx,
+                inout("rcx") how as u32 => _,
+                lateout("rax") rax,
+                lateout("rdi") _,
+                lateout("rsi") _,
+                lateout("r8") _,
+                lateout("r9") _,
+                lateout("r10") _,
+                lateout("r11") _,
+                lateout("r12") _,
+                lateout("r13") _,
+                lateout("r14") _,
+                lateout("r15") _,
+            );
+        }
+
+        match rax {
+            EEXIT => Ok(rdx.into()),
             FAULT => Err(Some(unsafe { exc.assume_init() })),
             _ => Err(None),
         }

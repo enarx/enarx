@@ -4,15 +4,14 @@
 //! Section references in further documentation refer to this document.
 //! https://www.intel.com/content/dam/www/public/emea/xe/en/documents/manuals/64-ia-32-architectures-software-developer-vol-3d-part-4-manual.pdf
 
+#![allow(clippy::module_inception)]
+#![cfg(feature = "crypto")]
 #![cfg(feature = "std")]
+#![cfg(feature = "asm")]
 
-#[cfg(feature = "crypto")]
 mod builder;
-
-#[allow(clippy::module_inception)]
 mod enclave;
 mod ioctls;
 
-#[cfg(feature = "crypto")]
 pub use builder::*;
 pub use enclave::*;

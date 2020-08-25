@@ -14,9 +14,9 @@ const SYS_ERESUME: usize = !0;
 
 #[no_mangle]
 pub extern "C" fn event(
-    block: &mut Block,
+    _rdi: u64,
     _rsi: u64,
-    _rdx: u64,
+    block: &mut Block,
     layout: &Layout,
     _r8: u64,
     _r9: u64,

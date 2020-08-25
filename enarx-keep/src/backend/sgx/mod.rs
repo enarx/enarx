@@ -179,10 +179,7 @@ impl super::Thread for Thread {
         //
         //   4. Asynchronous exits other than invalid opcode will panic.
         loop {
-            leaf = match self
-                .thread
-                .enter(&mut self.block as *const _ as _, 0, 0, leaf, 0, 0)
-            {
+            leaf = match self.thread.enter(leaf, &mut self.block) {
                 Err(Some(ei)) if ei.trap == Exception::InvalidOpcode => Leaf::Enter,
                 Ok(_) if SYS_ERESUME == unsafe { self.block.msg.req.num }.into() => Leaf::Resume,
                 Ok(_) => return Ok(Command::SysCall(&mut self.block)),
