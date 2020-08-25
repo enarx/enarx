@@ -46,10 +46,10 @@ pub const PEK_CERT_IMPORT: Ioctl<WriteRead, &Command<PekCertImport<'_>>> =
 /// Get the CPU's unique ID that can be used for getting a certificate for the CEK public key.
 pub const GET_ID: Ioctl<WriteRead, &Command<GetId<'_>>> = unsafe { SEV.write_read(0) };
 
-/// The Rust-flavored, FFI-friendly version of `struct kvm_sev_cmd` which is
+/// The Rust-flavored, FFI-friendly version of `struct sev_issue_cmd` which is
 /// used to pass arguments to the SEV ioctl implementation.
 ///
-/// This struct is defined in the Linux kernel: include/uapi/linux/kvm.h
+/// This struct is defined in the Linux kernel: include/uapi/linux/psp-sev.h
 #[repr(C, packed)]
 pub struct Command<'a, T: Id> {
     code: u32,
