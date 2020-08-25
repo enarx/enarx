@@ -165,7 +165,7 @@ impl super::Thread for Thread {
         //
         //   1. Asynchronous exits (AEX) with an invalid opcode indicate
         //      that a syscall should be performed. Execution continues in
-        //      the enclave with EENTER[CSSSA = 1]. The syscall
+        //      the enclave with EENTER[CSSA = 1]. The syscall
         //      is proxied and potentially passed back out to the host.
         //
         //   2. OK with a syscall number other than SYS_ERESUME indicates the syscall

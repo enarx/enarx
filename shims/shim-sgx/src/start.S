@@ -154,7 +154,7 @@ _start:
 
     # %rax = syscall return stack pointer
     # %rbx = next non-enclave instruction
-    # %rcx = &TCS
+    # %rcx = &layout
     # %r10 = trusted stack pointer
     # %r11 = &aex[CSSA - 1]
     # %rsp = untrusted stack pointer
@@ -173,7 +173,7 @@ _start:
     zerot                                           # Clear temporary registers
     zerof   %r11                                    # Clear CPU flags
 
-    # void event(rdi, rsi, rdx, tcs, r8, r9, &aex[CSSA-1], ctx);
+    # void event(rdi, rsi, rdx, layout, r8, r9, &aex[CSSA-1], ctx);
     call    event                                   # Call event()
     add     $16,                    %rsp            # Remove parameters from stack
 
