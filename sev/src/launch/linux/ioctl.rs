@@ -15,6 +15,7 @@ impl_const_id! {
     Init = 0,
     LaunchStart<'_> = 2,
     LaunchUpdateData<'_> = 3,
+    LaunchSecret<'_> = 5,
     LaunchMeasure<'_> = 6,
 }
 
@@ -38,6 +39,9 @@ pub const INIT: Ioctl<WriteRead, &Command<Init>> = unsafe { Ioctl::classic(ENC_O
 pub const LAUNCH_START: Ioctl<WriteRead, &Command<LaunchStart>> = unsafe { Ioctl::classic(ENC_OP) };
 /// Encrypt guest data with its VEK.
 pub const LAUNCH_UPDATE_DATA: Ioctl<WriteRead, &Command<LaunchUpdateData>> =
+    unsafe { Ioctl::classic(ENC_OP) };
+/// Inject a secret into the guest.
+pub const LAUNCH_SECRET: Ioctl<WriteRead, &Command<LaunchSecret>> =
     unsafe { Ioctl::classic(ENC_OP) };
 /// Get the guest's measurement.
 pub const LAUNCH_MEASUREMENT: Ioctl<WriteRead, &Command<LaunchMeasure>> =

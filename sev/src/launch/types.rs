@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::certs::sev;
-use crate::launch::{Measurement, Policy, Session};
+use crate::launch::{Header, Measurement, Policy, Session};
 
 use std::marker::PhantomData;
 
@@ -48,6 +48,32 @@ impl<'a> LaunchUpdateData<'a> {
         Self {
             addr: data.as_ptr() as _,
             len: data.len() as _,
+            _phantom: PhantomData,
+        }
+    }
+}
+
+/// Inject a secret into the guest.
+#[repr(C)]
+pub struct LaunchSecret<'a> {
+    hdr_addr: u64,
+    hdr_len: u32,
+    guest_addr: u64,
+    guest_len: u32,
+    trans_addr: u64,
+    trans_len: u32,
+    _phantom: PhantomData<&'a ()>,
+}
+
+impl<'a> LaunchSecret<'a> {
+    pub fn new(header: &'a Header, guest: &u8, trans: &'a [u8]) -> Self {
+        Self {
+            hdr_addr: header as *const _ as _,
+            hdr_len: std::mem::size_of_val(header) as _,
+            guest_addr: guest as *const _ as _,
+            guest_len: trans.len() as _,
+            trans_addr: trans.as_ptr() as _,
+            trans_len: trans.len() as _,
             _phantom: PhantomData,
         }
     }
