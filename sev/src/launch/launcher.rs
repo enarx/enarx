@@ -1,17 +1,19 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use super::Start;
+use super::{Measurement, Start};
 
 use crate::launch::linux::ioctl::*;
 use crate::launch::types::*;
 
 use std::io::Result;
+use std::mem::MaybeUninit;
 use std::os::unix::io::{AsRawFd, RawFd};
 
 pub struct Handle(u32);
 
 pub struct New;
 pub struct Started(Handle);
+pub struct Measured(Handle, Measurement);
 
 struct Fd<'a>(&'a dyn AsRawFd);
 
@@ -65,5 +67,27 @@ impl<'a> Launcher<'a, Started> {
             &mut Command::from(&self.sev, &launch_update_data),
         )?;
         Ok(())
+    }
+
+    pub fn measure(mut self) -> Result<Launcher<'a, Measured>> {
+        let mut measurement = unsafe { MaybeUninit::zeroed().assume_init() };
+        LAUNCH_MEASUREMENT.ioctl(
+            &mut self.kvm,
+            &mut Command::from_mut(&self.sev, &mut LaunchMeasure::new(&mut measurement)),
+        )?;
+
+        let next = Launcher {
+            state: Measured(self.state.0, measurement),
+            kvm: self.kvm,
+            sev: self.sev,
+        };
+
+        Ok(next)
+    }
+}
+
+impl<'a> Launcher<'a, Measured> {
+    pub fn measurement(&self) -> Measurement {
+        self.state.1
     }
 }
