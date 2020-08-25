@@ -29,6 +29,14 @@ pub struct Launcher<'a, T> {
     sev: Fd<'a>,
 }
 
+impl<'a, T> Launcher<'a, T> {
+    pub fn pin_pages(&mut self, memory: &'a [u8]) -> Result<()> {
+        let reg_enc_region = EncryptedRegion::new(memory);
+        reg_enc_region.ioctl(&self.kvm)?;
+        Ok(())
+    }
+}
+
 impl<'a> Launcher<'a, New> {
     pub fn new(kvm: &'a dyn AsRawFd, sev: &'a dyn AsRawFd) -> Result<Self> {
         let mut launcher = Launcher {

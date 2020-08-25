@@ -4,8 +4,10 @@ use crate::impl_const_id;
 use crate::launch::types::*;
 use iocuddle::*;
 
-use std::io::Result;
+use std::convert::TryInto;
+use std::io::{Error, Result};
 use std::marker::PhantomData;
+use std::os::raw::{c_int, c_uint, c_ulong};
 use std::os::unix::io::AsRawFd;
 
 // These enum ordinal values are defined in the Linux kernel
@@ -21,6 +23,7 @@ impl_const_id! {
 }
 
 const ENC_OP: u64 = 0xc008aeba;
+const REG_REGION: u64 = 0x8010aebb;
 
 // Note: the iocuddle::Ioctl::classic constructor has been used here because
 // KVM_MEMORY_ENCRYPT_OP ioctl was defined like this:
@@ -51,6 +54,48 @@ pub const LAUNCH_MEASUREMENT: Ioctl<WriteRead, &Command<LaunchMeasure>> =
 /// the ready state.
 pub const LAUNCH_FINISH: Ioctl<WriteRead, &Command<LaunchFinish>> =
     unsafe { Ioctl::classic(ENC_OP) };
+
+#[repr(C)]
+pub struct EncryptedRegion<'a> {
+    addr: u64,
+    len: u32,
+    _phantom: PhantomData<&'a ()>,
+}
+
+impl<'a> EncryptedRegion<'a> {
+    pub fn new(region: &'a [u8]) -> Self {
+        Self {
+            addr: region.as_ptr() as _,
+            len: region.len() as _,
+            _phantom: PhantomData,
+        }
+    }
+
+    pub fn ioctl(self, fd: &impl AsRawFd) -> Result<c_uint> {
+        // iocuddle (correctly) won't allow the creation of a wrapper for
+        // this ioctl where we supply a struct to the kernel  because it
+        // is declared in the kernel as:
+        //
+        //     _IOR(KVMIO, 0xbb, struct kvm_enc_region)
+        //
+        // instead of as:
+        //
+        //     _IOW(KVMIO, 0xbb, struct kvm_enc_region)
+        //
+        // _IOR means the kernel is writing to a struct for us to read,
+        // but the ioctl is meant to be used as _IOW which means *we* give
+        // the kernel a struct for it to read from.
+        extern "C" {
+            fn ioctl(fd: c_int, request: c_ulong, ...) -> c_int;
+        }
+
+        let r = unsafe { ioctl(fd.as_raw_fd(), REG_REGION, &self as *const _ as c_ulong) };
+
+        let res: c_uint = r.try_into().map_err(|_| Error::last_os_error())?;
+
+        Ok(res)
+    }
+}
 
 #[repr(C)]
 pub struct Command<'a, T: Id> {
