@@ -2,8 +2,8 @@
 
 use crate::backend::kvm::vm::x86_64::VMSetup;
 
-use bounds::Span;
 pub use kvm_bindings::kvm_userspace_memory_region as KvmUserspaceMemoryRegion;
+use lset::Span;
 use memory::Page;
 use mmap::Unmap;
 use x86_64::structures::paging::page_table::PageTable;

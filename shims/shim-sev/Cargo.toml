@@ -7,7 +7,6 @@ license = "Apache-2.0"
 
 [dependencies]
 sallyport = { path = "../../../sallyport" }
-bounds = { path = "../../../bounds" }
 memory = { path = "../../../memory" }
 rcrt1 = { path = "../../../rcrt1" }
 memoffset = { git = "https://github.com/Gilnaa/memoffset", features = ["unstable_const", "unstable_raw"] }
@@ -18,6 +17,7 @@ crt0stack = { version = "0.1", default-features = false }
 spinning = { version = "0.0", default-features = false}
 libc = { version = "0.2", features = [] }
 nbytes = "0.1"
+lset = "0.1"
 
 [profile.dev.package.rcrt1]
 opt-level = 3
