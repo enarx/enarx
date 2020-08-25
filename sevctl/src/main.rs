@@ -6,14 +6,13 @@
 #![deny(clippy::all)]
 #![deny(missing_docs)]
 
-mod platform;
-
 use clap::ArgMatches;
 
 use codicon::*;
 
 use ::sev::certs::*;
 use ::sev::firmware::{Firmware, Status};
+use ::sev::Generation;
 
 use std::fs::File;
 use std::process::exit;
@@ -64,8 +63,8 @@ fn chain() -> sev::Chain {
 
 fn ca_chain_builtin(chain: &sev::Chain) -> ca::Chain {
     use std::convert::TryFrom;
-    platform::Generation::try_from(chain)
-        .unwrap_or(platform::Generation::Rome)
+    Generation::try_from(chain)
+        .unwrap_or(Generation::Rome)
         .into()
 }
 
