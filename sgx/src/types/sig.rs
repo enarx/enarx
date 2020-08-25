@@ -175,7 +175,7 @@ impl Measurement {
         use openssl::{hash, sign};
         const EXPONENT: u32 = 3;
 
-        if key.e() != &*bn::BigNum::from_u32(EXPONENT)? {
+        if key.e() != &*bn::BigNum::try_from(EXPONENT)? {
             return Err(std::io::ErrorKind::InvalidInput.into());
         }
 
@@ -202,7 +202,7 @@ impl Measurement {
         let signature = signer.sign_to_vec()?;
 
         // Generates q1, q2 values for RSA signature verification
-        let s = bn::BigNum::from_slice(&signature)?;
+        let s = bn::BigNum::from_be_bytes(&signature)?;
         let m = key.n();
 
         let mut ctx = bn::BigNumContext::new()?;
@@ -256,7 +256,7 @@ impl TryFrom<&bn::BigNumRef> for RsaNumber {
     #[inline]
     fn try_from(value: &bn::BigNumRef) -> Result<Self, Self::Error> {
         let mut le = [0u8; Self::SIZE];
-        let be = value.to_vec();
+        let be = value.to_be_vec();
 
         if be.len() > Self::SIZE {
             return Err(std::io::ErrorKind::InvalidInput.into());
