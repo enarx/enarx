@@ -20,3 +20,4 @@ iocuddle = "0.1"
 kvm-bindings = "0.3"
 kvm-ioctls = "0.5"
 libc = "0.2"
+reqwest =  { version = "0.10", features = ["blocking"] }
