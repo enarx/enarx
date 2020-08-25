@@ -23,6 +23,3 @@ nbytes = "0.1"
 anyhow = "1.0"
 goblin = "0.2"
 libc = "0.2"
-
-[patch.crates-io]
-openssl = { git = 'https://github.com/npmccallum/rust-openssl', branch='patch' }
