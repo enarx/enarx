@@ -6,7 +6,7 @@ use crate::binary::Component;
 use anyhow::{anyhow, Result};
 use lset::Span;
 use memory::Page;
-use sgx::enclave::{Builder, Enclave, Leaf, Segment};
+use sgx::enclave::{Builder, Enclave, Entry, Segment};
 use sgx::types::{
     page::{Flags, SecInfo},
     ssa::Exception,
@@ -158,7 +158,7 @@ impl super::Thread for Thread {
     fn enter(&mut self) -> Result<Command> {
         const SYS_ERESUME: usize = !0;
 
-        let mut leaf = Leaf::Enter;
+        let mut how = Entry::Enter;
 
         // The main loop event handles different types of enclave exits and
         // re-enters the enclave with specific parameters.
@@ -179,9 +179,9 @@ impl super::Thread for Thread {
         //
         //   4. Asynchronous exits other than invalid opcode will panic.
         loop {
-            leaf = match self.thread.enter(leaf, &mut self.block) {
-                Err(Some(ei)) if ei.trap == Exception::InvalidOpcode => Leaf::Enter,
-                Ok(_) if SYS_ERESUME == unsafe { self.block.msg.req.num }.into() => Leaf::Resume,
+            how = match self.thread.enter(how, &mut self.block) {
+                Err(Some(ei)) if ei.trap == Exception::InvalidOpcode => Entry::Enter,
+                Ok(_) if SYS_ERESUME == unsafe { self.block.msg.req.num }.into() => Entry::Resume,
                 Ok(_) => return Ok(Command::SysCall(&mut self.block)),
                 e => panic!("Unexpected AEX: {:?}", e),
             }
