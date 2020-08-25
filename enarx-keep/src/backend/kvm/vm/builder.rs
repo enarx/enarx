@@ -13,8 +13,8 @@ use crate::binary::{Component, Segment};
 
 use crate::backend::kvm::shim::BootInfo;
 use anyhow::Result;
-use bounds::Line;
 use kvm_ioctls::{Kvm, VmFd};
+use lset::Line;
 use memory::Page;
 use x86_64::structures::paging::page_table::{PageTable, PageTableFlags};
 use x86_64::{PhysAddr, VirtAddr};
@@ -128,7 +128,7 @@ impl Builder<CpuCapacity> {
             )?
         };
         let unmap = unsafe {
-            mmap::Unmap::new(bounds::Span {
+            mmap::Unmap::new(lset::Span {
                 start: guest_addr_start,
                 count: mem_size as _,
             })

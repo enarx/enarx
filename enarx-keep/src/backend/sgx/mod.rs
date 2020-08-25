@@ -4,7 +4,7 @@ use crate::backend::{Command, Datum, Keep};
 use crate::binary::Component;
 
 use anyhow::{anyhow, Result};
-use bounds::Span;
+use lset::Span;
 use memory::Page;
 use sgx::enclave::{Builder, Enclave, Leaf, Segment};
 use sgx::types::{

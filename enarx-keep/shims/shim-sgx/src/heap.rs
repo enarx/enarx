@@ -3,7 +3,7 @@
 use core::mem::size_of;
 use core::slice::from_raw_parts_mut as slice;
 
-use bounds::{Line, Span};
+use lset::{Line, Span};
 use memory::Page;
 
 type Word = usize;

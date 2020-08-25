@@ -14,7 +14,6 @@ crypto = ["std", "openssl"]
 asm = ["xsave/asm"]
 
 [dependencies]
-bounds  = { path = "../bounds" }
 memory = { path = "../memory" }
 mmap = { path = "../mmap", optional = true }
 openssl = { version = "0.10", features = ["vendored"], optional = true }
@@ -23,6 +22,7 @@ iocuddle = { version = "0.1", optional = true }
 libc = { version = "0.2", optional = true }
 vdso = { version = "0.1", optional = true }
 bitflags = "1.2"
+lset = "0.1"
 
 [dev-dependencies]
 rstest = "0.6"

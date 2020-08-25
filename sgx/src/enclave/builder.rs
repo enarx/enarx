@@ -10,7 +10,7 @@ use crate::{
     },
 };
 
-use bounds::Span;
+use lset::Span;
 use memory::Page;
 use openssl::{bn, rsa};
 
@@ -178,7 +178,7 @@ impl Builder {
                 )?;
             }
 
-            //let line = bounds::Line::from(span);
+            //let line = lset::Line::from(span);
             //eprintln!("{:016x}-{:016x} {:?}", line.start, line.end, si);
         }
 

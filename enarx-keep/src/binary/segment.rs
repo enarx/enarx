@@ -3,8 +3,8 @@
 //! Types for describing segment data loaded from a program header.
 
 use anyhow::Result;
-use bounds::{Line, Span};
 use goblin::elf::program_header::*;
+use lset::{Line, Span};
 use memory::Page;
 
 use std::cmp::min;
