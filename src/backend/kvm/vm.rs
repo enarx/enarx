@@ -44,7 +44,7 @@ impl VirtualMachine {
             )?
         };
         let unmap = unsafe {
-            mmap::Unmap::new(bounds::Span {
+            mmap::Unmap::new(lset::Span {
                 start: guest_addr_start,
                 count: mem_size as _,
             })
