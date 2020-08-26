@@ -62,13 +62,20 @@ fn chain() -> sev::Chain {
     chain
 }
 
+fn ca_chain_builtin(chain: &sev::Chain) -> ca::Chain {
+    use std::convert::TryFrom;
+    platform::Generation::try_from(chain)
+        .unwrap_or(platform::Generation::Rome)
+        .into()
+}
+
 fn main() {
     use clap::{App, Arg, SubCommand};
 
     let matches = App::new("SEV Platform Control")
         .version(VERSION)
         .author(AUTHORS.split(';').next().unwrap())
-        .about("Utilities for managing the SEV environement")
+        .about("Utilities for managing the SEV environment")
         .subcommand(SubCommand::with_name("reset").about("Resets the SEV platform"))
         .subcommand(
             SubCommand::with_name("show")
@@ -90,6 +97,12 @@ fn main() {
                     Arg::with_name("file")
                         .help("SEV certificate chain output file")
                         .required(true),
+                )
+                .arg(
+                    Arg::with_name("full")
+                        .help("Export the entire certificate chain (SEV+CA)")
+                        .long("full")
+                        .short("f"),
                 ),
         )
         .subcommand(
@@ -234,7 +247,17 @@ mod export {
         let chain = chain();
 
         let mut out = std::io::Cursor::new(Vec::new());
-        chain.encode(&mut out, ()).unwrap();
+
+        if matches.is_present("full") {
+            let full_chain = Chain {
+                ca: ca_chain_builtin(&chain),
+                sev: chain,
+            };
+
+            full_chain.encode(&mut out, ()).unwrap();
+        } else {
+            chain.encode(&mut out, ()).unwrap();
+        }
 
         let mut file =
             File::create(matches.value_of("file").unwrap()).expect("unable to create output file");
@@ -331,13 +354,6 @@ mod verify {
     fn ca_chain(filename: &str) -> ca::Chain {
         let mut file = File::open(&filename).expect("unable to open CA certificate chain file");
         ca::Chain::decode(&mut file, ()).expect("unable to decode chain")
-    }
-
-    fn ca_chain_builtin(chain: &sev::Chain) -> ca::Chain {
-        use std::convert::TryFrom;
-        platform::Generation::try_from(chain)
-            .unwrap_or(platform::Generation::Rome)
-            .into()
     }
 }
 
