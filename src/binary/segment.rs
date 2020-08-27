@@ -21,7 +21,7 @@ pub struct Segment {
 
 impl Segment {
     /// Creates a segment from a `ProgramHeader`.
-    pub fn from_ph(file: &[u8], ph: &ProgramHeader) -> Result<Option<Self>> {
+    pub fn from_ph(file: impl AsRef<[u8]>, ph: &ProgramHeader) -> Result<Option<Self>> {
         if ph.p_type != PT_LOAD {
             return Ok(None);
         }
@@ -62,7 +62,7 @@ impl Segment {
             count: min(subslice.count, src.count),
         });
 
-        let src = &file[Range::from(src)];
+        let src = &file.as_ref()[Range::from(src)];
         let mut buf = vec![Page::default(); Span::from(frame).count];
         unsafe { buf.align_to_mut() }.1[subslice].copy_from_slice(src);
 
