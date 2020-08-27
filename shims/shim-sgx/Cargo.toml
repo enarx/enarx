@@ -12,7 +12,7 @@ libc = { version = "0.2", features = [] }
 nbytes = "0.1"
 lset = "0.1"
 sgx = { path = "../../../sgx", default-features = false }
-sallyport = { path = "../../../sallyport" }
+sallyport = { path = "../../../sallyport", default-features = false }
 memory = { path = "../../../memory" }
 rcrt1 = { path = "../../../rcrt1" }
 
