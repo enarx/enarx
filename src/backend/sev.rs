@@ -177,6 +177,11 @@ impl backend::Backend for Backend {
         "sev"
     }
 
+    // This will be updated once there is support for SEV.
+    fn have(&self) -> bool {
+        false
+    }
+
     fn data(&self) -> Vec<Datum> {
         let mut data = vec![];
         data.extend(CPUIDS.iter().map(|c| c.into()));
