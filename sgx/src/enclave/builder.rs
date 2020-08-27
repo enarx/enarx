@@ -16,6 +16,7 @@ use openssl::{bn, rsa};
 
 use std::fs::{File, OpenOptions};
 use std::io::Result;
+use std::mem::forget;
 use std::sync::{Arc, RwLock};
 
 /// A loadable segment of code
@@ -51,7 +52,7 @@ fn f2p(flags: Flags) -> libc::c_int {
 pub struct Builder {
     sign: Parameters,
     file: File,
-    mmap: mmap::Unmap,
+    mmap: mmap::Map<mmap::perms::Unknown>,
     hash: Hasher,
     perm: Vec<(Span<usize>, SecInfo)>,
     tcsp: Vec<*mut Tcs>,
@@ -72,11 +73,11 @@ impl Builder {
             .open("/dev/sgx/enclave")?;
 
         // Map the memory for the enclave
-        let flags = libc::MAP_PRIVATE | libc::MAP_ANONYMOUS | libc::MAP_FIXED_NOREPLACE;
-        let mmap = unsafe {
-            mmap::map(span.start, span.count, libc::PROT_NONE, flags, None, 0)?;
-            mmap::Unmap::new(span)
-        };
+        let mmap = mmap::Builder::map(span.count)
+            .at(span.start)
+            .anonymously()
+            .known::<mmap::perms::None>(mmap::Kind::Private)?
+            .into();
 
         // Create the hasher.
         let hash = Hasher::new(span.count, StateSaveArea::frame_size());
@@ -110,7 +111,7 @@ impl Builder {
                 continue;
             }
 
-            let off = seg.dst - self.mmap.span().start;
+            let off = seg.dst - self.mmap.addr();
 
             // Update the enclave.
             let mut ap = ioctls::AddPages::new(&seg.src, off, &seg.si, FLAGS);
@@ -167,16 +168,12 @@ impl Builder {
             };
 
             // Change the permissions on an existing region of memory.
-            unsafe {
-                mmap::map(
-                    span.start,
-                    span.count,
-                    rwx,
-                    libc::MAP_SHARED | libc::MAP_FIXED,
-                    Some(&self.file),
-                    0,
-                )?;
-            }
+            forget(unsafe {
+                mmap::Builder::map(span.count)
+                    .onto(span.start)
+                    .from(&mut self.file, 0)
+                    .unknown(mmap::Kind::Shared, rwx)?
+            });
 
             //let line = lset::Line::from(span);
             //eprintln!("{:016x}-{:016x} {:?}", line.start, line.end, si);
