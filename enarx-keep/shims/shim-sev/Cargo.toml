@@ -6,7 +6,7 @@ edition = "2018"
 license = "Apache-2.0"
 
 [dependencies]
-sallyport = { path = "../../../sallyport" }
+sallyport = { path = "../../../sallyport", default-features = false }
 memory = { path = "../../../memory" }
 rcrt1 = { path = "../../../rcrt1" }
 memoffset = { git = "https://github.com/Gilnaa/memoffset", features = ["unstable_const", "unstable_raw"] }

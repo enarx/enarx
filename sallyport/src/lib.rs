@@ -3,6 +3,7 @@
 //! This crate represents the hypervisor-microkernel boundary. It contains a number
 //! of a shared structures to help facilitate communication between the two entities.
 
+#![cfg_attr(feature = "std", feature(asm))]
 #![deny(missing_docs)]
 #![deny(clippy::all)]
 #![no_std]
@@ -58,6 +59,7 @@ pub struct Request {
     pub arg: [Register<usize>; 7],
 }
 
+#[cfg(feature = "std")]
 impl Request {
     /// Issues the requested syscall and returns the reply
     ///
@@ -65,13 +67,24 @@ impl Request {
     ///
     /// This function is unsafe because syscalls can't be made generically safe.
     pub unsafe fn syscall(&self) -> Reply {
-        extern "C" {
-            fn sallyport_syscall(req: &Request, rep: &mut Reply);
-        }
+        let rax: usize;
+        let rdx: usize;
 
-        let mut reply = core::mem::MaybeUninit::uninit().assume_init();
-        sallyport_syscall(self, &mut reply);
-        reply
+        asm!(
+            "syscall",
+            inlateout("rax") usize::from(self.num) => rax,
+            in("rdi") usize::from(self.arg[0]),
+            in("rsi") usize::from(self.arg[1]),
+            inlateout("rdx") usize::from(self.arg[2]) => rdx,
+            in("r10") usize::from(self.arg[3]),
+            in("r8") usize::from(self.arg[4]),
+            in("r9") usize::from(self.arg[5]),
+        );
+
+        Reply {
+            ret: [rax.into(), rdx.into()],
+            err: Default::default(),
+        }
     }
 }
 
