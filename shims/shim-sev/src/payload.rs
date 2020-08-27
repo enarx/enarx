@@ -90,7 +90,10 @@ fn map_elf(app_virt_start: VirtAddr) -> &'static Header {
         )
     };
 
-    for ph in headers.iter().filter(|ph| ph.p_type == PT_LOAD) {
+    for ph in headers
+        .iter()
+        .filter(|ph| ph.p_type == PT_LOAD && ph.p_memsz > 0)
+    {
         let map_from = PhysAddr::new((code_start as u64).checked_add(ph.p_paddr).unwrap());
         debug_assert!(map_from.as_u64() < code_end as u64);
 
