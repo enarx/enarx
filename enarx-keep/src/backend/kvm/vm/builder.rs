@@ -117,32 +117,21 @@ impl Builder<New> {
 }
 
 impl Builder<CpuCapacity> {
-    pub fn add_memory(mut self) -> Result<Builder<BootBlock>, io::Error> {
+    pub fn add_memory(mut self) -> std::io::Result<Builder<BootBlock>> {
         let mem_size = align_up(self.data.boot_info.unwrap().mem_size as _, bytes![2; MiB]);
         self.data.boot_info.as_mut().unwrap().mem_size = mem_size as _;
 
-        let guest_addr_start = unsafe {
-            mmap::map(
-                0,
-                mem_size as _,
-                libc::PROT_READ | libc::PROT_WRITE,
-                libc::MAP_PRIVATE | libc::MAP_ANONYMOUS,
-                None,
-                0,
-            )?
-        };
-        let unmap = unsafe {
-            mmap::Unmap::new(lset::Span {
-                start: guest_addr_start,
-                count: mem_size as _,
-            })
-        };
+        let map = mmap::Builder::map(mem_size as usize)
+            .anywhere()
+            .anonymously()
+            .known::<mmap::perms::ReadWrite>(mmap::Kind::Private)?;
+
         let region = KvmUserspaceMemoryRegion {
             slot: 0,
             flags: 0,
             guest_phys_addr: 0,
             memory_size: mem_size as _,
-            userspace_addr: guest_addr_start as _,
+            userspace_addr: map.addr() as _,
         };
 
         let fd = self.data.fd.as_ref().unwrap();
@@ -153,7 +142,7 @@ impl Builder<CpuCapacity> {
         self.data.address_space = Some(Region::new(
             *self.data.max_cpus.as_ref().unwrap(),
             region,
-            unmap,
+            map,
         ));
 
         Ok(Builder {

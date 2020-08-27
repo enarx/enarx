@@ -8,6 +8,7 @@ mod x86_64;
 pub use builder::Builder;
 use cpu::{Allocator, Cpu};
 use mem::Region;
+use memory::Page;
 
 use crate::backend::kvm::vm::mem::KvmUserspaceMemoryRegion;
 use crate::backend::{Keep, Thread};
@@ -29,41 +30,31 @@ pub struct VirtualMachine {
 }
 
 impl VirtualMachine {
-    pub fn add_memory(&mut self, pages: u64) -> Result<i64> {
-        let mem_size = pages * 4096;
+    pub fn add_memory(&mut self, pages: usize) -> Result<i64> {
+        let mem_size = pages * Page::size();
         let last_region = self.regions.last().unwrap().as_guest();
 
-        let guest_addr_start = unsafe {
-            mmap::map(
-                0,
-                mem_size as _,
-                libc::PROT_READ | libc::PROT_WRITE,
-                libc::MAP_PRIVATE | libc::MAP_ANONYMOUS,
-                None,
-                0,
-            )?
-        };
-        let unmap = unsafe {
-            mmap::Unmap::new(lset::Span {
-                start: guest_addr_start,
-                count: mem_size as _,
-            })
-        };
+        let map = mmap::Builder::map(mem_size as usize)
+            .anywhere()
+            .anonymously()
+            .known::<mmap::perms::ReadWrite>(mmap::Kind::Private)?;
+
+        let region_start = map.addr();
         let region = KvmUserspaceMemoryRegion {
             slot: self.regions.len() as _,
             flags: 0,
             guest_phys_addr: last_region.start.as_u64() + last_region.count,
             memory_size: mem_size as _,
-            userspace_addr: guest_addr_start as _,
+            userspace_addr: region_start as _,
         };
 
         unsafe {
             self.fd.set_user_memory_region(region)?;
         }
 
-        self.regions.push(Region::new(0, region, unmap));
+        self.regions.push(Region::new(0, region, map));
 
-        Ok(guest_addr_start as _)
+        Ok(region_start as _)
     }
 }
 

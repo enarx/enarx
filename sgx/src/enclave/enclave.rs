@@ -3,9 +3,7 @@
 use std::sync::{Arc, RwLock};
 use std::{fmt, mem::MaybeUninit};
 
-use lset::Span;
 use memory::Register;
-use mmap::Unmap;
 
 use crate::types::ssa::Exception;
 use crate::types::tcs::Tcs;
@@ -75,20 +73,15 @@ impl fmt::Debug for ExceptionInfo {
 ///
 /// TODO add more comprehensive docs
 pub struct Enclave {
-    mem: Unmap,
+    _mem: mmap::Map<mmap::perms::Unknown>,
     tcs: Vec<*mut Tcs>,
 }
 
 impl Enclave {
     // Use `sgx::enclave::Builder::build` to create a new SGX `Enclave`
     // instance.
-    pub(super) fn new(mem: Unmap, tcs: Vec<*mut Tcs>) -> Self {
-        Self { mem, tcs }
-    }
-
-    /// Get the memory region of the enclave
-    pub fn span(&self) -> Span<usize> {
-        self.mem.span()
+    pub(super) fn new(mem: mmap::Map<mmap::perms::Unknown>, tcs: Vec<*mut Tcs>) -> Self {
+        Self { _mem: mem, tcs }
     }
 }
 

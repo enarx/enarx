@@ -126,7 +126,7 @@ impl Thread for Cpu {
                         0..=512 => Ok(Command::SysCall(sallyport)),
 
                         SYS_ENARX_BALLOON_MEMORY => {
-                            let pages: u64 = unsafe { sallyport.msg.req.arg[0].into() };
+                            let pages = unsafe { sallyport.msg.req.arg[0].into() };
 
                             let result = keep.add_memory(pages).map(|addr| {
                                 let ok_result: [Register<usize>; 2] = [addr.into(), 0.into()];
