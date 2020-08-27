@@ -32,13 +32,18 @@ pub const SHIM_EX_STACK_START: u64 = 0xFFFF_FF48_F000_0000;
 pub const SHIM_EX_STACK_SIZE: u64 = bytes![2; MiB];
 
 lazy_static! {
+    /// The initial shim stack
+    pub static ref INITIAL_STACK: GuardedStack = init_stack_with_guard(
+        VirtAddr::new(SHIM_STACK_START),
+        SHIM_STACK_SIZE,
+        PageTableFlags::empty(),
+    );
+
     /// The global TSS
     pub static ref TSS: TaskStateSegment = {
         let mut tss = TaskStateSegment::new();
 
-        let stack = init_stack_with_guard(VirtAddr::new(SHIM_STACK_START), SHIM_STACK_SIZE, PageTableFlags::empty());
-
-        tss.privilege_stack_table[0] = stack.pointer;
+        tss.privilege_stack_table[0] = INITIAL_STACK.pointer;
 
         // Assign the stacks for the exceptions and interrupts
         unsafe {
