@@ -55,9 +55,25 @@ static BOOT_INFO: RwLock<Option<BootInfo>> =
 static SHIM_HOSTCALL_VIRT_ADDR: RwLock<Option<VirtAddr>> =
     RwLock::<Option<VirtAddr>>::const_new(spinning::RawRwLock::const_new(), None);
 
+/// Switch the stack and jump to a function
+///
+/// # Safety
+///
+/// This function is unsafe, because the caller has to ensure a 16 byte
+/// aligned usable stack.
+pub unsafe fn switch_shim_stack(ip: extern "C" fn() -> !, sp: u64) -> ! {
+    asm!(
+        "mov rsp, {0}",
+        "jmp {1}",
+        in(reg) sp,
+        in(reg) ip,
+        options(noreturn, nomem)
+    );
+}
+
 /// Defines the entry point function.
 ///
-/// The function must have the signature `fn(*mut BootInfo) -> !`.
+/// The function must have the signature `extern "C" fn() -> !`.
 ///
 /// This macro just creates a function named `_start_main`, which the assembler
 /// stub will use as the entry point. The advantage of using this macro instead
@@ -70,7 +86,7 @@ macro_rules! entry_point {
         #[export_name = "_start_main"]
         pub unsafe extern "C" fn __impl_start(boot_info: *mut BootInfo) -> ! {
             // validate the signature of the program entry point
-            let f: fn() -> ! = $path;
+            let f: extern "C" fn() -> ! = $path;
 
             SHIM_HOSTCALL_VIRT_ADDR
                 .write()
@@ -82,7 +98,8 @@ macro_rules! entry_point {
             // Needed for syscalls
             lazy_static::initialize(&frame_allocator::FRAME_ALLOCATOR);
 
-            f()
+            // Switch the stack to a guarded stack
+            switch_shim_stack(f, gdt::INITIAL_STACK.pointer.as_u64())
         }
     };
 }
@@ -90,7 +107,7 @@ macro_rules! entry_point {
 entry_point!(shim_main);
 
 /// The entry point for the shim
-pub fn shim_main() -> ! {
+pub extern "C" fn shim_main() -> ! {
     unsafe {
         gdt::init();
     }
