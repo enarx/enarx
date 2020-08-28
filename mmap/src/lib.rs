@@ -85,7 +85,7 @@
 #![deny(missing_docs)]
 
 use std::convert::TryInto;
-use std::io::{Error, ErrorKind, Result};
+use std::io::ErrorKind;
 use std::marker::PhantomData;
 use std::mem::forget;
 use std::os::unix::io::{AsRawFd, RawFd};
@@ -155,6 +155,58 @@ enum Address {
     Onto(usize),
 }
 
+/// The error condition
+///
+/// This type is mostly a wrapper for `std::io::Error` with one additional
+/// feature: it conveys ownership to a mapping. This enables the pattern
+/// where an old mapping is valid until the conversion operation is successful.
+/// If the operation is unsuccessful, the old mapping is returned along with
+/// the error condition.
+#[derive(Debug)]
+pub struct Error<T> {
+    /// The previous mapping that could not be modified
+    pub map: T,
+
+    /// The underlying error
+    pub err: std::io::Error,
+}
+
+impl<T> std::fmt::Display for Error<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
+        self.err.fmt(f)
+    }
+}
+
+impl<T: std::fmt::Debug> std::error::Error for Error<T> {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        Some(&self.err)
+    }
+}
+
+impl<T> From<Error<T>> for std::io::Error {
+    fn from(value: Error<T>) -> Self {
+        value.err
+    }
+}
+
+impl From<std::io::Error> for Error<()> {
+    fn from(value: std::io::Error) -> Self {
+        Self {
+            map: (),
+            err: value,
+        }
+    }
+}
+
+impl From<ErrorKind> for Error<()> {
+    fn from(value: ErrorKind) -> Self {
+        Self {
+            map: (),
+            err: value.into(),
+        }
+    }
+}
+
 /// The type of mapping to create
 #[derive(Copy, Clone, Debug)]
 pub enum Kind {
@@ -174,7 +226,7 @@ impl Kind {
     ///
     /// This is simply a convenience function.
     #[inline]
-    pub fn load<T: Known, U: AsRef<Path>>(self, path: U) -> Result<Map<T>> {
+    pub fn load<T: Known, U: AsRef<Path>>(self, path: U) -> Result<Map<T>, Error<()>> {
         let err = Err(ErrorKind::InvalidData);
         let mut file = std::fs::File::open(path)?;
         let size = file.metadata()?.len().try_into().or(err)?;
@@ -183,44 +235,47 @@ impl Kind {
 }
 
 #[doc(hidden)]
-pub struct Size<'a> {
-    prev: Option<&'a mut usize>,
+pub struct Size<T> {
+    prev: T,
     size: usize,
 }
 
 #[doc(hidden)]
-pub struct Destination<'a> {
-    prev: Size<'a>,
+pub struct Destination<T> {
+    prev: Size<T>,
     addr: Address,
 }
 
 #[doc(hidden)]
-pub struct Source<'a> {
-    prev: Destination<'a>,
+pub struct Source<'a, T> {
+    prev: Destination<T>,
     fd: RawFd,
     offset: libc::off_t,
     huge: Option<i32>,
+    data: PhantomData<&'a ()>,
 }
 
-impl<'a> Stage for Size<'a> {}
-impl<'a> Stage for Destination<'a> {}
-impl<'a> Stage for Source<'a> {}
+impl<T> Stage for Size<T> {}
+impl<T> Stage for Destination<T> {}
+impl<'a, T> Stage for Source<'a, T> {}
 
 /// A builder used to construct a new memory mapping
 pub struct Builder<T: Stage>(T);
 
-impl<'a> Builder<Size<'a>> {
+impl Builder<Size<()>> {
     /// Begin creating a mapping of the specified size
     #[inline]
     pub fn map(size: usize) -> Self {
-        Self(Size { prev: None, size })
+        Self(Size { prev: (), size })
     }
+}
 
+impl<T> Builder<Size<T>> {
     /// Creates the mapping anywhere in valid memory
     ///
     /// This is equivalent to specifying `NULL` as the address to `mmap()`.
     #[inline]
-    pub fn anywhere(self) -> Builder<Destination<'a>> {
+    pub fn anywhere(self) -> Builder<Destination<T>> {
         Builder(Destination {
             prev: self.0,
             addr: Address::None,
@@ -231,7 +286,7 @@ impl<'a> Builder<Size<'a>> {
     ///
     /// This is equivalent to specifying an address with `MAP_FIXED_NOREPLACE` to `mmap()`.
     #[inline]
-    pub fn at(self, addr: usize) -> Builder<Destination<'a>> {
+    pub fn at(self, addr: usize) -> Builder<Destination<T>> {
         Builder(Destination {
             prev: self.0,
             addr: Address::At(addr),
@@ -242,7 +297,7 @@ impl<'a> Builder<Size<'a>> {
     ///
     /// This is equivalent to specifying an address with no additional flags to `mmap()`.
     #[inline]
-    pub fn near(self, addr: usize) -> Builder<Destination<'a>> {
+    pub fn near(self, addr: usize) -> Builder<Destination<T>> {
         Builder(Destination {
             prev: self.0,
             addr: Address::Near(addr),
@@ -258,7 +313,7 @@ impl<'a> Builder<Size<'a>> {
     /// This function is unsafe because it can replace existing mappings,
     /// causing memory corruption.
     #[inline]
-    pub unsafe fn onto(self, addr: usize) -> Builder<Destination<'a>> {
+    pub unsafe fn onto(self, addr: usize) -> Builder<Destination<T>> {
         Builder(Destination {
             prev: self.0,
             addr: Address::Onto(addr),
@@ -266,14 +321,15 @@ impl<'a> Builder<Size<'a>> {
     }
 }
 
-impl<'a> Builder<Destination<'a>> {
+impl<T> Builder<Destination<T>> {
     /// Creates the mapping without any file backing
     ///
     /// This is equivalent to specifying `-1` as the file descriptor, `0` as
     /// the offset and `MAP_ANONYMOUS` in the flags.
     #[inline]
-    pub fn anonymously(self) -> Builder<Source<'a>> {
+    pub fn anonymously<'a>(self) -> Builder<Source<'a, T>> {
         Builder(Source {
+            data: PhantomData,
             prev: self.0,
             huge: None,
             offset: 0,
@@ -285,9 +341,10 @@ impl<'a> Builder<Destination<'a>> {
     ///
     /// This is equivalent to specifying a valid file descriptor and an offset.
     #[inline]
-    pub fn from<U: AsRawFd>(self, file: &'a mut U, offset: i64) -> Builder<Source<'a>> {
+    pub fn from<'a, U: AsRawFd>(self, file: &'a mut U, offset: i64) -> Builder<Source<'a, T>> {
         Builder(Source {
             fd: file.as_raw_fd(),
+            data: PhantomData,
             prev: self.0,
             huge: None,
             offset,
@@ -295,7 +352,7 @@ impl<'a> Builder<Destination<'a>> {
     }
 }
 
-impl<'a> Builder<Source<'a>> {
+impl<'a, T> Builder<Source<'a, T>> {
     /// Uses huge pages for the mapping
     ///
     /// If `pow = 0`, the kernel will pick the huge page size. Otherwise, if
@@ -316,7 +373,7 @@ impl<'a> Builder<Source<'a>> {
     /// The resulting `Map` object will be missing a lot of useful APIs.
     /// However, it will still manage the map lifecycle.
     #[inline]
-    pub fn unknown(self, kind: Kind, perms: i32) -> Result<Map<perms::Unknown>> {
+    pub fn unknown(self, kind: Kind, perms: i32) -> Result<Map<perms::Unknown>, Error<T>> {
         let einval = ErrorKind::InvalidInput.into();
 
         let kind = match kind {
@@ -325,7 +382,13 @@ impl<'a> Builder<Source<'a>> {
         };
 
         let huge = match self.0.huge {
-            Some(x) if x & !libc::MAP_HUGE_MASK != 0 => return Err(einval),
+            Some(x) if x & !libc::MAP_HUGE_MASK != 0 => {
+                return Err(Error {
+                    map: self.0.prev.prev.prev,
+                    err: einval,
+                })
+            }
+
             Some(x) => (x << libc::MAP_HUGE_SHIFT) | libc::MAP_HUGETLB,
             None => 0,
         };
@@ -335,7 +398,12 @@ impl<'a> Builder<Source<'a>> {
             Address::At(a) if a != 0 => (a, libc::MAP_FIXED_NOREPLACE),
             Address::Near(a) if a != 0 => (a, 0),
             Address::Onto(a) if a != 0 => (a, libc::MAP_FIXED),
-            _ => return Err(einval),
+            _ => {
+                return Err(Error {
+                    map: self.0.prev.prev.prev,
+                    err: einval,
+                })
+            }
         };
 
         let anon = match self.0.fd {
@@ -348,13 +416,13 @@ impl<'a> Builder<Source<'a>> {
 
         let ret = unsafe { libc::mmap(addr as _, size, perms, flags, self.0.fd, self.0.offset) };
         if ret == libc::MAP_FAILED {
-            return Err(Error::last_os_error());
+            return Err(Error {
+                map: self.0.prev.prev.prev,
+                err: std::io::Error::last_os_error(),
+            });
         }
 
-        // "Steal" the memory from the previous mapping.
-        if let Some(prev) = self.0.prev.prev.prev {
-            *prev = 0;
-        }
+        forget(self.0.prev.prev.prev);
 
         Ok(Map {
             addr: ret as usize,
@@ -368,8 +436,8 @@ impl<'a> Builder<Source<'a>> {
     /// The use of this method should be preferred to `Self::unknown()` since
     /// this permits for compile-time permission validation.
     #[inline]
-    pub fn known<T: Known>(self, kind: Kind) -> Result<Map<T>> {
-        let unknown = self.unknown(kind, T::VALUE)?;
+    pub fn known<U: Known>(self, kind: Kind) -> Result<Map<U>, Error<T>> {
+        let unknown = self.unknown(kind, U::VALUE)?;
         let known = Map {
             addr: unknown.addr,
             size: unknown.size,
@@ -461,13 +529,13 @@ impl<T: Type> Map<T> {
     /// Upon success, the new mapping "steals" the mapping from the old `Map`
     /// instance. Using the old instance is a logic error, but is safe.
     #[inline]
-    pub fn remap(&mut self) -> Builder<Destination> {
+    pub fn remap(self) -> Builder<Destination<Map<T>>> {
         Builder(Destination {
+            addr: Address::Onto(self.addr),
             prev: Size {
                 size: self.size,
-                prev: Some(&mut self.size),
+                prev: self,
             },
-            addr: Address::Onto(self.addr),
         })
     }
 
@@ -476,9 +544,12 @@ impl<T: Type> Map<T> {
     /// Upon success, the new mapping "steals" the mapping from the old `Map`
     /// instance. Using the old instance is a logic error, but is safe.
     #[inline]
-    pub fn reprotect<U: Known>(&mut self) -> Result<Map<U>> {
+    pub fn reprotect<U: Known>(self) -> Result<Map<U>, Error<Map<T>>> {
         if unsafe { libc::mprotect(self.addr as _, self.size, U::VALUE) } != 0 {
-            return Err(Error::last_os_error());
+            return Err(Error {
+                map: self,
+                err: std::io::Error::last_os_error(),
+            });
         }
 
         let map = Map {
@@ -487,7 +558,7 @@ impl<T: Type> Map<T> {
             data: PhantomData,
         };
 
-        self.size = 0;
+        forget(self);
         Ok(map)
     }
 }
