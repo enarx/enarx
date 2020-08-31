@@ -11,7 +11,7 @@ use core::{
     mem::{align_of, size_of, MaybeUninit},
     num::NonZeroU32,
 };
-use memory::Register;
+use primordial::Register;
 use xsave::XSave;
 
 /// Section 38.9.1.1, Table 38-9

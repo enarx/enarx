@@ -11,9 +11,9 @@ use crate::{
 };
 
 use lset::Span;
-use memory::Page;
 use mmarinus::{perms, Kind, Map};
 use openssl::{bn, rsa};
+use primordial::Page;
 
 use std::fs::{File, OpenOptions};
 use std::io::Result;

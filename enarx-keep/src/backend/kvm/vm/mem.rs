@@ -4,8 +4,8 @@ use crate::backend::kvm::vm::x86_64::VMSetup;
 
 pub use kvm_bindings::kvm_userspace_memory_region as KvmUserspaceMemoryRegion;
 use lset::Span;
-use memory::Page;
 use mmarinus::{perms, Map};
+use primordial::Page;
 use x86_64::structures::paging::page_table::PageTable;
 use x86_64::{PhysAddr, VirtAddr};
 

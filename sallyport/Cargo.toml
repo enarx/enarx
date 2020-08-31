@@ -15,7 +15,7 @@ keywords = [
 
 [dependencies]
 libc = { version = "0.2", features = [] }
-memory = { path = "../memory" }
+primordial = "0.1"
 
 [features]
 default = ["std"]

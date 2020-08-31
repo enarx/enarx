@@ -8,7 +8,7 @@ use crate::hostlib::{MemInfo, SYSCALL_TRIGGER_PORT, SYS_ENARX_BALLOON_MEMORY, SY
 use crate::SHIM_HOSTCALL_VIRT_ADDR;
 use core::convert::TryFrom;
 use core::mem::MaybeUninit;
-use memory::{Address, Page, Register};
+use primordial::{Address, Page, Register};
 use sallyport::{request, Block};
 use spinning::Mutex;
 use x86_64::instructions::port::Port;

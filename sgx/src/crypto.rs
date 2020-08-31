@@ -8,8 +8,8 @@
 #![allow(clippy::unreadable_literal)]
 
 use crate::types::{page::SecInfo, sig};
-use memory::Page;
 use openssl::sha;
+use primordial::Page;
 
 use std::num::NonZeroU32;
 
