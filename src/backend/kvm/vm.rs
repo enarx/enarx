@@ -9,6 +9,7 @@ pub use builder::Builder;
 use cpu::{Allocator, Cpu};
 use mem::Region;
 use memory::Page;
+use mmarinus::{perms, Kind, Map};
 
 use crate::backend::kvm::vm::mem::KvmUserspaceMemoryRegion;
 use crate::backend::{Keep, Thread};
@@ -34,10 +35,10 @@ impl VirtualMachine {
         let mem_size = pages * Page::size();
         let last_region = self.regions.last().unwrap().as_guest();
 
-        let map = mmap::Builder::map(mem_size as usize)
+        let map = Map::map(mem_size as usize)
             .anywhere()
             .anonymously()
-            .known::<mmap::perms::ReadWrite>(mmap::Kind::Private)?;
+            .known::<perms::ReadWrite>(Kind::Private)?;
 
         let region_start = map.addr();
         let region = KvmUserspaceMemoryRegion {

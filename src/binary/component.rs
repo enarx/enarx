@@ -5,6 +5,7 @@ use goblin::elf::{header::*, program_header::*, Elf};
 
 use lset::Line;
 use memory::Page;
+use mmarinus::{perms, Kind};
 
 use std::cmp::{max, min};
 use std::path::Path;
@@ -20,7 +21,7 @@ pub struct Component {
 impl Component {
     /// Loads a binary from a file
     pub fn from_path(path: impl AsRef<Path>) -> Result<Self> {
-        let map = mmap::Kind::Private.load::<mmap::perms::Read, _>(path)?;
+        let map = Kind::Private.load::<perms::Read, _>(path)?;
         Self::from_bytes(map)
     }
 
