@@ -9,13 +9,14 @@ use super::cpu::Allocator;
 use super::mem::{KvmUserspaceMemoryRegion, Region};
 use super::VirtualMachine;
 
+use crate::backend::kvm::shim::BootInfo;
 use crate::binary::{Component, Segment};
 
-use crate::backend::kvm::shim::BootInfo;
 use anyhow::Result;
 use kvm_ioctls::{Kvm, VmFd};
 use lset::Line;
 use memory::Page;
+use mmarinus::{perms, Kind, Map};
 use nbytes::bytes;
 use x86_64::structures::paging::page_table::{PageTable, PageTableFlags};
 use x86_64::{align_up, PhysAddr, VirtAddr};
@@ -121,10 +122,10 @@ impl Builder<CpuCapacity> {
         let mem_size = align_up(self.data.boot_info.unwrap().mem_size as _, bytes![2; MiB]);
         self.data.boot_info.as_mut().unwrap().mem_size = mem_size as _;
 
-        let map = mmap::Builder::map(mem_size as usize)
+        let map = Map::map(mem_size as usize)
             .anywhere()
             .anonymously()
-            .known::<mmap::perms::ReadWrite>(mmap::Kind::Private)?;
+            .known::<perms::ReadWrite>(Kind::Private)?;
 
         let region = KvmUserspaceMemoryRegion {
             slot: 0,
