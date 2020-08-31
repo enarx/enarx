@@ -2,6 +2,7 @@
 
 use crate::backend::{Command, Datum, Keep};
 use crate::binary::Component;
+use crate::sallyport;
 
 use anyhow::{anyhow, Result};
 use lset::Span;

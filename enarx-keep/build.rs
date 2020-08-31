@@ -59,9 +59,24 @@ fn main() {
         })
         .collect();
 
-    for entry in std::fs::read_dir("shims").unwrap() {
+    // internal crates are not included, if there is a `Cargo.toml` file
+    // trick cargo by renaming the `Cargo.toml` to `Cargo.tml` before
+    // publishing and rename it back here.
+    for entry in std::fs::read_dir("internal").unwrap() {
+        let path = entry.unwrap().path();
+
+        let cargo_toml = path.join("Cargo.toml");
+        let cargo_tml = path.join("Cargo.tml");
+
+        if cargo_tml.exists() {
+            std::fs::copy(cargo_tml, cargo_toml).unwrap();
+        }
+    }
+
+    for entry in std::fs::read_dir("internal").unwrap() {
         let shim_path = entry.unwrap().path();
         let shim_name = shim_path.clone();
+
         let shim_name = shim_name
             .file_name()
             .unwrap()
@@ -69,12 +84,17 @@ fn main() {
             .into_string()
             .unwrap();
 
+        if !shim_name.starts_with("shim-") {
+            continue;
+        }
+
         let shim_out_dir = out_dir.join(&shim_path);
 
         let target_dir = shim_out_dir.clone().into_os_string().into_string().unwrap();
 
         let path: String = shim_path.into_os_string().into_string().unwrap();
 
+        println!("cargo:rerun-if-changed={}/Cargo.tml", path);
         println!("cargo:rerun-if-changed={}/Cargo.toml", path);
         println!("cargo:rerun-if-changed={}/Cargo.lock", path);
         println!("cargo:rerun-if-changed={}/link.json", path);

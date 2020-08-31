@@ -31,7 +31,7 @@ fn below(rel: impl Into<Line<usize>>, size: usize) -> Span<usize> {
     }
 }
 
-include!("../../../shims/shim-sgx/src/hostlib.rs");
+include!("../../../internal/shim-sgx/src/hostlib.rs");
 
 impl Layout {
     /// Calculate the memory layout of the SGX keep
