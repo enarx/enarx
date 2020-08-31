@@ -8,8 +8,8 @@ mod x86_64;
 pub use builder::Builder;
 use cpu::{Allocator, Cpu};
 use mem::Region;
-use memory::Page;
 use mmarinus::{perms, Kind, Map};
+use primordial::Page;
 
 use crate::backend::kvm::vm::mem::KvmUserspaceMemoryRegion;
 use crate::backend::{Keep, Thread};

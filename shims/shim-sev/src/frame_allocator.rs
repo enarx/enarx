@@ -5,9 +5,8 @@ use crate::addr::{HostVirtAddr, ShimPhysAddr, ShimVirtAddr};
 use crate::hostcall::HOST_CALL;
 use crate::BOOT_INFO;
 
-use memory::Page as Page4KiB;
-use memory::{Address, Offset};
 use nbytes::bytes;
+use primordial::{Address, Offset, Page as Page4KiB};
 use spinning::RwLock;
 use x86_64::structures::paging::FrameAllocator as _;
 use x86_64::structures::paging::{

@@ -5,7 +5,7 @@ use crate::binary::Component;
 
 use anyhow::{anyhow, Result};
 use lset::Span;
-use memory::Page;
+use primordial::Page;
 use sgx::enclave::{Builder, Enclave, Entry, Segment};
 use sgx::types::{
     page::{Flags, SecInfo},

@@ -15,9 +15,9 @@ use crate::binary::{Component, Segment};
 use anyhow::Result;
 use kvm_ioctls::{Kvm, VmFd};
 use lset::Line;
-use memory::Page;
 use mmarinus::{perms, Kind, Map};
 use nbytes::bytes;
+use primordial::Page;
 use x86_64::structures::paging::page_table::{PageTable, PageTableFlags};
 use x86_64::{align_up, PhysAddr, VirtAddr};
 

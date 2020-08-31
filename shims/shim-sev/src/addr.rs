@@ -11,7 +11,7 @@ pub const SHIM_VIRT_OFFSET: u64 = 0xFFFF_FF80_0000_0000;
 
 use crate::frame_allocator::FRAME_ALLOCATOR;
 use core::convert::TryFrom;
-use memory::Address;
+use primordial::{Address, Register};
 
 /// Address in the host virtual address space
 pub struct HostVirtAddr<U>(Address<u64, U>);
@@ -30,26 +30,26 @@ impl<U> From<Address<u64, U>> for HostVirtAddr<U> {
     }
 }
 
-impl<T, U> From<HostVirtAddr<U>> for memory::Register<T>
+impl<T, U> From<HostVirtAddr<U>> for Register<T>
 where
-    memory::Register<T>: From<memory::Register<u64>>,
+    Register<T>: From<Register<u64>>,
 {
     #[inline(always)]
     fn from(val: HostVirtAddr<U>) -> Self {
-        memory::Register::<u64>::from(val.0).into()
+        Register::<u64>::from(val.0).into()
     }
 }
 
 /// Address in the shim physical address space
 pub struct ShimPhysAddr<U>(Address<u64, U>);
 
-impl<T, U> From<ShimPhysAddr<U>> for memory::Register<T>
+impl<T, U> From<ShimPhysAddr<U>> for Register<T>
 where
-    memory::Register<T>: From<memory::Register<u64>>,
+    Register<T>: From<Register<u64>>,
 {
     #[inline(always)]
     fn from(val: ShimPhysAddr<U>) -> Self {
-        memory::Register::<u64>::from(val.0).into()
+        Register::<u64>::from(val.0).into()
     }
 }
 

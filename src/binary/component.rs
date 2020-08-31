@@ -4,8 +4,8 @@ use anyhow::Result;
 use goblin::elf::{header::*, program_header::*, Elf};
 
 use lset::Line;
-use memory::Page;
 use mmarinus::{perms, Kind};
+use primordial::Page;
 
 use std::cmp::{max, min};
 use std::path::Path;

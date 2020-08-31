@@ -6,15 +6,15 @@ edition = "2018"
 license = "Apache-2.0"
 
 [dependencies]
+sallyport = { path = "../../../sallyport", default-features = false }
+sgx = { path = "../../../sgx", default-features = false }
+rcrt1 = { path = "../../../rcrt1" }
 goblin = { version = "0.2", default-features = false, features = [ "elf64" ] }
 crt0stack = { version = "0.1", default-features = false }
-libc = { version = "0.2", features = [] }
+libc = { version = "0.2", default-features = false }
+primordial = "0.1"
 nbytes = "0.1"
 lset = "0.1"
-sgx = { path = "../../../sgx", default-features = false }
-sallyport = { path = "../../../sallyport", default-features = false }
-memory = { path = "../../../memory" }
-rcrt1 = { path = "../../../rcrt1" }
 
 [profile.dev.package.rcrt1]
 opt-level = 3
