@@ -10,7 +10,7 @@ use crate::backend::{Command, Thread};
 
 use anyhow::{anyhow, Result};
 use kvm_ioctls::{VcpuExit, VcpuFd};
-use memory::{Page, Register};
+use primordial::{Page, Register};
 use sallyport::Reply;
 use x86_64::registers::control::{Cr0Flags, Cr4Flags};
 use x86_64::registers::model_specific::EferFlags;

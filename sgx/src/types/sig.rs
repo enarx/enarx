@@ -353,7 +353,7 @@ mod tests {
 
     use crate::types::page::{Flags as Perms, SecInfo};
 
-    use memory::Page;
+    use primordial::Page;
 
     use std::fs::File;
     use std::io::Read;

@@ -11,7 +11,7 @@ use std::marker::PhantomData;
 use crate::types::{page::SecInfo, secs, sig};
 use bitflags::bitflags;
 use iocuddle::*;
-use memory::Page;
+use primordial::Page;
 
 const SGX: Group = Group::new(0xA4);
 

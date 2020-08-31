@@ -14,7 +14,7 @@
 //! be as transparent as possible.
 
 use core::mem::size_of;
-use memory::{Page, Register};
+use primordial::{Page, Register};
 
 /// Creates a Request instance
 #[macro_export]

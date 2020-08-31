@@ -5,7 +5,7 @@
 use anyhow::Result;
 use goblin::elf::program_header::*;
 use lset::{Line, Span};
-use memory::Page;
+use primordial::Page;
 
 use std::cmp::min;
 use std::ops::Range;

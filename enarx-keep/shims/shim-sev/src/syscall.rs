@@ -11,7 +11,7 @@ use crate::payload::{NEXT_BRK_RWLOCK, NEXT_MMAP_RWLOCK};
 use core::convert::TryFrom;
 use core::mem::MaybeUninit;
 use core::ops::{Deref, DerefMut};
-use memory::Address;
+use primordial::Address;
 use sallyport::request;
 use x86_64::registers::wrfsbase;
 use x86_64::structures::paging::{Page, PageTableFlags, Size4KiB};

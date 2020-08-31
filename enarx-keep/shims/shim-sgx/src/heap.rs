@@ -4,7 +4,7 @@ use core::mem::size_of;
 use core::slice::from_raw_parts_mut as slice;
 
 use lset::{Line, Span};
-use memory::Page;
+use primordial::Page;
 
 type Word = usize;
 

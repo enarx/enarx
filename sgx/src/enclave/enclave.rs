@@ -3,8 +3,8 @@
 use std::sync::{Arc, RwLock};
 use std::{fmt, mem::MaybeUninit};
 
-use memory::Register;
 use mmarinus::{perms, Map};
+use primordial::Register;
 
 use crate::types::ssa::Exception;
 use crate::types::tcs::Tcs;

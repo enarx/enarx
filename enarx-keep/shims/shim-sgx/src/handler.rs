@@ -2,7 +2,7 @@
 
 use crate::Layout;
 
-use memory::Register;
+use primordial::Register;
 use sallyport::{request, Block, Request};
 use sgx::types::ssa::StateSaveArea;
 

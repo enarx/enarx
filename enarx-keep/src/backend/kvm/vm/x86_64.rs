@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 pub use kvm_bindings::kvm_segment as KvmSegment;
-use memory::Page;
+use primordial::Page;
 use x86_64::structures::paging::page_table::PageTable;
 
 use std::mem::size_of_val;
