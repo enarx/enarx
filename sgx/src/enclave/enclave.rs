@@ -4,6 +4,7 @@ use std::sync::{Arc, RwLock};
 use std::{fmt, mem::MaybeUninit};
 
 use memory::Register;
+use mmarinus::{perms, Map};
 
 use crate::types::ssa::Exception;
 use crate::types::tcs::Tcs;
@@ -73,14 +74,14 @@ impl fmt::Debug for ExceptionInfo {
 ///
 /// TODO add more comprehensive docs
 pub struct Enclave {
-    _mem: mmap::Map<mmap::perms::Unknown>,
+    _mem: Map<perms::Unknown>,
     tcs: Vec<*mut Tcs>,
 }
 
 impl Enclave {
     // Use `sgx::enclave::Builder::build` to create a new SGX `Enclave`
     // instance.
-    pub(super) fn new(mem: mmap::Map<mmap::perms::Unknown>, tcs: Vec<*mut Tcs>) -> Self {
+    pub(super) fn new(mem: Map<perms::Unknown>, tcs: Vec<*mut Tcs>) -> Self {
         Self { _mem: mem, tcs }
     }
 }

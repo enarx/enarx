@@ -12,6 +12,7 @@ use crate::{
 
 use lset::Span;
 use memory::Page;
+use mmarinus::{perms, Kind, Map};
 use openssl::{bn, rsa};
 
 use std::fs::{File, OpenOptions};
@@ -52,7 +53,7 @@ fn f2p(flags: Flags) -> libc::c_int {
 pub struct Builder {
     sign: Parameters,
     file: File,
-    mmap: mmap::Map<mmap::perms::Unknown>,
+    mmap: Map<perms::Unknown>,
     hash: Hasher,
     perm: Vec<(Span<usize>, SecInfo)>,
     tcsp: Vec<*mut Tcs>,
@@ -73,10 +74,10 @@ impl Builder {
             .open("/dev/sgx/enclave")?;
 
         // Map the memory for the enclave
-        let mmap = mmap::Builder::map(span.count)
+        let mmap = Map::map(span.count)
             .at(span.start)
             .anonymously()
-            .known::<mmap::perms::None>(mmap::Kind::Private)?
+            .known::<perms::None>(Kind::Private)?
             .into();
 
         // Create the hasher.
@@ -169,10 +170,10 @@ impl Builder {
 
             // Change the permissions on an existing region of memory.
             forget(unsafe {
-                mmap::Builder::map(span.count)
+                Map::map(span.count)
                     .onto(span.start)
                     .from(&mut self.file, 0)
-                    .unknown(mmap::Kind::Shared, rwx)?
+                    .unknown(Kind::Shared, rwx)?
             });
 
             //let line = lset::Line::from(span);

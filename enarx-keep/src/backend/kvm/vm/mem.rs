@@ -5,6 +5,7 @@ use crate::backend::kvm::vm::x86_64::VMSetup;
 pub use kvm_bindings::kvm_userspace_memory_region as KvmUserspaceMemoryRegion;
 use lset::Span;
 use memory::Page;
+use mmarinus::{perms, Map};
 use x86_64::structures::paging::page_table::PageTable;
 use x86_64::{PhysAddr, VirtAddr};
 
@@ -14,14 +15,14 @@ use std::slice::from_raw_parts_mut;
 pub struct Region {
     num_sally_pages: usize,
     kvm_region: KvmUserspaceMemoryRegion,
-    _backing: mmap::Map<mmap::perms::ReadWrite>,
+    _backing: Map<perms::ReadWrite>,
 }
 
 impl Region {
     pub fn new(
         num_sally_pages: usize,
         kvm_region: KvmUserspaceMemoryRegion,
-        backing: mmap::Map<mmap::perms::ReadWrite>,
+        backing: Map<perms::ReadWrite>,
     ) -> Self {
         Self {
             num_sally_pages,

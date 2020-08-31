@@ -12,12 +12,12 @@ build = "build.rs"
 sgx = { path = "../sgx", features = ["asm"] }
 sallyport = { path = "../sallyport" }
 memory = { path = "../memory" }
-mmap = { path = "../mmap" }
 x86_64 = { version = "0.11", default-features = false, features = ["stable"] }
 kvm-bindings = "0.3"
 kvm-ioctls = "0.5"
 structopt = "0.3"
 colorful = "0.2"
+mmarinus = "0.2"
 nbytes = "0.1"
 anyhow = "1.0"
 goblin = "0.2"
