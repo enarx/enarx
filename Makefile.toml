@@ -4,11 +4,11 @@ CARGO_MAKE_EXTEND_WORKSPACE_MAKEFILE = true
 CARGO_MAKE_WORKSPACE_EMULATION = true
 CARGO_MAKE_CRATE_WORKSPACE_MEMBERS = [
 	"enarx-keep",
-	"enarx-keep/shims/shim-sev",
-	"enarx-keep/shims/shim-sgx",
+	"enarx-keep/internal/shim-sev",
+	"enarx-keep/internal/shim-sgx",
+	"enarx-keep/internal/rcrt1",
+	"enarx-keep/internal/sallyport",
 	"integration-tests",
-	"rcrt1",
-	"sallyport",
 	"sev",
 	"sevctl",
 	"sgx",

@@ -7,11 +7,11 @@ use crate::backend::kvm::shim::{
     MemInfo, SYSCALL_TRIGGER_PORT, SYS_ENARX_BALLOON_MEMORY, SYS_ENARX_MEM_INFO,
 };
 use crate::backend::{Command, Thread};
+use crate::sallyport::{Block, Reply};
 
 use anyhow::{anyhow, Result};
 use kvm_ioctls::{VcpuExit, VcpuFd};
 use primordial::{Page, Register};
-use sallyport::Reply;
 use x86_64::registers::control::{Cr0Flags, Cr4Flags};
 use x86_64::registers::model_specific::EferFlags;
 use x86_64::PhysAddr;
@@ -118,7 +118,7 @@ impl Thread for Cpu {
                             .get_mut(self.id)
                             .unwrap();
 
-                        unsafe { &mut *(page as *mut Page as *mut sallyport::Block) }
+                        unsafe { &mut *(page as *mut Page as *mut Block) }
                     };
                     let syscall_nr: i64 = unsafe { sallyport.msg.req.num.into() };
 

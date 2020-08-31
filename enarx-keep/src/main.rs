@@ -4,9 +4,14 @@
 
 #![deny(clippy::all)]
 #![deny(missing_docs)]
+#![feature(asm)]
 
 mod backend;
 mod binary;
+mod sallyport;
+
+// workaround for sallyport tests, until we have internal crates
+pub use sallyport::Request;
 
 use backend::{Backend, Command};
 use binary::Component;

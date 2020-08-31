@@ -1,18 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 
-//! This crate represents the hypervisor-microkernel boundary. It contains a number
-//! of a shared structures to help facilitate communication between the two entities.
-
-#![cfg_attr(feature = "std", feature(asm))]
-#![deny(missing_docs)]
-#![deny(clippy::all)]
-#![no_std]
-
-//! The `proxy` module contains structures used to facilitate communication between
-//! the microkernel and the hypervisor. This is referred to as "proxying" in the
-//! project literature. This is a very thin and low-level layer that is meant to
-//! be as transparent as possible.
-
 use core::mem::size_of;
 use primordial::{Page, Register};
 
@@ -59,7 +46,6 @@ pub struct Request {
     pub arg: [Register<usize>; 7],
 }
 
-#[cfg(feature = "std")]
 impl Request {
     /// Issues the requested syscall and returns the reply
     ///
@@ -226,6 +212,7 @@ impl<'a> Cursor<'a> {
     }
 
     /// Copies data from a value into a slice using self.alloc().
+    #[allow(dead_code)]
     pub fn copy_slice<T: Copy>(
         self,
         value: &[T],

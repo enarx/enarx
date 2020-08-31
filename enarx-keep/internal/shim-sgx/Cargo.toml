@@ -6,9 +6,9 @@ edition = "2018"
 license = "Apache-2.0"
 
 [dependencies]
-sallyport = { path = "../../../sallyport", default-features = false }
+sallyport = { path = "../../internal/sallyport", default-features = false }
+rcrt1 = { path = "../../internal/rcrt1" }
 sgx = { path = "../../../sgx", default-features = false }
-rcrt1 = { path = "../../../rcrt1" }
 goblin = { version = "0.2", default-features = false, features = [ "elf64" ] }
 crt0stack = { version = "0.1", default-features = false }
 libc = { version = "0.2", default-features = false }
