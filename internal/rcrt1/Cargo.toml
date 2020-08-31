@@ -1,0 +1,12 @@
+[package]
+name = "rcrt1"
+version = "0.1.0"
+authors = ["Harald Hoyer <harald@redhat.com>"]
+edition = "2018"
+license = "Apache-2.0"
+publish = false
+
+[dependencies]
+libc = { version = "0.2", features = [] }
+goblin = { version = "0.2", default-features = false, features = [ "elf64" ] }
+

@@ -1,0 +1,23 @@
+[package]
+name = "sallyport"
+version = "0.1.0"
+authors = ["Harald Hoyer <harald@redhat.com>"]
+license = "Apache-2.0"
+edition = "2018"
+publish = false
+
+categories = [
+    "no-std",
+]
+
+keywords = [
+    "no_std",
+]
+
+[dependencies]
+libc = { version = "0.2", features = [] }
+primordial = "0.1"
+
+[features]
+default = ["std"]
+std = []
