@@ -13,6 +13,18 @@ void _start(void) {
     _exit(main());
 }
 
+ssize_t read(int fd, void *buf, size_t count) {
+    ssize_t rax;
+
+    asm(
+        "syscall"
+        : "=a" (rax)
+        : "a" (SYS_read), "D" (fd), "S" (buf), "d" (count)
+    );
+
+    return rax;
+}
+
 ssize_t write(int fd, const void *buf, size_t count) {
     ssize_t rax;
 
