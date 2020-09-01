@@ -1,21 +1,7 @@
-#include <sys/syscall.h>
-#include <unistd.h>
+#include "libc.h"
 
-void _start(void) {
-    char s[3] = "hi\n";
-    int len = 3;
-
-    asm(
-        "syscall"
-        : // no ouputs
-        : "a" (SYS_write), "D" (STDERR_FILENO), "S" (&s), "d" (len)
-        : // no clobbers
-    );
-
-    asm(
-        "syscall; ud2"
-        : // no outputs
-        : "a" (SYS_exit), "D" (0)
-        : // no clobbers
-    );
+int main(void) {
+    const char msg[] = "hi\n";
+    const int len = sizeof(msg) - 1;
+    return write(STDERR_FILENO, msg, len) != len;
 }
