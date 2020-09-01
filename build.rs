@@ -34,10 +34,11 @@ fn rerun_src(path: impl AsRef<Path>) -> std::io::Result<()> {
 }
 
 fn build_tests(in_path: &Path, out_path: &Path) {
-    let test_in_dir = Path::new(CRATE).join(TEST_BINS_IN);
-
-    for entry in in_path.read_dir().expect("failed to read tests/bin dir") {
-        let file = entry.expect("failed to read file in tests/bin dir");
+    for entry in in_path
+        .read_dir()
+        .expect(&format!("failed to read {:#?} dir", in_path))
+    {
+        let file = entry.expect(&format!("failed to read file in {:#?} dir", in_path));
         let filename = file.file_name();
         let output = file.path().file_stem().unwrap().to_os_string();
 
@@ -46,6 +47,8 @@ fn build_tests(in_path: &Path, out_path: &Path) {
             .get_compiler()
             .to_command();
 
+        let in_source = in_path.join(&filename);
+
         let status = cmd
             .current_dir(&out_path)
             .arg("-nostdlib")
@@ -53,12 +56,12 @@ fn build_tests(in_path: &Path, out_path: &Path) {
             .arg("-fPIC")
             .arg("-o")
             .arg(output)
-            .arg(test_in_dir.join(&filename))
+            .arg(&in_source)
             .status()
-            .expect("failed to compile binary");
+            .expect(&format!("failed to compile {:#?}", &in_source));
 
         if !status.success() {
-            panic!("Failed to compile {:?}", &filename);
+            panic!("Failed to compile {:?}", &in_source);
         }
     }
 }
