@@ -1,20 +1,12 @@
-#include <sys/syscall.h>
-#include <time.h>
+#include "libc.h"
 
-
-void _start(void) {
+int main(void) {
     struct timespec t;
-    asm(
-        "syscall"
-        : // no ouputs
-        : "a" (SYS_clock_gettime), "D" (CLOCK_MONOTONIC), "S" (&t)
-        : // no clobbers
-    );
 
-    asm(
-        "syscall; ud2"
-        : // no outputs
-        : "a" (SYS_exit), "D" (0)
-        : // no clobbers
-    );
+    ssize_t rax = clock_gettime(CLOCK_MONOTONIC, &t);
+    if (rax == 0) {
+        rax = write(STDOUT_FILENO, &t, sizeof(t));
+    }
+
+    return rax != sizeof(t);
 }

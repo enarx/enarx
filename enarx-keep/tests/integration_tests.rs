@@ -65,7 +65,30 @@ fn exit_one() {
 
 #[test]
 fn clock_gettime() {
-    run_test("clock_gettime", 0);
+    use libc::{clock_gettime, CLOCK_MONOTONIC};
+
+    // Get the time from inside the keep.
+    let stdout = run_test("clock_gettime", 0).stdout.unwrap();
+    let theirs: libc::timespec = read_item(stdout).unwrap();
+
+    // Get the time from outside the keep.
+    let ours = unsafe {
+        let mut ts = MaybeUninit::uninit();
+        assert_eq!(0, clock_gettime(CLOCK_MONOTONIC, ts.as_mut_ptr()));
+        ts.assume_init()
+    };
+
+    // Validate that the difference in time is minor...
+    const NSEC_PER_SEC: libc::c_long = 1_000_000_000;
+    const MAX_SEC: libc::c_long = 2;
+
+    let sec = ours.tv_sec - theirs.tv_sec;
+    assert!(sec >= 0);
+    assert!(sec < MAX_SEC);
+
+    let nsec = sec * NSEC_PER_SEC + ours.tv_nsec - theirs.tv_nsec;
+    assert!(nsec >= 0);
+    assert!(nsec < MAX_SEC * NSEC_PER_SEC);
 }
 
 #[test]
