@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use std::io::Read;
+use std::io::{Read, Write};
 use std::mem::{size_of, MaybeUninit};
 use std::path::Path;
 use std::process::{Command, Stdio};
@@ -17,7 +17,7 @@ const TIMEOUT_SECS: u64 = 5;
 
 /// Returns a handle to a child process through which output (stdout, stderr) can
 /// be accessed.
-fn run_test(bin: &str, status: i32) -> std::process::Child {
+fn run_test<'a>(bin: &str, status: i32, input: impl Into<Option<&'a str>>) -> std::process::Child {
     let bin = Path::new(CRATE).join(OUT_DIR).join(TEST_BINS_OUT).join(bin);
 
     let mut child = Command::new(&String::from(KEEP_BIN))
@@ -29,6 +29,17 @@ fn run_test(bin: &str, status: i32) -> std::process::Child {
         .stderr(Stdio::piped())
         .spawn()
         .expect("failed to run test bin");
+
+    if let Some(input) = input.into() {
+        child
+            .stdin
+            .as_mut()
+            .unwrap()
+            .write_all(input.to_string().as_ref())
+            .expect("failed to write stdin to child");
+
+        drop(child.stdin.take());
+    }
 
     let code = match child
         .wait_timeout(Duration::from_secs(TIMEOUT_SECS))
@@ -55,12 +66,12 @@ fn read_item<T: Copy>(mut rdr: impl Read) -> std::io::Result<T> {
 
 #[test]
 fn exit_zero() {
-    run_test("exit_zero", 0);
+    run_test("exit_zero", 0, None);
 }
 
 #[test]
 fn exit_one() {
-    run_test("exit_one", 1);
+    run_test("exit_one", 1, None);
 }
 
 #[test]
@@ -68,7 +79,7 @@ fn clock_gettime() {
     use libc::{clock_gettime, CLOCK_MONOTONIC};
 
     // Get the time from inside the keep.
-    let stdout = run_test("clock_gettime", 0).stdout.unwrap();
+    let stdout = run_test("clock_gettime", 0, None).stdout.unwrap();
     let theirs: libc::timespec = read_item(stdout).unwrap();
 
     // Get the time from outside the keep.
@@ -93,7 +104,7 @@ fn clock_gettime() {
 
 #[test]
 fn write_stdout() {
-    let child = run_test("write_stdout", 0);
+    let child = run_test("write_stdout", 0, None);
     let stdout = child.stdout.unwrap();
 
     let buf: [u8; 3] = read_item(stdout).unwrap();
@@ -102,7 +113,7 @@ fn write_stdout() {
 
 #[test]
 fn write_stderr() {
-    let child = run_test("write_stderr", 0);
+    let child = run_test("write_stderr", 0, None);
     let stdout = child.stderr.unwrap();
 
     let buf: [u8; 3] = read_item(stdout).unwrap();
@@ -111,5 +122,16 @@ fn write_stderr() {
 
 #[test]
 fn write_emsgsize() {
-    run_test("write_emsgsize", 0);
+    run_test("write_emsgsize", 0, None);
+}
+
+#[test]
+fn read() {
+    const INPUT: &str = "hello world\n";
+    const BYTES: usize = INPUT.as_bytes().len();
+    let child = run_test("read", 0, INPUT);
+    let stdout = child.stdout.unwrap();
+
+    let buf: [u8; BYTES] = read_item(stdout).unwrap();
+    assert_eq!(INPUT, String::from_utf8(buf.to_vec()).unwrap());
 }
