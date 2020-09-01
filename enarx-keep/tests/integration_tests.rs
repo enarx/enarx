@@ -108,3 +108,8 @@ fn write_stderr() {
     let buf: [u8; 3] = read_item(stdout).unwrap();
     assert_eq!("hi\n", String::from_utf8(buf.to_vec()).unwrap());
 }
+
+#[test]
+fn write_emsgsize() {
+    run_test("write_emsgsize", 0);
+}
