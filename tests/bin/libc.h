@@ -36,3 +36,15 @@ int clock_gettime(clockid_t clk_id, struct timespec *tp) {
 
     return rax;
 }
+
+int is_enarx() {
+    ssize_t rax;
+
+    asm("syscall" : "=a" (rax) : "a" (SYS_fork));
+
+    switch (rax) {
+        case 0: _exit(0);
+        case -ENOSYS: return 1;
+        default: return 0;
+    }
+}
