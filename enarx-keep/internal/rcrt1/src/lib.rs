@@ -12,6 +12,7 @@
 #![no_std]
 #![deny(clippy::all)]
 #![deny(missing_docs)]
+#![no_builtins]
 
 const R_TYPE_MASK: u64 = 0x7fffffff;
 
