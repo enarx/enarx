@@ -353,9 +353,9 @@ impl FrameAllocator {
     }
 
     /// Map physical memory to the given virtual address
-    pub fn map_memory(
+    pub fn map_memory<T: Mapper<Size4KiB> + Mapper<Size2MiB>>(
         &mut self,
-        mapper: &mut (impl Mapper<Size4KiB> + Mapper<Size2MiB>),
+        mapper: &mut T,
         map_from: PhysAddr,
         map_to: VirtAddr,
         size: usize,
