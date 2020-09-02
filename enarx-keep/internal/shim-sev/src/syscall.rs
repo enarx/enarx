@@ -9,13 +9,12 @@ use crate::hostcall::{self, shim_write_all, HostFd, HOST_CALL};
 use crate::paging::SHIM_PAGETABLE;
 use crate::payload::{NEXT_BRK_RWLOCK, NEXT_MMAP_RWLOCK};
 use core::convert::TryFrom;
-use core::mem::MaybeUninit;
+use core::mem::{size_of, MaybeUninit};
 use core::ops::{Deref, DerefMut};
 use primordial::Address;
 use sallyport::request;
 use x86_64::registers::wrfsbase;
 use x86_64::structures::paging::{Page, PageTableFlags, Size4KiB};
-use x86_64::structures::tss::TaskStateSegment;
 use x86_64::{align_up, VirtAddr};
 
 /// syscall service routine
@@ -28,10 +27,9 @@ use x86_64::{align_up, VirtAddr};
 pub unsafe fn _syscall_enter() -> ! {
     use crate::gdt::{USER_CODE_SEGMENT, USER_DATA_SEGMENT};
     // TaskStateSegment.privilege_stack_table[0]
-    const KERNEL_RSP_OFF: usize = memoffset::offset_of!(TaskStateSegment, privilege_stack_table);
+    const KERNEL_RSP_OFF: usize = size_of::<u32>();
     // TaskStateSegment.privilege_stack_table[3]
-    const USR_RSP_OFF: usize = memoffset::offset_of!(TaskStateSegment, privilege_stack_table)
-        + 3 * core::mem::size_of::<u64>();
+    const USR_RSP_OFF: usize = size_of::<u32>() + 3 * size_of::<u64>();
 
     asm!("
     # prepare the stack for iretq and load the kernel rsp
