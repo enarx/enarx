@@ -5,10 +5,22 @@ authors = ["Nathaniel McCallum <npmccallum@redhat.com>"]
 license = "Apache-2.0"
 edition = "2018"
 build = "build.rs"
-
+homepage = "https://github.com/enarx/enarx-keepldr"
+repository = "https://github.com/enarx/enarx-keepldr"
+description = "Enarx Keep Loader"
+readme = "README.md"
+keywords = ["sgx", "sev", "kvm", "tee"]
+categories = ["os", "os::linux-apis", "network-programming", "hardware-support"]
+exclude = [ ".gitignore", ".github/*" ]
 include = [ "src", "internal" ]
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[badges]
+# See https://doc.rust-lang.org/cargo/reference/manifest.html#the-badges-section
+github = { repository = "enarx/enarx-keepldr", workflow = "test" }
+#github = { repository = "enarx/enarx-keepldr", workflow = "lint" }
+maintenance = { status = "actively-developed" }
+is-it-maintained-issue-resolution = { repository = "enarx/enarx-keepldr" }
+is-it-maintained-open-issues = { repository = "enarx/enarx-keepldr" }
 
 [dependencies]
 sgx = { git = "https://github.com/enarx/sgx", rev = "512e077", features = ["asm", "crypto"] }
