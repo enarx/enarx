@@ -1,0 +1,59 @@
+on: [push, pull_request]
+name: test
+jobs:
+  main:
+    name: enarx-keepldr ${{ matrix.backend.name }} nightly ${{ matrix.profile.name }}
+    runs-on: ${{ matrix.backend.host }}
+    env:
+        ENARX_BACKEND: ${{ matrix.backend.name }}
+    steps:
+      - run: sudo apt update
+      - run: sudo apt install -y musl-tools
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          target: x86_64-unknown-linux-musl
+          toolchain: nightly
+          override: true
+      - uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: ${{ matrix.profile.flag }}
+    strategy:
+      fail-fast: false
+      matrix:
+        backend:
+          - {name: sgx, host: [self-hosted, linux, sgx]}
+          - {name: kvm, host: [self-hosted, linux]}
+          - {name: nil, host: ubuntu-20.04}
+        profile:
+          - name: debug
+          - name: release
+            flag: --release
+
+  internal:
+    name: ${{ matrix.crate }} nightly ${{ matrix.profile.name }}
+    runs-on: ubuntu-20.04
+    steps:
+      - run: sudo apt update
+      - run: sudo apt install -y musl-tools
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          target: x86_64-unknown-linux-musl
+          toolchain: nightly
+          override: true
+      - run: cargo test ${{ matrix.profile.flag }}
+        working-directory: internal/${{ matrix.crate }}
+    strategy:
+      fail-fast: false
+      matrix:
+        crate:
+          - rcrt1
+          - sallyport
+          - shim-sgx
+          - shim-sev
+        profile:
+          - name: debug
+          - name: release
+            flag: --release

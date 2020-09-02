@@ -1,0 +1,65 @@
+on: [push, pull_request]
+name: lint
+jobs:
+  fmt:
+    name: cargo fmt (${{ matrix.crate.name }})
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          components: rustfmt
+          toolchain: nightly
+          profile: minimal
+          override: true
+      - uses: actions-rs/cargo@v1
+        with:
+          command: fmt
+          args: --manifest-path=${{ matrix.crate.path }} -- --check
+    strategy:
+      fail-fast: false
+      matrix:
+        crate:
+          - {name: enarx-keepldr, path: Cargo.toml}
+          - {name: rcrt1, path: internal/rcrt1/Cargo.toml}
+          - {name: sallyport, path: internal/sallyport/Cargo.toml}
+          - {name: shim-sgx, path: internal/shim-sgx/Cargo.toml}
+          - {name: shim-sev, path: internal/shim-sev/Cargo.toml}
+
+  clippy:
+    name: cargo clippy (${{ matrix.crate.name }})
+    runs-on: ubuntu-20.04
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          components: clippy
+          toolchain: nightly
+          profile: minimal
+          override: true
+      - uses: actions-rs/cargo@v1
+        with:
+          command: clippy
+          args: --manifest-path=${{ matrix.crate.path }} -- -D warnings
+    strategy:
+      fail-fast: false
+      matrix:
+        crate:
+          - {name: enarx-keepldr, path: Cargo.toml}
+          - {name: rcrt1, path: internal/rcrt1/Cargo.toml}
+          - {name: sallyport, path: internal/sallyport/Cargo.toml}
+          - {name: shim-sgx, path: internal/shim-sgx/Cargo.toml}
+          - {name: shim-sev, path: internal/shim-sev/Cargo.toml}
+
+  readme:
+    name: cargo readme
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          profile: minimal
+          override: true
+      - run: cargo install cargo-readme
+      - run: cargo readme > README.md && git diff --exit-code
