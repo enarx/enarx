@@ -110,7 +110,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9274b445ee572d50bdeb17a1101be829becc565b5c12b21a697af4d360b48e8d"
 
 [[package]]
-name = "enarx-keep"
+name = "enarx-keepldr"
 version = "0.1.0"
 dependencies = [
  "anyhow",

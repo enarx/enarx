@@ -10,7 +10,7 @@ use std::time::Duration;
 use wait_timeout::ChildExt;
 
 const CRATE: &str = env!("CARGO_MANIFEST_DIR");
-const KEEP_BIN: &str = env!("CARGO_BIN_EXE_enarx-keep");
+const KEEP_BIN: &str = env!("CARGO_BIN_EXE_enarx-keepldr");
 const OUT_DIR: &str = env!("OUT_DIR");
 const TEST_BINS_OUT: &str = "bin";
 const TIMEOUT_SECS: u64 = 5;
