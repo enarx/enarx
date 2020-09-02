@@ -8,7 +8,6 @@ license = "Apache-2.0"
 [dependencies]
 sallyport = { path = "../sallyport", default-features = false }
 rcrt1 = { path = "../rcrt1" }
-memoffset = { git = "https://github.com/Gilnaa/memoffset", features = ["unstable_const", "unstable_raw"] }
 x86_64 = { version = "0.11.2", default-features = false, features = ["array-init", "inline_asm"] }
 lazy_static = { version = "1.4.0", default-features = false, features = ["spin_no_std"] }
 goblin = { version = "0.2", default-features = false, features = [ "elf64" ] }
