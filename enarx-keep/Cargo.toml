@@ -11,7 +11,7 @@ include = [ "src", "internal" ]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-sgx = { path = "../sgx", features = ["asm"] }
+sgx = { git = "https://github.com/enarx/sgx", rev = "512e077", features = ["asm", "crypto"] }
 x86_64 = { version = "0.11", default-features = false, features = ["stable"] }
 kvm-bindings = "0.3"
 kvm-ioctls = "0.5"
