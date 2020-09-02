@@ -7,8 +7,8 @@ license = "Apache-2.0"
 
 [dependencies]
 sallyport = { path = "../../internal/sallyport", default-features = false }
+sgx = { git = "https://github.com/enarx/sgx", rev = "512e077" }
 rcrt1 = { path = "../../internal/rcrt1" }
-sgx = { path = "../../../sgx", default-features = false }
 goblin = { version = "0.2", default-features = false, features = [ "elf64" ] }
 crt0stack = { version = "0.1", default-features = false }
 libc = { version = "0.2", default-features = false }

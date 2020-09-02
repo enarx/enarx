@@ -9,7 +9,6 @@ CARGO_MAKE_CRATE_WORKSPACE_MEMBERS = [
 	"enarx-keep/internal/rcrt1",
 	"enarx-keep/internal/sallyport",
 	"integration-tests",
-	"sgx",
 ]
 ENARX_TEST_DIR = "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/.tests"
 ENARX_DOCS_DIR = "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/docs"
