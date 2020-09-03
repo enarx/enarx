@@ -2,13 +2,7 @@
 RUST_RECURSION_COUNT = {unset = true }
 CARGO_MAKE_EXTEND_WORKSPACE_MAKEFILE = true
 CARGO_MAKE_WORKSPACE_EMULATION = true
-CARGO_MAKE_CRATE_WORKSPACE_MEMBERS = [
-	"enarx-keep",
-	"enarx-keep/internal/shim-sev",
-	"enarx-keep/internal/shim-sgx",
-	"enarx-keep/internal/rcrt1",
-	"enarx-keep/internal/sallyport",
-]
+CARGO_MAKE_CRATE_WORKSPACE_MEMBERS = []
 ENARX_TEST_DIR = "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/.tests"
 ENARX_DOCS_DIR = "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/docs"
 
