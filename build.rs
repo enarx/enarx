@@ -36,9 +36,9 @@ fn rerun_src(path: impl AsRef<Path>) -> std::io::Result<()> {
 fn build_tests(in_path: &Path, out_path: &Path) {
     for entry in in_path
         .read_dir()
-        .expect(&format!("failed to read {:#?} dir", in_path))
+        .unwrap_or_else(|_| panic!("failed to read {:#?} dir", in_path))
     {
-        let file = entry.expect(&format!("failed to read file in {:#?} dir", in_path));
+        let file = entry.unwrap_or_else(|_| panic!("failed to read file in {:#?} dir", in_path));
         let filename = file.file_name();
         let output = file.path().file_stem().unwrap().to_os_string();
 
@@ -58,7 +58,7 @@ fn build_tests(in_path: &Path, out_path: &Path) {
             .arg(output)
             .arg(&in_source)
             .status()
-            .expect(&format!("failed to compile {:#?}", &in_source));
+            .unwrap_or_else(|_| panic!("failed to compile {:#?}", &in_source));
 
         if !status.success() {
             panic!("Failed to compile {:?}", &in_source);
