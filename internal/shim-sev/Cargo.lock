@@ -7,12 +7,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f30bbe2f5e3d117f55bd8c7a1f9191e4a5deba9f15f595bbea4f670c59c765db"
 
 [[package]]
-name = "autocfg"
-version = "1.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cdb031dd78e28731d87d56cc8ffef4a8f36ca26c38fe2de700543e627f8a464a"
-
-[[package]]
 name = "bit_field"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -75,14 +69,6 @@ name = "lset"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "23b20ea162e8026b8fc058e49bbc77ad7dd48d1907b3de206ecbe549c7ce669a"
-
-[[package]]
-name = "memoffset"
-version = "0.5.5"
-source = "git+https://github.com/Gilnaa/memoffset#9549c8b47b8d49d208821f82493da306f7c7479d"
-dependencies = [
- "autocfg",
-]
 
 [[package]]
 name = "nbytes"
@@ -149,7 +135,6 @@ dependencies = [
  "lazy_static",
  "libc",
  "lset",
- "memoffset",
  "nbytes",
  "primordial",
  "rcrt1",
@@ -218,9 +203,9 @@ checksum = "712e227841d057c1ee1cd2fb22fa7e5a5461ae8e48fa2ca79ec42cfc1931183f"
 
 [[package]]
 name = "x86_64"
-version = "0.11.4"
+version = "0.11.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "866eca68606ea64059497461cf2124d0e557567e2c1de70ba389b1ad0b81b00d"
+checksum = "7c6e9604d08cf91ba0e5cc2175e8cbbdeeb2b8230b818fd9052604c4c5ffd620"
 dependencies = [
  "array-init",
  "bit_field",
