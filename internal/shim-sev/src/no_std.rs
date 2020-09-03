@@ -8,7 +8,6 @@
 /// it seems like the debug libc.rlib has some references
 /// with unwinding
 /// See also: https://github.com/rust-lang/rust/issues/47493
-#[cfg(not(test))]
 #[cfg(debug_assertions)]
 #[no_mangle]
 extern "C" fn _Unwind_Resume() {
@@ -21,7 +20,6 @@ extern "C" fn _Unwind_Resume() {
 /// it seems like the debug libc.rlib has some references
 /// with unwinding
 /// See also: https://github.com/rust-lang/rust/issues/47493
-#[cfg(not(test))]
 #[cfg(debug_assertions)]
 #[no_mangle]
 pub extern "C" fn rust_eh_personality() {

@@ -5,6 +5,10 @@ authors = ["Harald Hoyer <harald@redhat.com>"]
 edition = "2018"
 license = "Apache-2.0"
 
+[[bin]]
+name = "shim-sev"
+test = false
+
 [dependencies]
 sallyport = { path = "../sallyport", default-features = false }
 rcrt1 = { path = "../rcrt1" }

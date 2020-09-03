@@ -12,9 +12,6 @@
 #![cfg_attr(not(test), no_main)]
 #![feature(asm, naked_functions)]
 
-#[cfg(test)]
-fn main() {}
-
 #[macro_use]
 extern crate lazy_static;
 
@@ -115,7 +112,6 @@ pub extern "C" fn shim_main() -> ! {
 ///
 /// Reverts to a triple fault, which causes a `#VMEXIT` and a KVM shutdown,
 /// if it can't print the panic and exit normally with an error code.
-#[cfg(not(test))]
 #[panic_handler]
 #[allow(clippy::empty_loop)]
 pub fn panic(info: &core::panic::PanicInfo) -> ! {
