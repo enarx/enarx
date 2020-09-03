@@ -36,10 +36,6 @@ struct Info {}
 /// Executes a keep
 #[derive(StructOpt)]
 struct Exec {
-    /// The specific keep backend to use
-    #[structopt(short, long)]
-    keep: Option<String>,
-
     /// The socket to use for preattestation
     #[structopt(short, long)]
     sock: Option<PathBuf>,
@@ -101,9 +97,11 @@ fn info(backends: &[Box<dyn Backend>]) -> Result<()> {
 
 #[allow(unreachable_code)]
 fn exec(backends: &[Box<dyn Backend>], opts: Exec) -> Result<()> {
+    let keep = std::env::var_os("ENARX_BACKEND").map(|x| x.into_string().unwrap());
+
     let backend = backends
         .iter()
-        .filter(|b| opts.keep.is_none() || opts.keep == Some(b.name().into()))
+        .filter(|b| keep.is_none() || keep == Some(b.name().into()))
         .find(|b| b.have());
 
     if let Some(backend) = backend {
@@ -120,7 +118,7 @@ fn exec(backends: &[Box<dyn Backend>], opts: Exec) -> Result<()> {
             }
         }
     } else {
-        match opts.keep {
+        match keep {
             Some(name) if name != "nil" => panic!("Keep backend '{}' is unsupported.", name),
             _ => {
                 let cstr = CString::new(opts.code.as_os_str().as_bytes()).unwrap();
