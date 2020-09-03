@@ -43,40 +43,22 @@ jobs:
       - uses: actions-rs/cargo@v1
         with:
           command: clippy
-          args: --manifest-path=${{ matrix.crate.path }} -- -D warnings
+          args: ${{ matrix.crate.target }} --manifest-path=${{ matrix.crate.path }} -- -D warnings
     strategy:
       fail-fast: false
       matrix:
         crate:
           - {name: enarx-keepldr, path: Cargo.toml}
           - {name: sallyport, path: internal/sallyport/Cargo.toml}
-
-  clippy-musl:
-    name: cargo clippy musl (${{ matrix.crate.name }})
-    runs-on: ubuntu-20.04
-    steps:
-      - run: sudo apt update
-      - run: sudo apt install -y musl-tools
-      - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
-        with:
-          components: clippy
-          toolchain: nightly
-          profile: minimal
-          target: x86_64-unknown-linux-musl
-          override: true
-      - uses: actions-rs/cargo@v1
-        with:
-          command: clippy
-          args: --target x86_64-unknown-linux-musl --manifest-path=${{ matrix.crate.path }} -- -D warnings
-    strategy:
-      fail-fast: false
-      matrix:
-        crate:
-          - {name: rcrt1, path: internal/rcrt1/Cargo.toml}
-          - {name: sallyport, path: internal/sallyport/Cargo.toml}
-          - {name: shim-sgx, path: internal/shim-sgx/Cargo.toml}
-          - {name: shim-sev, path: internal/shim-sev/Cargo.toml}
+          - name: rcrt1
+            path: internal/rcrt1/Cargo.toml
+            target: --target=x86_64-unknown-linux-musl
+          - name: shim-sgx
+            path: internal/shim-sgx/Cargo.toml
+            target: --target=x86_64-unknown-linux-musl
+          - name: shim-sev
+            path: internal/shim-sev/Cargo.toml
+            target: --target=x86_64-unknown-linux-musl
 
   readme:
     name: cargo readme
