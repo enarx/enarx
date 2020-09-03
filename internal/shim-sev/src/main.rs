@@ -53,10 +53,12 @@ static SHIM_HOSTCALL_VIRT_ADDR: RwLock<Option<VirtAddr>> =
 ///
 /// This function is unsafe, because the caller has to ensure a 16 byte
 /// aligned usable stack.
+#[allow(clippy::integer_arithmetic)]
 pub unsafe fn switch_shim_stack(ip: extern "C" fn() -> !, sp: u64) -> ! {
+    assert_eq!(sp % 16, 0);
     asm!(
         "mov rsp, {0}",
-        "jmp {1}",
+        "call {1}",
         in(reg) sp,
         in(reg) ip,
         options(noreturn, nomem)
