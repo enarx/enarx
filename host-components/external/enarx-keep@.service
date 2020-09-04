@@ -6,8 +6,12 @@ Documentation=https://github.com/enarx/
 Type=simple
 Environment="SCRIPT_ARGS=%I"
 ExecStart=/home/mike/programming/enarx/host-components/target/debug/keep-loader $SCRIPT_ARGS
+
 UMask=0066
 
-StandardOutput=file:/home/mike/keeploader.log
-StandardError=file:/home/mike/keeploader.err
+StandardOutput=file:/home/mike/keeploader-%i.log
+StandardError=file:/home/mike/keeploader-%i.err
+
+;StandardOutput=file:/home/mike/keeploader.log
+;StandardError=file:/home/mike/keeploader.err
 

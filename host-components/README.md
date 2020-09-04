@@ -69,20 +69,20 @@ binary created in the previous step
 8. edit the file `enarx/host-components/external/enarx-keep@.service` to
 update the `StandardOutput` and `StandardError` entries to reflect your
 preferred locations for the files to record stdio and stderr
-9. run `sudo ln -s enarx-keep@.service /etc/systemd/user/enarx-keep@.service`
-10. run `sudo systemd daemon-reload` (running this with the parameter `--user`
-**may** work)
+9. ensure that the directory `~/.config/systemd/user` exists - if not, create
+it, and cd into it
+10. run `ln -s enarx-keep@.service ~/.config/systemd/user/enarx-keep@.service`
+11. run `systemctl try-restart 'enarx-keep@*'`
 
 If you have run the demo before, you should kill old instances
 of the keep-loader.  This is best down by running the command
-`pkill -9 keep-loader`.  You may also wish to delete any keeploader output
-files (the locations of which you set in step 8).  Although it's unlikely to
-have any impact on the demo, you may wish to clean up old files with
-`rm /tmp/enarx-keep*.sock`.
+`systemctl --user stop 'enarx-keep@*'` (or alternatively, `pkill -9 keep-loader`).
+You may also wish to delete any keeploader output files (the locations of
+which you set in step 8).  Although it's unlikely to have any impact on
+the demo, you may wish to clean up old files with `rm /tmp/enarx-keep*.sock`.
 
 **NOTE** if you make any changes to the keep-loader.rs file, after recompiling
-it, you will need to remove the old link in /etc/systemd/user/, recreate it
-(step 10 above), and perform reload the systemctl daemon (step 11 above).
+it, you will need to try restarting the systemtcl step (step 11 above).
 
 ## Running the demo
 
