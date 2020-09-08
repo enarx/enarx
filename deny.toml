@@ -15,6 +15,7 @@ allow = [
     "CC0-1.0",
     "MIT",
     "Zlib",
+    "ISC",
 ]
 # Lint level for licenses considered copyleft
 copyleft = "deny"
