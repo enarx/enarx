@@ -1,7 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
+mod builder;
 mod shim;
 mod vm;
+
+pub const SHIM: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/bin/shim-sev"));
+
+use vm::{Builder, Config};
 
 use crate::backend::{self, Datum, Keep};
 use crate::binary::Component;
@@ -9,11 +14,8 @@ use crate::binary::Component;
 use anyhow::Result;
 use kvm_ioctls::Kvm;
 
-use std::num::NonZeroUsize;
 use std::path::Path;
 use std::sync::{Arc, RwLock};
-
-const SHIM: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/bin/shim-sev"));
 
 fn dev_kvm() -> Datum {
     let dev_kvm = std::path::Path::new("/dev/kvm");
@@ -54,13 +56,7 @@ impl backend::Backend for Backend {
     fn build(&self, code: Component, _sock: Option<&Path>) -> Result<Arc<dyn Keep>> {
         let shim = Component::from_bytes(SHIM)?;
 
-        let vm = vm::Builder::new()?
-            .with_max_cpus(NonZeroUsize::new(256).unwrap())?
-            .calculate_layout(shim.region(), code.region())?
-            .add_memory()?
-            .load_shim(shim)?
-            .load_code(code)?
-            .build()?;
+        let vm = Builder::new(Config::default(), shim, code, builder::Kvm).build()?;
 
         Ok(Arc::new(RwLock::new(vm)))
     }

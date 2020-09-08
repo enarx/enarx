@@ -1,128 +1,137 @@
 // SPDX-License-Identifier: Apache-2.0
 
-//! A typestate builder to enforce the virtual machine is constructed in the right
-//! order (i.e., you can't load a component before it has an address space; you
-//! can't run the shim before it's been loaded; you can't calculate the BootInfo
-//! before the other components are in place, etc).
-
-use super::cpu::Allocator;
-use super::mem::{KvmUserspaceMemoryRegion, Region};
-use super::VirtualMachine;
-
+use super::*;
 use crate::backend::kvm::shim::BootInfo;
-use crate::binary::{Component, Segment};
 
-use anyhow::Result;
+use crate::binary::Component;
+
 use kvm_ioctls::{Kvm, VmFd};
-use lset::Line;
+use lset::{Line, Span};
 use mmarinus::{perms, Kind, Map};
 use nbytes::bytes;
 use primordial::Page;
 use x86_64::structures::paging::page_table::{PageTable, PageTableFlags};
 use x86_64::{align_up, PhysAddr, VirtAddr};
 
-use std::io;
-use std::marker::PhantomData;
+use std::io::Result;
+use std::mem::size_of;
 use std::num::NonZeroUsize;
 
-// Marker structs for the typestate machine
+// It is convenient and cheap to provision up to a maximum
+// thread count.
+const DEFAULT_MAX_CPU: usize = 256;
 
-/// An empty virtual machine
-pub struct New;
-
-/// A virtual machine with an address space
-pub struct AddressSpace;
-
-/// A virtual machine with a known CPU capacity
-pub struct CpuCapacity;
-
-/// A virtual machine whose BootInfo has been calculated
-pub struct BootBlock;
-
-/// A virtual machine with a shim loaded into it
-pub struct Shim;
-
-/// A virtual machine with user code loaded into it
-pub struct Code;
-
-/// Marker trait for the Builder states
-pub trait State {}
-impl State for New {}
-impl State for AddressSpace {}
-impl State for CpuCapacity {}
-impl State for BootBlock {}
-impl State for Shim {}
-impl State for Code {}
-
-/// Utility marker trait so states that are capable of
-/// loading ELF binaries can share code.
-pub trait Load {}
-impl Load for BootBlock {}
-impl Load for Shim {}
-
-/// Constructing the virtual machine requires state to
-/// be persistent and carried through to future construction
-/// states. Fields are enclosed in `Option`s to simplify the
-/// initial construction of the data because these fields are
-/// set at different states.
-struct Data {
-    kvm: Option<Kvm>,
-    fd: Option<VmFd>,
-    /// Used for address translation between guest and host
-    /// (also manages the lifetime of the backing host memory)
-    address_space: Option<Region>,
-    boot_info: Option<BootInfo>,
-    max_cpus: Option<usize>,
-    /// The shim's entry point
-    shim_entry: Option<PhysAddr>,
+pub struct Config {
+    pub n_syscall_pages: NonZeroUsize,
 }
 
-pub struct Builder<T: State> {
-    data: Data,
-    _phantom: PhantomData<T>,
+impl Default for Config {
+    fn default() -> Self {
+        Self {
+            n_syscall_pages: NonZeroUsize::new(DEFAULT_MAX_CPU).unwrap(),
+        }
+    }
 }
 
-/// The initial state simply creates a KVM context.
-impl Builder<New> {
-    pub fn new() -> Result<Self> {
+pub trait Hook {
+    fn shim_loaded(&mut self, _vm: &mut VmFd, _addr_space: &[u8]) -> Result<()> {
+        Ok(())
+    }
+
+    fn code_loaded(&mut self, _vm: &mut VmFd, _addr_space: &[u8]) -> Result<()> {
+        Ok(())
+    }
+
+    fn to_guest_phys(&self, addr: VirtAddr, start: VirtAddr) -> PhysAddr {
+        PhysAddr::new(addr.as_u64() - start.as_u64())
+    }
+}
+
+pub struct Builder<T: Hook> {
+    hook: T,
+    shim: Component,
+    code: Component,
+    config: Config,
+}
+
+struct Arch {
+    syscall_pages: VirtAddr,
+    cr3: PhysAddr,
+}
+
+impl<T: Hook> Builder<T> {
+    pub fn new(config: Config, shim: Component, code: Component, hook: T) -> Self {
+        Self {
+            config,
+            shim,
+            code,
+            hook,
+        }
+    }
+    pub fn build(mut self) -> Result<Vm> {
         let kvm = Kvm::new()?;
-        let fd = kvm.create_vm()?;
-        Ok(Self {
-            data: Data {
-                kvm: Some(kvm),
-                fd: Some(fd),
-                address_space: None,
-                boot_info: None,
-                max_cpus: None,
-                shim_entry: None,
-            },
-            _phantom: PhantomData,
-        })
+        let mut fd = kvm.create_vm()?;
+
+        let boot_info = Self::calculate_setup_region(
+            &self.config,
+            self.shim.region().into(),
+            self.code.region().into(),
+        )?;
+
+        let mem_size = align_up(boot_info.mem_size as _, bytes![2; MiB]);
+        let (map, region) = Self::allocate_address_space(mem_size as _)?;
+        unsafe { fd.set_user_memory_region(region)? };
+
+        let arch = self.arch_specific_setup(&map, &boot_info);
+
+        let addr = VirtAddr::new(map.addr() as u64);
+        let shim_start = boot_info.shim.start;
+        Self::load_component(addr, &mut self.shim, shim_start);
+        let shim_entry = PhysAddr::new(self.shim.entry as _);
+        self.hook.shim_loaded(&mut fd, &map)?;
+
+        let code_offset = boot_info.code.start;
+        Self::load_component(addr, &mut self.code, code_offset);
+        self.hook.code_loaded(&mut fd, &map)?;
+
+        let vm = Vm {
+            kvm,
+            fd,
+            regions: vec![Region::new(region, map)],
+            syscall_start: arch.syscall_pages,
+            shim_entry,
+            shim_start: PhysAddr::new(shim_start as _),
+            cr3: arch.cr3,
+        };
+
+        Ok(vm)
     }
-}
 
-/// A newly initialized Builder prepares the guest's address
-/// space.
-impl Builder<New> {
-    pub fn with_max_cpus(
-        mut self,
-        max_cpus: NonZeroUsize,
-    ) -> Result<Builder<AddressSpace>, io::Error> {
-        self.data.max_cpus = Some(max_cpus.get());
+    fn calculate_setup_region(
+        cfg: &Config,
+        shim_size: Span<usize>,
+        code_size: Span<usize>,
+    ) -> Result<BootInfo> {
+        let setup_size = Page::size()
+            + (Page::size() * cfg.n_syscall_pages.get())
+            + size_of::<PageTable>()
+            + size_of::<PageTable>();
 
-        Ok(Builder {
-            data: self.data,
-            _phantom: PhantomData,
-        })
+        let setup_size = Line {
+            start: 0,
+            end: setup_size,
+        };
+
+        let boot_info = BootInfo::calculate(setup_size, shim_size, code_size)
+            .map_err(|_| std::io::Error::from_raw_os_error(libc::ENOMEM))?;
+
+        Ok(boot_info)
     }
-}
 
-impl Builder<CpuCapacity> {
-    pub fn add_memory(mut self) -> std::io::Result<Builder<BootBlock>> {
-        let mem_size = align_up(self.data.boot_info.unwrap().mem_size as _, bytes![2; MiB]);
-        self.data.boot_info.as_mut().unwrap().mem_size = mem_size as _;
-
-        let map = Map::map(mem_size as usize)
+    fn allocate_address_space(
+        mem_size: usize,
+    ) -> Result<(Map<perms::ReadWrite>, KvmUserspaceMemoryRegion)> {
+        let map = Map::map(mem_size)
             .anywhere()
             .anonymously()
             .known::<perms::ReadWrite>(Kind::Private)?;
@@ -135,150 +144,97 @@ impl Builder<CpuCapacity> {
             userspace_addr: map.addr() as _,
         };
 
-        let fd = self.data.fd.as_ref().unwrap();
+        let res = (map, region);
+
+        Ok(res)
+    }
+
+    fn arch_specific_setup(&mut self, map: &Map<perms::ReadWrite>, boot_info: &BootInfo) -> Arch {
+        use PageTableFlags as Flags;
+
+        let syscall_start;
+        let pml3t_ident;
+        let pml4t;
+        let zero;
+
+        // The address space needs to be laid out in a way that the shim
+        // is expecting. This means that:
+        //
+        //  - The first page is a zero page.
+        //  - The N pages after the zero page are shared syscall pages.
+        //      - The first shared syscall page contains the BootInfo
+        //        struct. The BootInfo struct communicates other important
+        //        values to the shim.
+        //  - The page tables follow the syscall pages.
         unsafe {
-            fd.set_user_memory_region(region)?;
+            let mut setup = VirtAddr::new(map.addr() as _);
+            // First page is zero page
+            zero = &mut *setup.as_mut_ptr::<Page>();
+            *zero = Page::default();
+            setup += size_of::<Page>();
+
+            // First shared syscall page gets a copy of the BootInfo struct
+            *setup.as_mut_ptr::<BootInfo>() = *boot_info;
+            syscall_start = setup;
+            setup += size_of::<Page>();
+
+            // Rest of the shared syscall pages should be zeroed
+            for _ in 1..self.config.n_syscall_pages.get() {
+                *setup.as_mut_ptr::<Page>() = Page::default();
+                setup += size_of::<Page>();
+            }
+
+            // Set up page tables
+            *setup.as_mut_ptr::<PageTable>() = PageTable::new();
+            pml4t = &mut *setup.as_mut_ptr::<PageTable>();
+            setup += size_of::<PageTable>();
+
+            *setup.as_mut_ptr::<PageTable>() = PageTable::new();
+            pml3t_ident = &mut *setup.as_mut_ptr::<PageTable>();
+            setup += size_of::<PageTable>();
         }
 
-        self.data.address_space = Some(Region::new(
-            *self.data.max_cpus.as_ref().unwrap(),
-            region,
-            map,
-        ));
+        let pml3t_ident_addr = VirtAddr::new(pml3t_ident as *const _ as u64);
+        let start = VirtAddr::new(map.addr() as u64);
+        let pdpte = self.hook.to_guest_phys(pml3t_ident_addr, start);
+        pml4t[0].set_addr(pdpte, Flags::WRITABLE | Flags::PRESENT);
 
-        Ok(Builder {
-            data: self.data,
-            _phantom: PhantomData,
-        })
-    }
-}
+        let pml3t_addr = self.hook.to_guest_phys(start, start);
+        let flags = Flags::HUGE_PAGE | Flags::WRITABLE | Flags::PRESENT;
+        pml3t_ident[0].set_addr(pml3t_addr, flags);
 
-/// Once the guest's address space has been created, component
-/// relocations can be calculated.
-impl Builder<AddressSpace> {
-    pub fn calculate_layout(
-        mut self,
-        shim_region: Line<usize>,
-        code_region: Line<usize>,
-    ) -> Result<Builder<CpuCapacity>, io::Error> {
-        let vm_setup = Line {
-            start: 0,
-            end: Region::size_of_setup(*self.data.max_cpus.as_ref().unwrap()),
+        let syscall_pages = unsafe {
+            std::slice::from_raw_parts_mut(
+                syscall_start.as_mut_ptr::<Page>(),
+                self.config.n_syscall_pages.get(),
+            )
         };
 
-        let boot_info = BootInfo::calculate(vm_setup, shim_region.into(), code_region.into())
-            .map_err(|_| io::Error::from_raw_os_error(libc::ENOMEM))?;
+        let pml4t = VirtAddr::new(pml4t as *const _ as _);
+        let cr3 = self.hook.to_guest_phys(pml4t, start);
 
-        self.data.boot_info = Some(boot_info);
-
-        Ok(Builder {
-            data: self.data,
-            _phantom: PhantomData,
-        })
+        // The information returned here is used by the KVM VM during runtime
+        // to create vCPUs.
+        Arch {
+            syscall_pages: VirtAddr::new(&syscall_pages[0] as *const _ as _),
+            cr3,
+        }
     }
-}
 
-/// Once component relocations have been calculated, we can load
-/// the shim.
-impl Builder<BootBlock> {
-    pub fn load_shim(mut self, mut shim: Component) -> Result<Builder<Shim>, io::Error> {
-        let offset = self.data.boot_info.as_ref().unwrap().shim.start;
-        self.load_component(&mut shim, offset)?;
-        self.data.shim_entry = Some(PhysAddr::new(shim.entry as _));
+    fn load_component(start: VirtAddr, component: &mut Component, offset: usize) {
+        use std::slice::from_raw_parts_mut;
 
-        Ok(Builder {
-            data: self.data,
-            _phantom: PhantomData,
-        })
-    }
-}
-
-/// Once the shim as been loaded, the code layer may be loaded.
-impl Builder<Shim> {
-    pub fn load_code(mut self, mut code: Component) -> Result<Builder<Code>, io::Error> {
-        let offset = self.data.boot_info.as_ref().unwrap().code.start;
-        self.load_component(&mut code, offset)?;
-
-        Ok(Builder {
-            data: self.data,
-            _phantom: PhantomData,
-        })
-    }
-}
-
-impl<T: Load + State> Builder<T> {
-    fn load_component(
-        &mut self,
-        component: &mut Component,
-        offset: usize,
-    ) -> Result<(), io::Error> {
         if component.pie {
-            Self::relocate(component, offset);
+            component.entry += offset;
+            for seg in &mut component.segments {
+                seg.dst += offset;
+            }
         }
 
-        self.load_segments(&component.segments)?;
-
-        Ok(())
-    }
-
-    fn load_segments(&mut self, segs: &[Segment]) -> Result<(), io::Error> {
-        let addr_space = self.data.address_space.as_ref().unwrap().as_virt();
-        for seg in segs {
-            let destination = {
-                let raw = addr_space.start.as_u64() + seg.dst as u64;
-                let addr = VirtAddr::new(raw);
-                unsafe { std::slice::from_raw_parts_mut(addr.as_mut_ptr::<Page>(), seg.src.len()) }
-            };
-
-            destination.copy_from_slice(&seg.src[..]);
+        for seg in &component.segments {
+            let dst = VirtAddr::new(seg.dst as u64 + start.as_u64());
+            let dst = unsafe { from_raw_parts_mut(dst.as_mut_ptr::<Page>(), seg.src.len()) };
+            dst.copy_from_slice(&seg.src[..]);
         }
-        Ok(())
-    }
-
-    fn relocate(component: &mut Component, offset: usize) {
-        component.entry += offset;
-
-        for seg in &mut component.segments {
-            seg.dst += offset;
-        }
-    }
-}
-
-/// Once both the shim and code have been loaded into the guest,
-/// we can finally configure the dual-purpose bootinfo page and
-/// prepare the startup vCPU.
-impl Builder<Code> {
-    pub fn build(self) -> Result<VirtualMachine, io::Error> {
-        let boot_info = self.data.boot_info.unwrap();
-
-        let vm = VirtualMachine {
-            kvm: self.data.kvm.unwrap(),
-            fd: self.data.fd.unwrap(),
-            id_alloc: Allocator::new(),
-            regions: vec![self.data.address_space.unwrap()],
-            shim_entry: self.data.shim_entry.unwrap(),
-            shim_start: PhysAddr::new(boot_info.shim.start as _),
-        };
-
-        let host_setup = vm.regions[0].prefix_mut();
-        host_setup.shared_pages[0] = Page::copy(boot_info);
-        host_setup.shared_pages[1..]
-            .iter_mut()
-            .for_each(|page| *page = Page::default());
-        *host_setup.zero = Page::default();
-        *host_setup.pml4t = PageTable::new();
-        *host_setup.pml3t_ident = PageTable::new();
-
-        let addr_virt = vm.regions[0].as_virt();
-        let to_guest = |virt_addr| PhysAddr::new(virt_addr - addr_virt.start.as_u64());
-
-        // Set up the page tables
-        let pdpte = to_guest(&*host_setup.pml3t_ident as *const _ as u64);
-        host_setup.pml4t[0].set_addr(pdpte, PageTableFlags::WRITABLE | PageTableFlags::PRESENT);
-        host_setup.pml3t_ident[0].set_flags(
-            PageTableFlags::HUGE_PAGE | PageTableFlags::WRITABLE | PageTableFlags::PRESENT,
-        );
-
-        Ok(vm)
     }
 }
