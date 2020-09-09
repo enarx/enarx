@@ -5,6 +5,7 @@ use crate::backend::kvm::shim::BootInfo;
 
 use crate::binary::Component;
 
+use anyhow::Result;
 use kvm_ioctls::{Kvm, VmFd};
 use lset::{Line, Span};
 use mmarinus::{perms, Kind, Map};
@@ -13,7 +14,6 @@ use primordial::Page;
 use x86_64::structures::paging::page_table::{PageTable, PageTableFlags};
 use x86_64::{align_up, PhysAddr, VirtAddr};
 
-use std::io::Result;
 use std::mem::size_of;
 use std::num::NonZeroUsize;
 

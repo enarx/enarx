@@ -1,5 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
+mod builder;
+
+use crate::backend::kvm::SHIM;
+use crate::backend::kvm::{Builder, Config};
 use crate::backend::probe::x86_64::{CpuId, Vendor};
 use crate::backend::{self, Datum, Keep};
 use crate::binary::Component;
@@ -11,7 +15,7 @@ use std::fs::OpenOptions;
 use std::mem::transmute;
 use std::path::Path;
 use std::str::from_utf8;
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 
 const CPUIDS: &[CpuId] = &[
     CpuId {
@@ -177,11 +181,6 @@ impl backend::Backend for Backend {
         "sev"
     }
 
-    // This will be updated once there is support for SEV.
-    fn have(&self) -> bool {
-        false
-    }
-
     fn data(&self) -> Vec<Datum> {
         let mut data = vec![];
         data.extend(CPUIDS.iter().map(|c| c.into()));
@@ -193,7 +192,11 @@ impl backend::Backend for Backend {
         data
     }
 
-    fn build(&self, _code: Component, _sock: Option<&Path>) -> Result<Arc<dyn Keep>> {
-        unimplemented!()
+    fn build(&self, code: Component, _sock: Option<&Path>) -> Result<Arc<dyn Keep>> {
+        let shim = Component::from_bytes(SHIM)?;
+
+        let vm = Builder::new(Config::default(), shim, code, builder::Sev).build()?;
+
+        Ok(Arc::new(RwLock::new(vm)))
     }
 }

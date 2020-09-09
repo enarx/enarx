@@ -45,6 +45,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ed8765909f9009617974ab6b7d332625b320b33c326b1e9321382ef1999b5d56"
 
 [[package]]
+name = "bitfield"
+version = "0.13.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "46afbd2983a5d5a7bd740ccb198caf5b82f45c40c09c0eed36052d91cb92e719"
+
+[[package]]
 name = "bitflags"
 version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -76,6 +82,12 @@ dependencies = [
  "unicode-width",
  "vec_map",
 ]
+
+[[package]]
+name = "codicon"
+version = "3.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "12170080f3533d6f09a19f81596f836854d0fa4867dc32c8172b8474b4e9de61"
 
 [[package]]
 name = "colorful"
@@ -115,6 +127,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "cc",
+ "codicon",
  "colorful",
  "goblin",
  "kvm-bindings",
@@ -124,6 +137,7 @@ dependencies = [
  "mmarinus",
  "nbytes",
  "primordial",
+ "sev",
  "sgx",
  "structopt",
  "wait-timeout",
@@ -176,9 +190,9 @@ dependencies = [
 
 [[package]]
 name = "iocuddle"
-version = "0.1.0"
+version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8bd09078cdd76368523de2749e1437fed9f7ca1c9ffdda25ea8534c4f443cc18"
+checksum = "d8972d5be69940353d5347a1344cb375d9b457d6809b428b05bb1ca2fb9ce007"
 
 [[package]]
 name = "kvm-bindings"
@@ -208,9 +222,9 @@ checksum = "e2abad23fbc42b3700f2f279844dc832adb2b2eb069b2df918f455c4e18cc646"
 
 [[package]]
 name = "libc"
-version = "0.2.76"
+version = "0.2.77"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "755456fae044e6fa1ebbbd1b3e902ae19e73097ed4ed87bb79934a867c007bc3"
+checksum = "f2f96b10ec2560088a8e76961b00d47107b3a625fecb76dedb29ee7ccbf98235"
 
 [[package]]
 name = "log"
@@ -313,9 +327,9 @@ dependencies = [
 
 [[package]]
 name = "proc-macro2"
-version = "1.0.19"
+version = "1.0.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "04f5f085b5d71e2188cb8271e5da0161ad52c3f227a661a3c135fdf28e258b12"
+checksum = "36e28516df94f3dd551a587da5357459d9b36d945a7c37c3557928c1c2ff2a2c"
 dependencies = [
  "unicode-xid",
 ]
@@ -347,6 +361,18 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
+]
+
+[[package]]
+name = "sev"
+version = "0.1.0"
+source = "git+https://github.com/enarx/sev?rev=c568e97#c568e978d10f32915ba3a35837c2d17ed2a34071"
+dependencies = [
+ "bitfield",
+ "bitflags",
+ "codicon",
+ "iocuddle",
+ "openssl",
 ]
 
 [[package]]
@@ -398,9 +424,9 @@ dependencies = [
 
 [[package]]
 name = "syn"
-version = "1.0.39"
+version = "1.0.40"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "891d8d6567fe7c7f8835a3a98af4208f3846fba258c1bc3c31d6e506239f11f9"
+checksum = "963f7d3cc59b59b9325165add223142bbf1df27655d07789f109896d353d8350"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -505,9 +531,9 @@ checksum = "712e227841d057c1ee1cd2fb22fa7e5a5461ae8e48fa2ca79ec42cfc1931183f"
 
 [[package]]
 name = "x86_64"
-version = "0.11.4"
+version = "0.11.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "866eca68606ea64059497461cf2124d0e557567e2c1de70ba389b1ad0b81b00d"
+checksum = "aa580d2cf2a6a8c55f6283d6d06271b1ccab4d93cb3741edab290d5408d848c4"
 dependencies = [
  "array-init",
  "bit_field",

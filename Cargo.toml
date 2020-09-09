@@ -23,6 +23,7 @@ is-it-maintained-issue-resolution = { repository = "enarx/enarx-keepldr" }
 is-it-maintained-open-issues = { repository = "enarx/enarx-keepldr" }
 
 [dependencies]
+sev = { git = "https://github.com/enarx/sev", rev = "c568e97", features = ["openssl"] }
 sgx = { git = "https://github.com/enarx/sgx", rev = "512e077", features = ["asm", "crypto"] }
 x86_64 = { version = "0.11", default-features = false, features = ["stable"] }
 kvm-bindings = "0.3"
@@ -30,6 +31,7 @@ kvm-ioctls = "0.5"
 primordial = "0.1"
 structopt = "0.3"
 colorful = "0.2"
+codicon = "3.0"
 mmarinus = "0.2"
 nbytes = "0.1"
 anyhow = "1.0"

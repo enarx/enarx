@@ -9,7 +9,7 @@ use crate::backend::{Keep, Thread};
 use cpu::Cpu;
 use mem::Region;
 
-pub use builder::{Builder, Config};
+pub use builder::{Builder, Config, Hook};
 pub use kvm_bindings::kvm_segment as KvmSegment;
 pub use kvm_bindings::kvm_userspace_memory_region as KvmUserspaceMemoryRegion;
 

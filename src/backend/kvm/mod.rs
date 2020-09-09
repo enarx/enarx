@@ -6,7 +6,7 @@ mod vm;
 
 pub const SHIM: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/bin/shim-sev"));
 
-use vm::{Builder, Config};
+pub use vm::{Builder, Config, Hook, Vm};
 
 use crate::backend::{self, Datum, Keep};
 use crate::binary::Component;
