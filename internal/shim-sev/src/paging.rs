@@ -3,6 +3,7 @@
 //! Paging
 
 use crate::addr::SHIM_VIRT_OFFSET;
+use crate::get_cbit_mask;
 
 use spinning::RwLock;
 use x86_64::structures::paging::{OffsetPageTable, PageTable};
@@ -26,7 +27,12 @@ lazy_static! {
 /// `physical_memory_offset`. Also, this function must be only called once
 /// to avoid aliasing `&mut` references (which is undefined behavior).
 pub unsafe fn init() -> OffsetPageTable<'static> {
-    let physical_memory_offset = VirtAddr::new(SHIM_VIRT_OFFSET as u64);
+    let physical_memory_offset = VirtAddr::new(
+        (SHIM_VIRT_OFFSET as u64)
+            .checked_sub(get_cbit_mask())
+            .unwrap()
+            & 0xFFFFFFFFFFFF,
+    );
     let level_4_table = active_level_4_table(physical_memory_offset);
     OffsetPageTable::new(level_4_table, physical_memory_offset)
 }

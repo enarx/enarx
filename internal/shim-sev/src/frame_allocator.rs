@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 //! The global FrameAllocator
-use crate::addr::{HostVirtAddr, ShimPhysAddr, ShimVirtAddr};
+use crate::addr::{HostVirtAddr, ShimPhysAddr, ShimPhysUnencryptedAddr, ShimVirtAddr};
 use crate::hostcall::HOST_CALL;
-use crate::BOOT_INFO;
+use crate::{get_cbit_mask, BOOT_INFO};
 
 use nbytes::bytes;
 use primordial::{Address, Offset, Page as Page4KiB};
@@ -185,11 +185,15 @@ impl FrameAllocator {
     }
 
     /// Translate a shim virtual address to a host virtual address
-    pub fn phys_to_host<U>(&self, val: ShimPhysAddr<U>) -> HostVirtAddr<U> {
+    pub fn phys_to_host<U>(&self, val: ShimPhysUnencryptedAddr<U>) -> HostVirtAddr<U> {
         let val: u64 = val.raw().raw();
         let offset = self.get_virt_offset(val as _).unwrap();
 
-        unsafe { Address::<u64, U>::unchecked(val.checked_add(offset as u64).unwrap()) }.into()
+        unsafe {
+            HostVirtAddr::new(Address::<u64, U>::unchecked(
+                val.checked_add(offset as u64).unwrap(),
+            ))
+        }
     }
 
     fn get_virt_offset(&self, addr: usize) -> Option<i64> {
@@ -353,6 +357,8 @@ impl FrameAllocator {
     }
 
     /// Map physical memory to the given virtual address
+    ///
+    /// FIXME: change PhysAddr to ShimPhysAddr to ensure encrypted memory
     pub fn map_memory<T: Mapper<Size4KiB> + Mapper<Size2MiB>>(
         &mut self,
         mapper: &mut T,
@@ -422,7 +428,7 @@ unsafe impl paging::FrameAllocator<Size4KiB> for FrameAllocator {
         }
 
         Some(PhysFrame::containing_address(PhysAddr::new(
-            frame_address.raw() as _,
+            frame_address.raw() as u64 | get_cbit_mask(),
         )))
     }
 }
@@ -438,7 +444,7 @@ unsafe impl paging::FrameAllocator<Size2MiB> for FrameAllocator {
         }
 
         Some(PhysFrame::containing_address(PhysAddr::new(
-            frame_address.raw() as _,
+            frame_address.raw() as u64 | get_cbit_mask(),
         )))
     }
 }

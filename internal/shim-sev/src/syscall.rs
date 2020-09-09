@@ -2,7 +2,7 @@
 
 //! syscall interface layer between assembler and rust
 
-use crate::addr::{HostVirtAddr, ShimPhysAddr, ShimVirtAddr};
+use crate::addr::{HostVirtAddr, ShimPhysUnencryptedAddr};
 use crate::eprintln;
 use crate::frame_allocator::FRAME_ALLOCATOR;
 use crate::hostcall::{self, shim_write_all, HostFd, HOST_CALL};
@@ -103,6 +103,7 @@ pub extern "C" fn syscall_rust(
             nr, a, b, c, d, e, f
         );
     */
+
     let h = Handler::new(a, b, c, d, e, f);
 
     let res = match nr as i64 {
@@ -175,8 +176,8 @@ impl Handler {
         let (_, buf) = unsafe { c.alloc::<u8>(trusted.len()).or(Err(libc::EMSGSIZE))? };
 
         let buf_address = Address::from(buf.as_ptr());
-        let shim_virt_address = ShimVirtAddr::try_from(buf_address).map_err(|_| libc::EFAULT)?;
-        let host_virt: HostVirtAddr<_> = ShimPhysAddr::from(shim_virt_address).into();
+        let phys_unencrypted = ShimPhysUnencryptedAddr::try_from(buf_address).unwrap();
+        let host_virt: HostVirtAddr<_> = phys_unencrypted.into();
 
         block.msg.req = request!(libc::SYS_read => fd, host_virt, len);
         let result = unsafe { host_call.hostcall() };
@@ -276,10 +277,9 @@ impl Handler {
                 match page_table.update_flags(page, flags) {
                     Ok(flush) => flush.flush(),
                     Err(e) => {
-                        dbg!(e);
                         eprintln!(
-                            "SC> mprotect({:#X}, {}, {}, …) = EINVAL",
-                            self.a, self.b, self.c
+                            "SC> mprotect({:#X}, {}, {}, …) = EINVAL ({:#?})",
+                            self.a, self.b, self.c, e
                         );
                         return Err(libc::EINVAL);
                     }
@@ -523,8 +523,8 @@ impl Handler {
         let (_, buf) = unsafe { c.alloc::<libc::timespec>(1).or(Err(libc::EMSGSIZE))? };
 
         let buf_address = Address::from(buf.as_ptr());
-        let shim_virt_address = ShimVirtAddr::try_from(buf_address).map_err(|_| libc::EFAULT)?;
-        let host_virt: HostVirtAddr<_> = ShimPhysAddr::from(shim_virt_address).into();
+        let phys_unencrypted = ShimPhysUnencryptedAddr::try_from(buf_address).unwrap();
+        let host_virt: HostVirtAddr<_> = phys_unencrypted.into();
 
         block.msg.req = request!(libc::SYS_clock_gettime => clk_id, host_virt);
         let result = unsafe { host_call.hostcall() }.map(|r| r[0].into())?;

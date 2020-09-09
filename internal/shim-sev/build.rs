@@ -27,7 +27,6 @@ fn main() {
         })
         .collect::<Vec<_>>();
 
-    dbg!(&entries);
     cc::Build::new()
         .no_default_flags(true)
         .flag("-O2")

@@ -72,6 +72,7 @@ fn map_elf(app_virt_start: VirtAddr) -> &'static Header {
         let boot_info = BOOT_INFO.read().unwrap();
         (boot_info.code.start, boot_info.code.end)
     };
+
     let app_load_addr = Address::<usize, Header>::from(code_start as *const Header);
     let app_load_addr_phys = ShimPhysAddr::<Header>::from(app_load_addr);
     let app_load_addr_virt = ShimVirtAddr::from(app_load_addr_phys);
@@ -91,12 +92,18 @@ fn map_elf(app_virt_start: VirtAddr) -> &'static Header {
         )
     };
 
+    // Convert to shim physical addresses with potential SEV C-Bit set
+    let code_start_addr = Address::<usize, u8>::from(code_start as *const u8);
+    let code_start_phys = ShimPhysAddr::from(code_start_addr).raw().raw();
+    let code_end_addr = Address::<usize, u8>::from(code_end as *const u8);
+    let code_end_phys = ShimPhysAddr::from(code_end_addr).raw().raw();
+
     for ph in headers
         .iter()
         .filter(|ph| ph.p_type == PT_LOAD && ph.p_memsz > 0)
     {
-        let map_from = PhysAddr::new((code_start as u64).checked_add(ph.p_paddr).unwrap());
-        debug_assert!(map_from.as_u64() < code_end as u64);
+        let map_from = PhysAddr::new(code_start_phys.checked_add(ph.p_paddr).unwrap());
+        debug_assert!(map_from.as_u64() < code_end_phys);
 
         let map_to = app_virt_start + ph.p_vaddr;
 

@@ -34,15 +34,28 @@ pub mod random;
 pub mod syscall;
 pub mod usermode;
 
-pub use hostlib::BootInfo;
+use crate::addr::ShimVirtAddr;
+use core::convert::TryFrom;
+use core::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use primordial::Address;
+use sallyport::Block;
 use spinning::RwLock;
-use x86_64::VirtAddr;
+
+pub use hostlib::BootInfo;
+
+static C_BIT_MASK: AtomicU64 = AtomicU64::new(0);
 
 static BOOT_INFO: RwLock<Option<BootInfo>> =
     RwLock::<Option<BootInfo>>::const_new(spinning::RawRwLock::const_new(), None);
 
-static SHIM_HOSTCALL_VIRT_ADDR: RwLock<Option<VirtAddr>> =
-    RwLock::<Option<VirtAddr>>::const_new(spinning::RawRwLock::const_new(), None);
+static SHIM_HOSTCALL_VIRT_ADDR: RwLock<Option<ShimVirtAddr<Block>>> =
+    RwLock::<Option<ShimVirtAddr<Block>>>::const_new(spinning::RawRwLock::const_new(), None);
+
+/// Get the SEV C-Bit mask
+#[inline(always)]
+pub fn get_cbit_mask() -> u64 {
+    C_BIT_MASK.load(Ordering::Relaxed)
+}
 
 /// Switch the stack and jump to a function
 ///
@@ -75,13 +88,18 @@ macro_rules! entry_point {
     ($path:path) => {
         #[doc(hidden)]
         #[export_name = "_start_main"]
-        pub unsafe extern "C" fn __impl_start(boot_info: *mut BootInfo) -> ! {
+        pub unsafe extern "C" fn __impl_start(boot_info: *mut BootInfo, c_bit_mask: u64) -> ! {
             // validate the signature of the program entry point
             let f: extern "C" fn() -> ! = $path;
 
-            SHIM_HOSTCALL_VIRT_ADDR
-                .write()
-                .replace(VirtAddr::from_ptr(boot_info));
+            C_BIT_MASK.store(c_bit_mask, Ordering::Relaxed);
+
+            SHIM_HOSTCALL_VIRT_ADDR.write().replace(
+                ShimVirtAddr::<Block>::try_from(Address::<u64, Block>::from(
+                    boot_info as *mut Block,
+                ))
+                .unwrap(),
+            );
 
             // make a local copy of boot_info, before the shared page gets overwritten
             BOOT_INFO.write().replace(boot_info.read_volatile());
@@ -116,7 +134,6 @@ pub extern "C" fn shim_main() -> ! {
 #[allow(clippy::empty_loop)]
 pub fn panic(info: &core::panic::PanicInfo) -> ! {
     use asm::_enarx_asm_triple_fault;
-    use core::sync::atomic::{AtomicBool, Ordering};
 
     static mut ALREADY_IN_PANIC: AtomicBool = AtomicBool::new(false);
 

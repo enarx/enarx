@@ -2,13 +2,13 @@
 
 //! Host <-> Shim Communication
 
-use crate::addr::{HostVirtAddr, ShimPhysAddr, ShimVirtAddr};
+use crate::addr::{HostVirtAddr, ShimPhysUnencryptedAddr};
 use crate::asm::_enarx_asm_triple_fault;
 use crate::hostlib::{MemInfo, SYSCALL_TRIGGER_PORT, SYS_ENARX_BALLOON_MEMORY, SYS_ENARX_MEM_INFO};
 use crate::SHIM_HOSTCALL_VIRT_ADDR;
 use core::convert::TryFrom;
 use core::mem::MaybeUninit;
-use primordial::{Address, Page, Register};
+use primordial::{Address, Register};
 use sallyport::{request, Block};
 use spinning::Mutex;
 use x86_64::instructions::port::Port;
@@ -45,15 +45,11 @@ impl HostFd {
 lazy_static! {
     /// The static HostCall Mutex
     pub static ref HOST_CALL: Mutex<HostCall<'static>> = {
-        let address = SHIM_HOSTCALL_VIRT_ADDR.read().unwrap();
-        let shared_page_addr = Address::from(address.as_ptr::<*mut Page>())
-            .try_cast()
-            .unwrap();
-        let shared_page: ShimVirtAddr<*mut Page> = ShimVirtAddr::try_from(shared_page_addr).unwrap();
-
-        Mutex::<HostCall<'static>>::const_new(spinning::RawMutex::const_new(), unsafe {
-            HostCall(&mut *(Address::<u64, *mut Page>::from(shared_page).raw() as *mut Block))
-        })
+        let address = SHIM_HOSTCALL_VIRT_ADDR.read().as_ref().unwrap().clone();
+        let shared_page: ShimPhysUnencryptedAddr<Block> = ShimPhysUnencryptedAddr::try_from(address).unwrap();
+        Mutex::<HostCall<'static>>::const_new(spinning::RawMutex::const_new(),
+            HostCall(shared_page.into_mut())
+        )
     };
 }
 
@@ -99,8 +95,8 @@ impl<'a> HostCall<'a> {
         let (_, buf) = cursor.copy_slice(bytes).or(Err(libc::EMSGSIZE))?;
 
         let buf_address = Address::from(buf.as_ptr());
-        let shim_virt_address = ShimVirtAddr::try_from(buf_address).map_err(|_| libc::EFAULT)?;
-        let host_virt: HostVirtAddr<_> = ShimPhysAddr::from(shim_virt_address).into();
+        let phys_unencrypted = ShimPhysUnencryptedAddr::try_from(buf_address).unwrap();
+        let host_virt: HostVirtAddr<_> = phys_unencrypted.into();
 
         self.0.msg.req = request!(libc::SYS_write => fd, host_virt, buf.len());
         self.hostcall()

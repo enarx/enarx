@@ -37,21 +37,17 @@ pub const SYSCALL_TRIGGER_PORT: u16 = 0xFF;
 
 use lset::{Line, Span};
 use nbytes::bytes;
+use primordial::Page;
 
-// page align - to ease debugging, set to 1MiB in debug builds
-#[cfg(debug_assertions)]
+/// The first 2MB are unencrypted shared memory
 #[allow(clippy::integer_arithmetic)]
-const ALIGN_SECTION: usize = bytes!(1; MiB);
+pub const ALIGN_ABOVE_2MB: usize = bytes!(2; MiB);
 
 /// Enarx syscall extension: get `MemInfo` from the host
 pub const SYS_ENARX_MEM_INFO: i64 = 33333;
 
 /// Enarx syscall extension: request an additional memory region
 pub const SYS_ENARX_BALLOON_MEMORY: i64 = 33334;
-
-#[cfg(not(debug_assertions))]
-#[allow(clippy::integer_arithmetic)]
-const ALIGN_SECTION: usize = bytes!(4; KiB);
 
 #[inline(always)]
 #[allow(clippy::integer_arithmetic)]
@@ -68,8 +64,8 @@ fn raise(value: usize, boundary: usize) -> Option<usize> {
 }
 
 #[inline(always)]
-fn above(rel: impl Into<Line<usize>>, size: usize) -> Option<Span<usize>> {
-    raise(rel.into().end, ALIGN_SECTION).map(|val| Span {
+fn above(rel: impl Into<Line<usize>>, size: usize, align: usize) -> Option<Span<usize>> {
+    raise(rel.into().end, align).map(|val| Span {
         start: val,
         count: size,
     })
@@ -133,10 +129,21 @@ impl BootInfo {
         shim: Span<usize>,
         code: Span<usize>,
     ) -> Result<Self, NoMemory> {
-        let shim: Line<usize> = above(setup, shim.count).ok_or(NoMemory(()))?.into();
-        let code: Line<usize> = above(shim, code.count).ok_or(NoMemory(()))?.into();
+        debug_assert!(
+            setup.end < ALIGN_ABOVE_2MB,
+            "The setup area has to be smaller than 2MB"
+        );
 
-        let mem_size = raise(code.end, 4096).ok_or(NoMemory(()))?;
+        // The first 2MB are unencrypted shared memory
+        let shim: Line<usize> = above(setup, shim.count, ALIGN_ABOVE_2MB)
+            .ok_or(NoMemory(()))?
+            .into();
+
+        let code: Line<usize> = above(shim, code.count, Page::size())
+            .ok_or(NoMemory(()))?
+            .into();
+
+        let mem_size = raise(code.end, Page::size()).ok_or(NoMemory(()))?;
 
         Ok(Self {
             setup,
