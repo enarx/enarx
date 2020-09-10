@@ -57,18 +57,19 @@ _start:
     and     eax,    0x3f
 
     // If SEV is enabled, C-bit is always above 31
-    sub     eax,    32
-    bts     edx,    eax
+    bts     rdx,    rax
     jmp     SevExit
 
 NoSev:
     xor     rdx,    rdx
 
 SevExit:
-    // backup rdx
-    mov     r10,    rdx
-    mov     r12,    r10
-    shl     r12,    0x20
+    // backup edx to r11 and r12
+    // r11: C-bit >> 32
+    // r12: C-bit full 64bit mask
+    mov     r12,    rdx
+    mov     r11,    rdx
+    shr     r11,    0x20
 
     // setup CR4
     mov     rax,    cr4
@@ -94,8 +95,6 @@ SevExit:
     mov     ecx,    0xc0000080
     wrmsr
 
-    mov     rdx,    r10
-
     // Setup the pagetables
     // done dynamically, otherwise we would have to correct the dynamic symbols twice
     lea     rax,    [rip + PML4T]
@@ -108,18 +107,21 @@ SevExit:
 
     // set C-bit in PDPT_OFFSET table
     lea     rbx,    [rip + PDPT_OFFSET]
-    mov     rdx,    r10
-    mov     ecx,    0x200
-    add     rbx,    0x4
+    mov     rdx,    r11
+    // Counter to 512 page table entries
+    mov     ecx,    512
+    // Pre-advance pointer by 4 bytes for the higher 32bit
+    add     rbx,    4
 
 setCBit:
     mov     DWORD PTR [rbx],    edx
-    add     rbx,    0x8
+    // advance pointer by 8
+    add     rbx,    8
     loop    setCBit
 
     // set C-bit in PDT_IDENT table
     lea     rcx,    [rip + PDT_IDENT]
-    mov     rdx,    r10
+    mov     rdx,    r11
     mov     DWORD PTR [rcx + (1*8 + 4)],    edx
     mov     DWORD PTR [rcx + (2*8 + 4)],    edx
 
