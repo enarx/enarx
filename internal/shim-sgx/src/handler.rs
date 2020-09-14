@@ -19,7 +19,6 @@ const ARCH_GET_FS: usize = 0x1003;
 const ARCH_GET_GS: usize = 0x1004;
 
 extern "C" {
-    #[no_mangle]
     fn syscall(aex: &mut StateSaveArea, ctx: &Context) -> u64;
 }
 
