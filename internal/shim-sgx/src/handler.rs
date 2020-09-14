@@ -461,4 +461,10 @@ impl<'a> Handler<'a> {
         self.trace("madvise", 3);
         Ok(Default::default())
     }
+
+    // Do close syscall
+    pub fn close(&mut self) -> sallyport::Result {
+        self.trace("close", 1);
+        unsafe { self.proxy(request!(libc::SYS_close => self.aex.gpr.rdi)) }
+    }
 }
