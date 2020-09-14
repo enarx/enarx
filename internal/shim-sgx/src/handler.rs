@@ -454,4 +454,11 @@ impl<'a> Handler<'a> {
         trusted.copy_from_slice(untrusted);
         Ok(res)
     }
+
+    // Do madvise syscall
+    // We don't actually support this. So, fake success.
+    pub fn madvise(&mut self) -> sallyport::Result {
+        self.trace("madvise", 3);
+        Ok(Default::default())
+    }
 }
