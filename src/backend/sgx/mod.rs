@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
+use self::shim::{SYS_CPUID, SYS_ERESUME};
 use crate::backend::{Command, Datum, Keep};
 use crate::binary::Component;
 use crate::sallyport;
@@ -15,6 +16,7 @@ use sgx::types::{
 };
 
 use std::arch::x86_64::__cpuid_count;
+use std::convert::TryInto;
 use std::path::Path;
 use std::sync::{Arc, RwLock};
 
@@ -157,8 +159,6 @@ struct Thread {
 
 impl super::Thread for Thread {
     fn enter(&mut self) -> Result<Command> {
-        const SYS_ERESUME: usize = !0;
-
         let mut how = Entry::Enter;
 
         // The main loop event handles different types of enclave exits and
@@ -182,8 +182,24 @@ impl super::Thread for Thread {
         loop {
             how = match self.thread.enter(how, &mut self.block) {
                 Err(Some(ei)) if ei.trap == Exception::InvalidOpcode => Entry::Enter,
-                Ok(_) if SYS_ERESUME == unsafe { self.block.msg.req.num }.into() => Entry::Resume,
-                Ok(_) => return Ok(Command::SysCall(&mut self.block)),
+                Ok(_) => match unsafe { self.block.msg.req }.num.into() {
+                    SYS_CPUID => unsafe {
+                        let cpuid = core::arch::x86_64::__cpuid_count(
+                            self.block.msg.req.arg[0].try_into().unwrap(),
+                            self.block.msg.req.arg[1].try_into().unwrap(),
+                        );
+
+                        self.block.msg.req.arg[0] = cpuid.eax.into();
+                        self.block.msg.req.arg[1] = cpuid.ebx.into();
+                        self.block.msg.req.arg[2] = cpuid.ecx.into();
+                        self.block.msg.req.arg[3] = cpuid.edx.into();
+
+                        Entry::Enter
+                    },
+
+                    SYS_ERESUME => Entry::Resume,
+                    _ => return Ok(Command::SysCall(&mut self.block)),
+                },
                 e => panic!("Unexpected AEX: {:?}", e),
             }
         }

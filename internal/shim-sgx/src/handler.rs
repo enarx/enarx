@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
+use crate::hostlib::SYS_CPUID;
 use crate::Layout;
 
 use primordial::Register;
@@ -105,6 +106,38 @@ impl<'a> Handler<'a> {
         }
 
         debugln!(self, ")");
+    }
+
+    pub fn cpuid(&mut self) {
+        if TRACE {
+            debug!(
+                self,
+                "cpuid({:08x}, {:08x})",
+                usize::from(self.aex.gpr.rax),
+                usize::from(self.aex.gpr.rcx)
+            );
+        }
+
+        self.block.msg.req = request!(SYS_CPUID => self.aex.gpr.rax, self.aex.gpr.rcx);
+
+        unsafe {
+            syscall(self.aex, self.ctx);
+            self.aex.gpr.rax = self.block.msg.req.arg[0].into();
+            self.aex.gpr.rbx = self.block.msg.req.arg[1].into();
+            self.aex.gpr.rcx = self.block.msg.req.arg[2].into();
+            self.aex.gpr.rdx = self.block.msg.req.arg[3].into();
+        }
+
+        if TRACE {
+            debugln!(
+                self,
+                " = ({:08x}, {:08x}, {:08x}, {:08x})",
+                usize::from(self.aex.gpr.rax),
+                usize::from(self.aex.gpr.rbx),
+                usize::from(self.aex.gpr.rcx),
+                usize::from(self.aex.gpr.rdx)
+            );
+        }
     }
 
     /// Proxy an exit() syscall

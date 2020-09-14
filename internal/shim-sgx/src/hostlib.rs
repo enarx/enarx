@@ -4,6 +4,9 @@
 
 use lset::Line;
 
+pub const SYS_ERESUME: usize = !0;
+pub const SYS_CPUID: usize = SYS_ERESUME - 1;
+
 /// The enclave layout
 #[repr(C)]
 #[derive(Copy, Clone, Default, Debug, PartialEq, Eq)]

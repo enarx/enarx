@@ -69,21 +69,7 @@ pub extern "C" fn event(
                 }
 
                 OP_CPUID => {
-                    let rax: usize = h.aex.gpr.rax.into();
-                    let rcx: usize = h.aex.gpr.rcx.into();
-
-                    let (rax, rbx, rcx, rdx) = match (rax, rcx) {
-                        (0, _) => (0, 0x756e_6547, 0x6c65_746e, 0x4965_6e69), // "GenuineIntel"
-                        (a, c) => {
-                            debugln!(h, "unsupported cpuid: (0x{:x}, 0x{:x})", a, c);
-                            (0, 0, 0, 0)
-                        }
-                    };
-
-                    aex.gpr.rax = rax.into();
-                    aex.gpr.rbx = rbx.into();
-                    aex.gpr.rcx = rcx.into();
-                    aex.gpr.rdx = rdx.into();
+                    h.cpuid();
                     aex.gpr.rip = (usize::from(aex.gpr.rip) + 2).into();
                 }
 
