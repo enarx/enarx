@@ -11,7 +11,7 @@ use core::convert::TryInto;
 use core::fmt::Write;
 use core::slice::{from_raw_parts, from_raw_parts_mut};
 
-const TRACE: bool = false;
+pub const TRACE: bool = false;
 
 // arch_prctl syscalls not available in the libc crate as of version 0.2.69
 const ARCH_SET_GS: usize = 0x1001;
