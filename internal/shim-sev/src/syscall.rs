@@ -128,6 +128,7 @@ pub extern "C" fn syscall_rust(
         libc::SYS_readlink => h.readlink(),
         libc::SYS_fstat => h.fstat(),
         libc::SYS_fcntl => h.fcntl(),
+        libc::SYS_madvise => h.madvise(),
 
         syscall => {
             //panic!("SC> unsupported syscall: {}", syscall);
@@ -662,6 +663,15 @@ impl Handler {
                 Err(libc::EBADFD)
             }
         }
+    }
+
+    pub fn madvise(&self) -> Result<usize, libc::c_int> {
+        eprintln!(
+            "SC> madvise(0x{:x}, 0x{:x}, 0x{:x}) = 0",
+            self.a, self.b, self.c
+        );
+
+        Ok(0)
     }
 }
 
