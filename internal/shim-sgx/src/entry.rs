@@ -5,9 +5,15 @@ use goblin::elf::header::{header64::Header, ELFMAG};
 
 use crate::Layout;
 
-extern "C" {
-    fn jump(rsp: u64, fnc: u64) -> !;
-    fn exit(code: u8) -> !;
+fn exit(code: usize) -> ! {
+    unsafe {
+        asm!(
+            "syscall",
+            in("rax") libc::SYS_exit,
+            in("rdi") code,
+            options(noreturn)
+        )
+    }
 }
 
 fn random() -> u64 {
@@ -19,7 +25,7 @@ fn random() -> u64 {
         }
     }
 
-    unsafe { exit(1) }
+    exit(1)
 }
 
 fn crt0setup<'a>(
@@ -66,21 +72,24 @@ pub extern "C" fn entry(_rdi: u64, _rsi: u64, _rdx: u64, layout: &Layout, _r8: u
     let hdr = unsafe { &*(layout.code.start as *const Header) };
 
     if !hdr.e_ident[..ELFMAG.len()].eq(ELFMAG) {
-        unsafe { exit(1) };
+        exit(1);
     }
 
     // Prepare the crt0 stack.
     let mut crt0 = [0u8; 1024];
     let space = random() as usize & 0xf0;
     let handle = match crt0setup(layout, hdr, &mut crt0[space..]) {
-        Err(OutOfSpace) => unsafe { exit(1) },
+        Err(OutOfSpace) => exit(1),
         Ok(handle) => handle,
     };
 
     unsafe {
-        jump(
-            &*handle as *const _ as _,
-            layout.code.start as u64 + hdr.e_entry,
+        asm!(
+            "mov rsp, {}",
+            "jmp {}",
+            in(reg) &*handle,
+            in(reg) layout.code.start as u64 + hdr.e_entry,
+            options(noreturn)
         )
     }
 }

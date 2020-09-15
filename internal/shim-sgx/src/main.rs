@@ -6,9 +6,10 @@
 //! instructions) from the enclave code and proxies them to the host.
 
 #![no_std]
-#![cfg_attr(not(test), no_main)]
+#![feature(asm)]
 #![deny(clippy::all)]
 #![deny(missing_docs)]
+#![cfg_attr(not(test), no_main)]
 
 extern crate rcrt1;
 

@@ -221,20 +221,3 @@ syscall:
     mov     %rsi,                   %rsp            # Get exit context
 
     jmp     .Leexit
-
-    # _Noreturn void exit(code);
-    .text
-    .globl exit
-    .type exit, @function
-exit:
-    mov     $60,                    %rax
-    syscall
-    ud2
-
-    # _Noreturn void jump(rsp, fnc);
-    .text
-    .globl jump
-    .type jump, @function
-jump:
-    mov     %rdi,                   %rsp
-    jmp     *%rsi
