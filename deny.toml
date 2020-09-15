@@ -1,0 +1,43 @@
+# This section is considered when running `cargo deny check licenses`
+# More documentation for the licenses section can be found here:
+# https://embarkstudios.github.io/cargo-deny/checks/licenses/cfg.html
+[licenses]
+# The lint level for crates which do not have a detectable license
+unlicensed = "deny"
+# List of explictly allowed licenses
+# See https://spdx.org/licenses/ for list of possible licenses
+# [possible values: any SPDX 3.7 short identifier (+ optional exception)].
+allow = [
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "CC0-1.0",
+    "ISC",
+    "MIT",
+    "Zlib",
+]
+# Lint level for licenses considered copyleft
+copyleft = "deny"
+# Blanket approval or denial for OSI-approved or FSF Free/Libre licenses
+# * both - The license will be approved if it is both OSI-approved *AND* FSF
+# * either - The license will be approved if it is either OSI-approved *OR* FSF
+# * osi-only - The license will be approved if is OSI-approved *AND NOT* FSF
+# * fsf-only - The license will be approved if is FSF *AND NOT* OSI-approved
+# * neither - This predicate is ignored and the default lint level is used
+allow-osi-fsf-free = "neither"
+# Lint level used when no other predicates are matched
+# 1. License isn't in the allow or deny lists
+# 2. License isn't copyleft
+# 3. License isn't OSI/FSF, or allow-osi-fsf-free = "neither"
+default = "deny"
+# The confidence threshold for detecting a license from license text.
+# The higher the value, the more closely the license text must be to the
+# canonical license text of a valid SPDX license file.
+# [possible values: any between 0.0 and 1.0].
+confidence-threshold = 0.8
+
+[licenses.private]
+# If true, ignores workspace crates that aren't published, or are only
+# published to private registries
+ignore = false

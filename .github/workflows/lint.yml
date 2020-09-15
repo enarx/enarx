@@ -72,3 +72,10 @@ jobs:
           override: true
       - run: cargo install cargo-readme
       - run: cargo readme > README.md && git diff --exit-code
+
+  deny:
+    name: cargo deny
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: EmbarkStudios/cargo-deny-action@v1
