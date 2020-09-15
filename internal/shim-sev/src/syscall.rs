@@ -110,6 +110,7 @@ pub extern "C" fn syscall_rust(
         libc::SYS_exit => h.exit(),
         libc::SYS_exit_group => h.exit_group(),
         libc::SYS_read => h.read(),
+        libc::SYS_readv => h.readv(),
         libc::SYS_write => h.write(),
         libc::SYS_writev => h.writev(),
         libc::SYS_mmap => h.mmap(),
@@ -163,10 +164,7 @@ impl Handler {
         hostcall::shim_exit(self.a as _);
     }
 
-    pub fn read(&self) -> Result<usize, libc::c_int> {
-        let fd = self.a;
-        let data = self.b as *mut u8;
-        let len = self.c;
+    fn _read(&self, fd: usize, data: *mut u8, len: usize) -> Result<usize, libc::c_int> {
         let mut host_call = HOST_CALL.try_lock().ok_or(libc::EIO)?;
 
         let trusted: &mut [u8] = unsafe { core::slice::from_raw_parts_mut(data, len) };
@@ -194,6 +192,27 @@ impl Handler {
         trusted[..result_len].copy_from_slice(untrusted);
 
         Ok(result_len)
+    }
+
+    pub fn read(&self) -> Result<usize, libc::c_int> {
+        self._read(self.a, self.b as *mut u8, self.c)
+    }
+
+    pub fn readv(&self) -> Result<usize, libc::c_int> {
+        let iovec =
+            unsafe { core::slice::from_raw_parts_mut(self.b as *mut libc::iovec, self.c as usize) };
+
+        // FIXME: this is not an ideal implementation of readv, but for the sake
+        // of simplicity this readv implementation behaves very much like how the
+        // Linux kernel would for a module that does not support readv, but does
+        // support read.
+        let mut read = 0usize;
+        for vec in iovec {
+            let r = self._read(self.a, vec.iov_base as *mut u8, vec.iov_len as usize)?;
+            read = read.checked_add(r).unwrap();
+        }
+
+        Ok(read)
     }
 
     pub fn write(&self) -> Result<usize, libc::c_int> {

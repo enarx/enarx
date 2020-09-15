@@ -135,3 +135,15 @@ fn read() {
     let buf: [u8; BYTES] = read_item(stdout).unwrap();
     assert_eq!(INPUT, String::from_utf8(buf.to_vec()).unwrap());
 }
+
+#[test]
+fn readv() {
+    const INPUT: &str = "hello, worldhello, worldhello, world";
+    const BYTES: usize = INPUT.as_bytes().len();
+
+    let child = run_test("readv", 0, INPUT);
+    let stdout = child.stdout.unwrap();
+    let buf: [u8; BYTES] = read_item(stdout).unwrap();
+
+    assert_eq!(INPUT, String::from_utf8(buf.to_vec()).unwrap());
+}

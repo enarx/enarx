@@ -1,4 +1,5 @@
 #include <sys/syscall.h>
+#include <sys/uio.h> /* struct iovec */
 #include <unistd.h>
 #include <errno.h>
 #include <time.h>
@@ -20,6 +21,18 @@ ssize_t read(int fd, void *buf, size_t count) {
         "syscall"
         : "=a" (rax)
         : "a" (SYS_read), "D" (fd), "S" (buf), "d" (count)
+    );
+
+    return rax;
+}
+
+ssize_t readv(int fd, const struct iovec *iov, int iovcnt) {
+    ssize_t rax;
+
+    asm(
+       "syscall"
+       : "=a" (rax)
+       : "a" (SYS_readv), "D" (fd), "S" (iov), "d" (iovcnt)
     );
 
     return rax;
