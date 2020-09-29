@@ -27,7 +27,7 @@ jobs:
       - uses: actions-rs/cargo@v1
         with:
           command: test
-          args: ${{ matrix.profile.flag }}
+          args: ${{ matrix.profile.flag }} --features=backend-${{ matrix.backend.name }}
     strategy:
       fail-fast: false
       matrix:

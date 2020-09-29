@@ -97,8 +97,11 @@ enum Options {
 
 fn main() -> Result<()> {
     let backends: &[Box<dyn Backend>] = &[
+        #[cfg(feature = "backend-sev")]
         Box::new(backend::sev::Backend),
+        #[cfg(feature = "backend-sgx")]
         Box::new(backend::sgx::Backend),
+        #[cfg(feature = "backend-kvm")]
         Box::new(backend::kvm::Backend),
     ];
 

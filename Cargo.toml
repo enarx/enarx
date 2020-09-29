@@ -22,12 +22,20 @@ maintenance = { status = "actively-developed" }
 is-it-maintained-issue-resolution = { repository = "enarx/enarx-keepldr" }
 is-it-maintained-open-issues = { repository = "enarx/enarx-keepldr" }
 
+[features]
+default = ["backend-sev"]
+
+backend-nil = []
+backend-kvm = ["x86_64", "kvm-bindings", "kvm-ioctls"]
+backend-sev = ["sev", "backend-kvm"]
+backend-sgx = ["sgx"]
+
 [dependencies]
-sev = { git = "https://github.com/enarx/sev", rev = "c568e97", features = ["openssl"] }
-sgx = { git = "https://github.com/enarx/sgx", rev = "512e077", features = ["asm", "crypto"] }
-x86_64 = { version = "0.11", default-features = false, features = ["stable"] }
-kvm-bindings = "0.3"
-kvm-ioctls = "0.5"
+sev = { git = "https://github.com/enarx/sev", rev = "c568e97", features = ["openssl"], optional = true }
+sgx = { git = "https://github.com/enarx/sgx", rev = "512e077", features = ["asm", "crypto"], optional = true }
+x86_64 = { version = "0.11", default-features = false, features = ["stable"], optional = true }
+kvm-bindings = { version = "0.3", optional = true }
+kvm-ioctls = { version = "0.5", optional = true }
 primordial = "0.1"
 structopt = "0.3"
 colorful = "0.2"
