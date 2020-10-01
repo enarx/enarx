@@ -1,22 +1,22 @@
 version: 2
 updates:
-    - package-ecosystem: "cargo"
-        directory: "/"
-        schedule:
-            interval: "daily"
-    - package-ecosystem: "cargo"
-        directory: "internal/rcrt1"
-        schedule:
-            interval: "daily"
-    - package-ecosystem: "cargo"
-        directory: "internal/sallyport"
-        schedule:
-            interval: "daily"
-    - package-ecosystem: "cargo"
-        directory: "internal/shim-sev"
-        schedule:
-            interval: "daily"
-    - package-ecosystem: "cargo"
-        directory: "internal/shim-sgx"
-        schedule:
-            interval: "daily"
+- package-ecosystem: "cargo"
+  directory: "/"
+  schedule:
+    interval: "daily"
+- package-ecosystem: "cargo"
+  directory: "internal/rcrt1"
+  schedule:
+    interval: "daily"
+- package-ecosystem: "cargo"
+  directory: "internal/sallyport"
+  schedule:
+    interval: "daily"
+- package-ecosystem: "cargo"
+  directory: "internal/shim-sev"
+  schedule:
+    interval: "daily"
+- package-ecosystem: "cargo"
+  directory: "internal/shim-sgx"
+  schedule:
+    interval: "daily"
