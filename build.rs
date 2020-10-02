@@ -191,7 +191,7 @@ fn main() {
         match status {
             Ok(status) if status.success() => {}
             _ => {
-                eprintln!("Failed to run strip");
+                println!("cargo:warning=Failed to run `strip` on {:?}", &shim_out_bin);
                 std::fs::rename(&shim_out_bin, &out_bin).expect("move failed")
             }
         }
