@@ -53,6 +53,8 @@ pub unsafe fn _syscall_enter() -> ! {
     push   rdi
     push   rsi
     push   rdx
+    push   rcx
+    push   r11
     push   r10
     push   r8
     push   r9
@@ -69,6 +71,8 @@ pub unsafe fn _syscall_enter() -> ! {
     pop    r9
     pop    r8
     pop    r10
+    pop    r11
+    pop    rcx
     pop    rdx
     pop    rsi
     pop    rdi
