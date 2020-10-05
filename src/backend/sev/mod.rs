@@ -12,7 +12,7 @@ use anyhow::Result;
 
 use std::arch::x86_64::__cpuid_count;
 use std::fs::OpenOptions;
-use std::mem::transmute;
+use std::mem::{transmute, MaybeUninit};
 use std::path::Path;
 use std::str::from_utf8;
 use std::sync::{Arc, RwLock};
@@ -164,6 +164,53 @@ fn dev_sev_writable() -> Datum {
     }
 }
 
+fn has_reasonable_memlock_rlimit() -> Datum {
+    let mut rlimits = MaybeUninit::uninit();
+    let res = unsafe { libc::getrlimit(libc::RLIMIT_MEMLOCK, rlimits.as_mut_ptr()) };
+
+    let (pass, info) = if res == 0 {
+        let rlimit = unsafe { rlimits.assume_init() };
+
+        /* footprint = approximately (size of shim + size of wasmldr + size of workload) */
+        let keep_footprint = nbytes::bytes![5; MiB];
+
+        let num_keeps = rlimit.rlim_cur as usize / keep_footprint;
+        let keep_status = format!(
+            "{}{} keep{}",
+            if num_keeps > 0 { "~" } else { "" },
+            num_keeps,
+            if num_keeps == 1 { "" } else { "s" }
+        );
+
+        let pass = num_keeps > 0;
+
+        let info = format!(
+            "{} (soft limit = {} bytes, hard limit = {} bytes)",
+            keep_status, rlimit.rlim_cur, rlimit.rlim_max
+        );
+
+        (pass, Some(info))
+    } else {
+        (false, Some("failed to query memlock rlimit".into()))
+    };
+
+    let mesg = if !pass {
+        let mesg = "The MEMLOCK rlimit must be large enough to \
+                    accommodate the Enarx shim, wasmldr, and the memory pressure \
+                    requirements of the target workloads across all deployed SEV keeps.";
+        Some(mesg.into())
+    } else {
+        None
+    };
+
+    Datum {
+        name: "MEMLOCK rlimit allows for".into(),
+        pass,
+        info,
+        mesg,
+    }
+}
+
 fn has_kvm_support() -> Datum {
     use crate::backend::Backend;
     Datum {
@@ -189,6 +236,7 @@ impl backend::Backend for Backend {
         data.push(dev_sev_readable());
         data.push(dev_sev_writable());
         data.push(has_kvm_support());
+        data.push(has_reasonable_memlock_rlimit());
         data
     }
 
