@@ -2,6 +2,6 @@
 target = "x86_64-unknown-linux-musl"
 rustflags = [
     "-C", "relocation-model=pic",
-    "-C", "link-args=-Wl,--sort-section=alignment",
-    "-C", "linker=../cc",
+    "-C", "link-args=-Wl,--sort-section=alignment -nostartfiles",
+    "-C", "link-self-contained=no",
 ]

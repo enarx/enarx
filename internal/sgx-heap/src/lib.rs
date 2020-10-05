@@ -1,5 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
+//! Allocate and deallocate memory on a Heap
+
+#![no_std]
+#![deny(clippy::all)]
+#![deny(missing_docs)]
+
 use core::mem::size_of;
 use core::slice::from_raw_parts_mut as slice;
 
@@ -12,6 +18,7 @@ struct Metadata {
     brk: Line<usize>,
 }
 
+/// A Heap, where memory can be allocated from
 pub struct Heap {
     metadata: &'static mut Metadata,
     allocated: &'static mut [Word],
@@ -19,6 +26,10 @@ pub struct Heap {
 }
 
 impl Heap {
+    /// Create a new Heap
+    ///
+    /// # Safety
+    /// The caller has to ensure the `heap` points to valid free memory.
     pub unsafe fn new(heap: Span<usize>) -> Self {
         // Bits per page
         const BPP: usize = Page::size() * 8;
@@ -105,6 +116,7 @@ impl Heap {
         self.offset_page_down(addr + Page::size() - 1)
     }
 
+    /// Allocate heap memory to address `brk`
     pub fn brk(&mut self, brk: usize) -> usize {
         let old = self.offset_page_up(self.metadata.brk.end).unwrap();
         let new = match self.offset_page_up(brk) {
@@ -132,6 +144,7 @@ impl Heap {
         brk
     }
 
+    /// mmap memory from the heap
     pub fn mmap<T>(
         &mut self,
         addr: libc::size_t,
@@ -176,6 +189,7 @@ impl Heap {
         Err(libc::ENOMEM)
     }
 
+    /// munmap memory from the heap
     pub fn munmap<T>(&mut self, addr: *const T, length: usize) -> Result<(), libc::c_int> {
         let addr = addr as usize;
 

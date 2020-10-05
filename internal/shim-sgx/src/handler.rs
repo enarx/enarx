@@ -6,6 +6,7 @@ use crate::Layout;
 use primordial::Register;
 use sallyport::{request, Block, Request};
 use sgx::types::ssa::StateSaveArea;
+use sgx_heap::Heap;
 
 use core::convert::TryInto;
 use core::fmt::Write;
@@ -322,7 +323,7 @@ impl<'a> Handler<'a> {
     pub fn brk(&mut self) -> sallyport::Result {
         self.trace("brk", 1);
 
-        let mut heap = unsafe { crate::heap::Heap::new(self.layout.heap.into()) };
+        let mut heap = unsafe { Heap::new(self.layout.heap.into()) };
         let ret = heap.brk(self.aex.gpr.rdi.into());
         Ok([ret.into(), Default::default()])
     }
@@ -362,7 +363,7 @@ impl<'a> Handler<'a> {
     pub fn mmap(&mut self) -> sallyport::Result {
         self.trace("mmap", 6);
 
-        let mut heap = unsafe { crate::heap::Heap::new(self.layout.heap.into()) };
+        let mut heap = unsafe { Heap::new(self.layout.heap.into()) };
         let ret = heap.mmap::<libc::c_void>(
             self.aex.gpr.rdi.into(),
             self.aex.gpr.rsi.into(),
@@ -379,7 +380,7 @@ impl<'a> Handler<'a> {
     pub fn munmap(&mut self) -> sallyport::Result {
         self.trace("munmap", 2);
 
-        let mut heap = unsafe { crate::heap::Heap::new(self.layout.heap.into()) };
+        let mut heap = unsafe { Heap::new(self.layout.heap.into()) };
         heap.munmap::<libc::c_void>(self.aex.gpr.rdi.into(), self.aex.gpr.rsi.into())?;
         Ok(Default::default())
     }

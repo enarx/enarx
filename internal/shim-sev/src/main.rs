@@ -9,12 +9,13 @@
 #![deny(clippy::all)]
 #![deny(clippy::integer_arithmetic)]
 #![deny(missing_docs)]
-#![cfg_attr(not(test), no_main)]
+#![no_main]
 #![feature(asm, naked_functions)]
 
 #[macro_use]
 extern crate lazy_static;
 
+extern crate compiler_builtins;
 extern crate rcrt1;
 
 pub mod addr;

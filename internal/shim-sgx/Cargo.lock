@@ -13,6 +13,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ef611cc68ff783f18535d77ddd080185275713d852c4f5cbb6122c462a7a825c"
 
 [[package]]
+name = "compiler_builtins"
+version = "0.1.36"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7cd0782e0a7da7598164153173e5a5d4d9b1da094473c98dce0ff91406112369"
+
+[[package]]
 name = "const-default"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -50,9 +56,9 @@ dependencies = [
 
 [[package]]
 name = "libc"
-version = "0.2.78"
+version = "0.2.79"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "aa7087f49d294270db4e1928fc110c976cd4b9e5a16348e0a1df09afa99e6c98"
+checksum = "2448f6066e80e3bfc792e9c98bf705b4b0fc6e8ef5b43e5889aff0eaa9c58743"
 
 [[package]]
 name = "lset"
@@ -80,9 +86,9 @@ checksum = "979d94833957a6485c5cac4b71d552a9cd0b9f3f6fd1c7c5dc8096b3ee2bcd13"
 
 [[package]]
 name = "proc-macro2"
-version = "1.0.20"
+version = "1.0.24"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "175c513d55719db99da20232b06cda8bab6b83ec2d04e3283edf0213c37c1a29"
+checksum = "1e0704ee1a7e00d7bb417d0770ea303c1bccbabf0ef1667dae92b5967f5f8a71"
 dependencies = [
  "unicode-xid",
 ]
@@ -131,10 +137,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "sgx-heap"
+version = "0.1.0"
+dependencies = [
+ "libc",
+ "lset",
+ "primordial",
+]
+
+[[package]]
 name = "shim-sgx"
 version = "0.1.0"
 dependencies = [
  "cc",
+ "compiler_builtins",
  "crt0stack",
  "goblin",
  "libc",
@@ -144,13 +160,14 @@ dependencies = [
  "rcrt1",
  "sallyport",
  "sgx",
+ "sgx-heap",
 ]
 
 [[package]]
 name = "syn"
-version = "1.0.39"
+version = "1.0.42"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "891d8d6567fe7c7f8835a3a98af4208f3846fba258c1bc3c31d6e506239f11f9"
+checksum = "9c51d92969d209b54a98397e1b91c8ae82d8c87a7bb87df0b29aa2ad81454228"
 dependencies = [
  "proc-macro2",
  "quote",

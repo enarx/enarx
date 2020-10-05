@@ -60,6 +60,7 @@ jobs:
       matrix:
         crate:
           - rcrt1
+          - sgx-heap
           - sallyport
           - shim-sgx
           - shim-sev

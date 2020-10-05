@@ -9,11 +9,11 @@
 #![feature(asm)]
 #![deny(clippy::all)]
 #![deny(missing_docs)]
-#![cfg_attr(not(test), no_main)]
+#![no_main]
 
+extern crate compiler_builtins;
 extern crate rcrt1;
 
-#[cfg(not(test))]
 #[panic_handler]
 #[allow(clippy::empty_loop)]
 fn panic(_info: &core::panic::PanicInfo) -> ! {
@@ -26,7 +26,6 @@ fn panic(_info: &core::panic::PanicInfo) -> ! {
 /// it seems like the debug libc.rlib has some references
 /// with unwinding
 /// See also: https://github.com/rust-lang/rust/issues/47493
-#[cfg(not(test))]
 #[cfg(debug_assertions)]
 #[no_mangle]
 extern "C" fn _Unwind_Resume() {
@@ -39,15 +38,11 @@ extern "C" fn _Unwind_Resume() {
 /// it seems like the debug libc.rlib has some references
 /// with unwinding
 /// See also: https://github.com/rust-lang/rust/issues/47493
-#[cfg(not(test))]
 #[cfg(debug_assertions)]
 #[no_mangle]
 pub extern "C" fn rust_eh_personality() {
     unimplemented!();
 }
-
-#[cfg(test)]
-fn main() {}
 
 // ============== REAL CODE HERE ===============
 
@@ -70,11 +65,9 @@ macro_rules! debugln {
     };
 }
 
-#[cfg(not(test))]
 mod entry;
 mod event;
 mod handler;
-mod heap;
 mod hostlib;
 
 use hostlib::Layout;
