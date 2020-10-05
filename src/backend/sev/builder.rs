@@ -2,7 +2,6 @@
 
 use crate::backend::kvm;
 
-use sev::certs::Chain;
 use sev::firmware::Firmware;
 use sev::launch::{Launcher, Policy};
 use sev::session::Session;
@@ -12,23 +11,15 @@ use x86_64::{PhysAddr, VirtAddr};
 
 use anyhow::Result;
 use std::convert::TryFrom;
-use std::env;
-use std::fs::File;
-use std::io::{Error, ErrorKind};
 
 pub struct Sev;
 
 impl kvm::Hook for Sev {
     fn code_loaded(&mut self, vm: &mut VmFd, addr_space: &[u8]) -> Result<()> {
-        use codicon::Decoder;
-
         let mut sev = Firmware::open()?;
         let build = sev.platform_status().unwrap().build;
 
-        let chain = env::var_os("SEV_CHAIN").ok_or_else(|| Error::from(ErrorKind::NotFound))?;
-
-        let mut chain = File::open(chain)?;
-        let chain = Chain::decode(&mut chain, ())?;
+        let chain = sev::cached_chain::get()?;
 
         let policy = Policy::default();
         let session = Session::try_from(policy)?;
