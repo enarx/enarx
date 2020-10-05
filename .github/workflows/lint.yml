@@ -81,3 +81,15 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - uses: EmbarkStudios/cargo-deny-action@v1
+        with:
+          arguments: --manifest-path=${{ matrix.crate.path }}
+    strategy:
+      fail-fast: false
+      matrix:
+        crate:
+          - {name: enarx-keepldr, path: ./Cargo.toml}
+          - {name: rcrt1, path: internal/rcrt1/Cargo.toml}
+          - {name: sgx-heap, path: internal/sgx-heap/Cargo.toml}
+          - {name: sallyport, path: internal/sallyport/Cargo.toml}
+          - {name: shim-sgx, path: internal/shim-sgx/Cargo.toml}
+          - {name: shim-sev, path: internal/shim-sev/Cargo.toml}
