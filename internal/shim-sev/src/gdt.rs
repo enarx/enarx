@@ -10,9 +10,7 @@ use x86_64::instructions::segmentation::{load_ds, load_es, load_fs, load_gs, loa
 use x86_64::instructions::tables::load_tss;
 use x86_64::registers::model_specific::{KernelGsBase, LStar, SFMask, Star};
 use x86_64::registers::rflags::RFlags;
-use x86_64::structures::gdt::{
-    Descriptor, DescriptorFlags, GlobalDescriptorTable, SegmentSelector,
-};
+use x86_64::structures::gdt::{Descriptor, GlobalDescriptorTable, SegmentSelector};
 use x86_64::structures::paging::{Page, PageTableFlags, Size2MiB, Size4KiB};
 use x86_64::structures::tss::TaskStateSegment;
 use x86_64::{align_up, PrivilegeLevel, VirtAddr};
@@ -89,10 +87,7 @@ lazy_static! {
         // so the ordering is crucial here. Star::write() will panic otherwise later.
         let code = gdt.add_entry(Descriptor::kernel_code_segment());
 
-        use DescriptorFlags as Flags;
-        let flags = Flags::USER_SEGMENT | Flags::PRESENT | Flags::WRITABLE;
-
-        let data = gdt.add_entry(Descriptor::UserSegment(flags.bits()));
+        let data = gdt.add_entry(Descriptor::kernel_data_segment());
 
         // `sysret` loads segments from STAR MSR assuming `user_code_segment` follows `user_data_segment`
         // so the ordering is crucial here. Star::write() will panic otherwise later.
