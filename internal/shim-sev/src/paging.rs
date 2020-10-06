@@ -4,19 +4,18 @@
 
 use crate::addr::SHIM_VIRT_OFFSET;
 use crate::get_cbit_mask;
+use crate::lazy::Lazy;
 
 use spinning::RwLock;
 use x86_64::structures::paging::{OffsetPageTable, PageTable};
 use x86_64::VirtAddr;
 
-lazy_static! {
-    /// The global `OffsetPageTable` of the shim
-    pub static ref SHIM_PAGETABLE: RwLock<OffsetPageTable<'static>> = {
-        RwLock::<OffsetPageTable<'static>>::const_new(spinning::RawRwLock::const_new(), unsafe {
-            init()
-        })
-    };
-}
+/// The global `OffsetPageTable` of the shim
+pub static SHIM_PAGETABLE: Lazy<RwLock<OffsetPageTable<'static>>> = Lazy::new(|| {
+    RwLock::<OffsetPageTable<'static>>::const_new(spinning::RawRwLock::const_new(), unsafe {
+        init()
+    })
+});
 
 /// Initialize a new OffsetPageTable.
 ///

@@ -3,6 +3,7 @@
 //! The global FrameAllocator
 use crate::addr::{HostVirtAddr, ShimPhysAddr, ShimPhysUnencryptedAddr, ShimVirtAddr};
 use crate::hostcall::HOST_CALL;
+use crate::lazy::Lazy;
 use crate::{get_cbit_mask, BOOT_INFO};
 
 use nbytes::bytes;
@@ -23,15 +24,12 @@ use x86_64::{align_down, align_up, PhysAddr, VirtAddr};
 #[allow(clippy::integer_arithmetic)]
 pub struct Page2MiB([u8; bytes![2; MiB]]);
 
-lazy_static! {
-    /// The global ShimFrameAllocator RwLock
-    pub static ref FRAME_ALLOCATOR: RwLock<FrameAllocator> = {
-        RwLock::<FrameAllocator>::const_new(
-            spinning::RawRwLock::const_new(),
-            unsafe { FrameAllocator::new() },
-        )
-    };
-}
+/// The global ShimFrameAllocator RwLock
+pub static FRAME_ALLOCATOR: Lazy<RwLock<FrameAllocator>> = Lazy::new(|| {
+    RwLock::<FrameAllocator>::const_new(spinning::RawRwLock::const_new(), unsafe {
+        FrameAllocator::new()
+    })
+});
 
 struct FreeMemListPageHeader {
     next: Option<&'static mut FreeMemListPage>,
@@ -49,7 +47,6 @@ pub const FREE_MEM_LIST_NUM_ENTRIES: usize = (Page4KiB::size()
     - core::mem::size_of::<FreeMemListPageHeader>())
     / core::mem::size_of::<FreeMemListPageEntry>();
 
-#[repr(C, align(4096))]
 struct FreeMemListPage {
     header: FreeMemListPageHeader,
     ent: [FreeMemListPageEntry; FREE_MEM_LIST_NUM_ENTRIES],

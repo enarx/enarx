@@ -2,11 +2,13 @@
 
 //! Functions and macros to output text on the host
 
+use crate::frame_allocator::FRAME_ALLOCATOR;
 use crate::hostcall::{self, HostFd};
 
 struct HostWrite(HostFd);
 
 use core::fmt;
+use spinning::OnceState;
 
 // FIXME: remove, if https://github.com/enarx/enarx/issues/831 is fleshed out
 const TRACE: bool = false;
@@ -24,7 +26,7 @@ impl fmt::Write for HostWrite {
 pub fn _print(args: fmt::Arguments) {
     use fmt::Write;
 
-    if !TRACE {
+    if !TRACE || FRAME_ALLOCATOR.state().ne(&OnceState::Initialized) {
         return;
     }
 
@@ -38,7 +40,7 @@ pub fn _print(args: fmt::Arguments) {
 pub fn _eprint(args: fmt::Arguments) {
     use fmt::Write;
 
-    if !TRACE {
+    if !TRACE || FRAME_ALLOCATOR.state().ne(&OnceState::Initialized) {
         return;
     }
 

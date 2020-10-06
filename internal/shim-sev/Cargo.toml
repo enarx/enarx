@@ -14,7 +14,6 @@ sallyport = { path = "../sallyport", default-features = false }
 rcrt1 = { path = "../rcrt1" }
 compiler_builtins = { version = "0.1", default-features = false, features = [ "mem" ] }
 x86_64 = { version = "0.12", default-features = false, features = ["instructions", "inline_asm"] }
-lazy_static = { version = "1.4.0", default-features = false, features = ["spin_no_std"] }
 goblin = { version = "0.2", default-features = false, features = [ "elf64" ] }
 crt0stack = { version = "0.1", default-features = false }
 spinning = { version = "0.0", default-features = false }

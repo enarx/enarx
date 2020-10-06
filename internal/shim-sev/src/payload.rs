@@ -3,11 +3,13 @@
 //! Functions dealing with the payload
 use crate::addr::{ShimPhysAddr, ShimVirtAddr};
 use crate::frame_allocator::FRAME_ALLOCATOR;
+use crate::lazy::Lazy;
 use crate::paging::SHIM_PAGETABLE;
 use crate::random::random;
 use crate::shim_stack::init_stack_with_guard;
 use crate::usermode::usermode;
 use crate::BOOT_INFO;
+
 use core::ops::DerefMut;
 use crt0stack::{self, Builder, Entry};
 use goblin::elf::header::header64::Header;
@@ -32,39 +34,33 @@ const PAYLOAD_STACK_VIRT_ADDR_BASE: VirtAddr = VirtAddr::new_truncate(0x7ff0_000
 #[allow(clippy::integer_arithmetic)]
 const PAYLOAD_STACK_SIZE: u64 = bytes![16; MiB];
 
-lazy_static! {
-    /// Actual payload virtual address, where the elf binary is mapped to
-    static ref PAYLOAD_VIRT_ADDR: RwLock<VirtAddr> = {
-        RwLock::<VirtAddr>::const_new(
-            spinning::RawRwLock::const_new(),
-            PAYLOAD_ELF_VIRT_ADDR_BASE + (random() & 0x7F_FFFF_F000),
-        )
-    };
-}
+static PAYLOAD_VIRT_ADDR: Lazy<RwLock<VirtAddr>> = Lazy::new(|| {
+    RwLock::<VirtAddr>::const_new(
+        spinning::RawRwLock::const_new(),
+        PAYLOAD_ELF_VIRT_ADDR_BASE + (random() & 0x7F_FFFF_F000),
+    )
+});
 
-lazy_static! {
-    /// Actual brk virtual address the payload gets, when calling brk
-    pub static ref NEXT_BRK_RWLOCK: RwLock<VirtAddr> = {
-        RwLock::<VirtAddr>::const_new(
-            spinning::RawRwLock::const_new(),
-            PAYLOAD_BRK_VIRT_ADDR_BASE + (random() & 0xFFFF_F000))
-    };
-}
+/// Actual brk virtual address the payload gets, when calling brk
+pub static NEXT_BRK_RWLOCK: Lazy<RwLock<VirtAddr>> = Lazy::new(|| {
+    RwLock::<VirtAddr>::const_new(
+        spinning::RawRwLock::const_new(),
+        PAYLOAD_BRK_VIRT_ADDR_BASE + (random() & 0xFFFF_F000),
+    )
+});
 
-lazy_static! {
-    /// The global NextMMap RwLock
-    pub static ref NEXT_MMAP_RWLOCK: RwLock<VirtAddr> = {
-        let boot_info = BOOT_INFO.read().unwrap();
-        let start = boot_info.code.start;
-        let end = boot_info.code.end;
-        let code_len = end.checked_sub(start).unwrap();
+/// The global NextMMap RwLock
+pub static NEXT_MMAP_RWLOCK: Lazy<RwLock<VirtAddr>> = Lazy::new(|| {
+    let boot_info = BOOT_INFO.read().unwrap();
+    let start = boot_info.code.start;
+    let end = boot_info.code.end;
+    let code_len = end.checked_sub(start).unwrap();
 
-        let mmap_start = *PAYLOAD_VIRT_ADDR.read().deref() + code_len;
-        let mmap_start = mmap_start.align_up(Page::<Size4KiB>::SIZE);
+    let mmap_start = *PAYLOAD_VIRT_ADDR.read() + code_len;
+    let mmap_start = mmap_start.align_up(Page::<Size4KiB>::SIZE);
 
-        RwLock::<VirtAddr>::const_new(spinning::RawRwLock::const_new(), mmap_start)
-    };
-}
+    RwLock::<VirtAddr>::const_new(spinning::RawRwLock::const_new(), mmap_start)
+});
 
 /// load the elf binary
 fn map_elf(app_virt_start: VirtAddr) -> &'static Header {

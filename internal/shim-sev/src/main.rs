@@ -12,9 +12,6 @@
 #![no_main]
 #![feature(asm, naked_functions)]
 
-#[macro_use]
-extern crate lazy_static;
-
 extern crate compiler_builtins;
 extern crate rcrt1;
 
@@ -31,6 +28,7 @@ pub mod payload;
 pub mod shim_stack;
 #[macro_use]
 pub mod print;
+pub mod lazy;
 pub mod random;
 pub mod syscall;
 pub mod usermode;
@@ -105,9 +103,6 @@ macro_rules! entry_point {
 
             // make a local copy of boot_info, before the shared page gets overwritten
             BOOT_INFO.write().replace(boot_info.read_volatile());
-
-            // Needed for syscalls
-            lazy_static::initialize(&frame_allocator::FRAME_ALLOCATOR);
 
             // Switch the stack to a guarded stack
             switch_shim_stack(f, gdt::INITIAL_STACK.pointer.as_u64())

@@ -5,6 +5,7 @@
 use crate::addr::{HostVirtAddr, ShimPhysUnencryptedAddr};
 use crate::asm::_enarx_asm_triple_fault;
 use crate::hostlib::{MemInfo, SYSCALL_TRIGGER_PORT, SYS_ENARX_BALLOON_MEMORY, SYS_ENARX_MEM_INFO};
+use crate::lazy::Lazy;
 use crate::SHIM_HOSTCALL_VIRT_ADDR;
 use core::convert::TryFrom;
 use core::mem::MaybeUninit;
@@ -42,16 +43,16 @@ impl HostFd {
     }
 }
 
-lazy_static! {
-    /// The static HostCall Mutex
-    pub static ref HOST_CALL: Mutex<HostCall<'static>> = {
-        let address = SHIM_HOSTCALL_VIRT_ADDR.read().as_ref().unwrap().clone();
-        let shared_page: ShimPhysUnencryptedAddr<Block> = ShimPhysUnencryptedAddr::try_from(address).unwrap();
-        Mutex::<HostCall<'static>>::const_new(spinning::RawMutex::const_new(),
-            HostCall(shared_page.into_mut())
-        )
-    };
-}
+/// The static HostCall Mutex
+pub static HOST_CALL: Lazy<Mutex<HostCall<'static>>> = Lazy::new(|| {
+    let address = SHIM_HOSTCALL_VIRT_ADDR.read().as_ref().unwrap().clone();
+    let shared_page: ShimPhysUnencryptedAddr<Block> =
+        ShimPhysUnencryptedAddr::try_from(address).unwrap();
+    Mutex::<HostCall<'static>>::const_new(
+        spinning::RawMutex::const_new(),
+        HostCall(shared_page.into_mut()),
+    )
+});
 
 /// Communication with the Host
 pub struct HostCall<'a>(&'a mut Block);

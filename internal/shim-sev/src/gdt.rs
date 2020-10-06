@@ -2,6 +2,7 @@
 
 //! Global Descriptor Table init
 
+use crate::lazy::Lazy;
 use crate::shim_stack::{init_stack_with_guard, GuardedStack};
 use crate::syscall::_syscall_enter;
 use core::ops::Deref;
@@ -29,40 +30,43 @@ pub const SHIM_EX_STACK_START: u64 = 0xFFFF_FF48_F000_0000;
 #[allow(clippy::integer_arithmetic)]
 pub const SHIM_EX_STACK_SIZE: u64 = bytes![2; MiB];
 
-lazy_static! {
-    /// The initial shim stack
-    pub static ref INITIAL_STACK: GuardedStack = init_stack_with_guard(
+/// The initial shim stack
+pub static INITIAL_STACK: Lazy<GuardedStack> = Lazy::new(|| {
+    init_stack_with_guard(
         VirtAddr::new(SHIM_STACK_START),
         SHIM_STACK_SIZE,
         PageTableFlags::empty(),
-    );
+    )
+});
 
-    /// The global TSS
-    pub static ref TSS: TaskStateSegment = {
-        let mut tss = TaskStateSegment::new();
+/// The global TSS
+pub static TSS: Lazy<TaskStateSegment> = Lazy::new(|| {
+    let mut tss = TaskStateSegment::new();
 
-        tss.privilege_stack_table[0] = INITIAL_STACK.pointer;
+    tss.privilege_stack_table[0] = INITIAL_STACK.pointer;
 
-        // Assign the stacks for the exceptions and interrupts
-        unsafe {
-            tss.interrupt_stack_table
-                .iter_mut()
-                .enumerate()
-                .for_each(|(idx, p)| {
-                    let offset: u64 = align_up(
-                        SHIM_EX_STACK_SIZE.checked_add(Page::<Size4KiB>::SIZE.checked_mul(2).unwrap()).unwrap(),
-                        Page::<Size2MiB>::SIZE,
-                    );
+    // Assign the stacks for the exceptions and interrupts
+    unsafe {
+        tss.interrupt_stack_table
+            .iter_mut()
+            .enumerate()
+            .for_each(|(idx, p)| {
+                let offset: u64 = align_up(
+                    SHIM_EX_STACK_SIZE
+                        .checked_add(Page::<Size4KiB>::SIZE.checked_mul(2).unwrap())
+                        .unwrap(),
+                    Page::<Size2MiB>::SIZE,
+                );
 
-                    let stack_offset = offset.checked_mul(idx as _).unwrap();
-                    let start = VirtAddr::new(SHIM_EX_STACK_START.checked_add(stack_offset).unwrap());
+                let stack_offset = offset.checked_mul(idx as _).unwrap();
+                let start = VirtAddr::new(SHIM_EX_STACK_START.checked_add(stack_offset).unwrap());
 
-                    *p = init_stack_with_guard(start, SHIM_EX_STACK_SIZE, PageTableFlags::empty()).pointer;
-                } );
-        }
-        tss
-    };
-}
+                *p = init_stack_with_guard(start, SHIM_EX_STACK_SIZE, PageTableFlags::empty())
+                    .pointer;
+            });
+    }
+    tss
+});
 
 /// The Selectors used in the GDT setup
 pub struct Selectors {
@@ -78,39 +82,37 @@ pub struct Selectors {
     pub tss: SegmentSelector,
 }
 
-lazy_static! {
-    /// The global GDT
-    pub static ref GDT: (GlobalDescriptorTable, Selectors) = {
-        let mut gdt = GlobalDescriptorTable::new();
+/// The global GDT
+pub static GDT: Lazy<(GlobalDescriptorTable, Selectors)> = Lazy::new(|| {
+    let mut gdt = GlobalDescriptorTable::new();
 
-        // `syscall` loads segments from STAR MSR assuming a data_segment follows `kernel_code_segment`
-        // so the ordering is crucial here. Star::write() will panic otherwise later.
-        let code = gdt.add_entry(Descriptor::kernel_code_segment());
+    // `syscall` loads segments from STAR MSR assuming a data_segment follows `kernel_code_segment`
+    // so the ordering is crucial here. Star::write() will panic otherwise later.
+    let code = gdt.add_entry(Descriptor::kernel_code_segment());
 
-        let data = gdt.add_entry(Descriptor::kernel_data_segment());
+    let data = gdt.add_entry(Descriptor::kernel_data_segment());
 
-        // `sysret` loads segments from STAR MSR assuming `user_code_segment` follows `user_data_segment`
-        // so the ordering is crucial here. Star::write() will panic otherwise later.
-        let user_data = gdt.add_entry(Descriptor::user_data_segment());
-        debug_assert_eq!(USER_DATA_SEGMENT, user_data.0 as u64);
+    // `sysret` loads segments from STAR MSR assuming `user_code_segment` follows `user_data_segment`
+    // so the ordering is crucial here. Star::write() will panic otherwise later.
+    let user_data = gdt.add_entry(Descriptor::user_data_segment());
+    debug_assert_eq!(USER_DATA_SEGMENT, user_data.0 as u64);
 
-        let user_code = gdt.add_entry(Descriptor::user_code_segment());
-        debug_assert_eq!(USER_CODE_SEGMENT, user_code.0 as u64);
+    let user_code = gdt.add_entry(Descriptor::user_code_segment());
+    debug_assert_eq!(USER_CODE_SEGMENT, user_code.0 as u64);
 
-        // Important: TSS.deref() != &TSS because of lazy_static
-        let tss = gdt.add_entry(Descriptor::tss_segment(TSS.deref()));
+    // Important: TSS.deref() != &TSS because of lazy_static
+    let tss = gdt.add_entry(Descriptor::tss_segment(TSS.deref()));
 
-        let selectors = Selectors {
-            code,
-            data,
-            user_data,
-            user_code,
-            tss,
-        };
-
-        (gdt, selectors)
+    let selectors = Selectors {
+        code,
+        data,
+        user_data,
+        user_code,
+        tss,
     };
-}
+
+    (gdt, selectors)
+});
 
 /// The user data segment
 ///
