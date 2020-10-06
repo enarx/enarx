@@ -14,7 +14,11 @@
 
 #define SHIM_OFFSET 0xFFFFFF8000000000
 
-#define SIZE_OF_INITIAL_STACK (128 * 1024)
+#ifdef NDEBUG
+#define SIZE_OF_INITIAL_STACK (48 * 1024)
+#else
+#define SIZE_OF_INITIAL_STACK (150 * 1024)
+#endif
 
 .section .text
 .global _start

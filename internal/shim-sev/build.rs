@@ -27,9 +27,15 @@ fn main() {
         })
         .collect::<Vec<_>>();
 
+    let debug_flag = match env::var("PROFILE") {
+        Ok(val) if val.eq("debug") => "-D DEBUG",
+        _ => "-D NDEBUG",
+    };
+
     cc::Build::new()
         .no_default_flags(true)
         .flag("-O2")
+        .flag(debug_flag)
         // Optimize for AMD Zen 2
         .flag("-mtune=znver2")
         .files(&entries)
