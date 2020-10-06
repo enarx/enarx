@@ -25,11 +25,11 @@
 //!
 //!     $ git clone https://github.com/enarx/enarx-keepldr
 //!     $ cd enarx-keepldr/
-//!     $ cargo +nightly build
+//!     $ cargo build
 //!
 //! # Run Tests
 //!
-//!     $ cargo +nightly test
+//!     $ cargo test
 //!
 //! # Build and Run an Application
 //!
