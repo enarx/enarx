@@ -1,32 +1,36 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use std::collections::HashMap;
+use std::ffi::OsStr;
 use std::fs::OpenOptions;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
+use walkdir::WalkDir;
 
 const CRATE: &str = env!("CARGO_MANIFEST_DIR");
 const TEST_BINS_IN: &str = "tests/bin";
 
-fn rerun_src(path: impl AsRef<Path>) -> std::io::Result<()> {
-    for entry in std::fs::read_dir(path)? {
-        let path = entry?.path();
+fn find_files_with_extensions<'a>(
+    exts: &'a [&'a str],
+    path: impl AsRef<Path>,
+) -> impl Iterator<Item = PathBuf> + 'a {
+    WalkDir::new(&path)
+        .into_iter()
+        .filter_map(|e| e.ok())
+        .filter(move |e| {
+            e.path()
+                .extension()
+                .and_then(OsStr::to_str)
+                .map(|ext| exts.contains(&ext))
+                .unwrap_or(false)
+        })
+        .map(|x| x.path().to_owned())
+}
 
-        if path.is_dir() {
-            rerun_src(path)?;
-        } else if path.is_file() {
-            if let Some(ext) = path.extension() {
-                if let Some(ext) = ext.to_str() {
-                    if let Some(path) = path.to_str() {
-                        match ext {
-                            "rs" => println!("cargo:rerun-if-changed={}", path),
-                            "s" => println!("cargo:rerun-if-changed={}", path),
-                            "S" => println!("cargo:rerun-if-changed={}", path),
-                            _ => (),
-                        }
-                    }
-                }
-            }
+fn rerun_src(path: impl AsRef<Path>) -> std::io::Result<()> {
+    for entry in find_files_with_extensions(&["rs", "s", "S"], &path) {
+        if let Some(path) = entry.to_str() {
+            println!("cargo:rerun-if-changed={}", path)
         }
     }
 
@@ -34,20 +38,13 @@ fn rerun_src(path: impl AsRef<Path>) -> std::io::Result<()> {
 }
 
 fn build_tests(in_path: &Path, out_path: &Path) {
-    for entry in in_path
-        .read_dir()
-        .unwrap_or_else(|_| panic!("failed to read {:#?} dir", in_path))
-    {
-        let file = entry.unwrap_or_else(|_| panic!("failed to read file in {:#?} dir", in_path));
-        let filename = file.file_name();
-        let output = file.path().file_stem().unwrap().to_os_string();
+    for in_source in find_files_with_extensions(&["c", "s", "S"], &in_path) {
+        let output = in_source.file_stem().unwrap();
 
         let mut cmd = cc::Build::new()
             .no_default_flags(true)
             .get_compiler()
             .to_command();
-
-        let in_source = in_path.join(&filename);
 
         let status = cmd
             .current_dir(&out_path)
@@ -112,9 +109,9 @@ fn main() {
     }
 
     for entry in std::fs::read_dir("internal").unwrap() {
-        let shim_path = entry.unwrap().path();
-        let shim_name = shim_path.clone();
+        let path_buf = entry.unwrap().path();
 
+        let shim_name = path_buf.clone();
         let shim_name = shim_name
             .file_name()
             .unwrap()
@@ -122,22 +119,22 @@ fn main() {
             .into_string()
             .unwrap();
 
-        if !shim_name.starts_with("shim-") {
-            continue;
-        }
+        let shim_out_dir = out_dir.join(&path_buf);
 
-        let shim_out_dir = out_dir.join(&shim_path);
-
-        let target_dir = shim_out_dir.clone().into_os_string().into_string().unwrap();
-
-        let path: String = shim_path.into_os_string().into_string().unwrap();
+        let path: String = path_buf.into_os_string().into_string().unwrap();
 
         println!("cargo:rerun-if-changed={}/Cargo.tml", path);
         println!("cargo:rerun-if-changed={}/Cargo.toml", path);
         println!("cargo:rerun-if-changed={}/Cargo.lock", path);
-        println!("cargo:rerun-if-changed={}/link.json", path);
         println!("cargo:rerun-if-changed={}/.cargo/config", path);
+
         rerun_src(&path).unwrap();
+
+        if !shim_name.starts_with("shim-") {
+            continue;
+        }
+
+        let target_dir = shim_out_dir.clone().into_os_string().into_string().unwrap();
 
         let stdout: Stdio = OpenOptions::new()
             .write(true)

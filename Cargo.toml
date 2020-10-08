@@ -49,6 +49,7 @@ lset = "0.1"
 
 [build-dependencies]
 cc = "1.0"
+walkdir = "2"
 
 [dev-dependencies]
 wait-timeout = "0.2"
