@@ -17,7 +17,7 @@ const TIMEOUT_SECS: u64 = 10;
 
 /// Returns a handle to a child process through which output (stdout, stderr) can
 /// be accessed.
-fn run_test<'a>(bin: &str, status: i32, input: impl Into<Option<&'a str>>) -> std::process::Child {
+fn run_test<'a>(bin: &str, status: i32, input: impl Into<Option<&'a [u8]>>) -> std::process::Child {
     let bin = Path::new(CRATE).join(OUT_DIR).join(TEST_BINS_OUT).join(bin);
 
     let mut child = Command::new(&String::from(KEEP_BIN))
@@ -35,7 +35,7 @@ fn run_test<'a>(bin: &str, status: i32, input: impl Into<Option<&'a str>>) -> st
             .stdin
             .as_mut()
             .unwrap()
-            .write_all(input.to_string().as_ref())
+            .write_all(input)
             .expect("failed to write stdin to child");
 
         drop(child.stdin.take());
@@ -52,7 +52,19 @@ fn run_test<'a>(bin: &str, status: i32, input: impl Into<Option<&'a str>>) -> st
         }
     };
 
+    /* uncomment to see stderr of keepldr and test exe
+    if code != status {
+        if let Some(ref mut stderr) = child.stderr {
+            let mut buf = Vec::new();
+            if stderr.read_to_end(&mut buf).is_ok() {
+                let _ = std::io::stderr().write_all(&buf);
+            }
+        }
+    }
+    */
+
     assert_eq!(code, status);
+
     child
 }
 
@@ -132,7 +144,7 @@ fn write_emsgsize() {
 fn read() {
     const INPUT: &str = "hello world\n";
     const BYTES: usize = INPUT.as_bytes().len();
-    let child = run_test("read", 0, INPUT);
+    let child = run_test("read", 0, INPUT.as_bytes());
     let stdout = child.stdout.unwrap();
 
     let buf: [u8; BYTES] = read_item(stdout).unwrap();
@@ -144,9 +156,23 @@ fn readv() {
     const INPUT: &str = "hello, worldhello, worldhello, world";
     const BYTES: usize = INPUT.as_bytes().len();
 
-    let child = run_test("readv", 0, INPUT);
+    let child = run_test("readv", 0, INPUT.as_bytes());
     let stdout = child.stdout.unwrap();
     let buf: [u8; BYTES] = read_item(stdout).unwrap();
 
     assert_eq!(INPUT, String::from_utf8(buf.to_vec()).unwrap());
+}
+
+#[test]
+fn echo() {
+    let mut input: Vec<u8> = Vec::with_capacity(4096);
+    for i in 0..input.capacity() {
+        input.push(i as _);
+    }
+    let child = run_test("echo", 0, input.as_slice());
+    let mut stdout = child.stdout.unwrap();
+
+    let mut output = Vec::new();
+    stdout.read_to_end(&mut output).unwrap();
+    assert_eq!(input.as_slice(), output);
 }

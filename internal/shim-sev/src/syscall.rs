@@ -134,6 +134,7 @@ pub extern "C" fn syscall_rust(
         libc::SYS_fstat => h.fstat(),
         libc::SYS_fcntl => h.fcntl(),
         libc::SYS_madvise => h.madvise(),
+        libc::SYS_poll => h.poll(),
 
         syscall => {
             //panic!("SC> unsupported syscall: {}", syscall);
@@ -695,6 +696,37 @@ impl Handler {
         );
 
         Ok(0)
+    }
+
+    pub fn poll(&self) -> Result<usize, libc::c_int> {
+        let nfds = self.b as libc::nfds_t;
+        let timeout = self.c as libc::c_int;
+        let trusted =
+            unsafe { core::slice::from_raw_parts_mut(self.a as *mut libc::pollfd, nfds as _) };
+
+        eprintln!("SC> poll(…) =  …");
+
+        let mut host_call = HOST_CALL.try_lock().ok_or(libc::EIO)?;
+
+        let block = host_call.as_mut_block();
+
+        let c = block.cursor();
+        let (_, buf) = unsafe { c.alloc::<libc::pollfd>(nfds as _).or(Err(libc::EMSGSIZE))? };
+        buf.copy_from_slice(trusted);
+
+        let buf_address = Address::from(&buf[0]);
+        let phys_unencrypted = ShimPhysUnencryptedAddr::try_from(buf_address).unwrap();
+        let host_virt = HostVirtAddr::from(phys_unencrypted);
+
+        block.msg.req = request!(libc::SYS_poll => host_virt, nfds, timeout);
+        let result = unsafe { host_call.hostcall() }.map(|r| r[0].into())?;
+
+        let block = host_call.as_mut_block();
+        let c = block.cursor();
+        let (_, untrusted) = unsafe { c.alloc::<libc::pollfd>(nfds as _).or(Err(libc::EMSGSIZE))? };
+        trusted.copy_from_slice(untrusted);
+
+        Ok(result)
     }
 }
 

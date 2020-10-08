@@ -52,6 +52,7 @@ pub extern "C" fn event(
                         libc::SYS_clock_gettime => h.clock_gettime(),
                         libc::SYS_madvise => h.madvise(),
                         libc::SYS_close => h.close(),
+                        libc::SYS_poll => h.poll(),
 
                         _ if !crate::handler::TRACE => Err(libc::ENOSYS),
                         syscall => {

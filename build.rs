@@ -37,7 +37,51 @@ fn rerun_src(path: impl AsRef<Path>) -> std::io::Result<()> {
     Ok(())
 }
 
-fn build_tests(in_path: &Path, out_path: &Path) {
+fn build_rs_tests(in_path: &Path, out_path: &Path) {
+    let filtered_env: HashMap<String, String> = std::env::vars()
+        .filter(|&(ref k, _)| {
+            k == "TERM" || k == "TZ" || k == "LANG" || k == "PATH" || k == "RUSTUP_HOME"
+        })
+        .collect();
+
+    let target_name = "x86_64-unknown-linux-musl";
+
+    for in_source in find_files_with_extensions(&["rs"], &in_path) {
+        let stdout: Stdio = OpenOptions::new()
+            .write(true)
+            .open("/dev/tty")
+            .map(Stdio::from)
+            .unwrap_or_else(|_| Stdio::inherit());
+
+        let stderr: Stdio = OpenOptions::new()
+            .write(true)
+            .open("/dev/tty")
+            .map(Stdio::from)
+            .unwrap_or_else(|_| Stdio::inherit());
+
+        let output = in_source.file_stem().unwrap();
+
+        let status = Command::new("rustc")
+            .current_dir(&out_path)
+            .env_clear()
+            .envs(&filtered_env)
+            .stdout(stdout)
+            .stderr(stderr)
+            .arg("--target")
+            .arg(target_name)
+            .arg(&in_source)
+            .arg("-o")
+            .arg(output)
+            .status()
+            .unwrap_or_else(|_| panic!("failed to compile {:#?}", &in_source));
+
+        if !status.success() {
+            panic!("Failed to compile {:?}", &in_source);
+        }
+    }
+}
+
+fn build_cc_tests(in_path: &Path, out_path: &Path) {
     for in_source in find_files_with_extensions(&["c", "s", "S"], &in_path) {
         let output = in_source.file_stem().unwrap();
 
@@ -79,7 +123,8 @@ fn main() {
         Ok(_) => {}
     }
 
-    build_tests(&Path::new(CRATE).join(TEST_BINS_IN), &out_dir_bin);
+    build_cc_tests(&Path::new(CRATE).join(TEST_BINS_IN), &out_dir_bin);
+    build_rs_tests(&Path::new(CRATE).join(TEST_BINS_IN), &out_dir_bin);
 
     let profile: &[&str] = match std::env::var("PROFILE").unwrap().as_str() {
         "release" => &["--release"],

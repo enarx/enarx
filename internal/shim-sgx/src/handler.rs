@@ -501,4 +501,27 @@ impl<'a> Handler<'a> {
         self.trace("close", 1);
         unsafe { self.proxy(request!(libc::SYS_close => self.aex.gpr.rdi)) }
     }
+
+    // Do poll syscall
+    pub fn poll(&mut self) -> sallyport::Result {
+        self.trace("poll", 3);
+        let nfds: libc::nfds_t = self.aex.gpr.rsi.try_into().or(Err(libc::EINVAL))?;
+        let timeout: libc::c_int = self.aex.gpr.rdx.try_into().or(Err(libc::EINVAL))?;
+        let trusted = unsafe { self.aex.gpr.rdi.into_slice_mut(nfds as usize) };
+
+        let c = self.block.cursor();
+
+        let (_, untrusted) = unsafe { c.alloc::<libc::pollfd>(nfds as _).or(Err(libc::EMSGSIZE))? };
+        untrusted.copy_from_slice(trusted);
+
+        let req = request!(libc::SYS_poll => untrusted, nfds, timeout);
+        let result = unsafe { self.proxy(req)? };
+
+        let c = self.block.cursor();
+
+        let (_, untrusted) = unsafe { c.alloc::<libc::pollfd>(nfds as _).or(Err(libc::EMSGSIZE))? };
+        trusted.copy_from_slice(untrusted);
+
+        Ok(result)
+    }
 }
