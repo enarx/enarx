@@ -52,4 +52,4 @@ cc = "1.0"
 walkdir = "2"
 
 [dev-dependencies]
-wait-timeout = "0.2"
+process_control = "2.0"

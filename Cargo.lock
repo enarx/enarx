@@ -203,10 +203,10 @@ dependencies = [
  "mmarinus",
  "nbytes",
  "primordial",
+ "process_control",
  "sev",
  "sgx",
  "structopt",
- "wait-timeout",
  "walkdir",
  "x86_64",
 ]
@@ -413,6 +413,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "process_control"
+version = "2.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "467104c6d75c2a82ff09ee57a3e2f19a30aa986f6601fc5b9967987a38b10f02"
+dependencies = [
+ "cc",
+ "libc",
+ "winapi",
+]
+
+[[package]]
 name = "quote"
 version = "1.0.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -612,15 +623,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "183d25b56a61a6f518ef464ac578e790f04added34dfaab59a453d8a03cb7bd0"
 dependencies = [
  "bitflags",
- "libc",
-]
-
-[[package]]
-name = "wait-timeout"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9f200f5b12eb75f8c1ed65abd4b2db8a6e1b138a20de009dacee265a2498f3f6"
-dependencies = [
  "libc",
 ]
 

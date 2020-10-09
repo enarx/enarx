@@ -7,7 +7,7 @@ use std::process::{Command, Stdio};
 use std::slice::from_raw_parts_mut;
 use std::time::Duration;
 
-use wait_timeout::ChildExt;
+use process_control::{ChildExt, Output, Timeout};
 
 const CRATE: &str = env!("CARGO_MANIFEST_DIR");
 const KEEP_BIN: &str = env!("CARGO_BIN_EXE_enarx-keepldr");
@@ -17,18 +17,24 @@ const TIMEOUT_SECS: u64 = 10;
 
 /// Returns a handle to a child process through which output (stdout, stderr) can
 /// be accessed.
-fn run_test<'a>(bin: &str, status: i32, input: impl Into<Option<&'a [u8]>>) -> std::process::Child {
-    let bin = Path::new(CRATE).join(OUT_DIR).join(TEST_BINS_OUT).join(bin);
+fn run_test<'a>(
+    bin: &str,
+    status: i32,
+    input: impl Into<Option<&'a [u8]>>,
+    expected_stdout: impl Into<Option<&'a [u8]>>,
+    expected_stderr: impl Into<Option<&'a [u8]>>,
+) -> Output {
+    let bin_path = Path::new(CRATE).join(OUT_DIR).join(TEST_BINS_OUT).join(bin);
 
     let mut child = Command::new(&String::from(KEEP_BIN))
         .current_dir(CRATE)
         .arg("exec")
-        .arg(bin)
+        .arg(bin_path)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
-        .expect("failed to run test bin");
+        .unwrap_or_else(|e| panic!("failed to run `{}`: {:#?}", bin, e));
 
     if let Some(input) = input.into() {
         child
@@ -41,31 +47,37 @@ fn run_test<'a>(bin: &str, status: i32, input: impl Into<Option<&'a [u8]>>) -> s
         drop(child.stdin.take());
     }
 
-    let code = match child
-        .wait_timeout(Duration::from_secs(TIMEOUT_SECS))
-        .unwrap()
-    {
-        Some(status) => status.code().unwrap(),
-        None => {
-            child.kill().unwrap();
-            panic!("error: test timeout");
-        }
-    };
+    let output = child
+        .with_output_timeout(Duration::from_secs(TIMEOUT_SECS))
+        .terminating()
+        .wait()
+        .unwrap_or_else(|e| panic!("failed to run `{}`: {:#?}", bin, e))
+        .unwrap_or_else(|| panic!("process `{}` timed out", bin));
 
-    /* uncomment to see stderr of keepldr and test exe
-    if code != status {
-        if let Some(ref mut stderr) = child.stderr {
-            let mut buf = Vec::new();
-            if stderr.read_to_end(&mut buf).is_ok() {
-                let _ = std::io::stderr().write_all(&buf);
-            }
-        }
+    let exit_status = output.status.code().unwrap_or_else(|| {
+        panic!(
+            "process `{}` terminated by signal {:?}",
+            bin,
+            output.status.signal()
+        )
+    });
+
+    if let Some(expected_stdout) = expected_stdout.into() {
+        assert!(output.stdout.eq(expected_stdout));
     }
-    */
 
-    assert_eq!(code, status);
+    if let Some(expected_stderr) = expected_stderr.into() {
+        assert!(output.stderr.eq(expected_stderr));
+    }
 
-    child
+    if exit_status != status as i64 {
+        std::io::stderr()
+            .write_all(output.stderr.as_slice())
+            .unwrap();
+        assert_eq!(exit_status, status as i64);
+    }
+
+    output
 }
 
 fn read_item<T: Copy>(mut rdr: impl Read) -> std::io::Result<T> {
@@ -78,12 +90,12 @@ fn read_item<T: Copy>(mut rdr: impl Read) -> std::io::Result<T> {
 
 #[test]
 fn exit_zero() {
-    run_test("exit_zero", 0, None);
+    run_test("exit_zero", 0, None, None, None);
 }
 
 #[test]
 fn exit_one() {
-    run_test("exit_one", 1, None);
+    run_test("exit_one", 1, None, None, None);
 }
 
 #[test]
@@ -91,8 +103,8 @@ fn clock_gettime() {
     use libc::{clock_gettime, CLOCK_MONOTONIC};
 
     // Get the time from inside the keep.
-    let stdout = run_test("clock_gettime", 0, None).stdout.unwrap();
-    let theirs: libc::timespec = read_item(stdout).unwrap();
+    let stdout = run_test("clock_gettime", 0, None, None, None).stdout;
+    let theirs: libc::timespec = read_item(stdout.as_slice()).unwrap();
 
     // Get the time from outside the keep.
     let ours = unsafe {
@@ -116,20 +128,12 @@ fn clock_gettime() {
 
 #[test]
 fn write_stdout() {
-    let child = run_test("write_stdout", 0, None);
-    let stdout = child.stdout.unwrap();
-
-    let buf: [u8; 3] = read_item(stdout).unwrap();
-    assert_eq!("hi\n", String::from_utf8(buf.to_vec()).unwrap());
+    run_test("write_stdout", 0, None, &b"hi\n"[..], None);
 }
 
 #[test]
 fn write_stderr() {
-    let child = run_test("write_stderr", 0, None);
-    let stdout = child.stderr.unwrap();
-
-    let buf: [u8; 3] = read_item(stdout).unwrap();
-    assert_eq!("hi\n", String::from_utf8(buf.to_vec()).unwrap());
+    run_test("write_stderr", 0, None, None, &b"hi\n"[..]);
 }
 
 #[test]
@@ -137,30 +141,19 @@ fn write_stderr() {
 // of a commit that must be reverted and implemented properly.
 #[ignore]
 fn write_emsgsize() {
-    run_test("write_emsgsize", 0, None);
+    run_test("write_emsgsize", 0, None, None, None);
 }
 
 #[test]
 fn read() {
-    const INPUT: &str = "hello world\n";
-    const BYTES: usize = INPUT.as_bytes().len();
-    let child = run_test("read", 0, INPUT.as_bytes());
-    let stdout = child.stdout.unwrap();
-
-    let buf: [u8; BYTES] = read_item(stdout).unwrap();
-    assert_eq!(INPUT, String::from_utf8(buf.to_vec()).unwrap());
+    const INPUT: &[u8; 12] = b"hello world\n";
+    run_test("read", 0, &INPUT[..], &INPUT[..], None);
 }
 
 #[test]
 fn readv() {
-    const INPUT: &str = "hello, worldhello, worldhello, world";
-    const BYTES: usize = INPUT.as_bytes().len();
-
-    let child = run_test("readv", 0, INPUT.as_bytes());
-    let stdout = child.stdout.unwrap();
-    let buf: [u8; BYTES] = read_item(stdout).unwrap();
-
-    assert_eq!(INPUT, String::from_utf8(buf.to_vec()).unwrap());
+    const INPUT: &[u8; 36] = b"hello, worldhello, worldhello, world";
+    run_test("readv", 0, &INPUT[..], &INPUT[..], None);
 }
 
 #[test]
@@ -169,10 +162,5 @@ fn echo() {
     for i in 0..input.capacity() {
         input.push(i as _);
     }
-    let child = run_test("echo", 0, input.as_slice());
-    let mut stdout = child.stdout.unwrap();
-
-    let mut output = Vec::new();
-    stdout.read_to_end(&mut output).unwrap();
-    assert_eq!(input.as_slice(), output);
+    run_test("echo", 0, input.as_slice(), input.as_slice(), None);
 }
