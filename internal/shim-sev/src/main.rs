@@ -42,6 +42,7 @@ use primordial::Address;
 use sallyport::Block;
 use spinning::RwLock;
 
+use crate::hostcall::HOST_CALL;
 pub use hostlib::BootInfo;
 
 static C_BIT_MASK: AtomicU64 = AtomicU64::new(0);
@@ -143,6 +144,8 @@ pub fn panic(info: &core::panic::PanicInfo) -> ! {
             .compare_exchange(false, true, Ordering::Acquire, Ordering::Relaxed)
             .is_ok()
         {
+            // panic info is useful
+            HOST_CALL.force_unlock();
             eprintln!("{}", info);
             // FIXME: might want to have a custom panic hostcall
             hostcall::shim_exit(255);
