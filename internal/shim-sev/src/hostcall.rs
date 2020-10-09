@@ -8,7 +8,6 @@ use crate::hostlib::{MemInfo, SYSCALL_TRIGGER_PORT, SYS_ENARX_BALLOON_MEMORY, SY
 use crate::lazy::Lazy;
 use crate::SHIM_HOSTCALL_VIRT_ADDR;
 use core::convert::TryFrom;
-use core::mem::MaybeUninit;
 use primordial::{Address, Register};
 use sallyport::{request, Block};
 use spinning::Mutex;
@@ -101,7 +100,7 @@ impl<'a> HostCall<'a> {
     /// The parameters returned can't be trusted.
     pub unsafe fn write(&mut self, fd: usize, bytes: &[u8]) -> sallyport::Result {
         let cursor = self.0.cursor();
-        let (_, buf) = cursor.copy_slice(bytes).or(Err(libc::EMSGSIZE))?;
+        let (_, buf) = cursor.copy_from_slice(bytes).or(Err(libc::EMSGSIZE))?;
 
         let buf_address = Address::from(buf.as_ptr());
         let phys_unencrypted = ShimPhysUnencryptedAddr::try_from(buf_address).unwrap();
@@ -119,19 +118,16 @@ impl<'a> HostCall<'a> {
 
     /// Get host memory info
     pub fn mem_info(&mut self) -> Result<MemInfo, libc::c_int> {
-        let mut mem_info = MaybeUninit::<MemInfo>::uninit();
-
         self.0.msg.req = request!(SYS_ENARX_MEM_INFO);
 
         let _result = unsafe { self.hostcall() }?;
 
         let block = self.as_mut_block();
         let c = block.cursor();
-        let (_, untrusted) = unsafe { c.alloc::<MemInfo>(1).or(Err(libc::EMSGSIZE))? };
-        unsafe {
-            mem_info.as_mut_ptr().write_volatile(untrusted[0]);
-            Ok(mem_info.assume_init())
-        }
+
+        let (_, mem_info) = unsafe { c.read::<MemInfo>() }.or(Err(libc::EMSGSIZE))?;
+
+        Ok(mem_info)
     }
 
     /// Exit the shim with a `status` code

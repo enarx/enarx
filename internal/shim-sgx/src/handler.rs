@@ -10,7 +10,8 @@ use sgx_heap::Heap;
 
 use core::convert::TryInto;
 use core::fmt::Write;
-use core::slice::{from_raw_parts, from_raw_parts_mut};
+use core::ptr::NonNull;
+use core::slice::from_raw_parts;
 
 pub const TRACE: bool = false;
 
@@ -40,7 +41,7 @@ impl<'a> Write for Handler<'a> {
         }
 
         let c = self.block.cursor();
-        let (_, untrusted) = c.copy_slice(s.as_bytes()).or(Err(core::fmt::Error))?;
+        let (_, untrusted) = c.copy_from_slice(s.as_bytes()).or(Err(core::fmt::Error))?;
 
         let req = request!(libc::SYS_write => libc::STDERR_FILENO, untrusted, untrusted.len());
         let res = unsafe { self.proxy(req) };
@@ -193,19 +194,21 @@ impl<'a> Handler<'a> {
         self.trace("read", 3);
 
         let c = self.block.cursor();
-        let trusted: &mut [u8] = unsafe { self.aex.gpr.rsi.into_slice_mut(self.aex.gpr.rdx) };
-        let (_, untrusted) = unsafe { c.alloc::<u8>(trusted.len()).or(Err(libc::EMSGSIZE))? };
+        let trusted_len: usize = self.aex.gpr.rdx.into();
+        let trusted: *mut u8 = self.aex.gpr.rsi.into();
+        let (_, untrusted) = unsafe { c.alloc::<u8>(trusted_len).or(Err(libc::EMSGSIZE))? };
 
         let req = request!(libc::SYS_read => self.aex.gpr.rdi, untrusted, untrusted.len());
         let ret = unsafe { self.proxy(req)? };
 
-        if trusted.len() < ret[0].into() {
+        if trusted_len < ret[0].into() {
             self.attacked();
         }
 
         let c = self.block.cursor();
-        let (_, untrusted) = unsafe { c.alloc(trusted.len()).or(Err(libc::EMSGSIZE))? };
-        trusted.copy_from_slice(untrusted);
+        unsafe { c.copy_into_raw_parts(trusted_len, trusted, ret[0].into()) }
+            .or(Err(libc::EMSGSIZE))?;
+
         Ok(ret)
     }
 
@@ -214,13 +217,15 @@ impl<'a> Handler<'a> {
         self.trace("write", 3);
 
         let c = self.block.cursor();
-        let trusted: &[u8] = unsafe { self.aex.gpr.rsi.into_slice(self.aex.gpr.rdx) };
-        let (_, untrusted) = c.copy_slice(trusted).or(Err(libc::EMSGSIZE))?;
+        let trusted: *mut u8 = self.aex.gpr.rsi.into();
+        let trusted_len: usize = self.aex.gpr.rdx.into();
+        let (_, untrusted) =
+            unsafe { c.copy_from_raw_parts(trusted, trusted_len) }.or(Err(libc::EMSGSIZE))?;
 
-        let req = request!(libc::SYS_write => self.aex.gpr.rdi, untrusted, untrusted.len());
+        let req = request!(libc::SYS_write => self.aex.gpr.rdi, untrusted, trusted_len);
         let res = unsafe { self.proxy(req)? };
 
-        if trusted.len() < res[0].into() {
+        if trusted_len < res[0].into() {
             self.attacked();
         }
 
@@ -259,8 +264,9 @@ impl<'a> Handler<'a> {
         let mut size = 0usize;
         let c = self.block.cursor();
         let trusted = unsafe { self.aex.gpr.rsi.into_slice_mut(self.aex.gpr.rdx) };
+
         let (c, untrusted) = c
-            .copy_slice::<libc::iovec>(trusted)
+            .copy_from_slice::<libc::iovec>(trusted)
             .or(Err(libc::EMSGSIZE))?;
 
         let mut c = c;
@@ -284,11 +290,14 @@ impl<'a> Handler<'a> {
 
         let mut c = c;
         for t in trusted.iter_mut() {
-            let ts: &mut [u8] = unsafe { from_raw_parts_mut(t.iov_base as _, t.iov_len) };
-            let (nc, us) = unsafe { c.alloc::<u8>(ts.len()).or(Err(libc::EMSGSIZE))? };
+            let ts = t.iov_base as *mut u8;
+            let ts_len: usize = t.iov_len;
+
+            let sz = core::cmp::min(ts_len, read);
+
+            let nc = unsafe { c.copy_into_raw_parts(ts_len, ts, sz) }.or(Err(libc::EMSGSIZE))?;
             c = nc;
-            let sz = core::cmp::min(ts.len(), read);
-            ts[..sz].copy_from_slice(&us[..sz]);
+
             read -= sz;
         }
 
@@ -303,13 +312,13 @@ impl<'a> Handler<'a> {
         let c = self.block.cursor();
         let trusted = unsafe { self.aex.gpr.rsi.into_slice_mut(self.aex.gpr.rdx) };
         let (c, untrusted) = c
-            .copy_slice::<libc::iovec>(trusted)
+            .copy_from_slice::<libc::iovec>(trusted)
             .or(Err(libc::EMSGSIZE))?;
 
         let mut c = c;
         for (t, mut u) in trusted.iter_mut().zip(untrusted.iter_mut()) {
             let ts = unsafe { from_raw_parts(t.iov_base as *const u8, t.iov_len) };
-            let (nc, us) = c.copy_slice(ts).or(Err(libc::EMSGSIZE))?;
+            let (nc, us) = c.copy_from_slice(ts).or(Err(libc::EMSGSIZE))?;
             c = nc;
             u.iov_base = us.as_mut_ptr() as _;
             size += u.iov_len;
@@ -478,7 +487,10 @@ impl<'a> Handler<'a> {
         self.trace("clock_gettime", 2);
 
         let clk_id = self.aex.gpr.rdi;
-        let trusted = unsafe { self.aex.gpr.rsi.into_slice_mut(1usize) };
+        let trusted = self.aex.gpr.rsi.into();
+        // FIXME: check `trusted`, if in payload space
+        // https://github.com/enarx/enarx-keepldr/issues/78
+        let trusted = NonNull::<libc::timespec>::new(trusted).ok_or(libc::EFAULT)?;
 
         let c = self.block.cursor();
         let (_, untrusted) = unsafe { c.alloc::<libc::timespec>(1).or(Err(libc::EMSGSIZE))? };
@@ -490,8 +502,11 @@ impl<'a> Handler<'a> {
         }
 
         let c = self.block.cursor();
-        let (_, untrusted) = unsafe { c.alloc::<libc::timespec>(1).or(Err(libc::EMSGSIZE))? };
-        trusted.copy_from_slice(untrusted);
+        unsafe {
+            c.copy_into::<libc::timespec>(trusted)
+                .or(Err(libc::EMSGSIZE))?;
+        }
+
         Ok(res)
     }
 
@@ -513,20 +528,19 @@ impl<'a> Handler<'a> {
         self.trace("poll", 3);
         let nfds: libc::nfds_t = self.aex.gpr.rsi.try_into().or(Err(libc::EINVAL))?;
         let timeout: libc::c_int = self.aex.gpr.rdx.try_into().or(Err(libc::EINVAL))?;
-        let trusted = unsafe { self.aex.gpr.rdi.into_slice_mut(nfds as usize) };
+        let trusted: *mut libc::pollfd = self.aex.gpr.rdi.into();
 
         let c = self.block.cursor();
 
-        let (_, untrusted) = unsafe { c.alloc::<libc::pollfd>(nfds as _).or(Err(libc::EMSGSIZE))? };
-        untrusted.copy_from_slice(trusted);
+        let (_, untrusted) =
+            unsafe { c.copy_from_raw_parts(trusted, nfds as _) }.or(Err(libc::EMSGSIZE))?;
 
         let req = request!(libc::SYS_poll => untrusted, nfds, timeout);
         let result = unsafe { self.proxy(req)? };
 
         let c = self.block.cursor();
 
-        let (_, untrusted) = unsafe { c.alloc::<libc::pollfd>(nfds as _).or(Err(libc::EMSGSIZE))? };
-        trusted.copy_from_slice(untrusted);
+        unsafe { c.copy_into_raw_parts(nfds as _, trusted, nfds as _) }.or(Err(libc::EMSGSIZE))?;
 
         Ok(result)
     }

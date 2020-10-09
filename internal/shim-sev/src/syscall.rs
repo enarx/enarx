@@ -11,6 +11,7 @@ use crate::payload::{NEXT_BRK_RWLOCK, NEXT_MMAP_RWLOCK};
 use core::convert::TryFrom;
 use core::mem::{size_of, MaybeUninit};
 use core::ops::{Deref, DerefMut};
+use core::ptr::NonNull;
 use primordial::Address;
 use sallyport::request;
 use x86_64::registers::wrfsbase;
@@ -169,32 +170,29 @@ impl Handler {
         hostcall::shim_exit(self.a as _);
     }
 
-    fn _read(&self, fd: usize, data: *mut u8, len: usize) -> Result<usize, libc::c_int> {
+    fn _read(&self, fd: usize, trusted: *mut u8, trusted_len: usize) -> Result<usize, libc::c_int> {
         let mut host_call = HOST_CALL.try_lock().ok_or(libc::EIO)?;
-
-        let trusted: &mut [u8] = unsafe { core::slice::from_raw_parts_mut(data, len) };
 
         let block = host_call.as_mut_block();
 
         let c = block.cursor();
-        let (_, buf) = unsafe { c.alloc::<u8>(trusted.len()).or(Err(libc::EMSGSIZE))? };
+        let (_, buf) = unsafe { c.alloc::<u8>(trusted_len).or(Err(libc::EMSGSIZE))? };
 
         let buf_address = Address::from(buf.as_ptr());
         let phys_unencrypted = ShimPhysUnencryptedAddr::try_from(buf_address).unwrap();
         let host_virt: HostVirtAddr<_> = phys_unencrypted.into();
 
-        block.msg.req = request!(libc::SYS_read => fd, host_virt, len);
+        block.msg.req = request!(libc::SYS_read => fd, host_virt, trusted_len);
         let result = unsafe { host_call.hostcall() };
         let result_len: usize = result.map(|r| r[0].into())?;
 
-        if trusted.len() < result_len {
+        if trusted_len < result_len {
             panic!("syscall read buffer overflow");
         }
 
         let block = host_call.as_mut_block();
         let c = block.cursor();
-        let (_, untrusted) = unsafe { c.alloc(result_len).or(Err(libc::EMSGSIZE))? };
-        trusted[..result_len].copy_from_slice(untrusted);
+        unsafe { c.copy_into_raw_parts(trusted_len, trusted, result_len) }.or(Err(libc::EFAULT))?;
 
         Ok(result_len)
     }
@@ -438,7 +436,7 @@ impl Handler {
     /// Do a ioctl() syscall
     ///
     pub fn ioctl(&self) -> Result<usize, libc::c_int> {
-        match (self.a as i32, self.b as i32) {
+        match (self.a as _, self.b as _) {
             (libc::STDIN_FILENO, libc::TIOCGWINSZ)
             | (libc::STDOUT_FILENO, libc::TIOCGWINSZ)
             | (libc::STDERR_FILENO, libc::TIOCGWINSZ) => {
@@ -538,7 +536,10 @@ impl Handler {
 
     pub fn clock_gettime(&self) -> Result<usize, libc::c_int> {
         let clk_id = self.a;
-        let trusted = self.b as *mut libc::timespec;
+
+        // FIXME: check `trusted`, if in payload space
+        // https://github.com/enarx/enarx-keepldr/issues/78
+        let trusted = NonNull::new(self.b as *mut libc::timespec).ok_or(libc::EFAULT)?;
 
         let mut host_call = HOST_CALL.try_lock().ok_or(libc::EIO)?;
 
@@ -556,10 +557,7 @@ impl Handler {
 
         let block = host_call.as_mut_block();
         let c = block.cursor();
-        let (_, untrusted) = unsafe { c.alloc::<libc::timespec>(1).or(Err(libc::EMSGSIZE))? };
-        unsafe {
-            trusted.write_volatile(untrusted[0]);
-        }
+        unsafe { c.copy_into(trusted) }.or(Err(libc::EMSGSIZE))?;
 
         Ok(result)
     }
@@ -701,8 +699,7 @@ impl Handler {
     pub fn poll(&self) -> Result<usize, libc::c_int> {
         let nfds = self.b as libc::nfds_t;
         let timeout = self.c as libc::c_int;
-        let trusted =
-            unsafe { core::slice::from_raw_parts_mut(self.a as *mut libc::pollfd, nfds as _) };
+        let trusted = self.a as *mut libc::pollfd;
 
         eprintln!("SC> poll(…) =  …");
 
@@ -711,10 +708,11 @@ impl Handler {
         let block = host_call.as_mut_block();
 
         let c = block.cursor();
-        let (_, buf) = unsafe { c.alloc::<libc::pollfd>(nfds as _).or(Err(libc::EMSGSIZE))? };
-        buf.copy_from_slice(trusted);
 
-        let buf_address = Address::from(&buf[0]);
+        let (_, buf) =
+            unsafe { c.copy_from_raw_parts(trusted, nfds as _) }.or(Err(libc::EMSGSIZE))?;
+
+        let buf_address = Address::from(buf);
         let phys_unencrypted = ShimPhysUnencryptedAddr::try_from(buf_address).unwrap();
         let host_virt = HostVirtAddr::from(phys_unencrypted);
 
@@ -723,8 +721,8 @@ impl Handler {
 
         let block = host_call.as_mut_block();
         let c = block.cursor();
-        let (_, untrusted) = unsafe { c.alloc::<libc::pollfd>(nfds as _).or(Err(libc::EMSGSIZE))? };
-        trusted.copy_from_slice(untrusted);
+
+        unsafe { c.copy_into_raw_parts(nfds as _, trusted, nfds as _) }.or(Err(libc::EMSGSIZE))?;
 
         Ok(result)
     }
