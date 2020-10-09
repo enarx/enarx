@@ -174,7 +174,9 @@ impl Default for Block {
 impl Block {
     /// Returns the capacity of `Block.buf`
     pub const fn buf_capacity() -> usize {
-        512 * Page::size() - size_of::<Message>()
+        // FIXME: https://github.com/enarx/enarx-keepldr/issues/23
+        let page_num = if cfg!(test) { 1 } else { 512 };
+        page_num * Page::size() - size_of::<Message>()
     }
 
     /// Returns a Cursor for the Block
@@ -243,14 +245,12 @@ mod tests {
     }
 
     #[test]
-    // FIXME this should not be ignored, this was applied as part
-    // of a commit that must be reverted and implemented properly.
-    #[ignore]
     fn block_size() {
         assert_eq!(size_of::<Block>(), Page::size());
     }
 
     #[test]
+    #[cfg_attr(miri, ignore)]
     fn syscall() {
         // Test syscall failure, including bidirectional conversion.
         let req = request!(libc::SYS_close => -1isize);
@@ -305,9 +305,6 @@ mod tests {
     }
 
     #[test]
-    // FIXME this should not be ignored, this was applied as part
-    // of a commit that must be reverted and implemented properly.
-    #[ignore]
     fn cursor() {
         let mut block = Block::default();
 
@@ -323,9 +320,6 @@ mod tests {
     }
 
     #[test]
-    // FIXME this should not be ignored, this was applied as part
-    // of a commit that must be reverted and implemented properly.
-    #[ignore]
     fn cursor_multiple_allocs() {
         let mut block = Block::default();
 
