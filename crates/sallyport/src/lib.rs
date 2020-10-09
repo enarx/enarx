@@ -6,7 +6,7 @@
 #![feature(asm)]
 #![deny(missing_docs)]
 #![deny(clippy::all)]
-#![no_std]
+#![cfg_attr(not(test), no_std)]
 
 //! The `proxy` module contains structures used to facilitate communication between
 //! the microkernel and the hypervisor. This is referred to as "proxying" in the
