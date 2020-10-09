@@ -142,7 +142,13 @@ impl Thread for Cpu {
                 }
                 _ => Err(anyhow!("data from unexpected port: {}", port)),
             },
-            exit_reason => Err(anyhow!("{:?}", exit_reason)),
+            exit_reason => {
+                if cfg!(debug_assertions) {
+                    Err(anyhow!("{:?} {:#x?}", exit_reason, self.fd.get_regs()))
+                } else {
+                    Err(anyhow!("{:?}"))
+                }
+            }
         }
     }
 }
