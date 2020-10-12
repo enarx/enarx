@@ -35,14 +35,14 @@ pub mod syscall;
 pub mod usermode;
 
 use crate::addr::ShimVirtAddr;
+use crate::hostcall::HOST_CALL;
+use crate::pagetables::switch_sallyport_to_unencrypted;
 use core::convert::TryFrom;
 use core::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+pub use hostlib::BootInfo;
 use primordial::Address;
 use sallyport::Block;
 use spinning::RwLock;
-
-use crate::hostcall::HOST_CALL;
-pub use hostlib::BootInfo;
 
 static C_BIT_MASK: AtomicU64 = AtomicU64::new(0);
 
@@ -104,6 +104,8 @@ macro_rules! entry_point {
 
             // make a local copy of boot_info, before the shared page gets overwritten
             BOOT_INFO.write().replace(boot_info.read_volatile());
+
+            switch_sallyport_to_unencrypted(c_bit_mask);
 
             // Switch the stack to a guarded stack
             switch_shim_stack(f, gdt::INITIAL_STACK.pointer.as_u64())

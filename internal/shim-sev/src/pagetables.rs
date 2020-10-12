@@ -56,6 +56,11 @@ pub static mut PML4T: AlignedPageTable = AlignedPageTable([0; 512]);
 pub static mut PDPT_OFFSET: AlignedPageTable =
     AlignedPageTable(array_const_fn_init![gen_2gb_pdpt_entries; 512]);
 
+/// Offset Page-Directory Table
+#[no_mangle]
+pub static mut PDT_OFFSET: AlignedPageTable =
+    AlignedPageTable(array_const_fn_init![gen_2mb_pdt_entries; 512]);
+
 /// Identity Page-Directory-Pointer Table
 ///
 /// will contain a pointer to a Identity Page-Directory Table
@@ -82,3 +87,33 @@ const fn pdt_ident_entry(i: usize) -> u64 {
 #[no_mangle]
 pub static mut PDT_IDENT: AlignedPageTable =
     AlignedPageTable(array_const_fn_init![pdt_ident_entry; 512]);
+
+/// Map the sallyport Block pages to unencrypted memory.
+pub fn switch_sallyport_to_unencrypted(c_bit_mask: u64) {
+    let mut page_table = paging::SHIM_PAGETABLE.write();
+
+    // Unmap the first 2MB page in the encrypted kernel address space,
+    // because a VM is not supposed to map the same physical memory
+    // encrypted and unencrypted.
+    page_table
+        .unmap(Page::<Size2MiB>::containing_address(VirtAddr::new(
+            SHIM_VIRT_OFFSET,
+        )))
+        .map(|(_, flush)| flush.flush())
+        .unwrap();
+
+    unsafe {
+        if c_bit_mask != 0 {
+            // Clear the C-Bit in the first 2MB identity page entry
+            // making the sallyport Block pages unencrypted.
+            PDT_IDENT.0[0] &= !c_bit_mask;
+            flush(VirtAddr::new(0x000000));
+        }
+
+        // Unmap the second and third 2MB page in the identity address space
+        PDT_IDENT.0[1] = 0;
+        flush(VirtAddr::new(0x200000));
+        PDT_IDENT.0[2] = 0;
+        flush(VirtAddr::new(0x400000));
+    }
+}

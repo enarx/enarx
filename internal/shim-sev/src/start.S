@@ -109,6 +109,16 @@ SevExit:
     or      rbx,    0x3         // (WRITABLE | PRESENT)
     mov     QWORD PTR [rax + (((SHIM_OFFSET & 0xFFFFFFFFFFFF) >> 39)*8)],   rbx
 
+    // set C-bit in all entries of the PDT_OFFSET table
+    lea     rbx,    [rip + PDT_OFFSET]
+    mov     rdx,    r11
+    mov     ecx,    512         // Counter to 512 page table entries
+    add     rbx,    4           // Pre-advance pointer by 4 bytes for the higher 32bit
+setCBit_PDT_OFFSET:
+    mov     DWORD PTR [rbx],    edx
+    add     rbx,    8           // advance pointer by 8
+    loop    setCBit_PDT_OFFSET
+
     // set C-bit in all entries of the PDPT_OFFSET table
     lea     rbx,    [rip + PDPT_OFFSET]
     mov     rdx,    r11
@@ -119,9 +129,19 @@ setCBit_PDPT_OFFSET:
     add     rbx,    8           // advance pointer by 8
     loop    setCBit_PDPT_OFFSET
 
-    // set C-bit in PDT_IDENT table
+    // setup PDPT_OFFSET table entry 0 with PDT_OFFSET table
+    lea     rbx,    [rip + PDPT_OFFSET]
+    lea     rcx,    [rip + PDT_OFFSET]
+    or      rcx,    r12         // set C-bit
+    or      rcx,    0x3         // ( WRITABLE | PRESENT)
+    // store PDT_OFFSET table in PDPT_OFFSET in the correct slot
+    // 0x0 - 0x4000_0000
+    mov     QWORD PTR [rbx],    rcx
+
+    // set C-bit for the first 3 entries in the PDT_IDENT table
     lea     rcx,    [rip + PDT_IDENT]
     mov     rdx,    r11
+    mov     DWORD PTR [rcx + (0*8 + 4)],    edx
     mov     DWORD PTR [rcx + (1*8 + 4)],    edx
     mov     DWORD PTR [rcx + (2*8 + 4)],    edx
 
