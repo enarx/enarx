@@ -23,10 +23,18 @@ digraph enarx_architecture {
 	enarx_keepldr -> enarx_wasmldr_sev;
 	enarx_keepldr -> enarx_wasmldr_sgx;
 	
+	subgraph cluster_tee_nil {
+		style=filled;
+		color=lightgrey;	
+		node [style=filled,color=white];
+		label = "Nil Keep - no TEE";
+		enarx_wasmldr_nil -> wasmtime_nil -> workload_nil;
+	}			
 
-	enarx_wasmldr_nil -> wasmtime_nil -> workload_nil;
-
-	subgraph cluster_tee_kvm {
+	subgraph cluster_tee_kvm {	
+		style=filled;
+		color=lightgrey;	
+		node [style=filled,color=white];
 		 label = "KVM - no TEE";
 		 enarx_wasmldr_kvm -> wasmtime_kvm -> workload_kvm;
 	}
@@ -35,7 +43,8 @@ digraph enarx_architecture {
 		 label = "SEV Keep";
 		 enarx_wasmldr_sev -> wasmtime_sgx -> workload_sgx;
 	}
-		subgraph cluster_tee_sgx {
+
+	subgraph cluster_tee_sgx {
 		 label = "SGX Keep";
 		 enarx_wasmldr_sgx -> wasmtime_sev -> workload_sev;
 	}
