@@ -1,0 +1,17 @@
+digraph enarx-architecture {
+	enarx [label = "enarx"];
+	enarx-keepmgr [label = "enarx-keepmgr"];
+	tee [label = "tee"];
+	enarx-keepldr [label = "enarx-keepldr"];
+	
+	enarx-wasmldr [label = "enarx-wasmldr"];
+	wasmtime [label = "wasm-time"];
+	workload [label = "workload"];
+
+	enarx -> enarx-keepmgr -> enarx-keepldr;
+	enarx-keeploader -> tee;
+	enarx -> enarx-wasmldr;
+
+	subgraph cluster_tee {
+	}
+}
