@@ -101,27 +101,23 @@ SevExit:
 
     // Setup the pagetables
     // done dynamically, otherwise we would have to correct the dynamic symbols twice
+
+    // setup PDPT_OFFSET in PML4T table
     lea     rax,    [rip + PML4T]
     lea     rbx,    [rip + PDPT_OFFSET]
-    // set C-bit
-    or      rbx,    r12
-    // (WRITABLE | PRESENT)
-    or      rbx,    0x3
+    or      rbx,    r12         // set C-bit
+    or      rbx,    0x3         // (WRITABLE | PRESENT)
     mov     QWORD PTR [rax + (((SHIM_OFFSET & 0xFFFFFFFFFFFF) >> 39)*8)],   rbx
 
-    // set C-bit in PDPT_OFFSET table
+    // set C-bit in all entries of the PDPT_OFFSET table
     lea     rbx,    [rip + PDPT_OFFSET]
     mov     rdx,    r11
-    // Counter to 512 page table entries
-    mov     ecx,    512
-    // Pre-advance pointer by 4 bytes for the higher 32bit
-    add     rbx,    4
-
-setCBit:
+    mov     ecx,    512         // Counter to 512 page table entries
+    add     rbx,    4           // Pre-advance pointer by 4 bytes for the higher 32bit
+setCBit_PDPT_OFFSET:
     mov     DWORD PTR [rbx],    edx
-    // advance pointer by 8
-    add     rbx,    8
-    loop    setCBit
+    add     rbx,    8           // advance pointer by 8
+    loop    setCBit_PDPT_OFFSET
 
     // set C-bit in PDT_IDENT table
     lea     rcx,    [rip + PDT_IDENT]
@@ -129,30 +125,26 @@ setCBit:
     mov     DWORD PTR [rcx + (1*8 + 4)],    edx
     mov     DWORD PTR [rcx + (2*8 + 4)],    edx
 
-    // setup PDPT_IDENT table
+    // setup PDPT_IDENT table entry 0 with PDT_IDENT table
     lea     rbx,    [rip + PDPT_IDENT]
-    // set C-bit
-    or      rcx,    r12
-    // ( WRITABLE | PRESENT)
-    or      rcx,    0x3
+    or      rcx,    r12         // set C-bit
+    or      rcx,    0x3         // ( WRITABLE | PRESENT)
     // store PDT_IDENT table in PDPT_IDENT in the correct slot
     // 0x0 - 0x4000_0000
     mov     QWORD PTR [rbx],    rcx
 
-    // set C-bit
-    or      rbx,    r12
-    // ( WRITABLE | PRESENT)
-    or      rbx,    0x3
-
+    // setup PDPT_IDENT in PML4T table
+    or      rbx,    r12         // set C-bit
+    or      rbx,    0x3         // ( WRITABLE | PRESENT)
     lea     rax,    [rip + PML4T]
     mov     QWORD PTR [rax],    rbx
 
-    or      rax,    r12
+    or      rax,    r12         // set C-bit for new CR3
     mov     cr3,    rax
 
+    // advance rip to kernel address space with SHIM_OFFSET
     lea     rax,    [rip + _trampoline]
     mov     rbx,    SHIM_OFFSET
-
     adox    rax,    rbx
     jmp     rax
 
