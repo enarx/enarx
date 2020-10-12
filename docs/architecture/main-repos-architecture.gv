@@ -1,17 +1,42 @@
-digraph enarx-architecture {
-	enarx [label = "enarx"];
-	enarx-keepmgr [label = "enarx-keepmgr"];
-	tee [label = "tee"];
-	enarx-keepldr [label = "enarx-keepldr"];
+digraph enarx_architecture {
+	client [label = "client"];
+	enarx_keepmgr [label = "enarx-keepmgr"];
+	enarx_keepldr [label = "enarx-keepldr"];
 	
-	enarx-wasmldr [label = "enarx-wasmldr"];
-	wasmtime [label = "wasm-time"];
-	workload [label = "workload"];
+	enarx_wasmldr_nil [label = "enarx-wasmldr"];
+	enarx_wasmldr_kvm [label = "enarx-wasmldr"];	
+	enarx_wasmldr_sev [label = "enarx-wasmldr"];
+	enarx_wasmldr_sgx [label = "enarx-wasmldr"];
+	
+	wasmtime_nil [label = "wasmtime" color="blue"];
+	wasmtime_kvm [label = "wasmtime" color="blue"];	
+	wasmtime_sev [label = "wasmtime" color="blue"];
+	wasmtime_sgx [label = "wasmtime" color="blue"];
 
-	enarx -> enarx-keepmgr -> enarx-keepldr;
-	enarx-keeploader -> tee;
-	enarx -> enarx-wasmldr;
+	workload_nil [label = "workload" color="green"];
+	workload_kvm [label = "workload" color="green"];
+	workload_sev [label = "workload" color="green"];
+	workload_sgx [label = "workload" color="green"];
 
-	subgraph cluster_tee {
+	client -> enarx_keepmgr -> enarx_keepldr -> enarx_wasmldr_nil;
+	enarx_keepldr -> enarx_wasmldr_kvm;
+	enarx_keepldr -> enarx_wasmldr_sev;
+	enarx_keepldr -> enarx_wasmldr_sgx;
+	
+
+	enarx_wasmldr_nil -> wasmtime_nil -> workload_nil;
+
+	subgraph cluster_tee_kvm {
+		 label = "KVM - no TEE";
+		 enarx_wasmldr_kvm -> wasmtime_kvm -> workload_kvm;
+	}
+
+	subgraph cluster_tee_sev {
+		 label = "SEV Keep";
+		 enarx_wasmldr_sev -> wasmtime_sgx -> workload_sgx;
+	}
+		subgraph cluster_tee_sgx {
+		 label = "SGX Keep";
+		 enarx_wasmldr_sgx -> wasmtime_sev -> workload_sev;
 	}
 }
