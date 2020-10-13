@@ -168,8 +168,17 @@ fn exec(backends: &[Box<dyn Backend>], opts: Exec) -> Result<()> {
         match keep {
             Some(name) if name != "nil" => panic!("Keep backend '{}' is unsupported.", name),
             _ => {
+                use std::env::args_os;
                 let cstr = CString::new(opts.code.as_os_str().as_bytes()).unwrap();
-                unsafe { libc::execl(cstr.as_ptr(), cstr.as_ptr(), null::<c_char>()) };
+                let name = CString::new(args_os().next().unwrap().as_os_str().as_bytes()).unwrap();
+                unsafe {
+                    libc::execl(
+                        cstr.as_ptr(),
+                        name.as_ptr(),
+                        cstr.as_ptr(),
+                        null::<c_char>(),
+                    )
+                };
                 return Err(Error::last_os_error().into());
             }
         }
