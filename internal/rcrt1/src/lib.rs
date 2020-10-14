@@ -39,40 +39,44 @@ use goblin::elf::reloc::R_X86_64_RELATIVE;
 /// points to the correct memory.
 #[no_mangle]
 pub unsafe extern "C" fn _dyn_reloc(dynamic_section: *const u64, base: u64) {
-    let mut dt_rel: u64 = 0;
+    let mut dt_rel: Option<u64> = None;
     let mut dt_relsz: usize = 0;
-    let mut dt_rela: u64 = 0;
+    let mut dt_rela: Option<u64> = None;
     let mut dt_relasz: usize = 0;
 
     let mut dynv = dynamic_section as *const Dyn;
 
     while (*dynv).d_tag != 0 {
         match (*dynv).d_tag {
-            DT_REL => dt_rel = (*dynv).d_val,
+            DT_REL => dt_rel = Some((*dynv).d_val),
             DT_RELSZ => dt_relsz = (*dynv).d_val as usize / core::mem::size_of::<Rel>(),
-            DT_RELA => dt_rela = (*dynv).d_val,
+            DT_RELA => dt_rela = Some((*dynv).d_val),
             DT_RELASZ => dt_relasz = (*dynv).d_val as usize / core::mem::size_of::<Rela>(),
             _ => {}
         }
         dynv = ((dynv as usize) + core::mem::size_of::<Dyn>()) as *const Dyn;
     }
 
-    let rels = core::slice::from_raw_parts((base + dt_rel) as *const Rel, dt_relsz);
+    if let Some(dt_rel) = dt_rel {
+        let rels = core::slice::from_raw_parts((base + dt_rel) as *const Rel, dt_relsz);
 
-    rels.iter()
-        .filter(|rel| rel.r_info & R_TYPE_MASK == R_X86_64_RELATIVE as u64)
-        .for_each(|rel| {
-            let rel_addr = (base + rel.r_offset) as *mut u64;
-            rel_addr.write(rel_addr.read() + base);
-        });
+        rels.iter()
+            .filter(|rel| rel.r_info & R_TYPE_MASK == R_X86_64_RELATIVE as u64)
+            .for_each(|rel| {
+                let rel_addr = (base + rel.r_offset) as *mut u64;
+                rel_addr.write(rel_addr.read() + base);
+            });
+    }
 
-    let relas = core::slice::from_raw_parts((base + dt_rela) as *const Rela, dt_relasz);
+    if let Some(dt_rela) = dt_rela {
+        let relas = core::slice::from_raw_parts((base + dt_rela) as *const Rela, dt_relasz);
 
-    relas
-        .iter()
-        .filter(|rela| rela.r_info & R_TYPE_MASK == R_X86_64_RELATIVE as u64)
-        .for_each(|rela| {
-            let rel_addr_0 = (base + rela.r_offset) as *mut u64;
-            rel_addr_0.write((base as i64 + rela.r_addend) as u64);
-        });
+        relas
+            .iter()
+            .filter(|rela| rela.r_info & R_TYPE_MASK == R_X86_64_RELATIVE as u64)
+            .for_each(|rela| {
+                let rel_addr_0 = (base + rela.r_offset) as *mut u64;
+                rel_addr_0.write((base as i64 + rela.r_addend) as u64);
+            });
+    }
 }
