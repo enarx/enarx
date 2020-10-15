@@ -69,7 +69,15 @@ impl<'a> HostCall<'a> {
     #[inline(always)]
     pub unsafe fn hostcall(&mut self) -> sallyport::Result {
         let mut port = Port::<u16>::new(SYSCALL_TRIGGER_PORT);
+
+        // prevent earlier writes from being moved beyond this point
+        core::sync::atomic::compiler_fence(core::sync::atomic::Ordering::Release);
+
         port.write(1);
+
+        // prevent earlier reads from being moved before this point
+        core::sync::atomic::compiler_fence(core::sync::atomic::Ordering::Acquire);
+
         self.0.msg.rep.into()
     }
 

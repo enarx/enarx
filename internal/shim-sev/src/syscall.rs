@@ -577,7 +577,7 @@ impl Handler {
         uts.version[..6].copy_from_slice(TrySigned::try_signed(b"#1 SMP").unwrap());
         uts.machine[..6].copy_from_slice(TrySigned::try_signed(b"x86_64").unwrap());
         unsafe {
-            (self.a as *mut libc::utsname).write_volatile(uts);
+            (self.a as *mut libc::utsname).write(uts);
         }
         Ok(0)
     }
@@ -650,7 +650,7 @@ impl Handler {
                 p.st_ctime_nsec = 0;
 
                 unsafe {
-                    (self.b as *mut libc::stat).write_volatile(p);
+                    (self.b as *mut libc::stat).write(p);
                 }
 
                 eprintln!("SC> fstat({}, {{st_dev=makedev(0, 0x19), st_ino=3, st_mode=S_IFIFO|0600,\

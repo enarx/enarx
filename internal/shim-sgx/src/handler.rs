@@ -73,7 +73,13 @@ impl<'a> Handler<'a> {
     unsafe fn proxy(&mut self, req: Request) -> sallyport::Result {
         self.block.msg.req = req;
 
+        // prevent earlier writes from being moved beyond this point
+        core::sync::atomic::compiler_fence(core::sync::atomic::Ordering::Release);
+
         let _ret = syscall(self.aex, self.ctx);
+
+        // prevent earlier reads from being moved before this point
+        core::sync::atomic::compiler_fence(core::sync::atomic::Ordering::Acquire);
 
         self.block.msg.rep.into()
     }
