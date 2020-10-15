@@ -29,6 +29,7 @@ pub mod shim_stack;
 #[macro_use]
 pub mod print;
 pub mod lazy;
+pub mod pagetables;
 pub mod random;
 pub mod syscall;
 pub mod usermode;

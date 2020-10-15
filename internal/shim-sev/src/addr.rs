@@ -9,8 +9,13 @@
 /// FIXME: change to dynamic offset with ASLR https://github.com/enarx/enarx/issues/624
 pub const SHIM_VIRT_OFFSET: u64 = 0xFFFF_FF80_0000_0000;
 
+/// 2 MiB
 #[allow(clippy::integer_arithmetic)]
-const BYTES_2_MIB: u64 = bytes![2; MiB];
+pub const BYTES_2_MIB: u64 = bytes![2; MiB];
+
+/// 2 GiB
+#[allow(clippy::integer_arithmetic)]
+pub const BYTES_2_GIB: u64 = bytes![2; GiB];
 
 use crate::frame_allocator::FRAME_ALLOCATOR;
 use crate::get_cbit_mask;

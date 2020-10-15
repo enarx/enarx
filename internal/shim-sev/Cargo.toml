@@ -21,6 +21,7 @@ libc = { version = "0.2", default-features = false }
 primordial = "0.1"
 nbytes = "0.1"
 lset = "0.1"
+array-const-fn-init = "0.1"
 
 [profile.dev.package.rcrt1]
 opt-level = 3
