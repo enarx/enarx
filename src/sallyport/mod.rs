@@ -199,20 +199,20 @@ impl<'a> Cursor<'a> {
     pub unsafe fn alloc<T>(
         self,
         count: usize,
-    ) -> core::result::Result<(Cursor<'a>, &'a mut [T]), ()> {
+    ) -> core::result::Result<(Cursor<'a>, &'a mut [MaybeUninit<T>]), ()> {
         let mid = {
-            let (padding, data, _) = self.0.align_to_mut::<T>();
+            let (padding, data, _) = self.0.align_to_mut::<MaybeUninit<T>>();
 
             if data.len() < count {
                 return Err(());
             }
 
-            padding.len() + size_of::<T>() * count
+            padding.len() + size_of::<MaybeUninit<T>>() * count
         };
 
         let (data, next) = self.0.split_at_mut(mid);
 
-        Ok((Cursor(next), data.align_to_mut::<T>().1))
+        Ok((Cursor(next), data.align_to_mut::<MaybeUninit<T>>().1))
     }
 
     /// Copies data from a slice into the cursor buffer using self.alloc().
@@ -223,7 +223,11 @@ impl<'a> Cursor<'a> {
     ) -> core::result::Result<(Cursor<'a>, &'a mut [T]), ()> {
         let (c, dst) = unsafe { self.alloc::<T>(src.len())? };
 
-        dst.copy_from_slice(src);
+        unsafe {
+            core::ptr::copy_nonoverlapping(src.as_ptr(), dst.as_mut_ptr() as _, src.len());
+        }
+
+        let dst = unsafe { &mut *(dst as *mut [MaybeUninit<T>] as *mut [T]) };
 
         Ok((c, dst))
     }
@@ -239,10 +243,10 @@ impl<'a> Cursor<'a> {
         self,
         src: *const T,
         src_len: usize,
-    ) -> core::result::Result<(Cursor<'a>, *mut T), ()> {
+    ) -> core::result::Result<(Cursor<'a>, *mut MaybeUninit<T>), ()> {
         let (c, dst) = self.alloc::<T>(src_len)?;
 
-        core::ptr::copy_nonoverlapping(src, dst.as_mut_ptr(), src_len);
+        core::ptr::copy_nonoverlapping(src, dst.as_mut_ptr() as *mut _, src_len);
 
         Ok((c, dst.as_mut_ptr()))
     }
@@ -263,7 +267,7 @@ impl<'a> Cursor<'a> {
         assert!(src_len >= dst_len);
         let (c, src) = self.alloc::<T>(src_len)?;
 
-        core::ptr::copy_nonoverlapping(src.as_ptr(), dst, dst_len);
+        core::ptr::copy_nonoverlapping(src.as_ptr(), dst as _, dst_len);
 
         Ok(c)
     }
@@ -276,7 +280,7 @@ impl<'a> Cursor<'a> {
     pub unsafe fn read<T: 'a + Copy>(self) -> core::result::Result<(Cursor<'a>, T), ()> {
         let (c, src) = self.alloc::<T>(1)?;
 
-        Ok((c, src[0]))
+        Ok((c, src[0].as_ptr().read()))
     }
 
     /// Writes data into the cursor buffer.
@@ -285,7 +289,7 @@ impl<'a> Cursor<'a> {
         let (c, dst) = unsafe { self.alloc::<T>(1)? };
 
         unsafe {
-            core::ptr::write(dst.as_mut_ptr(), *src);
+            core::ptr::write(dst[0].as_mut_ptr(), *src);
         }
 
         Ok(c)
@@ -303,7 +307,7 @@ impl<'a> Cursor<'a> {
     ) -> core::result::Result<Cursor<'a>, ()> {
         let (c, src) = self.alloc::<T>(1)?;
 
-        core::ptr::write(dst.as_ptr(), src[0]);
+        core::ptr::write(dst.as_ptr(), src[0].as_ptr().read());
 
         Ok(c)
     }
@@ -431,7 +435,7 @@ mod tests {
         };
 
         // Assume init
-        let slab_all = unsafe { &mut *(slab_all as *mut [_] as *mut [usize]) };
+        let slab_all: &mut [usize] = unsafe { &mut *(slab_all as *mut _ as *mut [_]) };
 
         assert_eq!(slab_all, &[1, 2, 3, 4, 5, 6]);
 
