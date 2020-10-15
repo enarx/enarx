@@ -493,7 +493,7 @@ dependencies = [
 [[package]]
 name = "sev"
 version = "0.1.0"
-source = "git+https://github.com/enarx/sev#047cd07757214c67e30c76a7e134fce9cf219c0b"
+source = "git+https://github.com/enarx/sev#16d039fbd86145ff2e47ea50f9e14d33d21a9264"
 dependencies = [
  "bitfield",
  "bitflags",
