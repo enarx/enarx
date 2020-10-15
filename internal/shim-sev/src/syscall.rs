@@ -12,7 +12,7 @@ use core::convert::TryFrom;
 use core::mem::{size_of, MaybeUninit};
 use core::ops::{Deref, DerefMut};
 use core::ptr::NonNull;
-use primordial::Address;
+use primordial::{Address, Register};
 use sallyport::request;
 use x86_64::registers::wrfsbase;
 use x86_64::structures::paging::{Page, PageTableFlags, Size4KiB};
@@ -97,88 +97,102 @@ pub unsafe fn _syscall_enter() -> ! {
 #[no_mangle]
 /// Handle a syscall in rust
 pub extern "C" fn syscall_rust(
-    a: usize,
-    b: usize,
-    c: usize,
-    d: usize,
-    e: usize,
-    f: usize,
+    a: Register<usize>,
+    b: Register<usize>,
+    c: Register<usize>,
+    d: Register<usize>,
+    e: Register<usize>,
+    f: Register<usize>,
     nr: usize,
 ) -> usize {
     /*
-        #[cfg(debug_assertions)]
-        eprintln!(
-            "SC> raw: syscall({}, {:#X}, {:#X}, {:#X}, {}, {}, {:#X})",
-            nr, a, b, c, d, e, f
-        );
+    #[cfg(debug_assertions)]
+    eprintln!(
+        "SC> raw: syscall({}, {:#x}, {:#x}, {:#x}, {}, {}, {:#x})",
+        nr,
+        usize::from(a),
+        usize::from(b),
+        usize::from(c),
+        usize::from(d),
+        usize::from(e),
+        usize::from(f)
+    );
     */
+    let do_syscall = || -> Result<usize, libc::c_int> {
+        match nr as _ {
+            libc::SYS_exit => Handler::exit(usize::from(a) as _),
+            libc::SYS_exit_group => Handler::exit_group(usize::from(a) as _),
+            libc::SYS_read => Handler::read(usize::from(a) as _, b.into(), c.into()),
+            libc::SYS_readv => unsafe {
+                Handler::readv(usize::from(a) as _, b.into(), usize::from(c) as _)
+            },
+            libc::SYS_write => Handler::write(usize::from(a) as _, b.into(), c.into()),
+            libc::SYS_writev => Handler::writev(usize::from(a) as _, b.into(), usize::from(c) as _),
+            libc::SYS_mmap => Handler::mmap(
+                a.into(),
+                b.into(),
+                usize::from(c) as _,
+                usize::from(d) as _,
+                usize::from(e) as _,
+                f.into(),
+            ),
+            libc::SYS_munmap => Handler::munmap(a.into(), b.into()),
+            libc::SYS_arch_prctl => Handler::arch_prctl(usize::from(a) as _, b.into()),
+            libc::SYS_set_tid_address => Handler::set_tid_address(a.into()),
+            libc::SYS_rt_sigaction => {
+                Handler::rt_sigaction(usize::from(a) as _, b.into(), c.into())
+            }
+            libc::SYS_rt_sigprocmask => {
+                Handler::rt_sigprocmask(usize::from(a) as _, b.into(), c.into(), d.into())
+            }
+            libc::SYS_sigaltstack => Handler::sigaltstack(a.into(), b.into()),
+            libc::SYS_getrandom => Handler::getrandom(a.into(), b.into(), usize::from(c) as _),
+            libc::SYS_brk => Handler::brk(a.into()),
+            libc::SYS_ioctl => Handler::ioctl(usize::from(a) as _, b.into()),
+            libc::SYS_mprotect => Handler::mprotect(a.into(), b.into(), usize::from(c) as _),
+            libc::SYS_clock_gettime => Handler::clock_gettime(usize::from(a) as _, b.into()),
+            libc::SYS_uname => Handler::uname(a.into()),
+            libc::SYS_readlink => Handler::readlink(a.into(), b.into(), c.into()),
+            libc::SYS_fstat => Handler::fstat(usize::from(a) as _, b.into()),
+            libc::SYS_fcntl => Handler::fcntl(usize::from(a) as _, usize::from(b) as _),
+            libc::SYS_madvise => Handler::madvise(a.into(), b.into(), usize::from(c) as _),
+            libc::SYS_poll => Handler::poll(a.into(), b.into(), usize::from(c) as _),
+            libc::SYS_getuid => Handler::getuid(),
+            libc::SYS_getgid => Handler::getgid(),
+            libc::SYS_geteuid => Handler::geteuid(),
+            libc::SYS_getegid => Handler::getegid(),
 
-    let h = Handler::new(a, b, c, d, e, f);
-
-    let res = match nr as i64 {
-        libc::SYS_exit => h.exit(),
-        libc::SYS_exit_group => h.exit_group(),
-        libc::SYS_read => h.read(),
-        libc::SYS_readv => h.readv(),
-        libc::SYS_write => h.write(),
-        libc::SYS_writev => h.writev(),
-        libc::SYS_mmap => h.mmap(),
-        libc::SYS_munmap => h.munmap(),
-        libc::SYS_arch_prctl => h.arch_prctl(),
-        libc::SYS_set_tid_address => h.set_tid_address(),
-        libc::SYS_rt_sigaction => h.rt_sigaction(),
-        libc::SYS_rt_sigprocmask => h.rt_sigprocmask(),
-        libc::SYS_sigaltstack => h.sigaltstack(),
-        libc::SYS_getrandom => h.getrandom(),
-        libc::SYS_brk => h.brk(),
-        libc::SYS_ioctl => h.ioctl(),
-        libc::SYS_mprotect => h.mprotect(),
-        libc::SYS_clock_gettime => h.clock_gettime(),
-        libc::SYS_uname => h.uname(),
-        libc::SYS_readlink => h.readlink(),
-        libc::SYS_fstat => h.fstat(),
-        libc::SYS_fcntl => h.fcntl(),
-        libc::SYS_madvise => h.madvise(),
-        libc::SYS_poll => h.poll(),
-        libc::SYS_getuid => h.getuid(),
-        libc::SYS_getgid => h.getgid(),
-        libc::SYS_geteuid => h.geteuid(),
-        libc::SYS_getegid => h.getegid(),
-
-        syscall => {
-            //panic!("SC> unsupported syscall: {}", syscall);
-            eprintln!("SC> unsupported syscall: {}", syscall);
-            Err(libc::ENOSYS)
+            syscall => {
+                //panic!("SC> unsupported syscall: {}", syscall);
+                eprintln!("SC> unsupported syscall: {}", syscall);
+                Err(libc::ENOSYS)
+            }
         }
     };
-    res.unwrap_or_else(|e| e.checked_neg().unwrap() as usize) as usize
+
+    let res = do_syscall().unwrap_or_else(|e| e.checked_neg().unwrap() as usize) as usize;
+
+    #[cfg(debug_assertions)]
+    eprintln!("SC> = {:#x}", res);
+    res
 }
 
-struct Handler {
-    a: usize,
-    b: usize,
-    c: usize,
-    d: usize,
-    e: usize,
-    f: usize,
-}
+struct Handler;
 
 impl Handler {
-    #[allow(clippy::many_single_char_names)]
-    pub fn new(a: usize, b: usize, c: usize, d: usize, e: usize, f: usize) -> Self {
-        Self { a, b, c, d, e, f }
-    }
-    pub fn exit(&self) -> ! {
-        eprintln!("SC> exit({})", self.a);
-        hostcall::shim_exit(self.a as _);
+    /// syscall
+    pub fn exit(status: libc::c_int) -> ! {
+        eprintln!("SC> exit({})", status);
+        hostcall::shim_exit(status);
     }
 
-    pub fn exit_group(&self) -> ! {
-        eprintln!("SC> exit_group({})", self.a);
-        hostcall::shim_exit(self.a as _);
+    /// syscall
+    pub fn exit_group(status: libc::c_int) -> ! {
+        eprintln!("SC> exit_group({})", status);
+        hostcall::shim_exit(status);
     }
 
-    fn _read(&self, fd: usize, trusted: *mut u8, trusted_len: usize) -> Result<usize, libc::c_int> {
+    fn _read(fd: libc::c_int, trusted: *mut u8, trusted_len: usize) -> Result<usize, libc::c_int> {
         let mut host_call = HOST_CALL.try_lock().ok_or(libc::EIO)?;
 
         let block = host_call.as_mut_block();
@@ -205,13 +219,22 @@ impl Handler {
         Ok(result_len)
     }
 
-    pub fn read(&self) -> Result<usize, libc::c_int> {
-        self._read(self.a, self.b as *mut u8, self.c)
+    /// syscall
+    pub fn read(fd: libc::c_int, buf: *mut u8, count: libc::size_t) -> Result<usize, libc::c_int> {
+        Handler::_read(fd, buf, count)
     }
 
-    pub fn readv(&self) -> Result<usize, libc::c_int> {
-        let iovec =
-            unsafe { core::slice::from_raw_parts_mut(self.b as *mut libc::iovec, self.c as usize) };
+    /// syscall
+    ///
+    /// # Safety
+    /// Unsafe, because it dereferences `iov`.
+    pub unsafe fn readv(
+        fd: libc::c_int,
+        iov: *const libc::iovec,
+        iovcnt: libc::c_int,
+    ) -> Result<usize, libc::c_int> {
+        // FIXME: unsafe
+        let iovec = core::slice::from_raw_parts(iov, iovcnt as _);
 
         // FIXME: this is not an ideal implementation of readv, but for the sake
         // of simplicity this readv implementation behaves very much like how the
@@ -219,29 +242,36 @@ impl Handler {
         // support read.
         let mut read = 0usize;
         for vec in iovec {
-            let r = self._read(self.a, vec.iov_base as *mut u8, vec.iov_len as usize)?;
+            let r = Handler::_read(fd, vec.iov_base as _, vec.iov_len as _)?;
             read = read.checked_add(r).unwrap();
         }
 
         Ok(read)
     }
 
-    pub fn write(&self) -> Result<usize, libc::c_int> {
-        let fd = self.a;
-        let data = self.b as *const u8;
-        let len = self.c;
+    /// syscall
+    pub fn write(
+        fd: libc::c_int,
+        buf: *const u8,
+        count: libc::size_t,
+    ) -> Result<usize, libc::c_int> {
         let mut host_call = HOST_CALL.try_lock().ok_or(libc::EIO)?;
         unsafe {
-            let slice = core::slice::from_raw_parts(data, len);
+            let slice = core::slice::from_raw_parts(buf, count);
             // FIXME: allocate unencrypted pages
             host_call.write(fd, slice).map(|r| r[0].into())
         }
     }
 
-    pub fn writev(&self) -> Result<usize, libc::c_int> {
-        let fd = unsafe { HostFd::from_raw_fd(self.a as _) };
-        let iovec =
-            unsafe { core::slice::from_raw_parts_mut(self.b as *mut libc::iovec, self.c as usize) };
+    /// syscall
+    pub fn writev(
+        fd: libc::c_int,
+        iov: *const libc::iovec,
+        iovcnt: libc::c_int,
+    ) -> Result<usize, libc::c_int> {
+        let fd = unsafe { HostFd::from_raw_fd(fd) };
+        let iovec = unsafe { core::slice::from_raw_parts(iov, iovcnt as _) };
+
         let bufsize = iovec
             .iter()
             .fold(0, |a: usize, e| a.checked_add(e.iov_len).unwrap());
@@ -256,37 +286,39 @@ impl Handler {
         Ok(bufsize)
     }
 
-    pub fn arch_prctl(&self) -> Result<usize, libc::c_int> {
-        const ARCH_SET_GS: usize = 0x1001;
-        const ARCH_SET_FS: usize = 0x1002;
-        const ARCH_GET_FS: usize = 0x1003;
-        const ARCH_GET_GS: usize = 0x1004;
+    /// syscall
+    pub fn arch_prctl(code: libc::c_int, addr: libc::c_ulong) -> Result<usize, libc::c_int> {
+        const ARCH_SET_GS: libc::c_int = 0x1001;
+        const ARCH_SET_FS: libc::c_int = 0x1002;
+        const ARCH_GET_FS: libc::c_int = 0x1003;
+        const ARCH_GET_GS: libc::c_int = 0x1004;
 
-        match self.a {
+        match code {
             ARCH_SET_FS => {
-                let value: u64 = self.b as _;
                 unsafe {
-                    wrfsbase(value);
+                    wrfsbase(addr);
                 }
-                eprintln!("SC> arch_prctl(ARCH_SET_FS, {:#X}) = 0", value);
+                eprintln!("SC> arch_prctl(ARCH_SET_FS, {:#x}) = 0", addr);
                 Ok(0)
             }
             ARCH_GET_FS => unimplemented!(),
             ARCH_SET_GS => unimplemented!(),
             ARCH_GET_GS => unimplemented!(),
             x => {
-                eprintln!("SC> arch_prctl({:#X}, {:#X}) = -EINVAL", x, self.b);
+                eprintln!("SC> arch_prctl({:#x}, {:#x}) = -EINVAL", x, addr);
                 Err(libc::EINVAL)
             }
         }
     }
 
-    pub fn mprotect(&self) -> Result<usize, libc::c_int> {
+    /// syscall
+    pub fn mprotect(
+        addr: *const u8,
+        len: libc::size_t,
+        prot: libc::c_int,
+    ) -> Result<usize, libc::c_int> {
         use x86_64::structures::paging::mapper::Mapper;
 
-        let addr = self.a as u64;
-        let len = self.b;
-        let prot = self.c as i32;
         let mut flags = PageTableFlags::PRESENT | PageTableFlags::USER_ACCESSIBLE;
 
         if prot & libc::PROT_WRITE != 0 {
@@ -299,7 +331,7 @@ impl Handler {
 
         let mut page_table = SHIM_PAGETABLE.write();
 
-        let start_addr = VirtAddr::new(addr);
+        let start_addr = VirtAddr::from_ptr(addr);
         let start_page: Page = Page::containing_address(start_addr);
         let end_page: Page = Page::containing_address(start_addr + len - 1u64);
         let page_range = Page::range_inclusive(start_page, end_page);
@@ -309,30 +341,31 @@ impl Handler {
                     Ok(flush) => flush.flush(),
                     Err(e) => {
                         eprintln!(
-                            "SC> mprotect({:#X}, {}, {}, …) = EINVAL ({:#?})",
-                            self.a, self.b, self.c, e
+                            "SC> mprotect({:#?}, {}, {}, …) = EINVAL ({:#?})",
+                            addr, len, prot, e
                         );
                         return Err(libc::EINVAL);
                     }
                 }
             }
         }
-        eprintln!("SC> mprotect({:#X}, {}, {}, …) = 0", self.a, self.b, self.c);
+        eprintln!("SC> mprotect({:#?}, {}, {}, …) = 0", addr, len, prot);
 
         Ok(0)
     }
 
-    pub fn mmap(&self) -> Result<usize, libc::c_int> {
+    /// syscall
+    pub fn mmap(
+        addr: *const u8,
+        length: libc::size_t,
+        prot: libc::c_int,
+        flags: libc::c_int,
+        fd: libc::c_int,
+        offset: libc::off_t,
+    ) -> Result<usize, libc::c_int> {
         const PA: i32 = libc::MAP_PRIVATE | libc::MAP_ANONYMOUS;
 
-        let addr = self.a;
-        let len = self.b;
-        let prot = self.c as i32;
-        let flags = self.d as i32;
-        let fd = self.e as i32;
-        let offset = self.f;
-
-        match (addr, len, prot, flags, fd, offset) {
+        match (addr as u64, length, prot, flags, fd, offset) {
             (0, _, _, PA, -1, 0) => {
                 let mut flags = PageTableFlags::PRESENT | PageTableFlags::USER_ACCESSIBLE;
 
@@ -345,7 +378,7 @@ impl Handler {
                 }
 
                 let virt_addr = *NEXT_MMAP_RWLOCK.read().deref();
-                let len_aligned = align_up(len as _, Page::<Size4KiB>::SIZE) as _;
+                let len_aligned = align_up(length as _, Page::<Size4KiB>::SIZE) as _;
 
                 let mem_slice = FRAME_ALLOCATOR
                     .write()
@@ -359,57 +392,57 @@ impl Handler {
                             | PageTableFlags::USER_ACCESSIBLE,
                     )
                     .map_err(|_| {
-                        eprintln!("SC> mmap({:#X}, {}, …) = ENOMEM", self.a, self.b,);
+                        eprintln!("SC> mmap({:#?}, {}, …) = ENOMEM", addr, length);
                         libc::ENOMEM
                     })?;
                 eprintln!(
-                    "SC> mmap({:#X}, {}, …) = {:#?}",
-                    self.a,
-                    self.b,
+                    "SC> mmap({:#?}, {}, …) = {:#?}",
+                    addr,
+                    length,
                     mem_slice.as_ptr()
                 );
                 unsafe {
-                    core::ptr::write_bytes(mem_slice.as_mut_ptr(), 0, len);
+                    core::ptr::write_bytes(mem_slice.as_mut_ptr(), 0, length);
                 }
                 *NEXT_MMAP_RWLOCK.write().deref_mut() = virt_addr + (len_aligned as u64);
 
-                //eprintln!("next_mmap = {:#X}", *NEXT_MMAP_RWLOCK::read().deref());
+                //eprintln!("next_mmap = {:#x}", *NEXT_MMAP_RWLOCK::read().deref());
 
                 Ok(mem_slice.as_ptr() as usize)
             }
             _ => {
-                eprintln!("SC> mmap({:#X}, {}, …)", self.a, self.b);
-                todo!();
+                eprintln!("SC> mmap({:#?}, {}, …)", addr, length);
+                unimplemented!()
             }
         }
     }
 
-    pub fn brk(&self) -> Result<usize, libc::c_int> {
+    /// syscall
+    pub fn brk(addr: *const u8) -> Result<usize, libc::c_int> {
         let len;
 
         let next_brk = *NEXT_BRK_RWLOCK.read().deref();
         let virt_addr = next_brk;
 
-        match self.a {
+        match addr as usize {
             0 => {
-                eprintln!("SC> brk({:#X}) = {:#X}", self.a, next_brk.as_u64());
+                eprintln!("SC> brk({:#?}) = {:#x}", addr, next_brk.as_u64());
                 Ok(next_brk.as_u64() as _)
             }
             n => {
                 if n <= next_brk.as_u64() as usize {
-                    if n as u64
-                        > next_brk
-                            .as_u64()
-                            .checked_sub(Page::<Size4KiB>::SIZE)
-                            .unwrap()
+                    if n > (next_brk
+                        .as_u64()
+                        .checked_sub(Page::<Size4KiB>::SIZE)
+                        .unwrap() as usize)
                     {
                         // already mapped
-                        eprintln!("SC> brk({:#X}) = {:#X}", self.a, n);
+                        eprintln!("SC> brk({:#?}) = {:#x}", addr, n);
                         return Ok(n);
-                    } else {
-                        // n most likely wrong
-                        return Err(libc::EINVAL);
                     }
+
+                    // n most likely wrong
+                    return Err(libc::EINVAL);
                 }
 
                 len = n.checked_sub(next_brk.as_u64() as usize).unwrap();
@@ -428,13 +461,13 @@ impl Handler {
                             | PageTableFlags::USER_ACCESSIBLE,
                     )
                     .map_err(|_| {
-                        eprintln!("SC> brk({:#X}) = ENOMEM", self.a);
+                        eprintln!("SC> brk({:#?}) = ENOMEM", addr);
                         libc::ENOMEM
                     })?;
 
                 *NEXT_BRK_RWLOCK.write() = virt_addr + (len_aligned as u64);
 
-                eprintln!("SC> brk({:#X}) = {:#X}", self.a, n);
+                eprintln!("SC> brk({:#?}) = {:#x}", addr, n);
 
                 Ok(n)
             }
@@ -443,21 +476,21 @@ impl Handler {
 
     /// Do a ioctl() syscall
     ///
-    pub fn ioctl(&self) -> Result<usize, libc::c_int> {
-        match (self.a as _, self.b as _) {
+    pub fn ioctl(fd: libc::c_int, request: libc::c_ulong) -> Result<usize, libc::c_int> {
+        match (fd as _, request as _) {
             (libc::STDIN_FILENO, libc::TIOCGWINSZ)
             | (libc::STDOUT_FILENO, libc::TIOCGWINSZ)
             | (libc::STDERR_FILENO, libc::TIOCGWINSZ) => {
                 // the keep has no tty
-                eprintln!("SC> ioctl({}, TIOCGWINSZ, … = -ENOTTY", self.a);
+                eprintln!("SC> ioctl({}, TIOCGWINSZ, … = -ENOTTY", fd);
                 Err(libc::ENOTTY)
             }
             (libc::STDIN_FILENO, _) | (libc::STDOUT_FILENO, _) | (libc::STDERR_FILENO, _) => {
-                eprintln!("SC> ioctl({}, {}), … = -EINVAL", self.a, self.b);
+                eprintln!("SC> ioctl({}, {}), … = -EINVAL", fd, request);
                 Err(libc::EINVAL)
             }
             _ => {
-                eprintln!("SC> ioctl({}, {}), … = -EBADFD", self.a, self.b);
+                eprintln!("SC> ioctl({}, {}), … = -EBADFD", fd, request);
                 Err(libc::EBADFD)
             }
         }
@@ -465,7 +498,7 @@ impl Handler {
     /// Do a set_tid_address() syscall
     ///
     /// This is currently unimplemented and returns a dummy thread id.
-    pub fn set_tid_address(&self) -> Result<usize, libc::c_int> {
+    pub fn set_tid_address(_tidptr: *mut libc::c_int) -> Result<usize, libc::c_int> {
         // FIXME
         eprintln!("SC> set_tid_address(…) = 1");
         Ok(1)
@@ -474,16 +507,25 @@ impl Handler {
     /// Do a rt_sigaction() syscall
     ///
     /// This is currently unimplemented and returns success.
-    pub fn rt_sigaction(&self) -> Result<usize, libc::c_int> {
+    pub fn rt_sigaction(
+        _signum: libc::c_int,
+        _act: *const libc::sigaction,
+        _oldact: *mut libc::sigaction,
+    ) -> Result<usize, libc::c_int> {
         // FIXME
         eprintln!("SC> rt_sigaction(…) = 0");
         Ok(0)
     }
 
-    /// Do a rt_sigaction() syscall
+    /// Do a rt_sigprocmask() syscall
     ///
     /// This is currently unimplemented and returns success.
-    pub fn rt_sigprocmask(&self) -> Result<usize, libc::c_int> {
+    pub fn rt_sigprocmask(
+        _how: libc::c_int,
+        _set: *const libc::c_void,
+        _oldset: *mut libc::c_void,
+        _sigsetsize: libc::size_t,
+    ) -> Result<usize, libc::c_int> {
         // FIXME
         eprintln!("SC> rt_sigprocmask(…) = 0");
         Ok(0)
@@ -492,7 +534,7 @@ impl Handler {
     /// Do a munmap() syscall
     ///
     /// This is currently unimplemented and returns success.
-    pub fn munmap(&self) -> Result<usize, libc::c_int> {
+    pub fn munmap(_addr: *const libc::c_void, _lenght: libc::size_t) -> Result<usize, libc::c_int> {
         // FIXME
         eprintln!("SC> munmap(…) = 0");
         Ok(0)
@@ -501,23 +543,28 @@ impl Handler {
     /// Do a sigaltstack() syscall
     ///
     /// This is currently unimplemented and returns success.
-    pub fn sigaltstack(&self) -> Result<usize, libc::c_int> {
+    pub fn sigaltstack(
+        _ss: *const libc::stack_t,
+        _old_ss: *mut libc::stack_t,
+    ) -> Result<usize, libc::c_int> {
         // FIXME
         eprintln!("SC> sigaltstack(…) = 0");
         Ok(0)
     }
 
     /// Do a getrandom() syscall
-    pub fn getrandom(&self) -> Result<usize, libc::c_int> {
-        let flags = self.c as u64;
-        let flags = flags & !((libc::GRND_NONBLOCK | libc::GRND_RANDOM) as u64);
+    pub fn getrandom(
+        buf: *mut u8,
+        buflen: libc::size_t,
+        flags: libc::c_uint,
+    ) -> Result<usize, libc::c_int> {
+        let flags = flags & !(libc::GRND_NONBLOCK | libc::GRND_RANDOM);
 
         if flags != 0 {
             return Err(libc::EINVAL);
         }
 
-        let trusted =
-            unsafe { core::slice::from_raw_parts_mut(self.a as *mut u8, self.b as usize) };
+        let trusted = unsafe { core::slice::from_raw_parts_mut(buf, buflen) };
 
         for (i, chunk) in trusted.chunks_mut(8).enumerate() {
             let mut el = 0u64;
@@ -526,11 +573,11 @@ impl Handler {
                     chunk.copy_from_slice(&el.to_ne_bytes()[..chunk.len()]);
                     break;
                 } else {
-                    if (flags & libc::GRND_NONBLOCK as u64) != 0 {
+                    if (flags & libc::GRND_NONBLOCK) != 0 {
                         eprintln!("SC> getrandom(…) = -EAGAIN");
                         return Err(libc::EAGAIN);
                     }
-                    if (flags & libc::GRND_RANDOM as u64) != 0 {
+                    if (flags & libc::GRND_RANDOM) != 0 {
                         eprintln!("SC> getrandom(…) = {}", i.checked_mul(8).unwrap());
                         return Ok(i.checked_mul(8).unwrap());
                     }
@@ -542,12 +589,14 @@ impl Handler {
         Ok(trusted.len())
     }
 
-    pub fn clock_gettime(&self) -> Result<usize, libc::c_int> {
-        let clk_id = self.a;
-
+    /// syscall
+    pub fn clock_gettime(
+        clockid: libc::clockid_t,
+        tp: *mut libc::timespec,
+    ) -> Result<usize, libc::c_int> {
         // FIXME: check `trusted`, if in payload space
         // https://github.com/enarx/enarx-keepldr/issues/78
-        let trusted = NonNull::new(self.b as *mut libc::timespec).ok_or(libc::EFAULT)?;
+        let trusted = NonNull::new(tp).ok_or(libc::EFAULT)?;
 
         let mut host_call = HOST_CALL.try_lock().ok_or(libc::EIO)?;
 
@@ -560,7 +609,7 @@ impl Handler {
         let phys_unencrypted = ShimPhysUnencryptedAddr::try_from(buf_address).unwrap();
         let host_virt: HostVirtAddr<_> = phys_unencrypted.into();
 
-        block.msg.req = request!(libc::SYS_clock_gettime => clk_id, host_virt);
+        block.msg.req = request!(libc::SYS_clock_gettime => clockid, host_virt);
         let result = unsafe { host_call.hostcall() }.map(|r| r[0].into())?;
 
         let block = host_call.as_mut_block();
@@ -570,7 +619,8 @@ impl Handler {
         Ok(result)
     }
 
-    pub fn uname(&self) -> Result<usize, libc::c_int> {
+    /// syscall
+    pub fn uname(buf: *mut libc::utsname) -> Result<usize, libc::c_int> {
         // Faked, because we cannot promise any features provided by Linux in the future.
         eprintln!(
             r##"SC> uname({{sysname="Linux", nodename="enarx", release="5.4.8", version="1", machine="x86_64", domainname="(none)"}}) = 0"##
@@ -583,18 +633,23 @@ impl Handler {
         uts.version[..6].copy_from_slice(TrySigned::try_signed(b"#1 SMP").unwrap());
         uts.machine[..6].copy_from_slice(TrySigned::try_signed(b"x86_64").unwrap());
         unsafe {
-            (self.a as *mut libc::utsname).write(uts);
+            buf.write(uts);
         }
         Ok(0)
     }
 
-    pub fn readlink(&self) -> Result<usize, libc::c_int> {
+    /// syscall
+    pub fn readlink(
+        pathname: *const libc::c_char,
+        buf: *mut libc::c_char,
+        bufsize: libc::size_t,
+    ) -> Result<usize, libc::c_int> {
         // Fake readlink("/proc/self/exe")
         const PROC_SELF_EXE: &str = "/proc/self/exe";
 
         let pathname = unsafe {
             let mut len: isize = 0;
-            let ptr: *const u8 = self.a as _;
+            let ptr: *const u8 = pathname as _;
             loop {
                 if ptr.offset(len).read() == 0 {
                     break;
@@ -604,22 +659,23 @@ impl Handler {
                     break;
                 }
             }
-            core::str::from_utf8_unchecked(core::slice::from_raw_parts(self.a as _, len as _))
+            core::str::from_utf8_unchecked(core::slice::from_raw_parts(pathname as _, len as _))
         };
 
         if !pathname.eq(PROC_SELF_EXE) {
             return Err(libc::ENOENT);
         }
 
-        let outbuf = unsafe { core::slice::from_raw_parts_mut(self.b as _, self.c as _) };
+        let outbuf = unsafe { core::slice::from_raw_parts_mut(buf as _, bufsize as _) };
         outbuf[..6].copy_from_slice(b"/init\0");
-        eprintln!("SC> readlink({:#?}, \"/init\", {}) = 5", pathname, self.c);
+        eprintln!("SC> readlink({:#?}, \"/init\", {}) = 5", pathname, bufsize);
         Ok(5)
     }
 
-    pub fn fstat(&self) -> Result<usize, libc::c_int> {
+    /// syscall
+    pub fn fstat(fd: libc::c_int, statbuf: *mut libc::stat) -> Result<usize, libc::c_int> {
         // Fake fstat(0|1|2, ...) done by glibc or rust
-        match self.a as i32 {
+        match fd {
             libc::STDIN_FILENO | libc::STDOUT_FILENO | libc::STDERR_FILENO => {
                 #[allow(clippy::integer_arithmetic)]
                 const fn makedev(x: u64, y: u64) -> u64 {
@@ -633,7 +689,7 @@ impl Handler {
 
                 p.st_dev = makedev(
                     0,
-                    match self.a {
+                    match fd {
                         0 => 0x19,
                         _ => 0xc,
                     },
@@ -656,7 +712,7 @@ impl Handler {
                 p.st_ctime_nsec = 0;
 
                 unsafe {
-                    (self.b as *mut libc::stat).write(p);
+                    statbuf.write(p);
                 }
 
                 eprintln!("SC> fstat({}, {{st_dev=makedev(0, 0x19), st_ino=3, st_mode=S_IFIFO|0600,\
@@ -664,51 +720,52 @@ impl Handler {
                   st_rdev=makedev(0x88, 0), st_atime=1579507218 /* 2020-01-21T11:45:08.467721685+0100 */,\
                    st_atime_nsec=0, st_mtime=1579507218 /* 2020-01-21T11:45:08.467721685+0100 */,\
                     st_mtime_nsec=0, st_ctime=1579507218 /* 2020-01-21T11:45:08.467721685+0100 */,\
-                     st_ctime_nsec=0}}) = 0", self.a);
+                     st_ctime_nsec=0}}) = 0", fd);
                 Ok(0)
             }
             _ => Err(libc::EBADF),
         }
     }
 
-    pub fn fcntl(&self) -> Result<usize, libc::c_int> {
-        match (self.a as i32, self.b as i32) {
+    /// syscall
+    pub fn fcntl(fd: libc::c_int, cmd: libc::c_int) -> Result<usize, libc::c_int> {
+        match (fd, cmd) {
             (libc::STDIN_FILENO, libc::F_GETFL) => {
-                eprintln!(
-                    "SC> fcntl({}, F_GETFD) = 0x402 (flags O_RDWR|O_APPEND)",
-                    self.a
-                );
+                eprintln!("SC> fcntl({}, F_GETFD) = 0x402 (flags O_RDWR|O_APPEND)", fd);
                 Ok((libc::O_RDWR | libc::O_APPEND) as _)
             }
             (libc::STDOUT_FILENO, libc::F_GETFL) | (libc::STDERR_FILENO, libc::F_GETFL) => {
-                eprintln!("SC> fcntl({}, F_GETFD) = 0x1 (flags O_WRONLY)", self.a);
+                eprintln!("SC> fcntl({}, F_GETFD) = 0x1 (flags O_WRONLY)", fd);
                 Ok(libc::O_WRONLY as _)
             }
             (libc::STDIN_FILENO, _) | (libc::STDOUT_FILENO, _) | (libc::STDERR_FILENO, _) => {
-                eprintln!("SC> fcntl({}, {}) = -EINVAL", self.a, self.b);
+                eprintln!("SC> fcntl({}, {}) = -EINVAL", fd, cmd);
                 Err(libc::EINVAL)
             }
             (_, _) => {
-                eprintln!("SC> fcntl({}, {}) = -EBADFD", self.a, self.b);
+                eprintln!("SC> fcntl({}, {}) = -EBADFD", fd, cmd);
                 Err(libc::EBADFD)
             }
         }
     }
 
-    pub fn madvise(&self) -> Result<usize, libc::c_int> {
-        eprintln!(
-            "SC> madvise(0x{:x}, 0x{:x}, 0x{:x}) = 0",
-            self.a, self.b, self.c
-        );
+    /// syscall
+    pub fn madvise(
+        addr: *const libc::c_void,
+        length: libc::size_t,
+        advice: libc::c_int,
+    ) -> Result<usize, libc::c_int> {
+        eprintln!("SC> madvise(0x{:?}, {}, {}) = 0", addr, length, advice);
 
         Ok(0)
     }
 
-    pub fn poll(&self) -> Result<usize, libc::c_int> {
-        let nfds = self.b as libc::nfds_t;
-        let timeout = self.c as libc::c_int;
-        let trusted = self.a as *mut libc::pollfd;
-
+    /// syscall
+    pub fn poll(
+        fds: *mut libc::pollfd,
+        nfds: libc::nfds_t,
+        timeout: libc::c_int,
+    ) -> Result<usize, libc::c_int> {
         eprintln!("SC> poll(…) =  …");
 
         let mut host_call = HOST_CALL.try_lock().ok_or(libc::EIO)?;
@@ -717,12 +774,11 @@ impl Handler {
 
         let c = block.cursor();
 
-        let (_, buf) =
-            unsafe { c.copy_from_raw_parts(trusted, nfds as _) }.or(Err(libc::EMSGSIZE))?;
+        let (_, buf) = unsafe { c.copy_from_raw_parts(fds, nfds as _) }.or(Err(libc::EMSGSIZE))?;
 
         let buf_address = Address::from(buf);
         let phys_unencrypted = ShimPhysUnencryptedAddr::try_from(buf_address).unwrap();
-        let host_virt = HostVirtAddr::from(phys_unencrypted);
+        let host_virt: HostVirtAddr<_> = phys_unencrypted.into();
 
         block.msg.req = request!(libc::SYS_poll => host_virt, nfds, timeout);
         let result = unsafe { host_call.hostcall() }.map(|r| r[0].into())?;
@@ -730,27 +786,27 @@ impl Handler {
         let block = host_call.as_mut_block();
         let c = block.cursor();
 
-        unsafe { c.copy_into_raw_parts(nfds as _, trusted, nfds as _) }.or(Err(libc::EMSGSIZE))?;
+        unsafe { c.copy_into_raw_parts(nfds as _, fds, nfds as _) }.or(Err(libc::EMSGSIZE))?;
 
         Ok(result)
     }
 
-    pub fn getuid(&self) -> Result<usize, libc::c_int> {
+    pub fn getuid() -> Result<usize, libc::c_int> {
         eprintln!("SC> getuid() = {}", FAKE_UID);
         Ok(FAKE_UID)
     }
 
-    pub fn getgid(&self) -> Result<usize, libc::c_int> {
+    pub fn getgid() -> Result<usize, libc::c_int> {
         eprintln!("SC> getgid() = {}", FAKE_GID);
         Ok(FAKE_GID)
     }
 
-    pub fn geteuid(&self) -> Result<usize, libc::c_int> {
+    pub fn geteuid() -> Result<usize, libc::c_int> {
         eprintln!("SC> geteuid() = {}", FAKE_UID);
         Ok(FAKE_UID)
     }
 
-    pub fn getegid(&self) -> Result<usize, libc::c_int> {
+    pub fn getegid() -> Result<usize, libc::c_int> {
         eprintln!("SC> getegid() = {}", FAKE_GID);
         Ok(FAKE_GID)
     }

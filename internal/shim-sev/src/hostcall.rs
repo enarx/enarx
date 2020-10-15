@@ -98,7 +98,7 @@ impl<'a> HostCall<'a> {
     /// # Safety
     ///
     /// The parameters returned can't be trusted.
-    pub unsafe fn write(&mut self, fd: usize, bytes: &[u8]) -> sallyport::Result {
+    pub unsafe fn write(&mut self, fd: libc::c_int, bytes: &[u8]) -> sallyport::Result {
         let cursor = self.0.cursor();
         let (_, buf) = cursor.copy_from_slice(bytes).or(Err(libc::EMSGSIZE))?;
 
@@ -136,7 +136,7 @@ impl<'a> HostCall<'a> {
     ///
     /// Panics, if the shim resumes to run.
     #[inline(always)]
-    pub fn exit_group(&mut self, status: u32) -> ! {
+    pub fn exit_group(&mut self, status: i32) -> ! {
         unsafe {
             let request = request!(libc::SYS_exit_group => status);
             self.0.msg.req = request;
@@ -151,7 +151,6 @@ impl<'a> HostCall<'a> {
 /// Write all `bytes` to a host file descriptor `fd`
 #[inline(always)]
 pub fn shim_write_all(fd: HostFd, bytes: &[u8]) -> Result<(), libc::c_int> {
-    let fd = usize::try_from(fd.as_raw_fd()).map_err(|_| libc::EBADF)?;
     let bytes_len = bytes.len();
     let mut to_write = bytes_len;
 
@@ -161,7 +160,7 @@ pub fn shim_write_all(fd: HostFd, bytes: &[u8]) -> Result<(), libc::c_int> {
         let written = unsafe {
             let next = bytes_len.checked_sub(to_write).ok_or(libc::EFAULT)?;
             host_call
-                .write(fd, &bytes[next..])
+                .write(fd.as_raw_fd(), &bytes[next..])
                 .map(|regs| usize::from(regs[0]))
         }?;
         // be careful with `written` as it is untrusted
@@ -178,7 +177,7 @@ pub fn shim_write_all(fd: HostFd, bytes: &[u8]) -> Result<(), libc::c_int> {
 ///
 /// Reverts to a triple fault, which causes a `#VMEXIT` and a KVM shutdown,
 /// if it cannot talk to the host.
-pub fn shim_exit(status: u32) -> ! {
+pub fn shim_exit(status: i32) -> ! {
     if let Some(mut host_call) = HOST_CALL.try_lock() {
         host_call.exit_group(status)
     }
