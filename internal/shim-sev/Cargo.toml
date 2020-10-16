@@ -38,3 +38,4 @@ codegen-units = 1
 incremental = false
 lto = true
 debug = 1
+opt-level = "s"

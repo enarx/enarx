@@ -37,3 +37,4 @@ panic = "abort"
 codegen-units = 1
 incremental = false
 lto = true
+opt-level = "s"
