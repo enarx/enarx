@@ -45,6 +45,31 @@
 //!     $ musl-gcc -static-pie -fPIC -o test test.c
 //!     $ target/debug/enarx-keepldr exec ./test
 //!     Hello World!
+//!
+//! # Select a Different Backend
+//!
+//! `enarx-keepldr exec` will probe the machine it is running on
+//! in an attempt to deduce an appropriate deployment backend unless
+//! that target is already specified in an environment variable
+//! called `ENARX_BACKEND`.
+//!
+//! To see what backends are supported on your system, run:
+//!
+//!     $ target/debug/enarx-keepldr info
+//!
+//! To manually select a backend, set the `ENARX_BACKEND` environment
+//! variable:
+//!
+//!     $ ENARX_BACKEND=sgx target/debug/enarx-keepldr exec ./test
+//!
+//! Note that some backends are conditionally compiled. They can all
+//! be compiled in like so:
+//!
+//!     $ cargo build --all-features
+//!
+//! Or specific backends can be compiled in:
+//!
+//!     $ cargo build --features=backend-sgx,backend-kvm
 
 #![deny(clippy::all)]
 #![deny(missing_docs)]
