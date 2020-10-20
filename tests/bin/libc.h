@@ -113,3 +113,24 @@ int is_enarx() {
         default: return 0;
     }
 }
+
+ssize_t get_att(void *nonce, size_t nonce_len, void *buf, size_t buf_len, size_t *technology) {
+    ssize_t rax;
+    ssize_t tech;
+    register size_t r10 __asm__("r10") = buf_len;
+
+    asm(
+        "syscall"
+        : "=a" (rax), "=d" (tech)
+        : "a" (0xEA01), "D" (nonce), "S" (nonce_len), "d" (buf), "r" (r10)
+        : "%rcx", "%r11"
+    );
+
+    if (rax < 0) {
+        errno = -rax;
+        return -1;
+    }
+
+    *technology = tech;
+    return rax;
+}
