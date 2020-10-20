@@ -1,3 +1,5 @@
+![lint](https://github.com/enarx/enarx-keepldr/workflows/lint/badge.svg)
+![enarxbot](https://github.com/enarx/enarx-keepldr/workflows/enarxbot/badge.svg)
 [![Workflow Status](https://github.com/enarx/enarx-keepldr/workflows/test/badge.svg)](https://github.com/enarx/enarx-keepldr/actions?query=workflow%3A%22test%22)
 [![Average time to resolve an issue](https://isitmaintained.com/badge/resolution/enarx/enarx-keepldr.svg)](https://isitmaintained.com/project/enarx/enarx-keepldr "Average time to resolve an issue")
 [![Percentage of issues still open](https://isitmaintained.com/badge/open/enarx/enarx-keepldr.svg)](https://isitmaintained.com/project/enarx/enarx-keepldr "Percentage of issues still open")
