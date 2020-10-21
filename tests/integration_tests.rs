@@ -169,3 +169,8 @@ fn echo() {
 fn get_att() {
     run_test("get_att", 0, None, None, None);
 }
+
+#[test]
+fn getuid() {
+    run_test("getuid", 0, None, None, None);
+}

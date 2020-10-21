@@ -3,6 +3,7 @@
 #include <unistd.h>
 #include <errno.h>
 #include <time.h>
+#include <sys/types.h>
 
 int *__errno_location(void) {
     static int errnum = 0;
@@ -132,5 +133,15 @@ ssize_t get_att(void *nonce, size_t nonce_len, void *buf, size_t buf_len, size_t
     }
 
     *technology = tech;
+    return rax;
+}
+
+uid_t getuid() {
+    uid_t rax;
+    asm(
+        "syscall"
+        : "=a" (rax)
+        : "a" (SYS_getuid)
+    );
     return rax;
 }
