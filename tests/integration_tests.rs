@@ -164,3 +164,8 @@ fn echo() {
     }
     run_test("echo", 0, input.as_slice(), input.as_slice(), None);
 }
+
+#[test]
+fn get_att() {
+    run_test("get_att", 0, None, None, None);
+}
