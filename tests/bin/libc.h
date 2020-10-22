@@ -4,6 +4,11 @@
 #include <errno.h>
 #include <time.h>
 
+int *__errno_location(void) {
+    static __thread int errnum = 0;
+    return &errnum;
+}
+
 void _exit(int status) {
     asm("syscall; ud2" :: "a" (SYS_exit), "D" (status));
     while (1) {}
@@ -23,6 +28,11 @@ ssize_t read(int fd, void *buf, size_t count) {
         : "a" (SYS_read), "D" (fd), "S" (buf), "d" (count)
     );
 
+    if (rax < 0) {
+        errno = -rax;
+        return -1;
+    }
+
     return rax;
 }
 
@@ -34,6 +44,11 @@ ssize_t readv(int fd, const struct iovec *iov, int iovcnt) {
        : "=a" (rax)
        : "a" (SYS_readv), "D" (fd), "S" (iov), "d" (iovcnt)
     );
+
+    if (rax < 0) {
+        errno = -rax;
+        return -1;
+    }
 
     return rax;
 }
@@ -47,6 +62,11 @@ ssize_t write(int fd, const void *buf, size_t count) {
         : "a" (SYS_write), "D" (fd), "S" (buf), "d" (count)
     );
 
+    if (rax < 0) {
+        errno = -rax;
+        return -1;
+    }
+
     return rax;
 }
 
@@ -58,6 +78,11 @@ int clock_gettime(clockid_t clk_id, struct timespec *tp) {
         : "=a" (rax)
         : "a" (SYS_clock_gettime), "D" (clk_id), "S" (tp)
     );
+
+    if (rax < 0) {
+        errno = -rax;
+        return -1;
+    }
 
     return rax;
 }
