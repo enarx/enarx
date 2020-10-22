@@ -254,9 +254,18 @@ pub unsafe fn write(
     count: libc::size_t,
 ) -> Result<usize, libc::c_int> {
     let mut host_call = HOST_CALL.try_lock().ok_or(libc::EIO)?;
-    let slice = core::slice::from_raw_parts(buf, count);
-    // FIXME: allocate unencrypted pages
-    host_call.write(fd, slice).map(|r| r[0].into())
+    let block = host_call.as_mut_block();
+    let c = block.cursor();
+
+    let (_, buf) = c.copy_from_raw_parts(buf, count).or(Err(libc::EMSGSIZE))?;
+
+    let buf_address = Address::from(buf);
+    let phys_unencrypted = ShimPhysUnencryptedAddr::try_from(buf_address).unwrap();
+    let host_virt: HostVirtAddr<_> = phys_unencrypted.into();
+
+    block.msg.req = request!(libc::SYS_write => fd, host_virt, count);
+
+    host_call.hostcall().map(|r| r[0].into())
 }
 
 /// syscall
