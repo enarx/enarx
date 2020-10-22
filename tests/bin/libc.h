@@ -10,7 +10,13 @@ int *__errno_location(void) {
 }
 
 void _exit(int status) {
-    asm("syscall; ud2" :: "a" (SYS_exit), "D" (status));
+    asm(
+        "syscall; ud2"
+        :
+        : "a" (SYS_exit), "D" (status)
+        : "%rcx", "%r11"
+    );
+
     while (1) {}
 }
 
@@ -26,6 +32,7 @@ ssize_t read(int fd, void *buf, size_t count) {
         "syscall"
         : "=a" (rax)
         : "a" (SYS_read), "D" (fd), "S" (buf), "d" (count)
+        : "%rcx", "%r11"
     );
 
     if (rax < 0) {
@@ -40,9 +47,10 @@ ssize_t readv(int fd, const struct iovec *iov, int iovcnt) {
     ssize_t rax;
 
     asm(
-       "syscall"
-       : "=a" (rax)
-       : "a" (SYS_readv), "D" (fd), "S" (iov), "d" (iovcnt)
+        "syscall"
+        : "=a" (rax)
+        : "a" (SYS_readv), "D" (fd), "S" (iov), "d" (iovcnt)
+        : "%rcx", "%r11"
     );
 
     if (rax < 0) {
@@ -60,6 +68,7 @@ ssize_t write(int fd, const void *buf, size_t count) {
         "syscall"
         : "=a" (rax)
         : "a" (SYS_write), "D" (fd), "S" (buf), "d" (count)
+        : "%rcx", "%r11"
     );
 
     if (rax < 0) {
@@ -77,6 +86,7 @@ int clock_gettime(clockid_t clk_id, struct timespec *tp) {
         "syscall"
         : "=a" (rax)
         : "a" (SYS_clock_gettime), "D" (clk_id), "S" (tp)
+        : "%rcx", "%r11"
     );
 
     if (rax < 0) {
@@ -90,7 +100,12 @@ int clock_gettime(clockid_t clk_id, struct timespec *tp) {
 int is_enarx() {
     ssize_t rax;
 
-    asm("syscall" : "=a" (rax) : "a" (SYS_fork));
+    asm(
+        "syscall"
+        : "=a" (rax)
+        : "a" (SYS_fork)
+        : "%rcx", "%r11"
+    );
 
     switch (rax) {
         case 0: _exit(0);
