@@ -43,7 +43,6 @@ pub unsafe fn _syscall_enter() -> ! {
     push   r11                                        # push RFLAGS stored in r11
     push   {3}
     push   rcx                                        # push userspace return pointer
-    swapgs                                            # restore gs
 
     # Arguments in registers:
     # SYSV:    rdi, rsi, rdx, rcx, r8, r9
@@ -77,6 +76,8 @@ pub unsafe fn _syscall_enter() -> ! {
     pop    rdx
     pop    rsi
     pop    rdi
+
+    swapgs                                            # restore gs
 
     iretq
     ",
