@@ -5,7 +5,7 @@
 #include <time.h>
 
 int *__errno_location(void) {
-    static __thread int errnum = 0;
+    static int errnum = 0;
     return &errnum;
 }
 
