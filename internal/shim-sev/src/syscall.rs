@@ -195,9 +195,7 @@ fn _read(fd: libc::c_int, trusted: *mut u8, trusted_len: usize) -> Result<usize,
     let c = block.cursor();
     let (_, buf) = unsafe { c.alloc::<u8>(trusted_len).or(Err(libc::EMSGSIZE))? };
 
-    let buf_address = Address::from(buf.as_ptr());
-    let phys_unencrypted = ShimPhysUnencryptedAddr::try_from(buf_address).unwrap();
-    let host_virt: HostVirtAddr<_> = phys_unencrypted.into();
+    let host_virt = blk_to_host_virt(buf.as_ptr());
 
     block.msg.req = request!(libc::SYS_read => fd, host_virt, trusted_len);
     let result = unsafe { host_call.hostcall() };
@@ -259,9 +257,7 @@ pub unsafe fn write(
 
     let (_, buf) = c.copy_from_raw_parts(buf, count).or(Err(libc::EMSGSIZE))?;
 
-    let buf_address = Address::from(buf);
-    let phys_unencrypted = ShimPhysUnencryptedAddr::try_from(buf_address).unwrap();
-    let host_virt: HostVirtAddr<_> = phys_unencrypted.into();
+    let host_virt = blk_to_host_virt(buf);
 
     block.msg.req = request!(libc::SYS_write => fd, host_virt, count);
 
@@ -614,9 +610,7 @@ pub fn clock_gettime(
     let c = block.cursor();
     let (_, buf) = unsafe { c.alloc::<libc::timespec>(1).or(Err(libc::EMSGSIZE))? };
 
-    let buf_address = Address::from(buf.as_ptr());
-    let phys_unencrypted = ShimPhysUnencryptedAddr::try_from(buf_address).unwrap();
-    let host_virt: HostVirtAddr<_> = phys_unencrypted.into();
+    let host_virt = blk_to_host_virt(buf.as_ptr());
 
     block.msg.req = request!(libc::SYS_clock_gettime => clockid, host_virt);
     let result = unsafe { host_call.hostcall() }.map(|r| r[0].into())?;
@@ -792,9 +786,7 @@ pub unsafe fn poll(
         .copy_from_raw_parts(fds, nfds as _)
         .or(Err(libc::EMSGSIZE))?;
 
-    let buf_address = Address::from(buf);
-    let phys_unencrypted = ShimPhysUnencryptedAddr::try_from(buf_address).unwrap();
-    let host_virt: HostVirtAddr<_> = phys_unencrypted.into();
+    let host_virt = blk_to_host_virt(buf);
 
     block.msg.req = request!(libc::SYS_poll => host_virt, nfds, timeout);
     let result = host_call.hostcall().map(|r| r[0].into())?;
@@ -854,4 +846,14 @@ impl TrySigned<u8> for &[i8] {
 
         Ok(unsafe { core::slice::from_raw_parts(ptr, len) })
     }
+}
+
+/// Convert a `Block` buffer address to the host virtual address
+///
+/// # Panics
+/// If the `Block` buffer address is not in the unencrypted address space this function panics.
+fn blk_to_host_virt<T>(buf: *const T) -> HostVirtAddr<T> {
+    let buf_address = Address::from(buf);
+    let phys_unencrypted = ShimPhysUnencryptedAddr::try_from(buf_address).unwrap();
+    HostVirtAddr::from(phys_unencrypted)
 }
