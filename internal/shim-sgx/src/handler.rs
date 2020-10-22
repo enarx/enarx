@@ -3,7 +3,6 @@
 use crate::hostlib::SYS_CPUID;
 use crate::Layout;
 
-use primordial::Register;
 use sallyport::{request, Block, Request};
 use sgx::types::ssa::StateSaveArea;
 use sgx_heap::Heap;
@@ -14,6 +13,9 @@ use core::ptr::NonNull;
 use core::slice::from_raw_parts;
 
 pub const TRACE: bool = false;
+
+const FAKE_UID: usize = 1000;
+const FAKE_GID: usize = 1000;
 
 // arch_prctl syscalls not available in the libc crate as of version 0.2.69
 const ARCH_SET_GS: usize = 0x1001;
@@ -186,7 +188,25 @@ impl<'a> Handler<'a> {
     /// Do a getuid() syscall
     pub fn getuid(&mut self) -> sallyport::Result {
         self.trace("getuid", 0);
-        unsafe { self.proxy(request!(libc::SYS_getuid)) }
+        Ok([FAKE_UID.into(), 0.into()])
+    }
+
+    /// Do a getgid() syscall
+    pub fn getgid(&mut self) -> sallyport::Result {
+        self.trace("getgid", 0);
+        Ok([FAKE_GID.into(), 0.into()])
+    }
+
+    /// Do a geteuid() syscall
+    pub fn geteuid(&mut self) -> sallyport::Result {
+        self.trace("geteuid", 0);
+        Ok([FAKE_UID.into(), 0.into()])
+    }
+
+    /// Do a getegid() syscall
+    pub fn getegid(&mut self) -> sallyport::Result {
+        self.trace("getegid", 0);
+        Ok([FAKE_GID.into(), 0.into()])
     }
 
     /// Do a read() syscall

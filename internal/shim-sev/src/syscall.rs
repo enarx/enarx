@@ -18,6 +18,9 @@ use x86_64::registers::wrfsbase;
 use x86_64::structures::paging::{Page, PageTableFlags, Size4KiB};
 use x86_64::{align_up, VirtAddr};
 
+const FAKE_UID: usize = 1000;
+const FAKE_GID: usize = 1000;
+
 /// syscall service routine
 ///
 /// # Safety
@@ -137,6 +140,10 @@ pub extern "C" fn syscall_rust(
         libc::SYS_fcntl => h.fcntl(),
         libc::SYS_madvise => h.madvise(),
         libc::SYS_poll => h.poll(),
+        libc::SYS_getuid => h.getuid(),
+        libc::SYS_getgid => h.getgid(),
+        libc::SYS_geteuid => h.geteuid(),
+        libc::SYS_getegid => h.getegid(),
 
         syscall => {
             //panic!("SC> unsupported syscall: {}", syscall);
@@ -726,6 +733,26 @@ impl Handler {
         unsafe { c.copy_into_raw_parts(nfds as _, trusted, nfds as _) }.or(Err(libc::EMSGSIZE))?;
 
         Ok(result)
+    }
+
+    pub fn getuid(&self) -> Result<usize, libc::c_int> {
+        eprintln!("SC> getuid() = {}", FAKE_UID);
+        Ok(FAKE_UID)
+    }
+
+    pub fn getgid(&self) -> Result<usize, libc::c_int> {
+        eprintln!("SC> getgid() = {}", FAKE_GID);
+        Ok(FAKE_GID)
+    }
+
+    pub fn geteuid(&self) -> Result<usize, libc::c_int> {
+        eprintln!("SC> geteuid() = {}", FAKE_UID);
+        Ok(FAKE_UID)
+    }
+
+    pub fn getegid(&self) -> Result<usize, libc::c_int> {
+        eprintln!("SC> getegid() = {}", FAKE_GID);
+        Ok(FAKE_GID)
     }
 }
 
