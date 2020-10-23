@@ -202,16 +202,12 @@ pub struct OutOfSpace;
 
 impl<'a> Cursor<'a> {
     /// Allocates an array, containing count number of T items. The result is uninitialized.
-    ///
-    /// # Safety
-    ///
-    /// This function is unsafe because it returns an uninitialized array.
-    pub unsafe fn alloc<T>(
+    pub fn alloc<T>(
         self,
         count: usize,
     ) -> core::result::Result<(Cursor<'a>, &'a mut [MaybeUninit<T>]), OutOfSpace> {
         let mid = {
-            let (padding, data, _) = self.0.align_to_mut::<MaybeUninit<T>>();
+            let (padding, data, _) = unsafe { self.0.align_to_mut::<MaybeUninit<T>>() };
 
             if data.len() < count {
                 return Err(OutOfSpace);
@@ -222,7 +218,10 @@ impl<'a> Cursor<'a> {
 
         let (data, next) = self.0.split_at_mut(mid);
 
-        Ok((Cursor(next), data.align_to_mut::<MaybeUninit<T>>().1))
+        Ok((
+            Cursor(next),
+            unsafe { data.align_to_mut::<MaybeUninit<T>>() }.1,
+        ))
     }
 
     /// Copies data from a slice into the cursor buffer using self.alloc().
@@ -231,7 +230,7 @@ impl<'a> Cursor<'a> {
         self,
         src: &[T],
     ) -> core::result::Result<(Cursor<'a>, &'a mut [T]), OutOfSpace> {
-        let (c, dst) = unsafe { self.alloc::<T>(src.len())? };
+        let (c, dst) = self.alloc::<T>(src.len())?;
 
         unsafe {
             core::ptr::copy_nonoverlapping(src.as_ptr(), dst.as_mut_ptr() as _, src.len());
@@ -296,7 +295,7 @@ impl<'a> Cursor<'a> {
     /// Writes data into the cursor buffer.
     #[allow(dead_code)]
     pub fn write<T: 'a + Copy>(self, src: &T) -> core::result::Result<Cursor<'a>, OutOfSpace> {
-        let (c, dst) = unsafe { self.alloc::<T>(1)? };
+        let (c, dst) = self.alloc::<T>(1)?;
 
         unsafe {
             core::ptr::write(dst[0].as_mut_ptr(), *src);
@@ -407,10 +406,10 @@ mod tests {
         let mut block = Block::default();
 
         let c = block.cursor();
-        assert!(unsafe { c.alloc::<usize>(4096usize).is_err() });
+        assert!(c.alloc::<usize>(4096usize).is_err());
 
         let c = block.cursor();
-        assert_eq!(unsafe { c.alloc::<usize>(42usize) }.unwrap().1.len(), 42);
+        assert_eq!(c.alloc::<usize>(42usize).unwrap().1.len(), 42);
 
         let c = block.cursor();
         let (_c, slice) = c.copy_from_slice(&[87, 2, 3]).unwrap();
@@ -439,10 +438,9 @@ mod tests {
         assert_eq!(slab3, &[5, 6]);
 
         let c = block.cursor();
-        let (_c, slab_all) = unsafe {
-            c.alloc::<usize>(6)
-                .expect("re-allocate slab of 6 usize values already initialized")
-        };
+        let (_c, slab_all) = c
+            .alloc::<usize>(6)
+            .expect("re-allocate slab of 6 usize values already initialized");
 
         // Assume init
         let slab_all: &mut [usize] = unsafe { &mut *(slab_all as *mut _ as *mut [_]) };

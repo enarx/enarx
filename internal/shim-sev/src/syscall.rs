@@ -230,7 +230,7 @@ fn _read(fd: libc::c_int, trusted: *mut u8, trusted_len: usize) -> Result<usize,
     let block = host_call.as_mut_block();
 
     let c = block.cursor();
-    let (_, buf) = unsafe { c.alloc::<u8>(trusted_len).or(Err(libc::EMSGSIZE))? };
+    let (_, buf) = c.alloc::<u8>(trusted_len).or(Err(libc::EMSGSIZE))?;
 
     let host_virt = blk_to_host_virt(buf.as_ptr());
 
@@ -645,7 +645,7 @@ pub fn clock_gettime(
     let block = host_call.as_mut_block();
 
     let c = block.cursor();
-    let (_, buf) = unsafe { c.alloc::<libc::timespec>(1).or(Err(libc::EMSGSIZE))? };
+    let (_, buf) = c.alloc::<libc::timespec>(1).or(Err(libc::EMSGSIZE))?;
 
     let host_virt = blk_to_host_virt(buf.as_ptr());
 

@@ -223,7 +223,7 @@ impl<'a> Handler<'a> {
         let c = self.block.cursor();
         let trusted_len: usize = self.aex.gpr.rdx.into();
         let trusted: *mut u8 = self.aex.gpr.rsi.into();
-        let (_, untrusted) = unsafe { c.alloc::<u8>(trusted_len).or(Err(libc::EMSGSIZE))? };
+        let (_, untrusted) = c.alloc::<u8>(trusted_len).or(Err(libc::EMSGSIZE))?;
 
         let req = request!(libc::SYS_read => self.aex.gpr.rdi, untrusted, untrusted.len());
         let ret = unsafe { self.proxy(req)? };
@@ -298,7 +298,7 @@ impl<'a> Handler<'a> {
 
         let mut c = c;
         for (t, u) in trusted.iter_mut().zip(untrusted.iter_mut()) {
-            let (nc, us) = unsafe { c.alloc::<u8>(t.iov_len).or(Err(libc::EMSGSIZE))? };
+            let (nc, us) = c.alloc::<u8>(t.iov_len).or(Err(libc::EMSGSIZE))?;
             c = nc;
             u.iov_base = us.as_mut_ptr() as _;
             size += u.iov_len;
@@ -313,7 +313,9 @@ impl<'a> Handler<'a> {
         }
 
         let c = self.block.cursor();
-        let (c, _) = unsafe { c.alloc::<libc::iovec>(trusted.len()) }.or(Err(libc::EMSGSIZE))?;
+        let (c, _) = c
+            .alloc::<libc::iovec>(trusted.len())
+            .or(Err(libc::EMSGSIZE))?;
 
         let mut c = c;
         for t in trusted.iter_mut() {
@@ -520,7 +522,7 @@ impl<'a> Handler<'a> {
         let trusted = NonNull::<libc::timespec>::new(trusted).ok_or(libc::EFAULT)?;
 
         let c = self.block.cursor();
-        let (_, untrusted) = unsafe { c.alloc::<libc::timespec>(1).or(Err(libc::EMSGSIZE))? };
+        let (_, untrusted) = c.alloc::<libc::timespec>(1).or(Err(libc::EMSGSIZE))?;
         let req = request!(libc::SYS_clock_gettime => clk_id, untrusted);
         let res = unsafe { self.proxy(req)? };
 
