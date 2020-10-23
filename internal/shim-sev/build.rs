@@ -36,8 +36,6 @@ fn main() {
         .no_default_flags(true)
         .flag("-O2")
         .flag(debug_flag)
-        // Optimize for AMD Zen 2
-        .flag("-mtune=znver2")
         .files(&entries)
         .static_flag(true)
         .shared_flag(false)
