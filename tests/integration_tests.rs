@@ -132,6 +132,12 @@ fn clock_gettime() {
 
 #[test]
 #[serial]
+fn close() {
+    run_test("close", 0, None, None, None);
+}
+
+#[test]
+#[serial]
 fn write_stdout() {
     run_test("write_stdout", 0, None, &b"hi\n"[..], None);
 }

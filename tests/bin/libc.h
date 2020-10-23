@@ -181,3 +181,21 @@ gid_t getegid() {
     );
     return rax;
 }
+
+int close(int fd) {
+    ssize_t rax;
+
+    asm(
+        "syscall"
+        : "=a" (rax)
+        : "a" (SYS_close), "D" (fd)
+        : "%rcx", "%r11"
+    );
+
+    if (rax < 0) {
+        errno = -rax;
+        return -1;
+    }
+
+    return rax;
+}
