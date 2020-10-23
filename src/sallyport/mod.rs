@@ -67,6 +67,8 @@ impl Request {
             in("r10") usize::from(self.arg[3]),
             in("r8") usize::from(self.arg[4]),
             in("r9") usize::from(self.arg[5]),
+            lateout("rcx") _, // clobbered
+            lateout("r11") _, // clobbered
         );
 
         Reply {
