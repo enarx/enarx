@@ -167,6 +167,7 @@ pub trait SyscallHandler: AddressValidator + Sized {
             libc::SYS_getgid => self.getgid(),
             libc::SYS_geteuid => self.geteuid(),
             libc::SYS_getegid => self.getegid(),
+            libc::SYS_close => self.close(a.try_into().map_err(|_| libc::EINVAL)?),
 
             SYS_GETATT => self.get_attestation(),
 
