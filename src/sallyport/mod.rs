@@ -190,6 +190,14 @@ impl Block {
 /// Helper for allocation of untrusted memory in a Block.
 pub struct Cursor<'a>(&'a mut [u8]);
 
+/// Out of space
+///
+/// Indicates, that there is no space in the `Block` for the requested amount of bytes.
+///
+/// Because this crate is no_std, this error does not implement `std::error::Error`
+#[derive(Copy, Clone, Debug, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
+pub struct OutOfSpace;
+
 impl<'a> Cursor<'a> {
     /// Allocates an array, containing count number of T items. The result is uninitialized.
     ///
@@ -199,12 +207,12 @@ impl<'a> Cursor<'a> {
     pub unsafe fn alloc<T>(
         self,
         count: usize,
-    ) -> core::result::Result<(Cursor<'a>, &'a mut [MaybeUninit<T>]), ()> {
+    ) -> core::result::Result<(Cursor<'a>, &'a mut [MaybeUninit<T>]), OutOfSpace> {
         let mid = {
             let (padding, data, _) = self.0.align_to_mut::<MaybeUninit<T>>();
 
             if data.len() < count {
-                return Err(());
+                return Err(OutOfSpace);
             }
 
             padding.len() + size_of::<MaybeUninit<T>>() * count
@@ -220,7 +228,7 @@ impl<'a> Cursor<'a> {
     pub fn copy_from_slice<T: 'a + Copy>(
         self,
         src: &[T],
-    ) -> core::result::Result<(Cursor<'a>, &'a mut [T]), ()> {
+    ) -> core::result::Result<(Cursor<'a>, &'a mut [T]), OutOfSpace> {
         let (c, dst) = unsafe { self.alloc::<T>(src.len())? };
 
         unsafe {
@@ -243,7 +251,7 @@ impl<'a> Cursor<'a> {
         self,
         src: *const T,
         src_len: usize,
-    ) -> core::result::Result<(Cursor<'a>, *mut MaybeUninit<T>), ()> {
+    ) -> core::result::Result<(Cursor<'a>, *mut MaybeUninit<T>), OutOfSpace> {
         let (c, dst) = self.alloc::<T>(src_len)?;
 
         core::ptr::copy_nonoverlapping(src, dst.as_mut_ptr() as *mut _, src_len);
@@ -263,7 +271,7 @@ impl<'a> Cursor<'a> {
         src_len: usize,
         dst: *mut T,
         dst_len: usize,
-    ) -> core::result::Result<Cursor<'a>, ()> {
+    ) -> core::result::Result<Cursor<'a>, OutOfSpace> {
         assert!(src_len >= dst_len);
         let (c, src) = self.alloc::<T>(src_len)?;
 
@@ -277,7 +285,7 @@ impl<'a> Cursor<'a> {
     /// # Safety
     /// The caller has to ensure the `Cursor` contains valid data.
     #[allow(dead_code)]
-    pub unsafe fn read<T: 'a + Copy>(self) -> core::result::Result<(Cursor<'a>, T), ()> {
+    pub unsafe fn read<T: 'a + Copy>(self) -> core::result::Result<(Cursor<'a>, T), OutOfSpace> {
         let (c, src) = self.alloc::<T>(1)?;
 
         Ok((c, src[0].as_ptr().read()))
@@ -285,7 +293,7 @@ impl<'a> Cursor<'a> {
 
     /// Writes data into the cursor buffer.
     #[allow(dead_code)]
-    pub fn write<T: 'a + Copy>(self, src: &T) -> core::result::Result<Cursor<'a>, ()> {
+    pub fn write<T: 'a + Copy>(self, src: &T) -> core::result::Result<Cursor<'a>, OutOfSpace> {
         let (c, dst) = unsafe { self.alloc::<T>(1)? };
 
         unsafe {
@@ -304,7 +312,7 @@ impl<'a> Cursor<'a> {
     pub unsafe fn copy_into<T: 'a + Copy>(
         self,
         dst: NonNull<T>,
-    ) -> core::result::Result<Cursor<'a>, ()> {
+    ) -> core::result::Result<Cursor<'a>, OutOfSpace> {
         let (c, src) = self.alloc::<T>(1)?;
 
         core::ptr::write(dst.as_ptr(), src[0].as_ptr().read());
@@ -451,7 +459,7 @@ mod tests {
     }
 
     #[test]
-    fn test_read_write() -> std::result::Result<(), ()> {
+    fn test_read_write() -> std::result::Result<(), OutOfSpace> {
         #[derive(Debug, Clone, Copy, PartialEq)]
         #[repr(C, align(64))]
         struct Test {
@@ -478,7 +486,7 @@ mod tests {
     }
 
     #[test]
-    fn copy_into_raw_parts() -> std::result::Result<(), ()> {
+    fn copy_into_raw_parts() -> std::result::Result<(), OutOfSpace> {
         let mut block = Block::default();
 
         let c = block.cursor();
