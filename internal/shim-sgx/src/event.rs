@@ -12,6 +12,10 @@ const OP_SYSCALL: &[u8] = &[0x0f, 0x05];
 const OP_CPUID: &[u8] = &[0x0f, 0xa2];
 const SYS_ERESUME: usize = !0;
 
+// Enarx pseudo-syscall for attestation handling
+// See https://github.com/enarx/enarx-keepldr/issues/31
+const SYS_GETATT: i64 = 0xEA01;
+
 #[no_mangle]
 pub extern "C" fn event(
     _rdi: u64,
@@ -56,6 +60,7 @@ pub extern "C" fn event(
                         libc::SYS_madvise => h.madvise(),
                         libc::SYS_close => h.close(),
                         libc::SYS_poll => h.poll(),
+                        SYS_GETATT => h.get_att(),
 
                         _ if !crate::handler::TRACE => Err(libc::ENOSYS),
                         syscall => {

@@ -17,6 +17,9 @@ pub const TRACE: bool = false;
 const FAKE_UID: usize = 1000;
 const FAKE_GID: usize = 1000;
 
+// See https://github.com/enarx/enarx-keepldr/issues/31
+const SGX_TECH: usize = 2;
+
 // arch_prctl syscalls not available in the libc crate as of version 0.2.69
 const ARCH_SET_GS: usize = 0x1001;
 const ARCH_SET_FS: usize = 0x1002;
@@ -572,5 +575,13 @@ impl<'a> Handler<'a> {
         unsafe { c.copy_into_raw_parts(nfds as _, trusted, nfds as _) }.or(Err(libc::EMSGSIZE))?;
 
         Ok(result)
+    }
+
+    // Stub for get_attestation() pseudo syscall
+    // See: https://github.com/enarx/enarx-keepldr/issues/31
+    pub fn get_att(&mut self) -> sallyport::Result {
+        self.trace("get_att", 0);
+        let rep: sallyport::Reply = Ok([0.into(), SGX_TECH.into()]).into();
+        sallyport::Result::from(rep)
     }
 }

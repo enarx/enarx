@@ -21,6 +21,10 @@ use x86_64::{align_up, VirtAddr};
 const FAKE_UID: usize = 1000;
 const FAKE_GID: usize = 1000;
 
+// See https://github.com/enarx/enarx-keepldr/issues/31
+const SEV_TECH: usize = 1;
+const SYS_GETATT: usize = 0xEA01;
+
 #[repr(C)]
 struct X8664DoubleReturn {
     rax: u64,
@@ -178,8 +182,10 @@ extern "sysv64" fn syscall_rust(
     if nr >= 0xEA00 {
         // Enarx syscalls
 
-        // Fixme
-        let ret: sallyport::Result = Err(libc::ENOSYS);
+        let ret: sallyport::Result = match nr {
+            SYS_GETATT => Ok([0.into(), SEV_TECH.into()]),
+            _ => Err(libc::ENOSYS),
+        };
 
         match ret {
             Ok([rax, rdx]) => X8664DoubleReturn {
