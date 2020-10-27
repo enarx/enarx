@@ -174,3 +174,18 @@ fn get_att() {
 fn getuid() {
     run_test("getuid", 0, None, None, None);
 }
+
+#[test]
+fn geteuid() {
+    run_test("geteuid", 0, None, None, None);
+}
+
+#[test]
+fn getgid() {
+    run_test("getgid", 0, None, None, None);
+}
+
+#[test]
+fn getegid() {
+    run_test("getegid", 0, None, None, None);
+}
