@@ -21,6 +21,12 @@ use x86_64::{align_up, VirtAddr};
 const FAKE_UID: usize = 1000;
 const FAKE_GID: usize = 1000;
 
+#[repr(C)]
+struct X8664DoubleReturn {
+    rax: u64,
+    rdx: u64,
+}
+
 /// syscall service routine
 ///
 /// # Safety
@@ -76,7 +82,7 @@ pub unsafe fn _syscall_enter() -> ! {
     pop    r10
     pop    r11
     pop    rcx
-    pop    rdx
+    add    rsp,                     0x8               # skip rdx
     pop    rsi
     pop    rdi
 
@@ -93,10 +99,9 @@ pub unsafe fn _syscall_enter() -> ! {
     );
 }
 
-#[allow(clippy::many_single_char_names)]
-#[no_mangle]
 /// Handle a syscall in rust
-pub extern "C" fn syscall_rust(
+#[allow(clippy::many_single_char_names)]
+extern "sysv64" fn syscall_rust(
     a: Register<usize>,
     b: Register<usize>,
     c: Register<usize>,
@@ -104,7 +109,9 @@ pub extern "C" fn syscall_rust(
     e: Register<usize>,
     f: Register<usize>,
     nr: usize,
-) -> usize {
+) -> X8664DoubleReturn {
+    let orig_rdx: usize = c.into();
+
     /*
     #[cfg(debug_assertions)]
     eprintln!(
@@ -118,7 +125,7 @@ pub extern "C" fn syscall_rust(
         usize::from(f)
     );
     */
-    let do_syscall = || -> Result<usize, libc::c_int> {
+    let linux_syscall = || -> Result<usize, libc::c_int> {
         match nr as _ {
             libc::SYS_exit => exit(usize::from(a) as _),
             libc::SYS_exit_group => exit_group(usize::from(a) as _),
@@ -168,11 +175,34 @@ pub extern "C" fn syscall_rust(
         }
     };
 
-    let res = do_syscall().unwrap_or_else(|e| e.checked_neg().unwrap() as usize) as usize;
+    if nr >= 0xEA00 {
+        // Enarx syscalls
 
-    #[cfg(debug_assertions)]
-    eprintln!("SC> = {:#x}", res);
-    res
+        // Fixme
+        let ret: sallyport::Result = Err(libc::ENOSYS);
+
+        match ret {
+            Ok([rax, rdx]) => X8664DoubleReturn {
+                rax: rax.into(),
+                rdx: rdx.into(),
+            },
+            Err(e) => X8664DoubleReturn {
+                rax: e.checked_neg().unwrap() as _,
+                rdx: orig_rdx as _,
+            },
+        }
+    } else {
+        let res = linux_syscall().unwrap_or_else(|e| e.checked_neg().unwrap() as usize) as usize;
+
+        #[cfg(debug_assertions)]
+        eprintln!("SC> = {:#x}", res);
+
+        // Preserve `rdx` as it is normally not clobbered with a syscall
+        X8664DoubleReturn {
+            rax: res as _,
+            rdx: orig_rdx as _,
+        }
+    }
 }
 
 /// syscall
