@@ -29,15 +29,6 @@ const FAKE_GID: usize = 1000;
 #[inline(never)]
 #[naked]
 pub unsafe fn _syscall_enter() -> ! {
-    let rdi: usize;
-    let rsi: usize;
-    let rdx: usize;
-    let r10: usize;
-    let r8: usize;
-    let r9: usize;
-    let nr: usize;
-    let rbx: usize;
-
     use crate::gdt::{USER_CODE_SEGMENT, USER_DATA_SEGMENT};
     // TaskStateSegment.privilege_stack_table[0]
     const KERNEL_RSP_OFF: usize = size_of::<u32>();
@@ -56,79 +47,64 @@ pub unsafe fn _syscall_enter() -> ! {
     push   {3}
     push   rcx                                        # push userspace return pointer
 
-    push   rbx
+    # Arguments in registers:
+    # SYSV:    rdi, rsi, rdx, rcx, r8, r9
+    # SYSCALL: rdi, rsi, rdx, r10, r8, r9 and syscall number in rax
+    mov    rcx,                     r10
+
+    # save registers
     push   rdi
     push   rsi
+    push   rdx
     push   rcx
     push   r11
     push   r10
     push   r8
     push   r9
-    mov    rbx, rsp                                   # save the actual stack pointer
-    ",
-    const USR_RSP_OFF,
-    const KERNEL_RSP_OFF,
-    const USER_DATA_SEGMENT,
-    const USER_CODE_SEGMENT,
-    );
 
-    // In non optlevel reserve some redzone stack space
-    #[cfg(debug_assertions)]
-    asm!("sub rsp, 0x198");
+    # syscall number on the stack as the seventh argument
+    push   rax
 
-    asm!("",
-    lateout("rdi") rdi,
-    lateout("rsi") rsi,
-    lateout("rdx") rdx,
-    lateout("r10") r10,
-    lateout("r8") r8,
-    lateout("r9") r9,
-    lateout("rax") nr,
-    lateout("rbx") rbx,
-    options(pure, nomem, nostack)
-    );
+    call   {4}
 
-    // Arguments in registers:
-    // SYSCALL: rdi, rsi, rdx, r10, r8, r9 and syscall number in rax
+    # skip %rax pop, as it is the return value
+    add    rsp,                     0x8
 
-    let (rax, rdx) = syscall_rust(rdi, rsi, rdx, r10, r8, r9, nr);
-
-    asm!("
-    mov    rsp, rbx                                   # restore the stack pointer
+    # restore registers
     pop    r9
     pop    r8
     pop    r10
     pop    r11
     pop    rcx
+    pop    rdx
     pop    rsi
     pop    rdi
-    pop    rbx
 
     swapgs                                            # restore gs
 
     iretq
-    ", in("rbx") rbx, in("rax") rax, in("rdx") rdx, options(noreturn, nomem));
+    ",
+    const USR_RSP_OFF,
+    const KERNEL_RSP_OFF,
+    const USER_DATA_SEGMENT,
+    const USER_CODE_SEGMENT,
+    sym syscall_rust,
+    options(noreturn)
+    );
 }
 
-/// Handle a syscall in rust
 #[allow(clippy::many_single_char_names)]
 #[no_mangle]
-pub fn syscall_rust(
-    a: usize,
-    b: usize,
-    c: usize,
-    d: usize,
-    e: usize,
-    f: usize,
+/// Handle a syscall in rust
+pub extern "C" fn syscall_rust(
+    a: Register<usize>,
+    b: Register<usize>,
+    c: Register<usize>,
+    d: Register<usize>,
+    e: Register<usize>,
+    f: Register<usize>,
     nr: usize,
-) -> (usize, usize) {
-    let orig_rdx = c;
-    let a: Register<usize> = a.into();
-    let b: Register<usize> = b.into();
-    let c: Register<usize> = c.into();
-    let d: Register<usize> = d.into();
-    let e: Register<usize> = e.into();
-    let f: Register<usize> = f.into();
+) -> usize {
     /*
     #[cfg(debug_assertions)]
     eprintln!(
@@ -192,24 +168,11 @@ pub fn syscall_rust(
         }
     };
 
-    if nr >= 0xEA00 {
-        // Enarx syscalls
+    let res = do_syscall().unwrap_or_else(|e| e.checked_neg().unwrap() as usize) as usize;
 
-        // Fixme
-        let ret: sallyport::Result = Err(libc::ENOSYS);
-
-        match ret {
-            Err(e) => (e.checked_neg().unwrap() as usize, orig_rdx),
-            Ok([rax, rdx]) => (rax.into(), rdx.into()),
-        }
-    } else {
-        let res = do_syscall().unwrap_or_else(|e| e.checked_neg().unwrap() as usize) as usize;
-
-        #[cfg(debug_assertions)]
-        eprintln!("SC> = {:#x}", res);
-        // Preserve `rdx` as it is normally not clobbered with a syscall
-        (res, orig_rdx)
-    }
+    #[cfg(debug_assertions)]
+    eprintln!("SC> = {:#x}", res);
+    res
 }
 
 /// syscall
