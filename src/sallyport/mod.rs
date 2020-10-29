@@ -241,6 +241,26 @@ impl<'short, 'a: 'short> Cursor<'a> {
         Ok((c, dst))
     }
 
+    /// Copies data from a slice into the cursor buffer using self.alloc().
+    #[allow(dead_code)]
+    pub fn copy_into_slice<T: Copy>(
+        self,
+        src_len: usize,
+        dst: &mut [T],
+        dst_len: usize,
+    ) -> core::result::Result<Cursor<'a>, OutOfSpace> {
+        assert!(src_len >= dst_len);
+        assert!(dst.len() >= dst_len);
+
+        let (c, src) = self.alloc::<T>(src_len)?;
+
+        unsafe {
+            core::ptr::copy_nonoverlapping(src.as_ptr(), dst.as_mut_ptr() as _, dst_len);
+        }
+
+        Ok(c)
+    }
+
     /// Copies data from a raw slice pointer into the cursor buffer using self.alloc().
     ///
     /// The len argument is the number of **elements**, not the number of bytes.
