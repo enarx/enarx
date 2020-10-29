@@ -200,12 +200,12 @@ pub struct Cursor<'a>(&'a mut [u8]);
 #[derive(Copy, Clone, Debug, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct OutOfSpace;
 
-impl<'a> Cursor<'a> {
+impl<'short, 'a: 'short> Cursor<'a> {
     /// Allocates an array, containing count number of T items. The result is uninitialized.
     pub fn alloc<T>(
         self,
         count: usize,
-    ) -> core::result::Result<(Cursor<'a>, &'a mut [MaybeUninit<T>]), OutOfSpace> {
+    ) -> core::result::Result<(Cursor<'a>, &'short mut [MaybeUninit<T>]), OutOfSpace> {
         let mid = {
             let (padding, data, _) = unsafe { self.0.align_to_mut::<MaybeUninit<T>>() };
 
@@ -229,7 +229,7 @@ impl<'a> Cursor<'a> {
     pub fn copy_from_slice<T: 'a + Copy>(
         self,
         src: &[T],
-    ) -> core::result::Result<(Cursor<'a>, &'a mut [T]), OutOfSpace> {
+    ) -> core::result::Result<(Cursor<'a>, &'short mut [T]), OutOfSpace> {
         let (c, dst) = self.alloc::<T>(src.len())?;
 
         unsafe {
