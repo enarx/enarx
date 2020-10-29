@@ -138,6 +138,8 @@ dependencies = [
  "rcrt1",
  "sallyport",
  "spinning",
+ "syscall",
+ "untrusted",
  "walkdir",
  "x86_64",
 ]
@@ -149,6 +151,23 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ced8156fe289bee8576050d3924fe6f3926b552b41afe810f5461acaca42c9f1"
 dependencies = [
  "lock_api",
+]
+
+[[package]]
+name = "syscall"
+version = "0.1.0"
+dependencies = [
+ "libc",
+ "primordial",
+ "sallyport",
+ "untrusted",
+]
+
+[[package]]
+name = "untrusted"
+version = "0.1.0"
+dependencies = [
+ "primordial",
 ]
 
 [[package]]

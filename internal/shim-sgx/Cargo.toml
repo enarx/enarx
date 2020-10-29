@@ -13,6 +13,8 @@ test = false
 sallyport = { path = "../sallyport", default-features = false }
 rcrt1 = { path = "../rcrt1" }
 sgx-heap = { path = "../sgx-heap" }
+syscall = { path = "../syscall"}
+untrusted = { path = "../untrusted"}
 compiler_builtins = { version = "0.1", default-features = false, features = [ "mem" ] }
 sgx = { git = "https://github.com/enarx/sgx", rev = "512e077" }
 goblin = { version = "0.2", default-features = false, features = [ "elf64" ] }
