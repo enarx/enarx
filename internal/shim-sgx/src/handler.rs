@@ -131,7 +131,14 @@ impl<'a> Handler<'a> {
         self.block.msg.req = request!(SYS_CPUID => self.aex.gpr.rax, self.aex.gpr.rcx);
 
         unsafe {
+            // prevent earlier writes from being moved beyond this point
+            core::sync::atomic::compiler_fence(core::sync::atomic::Ordering::Release);
+
             syscall(self.aex, self.ctx);
+
+            // prevent later reads from being moved before this point
+            core::sync::atomic::compiler_fence(core::sync::atomic::Ordering::Acquire);
+
             self.aex.gpr.rax = self.block.msg.req.arg[0].into();
             self.aex.gpr.rbx = self.block.msg.req.arg[1].into();
             self.aex.gpr.rcx = self.block.msg.req.arg[2].into();
