@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use self::shim::{SYS_CPUID, SYS_ERESUME};
+use crate::backend::sgx::attestation::get_attestation;
 use crate::backend::{Command, Datum, Keep};
 use crate::binary::Component;
 use crate::sallyport;
@@ -20,10 +21,14 @@ use std::convert::TryInto;
 use std::path::Path;
 use std::sync::{Arc, RwLock};
 
+mod attestation;
 mod data;
 mod shim;
 
 const SHIM: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/bin/shim-sgx"));
+
+// See https://github.com/enarx/enarx-keepldr/issues/31
+const SYS_GETATT: usize = 0xEA01;
 
 impl From<crate::binary::Segment> for Segment {
     #[inline]
@@ -198,6 +203,20 @@ impl super::Thread for Thread {
                     },
 
                     SYS_ERESUME => Entry::Resume,
+                    SYS_GETATT => {
+                        let result = unsafe {
+                            get_attestation(
+                                self.block.msg.req.arg[0].into(),
+                                self.block.msg.req.arg[1].into(),
+                                self.block.msg.req.arg[2].into(),
+                                self.block.msg.req.arg[3].into(),
+                            )?
+                        };
+
+                        self.block.msg.rep = Ok([result.into(), 0.into()]).into();
+
+                        Entry::Enter
+                    }
                     _ => return Ok(Command::SysCall(&mut self.block)),
                 },
                 e => panic!("Unexpected AEX: {:?}", e),

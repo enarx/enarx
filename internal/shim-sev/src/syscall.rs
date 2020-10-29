@@ -195,7 +195,13 @@ impl SyscallHandler for Handler {
         eprintln!(")");
     }
 
-    fn get_attestation(&mut self) -> sallyport::Result {
+    fn get_attestation(
+        &mut self,
+        _nonce: UntrustedRef<u8>,
+        _nonce_len: libc::size_t,
+        _buf: UntrustedRefMut<u8>,
+        _buf_len: libc::size_t,
+    ) -> sallyport::Result {
         self.trace("get_att", 0);
         Ok([0.into(), SEV_TECH.into()])
     }

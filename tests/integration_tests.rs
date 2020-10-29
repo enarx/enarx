@@ -187,6 +187,12 @@ fn get_att() {
     run_test("get_att", 0, None, None, None);
 }
 
+#[cfg(feature = "backend-sgx")]
+#[test]
+fn sgx_get_att_quote() {
+    run_test("sgx_get_att_quote", 0, None, None, None);
+}
+
 #[test]
 #[serial]
 fn getuid() {

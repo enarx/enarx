@@ -7,8 +7,10 @@ use core::fmt::Write;
 use sallyport::{request, Block, Cursor, Request};
 use sgx::types::ssa::StateSaveArea;
 use sgx_heap::Heap;
-use syscall::{SyscallHandler, ARCH_GET_FS, ARCH_GET_GS, ARCH_SET_FS, ARCH_SET_GS, SGX_TECH};
-use untrusted::{AddressValidator, UntrustedRef, ValidateSlice};
+use syscall::{
+    SyscallHandler, ARCH_GET_FS, ARCH_GET_GS, ARCH_SET_FS, ARCH_SET_GS, SGX_TECH, SYS_GETATT,
+};
+use untrusted::{AddressValidator, UntrustedRef, UntrustedRefMut, ValidateSlice};
 
 pub const TRACE: bool = false;
 
@@ -367,8 +369,60 @@ impl<'a> SyscallHandler for Handler<'a> {
 
     // Stub for get_attestation() pseudo syscall
     // See: https://github.com/enarx/enarx-keepldr/issues/31
-    fn get_attestation(&mut self) -> sallyport::Result {
+    // NOTE: The Report will never be passed in from the code layer,
+    // so the nonce fields are not useful from the code --> shim in SGX.
+    // But SEV also uses this function signature and needs these fields.
+    // So we throw these two parameters away.
+    fn get_attestation(
+        &mut self,
+        _: UntrustedRef<u8>,
+        _: libc::size_t,
+        buf: UntrustedRefMut<u8>,
+        buf_len: libc::size_t,
+    ) -> sallyport::Result {
         self.trace("get_att", 0);
-        Ok([0.into(), SGX_TECH.into()])
+
+        // Validate output buf memory
+        let buf = buf.validate_slice(buf_len, self).ok_or(libc::EFAULT)?;
+
+        // Request TargetInfo from host by passing nonce as 0
+        let c = self.new_cursor();
+        let (_, shim_buf_ptr) = c.alloc::<u8>(buf_len).or(Err(libc::EMSGSIZE))?;
+        let req = request!(SYS_GETATT => 0, 0, shim_buf_ptr.as_ptr(), buf_len);
+        unsafe { self.proxy(req)? };
+
+        // Retrieve TargetInfo from sallyport block and call EREPORT to
+        // create Report from TargetInfo (TBD).
+        // TODO: See https://github.com/enarx/enarx-keepldr/issues/92.
+        let mut ti = [0u8; 512];
+        let ti_len = ti.len();
+        let c = self.new_cursor();
+        c.copy_into_slice(buf_len, ti.as_mut(), ti_len)
+            .or(Err(libc::EFAULT))?;
+        // ... Code to generate Report goes here ...
+
+        // Request Quote from host
+        // TODO: Send a real Report. See https://github.com/enarx/enarx-keepldr/issues/92.
+        let tmp_report = [0u8; 512];
+        let c = self.new_cursor();
+        let (c, shim_nonce_ptr) = c.copy_from_slice(&tmp_report).or(Err(libc::EMSGSIZE))?;
+        let (_, shim_buf_ptr) = c.alloc::<u8>(buf_len).or(Err(libc::EMSGSIZE))?;
+        let req = request!(SYS_GETATT => shim_nonce_ptr.as_ptr(), tmp_report.len(), shim_buf_ptr.as_ptr(), buf_len);
+        let result = unsafe { self.proxy(req)? };
+
+        // Pass Quote back to code layer in buf
+        let c = self.new_cursor();
+        let (c, _) = c.alloc::<u8>(tmp_report.len()).or(Err(libc::EMSGSIZE))?;
+
+        let result_len: usize = result[0].into();
+        if result_len > buf_len {
+            self.attacked()
+        }
+
+        c.copy_into_slice(buf_len, buf.as_mut(), result_len)
+            .or(Err(libc::EFAULT))?;
+
+        let rep: sallyport::Reply = Ok([result[0], SGX_TECH.into()]).into();
+        sallyport::Result::from(rep)
     }
 }
