@@ -37,34 +37,9 @@ The mechanism itself should be capable of being FIPS-certified.
 
 ## Getting Started
 
-### Building
-
-To build Enarx:
-
-1. Install [cargo-make](https://github.com/sagiegurari/cargo-make):
-
-```
-$ cargo install cargo-make
-```
-
-2. Build Enarx:
-
-```
-$ cargo make build
-```
-
-3. You can optionally run tests:
-
-```
-$ cargo make test
-```
-
-### More Information
-
-For more information, please try our
-[wiki](https://github.com/enarx/enarx/wiki), which includes further details on
-how to get more information.  It's also where we plan to keep up-to-date project
-information.
+Please check our [wiki](https://github.com/enarx/enarx/wiki), which includes
+further details on how to get more information.  It's also where we plan to
+keep up-to-date project information.
 
 Ready to dive in? Learn [how to
 contribute](https://github.com/enarx/enarx/wiki/How-to-contribute) on the wiki.
