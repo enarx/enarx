@@ -63,6 +63,7 @@ jobs:
           - sgx-heap
           - sallyport
           - untrusted
+          - syscall
           - shim-sgx
           - shim-sev
         profile:
