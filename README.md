@@ -73,7 +73,8 @@ computing.
 [Red Hat](https://www.redhat.com) employs many of the engineers who work on this
 project.
 
-### Packet
+### Equinix Metal
 
-[Packet](https://www.packet.com) currently provides development and testing
-infrastructure to the Enarx project from their easy to use bare-metal cloud.
+[Equinix Metal](https://metal.equinix.com/) currently provides development and
+testing infrastructure to the Enarx project from their easy to use bare-metal
+cloud.
