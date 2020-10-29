@@ -74,7 +74,7 @@ impl<'a> HostCall<'a> {
 
         port.write(1);
 
-        // prevent earlier reads from being moved before this point
+        // prevent later reads from being moved before this point
         core::sync::atomic::compiler_fence(core::sync::atomic::Ordering::Acquire);
 
         self.0.msg.rep.into()
