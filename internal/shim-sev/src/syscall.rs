@@ -16,8 +16,8 @@ use primordial::{Address, Register};
 use sallyport::{Cursor, Request};
 use spinning::MutexGuard;
 use syscall::{SyscallHandler, ARCH_GET_FS, ARCH_GET_GS, ARCH_SET_FS, ARCH_SET_GS, SEV_TECH};
-use untrusted::{AddressValidator, UntrustedRef};
-use x86_64::registers::wrfsbase;
+use untrusted::{AddressValidator, UntrustedRef, UntrustedRefMut, Validate};
+use x86_64::registers::{rdfsbase, rdgsbase, wrfsbase, wrgsbase};
 use x86_64::structures::paging::{Page, PageTableFlags, Size4KiB};
 use x86_64::{align_up, VirtAddr};
 
@@ -211,15 +211,37 @@ impl SyscallHandler for Handler {
         self.trace("arch_prctl", 2);
         match code {
             ARCH_SET_FS => {
+                // FIXME: check `addr` value
                 unsafe {
                     wrfsbase(addr);
                 }
                 eprintln!("SC> arch_prctl(ARCH_SET_FS, {:#x}) = 0", addr);
                 Ok(Default::default())
             }
-            ARCH_GET_FS => unimplemented!(),
-            ARCH_SET_GS => unimplemented!(),
-            ARCH_GET_GS => unimplemented!(),
+            ARCH_GET_FS => {
+                let addr = UntrustedRefMut::from(addr as *mut libc::c_ulong);
+                let addr = addr.validate(self).ok_or(libc::EFAULT)?;
+                unsafe {
+                    *addr = rdfsbase();
+                }
+                Ok(Default::default())
+            }
+            ARCH_SET_GS => {
+                // FIXME: check `addr` value
+                unsafe {
+                    wrgsbase(addr);
+                }
+                eprintln!("SC> arch_prctl(ARCH_SET_GS, {:#x}) = 0", addr);
+                Ok(Default::default())
+            }
+            ARCH_GET_GS => {
+                let addr = UntrustedRefMut::from(addr as *mut libc::c_ulong);
+                let addr = addr.validate(self).ok_or(libc::EFAULT)?;
+                unsafe {
+                    *addr = rdgsbase();
+                }
+                Ok(Default::default())
+            }
             x => {
                 eprintln!("SC> arch_prctl({:#x}, {:#x}) = -EINVAL", x, addr);
                 Err(libc::EINVAL)
