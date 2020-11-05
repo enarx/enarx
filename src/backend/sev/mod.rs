@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 mod builder;
+mod unattested_launch;
 
 use crate::backend::kvm::SHIM;
 use crate::backend::kvm::{Builder, Config};
@@ -13,6 +14,7 @@ use anyhow::Result;
 use std::arch::x86_64::__cpuid_count;
 use std::fs::OpenOptions;
 use std::mem::{transmute, MaybeUninit};
+use std::os::unix::net::UnixStream;
 use std::path::Path;
 use std::str::from_utf8;
 use std::sync::{Arc, RwLock};
@@ -240,10 +242,18 @@ impl backend::Backend for Backend {
         data
     }
 
-    fn build(&self, code: Component, _sock: Option<&Path>) -> Result<Arc<dyn Keep>> {
+    fn build(&self, code: Component, sock: Option<&Path>) -> Result<Arc<dyn Keep>> {
         let shim = Component::from_bytes(SHIM)?;
+        let sock = match sock {
+            Some(s) => UnixStream::connect(s)?,
+            None => {
+                let (synthetic_client, sock) = UnixStream::pair()?;
+                std::thread::spawn(move || unattested_launch::launch(synthetic_client));
+                sock
+            }
+        };
 
-        let vm = Builder::new(Config::default(), shim, code, builder::Sev).build()?;
+        let vm = Builder::new(Config::default(), shim, code, builder::Sev::new(sock)).build()?;
 
         Ok(Arc::new(RwLock::new(vm)))
     }

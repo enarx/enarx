@@ -3,16 +3,26 @@
 use crate::backend::kvm;
 
 use sev::firmware::Firmware;
-use sev::launch::{Launcher, Policy};
-use sev::session::Session;
+use sev::launch::{Launcher, Secret};
 
+use codicon::{Decoder, Encoder};
+use koine::attestation::sev::*;
 use kvm_ioctls::VmFd;
+use serde::Deserialize;
+use serde_cbor as serde_flavor;
 use x86_64::{PhysAddr, VirtAddr};
 
 use anyhow::Result;
 use std::convert::TryFrom;
+use std::os::unix::net::UnixStream;
 
-pub struct Sev;
+pub struct Sev(UnixStream);
+
+impl Sev {
+    pub fn new(sock: UnixStream) -> Self {
+        Self(sock)
+    }
+}
 
 impl kvm::Hook for Sev {
     fn code_loaded(&mut self, vm: &mut VmFd, addr_space: &[u8]) -> Result<()> {
@@ -20,12 +30,44 @@ impl kvm::Hook for Sev {
         let build = sev.platform_status().unwrap().build;
 
         let chain = sev::cached_chain::get()?;
+        let mut chain_container = Chain {
+            ark: vec![],
+            ask: vec![],
+            oca: vec![],
+            cek: vec![],
+            pek: vec![],
+            pdh: vec![],
+        };
+        chain.ca.ark.encode(&mut chain_container.ark, ())?;
+        chain.ca.ask.encode(&mut chain_container.ask, ())?;
+        chain.sev.oca.encode(&mut chain_container.oca, ())?;
+        chain.sev.cek.encode(&mut chain_container.cek, ())?;
+        chain.sev.pek.encode(&mut chain_container.pek, ())?;
+        chain.sev.pdh.encode(&mut chain_container.pdh, ())?;
 
-        let policy = Policy::default();
-        let session = Session::try_from(policy)?;
-        let start = session.start(chain)?;
-        let mut session = session.measure()?;
-        session.update_data(addr_space)?;
+        let generation = sev::Generation::try_from(&chain.sev)
+            .map_err(|_| std::io::Error::from(std::io::ErrorKind::Other))?;
+        let chain_packet = match generation {
+            sev::Generation::Naples => Message::CertificateChainNaples(chain_container),
+            sev::Generation::Rome => Message::CertificateChainRome(chain_container),
+        };
+        serde_flavor::to_writer(&self.0, &chain_packet)?;
+
+        let mut de = serde_flavor::Deserializer::from_reader(&self.0);
+        let start_packet = match Message::deserialize(&mut de)? {
+            Message::LaunchStart(ls) => LaunchStart {
+                policy: ls.policy,
+                cert: ls.cert,
+                session: ls.session,
+            },
+            _ => return Err(std::io::Error::from(std::io::ErrorKind::InvalidInput).into()),
+        };
+
+        let start = sev::launch::Start {
+            policy: serde_flavor::from_reader(start_packet.policy.as_slice())?,
+            cert: sev::certs::sev::Certificate::decode(start_packet.cert.as_slice(), ())?,
+            session: serde_flavor::from_reader(start_packet.session.as_slice())?,
+        };
 
         let (launcher, measurement) = {
             let launcher = Launcher::new(vm, &mut sev)?;
@@ -36,7 +78,29 @@ impl kvm::Hook for Sev {
             (launcher, measurement)
         };
 
-        let _ = session.verify(build, measurement)?;
+        let mut msr_container = Measurement {
+            build: vec![],
+            measurement: vec![],
+        };
+        serde_flavor::to_writer(&mut msr_container.build, &build)?;
+        serde_flavor::to_writer(&mut msr_container.measurement, &measurement)?;
+        let msr_packet = Message::Measurement(msr_container);
+        serde_flavor::to_writer(&self.0, &msr_packet)?;
+
+        let secret = match Message::deserialize(&mut de)? {
+            Message::Secret(bytes) => bytes,
+            _ => return Err(std::io::Error::from(std::io::ErrorKind::InvalidInput).into()),
+        };
+
+        if !secret.is_empty() {
+            let _secret: Secret = serde_flavor::from_reader(secret.as_slice())?;
+            // TODO: https://github.com/enarx/enarx-keepldr/issues/159
+            // Inject the secret!
+        }
+
+        let finish_packet = Message::Finish(Finish);
+        serde_flavor::to_writer(&self.0, &finish_packet)?;
+
         let _handle = launcher.finish()?;
 
         Ok(())
