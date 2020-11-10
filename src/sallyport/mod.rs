@@ -378,11 +378,11 @@ mod tests {
         // Test dup() success.
         let req = request!(libc::SYS_dup => 0usize);
         let rep = unsafe { req.syscall() };
-        let res = Result::from(rep).unwrap()[0].into();
-        assert_eq!(3usize, res);
+        let dup_fd: usize = Result::from(rep).unwrap()[0].into();
+        assert!(dup_fd > 0);
 
         // Test close() success.
-        let req = request!(libc::SYS_close => 3usize);
+        let req = request!(libc::SYS_close => dup_fd);
         let rep = unsafe { req.syscall() };
         let res = Result::from(rep).unwrap()[0].into();
         assert_eq!(0usize, res);
