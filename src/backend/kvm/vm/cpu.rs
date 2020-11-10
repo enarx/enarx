@@ -142,7 +142,7 @@ impl Thread for Cpu {
                 if cfg!(debug_assertions) {
                     Err(anyhow!("{:?} {:#x?}", exit_reason, self.fd.get_regs()))
                 } else {
-                    Err(anyhow!("{:?}"))
+                    Err(anyhow!("{:?}", exit_reason))
                 }
             }
         }
