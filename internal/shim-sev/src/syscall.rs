@@ -53,6 +53,9 @@ pub unsafe fn _syscall_enter() -> ! {
     push   {3}
     push   rcx                                        # push userspace return pointer
 
+    push   rbx
+    mov    rbx, rsp
+
     # Arguments in registers:
     # SYSV:    rdi, rsi, rdx, rcx, r8, r9
     # SYSCALL: rdi, rsi, rdx, r10, r8, r9 and syscall number in rax
@@ -62,7 +65,6 @@ pub unsafe fn _syscall_enter() -> ! {
     push   rdi
     push   rsi
     push   rdx
-    push   rcx
     push   r11
     push   r10
     push   r8
@@ -81,10 +83,11 @@ pub unsafe fn _syscall_enter() -> ! {
     pop    r8
     pop    r10
     pop    r11
-    pop    rcx
     add    rsp,                     0x8               # skip rdx
     pop    rsi
     pop    rdi
+
+    pop    rbx
 
     swapgs                                            # restore gs
 
