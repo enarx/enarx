@@ -178,7 +178,7 @@ _trampoline:
     // load stack in shim virtual address space
     lea     rsp,    [rip + _initial_shim_stack]
     // sub 8 because we push 8 bytes later and want 16 bytes align
-    add     rsp,    (SIZE_OF_INITIAL_STACK-8)
+    add     rsp,    SIZE_OF_INITIAL_STACK
 
     // save arg1
     push    rdi
@@ -194,13 +194,13 @@ _trampoline:
     pop     rdi
 
     // set arg2 to SEV C-Bit mask
-    mov     rsi,r12
-    xor     rbp,rbp
+    mov     rsi,    r12
+    xor     rbp,    rbp
 
-    // jump to _start_main
+    // call _start_main
     // arg1 %rdi  = address of SYSCALL_PAGE (boot_info)
     // arg2 %rsi  = SEV C-bit mask
-    jmp     _start_main
+    call    _start_main
 
 .section .bss
 .align 4096
