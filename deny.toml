@@ -15,6 +15,7 @@ allow = [
     "CC0-1.0",
     "ISC",
     "MIT",
+    "OpenSSL",
     "Zlib",
 ]
 # Lint level for licenses considered copyleft
@@ -25,7 +26,7 @@ copyleft = "deny"
 # * osi-only - The license will be approved if is OSI-approved *AND NOT* FSF
 # * fsf-only - The license will be approved if is FSF *AND NOT* OSI-approved
 # * neither - This predicate is ignored and the default lint level is used
-allow-osi-fsf-free = "neither"
+allow-osi-fsf-free = "either"
 # Lint level used when no other predicates are matched
 # 1. License isn't in the allow or deny lists
 # 2. License isn't copyleft
@@ -41,3 +42,11 @@ confidence-threshold = 0.8
 # If true, ignores workspace crates that aren't published, or are only
 # published to private registries
 ignore = false
+
+[[licenses.clarify]]
+name = "ring"
+version = "*"
+expression = "MIT AND ISC AND OpenSSL"
+license-files = [
+    { path = "LICENSE", hash = 0xbd0eed23 }
+]
