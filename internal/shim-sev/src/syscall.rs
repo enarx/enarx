@@ -43,15 +43,15 @@ pub unsafe fn _syscall_enter() -> ! {
 
     asm!("
     # prepare the stack for iretq and load the kernel rsp
-    swapgs                                            # set gs segment to TSS
-    mov    QWORD PTR gs:{0},        rsp               # save userspace rsp
-    mov    rsp,                     QWORD PTR gs:{1}  # load kernel rsp
-    push   {2}
-    push   QWORD PTR gs:{0}                           # push userspace rsp - stack_pointer_ring_3
-    mov    QWORD PTR gs:{0},        0x0               # clear userspace rsp in the TSS
-    push   r11                                        # push RFLAGS stored in r11
-    push   {3}
-    push   rcx                                        # push userspace return pointer
+    swapgs                                             # set gs segment to TSS
+    mov    QWORD PTR gs:{USR},      rsp                # save userspace rsp
+    mov    rsp,                     QWORD PTR gs:{KRN} # load kernel rsp
+    push   {USER_DATA_SEGMENT}
+    push   QWORD PTR gs:{USR}                          # push userspace rsp - stack_pointer_ring_3
+    mov    QWORD PTR gs:{USR},      0x0                # clear userspace rsp in the TSS
+    push   r11                                         # push RFLAGS stored in r11
+    push   {USER_CODE_SEGMENT}
+    push   rcx                                         # push userspace return pointer
 
     push   rbx
     mov    rbx, rsp
@@ -73,7 +73,7 @@ pub unsafe fn _syscall_enter() -> ! {
     # syscall number on the stack as the seventh argument
     push   rax
 
-    call   {4}
+    call   {syscall_rust}
 
     # skip %rax pop, as it is the return value
     add    rsp,                     0x8
@@ -93,11 +93,11 @@ pub unsafe fn _syscall_enter() -> ! {
 
     iretq
     ",
-    const USR_RSP_OFF,
-    const KERNEL_RSP_OFF,
-    const USER_DATA_SEGMENT,
-    const USER_CODE_SEGMENT,
-    sym syscall_rust,
+    USR = const USR_RSP_OFF,
+    KRN = const KERNEL_RSP_OFF,
+    USER_DATA_SEGMENT = const USER_DATA_SEGMENT,
+    USER_CODE_SEGMENT = const USER_CODE_SEGMENT,
+    syscall_rust = sym syscall_rust,
     options(noreturn)
     );
 }

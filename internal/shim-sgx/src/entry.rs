@@ -85,10 +85,10 @@ pub extern "C" fn entry(_rdi: u64, _rsi: u64, _rdx: u64, layout: &Layout, _r8: u
 
     unsafe {
         asm!(
-            "mov rsp, {}",
-            "jmp {}",
-            in(reg) &*handle,
-            in(reg) layout.code.start as u64 + hdr.e_entry,
+            "mov rsp, {SP}",
+            "jmp {START}",
+            SP = in(reg) &*handle,
+            START = in(reg) layout.code.start as u64 + hdr.e_entry,
             options(noreturn)
         )
     }

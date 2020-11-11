@@ -14,11 +14,11 @@ use x86_64::registers::rflags::RFlags;
 #[naked]
 pub unsafe fn usermode(ip: u64, sp: u64) -> ! {
     asm!("
-        push     {0}
-        push     {1}
-        push     {2}
-        push     {3}
-        push     {4}
+        push     {USER_DATA_SEGMENT}
+        push     {SP}
+        push     {RFLAGS}
+        push     {USER_CODE_SEGMENT}
+        push     {IP}
         xor      rax,                   rax
         xor      rbx,                   rbx
         xor      rcx,                   rcx
@@ -48,11 +48,11 @@ pub unsafe fn usermode(ip: u64, sp: u64) -> ! {
         # this sets the segments and rip from the stack
         iretq
           ",
-    const USER_DATA_SEGMENT,
-    in(reg) sp,
-    const RFlags::INTERRUPT_FLAG.bits(),
-    const USER_CODE_SEGMENT,
-    in(reg) ip,
+    USER_DATA_SEGMENT = const USER_DATA_SEGMENT,
+    SP = in(reg) sp,
+    RFLAGS = const RFlags::INTERRUPT_FLAG.bits(),
+    USER_CODE_SEGMENT = const USER_CODE_SEGMENT,
+    IP = in(reg) ip,
     options(noreturn, nomem)
     );
 }

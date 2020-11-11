@@ -74,13 +74,13 @@ pub fn get_cbit_mask() -> u64 {
 pub unsafe fn switch_shim_stack(ip: extern "C" fn() -> !, sp: u64) -> ! {
     assert_eq!(sp % 16, 0);
     asm!("
-        mov rsp, {0}
+        mov rsp, {SP}
         sub rsp, 8
         push rbp
-        call {1}
+        call {IP}
         ",
-        in(reg) sp,
-        in(reg) ip,
+        SP = in(reg) sp,
+        IP = in(reg) ip,
         options(noreturn, nomem)
     );
 }
