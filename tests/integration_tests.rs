@@ -15,6 +15,7 @@ const KEEP_BIN: &str = env!("CARGO_BIN_EXE_enarx-keepldr");
 const OUT_DIR: &str = env!("OUT_DIR");
 const TEST_BINS_OUT: &str = "bin";
 const TIMEOUT_SECS: u64 = 10;
+const MAX_ASSERT_ELEMENTS: usize = 100;
 
 /// Returns a handle to a child process through which output (stdout, stderr) can
 /// be accessed.
@@ -25,6 +26,8 @@ fn run_test<'a>(
     expected_stdout: impl Into<Option<&'a [u8]>>,
     expected_stderr: impl Into<Option<&'a [u8]>>,
 ) -> Output {
+    let expected_stdout = expected_stdout.into();
+    let expected_stderr = expected_stderr.into();
     let bin_path = Path::new(CRATE).join(OUT_DIR).join(TEST_BINS_OUT).join(bin);
 
     let mut child = Command::new(&String::from(KEEP_BIN))
@@ -63,19 +66,67 @@ fn run_test<'a>(
         )
     });
 
-    if let Some(expected_stdout) = expected_stdout.into() {
-        assert!(output.stdout.eq(expected_stdout));
+    // Output potential error messages
+    if expected_stderr.is_none() && !output.stderr.is_empty() {
+        let _ = std::io::stderr().write_all(&output.stderr);
     }
 
-    if let Some(expected_stderr) = expected_stderr.into() {
-        assert!(output.stderr.eq(expected_stderr));
+    if let Some(expected_stdout) = expected_stdout {
+        if output.stdout.len() < MAX_ASSERT_ELEMENTS && expected_stdout.len() < MAX_ASSERT_ELEMENTS
+        {
+            assert_eq!(
+                output.stdout, expected_stdout,
+                "Expected contents of stdout output differs"
+            );
+        } else {
+            let max_len = usize::min(output.stdout.len(), expected_stdout.len());
+            let max_len = max_len.min(MAX_ASSERT_ELEMENTS);
+            assert_eq!(
+                output.stdout[..max_len],
+                expected_stdout[..max_len],
+                "Expected contents of stdout output differs"
+            );
+            assert_eq!(
+                output.stdout.len(),
+                expected_stdout.len(),
+                "Expected length of stdout output differs"
+            );
+            assert_eq!(
+                output.stdout, expected_stdout,
+                "Expected contents of stdout output differs"
+            );
+        }
+    }
+
+    if let Some(expected_stderr) = expected_stderr {
+        if output.stderr.len() < MAX_ASSERT_ELEMENTS && expected_stderr.len() < MAX_ASSERT_ELEMENTS
+        {
+            assert_eq!(
+                output.stderr, expected_stderr,
+                "Expected contents of stderr output differs."
+            );
+        } else {
+            let max_len = usize::min(output.stderr.len(), expected_stderr.len());
+            let max_len = max_len.min(MAX_ASSERT_ELEMENTS);
+            assert_eq!(
+                output.stderr[..max_len],
+                expected_stderr[..max_len],
+                "Expected contents of stderr output differs."
+            );
+            assert_eq!(
+                output.stderr.len(),
+                expected_stderr.len(),
+                "Expected length of stderr output differs."
+            );
+            assert_eq!(
+                expected_stderr, output.stderr,
+                "Expected contents of stderr output differs."
+            );
+        }
     }
 
     if exit_status != status as i64 {
-        std::io::stderr()
-            .write_all(output.stderr.as_slice())
-            .unwrap();
-        assert_eq!(exit_status, status as i64);
+        assert_eq!(exit_status, status as i64, "Expected exit status differs.");
     }
 
     output
