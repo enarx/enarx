@@ -401,7 +401,7 @@ pub trait SyscallHandler: AddressValidator + Sized {
         let c = self.new_cursor();
 
         let (_, buf) = c.alloc::<libc::timespec>(1).or(Err(libc::EMSGSIZE))?;
-        let buf = buf.as_ptr();
+        let buf = buf[0].as_ptr();
         let host_virt = self.translate_shim_to_host_addr(buf);
 
         let result =
