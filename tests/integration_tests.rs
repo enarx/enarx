@@ -225,11 +225,26 @@ fn readv() {
 #[test]
 #[serial]
 fn echo() {
-    let mut input: Vec<u8> = Vec::with_capacity(4096);
+    let mut input: Vec<u8> = Vec::with_capacity(2 * 1024 * 1024);
+
     for i in 0..input.capacity() {
         input.push(i as _);
     }
     run_test("echo", 0, input.as_slice(), input.as_slice(), None);
+}
+
+#[test]
+#[serial]
+fn read_udp() {
+    // The maximum UDP message size is 65507, as determined by the following formula:
+    // 0xffff - (sizeof(minimal IP Header) + sizeof(UDP Header)) = 65535-(20+8) = 65507
+    const MAX_UDP_PACKET_SIZE: usize = 65507;
+
+    let mut input: Vec<u8> = Vec::with_capacity(MAX_UDP_PACKET_SIZE);
+    for i in 0..input.capacity() {
+        input.push(i as _);
+    }
+    run_test("read_udp", 0, input.as_slice(), input.as_slice(), None);
 }
 
 #[test]
