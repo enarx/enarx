@@ -5,6 +5,12 @@ use core::mem::MaybeUninit;
 use core::ptr::NonNull;
 use primordial::{Page, Register};
 
+/// The maximum size of a UDP packet
+///
+/// The maximum UDP message size is 65507, as determined by the following formula:
+/// 0xffff - (sizeof(minimal IP Header) + sizeof(UDP Header)) = 65535-(20+8) = 65507
+pub const MAX_UDP_PACKET_SIZE: usize = 65507;
+
 /// Creates a Request instance
 #[macro_export]
 macro_rules! request {
@@ -178,9 +184,10 @@ impl Default for Block {
 impl Block {
     /// Returns the capacity of `Block.buf`
     pub const fn buf_capacity() -> usize {
-        // FIXME: https://github.com/enarx/enarx-keepldr/issues/23
-        let page_num = if cfg!(test) { 1 } else { 512 };
-        page_num * Page::size() - size_of::<Message>()
+        // At least MAX_UDP_PACKET_SIZE rounded up Page::size() alignment
+        (MAX_UDP_PACKET_SIZE + size_of::<Message>() + Page::size() - 1) / Page::size()
+            * Page::size()
+            - size_of::<Message>()
     }
 
     /// Returns a Cursor for the Block
@@ -363,7 +370,13 @@ mod tests {
 
     #[test]
     fn block_size() {
-        assert_eq!(size_of::<Block>(), Page::size());
+        assert_eq!(size_of::<Block>() % Page::size(), 0);
+    }
+
+    #[test]
+    fn buf_capacity() {
+        assert!(Block::buf_capacity() > MAX_UDP_PACKET_SIZE);
+        assert!(Block::buf_capacity() - Page::size() < MAX_UDP_PACKET_SIZE);
     }
 
     #[test]
@@ -426,7 +439,9 @@ mod tests {
         let mut block = Block::default();
 
         let c = block.cursor();
-        assert!(c.alloc::<usize>(4096usize).is_err());
+        assert!(c
+            .alloc::<usize>(MAX_UDP_PACKET_SIZE + Page::size())
+            .is_err());
 
         let c = block.cursor();
         assert_eq!(c.alloc::<usize>(42usize).unwrap().1.len(), 42);
