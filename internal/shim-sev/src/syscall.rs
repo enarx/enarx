@@ -186,7 +186,7 @@ impl SyscallHandler for Handler {
         eprint!("{}(", name);
         for (i, arg) in self.argv[..argc].iter().copied().enumerate() {
             let prefix = if i > 0 { ", " } else { "" };
-            eprint!("{}0x{:x}", prefix, arg);
+            eprint!("{}{:#x}", prefix, arg);
         }
 
         eprintln!(")");
