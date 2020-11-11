@@ -9,7 +9,7 @@
 use core::convert::TryInto;
 use core::mem::MaybeUninit;
 use primordial::Register;
-use sallyport::{request, Cursor, Request, Result};
+use sallyport::{request, Block, Cursor, Request, Result};
 use untrusted::{AddressValidator, UntrustedRef, UntrustedRefMut, Validate, ValidateSlice};
 
 /// `get_attestation` syscall number
@@ -198,6 +198,9 @@ pub trait SyscallHandler: AddressValidator + Sized {
 
         let c = self.new_cursor();
 
+        // Limit the read to `Block::buf_capacity()`
+        let count = usize::min(count, Block::buf_capacity());
+
         let (_, hostbuf) = c.alloc::<u8>(count).or(Err(libc::EMSGSIZE))?;
         let hostbuf = hostbuf.as_ptr();
         let host_virt = self.translate_shim_to_host_addr(hostbuf);
@@ -211,7 +214,7 @@ pub trait SyscallHandler: AddressValidator + Sized {
         }
 
         let c = self.new_cursor();
-        c.copy_into_slice(count, buf.as_mut(), result_len)
+        c.copy_into_slice(count, buf[..count].as_mut(), result_len)
             .or(Err(libc::EFAULT))?;
 
         Ok(ret)
@@ -240,6 +243,9 @@ pub trait SyscallHandler: AddressValidator + Sized {
 
     /// syscall
     fn write(&mut self, fd: libc::c_int, buf: UntrustedRef<u8>, count: libc::size_t) -> Result {
+        // Limit the write to `Block::buf_capacity()`
+        let count = usize::min(count, Block::buf_capacity());
+
         let buf = buf.validate_slice(count, self).ok_or(libc::EFAULT)?;
 
         let c = self.new_cursor();
@@ -248,6 +254,13 @@ pub trait SyscallHandler: AddressValidator + Sized {
         let host_virt = self.translate_shim_to_host_addr(buf);
 
         let ret = unsafe { self.proxy(request!(libc::SYS_write => fd, host_virt, count))? };
+
+        let result_len: usize = ret[0].into();
+
+        if result_len > count {
+            self.attacked()
+        }
+
         Ok(ret)
     }
 
@@ -263,8 +276,19 @@ pub trait SyscallHandler: AddressValidator + Sized {
         let mut size = 0usize;
 
         for vec in iovec {
-            size +=
+            let written =
                 usize::from(self.write(fd, (vec.iov_base as *const u8).into(), vec.iov_len)?[0]);
+
+            if written > vec.iov_len {
+                self.attacked();
+            }
+
+            size += written;
+
+            if written != vec.iov_len {
+                // There was a short write, let userspace retry.
+                break;
+            }
         }
 
         Ok([size.into(), 0.into()])
