@@ -51,3 +51,5 @@ jobs:
     name: enarxbot
     steps:
       - uses: enarx/bot@master
+        with:
+          LABEL: 'enarxbot for enarx-keepldr'
