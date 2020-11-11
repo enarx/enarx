@@ -67,9 +67,12 @@ pub fn get_cbit_mask() -> u64 {
 #[allow(clippy::integer_arithmetic)]
 pub unsafe fn switch_shim_stack(ip: extern "C" fn() -> !, sp: u64) -> ! {
     assert_eq!(sp % 16, 0);
-    asm!(
-        "mov rsp, {0}",
-        "call {1}",
+    asm!("
+        mov rsp, {0}
+        sub rsp, 8
+        push rbp
+        call {1}
+        ",
         in(reg) sp,
         in(reg) ip,
         options(noreturn, nomem)
