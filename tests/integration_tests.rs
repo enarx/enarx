@@ -8,6 +8,7 @@ use std::slice::from_raw_parts_mut;
 use std::time::Duration;
 
 use process_control::{ChildExt, Output, Timeout};
+use serial_test::serial;
 
 const CRATE: &str = env!("CARGO_MANIFEST_DIR");
 const KEEP_BIN: &str = env!("CARGO_BIN_EXE_enarx-keepldr");
@@ -89,16 +90,19 @@ fn read_item<T: Copy>(mut rdr: impl Read) -> std::io::Result<T> {
 }
 
 #[test]
+#[serial]
 fn exit_zero() {
     run_test("exit_zero", 0, None, None, None);
 }
 
 #[test]
+#[serial]
 fn exit_one() {
     run_test("exit_one", 1, None, None, None);
 }
 
 #[test]
+#[serial]
 fn clock_gettime() {
     use libc::{clock_gettime, CLOCK_MONOTONIC};
 
@@ -127,16 +131,19 @@ fn clock_gettime() {
 }
 
 #[test]
+#[serial]
 fn write_stdout() {
     run_test("write_stdout", 0, None, &b"hi\n"[..], None);
 }
 
 #[test]
+#[serial]
 fn write_stderr() {
     run_test("write_stderr", 0, None, None, &b"hi\n"[..]);
 }
 
 #[test]
+#[serial]
 // FIXME this should not be ignored, this was applied as part
 // of a commit that must be reverted and implemented properly.
 #[ignore]
@@ -145,18 +152,21 @@ fn write_emsgsize() {
 }
 
 #[test]
+#[serial]
 fn read() {
     const INPUT: &[u8; 12] = b"hello world\n";
     run_test("read", 0, &INPUT[..], &INPUT[..], None);
 }
 
 #[test]
+#[serial]
 fn readv() {
     const INPUT: &[u8; 36] = b"hello, worldhello, worldhello, world";
     run_test("readv", 0, &INPUT[..], &INPUT[..], None);
 }
 
 #[test]
+#[serial]
 fn echo() {
     let mut input: Vec<u8> = Vec::with_capacity(4096);
     for i in 0..input.capacity() {
@@ -166,26 +176,31 @@ fn echo() {
 }
 
 #[test]
+#[serial]
 fn get_att() {
     run_test("get_att", 0, None, None, None);
 }
 
 #[test]
+#[serial]
 fn getuid() {
     run_test("getuid", 0, None, None, None);
 }
 
 #[test]
+#[serial]
 fn geteuid() {
     run_test("geteuid", 0, None, None, None);
 }
 
 #[test]
+#[serial]
 fn getgid() {
     run_test("getgid", 0, None, None, None);
 }
 
 #[test]
+#[serial]
 fn getegid() {
     run_test("getegid", 0, None, None, None);
 }

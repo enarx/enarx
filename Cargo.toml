@@ -53,3 +53,4 @@ walkdir = "2"
 
 [dev-dependencies]
 process_control = "2.0"
+serial_test = "0.5"
