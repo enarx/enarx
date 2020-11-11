@@ -32,7 +32,7 @@ backend-sgx = ["sgx"]
 
 [dependencies]
 sev = { git = "https://github.com/enarx/sev", features = ["openssl"], optional = true }
-sgx = { git = "https://github.com/enarx/sgx", rev = "512e077", features = ["asm", "crypto"], optional = true }
+sgx = { git = "https://github.com/enarx/sgx", rev = "5292e53", features = ["asm", "crypto"], optional = true }
 x86_64 = { version = "0.11", default-features = false, features = ["stable"], optional = true }
 kvm-bindings = { version = "0.3", optional = true }
 kvm-ioctls = { version = "0.5", optional = true }
