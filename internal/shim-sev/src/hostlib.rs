@@ -41,7 +41,7 @@ use primordial::Page;
 
 /// The first 2MB are unencrypted shared memory
 #[allow(clippy::integer_arithmetic)]
-pub const ALIGN_ABOVE_2MB: usize = bytes!(2; MiB);
+pub const MAX_SETUP_SIZE: usize = bytes!(2; MiB);
 
 #[inline(always)]
 #[allow(clippy::integer_arithmetic)]
@@ -124,12 +124,13 @@ impl BootInfo {
         code: Span<usize>,
     ) -> Result<Self, NoMemory> {
         debug_assert!(
-            setup.end < ALIGN_ABOVE_2MB,
-            "The setup area has to be smaller than 2MB"
+            setup.end < MAX_SETUP_SIZE,
+            "The setup area has to be smaller than 2MB < {}",
+            setup.end
         );
 
         // The first 2MB are unencrypted shared memory
-        let shim: Line<usize> = above(setup, shim.count, ALIGN_ABOVE_2MB)
+        let shim: Line<usize> = above(setup, shim.count, MAX_SETUP_SIZE)
             .ok_or(NoMemory(()))?
             .into();
 

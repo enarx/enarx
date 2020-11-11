@@ -3,13 +3,13 @@
 //! Functions needing `asm!` blocks
 
 use crate::addr::SHIM_VIRT_OFFSET;
-use crate::hostlib::ALIGN_ABOVE_2MB;
+use crate::hostlib::MAX_SETUP_SIZE;
 use core::mem::size_of;
 use x86_64::instructions::tables::lidt;
 use x86_64::structures::DescriptorTablePointer;
 
 #[allow(clippy::integer_arithmetic)]
-const SHIM_OFFSET: u64 = 1u64 + SHIM_VIRT_OFFSET + ALIGN_ABOVE_2MB as u64;
+const SHIM_OFFSET: u64 = 1u64 + SHIM_VIRT_OFFSET + MAX_SETUP_SIZE as u64;
 
 /// Provoke a triple fault to shutdown the machine
 ///
