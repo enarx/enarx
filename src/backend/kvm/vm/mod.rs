@@ -4,12 +4,13 @@ pub mod builder;
 mod cpu;
 mod mem;
 
+use crate::backend::kvm::shim::MAX_SETUP_SIZE;
 use crate::backend::{Keep, Thread};
 
 use cpu::Cpu;
 use mem::Region;
 
-pub use builder::{Builder, Config, Hook};
+pub use builder::{Builder, Hook, SetupRegion, N_SYSCALL_BLOCKS};
 pub use kvm_bindings::kvm_segment as KvmSegment;
 pub use kvm_bindings::kvm_userspace_memory_region as KvmUserspaceMemoryRegion;
 
@@ -81,7 +82,7 @@ impl Keep for RwLock<Vm> {
         vcpu.set_regs(&regs)?;
         vcpu.set_cpuid2(&keep.kvm.get_supported_cpuid(KVM_MAX_CPUID_ENTRIES)?)?;
 
-        let sallyport = VirtAddr::new(keep.syscall_start.as_u64() + (id * Page::size() as u64));
+        let sallyport = VirtAddr::new(keep.syscall_start.as_u64());
         let thread = Cpu::new(vcpu, sallyport, self.clone(), keep.shim_entry, keep.cr3)?;
         Ok(Box::new(thread))
     }

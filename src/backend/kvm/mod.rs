@@ -6,7 +6,7 @@ mod vm;
 
 pub const SHIM: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/bin/shim-sev"));
 
-pub use vm::{Builder, Config, Hook, Vm};
+pub use vm::{Builder, Hook, Vm};
 
 use crate::backend::{self, Datum, Keep};
 use crate::binary::Component;
@@ -56,7 +56,7 @@ impl backend::Backend for Backend {
     fn build(&self, code: Component, _sock: Option<&Path>) -> Result<Arc<dyn Keep>> {
         let shim = Component::from_bytes(SHIM)?;
 
-        let vm = Builder::new(Config::default(), shim, code, builder::Kvm).build()?;
+        let vm = Builder::new(shim, code, builder::Kvm).build()?;
 
         Ok(Arc::new(RwLock::new(vm)))
     }

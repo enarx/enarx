@@ -2,8 +2,8 @@
 
 use super::*;
 use crate::backend::kvm::shim::BootInfo;
-
 use crate::binary::Component;
+use crate::sallyport::Block;
 
 use anyhow::Result;
 use kvm_ioctls::{Kvm, VmFd};
@@ -14,24 +14,39 @@ use primordial::Page;
 use x86_64::structures::paging::page_table::{PageTable, PageTableFlags};
 use x86_64::{align_up, PhysAddr, VirtAddr};
 
-use std::mem::size_of;
-use std::num::NonZeroUsize;
+use std::mem::{align_of, size_of};
 
-// It is convenient and cheap to provision up to a maximum
-// thread count.
-const DEFAULT_MAX_CPU: usize = 256;
-
-pub struct Config {
-    pub n_syscall_pages: NonZeroUsize,
+/// The first part of the setup area of the VM
+///
+/// - The first page is a zero page.
+/// - The page tables follow the zero page.
+#[repr(C, align(4096))]
+pub struct SetupRegionPre {
+    zero_page: Page,
+    pml4t: PageTable,
+    pml3t_ident: PageTable,
 }
 
-impl Default for Config {
-    fn default() -> Self {
-        Self {
-            n_syscall_pages: NonZeroUsize::new(DEFAULT_MAX_CPU).unwrap(),
-        }
-    }
+/// The setup area of the VM
+///
+/// The address space needs to be laid out in a way that the shim
+/// is expecting. This means that:
+/// - The first page is a zero page.
+/// - The page tables follow the zero page.
+/// - The rest of the `MAX_SETUP_SIZE` bytes is consumed by an
+///   array of [`sallyport::Block`](crate::sallyport::Block)
+/// - The first shared [`sallyport::Block`](crate::sallyport::Block)
+///   contains the [`BootInfo`](crate::backend::kvm::shim::BootInfo) struct at start.
+///   The [`BootInfo`](crate::backend::kvm::shim::BootInfo)
+///   struct communicates other important values to the shim.
+#[repr(C, align(4096))]
+pub struct SetupRegion {
+    pre: SetupRegionPre,
+    syscall_blocks: [Block; N_SYSCALL_BLOCKS],
 }
+
+pub const N_SYSCALL_BLOCKS: usize =
+    (MAX_SETUP_SIZE - size_of::<SetupRegionPre>()) / size_of::<Block>();
 
 pub trait Hook {
     fn shim_loaded(&mut self, _vm: &mut VmFd, _addr_space: &[u8]) -> Result<()> {
@@ -51,34 +66,28 @@ pub struct Builder<T: Hook> {
     hook: T,
     shim: Component,
     code: Component,
-    config: Config,
 }
 
 struct Arch {
-    syscall_pages: VirtAddr,
+    syscall_blocks: VirtAddr,
     cr3: PhysAddr,
 }
 
 impl<T: Hook> Builder<T> {
-    pub fn new(config: Config, shim: Component, code: Component, hook: T) -> Self {
-        Self {
-            config,
-            shim,
-            code,
-            hook,
-        }
+    pub fn new(shim: Component, code: Component, hook: T) -> Self {
+        Self { shim, code, hook }
     }
     pub fn build(mut self) -> Result<Vm> {
         let kvm = Kvm::new()?;
         let mut fd = kvm.create_vm()?;
 
-        let boot_info = Self::calculate_setup_region(
-            &self.config,
-            self.shim.region().into(),
-            self.code.region().into(),
-        )?;
+        let mut boot_info =
+            Self::calculate_setup_region(self.shim.region().into(), self.code.region().into())?;
 
         let mem_size = align_up(boot_info.mem_size as _, bytes![2; MiB]);
+        // fill out remaining fields of `BootInfo`
+        boot_info.nr_syscall_blocks = N_SYSCALL_BLOCKS;
+        boot_info.mem_size = mem_size as _;
         let (map, region) = Self::allocate_address_space(mem_size as _)?;
         unsafe { fd.set_user_memory_region(region)? };
 
@@ -98,7 +107,7 @@ impl<T: Hook> Builder<T> {
             kvm,
             fd,
             regions: vec![Region::new(region, map)],
-            syscall_start: arch.syscall_pages,
+            syscall_start: arch.syscall_blocks,
             shim_entry,
             shim_start: PhysAddr::new(shim_start as _),
             cr3: arch.cr3,
@@ -107,19 +116,10 @@ impl<T: Hook> Builder<T> {
         Ok(vm)
     }
 
-    fn calculate_setup_region(
-        cfg: &Config,
-        shim_size: Span<usize>,
-        code_size: Span<usize>,
-    ) -> Result<BootInfo> {
-        let setup_size = Page::size()
-            + (Page::size() * cfg.n_syscall_pages.get())
-            + size_of::<PageTable>()
-            + size_of::<PageTable>();
-
+    fn calculate_setup_region(shim_size: Span<usize>, code_size: Span<usize>) -> Result<BootInfo> {
         let setup_size = Line {
             start: 0,
-            end: setup_size,
+            end: size_of::<SetupRegion>(),
         };
 
         let boot_info = BootInfo::calculate(setup_size, shim_size, code_size)
@@ -152,71 +152,38 @@ impl<T: Hook> Builder<T> {
     fn arch_specific_setup(&mut self, map: &Map<perms::ReadWrite>, boot_info: &BootInfo) -> Arch {
         use PageTableFlags as Flags;
 
-        let syscall_start;
-        let pml3t_ident;
-        let pml4t;
-        let zero;
+        // This assumes all the bytes in `map` are initialized with zero, which
+        // is normally the case with MAP_ANONYMOUS
+        debug_assert!(map.size() >= size_of::<SetupRegion>());
+        debug_assert_eq!(map.addr() % align_of::<SetupRegion>(), 0);
+        let setup = unsafe { &mut *(map.addr() as *mut SetupRegion) };
 
-        // The address space needs to be laid out in a way that the shim
-        // is expecting. This means that:
-        //
-        //  - The first page is a zero page.
-        //  - The N pages after the zero page are shared syscall pages.
-        //      - The first shared syscall page contains the BootInfo
-        //        struct. The BootInfo struct communicates other important
-        //        values to the shim.
-        //  - The page tables follow the syscall pages.
         unsafe {
-            let mut setup = VirtAddr::new(map.addr() as _);
-            // First page is zero page
-            zero = &mut *setup.as_mut_ptr::<Page>();
-            *zero = Page::default();
-            setup += size_of::<Page>();
-
-            // First shared syscall page gets a copy of the BootInfo struct
-            *setup.as_mut_ptr::<BootInfo>() = *boot_info;
-            syscall_start = setup;
-            setup += size_of::<Page>();
-
-            // Rest of the shared syscall pages should be zeroed
-            for _ in 1..self.config.n_syscall_pages.get() {
-                *setup.as_mut_ptr::<Page>() = Page::default();
-                setup += size_of::<Page>();
-            }
-
-            // Set up page tables
-            *setup.as_mut_ptr::<PageTable>() = PageTable::new();
-            pml4t = &mut *setup.as_mut_ptr::<PageTable>();
-            setup += size_of::<PageTable>();
-
-            *setup.as_mut_ptr::<PageTable>() = PageTable::new();
-            pml3t_ident = &mut *setup.as_mut_ptr::<PageTable>();
-            setup += size_of::<PageTable>();
+            std::ptr::copy_nonoverlapping(
+                boot_info,
+                &mut setup.syscall_blocks[0] as *mut Block as _,
+                1,
+            );
         }
 
-        let pml3t_ident_addr = VirtAddr::new(pml3t_ident as *const _ as u64);
+        let pml3t_ident_addr = VirtAddr::new(&setup.pre.pml3t_ident as *const _ as u64);
         let start = VirtAddr::new(map.addr() as u64);
         let pdpte = self.hook.to_guest_phys(pml3t_ident_addr, start);
-        pml4t[0].set_addr(pdpte, Flags::WRITABLE | Flags::PRESENT);
+        setup.pre.pml4t[0].set_addr(pdpte, Flags::WRITABLE | Flags::PRESENT);
 
         let pml3t_addr = self.hook.to_guest_phys(start, start);
         let flags = Flags::HUGE_PAGE | Flags::WRITABLE | Flags::PRESENT;
-        pml3t_ident[0].set_addr(pml3t_addr, flags);
+        setup.pre.pml3t_ident[0].set_addr(pml3t_addr, flags);
 
-        let syscall_pages = unsafe {
-            std::slice::from_raw_parts_mut(
-                syscall_start.as_mut_ptr::<Page>(),
-                self.config.n_syscall_pages.get(),
-            )
-        };
+        let pml4t = VirtAddr::new(&setup.pre.pml4t as *const _ as _);
 
-        let pml4t = VirtAddr::new(pml4t as *const _ as _);
         let cr3 = self.hook.to_guest_phys(pml4t, start);
+        let syscall_blocks = VirtAddr::from_ptr(setup.syscall_blocks.as_ptr());
 
         // The information returned here is used by the KVM VM during runtime
         // to create vCPUs.
         Arch {
-            syscall_pages: VirtAddr::new(&syscall_pages[0] as *const _ as _),
+            syscall_blocks,
             cr3,
         }
     }

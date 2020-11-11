@@ -78,6 +78,8 @@ pub struct BootInfo {
     pub code: Line<usize>,
     /// Memory size
     pub mem_size: usize,
+    /// Number of `sallyport::Block` provided
+    pub nr_syscall_blocks: usize,
 }
 
 /// Basic information about the host memory
@@ -145,6 +147,7 @@ impl BootInfo {
             shim,
             code,
             mem_size,
+            nr_syscall_blocks: 0,
         })
     }
 }

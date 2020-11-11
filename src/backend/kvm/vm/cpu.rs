@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use super::{KvmSegment, Vm};
+use super::{KvmSegment, Vm, N_SYSCALL_BLOCKS};
 
 use crate::backend::kvm::shim::{MemInfo, SYSCALL_TRIGGER_PORT};
 use crate::backend::{Command, Thread};
@@ -14,6 +14,7 @@ use x86_64::registers::control::{Cr0Flags, Cr4Flags};
 use x86_64::registers::model_specific::EferFlags;
 use x86_64::{PhysAddr, VirtAddr};
 
+use std::mem::size_of;
 use std::sync::{Arc, RwLock};
 
 pub struct Cpu {
@@ -90,11 +91,16 @@ impl Cpu {
 impl Thread for Cpu {
     fn enter(&mut self) -> Result<Command> {
         match self.fd.run()? {
-            VcpuExit::IoOut(port, _) => match port {
+            VcpuExit::IoOut(port, data) => match port {
                 SYSCALL_TRIGGER_PORT => {
                     let mut keep = self.keep.write().unwrap();
 
-                    let mut sallyport = unsafe { &mut *self.sallyport.as_mut_ptr::<Block>() };
+                    debug_assert_eq!(data.len(), 2);
+                    let block_nr = data[0] as usize + ((data[1] as usize) << 8);
+                    assert!(block_nr < N_SYSCALL_BLOCKS);
+
+                    let sallyport_offset = self.sallyport + (size_of::<Block>() * block_nr);
+                    let mut sallyport = unsafe { &mut *sallyport_offset.as_mut_ptr::<Block>() };
 
                     let syscall_nr: i64 = unsafe { sallyport.msg.req.num.into() };
 
@@ -112,6 +118,7 @@ impl Thread for Cpu {
                             sallyport.msg.rep = Reply::from(Ok(result));
                             Ok(Command::Continue)
                         }
+
                         SYS_ENARX_MEM_INFO => {
                             let mem_slots = keep.kvm.get_nr_memslots();
                             let virt_offset: i64 =

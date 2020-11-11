@@ -73,7 +73,11 @@ impl<'a> HostCall<'a> {
         // prevent earlier writes from being moved beyond this point
         core::sync::atomic::compiler_fence(core::sync::atomic::Ordering::Release);
 
-        port.write(1);
+        // FIXME: this should be the number of a free Block slot
+        // see https://github.com/enarx/enarx-keepldr/issues/155
+        let block_nr: u16 = 0;
+
+        port.write(block_nr);
 
         // prevent later reads from being moved before this point
         core::sync::atomic::compiler_fence(core::sync::atomic::Ordering::Acquire);
