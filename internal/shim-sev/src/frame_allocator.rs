@@ -210,7 +210,7 @@ impl FrameAllocator {
             for i in free.ent.iter() {
                 if i.start == 0 {
                     panic!(
-                        "Trying to get virtual offset from unmmapped location {:#?}",
+                        "Trying to get virtual offset from unmmapped location {:#x}",
                         addr
                     );
                 }
