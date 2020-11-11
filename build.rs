@@ -113,21 +113,38 @@ fn build_cc_tests(in_path: &Path, out_path: &Path) {
     }
 }
 
+fn create(path: &PathBuf) {
+    match std::fs::create_dir(&path) {
+        Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {}
+        Err(e) => {
+            eprintln!("Can't create {:#?} : {:#?}", path, e);
+            std::process::exit(1);
+        }
+        Ok(_) => {}
+    }
+}
+
 fn main() {
     println!("cargo:rerun-if-env-changed=OUT_DIR");
     println!("cargo:rerun-if-env-changed=PROFILE");
 
     let out_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap());
-    let out_dir_bin = out_dir.join("bin");
+    let out_dir_proto = out_dir.join("protos");
+    create(&out_dir_proto);
 
-    match std::fs::create_dir(&out_dir_bin) {
-        Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {}
-        Err(e) => {
-            eprintln!("Can't create {:#?} : {:#?}", out_dir_bin, e);
-            std::process::exit(1);
-        }
-        Ok(_) => {}
-    }
+    protobuf_codegen_pure::Codegen::new()
+        .out_dir(&out_dir_proto)
+        .inputs(&["src/protobuf/aesm-proto.proto"])
+        .include("src/protobuf")
+        .customize(protobuf_codegen_pure::Customize {
+            gen_mod_rs: Some(true),
+            ..Default::default()
+        })
+        .run()
+        .expect("Protobuf codegen failed");
+
+    let out_dir_bin = out_dir.join("bin");
+    create(&out_dir_bin);
 
     build_cc_tests(&Path::new(CRATE).join(TEST_BINS_IN), &out_dir_bin);
     build_rs_tests(&Path::new(CRATE).join(TEST_BINS_IN), &out_dir_bin);

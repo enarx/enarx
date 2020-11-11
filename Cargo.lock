@@ -213,6 +213,8 @@ dependencies = [
  "nbytes",
  "primordial",
  "process_control",
+ "protobuf",
+ "protobuf-codegen-pure",
  "serial_test",
  "sev",
  "sgx",
@@ -467,6 +469,31 @@ dependencies = [
 ]
 
 [[package]]
+name = "protobuf"
+version = "2.18.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6d147edb77bcccbfc81fabffdc7bd50c13e103b15ca1e27515fe40de69a5776b"
+
+[[package]]
+name = "protobuf-codegen"
+version = "2.18.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9e81f70c25aab9506f87253c55f7cdcd8917635d5597382958d20025c211bbbd"
+dependencies = [
+ "protobuf",
+]
+
+[[package]]
+name = "protobuf-codegen-pure"
+version = "2.18.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6af8d72d9e14fd41a954f4d5b310396151437c83d2bfcbf19d3073af90e46288"
+dependencies = [
+ "protobuf",
+ "protobuf-codegen",
+]
+
+[[package]]
 name = "quote"
 version = "1.0.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -577,7 +604,7 @@ dependencies = [
 [[package]]
 name = "sgx"
 version = "0.1.0"
-source = "git+https://github.com/enarx/sgx?rev=512e077#512e077654ddecc7ca25690b31fc25de9f4b2870"
+source = "git+https://github.com/enarx/sgx?rev=5292e53#5292e53679a29099d3c2570e2bcb66c9a84de0fd"
 dependencies = [
  "bitflags",
  "cc",
@@ -629,9 +656,9 @@ dependencies = [
 
 [[package]]
 name = "syn"
-version = "1.0.42"
+version = "1.0.48"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9c51d92969d209b54a98397e1b91c8ae82d8c87a7bb87df0b29aa2ad81454228"
+checksum = "cc371affeffc477f42a221a1e4297aedcea33d47d19b61455588bd9d8f6b19ac"
 dependencies = [
  "proc-macro2",
  "quote",
