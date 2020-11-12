@@ -61,6 +61,9 @@ pub unsafe fn _syscall_enter() -> ! {
     # SYSCALL: rdi, rsi, rdx, r10, r8, r9 and syscall number in rax
     mov    rcx,                     r10
 
+    # These will be preserved by `syscall_rust` via the SYS-V ABI
+    # rbx, rsp, rbp, r12, r13, r14, r15
+
     # save registers
     push   rdi
     push   rsi
@@ -83,11 +86,14 @@ pub unsafe fn _syscall_enter() -> ! {
     pop    r8
     pop    r10
     pop    r11
-    add    rsp,                     0x8               # skip rdx
+    add    rsp,                     0x8               # skip rdx, because it is a return value
     pop    rsi
     pop    rdi
 
     pop    rbx
+
+    xor    rcx,                     rcx               # do not leak contents to userspace
+    xor    r11,                     r11               # do not leak contents to userspace
 
     swapgs                                            # restore gs
 
