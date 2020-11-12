@@ -255,6 +255,7 @@ fn get_att() {
 
 #[cfg(feature = "backend-sgx")]
 #[test]
+#[serial]
 fn sgx_get_att_quote() {
     run_test("sgx_get_att_quote", 0, None, None, None);
 }
