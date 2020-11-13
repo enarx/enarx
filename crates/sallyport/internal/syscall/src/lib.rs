@@ -12,20 +12,7 @@ use primordial::Register;
 use sallyport::{request, Block, Cursor, Request, Result};
 use untrusted::{AddressValidator, UntrustedRef, UntrustedRefMut, Validate, ValidateSlice};
 
-/// `get_attestation` syscall number
-///
-/// See https://github.com/enarx/enarx-keepldr/issues/31
-pub const SYS_GETATT: i64 = 0xEA01;
-
-/// `get_attestation` technology return value
-///
-/// See https://github.com/enarx/enarx-keepldr/issues/31
-pub const SEV_TECH: usize = 1;
-
-/// `get_attestation` technology return value
-///
-/// See https://github.com/enarx/enarx-keepldr/issues/31
-pub const SGX_TECH: usize = 2;
+include!("../../../src/syscall/mod.rs");
 
 // arch_prctl syscalls not available in the libc crate as of version 0.2.69
 /// missing in libc
@@ -175,7 +162,7 @@ pub trait SyscallHandler: AddressValidator + Sized {
             libc::SYS_getegid => self.getegid(),
             libc::SYS_close => self.close(a.try_into().map_err(|_| libc::EINVAL)?),
 
-            SYS_GETATT => self.get_attestation(a.into(), b.into(), c.into(), d.into()),
+            SYS_ENARX_GETATT => self.get_attestation(a.into(), b.into(), c.into(), d.into()),
 
             _ => Err(libc::ENOSYS),
         };
