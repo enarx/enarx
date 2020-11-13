@@ -447,20 +447,26 @@ impl<'a> SyscallHandler for Handler<'a> {
         target_info.mrenclave.copy_from_slice(&ti[0..32]);
         target_info.attributes = att;
         let data = ReportData([0u8; 64]);
-        let _report: Report = unsafe { target_info.get_report(&data) };
+        let report: Report = unsafe { target_info.get_report(&data) };
 
         // Request Quote from host
-        // TODO: Send a real Report. See https://github.com/enarx/enarx-keepldr/issues/92.
-        let tmp_report = [0u8; 512];
+        let report_slice = &[report];
+        let report_bytes = unsafe {
+            core::slice::from_raw_parts(
+                report_slice.as_ptr() as *const _ as *const u8,
+                core::mem::size_of::<Report>(),
+            )
+        };
+
         let c = self.new_cursor();
-        let (c, shim_nonce_ptr) = c.copy_from_slice(&tmp_report).or(Err(libc::EMSGSIZE))?;
+        let (c, shim_nonce_ptr) = c.copy_from_slice(&report_bytes).or(Err(libc::EMSGSIZE))?;
         let (_, shim_buf_ptr) = c.alloc::<u8>(buf_len).or(Err(libc::EMSGSIZE))?;
-        let req = request!(SYS_ENARX_GETATT => shim_nonce_ptr.as_ptr(), tmp_report.len(), shim_buf_ptr.as_ptr(), buf_len);
+        let req = request!(SYS_ENARX_GETATT => shim_nonce_ptr.as_ptr(), report_bytes.len(), shim_buf_ptr.as_ptr(), buf_len);
         let result = unsafe { self.proxy(req)? };
 
         // Pass Quote back to code layer in buf
         let c = self.new_cursor();
-        let (c, _) = c.alloc::<u8>(tmp_report.len()).or(Err(libc::EMSGSIZE))?;
+        let (c, _) = c.alloc::<u8>(report_bytes.len()).or(Err(libc::EMSGSIZE))?;
 
         let result_len: usize = result[0].into();
         if result_len > buf_len {
