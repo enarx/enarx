@@ -34,3 +34,22 @@ pub const SEV_TECH: usize = 1;
 /// See https://github.com/enarx/enarx-keepldr/issues/31
 #[allow(dead_code)]
 pub const SGX_TECH: usize = 2;
+
+/// Size in bytes of expected SGX Quote
+// TODO: Determine length of Quote of PCK cert type
+#[allow(dead_code)]
+pub const SGX_QUOTE_SIZE: usize = 512;
+
+/// Size in bytes of expected SGX QE TargetInfo
+#[allow(dead_code)]
+pub const SGX_TI_SIZE: usize = 512;
+
+/// Dummy value returned when daemon to return SGX TargetInfo is
+/// not available on the system.
+#[allow(dead_code)]
+pub const SGX_DUMMY_TI: [u8; SGX_TI_SIZE] = [32u8; SGX_TI_SIZE];
+
+/// Dummy value returned when daemon to return SGX Quote is not
+/// available on the system.
+#[allow(dead_code)]
+pub const SGX_DUMMY_QUOTE: [u8; SGX_QUOTE_SIZE] = [44u8; SGX_QUOTE_SIZE];

@@ -1,87 +1,73 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use std::io::{Error, ErrorKind};
+use crate::syscall::{SGX_DUMMY_QUOTE, SGX_DUMMY_TI, SGX_QUOTE_SIZE, SGX_TI_SIZE};
+
 use std::slice::from_raw_parts_mut;
 
-const QUOTE_SIZE: usize = 512; // TODO: Determine length of Quote of PCK cert type
-const TI_SIZE: usize = 512;
-const TMP_TI: [u8; TI_SIZE] = [32u8; TI_SIZE];
-const TMP_QUOTE: [u8; QUOTE_SIZE] = [44u8; QUOTE_SIZE];
+/// Fills the Target Info of the QE into the output buffer specified and
+/// returns the number of bytes written.
+// TODO: Replace synthetic TargetInfo with real TargetInfo.
+fn get_ti(out_buf: &mut [u8]) -> usize {
+    assert_eq!(out_buf.len(), SGX_TI_SIZE, "Invalid size of output buffer");
+    out_buf.copy_from_slice(&SGX_DUMMY_TI);
+    SGX_TI_SIZE
+}
 
-/// Returns either the size required for the output buffer, or the number of bytes written to the
-/// output buffer. Depending on parameters, the output buffer will be filled with the Target Info
-/// for the QE, or a Quote verifying a Report.
-pub fn get_attestation(
-    nonce: usize,
-    _nonce_len: usize,
-    buf: usize,
-    buf_len: usize,
-) -> Result<usize, Error> {
-    // If the nonce is 0 (NULL), fills the Target Info of the QE into the output buffer
-    // and returns the number of bytes written.
+/// Fills the Quote obtained from the AESMD for the Report specified into
+/// the output buffer specified and returns the number of bytes written.
+// TODO: Replace synthetic Quote with real Quote.
+fn get_quote(_report: &[u8], out_buf: &mut [u8]) -> usize {
+    assert_eq!(
+        out_buf.len(),
+        SGX_QUOTE_SIZE,
+        "Invalid size of output buffer"
+    );
+    out_buf.copy_from_slice(&SGX_DUMMY_QUOTE);
+    SGX_QUOTE_SIZE
+}
+
+/// Returns the number of bytes written to the output buffer. Depending on
+/// whether the specified nonce is NULL, the output buffer will be filled with the
+/// Target Info for the QE, or a Quote verifying a Report.
+pub fn get_attestation(nonce: usize, _nonce_len: usize, buf: usize, buf_len: usize) -> usize {
+    let out_buf: &mut [u8] = unsafe { from_raw_parts_mut(buf as *mut u8, buf_len) };
+
     if nonce == 0 {
-        // TODO: Populate with real Target Info (https://github.com/enarx/enarx-keepldr/issues/92).
-        let b: &mut [u8] = unsafe { from_raw_parts_mut(buf as *mut u8, buf_len) };
-
-        if b.len() != TMP_TI.len() {
-            Err(Error::new(
-                ErrorKind::InvalidData,
-                "Unable to copy TargetInfo to buffer",
-            ))
-        } else {
-            b.copy_from_slice(&TMP_TI);
-            Ok(TI_SIZE)
-        }
-
-    // If the nonce in not 0, fills the Quote obtained from the AESMD for the report
-    // specified in the nonce field into the output buffer and returns the number of
-    // bytes written.
+        get_ti(out_buf)
     } else {
-        // NOTE: Fill this in with real implementation calling out to AESMD
-        // (https://github.com/enarx/enarx-keepldr/issues/92).
-        let b: &mut [u8] = unsafe { from_raw_parts_mut(buf as *mut u8, buf_len) };
-
-        if b.len() != TMP_QUOTE.len() {
-            Err(Error::new(
-                ErrorKind::InvalidData,
-                "Unable to copy Quote to buffer",
-            ))
-        } else {
-            b.copy_from_slice(&TMP_QUOTE);
-            Ok(QUOTE_SIZE)
-        }
+        let tmp_report = [0u8; 512];
+        get_quote(&tmp_report, out_buf)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    const REPORT_SIZE: usize = 512; // TODO: Determine length of Report
+    const REPORT_SIZE: usize = 432;
 
     #[test]
     fn req_ti() {
-        let output = [1u8; TI_SIZE];
+        let output = [1u8; SGX_TI_SIZE];
         assert_eq!(
-            get_attestation(0, 0, output.as_ptr() as usize, output.len()).unwrap(),
-            TI_SIZE
+            get_attestation(0, 0, output.as_ptr() as usize, output.len()),
+            SGX_TI_SIZE
         );
-        assert_eq!(output, TMP_TI);
+        assert_eq!(output, SGX_DUMMY_TI);
     }
 
     #[test]
     fn req_quote() {
         let input = [1u8; REPORT_SIZE];
-        let output = [1u8; QUOTE_SIZE];
+        let output = [1u8; SGX_QUOTE_SIZE];
         assert_eq!(
             get_attestation(
                 input.as_ptr() as usize,
                 input.len(),
                 output.as_ptr() as usize,
                 output.len()
-            )
-            .unwrap(),
-            QUOTE_SIZE
+            ),
+            SGX_QUOTE_SIZE
         );
-        assert_eq!(output, TMP_QUOTE);
+        assert_eq!(output, SGX_DUMMY_QUOTE);
     }
 }
