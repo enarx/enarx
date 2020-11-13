@@ -43,12 +43,6 @@ use primordial::Page;
 #[allow(clippy::integer_arithmetic)]
 pub const ALIGN_ABOVE_2MB: usize = bytes!(2; MiB);
 
-/// Enarx syscall extension: get `MemInfo` from the host
-pub const SYS_ENARX_MEM_INFO: i64 = 33333;
-
-/// Enarx syscall extension: request an additional memory region
-pub const SYS_ENARX_BALLOON_MEMORY: i64 = 33334;
-
 #[inline(always)]
 #[allow(clippy::integer_arithmetic)]
 const fn lower(value: usize, boundary: usize) -> usize {

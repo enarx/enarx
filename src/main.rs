@@ -78,6 +78,7 @@
 mod backend;
 mod binary;
 mod sallyport;
+mod syscall;
 
 // workaround for sallyport tests, until we have internal crates
 pub use sallyport::Request;

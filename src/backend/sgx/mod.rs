@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use self::shim::{SYS_CPUID, SYS_ERESUME};
 use crate::backend::sgx::attestation::get_attestation;
 use crate::backend::{Command, Datum, Keep};
 use crate::binary::Component;
 use crate::sallyport;
+use crate::syscall::{SYS_ENARX_CPUID, SYS_ENARX_ERESUME, SYS_ENARX_GETATT};
 
 use anyhow::{anyhow, Result};
 use lset::Span;
@@ -26,9 +26,6 @@ mod data;
 mod shim;
 
 const SHIM: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/bin/shim-sgx"));
-
-// See https://github.com/enarx/enarx-keepldr/issues/31
-const SYS_GETATT: usize = 0xEA01;
 
 impl From<crate::binary::Segment> for Segment {
     #[inline]
@@ -188,7 +185,7 @@ impl super::Thread for Thread {
             how = match self.thread.enter(how, &mut self.block) {
                 Err(Some(ei)) if ei.trap == Exception::InvalidOpcode => Entry::Enter,
                 Ok(_) => match unsafe { self.block.msg.req }.num.into() {
-                    SYS_CPUID => unsafe {
+                    SYS_ENARX_CPUID => unsafe {
                         let cpuid = core::arch::x86_64::__cpuid_count(
                             self.block.msg.req.arg[0].try_into().unwrap(),
                             self.block.msg.req.arg[1].try_into().unwrap(),
@@ -201,9 +198,7 @@ impl super::Thread for Thread {
 
                         Entry::Enter
                     },
-
-                    SYS_ERESUME => Entry::Resume,
-                    SYS_GETATT => {
+                    SYS_ENARX_GETATT => {
                         let result = unsafe {
                             get_attestation(
                                 self.block.msg.req.arg[0].into(),
@@ -217,6 +212,7 @@ impl super::Thread for Thread {
 
                         Entry::Enter
                     }
+                    SYS_ENARX_ERESUME => Entry::Resume,
                     _ => return Ok(Command::SysCall(&mut self.block)),
                 },
                 e => panic!("Unexpected AEX: {:?}", e),

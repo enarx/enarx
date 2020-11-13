@@ -9,6 +9,9 @@
 #define STACK   (9 * 8)
 #define SHIM    (10 * 8)
 
+// Keep in sync with syscall::SYS_ENARX_ERESUME
+#define SYS_ENARX_ERESUME (~0)
+
 # Clear all preserved (callee-saved) registers (except %rsp)
 .macro  zerop
     xor     %rbx,                   %rbx
@@ -182,7 +185,7 @@ _start:
     zeroa                                           # Clear argument registers
     zerof   %r11                                    # Clear CPU flags
     zerox                                           # Clear xCPU state
-    mov     $~0,                    %r11            # Indicate ERESUME to VDSO handler
+    mov     $SYS_ENARX_ERESUME,     %r11            # Indicate ERESUME to VDSO handler
 
     # ENCLU[EEXIT]
 .Leexit:

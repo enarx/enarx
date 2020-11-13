@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::hostlib::SYS_CPUID;
 use crate::Layout;
 
 use core::fmt::Write;
@@ -8,7 +7,8 @@ use sallyport::{request, Block, Cursor, Request};
 use sgx::types::ssa::StateSaveArea;
 use sgx_heap::Heap;
 use syscall::{
-    SyscallHandler, ARCH_GET_FS, ARCH_GET_GS, ARCH_SET_FS, ARCH_SET_GS, SGX_TECH, SYS_GETATT,
+    SyscallHandler, ARCH_GET_FS, ARCH_GET_GS, ARCH_SET_FS, ARCH_SET_GS, SGX_TECH, SYS_ENARX_CPUID,
+    SYS_ENARX_GETATT,
 };
 use untrusted::{AddressValidator, UntrustedRef, UntrustedRefMut, ValidateSlice};
 
@@ -72,7 +72,7 @@ impl<'a> Handler<'a> {
             );
         }
 
-        self.block.msg.req = request!(SYS_CPUID => self.aex.gpr.rax, self.aex.gpr.rcx);
+        self.block.msg.req = request!(SYS_ENARX_CPUID => self.aex.gpr.rax, self.aex.gpr.rcx);
 
         unsafe {
             // prevent earlier writes from being moved beyond this point
@@ -388,7 +388,7 @@ impl<'a> SyscallHandler for Handler<'a> {
         // Request TargetInfo from host by passing nonce as 0
         let c = self.new_cursor();
         let (_, shim_buf_ptr) = c.alloc::<u8>(buf_len).or(Err(libc::EMSGSIZE))?;
-        let req = request!(SYS_GETATT => 0, 0, shim_buf_ptr.as_ptr(), buf_len);
+        let req = request!(SYS_ENARX_GETATT => 0, 0, shim_buf_ptr.as_ptr(), buf_len);
         unsafe { self.proxy(req)? };
 
         // Retrieve TargetInfo from sallyport block and call EREPORT to
@@ -407,7 +407,7 @@ impl<'a> SyscallHandler for Handler<'a> {
         let c = self.new_cursor();
         let (c, shim_nonce_ptr) = c.copy_from_slice(&tmp_report).or(Err(libc::EMSGSIZE))?;
         let (_, shim_buf_ptr) = c.alloc::<u8>(buf_len).or(Err(libc::EMSGSIZE))?;
-        let req = request!(SYS_GETATT => shim_nonce_ptr.as_ptr(), tmp_report.len(), shim_buf_ptr.as_ptr(), buf_len);
+        let req = request!(SYS_ENARX_GETATT => shim_nonce_ptr.as_ptr(), tmp_report.len(), shim_buf_ptr.as_ptr(), buf_len);
         let result = unsafe { self.proxy(req)? };
 
         // Pass Quote back to code layer in buf

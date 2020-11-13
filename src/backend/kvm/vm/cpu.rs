@@ -2,11 +2,10 @@
 
 use super::{KvmSegment, Vm};
 
-use crate::backend::kvm::shim::{
-    MemInfo, SYSCALL_TRIGGER_PORT, SYS_ENARX_BALLOON_MEMORY, SYS_ENARX_MEM_INFO,
-};
+use crate::backend::kvm::shim::{MemInfo, SYSCALL_TRIGGER_PORT};
 use crate::backend::{Command, Thread};
 use crate::sallyport::{Block, Reply};
+use crate::syscall::{SYS_ENARX_BALLOON_MEMORY, SYS_ENARX_MEM_INFO};
 
 use anyhow::{anyhow, Result};
 use kvm_ioctls::{VcpuExit, VcpuFd};

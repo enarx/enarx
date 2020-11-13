@@ -5,13 +5,12 @@ use sgx::types::ssa::{Exception, StateSaveArea};
 
 use crate::handler::{Context, Handler};
 use crate::Layout;
-use syscall::SyscallHandler;
+use syscall::{SyscallHandler, SYS_ENARX_ERESUME};
 
 // Opcode constants, details in Volume 2 of the Intel 64 and IA-32 Architectures Software
 // Developer's Manual
 const OP_SYSCALL: &[u8] = &[0x0f, 0x05];
 const OP_CPUID: &[u8] = &[0x0f, 0xa2];
-const SYS_ERESUME: usize = !0;
 
 #[no_mangle]
 pub extern "C" fn event(
@@ -70,5 +69,5 @@ pub extern "C" fn event(
         }
     }
 
-    block.msg.req.num = SYS_ERESUME.into();
+    block.msg.req.num = SYS_ENARX_ERESUME.into();
 }

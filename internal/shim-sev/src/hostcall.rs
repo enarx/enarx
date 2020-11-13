@@ -4,13 +4,14 @@
 
 use crate::addr::{HostVirtAddr, ShimPhysUnencryptedAddr};
 use crate::asm::_enarx_asm_triple_fault;
-use crate::hostlib::{MemInfo, SYSCALL_TRIGGER_PORT, SYS_ENARX_BALLOON_MEMORY, SYS_ENARX_MEM_INFO};
+use crate::hostlib::{MemInfo, SYSCALL_TRIGGER_PORT};
 use crate::lazy::Lazy;
 use crate::SHIM_HOSTCALL_VIRT_ADDR;
 use core::convert::TryFrom;
 use primordial::{Address, Register};
 use sallyport::{request, Block};
 use spinning::Mutex;
+use syscall::{SYS_ENARX_BALLOON_MEMORY, SYS_ENARX_MEM_INFO};
 use x86_64::instructions::port::Port;
 
 /// Host file descriptor
