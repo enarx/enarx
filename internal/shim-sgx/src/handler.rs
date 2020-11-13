@@ -405,13 +405,16 @@ impl<'a> SyscallHandler for Handler<'a> {
     ) -> sallyport::Result {
         self.trace("get_att", 0);
 
+        // Used internally for buffer size to host when getting TargetInfo
+        const REPORT_LEN: usize = 512;
+
         // Validate output buf memory
         let buf = buf.validate_slice(buf_len, self).ok_or(libc::EFAULT)?;
 
         // Request TargetInfo from host by passing nonce as 0
         let c = self.new_cursor();
         let (_, shim_buf_ptr) = c.alloc::<u8>(buf_len).or(Err(libc::EMSGSIZE))?;
-        let req = request!(SYS_ENARX_GETATT => 0, 0, shim_buf_ptr.as_ptr(), buf_len);
+        let req = request!(SYS_ENARX_GETATT => 0, 0, shim_buf_ptr.as_ptr(), REPORT_LEN);
         unsafe { self.proxy(req)? };
 
         // Retrieve TargetInfo from sallyport block and call EREPORT to
