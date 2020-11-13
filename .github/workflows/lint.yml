@@ -46,7 +46,7 @@ jobs:
       - uses: actions-rs/cargo@v1
         with:
           command: clippy
-          args: ${{ matrix.crate.target }} --manifest-path=${{ matrix.crate.path }} -- -D warnings
+          args: ${{ matrix.crate.target }} --all-features --manifest-path=${{ matrix.crate.path }} -- -D warnings
     strategy:
       fail-fast: false
       matrix:

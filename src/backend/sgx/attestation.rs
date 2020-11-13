@@ -24,13 +24,13 @@ pub fn get_attestation(
         let b: &mut [u8] = unsafe { from_raw_parts_mut(buf as *mut u8, buf_len) };
 
         if b.len() != TMP_TI.len() {
-            return Err(Error::new(
+            Err(Error::new(
                 ErrorKind::InvalidData,
                 "Unable to copy TargetInfo to buffer",
-            ));
+            ))
         } else {
             b.copy_from_slice(&TMP_TI);
-            return Ok(TI_SIZE);
+            Ok(TI_SIZE)
         }
 
     // If the nonce in not 0, fills the Quote obtained from the AESMD for the report
@@ -42,13 +42,13 @@ pub fn get_attestation(
         let b: &mut [u8] = unsafe { from_raw_parts_mut(buf as *mut u8, buf_len) };
 
         if b.len() != TMP_QUOTE.len() {
-            return Err(Error::new(
+            Err(Error::new(
                 ErrorKind::InvalidData,
                 "Unable to copy Quote to buffer",
-            ));
+            ))
         } else {
             b.copy_from_slice(&TMP_QUOTE);
-            return Ok(QUOTE_SIZE);
+            Ok(QUOTE_SIZE)
         }
     }
 }
