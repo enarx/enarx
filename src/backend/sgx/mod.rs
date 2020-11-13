@@ -209,7 +209,7 @@ impl super::Thread for Thread {
                                 self.block.msg.req.arg[1].into(),
                                 self.block.msg.req.arg[2].into(),
                                 self.block.msg.req.arg[3].into(),
-                            )
+                            )?
                         };
 
                         self.block.msg.rep = Ok([result.into(), 0.into()]).into();
