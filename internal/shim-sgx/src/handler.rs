@@ -4,12 +4,22 @@ use crate::Layout;
 
 use core::fmt::Write;
 use primordial::Register;
+
 use sallyport::{request, Block, Cursor, Request};
-use sgx::types::ssa::StateSaveArea;
+use sgx::{
+    attestation_types::{
+        report::Report,
+        ti::{ReportData, TargetInfo},
+    },
+    types::{
+        attr::{Attributes, Flags, Xfrm},
+        ssa::StateSaveArea,
+    },
+};
 use sgx_heap::Heap;
 use syscall::{
-    SyscallHandler, ARCH_GET_FS, ARCH_GET_GS, ARCH_SET_FS, ARCH_SET_GS, SGX_TECH, SYS_ENARX_CPUID,
-    SYS_ENARX_GETATT,
+    SyscallHandler, ARCH_GET_FS, ARCH_GET_GS, ARCH_SET_FS, ARCH_SET_GS, SGX_DUMMY_QUOTE,
+    SGX_DUMMY_TI, SGX_QUOTE_SIZE, SGX_TECH, SYS_ENARX_CPUID, SYS_ENARX_GETATT,
 };
 use untrusted::{AddressValidator, UntrustedRef, UntrustedRefMut, ValidateSlice};
 
@@ -405,16 +415,39 @@ impl<'a> SyscallHandler for Handler<'a> {
         unsafe { self.proxy(req)? };
 
         // Retrieve TargetInfo from sallyport block and call EREPORT to
-        // create Report from TargetInfo (TBD).
-        // TODO: See https://github.com/enarx/enarx-keepldr/issues/92.
+        // create Report from TargetInfo.
         let mut ti = [0u8; 512];
         let ti_len = ti.len();
         let c = self.new_cursor();
+
         unsafe {
             c.copy_into_slice(buf_len, &mut ti[..ti_len])
                 .or(Err(libc::EFAULT))?;
         }
-        // ... Code to generate Report goes here ...
+
+        // Cannot generate a Report from dummy values
+        if ti.eq(&SGX_DUMMY_TI) {
+            buf.copy_from_slice(&SGX_DUMMY_QUOTE);
+            let rep: sallyport::Reply = Ok([SGX_QUOTE_SIZE.into(), SGX_TECH.into()]).into();
+            return sallyport::Result::from(rep);
+        }
+
+        // Generate Report
+        let mut target_info: TargetInfo = Default::default();
+        let mut f = [0u8; 8];
+        let mut x = [0u8; 8];
+        f.copy_from_slice(&ti[32..40]);
+        x.copy_from_slice(&ti[40..48]);
+        let f = u64::from_le_bytes(f);
+        let x = u64::from_le_bytes(x);
+        let att = Attributes::new(
+            Flags::from_bits(f).ok_or(libc::EBADMSG)?,
+            Xfrm::from_bits(x).ok_or(libc::EBADMSG)?,
+        );
+        target_info.mrenclave.copy_from_slice(&ti[0..32]);
+        target_info.attributes = att;
+        let data = ReportData([0u8; 64]);
+        let _report: Report = unsafe { target_info.get_report(&data) };
 
         // Request Quote from host
         // TODO: Send a real Report. See https://github.com/enarx/enarx-keepldr/issues/92.
