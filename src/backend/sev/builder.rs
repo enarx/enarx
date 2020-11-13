@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::backend::kvm;
+use crate::backend::kvm::shim::{BootInfo, SevSecret};
 
 use sev::firmware::Firmware;
 use sev::launch::{Launcher, Secret};
@@ -25,7 +26,12 @@ impl Sev {
 }
 
 impl kvm::Hook for Sev {
-    fn code_loaded(&mut self, vm: &mut VmFd, addr_space: &[u8]) -> Result<()> {
+    fn code_loaded(
+        &mut self,
+        vm: &mut VmFd,
+        addr_space: &[u8],
+        syscall_blocks: VirtAddr,
+    ) -> Result<()> {
         let mut sev = Firmware::open()?;
         let build = sev.platform_status().unwrap().build;
 
@@ -69,7 +75,7 @@ impl kvm::Hook for Sev {
             session: serde_flavor::from_reader(start_packet.session.as_slice())?,
         };
 
-        let (launcher, measurement) = {
+        let (mut launcher, measurement) = {
             let launcher = Launcher::new(vm, &mut sev)?;
             let mut launcher = launcher.start(start)?;
             launcher.update_data(addr_space)?;
@@ -93,9 +99,11 @@ impl kvm::Hook for Sev {
         };
 
         if !secret.is_empty() {
-            let _secret: Secret = serde_flavor::from_reader(secret.as_slice())?;
-            // TODO: https://github.com/enarx/enarx-keepldr/issues/159
-            // Inject the secret!
+            let secret: Secret = serde_flavor::from_reader(secret.as_slice())?;
+
+            let secret_ptr = SevSecret::get_secret_ptr(syscall_blocks.as_ptr::<BootInfo>());
+
+            launcher.inject(secret, secret_ptr as _)?;
         }
 
         let finish_packet = Message::Finish(Finish);

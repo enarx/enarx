@@ -35,6 +35,7 @@
 /// FIXME: might change to another mechanism in the future
 pub const SYSCALL_TRIGGER_PORT: u16 = 0xFF;
 
+use core::mem::{align_of, size_of, MaybeUninit};
 use lset::{Line, Span};
 use nbytes::bytes;
 use primordial::Page;
@@ -63,6 +64,29 @@ fn above(rel: impl Into<Line<usize>>, size: usize, align: usize) -> Option<Span<
         start: val,
         count: size,
     })
+}
+
+/// The maximum size of the injected secret for SEV keeps
+#[allow(clippy::integer_arithmetic)]
+pub const SEV_SECRET_MAX_SIZE: usize = bytes!(16; KiB);
+
+/// A 16 byte aligned SevSecret with unknown content
+#[repr(C, align(16))]
+#[derive(Copy, Clone, Debug)]
+pub struct SevSecret {
+    /// the secret byte blob
+    pub data: MaybeUninit<[u8; SEV_SECRET_MAX_SIZE]>,
+}
+
+impl SevSecret {
+    /// Get the pointer to the SEV secret relative to the BootInfo pointer
+    #[allow(dead_code)]
+    pub fn get_secret_ptr(boot_info: *const BootInfo) -> *const SevSecret {
+        unsafe {
+            let secret_ptr = (boot_info as *const u8).add(size_of::<BootInfo>());
+            secret_ptr.add(secret_ptr.align_offset(align_of::<SevSecret>())) as *const SevSecret
+        }
+    }
 }
 
 /// Basic information for the shim and the loader

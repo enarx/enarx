@@ -15,33 +15,36 @@
 extern crate compiler_builtins;
 extern crate rcrt1;
 
+#[macro_use]
+pub mod print;
+
 pub mod addr;
 pub mod asm;
+pub mod attestation;
 pub mod frame_allocator;
 pub mod gdt;
 pub mod hostcall;
 /// Shared components for the shim and the loader
 pub mod hostlib;
 pub mod no_std;
+pub mod pagetables;
 pub mod paging;
 pub mod payload;
-pub mod shim_stack;
-#[macro_use]
-pub mod print;
-pub mod pagetables;
 pub mod random;
+pub mod shim_stack;
 pub mod syscall;
 pub mod usermode;
 
 use crate::addr::{ShimVirtAddr, SHIM_VIRT_OFFSET};
+use crate::attestation::SEV_SECRET;
 use crate::hostcall::HOST_CALL;
+use crate::hostlib::BootInfo;
 use crate::pagetables::switch_sallyport_to_unencrypted;
 use crate::paging::SHIM_PAGETABLE;
 use crate::payload::PAYLOAD_VIRT_ADDR;
 use core::convert::TryFrom;
 use core::mem::size_of;
 use core::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-pub use hostlib::BootInfo;
 use primordial::Address;
 use sallyport::Block;
 use spinning::RwLock;
@@ -113,7 +116,9 @@ macro_rules! entry_point {
             );
 
             // make a local copy of boot_info, before the shared page gets overwritten
-            BOOT_INFO.write().replace(boot_info.read_volatile());
+            BOOT_INFO.write().replace(boot_info.read());
+
+            SEV_SECRET.write().copy_from_bootinfo(boot_info);
 
             switch_sallyport_to_unencrypted(c_bit_mask);
 

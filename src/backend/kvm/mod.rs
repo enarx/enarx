@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 mod builder;
-mod shim;
+pub mod shim;
 mod vm;
 
 pub const SHIM: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/bin/shim-sev"));

@@ -4,6 +4,7 @@
 
 use crate::addr::{HostVirtAddr, ShimPhysUnencryptedAddr};
 use crate::asm::_enarx_asm_triple_fault;
+use crate::attestation::SEV_SECRET;
 use crate::eprintln;
 use crate::frame_allocator::FRAME_ALLOCATOR;
 use crate::hostcall::{self, HostCall, HOST_CALL};
@@ -16,7 +17,7 @@ use primordial::{Address, Register};
 use sallyport::{Cursor, Request};
 use spinning::MutexGuard;
 use syscall::{SyscallHandler, ARCH_GET_FS, ARCH_GET_GS, ARCH_SET_FS, ARCH_SET_GS, SEV_TECH};
-use untrusted::{AddressValidator, UntrustedRef, UntrustedRefMut, Validate};
+use untrusted::{AddressValidator, UntrustedRef, UntrustedRefMut, Validate, ValidateSlice};
 use x86_64::registers::{rdfsbase, rdgsbase, wrfsbase, wrgsbase};
 use x86_64::structures::paging::{Page, PageTableFlags, Size4KiB};
 use x86_64::{align_up, VirtAddr};
@@ -218,11 +219,28 @@ impl SyscallHandler for Handler {
         &mut self,
         _nonce: UntrustedRef<u8>,
         _nonce_len: libc::size_t,
-        _buf: UntrustedRefMut<u8>,
-        _buf_len: libc::size_t,
+        buf: UntrustedRefMut<u8>,
+        buf_len: libc::size_t,
     ) -> sallyport::Result {
-        self.trace("get_att", 0);
-        Ok([0.into(), SEV_TECH.into()])
+        self.trace("get_attestation", 4);
+
+        let secret = SEV_SECRET.read();
+
+        match secret.try_len() {
+            Some(mut result_len) => {
+                if buf_len != 0 {
+                    result_len = result_len.min(buf_len);
+                    let buf = buf.validate_slice(buf_len, self).ok_or(libc::EFAULT)?;
+
+                    buf[..result_len].copy_from_slice(
+                        &(SEV_SECRET.read()).try_as_slice().unwrap()[..result_len],
+                    );
+                }
+
+                Ok([result_len.into(), SEV_TECH.into()])
+            }
+            None => Err(libc::ENOSYS),
+        }
     }
 
     fn exit(&mut self, status: i32) -> ! {

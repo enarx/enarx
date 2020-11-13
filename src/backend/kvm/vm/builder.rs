@@ -53,7 +53,12 @@ pub trait Hook {
         Ok(())
     }
 
-    fn code_loaded(&mut self, _vm: &mut VmFd, _addr_space: &[u8]) -> Result<()> {
+    fn code_loaded(
+        &mut self,
+        _vm: &mut VmFd,
+        _saddr_space: &[u8],
+        _syscall_blocks: VirtAddr,
+    ) -> Result<()> {
         Ok(())
     }
 
@@ -101,7 +106,7 @@ impl<T: Hook> Builder<T> {
 
         let code_offset = boot_info.code.start;
         Self::load_component(addr, &mut self.code, code_offset);
-        self.hook.code_loaded(&mut fd, &map)?;
+        self.hook.code_loaded(&mut fd, &map, arch.syscall_blocks)?;
 
         let vm = Vm {
             kvm,
