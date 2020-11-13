@@ -191,6 +191,7 @@ impl Block {
     }
 
     /// Returns a Cursor for the Block
+    #[allow(dead_code)]
     pub fn cursor(&mut self) -> Cursor {
         Cursor(&mut self.buf)
     }

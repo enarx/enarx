@@ -58,6 +58,8 @@ pub trait Thread {
 }
 
 pub enum Command<'a> {
+    #[allow(dead_code)]
     SysCall(&'a mut Block),
+    #[allow(dead_code)]
     Continue,
 }

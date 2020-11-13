@@ -66,6 +66,37 @@ jobs:
             path: internal/shim-sev/Cargo.toml
             target: --target=x86_64-unknown-linux-musl
 
+  clippy-single-backends:
+    name: cargo clippy (enarx-keepldr ${{ matrix.backend.name }} ${{ matrix.profile.name }})
+    runs-on: ubuntu-20.04
+    steps:
+      - run: sudo apt update
+      - run: sudo apt install -y musl-tools
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          components: clippy
+          toolchain: nightly
+          profile: minimal
+          target: x86_64-unknown-linux-musl
+          override: true
+      - uses: actions-rs/cargo@v1
+        with:
+          command: clippy
+          args: ${{ matrix.profile.flag }} --no-default-features --features=backend-${{ matrix.backend.name }} -- -D warnings
+    strategy:
+      fail-fast: false
+      matrix:
+        backend:
+          - {name: sev, host: [self-hosted, linux, sev]}
+          - {name: sgx, host: [self-hosted, linux, sgx]}
+          - {name: kvm, host: [self-hosted, linux]}
+          - {name: nil, host: ubuntu-20.04}
+        profile:
+          - name: debug
+          - name: release
+            flag: --release
+
   readme:
     name: cargo readme
     runs-on: ubuntu-latest

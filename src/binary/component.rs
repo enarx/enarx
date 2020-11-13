@@ -81,6 +81,7 @@ impl Component {
     }
 
     /// Find the total memory region for the binary.
+    #[allow(dead_code)]
     pub fn region(&self) -> Line<usize> {
         self.segments
             .iter()
