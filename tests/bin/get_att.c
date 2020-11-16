@@ -1,11 +1,6 @@
 #include "libc.h"
+#include "enarx.h"
 #include <errno.h>
-
-typedef enum {
-    NO_KEEP,
-    SEV,
-    SGX,
-} tech;
 
 int main(void) {
     // TODO: Good buffer length?
@@ -17,9 +12,9 @@ int main(void) {
 
     if (size >= 0) {
 	switch (technology) {
-	case NO_KEEP:
-	case SEV:
-	case SGX:
+	case TEE_NONE:
+	case TEE_SEV:
+	case TEE_SGX:
 	    return 0;
 	default: return 1;
 	}
