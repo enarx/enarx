@@ -115,11 +115,19 @@ struct Exec {
     code: PathBuf,
 }
 
+/// Get a report from a keep
+#[derive(StructOpt)]
+struct Report {
+    /// The payload to run inside the keep
+    code: PathBuf,
+}
+
 #[derive(StructOpt)]
 #[structopt(version=VERSION, author=AUTHORS.split(";").nth(0).unwrap())]
 enum Options {
     Info(Info),
     Exec(Exec),
+    Report(Report),
 }
 
 #[allow(clippy::unnecessary_wraps)]
@@ -136,6 +144,7 @@ fn main() -> Result<()> {
     match Options::from_args() {
         Options::Info(_) => info(backends),
         Options::Exec(e) => exec(backends, e),
+        Options::Report(e) => measure(backends, e),
     }
 }
 
@@ -166,6 +175,29 @@ fn info(backends: &[Box<dyn Backend>]) -> Result<()> {
                 println!("\n{}\n", mesg);
             }
         }
+    }
+
+    Ok(())
+}
+
+#[allow(unreachable_code)]
+#[allow(clippy::unnecessary_wraps)]
+fn measure(backends: &[Box<dyn Backend>], opts: Report) -> Result<()> {
+    let keep = std::env::var_os("ENARX_BACKEND").map(|x| x.into_string().unwrap());
+
+    let backend = backends
+        .iter()
+        .filter(|b| keep.is_none() || keep == Some(b.name().into()))
+        .find(|b| b.have());
+
+    if let Some(backend) = backend {
+        let code = Component::from_path(&opts.code)?;
+        backend.measure(code)?;
+    } else {
+        panic!(
+            "Keep backend '{}' is unsupported.",
+            keep.unwrap_or_else(|| String::from("nil"))
+        );
     }
 
     Ok(())

@@ -143,6 +143,10 @@ impl crate::backend::Backend for Backend {
         builder.load(&code_segs)?;
         Ok(builder.build()?)
     }
+
+    fn measure(&self, mut _code: Component) -> Result<()> {
+        unimplemented!()
+    }
 }
 
 impl super::Keep for RwLock<Enclave> {

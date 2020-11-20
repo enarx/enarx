@@ -62,6 +62,10 @@ pub trait Hook {
         Ok(())
     }
 
+    fn measure(&mut self, _vm: &mut VmFd, _saddr_space: &[u8]) -> Result<()> {
+        unimplemented!()
+    }
+
     fn to_guest_phys(&self, addr: VirtAddr, start: VirtAddr) -> PhysAddr {
         PhysAddr::new(addr.as_u64() - start.as_u64())
     }
@@ -78,11 +82,18 @@ struct Arch {
     cr3: PhysAddr,
 }
 
+#[allow(dead_code)]
+enum BuildOrMeasure {
+    Build,
+    Measure,
+}
+
 impl<T: Hook> Builder<T> {
     pub fn new(shim: Component, code: Component, hook: T) -> Self {
         Self { shim, code, hook }
     }
-    pub fn build(mut self) -> Result<Vm> {
+
+    fn build_or_measure(mut self, bor: BuildOrMeasure) -> Result<Option<Vm>> {
         let kvm = Kvm::new()?;
         let mut fd = kvm.create_vm()?;
 
@@ -106,19 +117,39 @@ impl<T: Hook> Builder<T> {
 
         let code_offset = boot_info.code.start;
         Self::load_component(addr, &mut self.code, code_offset);
-        self.hook.code_loaded(&mut fd, &map, arch.syscall_blocks)?;
 
-        let vm = Vm {
-            kvm,
-            fd,
-            regions: vec![Region::new(region, map)],
-            syscall_start: arch.syscall_blocks,
-            shim_entry,
-            shim_start: PhysAddr::new(shim_start as _),
-            cr3: arch.cr3,
-        };
+        match bor {
+            BuildOrMeasure::Measure => {
+                self.hook.measure(&mut fd, &map)?;
+                Ok(None)
+            }
 
-        Ok(vm)
+            BuildOrMeasure::Build => {
+                self.hook.code_loaded(&mut fd, &map, arch.syscall_blocks)?;
+
+                let vm = Vm {
+                    kvm,
+                    fd,
+                    regions: vec![Region::new(region, map)],
+                    syscall_start: arch.syscall_blocks,
+                    shim_entry,
+                    shim_start: PhysAddr::new(shim_start as _),
+                    cr3: arch.cr3,
+                };
+
+                Ok(Some(vm))
+            }
+        }
+    }
+
+    pub fn build(self) -> Result<Vm> {
+        self.build_or_measure(BuildOrMeasure::Build)
+            .map(|o| o.unwrap())
+    }
+
+    #[allow(dead_code)]
+    pub fn measure(self) -> Result<()> {
+        self.build_or_measure(BuildOrMeasure::Measure).map(|_| ())
     }
 
     fn calculate_setup_region(shim_size: Span<usize>, code_size: Span<usize>) -> Result<BootInfo> {

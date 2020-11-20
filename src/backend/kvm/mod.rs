@@ -60,4 +60,8 @@ impl backend::Backend for Backend {
 
         Ok(Arc::new(RwLock::new(vm)))
     }
+
+    fn measure(&self, _code: Component) -> Result<()> {
+        unimplemented!()
+    }
 }

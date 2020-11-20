@@ -257,4 +257,11 @@ impl backend::Backend for Backend {
 
         Ok(Arc::new(RwLock::new(vm)))
     }
+
+    fn measure(&self, code: Component) -> Result<()> {
+        let shim = Component::from_bytes(SHIM)?;
+        let (_, sock) = UnixStream::pair()?;
+
+        Builder::new(shim, code, builder::Sev::new(sock)).measure()
+    }
 }

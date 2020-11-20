@@ -50,6 +50,7 @@ lset = "0.1"
 protobuf = "2.18"
 serde = "1.0"
 serde_cbor = "0.11"
+openssl = "0.10"
 
 [build-dependencies]
 cc = "1.0"

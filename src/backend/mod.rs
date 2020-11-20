@@ -31,6 +31,10 @@ pub trait Backend {
 
     /// Create a keep instance on this backend
     fn build(&self, code: Component, sock: Option<&Path>) -> Result<Arc<dyn Keep>>;
+
+    /// Create a keep instance on this backend, measure the keep
+    /// and output a json record for the specific backend
+    fn measure(&self, code: Component) -> Result<()>;
 }
 
 pub struct Datum {
