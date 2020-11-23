@@ -11,7 +11,6 @@ use x86_64::registers::rflags::RFlags;
 ///
 /// Because the caller can give any `entry_point` and `stack_pointer`
 /// including 0, this function is unsafe.
-#[naked]
 pub unsafe fn usermode(ip: u64, sp: u64) -> ! {
     asm!("
         push     {USER_DATA_SEGMENT}
