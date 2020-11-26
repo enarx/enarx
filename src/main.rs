@@ -122,6 +122,7 @@ enum Options {
     Exec(Exec),
 }
 
+#[allow(clippy::unnecessary_wraps)]
 fn main() -> Result<()> {
     let backends: &[Box<dyn Backend>] = &[
         #[cfg(feature = "backend-sev")]
@@ -138,6 +139,7 @@ fn main() -> Result<()> {
     }
 }
 
+#[allow(clippy::unnecessary_wraps)]
 fn info(backends: &[Box<dyn Backend>]) -> Result<()> {
     use colorful::*;
 
@@ -170,6 +172,7 @@ fn info(backends: &[Box<dyn Backend>]) -> Result<()> {
 }
 
 #[allow(unreachable_code)]
+#[allow(clippy::unnecessary_wraps)]
 fn exec(backends: &[Box<dyn Backend>], opts: Exec) -> Result<()> {
     let keep = std::env::var_os("ENARX_BACKEND").map(|x| x.into_string().unwrap());
 
