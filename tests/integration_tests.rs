@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
+#![cfg(not(miri))]
 
 use std::io::{Read, Write};
 use std::mem::{size_of, MaybeUninit};
