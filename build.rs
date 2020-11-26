@@ -27,14 +27,12 @@ fn find_files_with_extensions<'a>(
         .map(|x| x.path().to_owned())
 }
 
-fn rerun_src(path: impl AsRef<Path>) -> std::io::Result<()> {
+fn rerun_src(path: impl AsRef<Path>) {
     for entry in find_files_with_extensions(&["rs", "s", "S"], &path) {
         if let Some(path) = entry.to_str() {
             println!("cargo:rerun-if-changed={}", path)
         }
     }
-
-    Ok(())
 }
 
 fn build_rs_tests(in_path: &Path, out_path: &Path) {
@@ -196,7 +194,7 @@ fn main() {
         println!("cargo:rerun-if-changed={}/Cargo.lock", path);
         println!("cargo:rerun-if-changed={}/.cargo/config", path);
 
-        rerun_src(&path).unwrap();
+        rerun_src(&path);
 
         if !shim_name.starts_with("shim-") {
             continue;
