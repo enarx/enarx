@@ -201,8 +201,10 @@ pub trait SyscallHandler: AddressValidator + Sized {
         }
 
         let c = self.new_cursor();
-        c.copy_into_slice(count, buf[..count].as_mut(), result_len)
-            .or(Err(libc::EFAULT))?;
+        unsafe {
+            c.copy_into_slice(count, &mut buf[..result_len].as_mut())
+                .or(Err(libc::EFAULT))?;
+        }
 
         Ok(ret)
     }
@@ -590,8 +592,10 @@ pub trait SyscallHandler: AddressValidator + Sized {
 
         let c = self.new_cursor();
 
-        c.copy_into_slice(nfds as _, fds, nfds as _)
-            .or(Err(libc::EMSGSIZE))?;
+        unsafe {
+            c.copy_into_slice(nfds as _, &mut fds[..(nfds as usize)])
+                .or(Err(libc::EMSGSIZE))?;
+        }
 
         Ok(result)
     }
