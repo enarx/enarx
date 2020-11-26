@@ -136,7 +136,7 @@ fn crt0setup(
     app_virt_start: VirtAddr,
     stack_slice: &'static mut [u8],
     header: &Header,
-) -> Result<(VirtAddr, u64), ()> {
+) -> (VirtAddr, u64) {
     let mut builder = Builder::new(stack_slice);
     builder.push("/init").unwrap();
     let mut builder = builder.done().unwrap();
@@ -175,7 +175,7 @@ fn crt0setup(
     let handle = builder.done().unwrap();
     let sp = &*handle as *const _ as u64;
 
-    Ok((ph_entry, sp))
+    (ph_entry, sp)
 }
 
 /// execute the payload
@@ -188,8 +188,7 @@ pub fn execute_payload() -> ! {
         PageTableFlags::USER_ACCESSIBLE,
     );
 
-    let (entry, sp_handle) =
-        crt0setup(*PAYLOAD_VIRT_ADDR.read(), stack.slice, header).expect("crt0setup failed");
+    let (entry, sp_handle) = crt0setup(*PAYLOAD_VIRT_ADDR.read(), stack.slice, header);
 
     unsafe {
         usermode(entry.as_u64(), sp_handle);
