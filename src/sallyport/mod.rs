@@ -249,24 +249,23 @@ impl<'short, 'a: 'short> Cursor<'a> {
         Ok((c, dst))
     }
 
-    /// Copies data from a slice into the cursor buffer using self.alloc().
+    /// Copies data from a cursor buffer into a slice advancing the cursor.
+    ///
+    /// # Parameters
+    ///
+    /// * `src_len`: the amount of elements, the cursor is advanced after copying
+    /// * `dst`: the destination slice
+    ///
+    /// # Safety
+    /// The caller has to ensure the `Cursor` contains valid data of the type
+    /// of the destination slice.
     #[allow(dead_code)]
-    pub fn copy_into_slice<T: Copy>(
+    pub unsafe fn copy_into_slice<T: 'a + Copy>(
         self,
         src_len: usize,
         dst: &mut [T],
-        dst_len: usize,
     ) -> core::result::Result<Cursor<'a>, OutOfSpace> {
-        assert!(src_len >= dst_len);
-        assert!(dst.len() >= dst_len);
-
-        let (c, src) = self.alloc::<T>(src_len)?;
-
-        unsafe {
-            core::ptr::copy_nonoverlapping(src.as_ptr(), dst.as_mut_ptr() as _, dst_len);
-        }
-
-        Ok(c)
+        self.copy_into_raw_parts(src_len, dst.as_mut_ptr(), dst.len())
     }
 
     /// Copies data from a raw slice pointer into the cursor buffer using self.alloc().
@@ -561,6 +560,44 @@ mod tests {
 
         // Assume init
         let slab_all = unsafe { slab_all.assume_init() };
+
+        assert_eq!(&slab_all, &[5, 6]);
+
+        Ok(())
+    }
+
+    #[test]
+    fn copy_into_slice() -> std::result::Result<(), OutOfSpace> {
+        let mut block = Block::default();
+
+        let c = block.cursor();
+        let (c, slab1) = c
+            .copy_from_slice::<usize>(&[1, 2])
+            .expect("allocate slab of 2 usize values for the first time");
+
+        let (c, slab2) = c
+            .copy_from_slice::<usize>(&[3, 4])
+            .expect("allocate slab of 2 usize values for the second time");
+
+        let (_c, slab3) = c
+            .copy_from_slice::<usize>(&[5, 6])
+            .expect("allocate slab of 2 usize values for the third time");
+
+        assert_eq!(slab1, &[1, 2]);
+        assert_eq!(slab2, &[3, 4]);
+        assert_eq!(slab3, &[5, 6]);
+
+        let c = block.cursor();
+
+        let mut slab_all = [0usize; 3];
+
+        let c = unsafe { c.copy_into_slice::<usize>(4, &mut slab_all) }?;
+
+        assert_eq!(&slab_all, &[1, 2, 3]);
+
+        let mut slab_all = [0usize; 2];
+
+        let _ = unsafe { c.copy_into_slice::<usize>(2, &mut slab_all) }?;
 
         assert_eq!(&slab_all, &[5, 6]);
 

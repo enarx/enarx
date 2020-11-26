@@ -397,8 +397,10 @@ impl<'a> SyscallHandler for Handler<'a> {
         let mut ti = [0u8; 512];
         let ti_len = ti.len();
         let c = self.new_cursor();
-        c.copy_into_slice(buf_len, ti.as_mut(), ti_len)
-            .or(Err(libc::EFAULT))?;
+        unsafe {
+            c.copy_into_slice(buf_len, &mut ti[..ti_len])
+                .or(Err(libc::EFAULT))?;
+        }
         // ... Code to generate Report goes here ...
 
         // Request Quote from host
@@ -419,8 +421,10 @@ impl<'a> SyscallHandler for Handler<'a> {
             self.attacked()
         }
 
-        c.copy_into_slice(buf_len, buf.as_mut(), result_len)
-            .or(Err(libc::EFAULT))?;
+        unsafe {
+            c.copy_into_slice(buf_len, &mut buf[..result_len])
+                .or(Err(libc::EFAULT))?;
+        }
 
         let rep: sallyport::Reply = Ok([result[0], SGX_TECH.into()]).into();
         sallyport::Result::from(rep)
