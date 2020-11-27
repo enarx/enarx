@@ -126,16 +126,21 @@ impl EnarxAllocator {
         };
 
         const MIN_EXP: usize = 25; // start with 2^25 = 32 MiB
-        const TARGET_EXP: usize = 47; // we want more than 2^47 = 128 TiB
+        let c_bit_mask = get_cbit_mask();
+        let target_exp: usize = if c_bit_mask > 0 {
+            msb(c_bit_mask as _) - 1 // don't want to address more than c_bit_mask
+        } else {
+            47 // we want more than 2^47 = 128 TiB
+        };
 
         debug_assert!(
-            meminfo.mem_slots > (TARGET_EXP - MIN_EXP),
+            meminfo.mem_slots > (target_exp - MIN_EXP),
             "Not enough memory slots available"
         );
 
-        let log_rest = msb(meminfo.mem_slots - (TARGET_EXP - MIN_EXP));
+        let log_rest = msb(meminfo.mem_slots - (target_exp - MIN_EXP));
         // cap, so that max_exp >= MIN_EXP
-        let max_exp = TARGET_EXP - log_rest.min(TARGET_EXP - MIN_EXP);
+        let max_exp = target_exp - log_rest.min(target_exp - MIN_EXP);
 
         // With mem_slots == 509, this gives 508 slots for ballooning
         // Starting with 2^25 = 32 MiB to 2^38 = 256 GiB takes 13 slots
