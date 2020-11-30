@@ -16,7 +16,7 @@ untrusted = { path = "../untrusted"}
 syscall = { path = "../syscall"}
 compiler_builtins = { version = "0.1", default-features = false, features = [ "mem" ] }
 x86_64 = { version = "0.12", default-features = false, features = ["instructions", "inline_asm"] }
-goblin = { version = "0.2", default-features = false, features = [ "elf64" ] }
+goblin = { version = "0.3", default-features = false, features = [ "elf64" ] }
 crt0stack = { version = "0.1", default-features = false }
 spinning = { version = "0.0", default-features = false }
 libc = { version = "0.2", default-features = false }
