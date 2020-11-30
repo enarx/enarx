@@ -17,7 +17,7 @@ syscall = { path = "../syscall"}
 untrusted = { path = "../untrusted"}
 compiler_builtins = { version = "0.1", default-features = false, features = [ "mem" ] }
 sgx = { git = "https://github.com/enarx/sgx", rev = "5292e53" }
-goblin = { version = "0.2", default-features = false, features = [ "elf64" ] }
+goblin = { version = "0.3", default-features = false, features = [ "elf64" ] }
 crt0stack = { version = "0.1", default-features = false }
 libc = { version = "0.2", default-features = false }
 primordial = "0.1"
