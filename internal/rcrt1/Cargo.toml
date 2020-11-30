@@ -8,5 +8,5 @@ publish = false
 
 [dependencies]
 libc = { version = "0.2", features = [] }
-goblin = { version = "0.2", default-features = false, features = [ "elf64" ] }
+goblin = { version = "0.3", default-features = false, features = [ "elf64" ] }
 
