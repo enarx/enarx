@@ -3,21 +3,21 @@
 //! Functions dealing with the payload
 use crate::addr::{ShimPhysAddr, ShimVirtAddr};
 use crate::frame_allocator::FRAME_ALLOCATOR;
-use crate::lazy::Lazy;
 use crate::paging::SHIM_PAGETABLE;
 use crate::random::random;
 use crate::shim_stack::init_stack_with_guard;
 use crate::usermode::usermode;
-use crate::BOOT_INFO;
+use crate::{BOOT_INFO, PAYLOAD_READY};
 
 use core::ops::DerefMut;
+use core::sync::atomic::Ordering;
 use crt0stack::{self, Builder, Entry};
 use goblin::elf::header::header64::Header;
 use goblin::elf::header::ELFMAG;
 use goblin::elf::program_header::program_header64::*;
 use nbytes::bytes;
 use primordial::Address;
-use spinning::RwLock;
+use spinning::{Lazy, RwLock};
 use x86_64::structures::paging::{Page, PageTableFlags, Size4KiB};
 use x86_64::{PhysAddr, VirtAddr};
 
@@ -191,6 +191,7 @@ pub fn execute_payload() -> ! {
     let (entry, sp_handle) = crt0setup(*PAYLOAD_VIRT_ADDR.read(), stack.slice, header);
 
     unsafe {
+        PAYLOAD_READY.store(true, Ordering::Relaxed);
         usermode(entry.as_u64(), sp_handle);
     }
 }

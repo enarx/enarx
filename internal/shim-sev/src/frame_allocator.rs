@@ -3,12 +3,11 @@
 //! The global FrameAllocator
 use crate::addr::{HostVirtAddr, ShimPhysAddr, ShimPhysUnencryptedAddr, ShimVirtAddr};
 use crate::hostcall::HOST_CALL;
-use crate::lazy::Lazy;
 use crate::{get_cbit_mask, BOOT_INFO};
 
 use nbytes::bytes;
 use primordial::{Address, Offset, Page as Page4KiB};
-use spinning::RwLock;
+use spinning::{Lazy, RwLock};
 use x86_64::structures::paging::FrameAllocator as _;
 use x86_64::structures::paging::{
     self, Mapper, Page, PageSize, PageTableFlags, PhysFrame, Size2MiB, Size4KiB,

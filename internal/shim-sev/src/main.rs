@@ -28,14 +28,12 @@ pub mod payload;
 pub mod shim_stack;
 #[macro_use]
 pub mod print;
-pub mod lazy;
 pub mod pagetables;
 pub mod random;
 pub mod syscall;
 pub mod usermode;
 
 use crate::addr::{ShimVirtAddr, SHIM_VIRT_OFFSET};
-use crate::frame_allocator::FRAME_ALLOCATOR;
 use crate::hostcall::HOST_CALL;
 use crate::pagetables::switch_sallyport_to_unencrypted;
 use crate::paging::SHIM_PAGETABLE;
@@ -46,7 +44,7 @@ use core::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 pub use hostlib::BootInfo;
 use primordial::Address;
 use sallyport::Block;
-use spinning::{OnceState, RwLock};
+use spinning::RwLock;
 use x86_64::structures::paging::MapperAllSizes;
 use x86_64::VirtAddr;
 
@@ -57,6 +55,9 @@ static BOOT_INFO: RwLock<Option<BootInfo>> =
 
 static SHIM_HOSTCALL_VIRT_ADDR: RwLock<Option<ShimVirtAddr<Block>>> =
     RwLock::<Option<ShimVirtAddr<Block>>>::const_new(spinning::RawRwLock::const_new(), None);
+
+static mut SHIM_CAN_PRINT: AtomicBool = AtomicBool::new(false);
+static mut PAYLOAD_READY: AtomicBool = AtomicBool::new(false);
 
 /// Get the SEV C-Bit mask
 #[inline(always)]
@@ -127,6 +128,9 @@ entry_point!(shim_main);
 /// The entry point for the shim
 pub extern "C" fn shim_main() -> ! {
     unsafe {
+        // Everything setup, so print works
+        SHIM_CAN_PRINT.store(true, Ordering::Relaxed);
+
         gdt::init();
     }
 
@@ -146,21 +150,20 @@ pub fn panic(info: &core::panic::PanicInfo) -> ! {
     static mut ALREADY_IN_PANIC: AtomicBool = AtomicBool::new(false);
 
     // Don't print anything, if the FRAME_ALLOCATOR is not yet initialized
-    if FRAME_ALLOCATOR.state().eq(&OnceState::Initialized) {
-        unsafe {
-            if ALREADY_IN_PANIC
+    unsafe {
+        if SHIM_CAN_PRINT.load(Ordering::Relaxed)
+            && ALREADY_IN_PANIC
                 .compare_exchange(false, true, Ordering::Acquire, Ordering::Relaxed)
                 .is_ok()
-            {
-                // panic info is useful
-                if HOST_CALL.is_locked() {
-                    HOST_CALL.force_unlock();
-                }
-                print::_eprint(format_args!("{}\n", info));
-                stack_trace();
-                // FIXME: might want to have a custom panic hostcall
-                hostcall::shim_exit(255);
+        {
+            // panic info is useful
+            if HOST_CALL.is_locked() {
+                HOST_CALL.force_unlock();
             }
+            print::_eprint(format_args!("{}\n", info));
+            stack_trace();
+            // FIXME: might want to have a custom panic hostcall
+            hostcall::shim_exit(255);
         }
     }
 
@@ -209,7 +212,7 @@ unsafe fn stack_trace() {
                     if let Some(rip) = rip.checked_sub(shim_offset) {
                         print::_eprint(format_args!("  0x{:>016x}\n", rip));
                         rbp = *(rbp as *const usize);
-                    } else if PAYLOAD_VIRT_ADDR.state().eq(&OnceState::Initialized) {
+                    } else if PAYLOAD_READY.load(Ordering::Relaxed) {
                         if let Some(rip) = rip.checked_sub(PAYLOAD_VIRT_ADDR.read().as_u64() as _) {
                             print::_eprint(format_args!("P 0x{:>016x}\n", rip));
                             rbp = *(rbp as *const usize);

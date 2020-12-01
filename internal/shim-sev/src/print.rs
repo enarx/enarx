@@ -2,13 +2,13 @@
 
 //! Functions and macros to output text on the host
 
-use crate::frame_allocator::FRAME_ALLOCATOR;
 use crate::hostcall::{self, HostFd};
 
 struct HostWrite(HostFd);
 
+use crate::SHIM_CAN_PRINT;
 use core::fmt;
-use spinning::OnceState;
+use core::sync::atomic::Ordering;
 
 // FIXME: remove, if https://github.com/enarx/enarx/issues/831 is fleshed out
 /// Global flag allowing debug output.
@@ -27,8 +27,10 @@ impl fmt::Write for HostWrite {
 pub fn _print(args: fmt::Arguments) {
     use fmt::Write;
 
-    if FRAME_ALLOCATOR.state().ne(&OnceState::Initialized) {
-        return;
+    unsafe {
+        if !SHIM_CAN_PRINT.load(Ordering::Relaxed) {
+            return;
+        }
     }
 
     HostWrite(unsafe { HostFd::from_raw_fd(libc::STDOUT_FILENO) })
@@ -41,8 +43,10 @@ pub fn _print(args: fmt::Arguments) {
 pub fn _eprint(args: fmt::Arguments) {
     use fmt::Write;
 
-    if FRAME_ALLOCATOR.state().ne(&OnceState::Initialized) {
-        return;
+    unsafe {
+        if !SHIM_CAN_PRINT.load(Ordering::Relaxed) {
+            return;
+        }
     }
 
     HostWrite(unsafe { HostFd::from_raw_fd(libc::STDERR_FILENO) })

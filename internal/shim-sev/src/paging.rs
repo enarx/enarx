@@ -4,9 +4,8 @@
 
 use crate::addr::SHIM_VIRT_OFFSET;
 use crate::get_cbit_mask;
-use crate::lazy::Lazy;
 
-use spinning::RwLock;
+use spinning::{Lazy, RwLock};
 use x86_64::structures::paging::{OffsetPageTable, PageTable};
 use x86_64::VirtAddr;
 

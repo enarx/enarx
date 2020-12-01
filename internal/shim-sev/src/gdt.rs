@@ -2,11 +2,11 @@
 
 //! Global Descriptor Table init
 
-use crate::lazy::Lazy;
 use crate::shim_stack::{init_stack_with_guard, GuardedStack};
 use crate::syscall::_syscall_enter;
 use core::ops::Deref;
 use nbytes::bytes;
+use spinning::Lazy;
 use x86_64::instructions::segmentation::{load_ds, load_es, load_fs, load_gs, load_ss, set_cs};
 use x86_64::instructions::tables::load_tss;
 use x86_64::registers::model_specific::{KernelGsBase, LStar, SFMask, Star};

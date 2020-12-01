@@ -146,9 +146,9 @@ dependencies = [
 
 [[package]]
 name = "spinning"
-version = "0.0.3"
+version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ced8156fe289bee8576050d3924fe6f3926b552b41afe810f5461acaca42c9f1"
+checksum = "2d4f0e86297cad2658d92a707320d87bf4e6ae1050287f51d19b67ef3f153a7b"
 dependencies = [
  "lock_api",
 ]
