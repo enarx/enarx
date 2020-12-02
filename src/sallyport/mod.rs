@@ -321,14 +321,18 @@ impl<'short, 'a: 'short> Cursor<'a> {
 
     /// Writes data into the cursor buffer.
     #[allow(dead_code)]
-    pub fn write<T: 'a + Copy>(self, src: &T) -> core::result::Result<Cursor<'a>, OutOfSpace> {
+    pub fn write<T: 'a + Copy>(
+        self,
+        src: &T,
+    ) -> core::result::Result<(Cursor<'a>, &'short mut T), OutOfSpace> {
         let (c, dst) = self.alloc::<T>(1)?;
 
+        let dst = dst[0].as_mut_ptr();
         unsafe {
-            core::ptr::write(dst[0].as_mut_ptr(), *src);
+            core::ptr::write(dst, *src);
         }
 
-        Ok(c)
+        Ok((c, unsafe { &mut *dst }))
     }
 
     /// Overwrites a memory location with the value from the cursor buffer.
@@ -506,8 +510,8 @@ mod tests {
 
         let c = block.cursor();
 
-        let c = c.write(&Test { a: 1, b: 2 })?;
-        let _c = c.write(&Test { a: 2, b: 3 })?;
+        let (c, _dst) = c.write(&Test { a: 1, b: 2 })?;
+        let (_c, _dst) = c.write(&Test { a: 2, b: 3 })?;
 
         let c = block.cursor();
 
