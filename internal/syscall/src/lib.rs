@@ -249,6 +249,11 @@ pub trait SyscallHandler: AddressValidator + Sized {
 
     /// syscall
     fn write(&mut self, fd: libc::c_int, buf: UntrustedRef<u8>, count: libc::size_t) -> Result {
+        // No trace for write, if fd is stdout or stderr, or our own debug will be clobbered
+        if fd != libc::STDOUT_FILENO && fd != libc::STDERR_FILENO {
+            self.trace("write", 3);
+        }
+
         // Limit the write to `Block::buf_capacity()`
         let count = usize::min(count, Block::buf_capacity());
 
@@ -277,6 +282,7 @@ pub trait SyscallHandler: AddressValidator + Sized {
         iovec: UntrustedRef<libc::iovec>,
         iovcnt: libc::c_int,
     ) -> Result {
+        self.trace("writev", 3);
         let iovec = iovec.validate_slice(iovcnt, self).ok_or(libc::EFAULT)?;
 
         let mut size = 0usize;
@@ -302,6 +308,7 @@ pub trait SyscallHandler: AddressValidator + Sized {
 
     /// syscall
     fn ioctl(&mut self, fd: libc::c_int, request: libc::c_ulong) -> Result {
+        self.trace("ioctl", 2);
         match (fd as _, request as _) {
             (libc::STDIN_FILENO, libc::TIOCGWINSZ)
             | (libc::STDOUT_FILENO, libc::TIOCGWINSZ)
@@ -324,6 +331,7 @@ pub trait SyscallHandler: AddressValidator + Sized {
     ///
     /// This is currently unimplemented and returns a dummy thread id.
     fn set_tid_address(&mut self, _tidptr: *const libc::c_int) -> Result {
+        self.trace("set_tid_address", 1);
         // FIXME
         //eprintln!("SC> set_tid_address(…) = 1");
         Ok([1.into(), 0.into()])
@@ -397,6 +405,7 @@ pub trait SyscallHandler: AddressValidator + Sized {
         buflen: libc::size_t,
         flags: libc::c_uint,
     ) -> Result {
+        self.trace("getrandom", 3);
         let flags = flags & !(libc::GRND_NONBLOCK | libc::GRND_RANDOM);
 
         if flags != 0 {
@@ -478,6 +487,7 @@ pub trait SyscallHandler: AddressValidator + Sized {
         buf: UntrustedRefMut<u8>,
         bufsize: libc::size_t,
     ) -> Result {
+        self.trace("readlink", 3);
         // Fake readlink("/proc/self/exe")
         const PROC_SELF_EXE: &str = "/proc/self/exe";
 
@@ -512,6 +522,7 @@ pub trait SyscallHandler: AddressValidator + Sized {
 
     /// syscall
     fn fstat(&mut self, fd: libc::c_int, statbuf: UntrustedRefMut<libc::stat>) -> Result {
+        self.trace("fstat", 2);
         // Fake fstat(0|1|2, ...) done by glibc or rust
         match fd {
             libc::STDIN_FILENO | libc::STDOUT_FILENO | libc::STDERR_FILENO => {
@@ -567,7 +578,8 @@ pub trait SyscallHandler: AddressValidator + Sized {
     }
 
     /// syscall
-    fn fcntl(&self, fd: libc::c_int, cmd: libc::c_int) -> Result {
+    fn fcntl(&mut self, fd: libc::c_int, cmd: libc::c_int) -> Result {
+        self.trace("fcntl", 2);
         match (fd, cmd) {
             (libc::STDIN_FILENO, libc::F_GETFL) => {
                 //eprintln!("SC> fcntl({}, F_GETFD) = 0x402 (flags O_RDWR|O_APPEND)", fd);
