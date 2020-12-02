@@ -18,6 +18,28 @@ const TEST_BINS_OUT: &str = "bin";
 const TIMEOUT_SECS: u64 = 10;
 const MAX_ASSERT_ELEMENTS: usize = 100;
 
+fn assert_eq_slices(expected_output: &[u8], output: &[u8], what: &str) {
+    let max_len = usize::min(output.len(), expected_output.len());
+    let max_len = max_len.min(MAX_ASSERT_ELEMENTS);
+    assert_eq!(
+        output[..max_len],
+        expected_output[..max_len],
+        "Expected contents of {} differs",
+        what
+    );
+    assert_eq!(
+        output.len(),
+        expected_output.len(),
+        "Expected length of {} differs",
+        what
+    );
+    assert_eq!(
+        output, expected_output,
+        "Expected contents of {} differs",
+        what
+    );
+}
+
 /// Returns a handle to a child process through which output (stdout, stderr) can
 /// be accessed.
 fn run_test<'a>(
@@ -80,22 +102,7 @@ fn run_test<'a>(
                 "Expected contents of stdout output differs"
             );
         } else {
-            let max_len = usize::min(output.stdout.len(), expected_stdout.len());
-            let max_len = max_len.min(MAX_ASSERT_ELEMENTS);
-            assert_eq!(
-                output.stdout[..max_len],
-                expected_stdout[..max_len],
-                "Expected contents of stdout output differs"
-            );
-            assert_eq!(
-                output.stdout.len(),
-                expected_stdout.len(),
-                "Expected length of stdout output differs"
-            );
-            assert_eq!(
-                output.stdout, expected_stdout,
-                "Expected contents of stdout output differs"
-            );
+            assert_eq_slices(expected_stdout, &output.stdout, "stdout output");
         }
     }
 
@@ -107,22 +114,7 @@ fn run_test<'a>(
                 "Expected contents of stderr output differs."
             );
         } else {
-            let max_len = usize::min(output.stderr.len(), expected_stderr.len());
-            let max_len = max_len.min(MAX_ASSERT_ELEMENTS);
-            assert_eq!(
-                output.stderr[..max_len],
-                expected_stderr[..max_len],
-                "Expected contents of stderr output differs."
-            );
-            assert_eq!(
-                output.stderr.len(),
-                expected_stderr.len(),
-                "Expected length of stderr output differs."
-            );
-            assert_eq!(
-                expected_stderr, output.stderr,
-                "Expected contents of stderr output differs."
-            );
+            assert_eq_slices(expected_stderr, &output.stderr, "stderr output");
         }
     }
 
