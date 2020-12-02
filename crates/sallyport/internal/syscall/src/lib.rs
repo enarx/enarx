@@ -57,6 +57,19 @@ pub trait SyscallHandler: AddressValidator + Sized {
     /// Returns a new `Cursor` for the sallyport `Block`
     fn new_cursor(&mut self) -> Cursor;
 
+    /// Report an unknown syscall
+    #[allow(clippy::too_many_arguments)]
+    fn unknown_syscall(
+        &mut self,
+        a: Register<usize>,
+        b: Register<usize>,
+        c: Register<usize>,
+        d: Register<usize>,
+        e: Register<usize>,
+        f: Register<usize>,
+        nr: usize,
+    );
+
     /// Output tracing information about the syscall
     fn trace(&mut self, name: &str, argc: usize);
 
@@ -164,7 +177,11 @@ pub trait SyscallHandler: AddressValidator + Sized {
 
             SYS_ENARX_GETATT => self.get_attestation(a.into(), b.into(), c.into(), d.into()),
 
-            _ => Err(libc::ENOSYS),
+            _ => {
+                self.unknown_syscall(a, b, c, d, e, f, nr);
+
+                Err(libc::ENOSYS)
+            }
         };
 
         #[cfg(target_arch = "x86_64")]
