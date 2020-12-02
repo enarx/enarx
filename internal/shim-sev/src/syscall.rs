@@ -191,7 +191,7 @@ impl SyscallHandler for Handler {
         unsafe { _enarx_asm_triple_fault() };
     }
 
-    fn translate_shim_to_host_addr<T>(&self, buf: *const T) -> *const T {
+    fn translate_shim_to_host_addr<T>(buf: *const T) -> usize {
         let buf_address = Address::from(buf);
         let phys_unencrypted = ShimPhysUnencryptedAddr::try_from(buf_address).unwrap();
         Register::<usize>::from(HostVirtAddr::from(phys_unencrypted)).into()

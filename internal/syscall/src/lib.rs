@@ -52,7 +52,7 @@ pub trait SyscallHandler: AddressValidator + Sized {
     fn attacked(&mut self) -> !;
 
     /// Translates a shim virtual address to the host virtual address
-    fn translate_shim_to_host_addr<T>(&self, buf: *const T) -> *const T;
+    fn translate_shim_to_host_addr<T>(buf: *const T) -> usize;
 
     /// Returns a new `Cursor` for the sallyport `Block`
     fn new_cursor(&mut self) -> Cursor;
@@ -207,7 +207,7 @@ pub trait SyscallHandler: AddressValidator + Sized {
 
         let (_, hostbuf) = c.alloc::<u8>(count).or(Err(libc::EMSGSIZE))?;
         let hostbuf = hostbuf.as_ptr();
-        let host_virt = self.translate_shim_to_host_addr(hostbuf);
+        let host_virt = Self::translate_shim_to_host_addr(hostbuf);
 
         let ret = unsafe { self.proxy(request!(libc::SYS_read => fd, host_virt, count))? };
 
@@ -262,7 +262,7 @@ pub trait SyscallHandler: AddressValidator + Sized {
         let c = self.new_cursor();
         let (_, buf) = c.copy_from_slice(buf.as_ref()).or(Err(libc::EMSGSIZE))?;
         let buf = buf.as_ptr();
-        let host_virt = self.translate_shim_to_host_addr(buf);
+        let host_virt = Self::translate_shim_to_host_addr(buf);
 
         let ret = unsafe { self.proxy(request!(libc::SYS_write => fd, host_virt, count))? };
 
@@ -448,7 +448,7 @@ pub trait SyscallHandler: AddressValidator + Sized {
 
         let (_, buf) = c.alloc::<libc::timespec>(1).or(Err(libc::EMSGSIZE))?;
         let buf = buf[0].as_ptr();
-        let host_virt = self.translate_shim_to_host_addr(buf);
+        let host_virt = Self::translate_shim_to_host_addr(buf);
 
         let result =
             unsafe { self.proxy(request!(libc::SYS_clock_gettime => clockid, host_virt))? };
@@ -615,7 +615,7 @@ pub trait SyscallHandler: AddressValidator + Sized {
 
         let (_, buf) = c.copy_from_slice(fds).or(Err(libc::EMSGSIZE))?;
         let buf = buf.as_ptr();
-        let host_virt = self.translate_shim_to_host_addr(buf);
+        let host_virt = Self::translate_shim_to_host_addr(buf);
 
         let result = unsafe { self.proxy(request!(libc::SYS_poll => host_virt, nfds, timeout))? };
 

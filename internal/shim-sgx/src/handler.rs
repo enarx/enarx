@@ -116,8 +116,8 @@ impl<'a> AddressValidator for Handler<'a> {
 }
 
 impl<'a> SyscallHandler for Handler<'a> {
-    fn translate_shim_to_host_addr<T>(&self, buf: *const T) -> *const T {
-        buf
+    fn translate_shim_to_host_addr<T>(buf: *const T) -> usize {
+        buf as _
     }
 
     fn new_cursor(&mut self) -> Cursor {
