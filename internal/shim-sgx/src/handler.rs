@@ -3,6 +3,7 @@
 use crate::Layout;
 
 use core::fmt::Write;
+use primordial::Register;
 use sallyport::{request, Block, Cursor, Request};
 use sgx::types::ssa::StateSaveArea;
 use sgx_heap::Heap;
@@ -143,6 +144,23 @@ impl<'a> SyscallHandler for Handler<'a> {
     /// EEXIT.
     fn attacked(&mut self) -> ! {
         self.exit(1)
+    }
+
+    #[inline]
+    fn unknown_syscall(
+        &mut self,
+        _a: Register<usize>,
+        _b: Register<usize>,
+        _c: Register<usize>,
+        _d: Register<usize>,
+        _e: Register<usize>,
+        _f: Register<usize>,
+        nr: usize,
+    ) {
+        if !TRACE {
+            return;
+        }
+        debugln!(self, "unsupported syscall: {}", nr);
     }
 
     fn trace(&mut self, name: &str, argc: usize) {

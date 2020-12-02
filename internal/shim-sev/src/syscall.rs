@@ -162,6 +162,19 @@ impl AddressValidator for Handler {
 }
 
 impl SyscallHandler for Handler {
+    fn unknown_syscall(
+        &mut self,
+        _a: Register<usize>,
+        _b: Register<usize>,
+        _c: Register<usize>,
+        _d: Register<usize>,
+        _e: Register<usize>,
+        _f: Register<usize>,
+        nr: usize,
+    ) {
+        eprintln!("unsupported syscall: {}", nr);
+    }
+
     unsafe fn proxy(&mut self, req: Request) -> sallyport::Result {
         let block = self
             .hostcall
