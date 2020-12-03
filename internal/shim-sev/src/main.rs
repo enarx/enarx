@@ -32,6 +32,7 @@ pub mod paging;
 pub mod payload;
 pub mod random;
 pub mod shim_stack;
+mod start;
 pub mod syscall;
 pub mod usermode;
 

@@ -1,36 +1,35 @@
 // SPDX-License-Identifier: Apache-2.0
 
-//! This is the elf entry point called by enarx-keep-sev
+//! This is the elf entry point called by the hypervisor
 //!
-//! It sets up essential registers, page tables and jumps in shim virtual address space
-//! to the `_start_main` rust function.
-//!
-//! Arguments expected from the hypervisor:
-//! %rdi  = address of SYSCALL_PAGE (boot_info)
-//! %rsi  = shim load offset
+//! see [`_start`](_start)
 
-// maximum offset for the offset page table
-// gives the shim immediate 512GB addressable physical memory
+use crate::addr::SHIM_VIRT_OFFSET;
+use primordial::Page;
+use rcrt1::_dyn_reloc;
 
-#define SHIM_OFFSET 0xFFFFFF8000000000
+#[cfg(not(debug_assertions))]
+const INITIAL_STACK_PAGES: usize = 12;
+#[cfg(debug_assertions)]
+const INITIAL_STACK_PAGES: usize = 50;
 
-#ifdef NDEBUG
-#define SIZE_OF_INITIAL_STACK (48 * 1024)
-#else
-#define SIZE_OF_INITIAL_STACK (150 * 1024)
-#endif
+#[no_mangle]
+static INITIAL_SHIM_STACK: [Page; INITIAL_STACK_PAGES] = [Page::zeroed(); INITIAL_STACK_PAGES];
 
-.section .text
-.global _start
-.hidden _DYNAMIC
-.code64
-.p2align 4
-.intel_syntax noprefix
-
-// Arguments expected from the hypervisor:
-// arg1 %rdi  = address of SYSCALL_PAGE (boot_info)
-// arg2 %rsi  = shim load offset
-_start:
+/// The initial function called at startup
+///
+/// It sets up essential registers, page tables and jumps in shim virtual address space
+/// to the `_start_main` rust function.
+///
+/// Arguments expected from the hypervisor:
+/// * %rdi  = address of SYSCALL_PAGE (boot_info)
+/// * %rsi  = shim load offset
+#[allow(clippy::integer_arithmetic)]
+#[no_mangle]
+#[naked]
+pub unsafe fn _start() -> ! {
+    asm!(
+        "
     // Check if we have a valid (0x8000_001F) CPUID leaf
     mov     eax,    0x80000000
     cpuid
@@ -107,7 +106,7 @@ SevExit:
     lea     rbx,    [rip + PDPT_OFFSET]
     or      rbx,    r12         // set C-bit
     or      rbx,    0x3         // (WRITABLE | PRESENT)
-    mov     QWORD PTR [rax + (((SHIM_OFFSET & 0xFFFFFFFFFFFF) >> 39)*8)],   rbx
+    mov     QWORD PTR [rax + ((({SHIM_VIRT_OFFSET} & 0xFFFFFFFFFFFF) >> 39)*8)],   rbx
 
     // set C-bit in all entries of the PDT_OFFSET table
     lea     rbx,    [rip + PDT_OFFSET]
@@ -162,33 +161,34 @@ setCBit_PDPT_OFFSET:
     or      rax,    r12         // set C-bit for new CR3
     mov     cr3,    rax
 
-    // advance rip to kernel address space with SHIM_OFFSET
+    // advance rip to kernel address space with {SHIM_VIRT_OFFSET}
     lea     rax,    [rip + _trampoline]
-    mov     rbx,    SHIM_OFFSET
+    mov     rbx,    {SHIM_VIRT_OFFSET}
     adox    rax,    rbx
     jmp     rax
 
 _trampoline:
-    mov     r15,    SHIM_OFFSET
-    //  add SHIM_OFFSET to shim load offset
+    mov     r15,    {SHIM_VIRT_OFFSET}
+    //  add {SHIM_VIRT_OFFSET} to shim load offset
     adox    rsi,    r15
-    //  add SHIM_OFFSET to address of SYSCALL_PAGE (boot_info)
+    //  add {SHIM_VIRT_OFFSET} to address of SYSCALL_PAGE (boot_info)
     adox    rdi,    r15
 
     // load stack in shim virtual address space
-    lea     rsp,    [rip + _initial_shim_stack]
+    lea     rsp,    [rip + INITIAL_SHIM_STACK]
     // sub 8 because we push 8 bytes later and want 16 bytes align
-    add     rsp,    SIZE_OF_INITIAL_STACK
+    add     rsp,    {SIZE_OF_INITIAL_STACK}
 
     // save arg1
     push    rdi
 
+    .hidden _DYNAMIC
     lea     rdi,    [rip + _DYNAMIC]
-    // %rdi - _DYNAMIC + SHIM_OFFSET
-    // %rsi - shim load offset + SHIM_OFFSET
-    // correct dynamic symbols with shim load offset + SHIM_OFFSET
-    .hidden _dyn_reloc
-    call    _dyn_reloc
+    // %rdi - _DYNAMIC + {SHIM_VIRT_OFFSET}
+    // %rsi - shim load offset + {SHIM_VIRT_OFFSET}
+    // correct dynamic symbols with shim load offset + {SHIM_VIRT_OFFSET}
+    .hidden {DYN_RELOC}
+    call    {DYN_RELOC}
 
     // restore arg1
     pop     rdi
@@ -201,8 +201,10 @@ _trampoline:
     // arg1 %rdi  = address of SYSCALL_PAGE (boot_info)
     // arg2 %rsi  = SEV C-bit mask
     call    _start_main
-
-.section .bss
-.align 4096
-_initial_shim_stack:
-.space SIZE_OF_INITIAL_STACK
+    ",
+    SHIM_VIRT_OFFSET = const SHIM_VIRT_OFFSET,
+    SIZE_OF_INITIAL_STACK = const INITIAL_STACK_PAGES * 4096,
+    DYN_RELOC = sym _dyn_reloc,
+    options(noreturn)
+    );
+}
