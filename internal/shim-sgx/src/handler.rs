@@ -14,12 +14,7 @@ use syscall::{
 use untrusted::{AddressValidator, UntrustedRef, UntrustedRefMut, ValidateSlice};
 
 pub const TRACE: bool = false;
-
-extern "C" {
-    fn syscall(aex: &mut StateSaveArea, ctx: &Context) -> u64;
-}
-
-pub enum Context {}
+use crate::enclave::{syscall, Context};
 
 pub struct Handler<'a> {
     pub aex: &'a mut StateSaveArea,

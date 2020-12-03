@@ -149,8 +149,8 @@ dependencies = [
 name = "shim-sgx"
 version = "0.1.0"
 dependencies = [
- "cc",
  "compiler_builtins",
+ "const-default",
  "crt0stack",
  "goblin",
  "libc",
@@ -163,6 +163,7 @@ dependencies = [
  "sgx-heap",
  "syscall",
  "untrusted",
+ "xsave",
 ]
 
 [[package]]

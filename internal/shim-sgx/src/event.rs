@@ -3,7 +3,8 @@
 use sallyport::Block;
 use sgx::types::ssa::{Exception, StateSaveArea};
 
-use crate::handler::{Context, Handler};
+use crate::enclave::Context;
+use crate::handler::Handler;
 use crate::Layout;
 use syscall::{SyscallHandler, SYS_ENARX_ERESUME};
 
@@ -12,7 +13,6 @@ use syscall::{SyscallHandler, SYS_ENARX_ERESUME};
 const OP_SYSCALL: &[u8] = &[0x0f, 0x05];
 const OP_CPUID: &[u8] = &[0x0f, 0xa2];
 
-#[no_mangle]
 pub extern "C" fn event(
     _rdi: u64,
     _rsi: u64,

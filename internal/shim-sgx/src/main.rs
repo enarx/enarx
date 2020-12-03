@@ -7,6 +7,7 @@
 
 #![no_std]
 #![feature(asm)]
+#![feature(naked_functions)]
 #![deny(clippy::all)]
 #![deny(missing_docs)]
 #![no_main]
@@ -65,6 +66,7 @@ macro_rules! debugln {
     };
 }
 
+mod enclave;
 mod entry;
 mod event;
 mod handler;
