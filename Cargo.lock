@@ -338,9 +338,9 @@ dependencies = [
 
 [[package]]
 name = "kvm-ioctls"
-version = "0.5.0"
+version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d99720f5df3814a7188f095ad6774775b7635dfdd62b7c091ce7e00a51c3c109"
+checksum = "158d15da895bddca8223fa31dc9e8b9317bdc2fbc4635dea8dd575fc40dae37f"
 dependencies = [
  "kvm-bindings",
  "libc",
