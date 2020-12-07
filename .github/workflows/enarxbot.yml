@@ -51,3 +51,14 @@ jobs:
     name: enarxbot
     steps:
       - uses: enarx/bot@master
+  pull-request-responsibility:
+    runs-on: ubuntu-latest
+    env:
+      BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+    name: pull-request-responsibility
+    steps:
+      - uses: actions-automation/pull-request-responsibility@main
+        with:
+          actions: "request,assign,copy-labels-linked,merge"
+          reviewers: "reviews"
+          num_to_request: 3
