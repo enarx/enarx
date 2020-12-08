@@ -19,6 +19,13 @@ in the hopes that they might be useful to you.
 Please feel free to file a pull request to add your favorite distribution
 if you're able to build and run the `enarx-keepldr` test suite.
 
+### A note on gcc
+
+The minimum required `gcc` version is version 9. Something older _might_ build
+binaries (such as integration test binaries), but may silently drop required
+compiler flags. Please ensure you're using the minimum required version of `gcc`.
+Failure to do so might result in weird failures at runtime.
+
 ### Debian / Ubuntu
 
     $ sudo apt update
