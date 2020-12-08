@@ -288,3 +288,9 @@ fn socket() {
 fn bind() {
     run_test("bind", 0, None, None, None);
 }
+
+#[test]
+#[serial]
+fn listen() {
+    run_test("listen", 0, None, None, None);
+}

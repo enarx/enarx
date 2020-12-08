@@ -236,3 +236,21 @@ int bind(int sockfd, const struct sockaddr *addr, socklen_t addrlen) {
 
     return rax;
 }
+
+int listen(int sockfd, int backlog) {
+    int rax;
+
+    asm(
+    "syscall"
+    : "=a" (rax)
+    : "a" (SYS_listen), "D" (sockfd), "S" (backlog)
+    : "%rcx", "%r11"
+    );
+
+    if (rax < 0) {
+        errno = -rax;
+        return -1;
+    }
+
+    return rax;
+}
