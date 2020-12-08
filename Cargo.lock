@@ -110,6 +110,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 
 [[package]]
+name = "ciborium"
+version = "0.1.0"
+source = "git+https://github.com/enarx/ciborium?rev=bcaec75#bcaec756e8b82897c897ae4775d182c7555eb41f"
+dependencies = [
+ "half",
+ "serde",
+]
+
+[[package]]
 name = "clap"
 version = "2.33.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -335,10 +344,10 @@ checksum = "d8972d5be69940353d5347a1344cb375d9b457d6809b428b05bb1ca2fb9ce007"
 [[package]]
 name = "koine"
 version = "0.1.0"
-source = "git+https://github.com/enarx/koine#040ad4a740c0082b6905593696f9c9bea2918f47"
+source = "git+https://github.com/enarx/koine#8aa13790b7199a45358d5dfe2e9ae301da3f8177"
 dependencies = [
+ "ciborium",
  "serde",
- "serde_cbor",
  "tokio",
  "uuid",
 ]
