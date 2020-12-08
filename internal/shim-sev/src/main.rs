@@ -185,12 +185,12 @@ unsafe fn stack_trace() {
 
     print::_eprint(format_args!("TRACE:\n"));
 
-    if SHIM_PAGETABLE.is_locked() {
-        SHIM_PAGETABLE.force_unlock_read();
+    if SHIM_PAGETABLE.try_read().is_none() {
+        SHIM_PAGETABLE.force_unlock_write()
     }
 
-    if BOOT_INFO.is_locked() {
-        BOOT_INFO.force_unlock_read();
+    if BOOT_INFO.try_read().is_none() {
+        BOOT_INFO.force_unlock_write();
     }
 
     let bootinfo = BOOT_INFO.read();
