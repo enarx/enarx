@@ -180,6 +180,7 @@ pub trait SyscallHandler: AddressValidator + Sized {
                 usize::from(c) as _,
             ),
             libc::SYS_bind => self.bind(usize::from(a) as _, b.into(), c.into()),
+            libc::SYS_listen => self.listen(usize::from(a) as _, usize::from(b) as _),
 
             SYS_ENARX_GETATT => self.get_attestation(a.into(), b.into(), c.into(), d.into()),
 
@@ -686,5 +687,11 @@ pub trait SyscallHandler: AddressValidator + Sized {
         let host_virt = Self::translate_shim_to_host_addr(addr);
 
         unsafe { self.proxy(request!(libc::SYS_bind => fd, host_virt, addrlen)) }
+    }
+
+    /// syscall
+    fn listen(&mut self, sockfd: libc::c_int, backlog: libc::c_int) -> Result {
+        self.trace("listen", 2);
+        unsafe { self.proxy(request!(libc::SYS_listen => sockfd, backlog)) }
     }
 }
