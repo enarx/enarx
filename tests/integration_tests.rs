@@ -1,11 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 #![cfg(not(miri))]
 
+use std::fs;
 use std::io::{Read, Write};
 use std::mem::{size_of, MaybeUninit};
+use std::os::unix::net::{UnixListener, UnixStream};
 use std::path::Path;
 use std::process::{Command, Stdio};
 use std::slice::from_raw_parts_mut;
+use std::thread;
 use std::time::Duration;
 
 use process_control::{ChildExt, Output, Timeout};
@@ -224,6 +227,50 @@ fn echo() {
         input.push(i as _);
     }
     run_test("echo", 0, input.as_slice(), input.as_slice(), None);
+}
+
+#[test]
+#[serial]
+fn unix_echo() {
+    const FILENAME_IN: &'static str = "/tmp/enarx_unix_echo_to_bin";
+    const FILENAME_OUT: &'static str = "/tmp/enarx_unix_echo_from_bin";
+    let mut input: Vec<u8> = Vec::with_capacity(2 * 1024 * 1024);
+
+    let _ = fs::remove_file(FILENAME_IN);
+
+    for i in 0..input.capacity() {
+        input.push(i as _);
+    }
+
+    let handle = thread::spawn(move || {
+        let socket_path = Path::new(FILENAME_IN);
+        let mut cnt = 0;
+        while cnt < 100 && !socket_path.exists() {
+            cnt += 1;
+            thread::sleep(Duration::from_millis(500))
+        }
+        if socket_path.exists() {
+            let _ = fs::remove_file(FILENAME_OUT);
+            let listener = UnixListener::bind(FILENAME_OUT).unwrap();
+
+            let mut socket = UnixStream::connect(FILENAME_IN).unwrap();
+            socket.write_all(&input).unwrap();
+            // close the socket to let the test get EOF
+            drop(socket);
+
+            let (mut socket, _) = listener.accept().unwrap();
+
+            let mut buffer = Vec::new();
+            socket.read_to_end(&mut buffer).unwrap();
+
+            assert_eq_slices(&input, &buffer, "stream output");
+        }
+    });
+
+    run_test("unix_echo", 0, None, None, None);
+
+    handle.join().unwrap();
+    let _ = fs::remove_file(FILENAME_IN);
 }
 
 #[test]
