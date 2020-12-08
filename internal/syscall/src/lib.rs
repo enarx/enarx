@@ -181,6 +181,10 @@ pub trait SyscallHandler: AddressValidator + Sized {
             ),
             libc::SYS_bind => self.bind(usize::from(a) as _, b.into(), c.into()),
             libc::SYS_listen => self.listen(usize::from(a) as _, usize::from(b) as _),
+            libc::SYS_accept => self.accept(usize::from(a) as _, b.into(), c.into()),
+            libc::SYS_accept4 => {
+                self.accept4(usize::from(a) as _, b.into(), c.into(), usize::from(d) as _)
+            }
 
             SYS_ENARX_GETATT => self.get_attestation(a.into(), b.into(), c.into(), d.into()),
 
@@ -693,5 +697,67 @@ pub trait SyscallHandler: AddressValidator + Sized {
     fn listen(&mut self, sockfd: libc::c_int, backlog: libc::c_int) -> Result {
         self.trace("listen", 2);
         unsafe { self.proxy(request!(libc::SYS_listen => sockfd, backlog)) }
+    }
+
+    /// syscall
+    fn accept(
+        &mut self,
+        fd: libc::c_int,
+        addr: UntrustedRefMut<u8>,
+        addrlen: UntrustedRefMut<libc::socklen_t>,
+    ) -> Result {
+        self.accept4(fd, addr, addrlen, 0)
+    }
+
+    /// syscall
+    fn accept4(
+        &mut self,
+        fd: libc::c_int,
+        addr: UntrustedRefMut<u8>,
+        addrlen: UntrustedRefMut<libc::socklen_t>,
+        flags: libc::c_int,
+    ) -> Result {
+        self.trace("accept4", 4);
+
+        if addr.as_ptr().is_null() {
+            return unsafe {
+                self.proxy(
+                    request!(libc::SYS_accept4 => fd, addr.as_ptr(), addrlen.as_ptr(), flags),
+                )
+            };
+        }
+
+        let addrlen = addrlen.validate(self).ok_or(libc::EFAULT)?;
+
+        let c = self.new_cursor();
+
+        let (c, block_addr) = c.alloc::<u8>(*addrlen as _).or(Err(libc::EMSGSIZE))?;
+        let (_, block_addrlen) = c.write(addrlen).or(Err(libc::EINVAL))?;
+
+        let block_addr_ptr = block_addr[0].as_ptr();
+        let block_addr = Self::translate_shim_to_host_addr(block_addr_ptr);
+        let block_addrlen = Self::translate_shim_to_host_addr(block_addrlen as _);
+
+        let ret = unsafe {
+            self.proxy(request!(libc::SYS_accept4 => fd, block_addr, block_addrlen, flags))
+        }?;
+
+        unsafe {
+            let c = self.new_cursor();
+            let (c, _) = c.alloc::<u8>(*addrlen as _).or(Err(libc::EMSGSIZE))?;
+            let (_, block_addrlen) = c.read::<libc::socklen_t>().or(Err(libc::EMSGSIZE))?;
+
+            let addr = addr.validate_slice(*addrlen, self).ok_or(libc::EFAULT)?;
+
+            let len = (*addrlen).min(block_addrlen) as usize;
+
+            let c = self.new_cursor();
+            c.copy_into_slice(*addrlen as _, &mut addr[..len])
+                .or(Err(libc::EMSGSIZE))?;
+
+            *addrlen = block_addrlen;
+        }
+
+        Ok(ret)
     }
 }

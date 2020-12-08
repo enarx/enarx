@@ -254,3 +254,40 @@ int listen(int sockfd, int backlog) {
 
     return rax;
 }
+
+int accept(int sockfd, struct sockaddr *addr, socklen_t *addrlen) {
+    int rax;
+
+    asm(
+    "syscall"
+    : "=a" (rax)
+    : "a" (SYS_accept), "D" (sockfd), "S" (addr), "d" (addrlen)
+    : "%rcx", "%r11"
+    );
+
+    if (rax < 0) {
+        errno = -rax;
+        return -1;
+    }
+
+    return rax;
+}
+
+int accept4(int sockfd, const struct sockaddr *addr, socklen_t *addrlen, int flags) {
+    int rax;
+    register int r10 __asm__("r10") = flags;
+
+    asm(
+    "syscall"
+    : "=a" (rax)
+    : "a" (SYS_accept4), "D" (sockfd), "S" (addr), "d" (addrlen), "r" (r10)
+    : "%rcx", "%r11"
+    );
+
+    if (rax < 0) {
+        errno = -rax;
+        return -1;
+    }
+
+    return rax;
+}
