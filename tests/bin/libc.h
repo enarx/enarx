@@ -4,6 +4,7 @@
 #include <errno.h>
 #include <time.h>
 #include <sys/types.h>
+#include <sys/socket.h>
 
 int *__errno_location(void) {
     static int errnum = 0;
@@ -207,6 +208,24 @@ int socket(int domain, int type, int protocol) {
     "syscall"
     : "=a" (rax)
     : "a" (SYS_socket), "D" (domain), "S" (type), "d" (protocol)
+    : "%rcx", "%r11"
+    );
+
+    if (rax < 0) {
+        errno = -rax;
+        return -1;
+    }
+
+    return rax;
+}
+
+int bind(int sockfd, const struct sockaddr *addr, socklen_t addrlen) {
+    int rax;
+
+    asm(
+    "syscall"
+    : "=a" (rax)
+    : "a" (SYS_bind), "D" (sockfd), "S" (addr), "d" (addrlen)
     : "%rcx", "%r11"
     );
 

@@ -282,3 +282,9 @@ fn getegid() {
 fn socket() {
     run_test("socket", 0, None, None, None);
 }
+
+#[test]
+#[serial]
+fn bind() {
+    run_test("bind", 0, None, None, None);
+}
