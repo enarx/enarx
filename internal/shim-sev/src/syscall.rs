@@ -3,10 +3,10 @@
 //! syscall interface layer between assembler and rust
 
 use crate::addr::{HostVirtAddr, ShimPhysUnencryptedAddr};
+use crate::allocator::ALLOCATOR;
 use crate::asm::_enarx_asm_triple_fault;
 use crate::attestation::SEV_SECRET;
 use crate::eprintln;
-use crate::frame_allocator::FRAME_ALLOCATOR;
 use crate::hostcall::{self, HostCall, HOST_CALL};
 use crate::paging::SHIM_PAGETABLE;
 use crate::payload::{NEXT_BRK_RWLOCK, NEXT_MMAP_RWLOCK};
@@ -364,7 +364,7 @@ impl SyscallHandler for Handler {
                 let virt_addr = *NEXT_MMAP_RWLOCK.read().deref();
                 let len_aligned = align_up(length as _, Page::<Size4KiB>::SIZE) as _;
 
-                let mem_slice = FRAME_ALLOCATOR
+                let mem_slice = ALLOCATOR
                     .write()
                     .allocate_and_map_memory(
                         SHIM_PAGETABLE.write().deref_mut(),
@@ -433,7 +433,7 @@ impl SyscallHandler for Handler {
                     .checked_sub(next_brk.as_u64() as usize)
                     .ok_or(libc::EINVAL)?;
                 let len_aligned = align_up(len as _, Page::<Size4KiB>::SIZE) as _;
-                let _ = FRAME_ALLOCATOR
+                let _ = ALLOCATOR
                     .write()
                     .allocate_and_map_memory(
                         SHIM_PAGETABLE.write().deref_mut(),

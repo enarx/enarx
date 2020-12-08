@@ -19,9 +19,9 @@ extern crate rcrt1;
 pub mod print;
 
 pub mod addr;
+pub mod allocator;
 pub mod asm;
 pub mod attestation;
-pub mod frame_allocator;
 pub mod gdt;
 pub mod hostcall;
 /// Shared components for the shim and the loader

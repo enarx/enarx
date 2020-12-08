@@ -17,7 +17,7 @@ pub const BYTES_2_MIB: u64 = bytes![2; MiB];
 #[allow(clippy::integer_arithmetic)]
 pub const BYTES_2_GIB: u64 = bytes![2; GiB];
 
-use crate::frame_allocator::FRAME_ALLOCATOR;
+use crate::allocator::ALLOCATOR;
 use crate::get_cbit_mask;
 use core::convert::TryFrom;
 use nbytes::bytes;
@@ -39,7 +39,7 @@ impl<U> HostVirtAddr<U> {
 impl<U> From<ShimPhysUnencryptedAddr<U>> for HostVirtAddr<U> {
     #[inline(always)]
     fn from(val: ShimPhysUnencryptedAddr<U>) -> Self {
-        FRAME_ALLOCATOR.read().phys_to_host(val)
+        ALLOCATOR.read().phys_to_host(val)
     }
 }
 

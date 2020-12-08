@@ -2,7 +2,7 @@
 
 //! Functions dealing with the payload
 use crate::addr::{ShimPhysAddr, ShimVirtAddr};
-use crate::frame_allocator::FRAME_ALLOCATOR;
+use crate::allocator::ALLOCATOR;
 use crate::paging::SHIM_PAGETABLE;
 use crate::random::random;
 use crate::shim_stack::init_stack_with_guard;
@@ -114,7 +114,7 @@ fn map_elf(app_virt_start: VirtAddr) -> &'static Header {
 
         debug_assert_eq!(ph.p_align, Page::<Size4KiB>::SIZE);
 
-        FRAME_ALLOCATOR
+        ALLOCATOR
             .write()
             .map_memory(
                 SHIM_PAGETABLE.write().deref_mut(),

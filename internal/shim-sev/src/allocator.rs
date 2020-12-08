@@ -24,9 +24,9 @@ use x86_64::{align_down, align_up, PhysAddr, VirtAddr};
 pub struct Page2MiB([u8; bytes![2; MiB]]);
 
 /// The global ShimFrameAllocator RwLock
-pub static FRAME_ALLOCATOR: Lazy<RwLock<FrameAllocator>> = Lazy::new(|| {
-    RwLock::<FrameAllocator>::const_new(spinning::RawRwLock::const_new(), unsafe {
-        FrameAllocator::new()
+pub static ALLOCATOR: Lazy<RwLock<EnarxAllocator>> = Lazy::new(|| {
+    RwLock::<EnarxAllocator>::const_new(spinning::RawRwLock::const_new(), unsafe {
+        EnarxAllocator::new()
     })
 });
 
@@ -52,7 +52,7 @@ struct FreeMemListPage {
 }
 
 /// A frame allocator
-pub struct FrameAllocator {
+pub struct EnarxAllocator {
     min_alloc: usize,
     max_alloc: usize,
     free_mem: FreeMemListPage,
@@ -60,7 +60,7 @@ pub struct FrameAllocator {
     next_huge_page: Address<usize, Page2MiB>,
 }
 
-impl core::fmt::Debug for FrameAllocator {
+impl core::fmt::Debug for EnarxAllocator {
     fn fmt(&self, f: &mut core::fmt::Formatter) -> Result<(), core::fmt::Error> {
         f.debug_struct("FrameAllocator")
             .field("min_alloc", &self.min_alloc)
@@ -106,7 +106,7 @@ pub enum AllocateError {
     ZeroSize,
 }
 
-impl FrameAllocator {
+impl EnarxAllocator {
     #[allow(clippy::integer_arithmetic)]
     unsafe fn new() -> Self {
         let boot_info = BOOT_INFO.read().unwrap();
@@ -155,7 +155,7 @@ impl FrameAllocator {
 
         debug_assert_ne!(free_mem.ent[0].end, 0);
 
-        let mut allocator = FrameAllocator {
+        let mut allocator = EnarxAllocator {
             min_alloc,
             max_alloc,
             free_mem,
@@ -358,9 +358,9 @@ impl FrameAllocator {
         };
 
         // Allocate the mix of 4KiB and 2MiB Pages
-        FrameAllocator::do_allocate_and_map_memory(self, &pre, mapper, flags, parent_flags)?;
-        FrameAllocator::do_allocate_and_map_memory(self, &middle, mapper, flags, parent_flags)?;
-        FrameAllocator::do_allocate_and_map_memory(self, &post, mapper, flags, parent_flags)?;
+        EnarxAllocator::do_allocate_and_map_memory(self, &pre, mapper, flags, parent_flags)?;
+        EnarxAllocator::do_allocate_and_map_memory(self, &middle, mapper, flags, parent_flags)?;
+        EnarxAllocator::do_allocate_and_map_memory(self, &post, mapper, flags, parent_flags)?;
 
         // transmute the whole thing to one big bytes slice
         Ok(unsafe { core::slice::from_raw_parts_mut(pre.as_mut_ptr() as *mut u8, size) })
@@ -411,7 +411,7 @@ impl FrameAllocator {
     }
 }
 
-unsafe impl paging::FrameAllocator<Size4KiB> for FrameAllocator {
+unsafe impl paging::FrameAllocator<Size4KiB> for EnarxAllocator {
     fn allocate_frame(&mut self) -> Option<PhysFrame> {
         let frame_address = self.next_page;
         self.next_page += Offset::from_items(1);
@@ -443,7 +443,7 @@ unsafe impl paging::FrameAllocator<Size4KiB> for FrameAllocator {
     }
 }
 
-unsafe impl paging::FrameAllocator<Size2MiB> for FrameAllocator {
+unsafe impl paging::FrameAllocator<Size2MiB> for EnarxAllocator {
     fn allocate_frame(&mut self) -> Option<PhysFrame<Size2MiB>> {
         let frame_address = self.next_huge_page;
         self.next_huge_page += Offset::from_items(1);

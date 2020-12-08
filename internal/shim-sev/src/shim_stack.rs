@@ -2,7 +2,7 @@
 
 //! Helper functions for the shim stack
 
-use crate::frame_allocator::FRAME_ALLOCATOR;
+use crate::allocator::ALLOCATOR;
 use crate::paging::SHIM_PAGETABLE;
 use core::ops::DerefMut;
 use x86_64::structures::paging::{Page, PageTableFlags, Size4KiB};
@@ -23,7 +23,7 @@ pub fn init_stack_with_guard(
     extra_flags: PageTableFlags,
 ) -> GuardedStack {
     // guard page
-    FRAME_ALLOCATOR
+    ALLOCATOR
         .write()
         .allocate_and_map_memory(
             SHIM_PAGETABLE.write().deref_mut(),
@@ -34,7 +34,7 @@ pub fn init_stack_with_guard(
         )
         .expect("Stack guard page allocation failed");
 
-    let mem_slice = FRAME_ALLOCATOR
+    let mem_slice = ALLOCATOR
         .write()
         .allocate_and_map_memory(
             SHIM_PAGETABLE.write().deref_mut(),
@@ -52,7 +52,7 @@ pub fn init_stack_with_guard(
         .expect("Stack allocation failed");
 
     // guard page
-    FRAME_ALLOCATOR
+    ALLOCATOR
         .write()
         .allocate_and_map_memory(
             SHIM_PAGETABLE.write().deref_mut(),
