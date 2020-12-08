@@ -174,6 +174,11 @@ pub trait SyscallHandler: AddressValidator + Sized {
             libc::SYS_geteuid => self.geteuid(),
             libc::SYS_getegid => self.getegid(),
             libc::SYS_close => self.close(a.try_into().map_err(|_| libc::EINVAL)?),
+            libc::SYS_socket => self.socket(
+                usize::from(a) as _,
+                usize::from(b) as _,
+                usize::from(c) as _,
+            ),
 
             SYS_ENARX_GETATT => self.get_attestation(a.into(), b.into(), c.into(), d.into()),
 
@@ -657,5 +662,11 @@ pub trait SyscallHandler: AddressValidator + Sized {
     fn close(&mut self, fd: libc::c_int) -> Result {
         self.trace("close", 1);
         unsafe { self.proxy(request!(libc::SYS_close => fd)) }
+    }
+
+    /// syscall
+    fn socket(&mut self, domain: libc::c_int, type_: libc::c_int, protocol: libc::c_int) -> Result {
+        self.trace("socket", 3);
+        unsafe { self.proxy(request!(libc::SYS_socket => domain, type_, protocol)) }
     }
 }

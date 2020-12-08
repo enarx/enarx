@@ -276,3 +276,9 @@ fn getgid() {
 fn getegid() {
     run_test("getegid", 0, None, None, None);
 }
+
+#[test]
+#[serial]
+fn socket() {
+    run_test("socket", 0, None, None, None);
+}

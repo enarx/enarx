@@ -199,3 +199,21 @@ int close(int fd) {
 
     return rax;
 }
+
+int socket(int domain, int type, int protocol) {
+    int rax;
+
+    asm(
+    "syscall"
+    : "=a" (rax)
+    : "a" (SYS_socket), "D" (domain), "S" (type), "d" (protocol)
+    : "%rcx", "%r11"
+    );
+
+    if (rax < 0) {
+        errno = -rax;
+        return -1;
+    }
+
+    return rax;
+}
