@@ -26,6 +26,16 @@ binaries (such as integration test binaries), but may silently drop required
 compiler flags. Please ensure you're using the minimum required version of `gcc`.
 Failure to do so might result in weird failures at runtime.
 
+### CentOS 8 / Stream
+
+    $ sudo dnf copr enable ngompa/musl-libc
+    $ sudo dnf install git curl gcc-toolset-9 openssl-devel musl-gcc
+    $ source "/opt/rh/gcc-toolset-9/enable"
+
+Note: you may want to add that final `source` command to a `~/.profile`,
+`~/.bashrc` / or `~/.bash_profile` equivalent, otherwise you must remember
+to source that file prior to building `enarx-keepldr`.
+
 ### Debian / Ubuntu
 
     $ sudo apt update
