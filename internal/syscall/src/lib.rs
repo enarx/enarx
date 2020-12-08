@@ -185,6 +185,7 @@ pub trait SyscallHandler: AddressValidator + Sized {
             libc::SYS_accept4 => {
                 self.accept4(usize::from(a) as _, b.into(), c.into(), usize::from(d) as _)
             }
+            libc::SYS_connect => self.connect(usize::from(a) as _, b.into(), c.into()),
 
             SYS_ENARX_GETATT => self.get_attestation(a.into(), b.into(), c.into(), d.into()),
 
@@ -759,5 +760,27 @@ pub trait SyscallHandler: AddressValidator + Sized {
         }
 
         Ok(ret)
+    }
+
+    /// syscall
+    fn connect(
+        &mut self,
+        fd: libc::c_int,
+        addr: UntrustedRef<u8>,
+        addrlen: libc::size_t,
+    ) -> Result {
+        self.trace("connect", 3);
+        if addrlen > Block::buf_capacity() {
+            return Err(libc::EINVAL);
+        }
+
+        let addr = addr.validate_slice(addrlen, self).ok_or(libc::EFAULT)?;
+
+        let c = self.new_cursor();
+        let (_, addr) = c.copy_from_slice(addr.as_ref()).or(Err(libc::EMSGSIZE))?;
+        let addr = addr.as_ptr();
+        let host_virt = Self::translate_shim_to_host_addr(addr);
+
+        unsafe { self.proxy(request!(libc::SYS_connect => fd, host_virt, addrlen)) }
     }
 }

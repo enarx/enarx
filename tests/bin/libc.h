@@ -291,3 +291,21 @@ int accept4(int sockfd, const struct sockaddr *addr, socklen_t *addrlen, int fla
 
     return rax;
 }
+
+int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen) {
+    int rax;
+
+    asm(
+    "syscall"
+    : "=a" (rax)
+    : "a" (SYS_connect), "D" (sockfd), "S" (addr), "d" (addrlen)
+    : "%rcx", "%r11"
+    );
+
+    if (rax < 0) {
+        errno = -rax;
+        return -1;
+    }
+
+    return rax;
+}
