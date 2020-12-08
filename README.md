@@ -11,28 +11,9 @@ This crate provides the `enarx-keepldr` executable which loads `static-pie`
 binaries into an Enarx Keep - that is a hardware isolated environment using
 technologies such as Intel SGX or AMD SEV.
 
-## Install Dependencies
+## Building
 
-### Fedora
-
-    $ sudo dnf install git curl gcc pkg-config openssl-devel musl-gcc
-
-### Debian / Ubuntu
-
-    $ sudo apt update
-    $ sudo apt install git curl gcc pkg-config libssl-dev musl-tools python3-minimal
-
-## Install Rust, Nightly and the MUSL target
-
-    $ curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-    $ source $HOME/.cargo/env
-    $ rustup toolchain install nightly --allow-downgrade -t x86_64-unknown-linux-musl
-
-## Build
-
-    $ git clone https://github.com/enarx/enarx-keepldr
-    $ cd enarx-keepldr/
-    $ cargo build
+Please see **BUILD.md** for instructions.
 
 ## Run Tests
 
