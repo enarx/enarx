@@ -21,14 +21,14 @@ pub const SHIM_STACK_START: u64 = 0xFFFF_FF48_4800_0000;
 
 /// The size of the main kernel stack
 #[allow(clippy::integer_arithmetic)]
-pub const SHIM_STACK_SIZE: u64 = bytes![4; MiB];
+pub const SHIM_STACK_SIZE: u64 = bytes![8; MiB];
 
 /// The virtual address of the exception kernel stacks
 pub const SHIM_EX_STACK_START: u64 = 0xFFFF_FF48_F000_0000;
 
 /// The size of the main kernel stack
 #[allow(clippy::integer_arithmetic)]
-pub const SHIM_EX_STACK_SIZE: u64 = bytes![2; MiB];
+pub const SHIM_EX_STACK_SIZE: u64 = bytes![4; KiB];
 
 /// The initial shim stack
 pub static INITIAL_STACK: Lazy<GuardedStack> = Lazy::new(|| {
