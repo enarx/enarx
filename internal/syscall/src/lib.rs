@@ -186,6 +186,14 @@ pub trait SyscallHandler: AddressValidator + Sized {
                 self.accept4(usize::from(a) as _, b.into(), c.into(), usize::from(d) as _)
             }
             libc::SYS_connect => self.connect(usize::from(a) as _, b.into(), c.into()),
+            libc::SYS_recvfrom => self.recvfrom(
+                usize::from(a) as _,
+                b.into(),
+                c.into(),
+                usize::from(d) as _,
+                e.into(),
+                f.into(),
+            ),
 
             SYS_ENARX_GETATT => self.get_attestation(a.into(), b.into(), c.into(), d.into()),
 
@@ -782,5 +790,95 @@ pub trait SyscallHandler: AddressValidator + Sized {
         let host_virt = Self::translate_shim_to_host_addr(addr);
 
         unsafe { self.proxy(request!(libc::SYS_connect => fd, host_virt, addrlen)) }
+    }
+
+    /// syscall
+    fn recvfrom(
+        &mut self,
+        fd: libc::c_int,
+        buf: UntrustedRefMut<u8>,
+        count: libc::size_t,
+        flags: libc::c_int,
+        src_addr: UntrustedRefMut<u8>,
+        addrlen: UntrustedRefMut<libc::socklen_t>,
+    ) -> Result {
+        self.trace("recvfrom", 6);
+
+        // Limit the read to `Block::buf_capacity()`
+        let count = usize::min(count, Block::buf_capacity());
+
+        let addrlen = addrlen.validate(self);
+
+        let len = match addrlen {
+            None => 0,
+            Some(ref e) => **e,
+        };
+
+        if (count + (len as usize)) > Block::buf_capacity() {
+            return Err(libc::EINVAL);
+        }
+
+        let buf = buf.validate_slice(count, self).ok_or(libc::EFAULT)?;
+
+        let c = self.new_cursor();
+
+        let (c, hostbuf) = c.alloc::<u8>(count).or(Err(libc::EMSGSIZE))?;
+        let hostbuf = hostbuf.as_ptr();
+        let host_buf_virt = Self::translate_shim_to_host_addr(hostbuf);
+
+        let (host_addr, block_addrlen) = if src_addr.as_ptr().is_null() {
+            (src_addr.as_ptr() as usize, 0)
+        } else {
+            let (c, block_addr) = c.alloc::<u8>(len as _).or(Err(libc::EMSGSIZE))?;
+            let block_addr_ptr = block_addr[0].as_ptr();
+            let block_addr = Self::translate_shim_to_host_addr(block_addr_ptr);
+            let (_c, block_addrlen) = c.write(addrlen.as_deref().unwrap()).or(Err(libc::EINVAL))?;
+            let block_addrlen = Self::translate_shim_to_host_addr(block_addrlen as _);
+            (block_addr, block_addrlen)
+        };
+
+        let ret = unsafe {
+            self.proxy(
+                request!(libc::SYS_recvfrom => fd, host_buf_virt, count, flags, host_addr, block_addrlen),
+            )?
+        };
+
+        let result_len: usize = ret[0].into();
+
+        if count < result_len {
+            self.attacked();
+        }
+
+        if src_addr.as_ptr().is_null() {
+            let c = self.new_cursor();
+            unsafe {
+                c.copy_into_slice(count, &mut buf[..result_len].as_mut())
+                    .or(Err(libc::EFAULT))?
+            };
+        } else {
+            let addrlen = addrlen.unwrap();
+            let addr = src_addr
+                .validate_slice(*addrlen as usize, self)
+                .ok_or(libc::EFAULT)?;
+
+            let c = self.new_cursor();
+            let c = unsafe {
+                c.copy_into_slice(count, &mut buf[..result_len].as_mut())
+                    .or(Err(libc::EFAULT))?
+            };
+
+            unsafe {
+                let (c, addr_buf) = c.alloc::<u8>(*addrlen as _).or(Err(libc::EMSGSIZE))?;
+                let (_, block_addrlen) = c.read::<libc::socklen_t>().or(Err(libc::EMSGSIZE))?;
+
+                let len = (*addrlen).min(block_addrlen) as usize;
+
+                addr_buf.as_ptr().copy_to(addr.as_mut_ptr() as _, len);
+
+                *addrlen = block_addrlen;
+            }
+        }
+
+        Ok(ret)
     }
 }

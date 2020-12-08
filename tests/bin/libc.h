@@ -309,3 +309,25 @@ int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen) {
 
     return rax;
 }
+
+ssize_t recvfrom(int sockfd, void *buf, size_t len, int flags,
+        struct sockaddr *src_addr, socklen_t *addrlen) {
+    int rax;
+    register int r10 __asm__("r10") = flags;
+    register struct sockaddr *r8 __asm__("r8") = src_addr;
+    register socklen_t *r9 __asm__("r9") = addrlen;
+
+    asm(
+    "syscall"
+    : "=a" (rax)
+    : "a" (SYS_recvfrom), "D" (sockfd), "S" (buf), "d" (len), "r" (r10), "r" (r8), "r" (r9)
+    : "%rcx", "%r11"
+    );
+
+    if (rax < 0) {
+        errno = -rax;
+        return -1;
+    }
+
+    return rax;
+}
