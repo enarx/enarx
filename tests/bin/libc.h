@@ -151,7 +151,7 @@ uid_t getuid() {
 uid_t geteuid() {
     uid_t rax;
     asm(
-        "syscall" 
+        "syscall"
         : "=a" (rax)
         : "a" (SYS_geteuid)
         : "%rcx", "%r11"
@@ -162,7 +162,7 @@ uid_t geteuid() {
 gid_t getgid() {
     gid_t rax;
     asm(
-        "syscall" 
+        "syscall"
         : "=a" (rax)
         : "a" (SYS_getgid)
         : "%rcx", "%r11"
@@ -174,7 +174,7 @@ gid_t getgid() {
 gid_t getegid() {
     gid_t rax;
     asm(
-        "syscall" 
+        "syscall"
         : "=a" (rax)
         : "a" (SYS_getegid)
         : "%rcx", "%r11"
