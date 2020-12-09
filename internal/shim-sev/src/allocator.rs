@@ -2,7 +2,7 @@
 
 //! The global FrameAllocator
 use crate::addr::{HostVirtAddr, ShimPhysAddr, ShimPhysUnencryptedAddr, ShimVirtAddr};
-use crate::hostcall::HOST_CALL;
+use crate::hostcall::HOST_CALL_ALLOC;
 use crate::{get_cbit_mask, BOOT_INFO};
 
 use nbytes::bytes;
@@ -121,7 +121,7 @@ impl EnarxAllocator {
         };
 
         let meminfo = {
-            let mut host_call = HOST_CALL.try_lock().unwrap();
+            let mut host_call = HOST_CALL_ALLOC.try_alloc().unwrap();
             host_call.mem_info().unwrap()
         };
 
@@ -242,7 +242,9 @@ impl EnarxAllocator {
                         let new_size: usize = 2u64.checked_mul(last_size as u64).unwrap() as _;
                         let new_size = new_size.min(self.max_alloc);
                         let num_pages = new_size.checked_div(Page4KiB::size() as _).unwrap();
-                        if let Ok(virt_offset) = HOST_CALL.lock().balloon(num_pages) {
+                        if let Ok(virt_offset) =
+                            HOST_CALL_ALLOC.try_alloc().unwrap().balloon(num_pages)
+                        {
                             i.virt_offset = virt_offset;
                             i.start = last_end;
                             i.end = i.start.checked_add(new_size).unwrap();

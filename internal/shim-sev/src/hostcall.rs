@@ -5,11 +5,13 @@
 use crate::addr::{HostVirtAddr, ShimPhysUnencryptedAddr};
 use crate::asm::_enarx_asm_triple_fault;
 use crate::hostlib::{MemInfo, SYSCALL_TRIGGER_PORT};
-use crate::SHIM_HOSTCALL_VIRT_ADDR;
+use crate::spin::RWLocked;
+use crate::{BOOT_INFO, SHIM_HOSTCALL_PHYS_ADDR};
+use array_const_fn_init::array_const_fn_init;
 use core::convert::TryFrom;
 use primordial::{Address, Register};
 use sallyport::{request, Block};
-use spinning::{Lazy, Mutex};
+use spinning::Lazy;
 use syscall::{SYS_ENARX_BALLOON_MEMORY, SYS_ENARX_MEM_INFO};
 use x86_64::instructions::port::Port;
 
@@ -42,21 +44,53 @@ impl HostFd {
     }
 }
 
+const MAX_BLOCK_NR: usize = 512;
+
+fn return_empty_option(_i: usize) -> Option<&'static mut Block> {
+    None
+}
+
 /// The static HostCall Mutex
-pub static HOST_CALL: Lazy<Mutex<HostCall<'static>>> = Lazy::new(|| {
-    let address = SHIM_HOSTCALL_VIRT_ADDR.read().as_ref().unwrap().clone();
-    let shared_page: ShimPhysUnencryptedAddr<Block> =
-        ShimPhysUnencryptedAddr::try_from(address).unwrap();
-    Mutex::<HostCall<'static>>::const_new(
-        spinning::RawMutex::const_new(),
-        HostCall(shared_page.into_mut()),
-    )
+pub static HOST_CALL_ALLOC: Lazy<RWLocked<HostCallAllocator>> = Lazy::new(|| {
+    let block_mut = SHIM_HOSTCALL_PHYS_ADDR.read().unwrap() as *mut Block;
+    let mut hostcall_allocator = HostCallAllocator(array_const_fn_init![return_empty_option; 512]);
+    for i in 0..BOOT_INFO.read().unwrap().nr_syscall_blocks {
+        (hostcall_allocator.0)[i].replace(unsafe { &mut *block_mut.add(i) });
+    }
+    RWLocked::<HostCallAllocator>::new(hostcall_allocator)
 });
 
-/// Communication with the Host
-pub struct HostCall<'a>(&'a mut Block);
+/// Allocator for all `sallyport::Block`
+pub struct HostCallAllocator([Option<&'static mut Block>; MAX_BLOCK_NR]);
 
-impl<'a> HostCall<'a> {
+impl RWLocked<HostCallAllocator> {
+    /// Try to allocate a `HostCall` object to use a `sallyport::Block`
+    pub fn try_alloc(&self) -> Option<HostCall> {
+        let mut this = self.write();
+        this.0
+            .iter_mut()
+            .enumerate()
+            .find(|(_i, x)| x.is_some())
+            .map(|(i, ele)| HostCall {
+                block_index: i as _,
+                block: ele.take(),
+            })
+    }
+}
+
+/// Communication with the Host
+pub struct HostCall {
+    block_index: u16,
+    block: Option<&'static mut Block>,
+}
+
+impl Drop for HostCall {
+    fn drop(&mut self) {
+        HOST_CALL_ALLOC.write().0[self.block_index as usize] = self.block.take();
+    }
+}
+
+impl HostCall {
     /// Causes a `#VMEXIT` for the host to process the data in the shared memory
     ///
     /// Returns the contents of the shared memory reply status, the host might have
@@ -72,26 +106,22 @@ impl<'a> HostCall<'a> {
         // prevent earlier writes from being moved beyond this point
         core::sync::atomic::compiler_fence(core::sync::atomic::Ordering::Release);
 
-        // FIXME: this should be the number of a free Block slot
-        // see https://github.com/enarx/enarx-keepldr/issues/155
-        let block_nr: u16 = 0;
-
-        port.write(block_nr);
+        port.write(self.block_index);
 
         // prevent later reads from being moved before this point
         core::sync::atomic::compiler_fence(core::sync::atomic::Ordering::Acquire);
 
-        self.0.msg.rep.into()
+        self.block.as_mut().unwrap().msg.rep.into()
     }
 
     /// Return reference to the inner `Block`
     pub fn as_block(&self) -> &Block {
-        self.0
+        self.block.as_ref().unwrap()
     }
 
     /// Return mutable reference to the inner `Block`
     pub fn as_mut_block(&mut self) -> &mut Block {
-        self.0
+        self.block.as_mut().unwrap()
     }
 
     /// Write `bytes` to a host file descriptor `fd`
@@ -103,26 +133,27 @@ impl<'a> HostCall<'a> {
     ///
     /// The parameters returned can't be trusted.
     pub unsafe fn write(&mut self, fd: libc::c_int, bytes: &[u8]) -> sallyport::Result {
-        let cursor = self.0.cursor();
+        let cursor = self.block.as_mut().unwrap().cursor();
         let (_, buf) = cursor.copy_from_slice(bytes).or(Err(libc::EMSGSIZE))?;
 
         let buf_address = Address::from(buf.as_ptr());
         let phys_unencrypted = ShimPhysUnencryptedAddr::try_from(buf_address).unwrap();
         let host_virt: HostVirtAddr<_> = phys_unencrypted.into();
 
-        self.0.msg.req = request!(libc::SYS_write => fd, host_virt, buf.len());
+        self.block.as_mut().unwrap().msg.req =
+            request!(libc::SYS_write => fd, host_virt, buf.len());
         self.hostcall()
     }
 
     /// Balloon the memory
     pub fn balloon(&mut self, pages: usize) -> Result<i64, libc::c_int> {
-        self.0.msg.req = request!(SYS_ENARX_BALLOON_MEMORY => pages);
+        self.block.as_mut().unwrap().msg.req = request!(SYS_ENARX_BALLOON_MEMORY => pages);
         Ok(unsafe { self.hostcall() }?[0].into())
     }
 
     /// Get host memory info
     pub fn mem_info(&mut self) -> Result<MemInfo, libc::c_int> {
-        self.0.msg.req = request!(SYS_ENARX_MEM_INFO);
+        self.block.as_mut().unwrap().msg.req = request!(SYS_ENARX_MEM_INFO);
 
         let _result = unsafe { self.hostcall() }?;
 
@@ -143,7 +174,7 @@ impl<'a> HostCall<'a> {
     pub fn exit_group(&mut self, status: i32) -> ! {
         unsafe {
             let request = request!(libc::SYS_exit_group => status);
-            self.0.msg.req = request;
+            self.block.as_mut().unwrap().msg.req = request;
 
             let _ = self.hostcall();
 
@@ -158,7 +189,7 @@ pub fn shim_write_all(fd: HostFd, bytes: &[u8]) -> Result<(), libc::c_int> {
     let bytes_len = bytes.len();
     let mut to_write = bytes_len;
 
-    let mut host_call = HOST_CALL.try_lock().ok_or(libc::EIO)?;
+    let mut host_call = HOST_CALL_ALLOC.try_alloc().ok_or(libc::EIO)?;
 
     loop {
         let written = unsafe {
@@ -182,7 +213,7 @@ pub fn shim_write_all(fd: HostFd, bytes: &[u8]) -> Result<(), libc::c_int> {
 /// Reverts to a triple fault, which causes a `#VMEXIT` and a KVM shutdown,
 /// if it cannot talk to the host.
 pub fn shim_exit(status: i32) -> ! {
-    if let Some(mut host_call) = HOST_CALL.try_lock() {
+    if let Some(mut host_call) = HOST_CALL_ALLOC.try_alloc() {
         host_call.exit_group(status)
     }
 

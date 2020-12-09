@@ -32,13 +32,13 @@ pub mod paging;
 pub mod payload;
 pub mod random;
 pub mod shim_stack;
+pub mod spin;
 mod start;
 pub mod syscall;
 pub mod usermode;
 
-use crate::addr::{ShimVirtAddr, SHIM_VIRT_OFFSET};
+use crate::addr::{ShimPhysUnencryptedAddr, ShimVirtAddr, SHIM_VIRT_OFFSET};
 use crate::attestation::SEV_SECRET;
-use crate::hostcall::HOST_CALL;
 use crate::hostlib::BootInfo;
 use crate::pagetables::switch_sallyport_to_unencrypted;
 use crate::paging::SHIM_PAGETABLE;
@@ -57,8 +57,8 @@ static C_BIT_MASK: AtomicU64 = AtomicU64::new(0);
 static BOOT_INFO: RwLock<Option<BootInfo>> =
     RwLock::<Option<BootInfo>>::const_new(spinning::RawRwLock::const_new(), None);
 
-static SHIM_HOSTCALL_VIRT_ADDR: RwLock<Option<ShimVirtAddr<Block>>> =
-    RwLock::<Option<ShimVirtAddr<Block>>>::const_new(spinning::RawRwLock::const_new(), None);
+static SHIM_HOSTCALL_PHYS_ADDR: RwLock<Option<usize>> =
+    RwLock::<Option<usize>>::const_new(spinning::RawRwLock::const_new(), None);
 
 static mut SHIM_CAN_PRINT: AtomicBool = AtomicBool::new(false);
 static mut PAYLOAD_READY: AtomicBool = AtomicBool::new(false);
@@ -109,12 +109,13 @@ macro_rules! entry_point {
 
             C_BIT_MASK.store(c_bit_mask, Ordering::Relaxed);
 
-            SHIM_HOSTCALL_VIRT_ADDR.write().replace(
-                ShimVirtAddr::<Block>::try_from(Address::<u64, Block>::from(
-                    boot_info as *mut Block,
-                ))
-                .unwrap(),
-            );
+            SHIM_HOSTCALL_PHYS_ADDR.write().replace({
+                let address = Address::<u64, Block>::from(boot_info as *mut Block);
+                let shim_virt = ShimVirtAddr::<Block>::try_from(address).unwrap();
+                ShimPhysUnencryptedAddr::<Block>::try_from(shim_virt)
+                    .unwrap()
+                    .into_mut() as *mut _ as _
+            });
 
             // make a local copy of boot_info, before the shared page gets overwritten
             BOOT_INFO.write().replace(boot_info.read());
@@ -162,10 +163,6 @@ pub fn panic(info: &core::panic::PanicInfo) -> ! {
                 .compare_exchange(false, true, Ordering::Acquire, Ordering::Relaxed)
                 .is_ok()
         {
-            // panic info is useful
-            if HOST_CALL.is_locked() {
-                HOST_CALL.force_unlock();
-            }
             print::_eprint(format_args!("{}\n", info));
             stack_trace();
             // FIXME: might want to have a custom panic hostcall

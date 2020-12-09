@@ -7,7 +7,7 @@ use crate::allocator::ALLOCATOR;
 use crate::asm::_enarx_asm_triple_fault;
 use crate::attestation::SEV_SECRET;
 use crate::eprintln;
-use crate::hostcall::{HostCall, HOST_CALL};
+use crate::hostcall::{HostCall, HOST_CALL_ALLOC};
 use crate::paging::SHIM_PAGETABLE;
 use crate::payload::{NEXT_BRK_RWLOCK, NEXT_MMAP_RWLOCK};
 use core::convert::TryFrom;
@@ -15,7 +15,6 @@ use core::mem::size_of;
 use core::ops::{Deref, DerefMut};
 use primordial::{Address, Register};
 use sallyport::{Cursor, Request};
-use spinning::MutexGuard;
 use syscall::{SyscallHandler, ARCH_GET_FS, ARCH_GET_GS, ARCH_SET_FS, ARCH_SET_GS, SEV_TECH};
 use untrusted::{AddressValidator, UntrustedRef, UntrustedRefMut, Validate, ValidateSlice};
 use x86_64::registers::{rdfsbase, rdgsbase, wrfsbase, wrgsbase};
@@ -123,7 +122,7 @@ extern "sysv64" fn syscall_rust(
     let orig_rdx: usize = c.into();
 
     let mut h = Handler {
-        hostcall: None,
+        hostcall: HOST_CALL_ALLOC.try_alloc().unwrap(),
         argv: [a.into(), b.into(), c.into(), d.into(), e.into(), f.into()],
     };
 
@@ -142,9 +141,9 @@ extern "sysv64" fn syscall_rust(
     }
 }
 
-/// FIXME
+/// The syscall Handler
 struct Handler {
-    hostcall: Option<MutexGuard<'static, HostCall<'static>>>,
+    hostcall: HostCall,
     argv: [usize; 6],
 }
 
@@ -177,14 +176,9 @@ impl SyscallHandler for Handler {
     }
 
     unsafe fn proxy(&mut self, req: Request) -> sallyport::Result {
-        let block = self
-            .hostcall
-            .get_or_insert_with(|| HOST_CALL.try_lock().unwrap())
-            .as_mut_block();
+        let block = self.hostcall.as_mut_block();
         block.msg.req = req;
-        self.hostcall
-            .get_or_insert_with(|| HOST_CALL.try_lock().unwrap())
-            .hostcall()
+        self.hostcall.hostcall()
     }
 
     fn attacked(&mut self) -> ! {
@@ -199,10 +193,7 @@ impl SyscallHandler for Handler {
     }
 
     fn new_cursor(&mut self) -> Cursor {
-        self.hostcall
-            .get_or_insert_with(|| HOST_CALL.try_lock().unwrap())
-            .as_mut_block()
-            .cursor()
+        self.hostcall.as_mut_block().cursor()
     }
 
     fn trace(&mut self, name: &str, argc: usize) {
