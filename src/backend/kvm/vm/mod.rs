@@ -17,17 +17,19 @@ pub use kvm_bindings::kvm_userspace_memory_region as KvmUserspaceMemoryRegion;
 use anyhow::Result;
 use kvm_bindings::KVM_MAX_CPUID_ENTRIES;
 use kvm_ioctls::{Kvm, VmFd};
+use lset::Span;
 use mmarinus::{perms, Kind, Map};
 use primordial::Page;
 use x86_64::{PhysAddr, VirtAddr};
 
+use std::num::NonZeroUsize;
 use std::sync::{Arc, RwLock};
 
 pub struct Vm {
     kvm: Kvm,
     fd: VmFd,
     regions: Vec<Region>,
-    syscall_start: VirtAddr,
+    syscall_blocks: Span<VirtAddr, NonZeroUsize>,
     shim_entry: PhysAddr,
     shim_start: PhysAddr,
     hv2gp: Box<Hv2GpFn>,
@@ -75,7 +77,7 @@ impl Keep for RwLock<Vm> {
         let mut regs = vcpu.get_regs()?;
         if id == 0 {
             regs.rsi = keep.shim_start.as_u64();
-            regs.rdi = keep.syscall_start.as_u64() - address_space.start.as_u64();
+            regs.rdi = keep.syscall_blocks.start.as_u64() - address_space.start.as_u64();
         } else {
             unimplemented!()
         }
@@ -83,8 +85,7 @@ impl Keep for RwLock<Vm> {
         vcpu.set_regs(&regs)?;
         vcpu.set_cpuid2(&keep.kvm.get_supported_cpuid(KVM_MAX_CPUID_ENTRIES)?)?;
 
-        let sallyport = VirtAddr::new(keep.syscall_start.as_u64());
-        let thread = Cpu::new(vcpu, sallyport, self.clone(), keep.shim_entry, keep.cr3)?;
+        let thread = Cpu::new(vcpu, self.clone(), keep.shim_entry, keep.cr3)?;
         Ok(Box::new(thread))
     }
 }

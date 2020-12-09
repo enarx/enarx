@@ -136,12 +136,16 @@ impl<T: Hook> Builder<T> {
 
             BuildOrMeasure::Build => {
                 self.hook.code_loaded(&mut fd, &map, arch.syscall_blocks)?;
+                let syscall_blocks = Span {
+                    start: arch.syscall_blocks,
+                    count: NonZeroUsize::new(boot_info.nr_syscall_blocks).unwrap(),
+                };
 
                 let vm = Vm {
                     kvm,
                     fd,
                     regions: vec![Region::new(region, map)],
-                    syscall_start: arch.syscall_blocks,
+                    syscall_blocks,
                     hv2gp: self.hook.hv2gp(),
                     shim_entry,
                     shim_start: PhysAddr::new(shim_start as _),

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use super::{KvmSegment, Vm, N_SYSCALL_BLOCKS};
+use super::{KvmSegment, Vm};
 
 use crate::backend::kvm::shim::{MemInfo, SYSCALL_TRIGGER_PORT};
 use crate::backend::{Command, Thread};
@@ -12,30 +12,18 @@ use kvm_ioctls::{VcpuExit, VcpuFd};
 use primordial::Register;
 use x86_64::registers::control::{Cr0Flags, Cr4Flags};
 use x86_64::registers::model_specific::EferFlags;
-use x86_64::{PhysAddr, VirtAddr};
+use x86_64::PhysAddr;
 
-use std::mem::size_of;
 use std::sync::{Arc, RwLock};
 
 pub struct Cpu {
     fd: VcpuFd,
-    sallyport: VirtAddr,
     keep: Arc<RwLock<Vm>>,
 }
 
 impl Cpu {
-    pub fn new(
-        fd: VcpuFd,
-        sallyport: VirtAddr,
-        keep: Arc<RwLock<Vm>>,
-        entry: PhysAddr,
-        cr3: PhysAddr,
-    ) -> Result<Self> {
-        let mut cpu = Self {
-            fd,
-            sallyport,
-            keep,
-        };
+    pub fn new(fd: VcpuFd, keep: Arc<RwLock<Vm>>, entry: PhysAddr, cr3: PhysAddr) -> Result<Self> {
+        let mut cpu = Self { fd, keep };
 
         cpu.set_gen_regs(entry)?;
         cpu.set_special_regs(cr3)?;
@@ -97,10 +85,15 @@ impl Thread for Cpu {
 
                     debug_assert_eq!(data.len(), 2);
                     let block_nr = data[0] as usize + ((data[1] as usize) << 8);
-                    assert!(block_nr < N_SYSCALL_BLOCKS);
 
-                    let sallyport_offset = self.sallyport + (size_of::<Block>() * block_nr);
-                    let mut sallyport = unsafe { &mut *sallyport_offset.as_mut_ptr::<Block>() };
+                    let sallyport: &mut Block = unsafe {
+                        std::slice::from_raw_parts_mut(
+                            keep.syscall_blocks.start.as_mut_ptr(),
+                            keep.syscall_blocks.count.get(),
+                        )
+                        .get_mut(block_nr)
+                        .unwrap()
+                    };
 
                     let syscall_nr: i64 = unsafe { sallyport.msg.req.num.into() };
 
