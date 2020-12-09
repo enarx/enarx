@@ -27,7 +27,7 @@ static INITIAL_SHIM_STACK: [Page; INITIAL_STACK_PAGES] = [Page::zeroed(); INITIA
 #[allow(clippy::integer_arithmetic)]
 #[no_mangle]
 #[naked]
-pub unsafe fn _start() -> ! {
+pub unsafe extern "sysv64" fn _start() -> ! {
     asm!(
         "
     // Check if we have a valid (0x8000_001F) CPUID leaf

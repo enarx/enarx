@@ -35,7 +35,7 @@ struct X8664DoubleReturn {
 /// This function is not be called from rust.
 #[inline(never)]
 #[naked]
-pub unsafe fn _syscall_enter() -> ! {
+pub unsafe extern "sysv64" fn _syscall_enter() -> ! {
     use crate::gdt::{USER_CODE_SEGMENT, USER_DATA_SEGMENT};
     // TaskStateSegment.privilege_stack_table[0]
     const KERNEL_RSP_OFF: usize = size_of::<u32>();

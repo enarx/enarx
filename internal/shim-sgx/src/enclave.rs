@@ -40,7 +40,7 @@ mod _internal {
     ///  Otherwise, we are handling an exception.
     #[no_mangle]
     #[naked]
-    pub unsafe fn _start() -> ! {
+    pub unsafe extern "sysv64" fn _start() -> ! {
         asm!("
     xchg    rcx,                    rbx             # Swap TCS and next instruction.
     add     rcx,                    4096            # rcx = &Layout
