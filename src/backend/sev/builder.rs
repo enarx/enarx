@@ -2,6 +2,7 @@
 
 use crate::backend::kvm;
 use crate::backend::kvm::shim::{BootInfo, SevSecret};
+use crate::backend::kvm::Hv2GpFn;
 
 use sev::firmware::Firmware;
 use sev::launch::{Launcher, Secret};
@@ -115,12 +116,14 @@ impl kvm::Hook for Sev {
         Ok(())
     }
 
-    fn to_guest_phys(&self, addr: VirtAddr, start: VirtAddr) -> PhysAddr {
+    fn hv2gp(&self) -> Box<Hv2GpFn> {
         use core::arch::x86_64::__cpuid_count;
         let c_bit_loc = unsafe { __cpuid_count(0x8000_001f, 0x0000_0000) }.ebx;
         let c_bit_loc = c_bit_loc & 0x3f;
 
-        PhysAddr::new((addr.as_u64() - start.as_u64()) | 1 << c_bit_loc)
+        Box::new(move |target, start| {
+            PhysAddr::new((target.as_u64() - start.as_u64()) | 1 << c_bit_loc)
+        })
     }
 
     fn measure(&mut self, _vm: &mut VmFd, saddr_space: &[u8]) -> Result<()> {

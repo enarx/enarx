@@ -10,7 +10,7 @@ use crate::backend::{Keep, Thread};
 use cpu::Cpu;
 use mem::Region;
 
-pub use builder::{Builder, Hook, SetupRegion, N_SYSCALL_BLOCKS};
+pub use builder::{Builder, Hook, Hv2GpFn, SetupRegion, N_SYSCALL_BLOCKS};
 pub use kvm_bindings::kvm_segment as KvmSegment;
 pub use kvm_bindings::kvm_userspace_memory_region as KvmUserspaceMemoryRegion;
 
@@ -30,6 +30,7 @@ pub struct Vm {
     syscall_start: VirtAddr,
     shim_entry: PhysAddr,
     shim_start: PhysAddr,
+    hv2gp: Box<Hv2GpFn>,
     cr3: PhysAddr,
 }
 

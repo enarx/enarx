@@ -48,6 +48,16 @@ pub struct SetupRegion {
 pub const N_SYSCALL_BLOCKS: usize =
     (MAX_SETUP_SIZE - size_of::<SetupRegionPre>()) / size_of::<Block>();
 
+/// A functor type that receives a target address as its first input,
+/// a base/memory region starting address as its second input, and it
+/// returns the guest physical address that corresponds to the target
+/// address.
+///
+/// Implementors may choose to override this so that they can enable
+/// certain bits in the resulting physical address (i.e., SEV memory
+/// encryption).
+pub type Hv2GpFn = dyn Fn(VirtAddr, VirtAddr) -> PhysAddr;
+
 pub trait Hook {
     fn shim_loaded(&mut self, _vm: &mut VmFd, _addr_space: &[u8]) -> Result<()> {
         Ok(())
@@ -66,8 +76,8 @@ pub trait Hook {
         unimplemented!()
     }
 
-    fn to_guest_phys(&self, addr: VirtAddr, start: VirtAddr) -> PhysAddr {
-        PhysAddr::new(addr.as_u64() - start.as_u64())
+    fn hv2gp(&self) -> Box<Hv2GpFn> {
+        Box::new(|target, start| PhysAddr::new(target.as_u64() - start.as_u64()))
     }
 }
 
@@ -132,6 +142,7 @@ impl<T: Hook> Builder<T> {
                     fd,
                     regions: vec![Region::new(region, map)],
                     syscall_start: arch.syscall_blocks,
+                    hv2gp: self.hook.hv2gp(),
                     shim_entry,
                     shim_start: PhysAddr::new(shim_start as _),
                     cr3: arch.cr3,
@@ -193,6 +204,7 @@ impl<T: Hook> Builder<T> {
         debug_assert!(map.size() >= size_of::<SetupRegion>());
         debug_assert_eq!(map.addr() % align_of::<SetupRegion>(), 0);
         let setup = unsafe { &mut *(map.addr() as *mut SetupRegion) };
+        let hv2gp = self.hook.hv2gp();
 
         unsafe {
             std::ptr::copy_nonoverlapping(
@@ -204,16 +216,16 @@ impl<T: Hook> Builder<T> {
 
         let pml3t_ident_addr = VirtAddr::new(&setup.pre.pml3t_ident as *const _ as u64);
         let start = VirtAddr::new(map.addr() as u64);
-        let pdpte = self.hook.to_guest_phys(pml3t_ident_addr, start);
+        let pdpte = hv2gp(pml3t_ident_addr, start);
         setup.pre.pml4t[0].set_addr(pdpte, Flags::WRITABLE | Flags::PRESENT);
 
-        let pml3t_addr = self.hook.to_guest_phys(start, start);
+        let pml3t_addr = hv2gp(start, start);
         let flags = Flags::HUGE_PAGE | Flags::WRITABLE | Flags::PRESENT;
         setup.pre.pml3t_ident[0].set_addr(pml3t_addr, flags);
 
         let pml4t = VirtAddr::new(&setup.pre.pml4t as *const _ as _);
 
-        let cr3 = self.hook.to_guest_phys(pml4t, start);
+        let cr3 = hv2gp(pml4t, start);
         let syscall_blocks = VirtAddr::from_ptr(setup.syscall_blocks.as_ptr());
 
         // The information returned here is used by the KVM VM during runtime
