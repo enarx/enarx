@@ -10,6 +10,7 @@ use kvm_ioctls::{Kvm, VmFd};
 use lset::{Line, Span};
 use mmarinus::{perms, Kind, Map};
 use nbytes::bytes;
+use openssl::hash::{DigestBytes, Hasher, MessageDigest};
 use x86_64::{align_up, PhysAddr, VirtAddr};
 
 use std::mem::size_of;
@@ -42,10 +43,6 @@ pub trait Hook {
         Ok(())
     }
 
-    fn measure(&mut self, _vm: &mut VmFd, _saddr_space: &[u8]) -> Result<()> {
-        unimplemented!()
-    }
-
     fn hv2gp(&self) -> Box<Hv2GpFn> {
         Box::new(|target, start| PhysAddr::new(target.as_u64() - start.as_u64()))
     }
@@ -57,10 +54,8 @@ pub struct Builder<T: Hook> {
     code: Component,
 }
 
-#[allow(dead_code)]
-enum BuildOrMeasure {
-    Build,
-    Measure,
+pub struct Built<A: image::Arch> {
+    vm: Vm<A>,
 }
 
 impl<T: Hook> Builder<T> {
@@ -68,7 +63,7 @@ impl<T: Hook> Builder<T> {
         Self { shim, code, hook }
     }
 
-    fn build_or_measure<A: image::Arch>(mut self, bor: BuildOrMeasure) -> Result<Option<Vm<A>>> {
+    pub fn build<A: image::Arch>(mut self) -> Result<Built<A>> {
         let kvm = Kvm::new()?;
         let mut fd = kvm.create_vm()?;
 
@@ -97,48 +92,28 @@ impl<T: Hook> Builder<T> {
         let shim_entry = PhysAddr::new(self.shim.entry as _);
         self.hook.shim_loaded(&mut fd, &map)?;
 
-        match bor {
-            BuildOrMeasure::Measure => {
-                self.hook.measure(&mut fd, &map)?;
-                Ok(None)
-            }
+        self.hook
+            .code_loaded(&mut fd, &map, initial_state.syscall_region_start())?;
 
-            BuildOrMeasure::Build => {
-                self.hook
-                    .code_loaded(&mut fd, &map, initial_state.syscall_region_start())?;
+        let arch = VirtAddr::from_ptr(&initial_state.arch as *const A);
+        let syscall_blocks = Span {
+            start: initial_state.syscall_region_start(),
+            count: NonZeroUsize::new(boot_info.nr_syscall_blocks).unwrap(),
+        };
 
-                let arch = VirtAddr::from_ptr(&initial_state.arch as *const A);
-                let syscall_blocks = Span {
-                    start: initial_state.syscall_region_start(),
-                    count: NonZeroUsize::new(boot_info.nr_syscall_blocks).unwrap(),
-                };
+        let vm = Vm {
+            kvm,
+            fd,
+            regions: vec![Region::new(region, map)],
+            syscall_blocks,
+            hv2gp: self.hook.hv2gp(),
+            shim_entry,
+            shim_start: PhysAddr::new(shim_start as _),
+            arch,
+            _phantom: PhantomData,
+        };
 
-                let vm = Vm {
-                    kvm,
-                    fd,
-                    regions: vec![Region::new(region, map)],
-                    syscall_blocks,
-                    hv2gp: self.hook.hv2gp(),
-                    shim_entry,
-                    shim_start: PhysAddr::new(shim_start as _),
-                    arch,
-                    _phantom: PhantomData,
-                };
-
-                Ok(Some(vm))
-            }
-        }
-    }
-
-    pub fn build<A: image::Arch>(self) -> Result<Vm<A>> {
-        self.build_or_measure::<A>(BuildOrMeasure::Build)
-            .map(|o| o.unwrap())
-    }
-
-    #[allow(dead_code)]
-    pub fn measure<A: image::Arch>(self) -> Result<()> {
-        self.build_or_measure::<A>(BuildOrMeasure::Measure)
-            .map(|_| ())
+        Ok(Built { vm })
     }
 
     fn calculate_setup_region<A: image::Arch>(
@@ -175,5 +150,26 @@ impl<T: Hook> Builder<T> {
         let res = (map, region);
 
         Ok(res)
+    }
+}
+
+impl<A: image::Arch> Built<A> {
+    pub fn measurement(&self, ty: MessageDigest) -> Result<DigestBytes> {
+        let address_space = self.vm.regions.first().unwrap().as_virt();
+        let address_space = unsafe {
+            std::slice::from_raw_parts(
+                address_space.start.as_ptr() as *const u8,
+                address_space.count as _,
+            )
+        };
+
+        let mut hasher = Hasher::new(ty)?;
+        hasher.update(address_space)?;
+        let digest = hasher.finish()?;
+        Ok(digest)
+    }
+
+    pub fn vm(self) -> Vm<A> {
+        self.vm
     }
 }

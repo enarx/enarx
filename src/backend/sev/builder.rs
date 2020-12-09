@@ -10,7 +10,6 @@ use sev::launch::{Launcher, Secret};
 use codicon::{Decoder, Encoder};
 use koine::attestation::sev::*;
 use kvm_ioctls::VmFd;
-use openssl::hash::{Hasher, MessageDigest};
 use serde::Deserialize;
 use serde_cbor as serde_flavor;
 use x86_64::{PhysAddr, VirtAddr};
@@ -124,15 +123,5 @@ impl kvm::Hook for Sev {
         Box::new(move |target, start| {
             PhysAddr::new((target.as_u64() - start.as_u64()) | 1 << c_bit_loc)
         })
-    }
-
-    fn measure(&mut self, _vm: &mut VmFd, saddr_space: &[u8]) -> Result<()> {
-        let mut hasher = Hasher::new(MessageDigest::sha256())?;
-        hasher.update(saddr_space)?;
-        let digest = hasher.finish()?;
-
-        println!(r#"{{ "backend": "sev", "sha256": {:?} }}"#, digest);
-
-        Ok(())
     }
 }

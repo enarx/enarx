@@ -11,6 +11,7 @@ use crate::backend::{self, Datum, Keep};
 use crate::binary::Component;
 
 use anyhow::Result;
+use openssl::hash::MessageDigest;
 
 use std::arch::x86_64::__cpuid_count;
 use std::fs::OpenOptions;
@@ -245,24 +246,36 @@ impl backend::Backend for Backend {
 
     fn build(&self, code: Component, sock: Option<&Path>) -> Result<Arc<dyn Keep>> {
         let shim = Component::from_bytes(SHIM)?;
-        let sock = match sock {
-            Some(s) => UnixStream::connect(s)?,
-            None => {
-                let (synthetic_client, sock) = UnixStream::pair()?;
-                std::thread::spawn(move || unattested_launch::launch(synthetic_client));
-                sock
-            }
-        };
+        let sock = attestation_bridge(sock)?;
 
-        let vm = Builder::new(shim, code, builder::Sev::new(sock)).build::<X86>()?;
+        let vm = Builder::new(shim, code, builder::Sev::new(sock))
+            .build::<X86>()?
+            .vm();
 
         Ok(Arc::new(RwLock::new(vm)))
     }
 
     fn measure(&self, code: Component) -> Result<()> {
         let shim = Component::from_bytes(SHIM)?;
-        let (_, sock) = UnixStream::pair()?;
+        let sock = attestation_bridge(None)?;
 
-        Builder::new(shim, code, builder::Sev::new(sock)).measure::<X86>()
+        let digest = Builder::new(shim, code, builder::Sev::new(sock))
+            .build::<X86>()?
+            .measurement(MessageDigest::sha256())?;
+        println!(r#"{{ "backend": "sev", "sha256": {:?} }}"#, digest);
+        Ok(())
     }
+}
+
+fn attestation_bridge(sock: Option<&Path>) -> Result<UnixStream> {
+    let sock = match sock {
+        Some(s) => UnixStream::connect(s)?,
+        None => {
+            let (synthetic_client, sock) = UnixStream::pair()?;
+            std::thread::spawn(move || unattested_launch::launch(synthetic_client));
+            sock
+        }
+    };
+
+    Ok(sock)
 }

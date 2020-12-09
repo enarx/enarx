@@ -13,6 +13,7 @@ use crate::binary::Component;
 
 use anyhow::Result;
 use kvm_ioctls::Kvm;
+use openssl::hash::MessageDigest;
 
 use std::path::Path;
 use std::sync::{Arc, RwLock};
@@ -56,12 +57,18 @@ impl backend::Backend for Backend {
     fn build(&self, code: Component, _sock: Option<&Path>) -> Result<Arc<dyn Keep>> {
         let shim = Component::from_bytes(SHIM)?;
 
-        let vm = Builder::new(shim, code, builder::Kvm).build::<X86>()?;
+        let vm = Builder::new(shim, code, builder::Kvm).build::<X86>()?.vm();
 
         Ok(Arc::new(RwLock::new(vm)))
     }
 
-    fn measure(&self, _code: Component) -> Result<()> {
-        unimplemented!()
+    fn measure(&self, code: Component) -> Result<()> {
+        let shim = Component::from_bytes(SHIM)?;
+
+        let digest = Builder::new(shim, code, builder::Kvm)
+            .build::<X86>()?
+            .measurement(MessageDigest::null())?;
+        println!(r#"{{ "backend": "kvm", "null": {:?} }}"#, digest);
+        Ok(())
     }
 }
