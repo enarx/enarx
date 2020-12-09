@@ -144,7 +144,7 @@ impl crate::backend::Backend for Backend {
         Ok(builder.build()?)
     }
 
-    fn measure(&self, mut _code: Component) -> Result<()> {
+    fn measure(&self, mut _code: Component) -> Result<String> {
         unimplemented!()
     }
 }

@@ -255,15 +255,16 @@ impl backend::Backend for Backend {
         Ok(Arc::new(RwLock::new(vm)))
     }
 
-    fn measure(&self, code: Component) -> Result<()> {
+    fn measure(&self, code: Component) -> Result<String> {
         let shim = Component::from_bytes(SHIM)?;
         let sock = attestation_bridge(None)?;
 
         let digest = Builder::new(shim, code, builder::Sev::new(sock))
             .build::<X86>()?
             .measurement(MessageDigest::sha256())?;
-        println!(r#"{{ "backend": "sev", "sha256": {:?} }}"#, digest);
-        Ok(())
+
+        let json = format!(r#"{{ "backend": "sev", "sha256": {:?} }}"#, digest);
+        Ok(json)
     }
 }
 

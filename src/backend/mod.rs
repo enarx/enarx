@@ -34,7 +34,7 @@ pub trait Backend {
 
     /// Create a keep instance on this backend, measure the keep
     /// and output a json record for the specific backend
-    fn measure(&self, code: Component) -> Result<()>;
+    fn measure(&self, code: Component) -> Result<String>;
 }
 
 pub struct Datum {

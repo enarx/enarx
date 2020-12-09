@@ -173,7 +173,8 @@ fn measure(backends: &[Box<dyn Backend>], opts: Report) -> Result<()> {
 
     if let Some(backend) = backend {
         let code = Component::from_path(&opts.code)?;
-        backend.measure(code)?;
+        let json = backend.measure(code)?;
+        println!("{}", json);
     } else {
         panic!(
             "Keep backend '{}' is unsupported.",
