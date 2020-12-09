@@ -7,7 +7,7 @@ use crate::allocator::ALLOCATOR;
 use crate::asm::_enarx_asm_triple_fault;
 use crate::attestation::SEV_SECRET;
 use crate::eprintln;
-use crate::hostcall::{self, HostCall, HOST_CALL};
+use crate::hostcall::{HostCall, HOST_CALL};
 use crate::paging::SHIM_PAGETABLE;
 use crate::payload::{NEXT_BRK_RWLOCK, NEXT_MMAP_RWLOCK};
 use core::convert::TryFrom;
@@ -241,16 +241,6 @@ impl SyscallHandler for Handler {
             }
             None => Err(libc::ENOSYS),
         }
-    }
-
-    fn exit(&mut self, status: i32) -> ! {
-        self.trace("exit", 1);
-        hostcall::shim_exit(status);
-    }
-
-    fn exit_group(&mut self, status: i32) -> ! {
-        self.trace("exit_group", 1);
-        hostcall::shim_exit(status);
     }
 
     fn arch_prctl(&mut self, code: i32, addr: u64) -> sallyport::Result {

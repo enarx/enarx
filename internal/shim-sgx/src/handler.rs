@@ -191,29 +191,6 @@ impl<'a> SyscallHandler for Handler<'a> {
         debugln!(self, ")");
     }
 
-    /// Proxy an exit() syscall
-    fn exit(&mut self, status: libc::c_int) -> ! {
-        self.trace("exit", 1);
-
-        #[allow(unused_must_use)]
-        loop {
-            unsafe { self.proxy(request!(libc::SYS_exit => status)) };
-        }
-    }
-
-    /// Proxy an exitgroup() syscall
-    ///
-    /// TODO: Currently we are only using one thread, so this will behave the
-    /// same way as exit(). In the future, this implementation will change.
-    fn exit_group(&mut self, status: libc::c_int) -> ! {
-        self.trace("exit_group", 1);
-
-        #[allow(unused_must_use)]
-        loop {
-            unsafe { self.proxy(request!(libc::SYS_exit_group => status)) };
-        }
-    }
-
     /// Do an arch_prctl() syscall
     fn arch_prctl(&mut self, code: libc::c_int, addr: libc::c_ulong) -> sallyport::Result {
         self.trace("arch_prctl", 2);
