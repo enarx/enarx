@@ -114,7 +114,7 @@ SevExit:
     mov     ecx,    512         // Counter to 512 page table entries
     add     rbx,    4           // Pre-advance pointer by 4 bytes for the higher 32bit
 setCBit_PDT_OFFSET:
-    mov     DWORD PTR [rbx],    edx
+    or      DWORD PTR [rbx],edx // set C-bit
     add     rbx,    8           // advance pointer by 8
     loop    setCBit_PDT_OFFSET
 
@@ -124,7 +124,7 @@ setCBit_PDT_OFFSET:
     mov     ecx,    512         // Counter to 512 page table entries
     add     rbx,    4           // Pre-advance pointer by 4 bytes for the higher 32bit
 setCBit_PDPT_OFFSET:
-    mov     DWORD PTR [rbx],    edx
+    or      DWORD PTR [rbx],edx // set C-bit
     add     rbx,    8           // advance pointer by 8
     loop    setCBit_PDPT_OFFSET
 
@@ -140,9 +140,9 @@ setCBit_PDPT_OFFSET:
     // set C-bit for the first 3 entries in the PDT_IDENT table
     lea     rcx,    [rip + PDT_IDENT]
     mov     rdx,    r11
-    mov     DWORD PTR [rcx + (0*8 + 4)],    edx
-    mov     DWORD PTR [rcx + (1*8 + 4)],    edx
-    mov     DWORD PTR [rcx + (2*8 + 4)],    edx
+    or      DWORD PTR [rcx + (0*8 + 4)],    edx
+    or      DWORD PTR [rcx + (1*8 + 4)],    edx
+    or      DWORD PTR [rcx + (2*8 + 4)],    edx
 
     // setup PDPT_IDENT table entry 0 with PDT_IDENT table
     lea     rbx,    [rip + PDPT_IDENT]
