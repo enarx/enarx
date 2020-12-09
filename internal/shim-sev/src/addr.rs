@@ -13,9 +13,9 @@ pub const SHIM_VIRT_OFFSET: u64 = 0xFFFF_FF80_0000_0000;
 #[allow(clippy::integer_arithmetic)]
 pub const BYTES_2_MIB: u64 = bytes![2; MiB];
 
-/// 2 GiB
+/// 1 GiB
 #[allow(clippy::integer_arithmetic)]
-pub const BYTES_2_GIB: u64 = bytes![2; GiB];
+pub const BYTES_1_GIB: u64 = bytes![1; GiB];
 
 use crate::allocator::ALLOCATOR;
 use crate::get_cbit_mask;

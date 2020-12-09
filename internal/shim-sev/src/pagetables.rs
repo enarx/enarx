@@ -6,7 +6,7 @@
 //! * PDPT_OFFSET: an offset page table with offset $SHIM_OFFSET
 
 use crate::addr::SHIM_VIRT_OFFSET;
-use crate::addr::{BYTES_2_GIB, BYTES_2_MIB};
+use crate::addr::{BYTES_1_GIB, BYTES_2_MIB};
 use crate::paging;
 use array_const_fn_init::array_const_fn_init;
 use x86_64::instructions::tlb::flush;
@@ -29,9 +29,9 @@ const fn gen_2mb_pdt_entries(i: usize) -> u64 {
 }
 
 #[allow(clippy::integer_arithmetic)]
-const fn gen_2gb_pdpt_entries(i: usize) -> u64 {
+const fn gen_1gb_pdpt_entries(i: usize) -> u64 {
     let base: u64 = HUGE_PAGE_TABLE_FLAGS;
-    let step: u64 = BYTES_2_GIB;
+    let step: u64 = BYTES_1_GIB;
     base + (i as u64) * step
 }
 
@@ -54,7 +54,7 @@ pub static mut PML4T: AlignedPageTable = AlignedPageTable([0; 512]);
 /// CR3 for shim and user space.
 #[no_mangle]
 pub static mut PDPT_OFFSET: AlignedPageTable =
-    AlignedPageTable(array_const_fn_init![gen_2gb_pdpt_entries; 512]);
+    AlignedPageTable(array_const_fn_init![gen_1gb_pdpt_entries; 512]);
 
 /// Offset Page-Directory Table
 #[no_mangle]
