@@ -2,6 +2,7 @@
 
 pub mod builder;
 mod cpu;
+pub mod image;
 mod mem;
 
 use crate::backend::kvm::shim::MAX_SETUP_SIZE;
@@ -10,7 +11,8 @@ use crate::backend::{Keep, Thread};
 use cpu::Cpu;
 use mem::Region;
 
-pub use builder::{Builder, Hook, Hv2GpFn, SetupRegion, N_SYSCALL_BLOCKS};
+pub use builder::{Builder, Hook, Hv2GpFn};
+pub use image::{x86::X86, Arch};
 pub use kvm_bindings::kvm_segment as KvmSegment;
 pub use kvm_bindings::kvm_userspace_memory_region as KvmUserspaceMemoryRegion;
 
@@ -22,10 +24,11 @@ use mmarinus::{perms, Kind, Map};
 use primordial::Page;
 use x86_64::{PhysAddr, VirtAddr};
 
+use std::marker::PhantomData;
 use std::num::NonZeroUsize;
 use std::sync::{Arc, RwLock};
 
-pub struct Vm {
+pub struct Vm<A: Arch> {
     kvm: Kvm,
     fd: VmFd,
     regions: Vec<Region>,
@@ -33,10 +36,11 @@ pub struct Vm {
     shim_entry: PhysAddr,
     shim_start: PhysAddr,
     hv2gp: Box<Hv2GpFn>,
-    cr3: PhysAddr,
+    arch: VirtAddr,
+    _phantom: PhantomData<A>,
 }
 
-impl Vm {
+impl<A: Arch> Vm<A> {
     pub fn add_memory(&mut self, pages: usize) -> Result<i64> {
         let mem_size = pages * Page::size();
         let last_region = self.regions.last().unwrap().as_guest();
@@ -65,7 +69,7 @@ impl Vm {
     }
 }
 
-impl Keep for RwLock<Vm> {
+impl Keep for RwLock<Vm<X86>> {
     fn add_thread(self: Arc<Self>) -> Result<Box<dyn Thread>> {
         let keep = self.write().unwrap();
         let id = 0;
@@ -85,7 +89,10 @@ impl Keep for RwLock<Vm> {
         vcpu.set_regs(&regs)?;
         vcpu.set_cpuid2(&keep.kvm.get_supported_cpuid(KVM_MAX_CPUID_ENTRIES)?)?;
 
-        let thread = Cpu::new(vcpu, self.clone(), keep.shim_entry, keep.cr3)?;
+        let arch = unsafe { &*(keep.arch.as_ptr() as *const X86) };
+        let cr3 = (keep.hv2gp)(VirtAddr::from_ptr(&arch.pml4t), address_space.start);
+
+        let thread = Cpu::new(vcpu, self.clone(), keep.shim_entry, cr3)?;
         Ok(Box::new(thread))
     }
 }

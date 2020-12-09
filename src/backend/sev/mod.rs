@@ -5,6 +5,7 @@ mod unattested_launch;
 
 use crate::backend::kvm::Builder;
 use crate::backend::kvm::SHIM;
+use crate::backend::kvm::X86;
 use crate::backend::probe::x86_64::{CpuId, Vendor};
 use crate::backend::{self, Datum, Keep};
 use crate::binary::Component;
@@ -253,7 +254,7 @@ impl backend::Backend for Backend {
             }
         };
 
-        let vm = Builder::new(shim, code, builder::Sev::new(sock)).build()?;
+        let vm = Builder::new(shim, code, builder::Sev::new(sock)).build::<X86>()?;
 
         Ok(Arc::new(RwLock::new(vm)))
     }
@@ -262,6 +263,6 @@ impl backend::Backend for Backend {
         let shim = Component::from_bytes(SHIM)?;
         let (_, sock) = UnixStream::pair()?;
 
-        Builder::new(shim, code, builder::Sev::new(sock)).measure()
+        Builder::new(shim, code, builder::Sev::new(sock)).measure::<X86>()
     }
 }

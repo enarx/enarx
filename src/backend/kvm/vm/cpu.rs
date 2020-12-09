@@ -3,6 +3,8 @@
 use super::{KvmSegment, Vm};
 
 use crate::backend::kvm::shim::{MemInfo, SYSCALL_TRIGGER_PORT};
+use crate::backend::kvm::vm::image::x86::X86;
+use crate::backend::kvm::vm::image::Arch;
 use crate::backend::{Command, Thread};
 use crate::sallyport::{Block, Reply};
 use crate::syscall::{SYS_ENARX_BALLOON_MEMORY, SYS_ENARX_MEM_INFO};
@@ -16,13 +18,18 @@ use x86_64::PhysAddr;
 
 use std::sync::{Arc, RwLock};
 
-pub struct Cpu {
+pub struct Cpu<A: Arch> {
     fd: VcpuFd,
-    keep: Arc<RwLock<Vm>>,
+    keep: Arc<RwLock<Vm<A>>>,
 }
 
-impl Cpu {
-    pub fn new(fd: VcpuFd, keep: Arc<RwLock<Vm>>, entry: PhysAddr, cr3: PhysAddr) -> Result<Self> {
+impl Cpu<X86> {
+    pub fn new(
+        fd: VcpuFd,
+        keep: Arc<RwLock<Vm<X86>>>,
+        entry: PhysAddr,
+        cr3: PhysAddr,
+    ) -> Result<Self> {
         let mut cpu = Self { fd, keep };
 
         cpu.set_gen_regs(entry)?;
@@ -76,7 +83,7 @@ impl Cpu {
     }
 }
 
-impl Thread for Cpu {
+impl Thread for Cpu<X86> {
     fn enter(&mut self) -> Result<Command> {
         match self.fd.run()? {
             VcpuExit::IoOut(port, data) => match port {
