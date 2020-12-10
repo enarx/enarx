@@ -344,7 +344,7 @@ checksum = "d8972d5be69940353d5347a1344cb375d9b457d6809b428b05bb1ca2fb9ce007"
 [[package]]
 name = "koine"
 version = "0.1.0"
-source = "git+https://github.com/enarx/koine#8aa13790b7199a45358d5dfe2e9ae301da3f8177"
+source = "git+https://github.com/enarx/koine#abd3641d525fa292d2bead78f5e97874aa287472"
 dependencies = [
  "ciborium",
  "serde",
