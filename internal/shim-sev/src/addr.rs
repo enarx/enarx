@@ -17,8 +17,8 @@ pub const BYTES_2_MIB: u64 = bytes![2; MiB];
 #[allow(clippy::integer_arithmetic)]
 pub const BYTES_1_GIB: u64 = bytes![1; GiB];
 
-use crate::allocator::ALLOCATOR;
 use crate::get_cbit_mask;
+use crate::hostmap::HOSTMAP;
 use core::convert::TryFrom;
 use nbytes::bytes;
 use primordial::{Address, Register};
@@ -39,7 +39,7 @@ impl<U> HostVirtAddr<U> {
 impl<U> From<ShimPhysUnencryptedAddr<U>> for HostVirtAddr<U> {
     #[inline(always)]
     fn from(val: ShimPhysUnencryptedAddr<U>) -> Self {
-        ALLOCATOR.read().phys_to_host(val)
+        HOSTMAP.shim_phys_to_host_virt(val)
     }
 }
 
@@ -116,6 +116,19 @@ impl<U> From<ShimPhysAddr<U>> for ShimVirtAddr<U> {
         ShimVirtAddr(unsafe {
             Address::unchecked((shim_phys_addr.0.raw() & (!get_cbit_mask())) + SHIM_VIRT_OFFSET)
         })
+    }
+}
+
+impl<U> TryFrom<ShimVirtAddr<U>> for ShimPhysAddr<U> {
+    type Error = ();
+
+    #[inline(always)]
+    fn try_from(value: ShimVirtAddr<U>) -> Result<Self, Self::Error> {
+        #[allow(clippy::integer_arithmetic)]
+        let value = value.0.raw();
+        let value = value.checked_sub(SHIM_VIRT_OFFSET).ok_or(())?;
+
+        Ok(Self(unsafe { Address::unchecked(value) }))
     }
 }
 

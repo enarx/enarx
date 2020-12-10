@@ -1,18 +1,27 @@
 // SPDX-License-Identifier: Apache-2.0
 
-//! The global FrameAllocator
-use crate::addr::{HostVirtAddr, ShimPhysAddr, ShimPhysUnencryptedAddr, ShimVirtAddr};
-use crate::hostcall::HOST_CALL_ALLOC;
-use crate::{get_cbit_mask, BOOT_INFO};
+//! The global Allocator
 
+use crate::addr::{ShimPhysAddr, ShimVirtAddr};
+use crate::hostcall::HOST_CALL_ALLOC;
+use crate::hostmap::HOSTMAP;
+use crate::spin::RWLocked;
+use crate::{get_cbit_mask, BOOT_INFO, C_BIT_MASK};
+use core::alloc::{GlobalAlloc, Layout};
+use core::convert::TryFrom;
+use core::mem::{align_of, size_of};
+use core::ptr::NonNull;
+use core::sync::atomic::Ordering;
+use linked_list_allocator::Heap;
+use lset::Span;
 use nbytes::bytes;
-use primordial::{Address, Offset, Page as Page4KiB};
-use spinning::{Lazy, RwLock};
-use x86_64::structures::paging::FrameAllocator as _;
+use primordial::{Address, Page as Page4KiB};
+use spinning::Lazy;
+use x86_64::structures::paging::mapper::{MapToError, UnmapError};
 use x86_64::structures::paging::{
-    self, Mapper, Page, PageSize, PageTableFlags, PhysFrame, Size2MiB, Size4KiB,
+    self, Mapper, Page, PageTableFlags, PhysFrame, Size1GiB, Size2MiB, Size4KiB,
 };
-use x86_64::{align_down, align_up, PhysAddr, VirtAddr};
+use x86_64::{align_down, PhysAddr, VirtAddr};
 
 /// An aligned 2MiB Page
 ///
@@ -23,56 +32,31 @@ use x86_64::{align_down, align_up, PhysAddr, VirtAddr};
 #[allow(clippy::integer_arithmetic)]
 pub struct Page2MiB([u8; bytes![2; MiB]]);
 
-/// The global ShimFrameAllocator RwLock
-pub static ALLOCATOR: Lazy<RwLock<EnarxAllocator>> = Lazy::new(|| {
-    RwLock::<EnarxAllocator>::const_new(spinning::RawRwLock::const_new(), unsafe {
-        EnarxAllocator::new()
-    })
-});
+/// The global EnarxAllocator RwLock
+pub static ALLOCATOR: Lazy<RWLocked<EnarxAllocator>> =
+    Lazy::new(|| RWLocked::<EnarxAllocator>::new(unsafe { EnarxAllocator::new() }));
 
-struct FreeMemListPageHeader {
-    next: Option<&'static mut FreeMemListPage>,
-}
-
-#[derive(Clone, Copy)]
-struct FreeMemListPageEntry {
-    start: usize,
-    end: usize,
-    virt_offset: i64,
-}
-
-/// Number of memory list entries per page
-pub const FREE_MEM_LIST_NUM_ENTRIES: usize = (Page4KiB::size()
-    - core::mem::size_of::<FreeMemListPageHeader>())
-    / core::mem::size_of::<FreeMemListPageEntry>();
-
-struct FreeMemListPage {
-    header: FreeMemListPageHeader,
-    ent: [FreeMemListPageEntry; FREE_MEM_LIST_NUM_ENTRIES],
-}
-
-/// A frame allocator
+/// The allocator
+///
+/// The allocator struct is holding a linked list Heap allocator
+/// and information about the hypervisor's capabilities to
+/// extend the available memory.
+///
+/// It also implements:
+/// * paging::FrameAllocator<Size4KiB>
+/// * paging::FrameAllocator<Size2MiB>
 pub struct EnarxAllocator {
-    min_alloc: usize,
+    next_alloc: usize,
     max_alloc: usize,
-    free_mem: FreeMemListPage,
-    next_page: Address<usize, Page4KiB>,
-    next_huge_page: Address<usize, Page2MiB>,
+    mem_slots: usize,
+    allocator: Heap,
 }
 
 impl core::fmt::Debug for EnarxAllocator {
     fn fmt(&self, f: &mut core::fmt::Formatter) -> Result<(), core::fmt::Error> {
-        f.debug_struct("FrameAllocator")
-            .field("min_alloc", &self.min_alloc)
+        f.debug_struct("EnarxAllocator")
+            .field("next_alloc", &self.next_alloc)
             .field("max_alloc", &self.max_alloc)
-            .field(
-                "next_page",
-                &format_args!("{:#?}", self.next_page.raw() as *const u8),
-            )
-            .field(
-                "next_huge_page",
-                &format_args!("{:#?}", self.next_huge_page.raw() as *const u8),
-            )
             .finish()
     }
 }
@@ -81,7 +65,7 @@ impl core::fmt::Debug for EnarxAllocator {
 /// Poor man's log2
 #[inline]
 #[allow(clippy::integer_arithmetic)]
-fn msb(val: usize) -> usize {
+fn msb(val: usize) -> u32 {
     let mut val = val;
     let mut r = 0;
     loop {
@@ -95,7 +79,7 @@ fn msb(val: usize) -> usize {
     }
 }
 
-/// Error returned by the `FrameAllocator`
+/// Error returned by the `EnarxAllocator`
 #[derive(Debug)]
 pub enum AllocateError {
     /// Memory or Size not page aligned
@@ -104,43 +88,43 @@ pub enum AllocateError {
     OutOfMemory,
     /// Requested memory size of zero
     ZeroSize,
+    /// Error mapping the page
+    PageAlreadyMapped,
+    /// An upper level page table entry has the `HUGE_PAGE` flag set, which means that the
+    /// given page is part of an already mapped huge page.
+    ParentEntryHugePage,
 }
 
 impl EnarxAllocator {
-    #[allow(clippy::integer_arithmetic)]
     unsafe fn new() -> Self {
         let boot_info = BOOT_INFO.read().unwrap();
-        let start = Address::from(boot_info.code.end);
-        let mut free_mem = FreeMemListPage {
-            header: FreeMemListPageHeader { next: None },
-            ent: [FreeMemListPageEntry {
-                start: 0,
-                end: 0,
-                virt_offset: 0,
-            }; FREE_MEM_LIST_NUM_ENTRIES],
-        };
 
         let meminfo = {
             let mut host_call = HOST_CALL_ALLOC.try_alloc().unwrap();
             host_call.mem_info().unwrap()
         };
 
-        const MIN_EXP: usize = 25; // start with 2^25 = 32 MiB
-        let c_bit_mask = get_cbit_mask();
-        let target_exp: usize = if c_bit_mask > 0 {
-            msb(c_bit_mask as _) - 1 // don't want to address more than c_bit_mask
+        const MIN_EXP: u32 = 25; // start with 2^25 = 32 MiB
+        let c_bit_mask = C_BIT_MASK.load(Ordering::Relaxed);
+        let target_exp: u32 = if c_bit_mask > 0 {
+            msb(c_bit_mask as _).checked_sub(1).unwrap() // don't want to address more than c_bit_mask
         } else {
             47 // we want more than 2^47 = 128 TiB
         };
 
         debug_assert!(
-            meminfo.mem_slots > (target_exp - MIN_EXP),
+            meminfo.mem_slots > (target_exp.checked_sub(MIN_EXP).unwrap()) as _,
             "Not enough memory slots available"
         );
 
-        let log_rest = msb(meminfo.mem_slots - (target_exp - MIN_EXP));
+        let log_rest = msb(meminfo
+            .mem_slots
+            .checked_sub(target_exp.checked_sub(MIN_EXP).unwrap() as usize)
+            .unwrap());
         // cap, so that max_exp >= MIN_EXP
-        let max_exp = target_exp - log_rest.min(target_exp - MIN_EXP);
+        let max_exp = target_exp
+            .checked_sub(log_rest.min(target_exp.checked_sub(MIN_EXP).unwrap()))
+            .unwrap();
 
         // With mem_slots == 509, this gives 508 slots for ballooning
         // Starting with 2^25 = 32 MiB to 2^38 = 256 GiB takes 13 slots
@@ -151,174 +135,118 @@ impl EnarxAllocator {
         // max_mem = (mem_slots - max_exp + MIN_EXP) * (1usize << max_exp)
         //    - (1usize << (MIN_EXP - 1));
 
-        let min_alloc = 1usize << MIN_EXP;
-        let max_alloc = 1usize << max_exp;
+        let next_alloc = (2usize).checked_pow(MIN_EXP).unwrap();
+        let max_alloc = (2usize).checked_pow(max_exp).unwrap();
 
-        free_mem.ent[0].start = start.raw();
-        free_mem.ent[0].end = boot_info.mem_size;
-        free_mem.ent[0].virt_offset = meminfo.virt_offset;
+        HOSTMAP.first_entry(
+            0,
+            Span {
+                start: meminfo.virt_start,
+                count: boot_info.mem_size,
+            },
+        );
 
-        debug_assert_ne!(free_mem.ent[0].end, 0);
+        debug_assert_ne!(boot_info.mem_size, 0);
 
-        let mut allocator = EnarxAllocator {
-            min_alloc,
+        let free_start_phys = Address::<usize, _>::from(boot_info.code.end as *const u8);
+        let shim_phys_page = ShimPhysAddr::from(free_start_phys);
+        let free_start: *mut u8 = ShimVirtAddr::from(shim_phys_page).into();
+
+        let heap_size = boot_info.mem_size.checked_sub(boot_info.code.end).unwrap();
+
+        let allocator = Heap::new(free_start as _, heap_size);
+
+        EnarxAllocator {
+            next_alloc,
             max_alloc,
-            free_mem,
-            next_page: start.raise(),
-            next_huge_page: start.raise(),
-        };
-
-        // Allocate enough pages to hold all memory slots in advance
-        let num_pages = meminfo.mem_slots / FREE_MEM_LIST_NUM_ENTRIES;
-        // There is already one FreeMemListPage present, so we can ignore the rest of the division.
-        let mut last_page = &mut allocator.free_mem as *mut FreeMemListPage;
-
-        for _ in 0..num_pages {
-            let new_page = allocator.allocate_free_mem_list();
-            (*last_page).header.next = Some(&mut *new_page);
-            last_page = new_page;
-        }
-
-        allocator
-    }
-
-    fn allocate_free_mem_list(&mut self) -> *mut FreeMemListPage {
-        let page: PhysFrame<Size4KiB> = self.allocate_frame().unwrap();
-        // We know that FreeMemListPage is of size Size4KiB
-        let phys_address =
-            Address::<usize, _>::from(page.start_address().as_u64() as *mut FreeMemListPage);
-        let shim_phys_page = ShimPhysAddr::from(phys_address);
-        let shim_page = ShimVirtAddr::from(shim_phys_page);
-        let page: *mut FreeMemListPage = shim_page.into();
-        unsafe {
-            page.write_bytes(0, 1);
-        }
-        page
-    }
-
-    /// Translate a shim virtual address to a host virtual address
-    pub fn phys_to_host<U>(&self, val: ShimPhysUnencryptedAddr<U>) -> HostVirtAddr<U> {
-        let val: u64 = val.raw().raw();
-        let offset = self.get_virt_offset(val as _).unwrap();
-
-        unsafe {
-            HostVirtAddr::new(Address::<u64, U>::unchecked(
-                val.checked_add(offset as u64).unwrap(),
-            ))
+            mem_slots: meminfo.mem_slots,
+            allocator,
         }
     }
 
-    fn get_virt_offset(&self, addr: usize) -> Option<i64> {
-        let mut free = &self.free_mem;
+    fn balloon(&mut self) -> bool {
+        let mut last_size: usize = self.next_alloc;
+
         loop {
-            for i in free.ent.iter() {
-                if i.start == 0 {
-                    panic!(
-                        "Trying to get virtual offset from unmmapped location {:#x}",
-                        addr
-                    );
-                }
-                if i.end > addr {
-                    return Some(i.virt_offset);
-                }
-            }
-            match free.header.next {
-                None => return None,
-                Some(ref f) => free = *f,
-            }
-        }
-    }
+            // request new memory from the host
+            let new_size: usize = 2u64
+                .checked_mul(last_size as u64)
+                .unwrap_or(last_size as u64) as _;
+            let new_size = new_size.min(self.max_alloc);
+            let num_pages = new_size.checked_div(Page4KiB::size() as _).unwrap();
 
-    fn balloon(&mut self, addr: usize) -> Result<(), AllocateError> {
-        let mut free = &mut self.free_mem;
-        let mut last_end: usize = 0;
-        let mut last_size: usize = self.min_alloc;
-        loop {
-            for i in free.ent.iter_mut() {
-                // An empty slot
-                if i.start == 0 {
-                    loop {
-                        // request new memory from the host
-                        let new_size: usize = 2u64.checked_mul(last_size as u64).unwrap() as _;
-                        let new_size = new_size.min(self.max_alloc);
-                        let num_pages = new_size.checked_div(Page4KiB::size() as _).unwrap();
-                        if let Ok(virt_offset) =
-                            HOST_CALL_ALLOC.try_alloc().unwrap().balloon(num_pages)
-                        {
-                            i.virt_offset = virt_offset;
-                            i.start = last_end;
-                            i.end = i.start.checked_add(new_size).unwrap();
-                            return Ok(());
-                        }
+            let ret = HOST_CALL_ALLOC.try_alloc().unwrap().balloon(num_pages);
 
-                        // Failed to get more memory.
-                        // Try again with half of the memory.
-                        last_size = last_size.checked_div(2).unwrap();
-                        if last_size < Page4KiB::size() {
-                            // Host does not have even a page of memory
-                            return Err(AllocateError::OutOfMemory);
+            if let Ok(virt_start) = ret {
+                match HOSTMAP.new_entry(Span {
+                    start: virt_start,
+                    count: new_size,
+                }) {
+                    None => return false,
+                    Some(line) => {
+                        let mut region = Span::from(line);
+
+                        // convert to shim virtual address
+                        let free_start_phys = Address::<usize, _>::from(region.start as *const u8);
+                        let shim_phys_page = ShimPhysAddr::from(free_start_phys);
+                        let free_start: *mut u8 = ShimVirtAddr::from(shim_phys_page).into();
+
+                        region.start = free_start as _;
+
+                        unsafe {
+                            if self.allocator.size() > 0 {
+                                self.allocator.extend(region.count);
+                            } else {
+                                self.allocator.init(region.start, region.count);
+                            }
                         }
+                        self.next_alloc = new_size;
+
+                        // After every ballooning, the hostmap could need some extension
+                        HOSTMAP.extend_slots(self.mem_slots, &mut self.allocator);
+
+                        return true;
                     }
                 }
-                if i.start > addr {
-                    // should never happen
-                    return Err(AllocateError::OutOfMemory);
-                }
-                if i.end > addr {
-                    // this slot has enough room
-                    return Ok(());
-                }
-                last_end = i.end;
-                last_size = i.end.checked_sub(i.start).unwrap();
-                last_size = align_up(last_size as _, Page4KiB::size() as _) as _;
-                last_size = last_size.max(self.min_alloc);
             }
-            // we have reached the end of the free slot page
-            // advance to the next page
-            match free.header.next.as_deref_mut() {
-                None => return Err(AllocateError::OutOfMemory),
-                Some(f) => free = f,
+
+            // Failed to get more memory.
+            // Try again with half of the memory.
+            last_size = last_size.checked_div(2).unwrap();
+            if last_size < Page4KiB::size() {
+                // Host does not have even a page of memory
+                return false;
             }
         }
     }
 
-    #[inline(always)]
-    fn do_allocate_and_map_memory<S: PageSize>(
-        frame_allocator: &mut (impl paging::FrameAllocator<S> + paging::FrameAllocator<Size4KiB>),
-        map_to: &[Page<S>],
-        mapper: &mut impl Mapper<S>,
-        flags: PageTableFlags,
-        parent_flags: PageTableFlags,
-    ) -> Result<(), AllocateError> {
-        if map_to.is_empty() {
-            return Ok(());
-        }
-        let size = map_to
-            .len()
-            .checked_mul(Page::<S>::SIZE as usize)
-            .ok_or(AllocateError::OutOfMemory)?;
+    fn try_alloc_half(&mut self, mut size: usize) -> (*mut u8, usize) {
+        assert!(size >= size_of::<Page4KiB>());
+        loop {
+            let p = self.alloc_pages(size);
 
-        let page_range = {
-            let start = VirtAddr::from_ptr(map_to.as_ptr());
-            let end = start + size - 1u64;
-            let start_page = Page::<S>::containing_address(start);
-            let end_page = Page::<S>::containing_address(end);
-            Page::range_inclusive(start_page, end_page)
-        };
-
-        for page in page_range {
-            let frame = frame_allocator
-                .allocate_frame()
-                .ok_or(AllocateError::OutOfMemory)?;
-
-            unsafe {
-                mapper
-                    .map_to_with_table_flags(page, frame, flags, parent_flags, frame_allocator)
-                    .map_err(|_| AllocateError::OutOfMemory)?
-                    .flush();
+            if let Ok(p) = p {
+                return (p.as_ptr(), size);
             }
+
+            if size == size_of::<Page4KiB>() {
+                return (core::ptr::null_mut(), size);
+            }
+
+            size = size.checked_div(2).unwrap();
         }
-        Ok(())
+    }
+
+    fn alloc_pages(&mut self, size: usize) -> Result<NonNull<u8>, ()> {
+        self.allocator
+            .allocate_first_fit(Layout::from_size_align(size, align_of::<Page4KiB>()).unwrap())
+    }
+
+    unsafe fn dealloc_pages(&mut self, ptr: *mut u8, size: usize) {
+        self.allocator.deallocate(
+            NonNull::new_unchecked(ptr),
+            Layout::from_size_align_unchecked(size, align_of::<Page4KiB>()),
+        )
     }
 
     /// Allocate memory and map it to the given virtual address
@@ -334,7 +262,7 @@ impl EnarxAllocator {
             return Err(AllocateError::ZeroSize);
         }
 
-        if !map_to.is_aligned(Page::<Size4KiB>::SIZE) {
+        if !map_to.is_aligned(align_of::<Page4KiB>() as u64) {
             return Err(AllocateError::NotAligned);
         }
 
@@ -342,35 +270,55 @@ impl EnarxAllocator {
             return Err(AllocateError::NotAligned);
         }
 
-        let slice = unsafe {
-            core::slice::from_raw_parts_mut(
-                map_to.as_mut_ptr::<Page4KiB>(),
-                size.checked_div(Page4KiB::size())
-                    .ok_or(AllocateError::NotAligned)?,
-            )
+        let curr_size = (2usize).checked_pow(msb(size)).unwrap();
+
+        let (first_half, first_half_size) = {
+            while self.allocator.free() < curr_size {
+                self.balloon();
+            }
+            let (chunk, chunk_size) = self.try_alloc_half(curr_size);
+
+            if chunk.is_null() {
+                self.balloon();
+                self.try_alloc_half(curr_size)
+            } else {
+                (chunk, chunk_size)
+            }
         };
 
-        // Find the best mix of 4KiB and 2MiB Pages
-        let (pre, middle, post) = unsafe { slice.align_to_mut::<Page2MiB>() };
+        if first_half.is_null() {
+            return Err(AllocateError::OutOfMemory);
+        }
 
-        let pre: &mut [Page<Size4KiB>] =
-            unsafe { core::slice::from_raw_parts_mut(pre.as_mut_ptr() as *mut Page, pre.len()) };
+        let second_half_size = size.checked_sub(first_half_size).unwrap();
 
-        let middle: &[Page<Size2MiB>] = unsafe {
-            core::slice::from_raw_parts(middle.as_ptr() as *const Page<Size2MiB>, middle.len())
-        };
+        if second_half_size > 0 {
+            if let Err(e) = self.allocate_and_map_memory(
+                mapper,
+                map_to + first_half_size,
+                second_half_size,
+                flags,
+                parent_flags,
+            ) {
+                unsafe {
+                    self.dealloc_pages(first_half, first_half_size);
+                }
+                return Err(e);
+            }
+        }
 
-        let post: &[Page<Size4KiB>] = unsafe {
-            core::slice::from_raw_parts(post.as_ptr() as *const Page<Size4KiB>, post.len())
-        };
-
-        // Allocate the mix of 4KiB and 2MiB Pages
-        EnarxAllocator::do_allocate_and_map_memory(self, &pre, mapper, flags, parent_flags)?;
-        EnarxAllocator::do_allocate_and_map_memory(self, &middle, mapper, flags, parent_flags)?;
-        EnarxAllocator::do_allocate_and_map_memory(self, &post, mapper, flags, parent_flags)?;
+        let phys = shim_virt_to_enc_phys(first_half);
+        if let Err(e) = self.map_memory(mapper, phys, map_to, first_half_size, flags, parent_flags)
+        {
+            unsafe {
+                self.dealloc_pages(first_half, first_half_size);
+            }
+            let _ = self.unmap_memory(mapper, map_to + first_half_size, second_half_size);
+            return Err(e);
+        }
 
         // transmute the whole thing to one big bytes slice
-        Ok(unsafe { core::slice::from_raw_parts_mut(pre.as_mut_ptr() as *mut u8, size) })
+        Ok(unsafe { core::slice::from_raw_parts_mut(map_to.as_mut_ptr() as *mut u8, size) })
     }
 
     /// Map physical memory to the given virtual address
@@ -409,59 +357,145 @@ impl EnarxAllocator {
             unsafe {
                 mapper
                     .map_to_with_table_flags(page_to, frame_from, flags, parent_flags, self)
-                    .map_err(|_| AllocateError::OutOfMemory)?
+                    .map_err(|e| match e {
+                        MapToError::FrameAllocationFailed => AllocateError::OutOfMemory,
+                        MapToError::ParentEntryHugePage => AllocateError::ParentEntryHugePage,
+                        MapToError::PageAlreadyMapped(_) => AllocateError::PageAlreadyMapped,
+                    })?
                     .flush();
             }
         }
 
         Ok(())
     }
-}
 
-unsafe impl paging::FrameAllocator<Size4KiB> for EnarxAllocator {
-    fn allocate_frame(&mut self) -> Option<PhysFrame> {
-        let frame_address = self.next_page;
-        self.next_page += Offset::from_items(1);
-
-        // if at the start of a 2MiB page, advance to the next free 2MiB
-        if self.next_page.raw() == self.next_page.raise::<Page2MiB>().raw() {
-            self.next_page = self.next_huge_page.raise();
+    /// FIXME: unmap
+    pub fn unmap_memory<T: Mapper<Size4KiB> + Mapper<Size2MiB>>(
+        &mut self,
+        mapper: &mut T,
+        virt_addr: VirtAddr,
+        size: usize,
+    ) -> Result<(), UnmapError> {
+        if size == 0 {
+            return Ok(());
         }
 
-        if frame_address.raw() >= self.next_huge_page.raw() {
-            // we have taken a bite out of the next 2MiB page
-            // so advance the 2MiB pointer
-            self.next_huge_page += Offset::from_items(1);
+        let page_range_to = {
+            let start = virt_addr;
+            let end = start + size - 1u64;
+            let start_page = Page::<Size4KiB>::containing_address(start);
+            let end_page = Page::<Size4KiB>::containing_address(end);
+            Page::range_inclusive(start_page, end_page)
+        };
 
-            if self.balloon(self.next_huge_page.raw()).is_err() {
-                // OOM
-                return None;
+        for frame_from in page_range_to {
+            let phys = {
+                let (phys_frame, flush) = mapper.unmap(frame_from)?;
+                flush.flush();
+                phys_frame.start_address()
+            };
+
+            let free_start_phys = Address::<usize, _>::from(phys.as_u64() as *const u8);
+            let shim_phys_page = ShimPhysAddr::from(free_start_phys);
+            let shim_virt: *mut u8 = ShimVirtAddr::from(shim_phys_page).into();
+            unsafe {
+                self.dealloc_pages(shim_virt, Page::<Size4KiB>::SIZE as usize);
             }
         }
 
-        if self.balloon(self.next_page.raw()).is_err() {
-            // OOM
-            return None;
-        }
+        Ok(())
+    }
 
-        Some(PhysFrame::containing_address(PhysAddr::new(
-            frame_address.raw() as u64 | get_cbit_mask(),
-        )))
+    /// Allocate memory by Layout
+    pub fn try_alloc(&mut self, layout: Layout) -> Option<NonNull<u8>> {
+        let b = self.allocator.allocate_first_fit(layout).ok();
+
+        if b.is_none() && self.balloon() {
+            // try once again to allocate
+            self.allocator.allocate_first_fit(layout).ok()
+        } else {
+            b
+        }
+    }
+
+    /// Deallocate memory
+    ///
+    /// # Safety
+    ///
+    /// Unsafe, because the caller has to ensure to not use any references left.
+    pub unsafe fn deallocate(&mut self, ptr: *mut u8, layout: Layout) {
+        self.allocator
+            .deallocate(NonNull::new(ptr).unwrap(), layout);
+    }
+
+    /// returns the amount of free memory
+    pub fn free(&self) -> usize {
+        self.allocator.free()
+    }
+}
+
+unsafe impl paging::FrameAllocator<Size4KiB> for EnarxAllocator {
+    #[allow(unused_unsafe)]
+    fn allocate_frame(&mut self) -> Option<PhysFrame<Size4KiB>> {
+        self.try_alloc(unsafe {
+            Layout::from_size_align_unchecked(
+                Page::<Size4KiB>::SIZE as _,
+                Page::<Size4KiB>::SIZE as _,
+            )
+        })
+        .map(|a| a.as_ptr())
+        .map(shim_virt_to_enc_phys)
+        .map(PhysFrame::containing_address)
     }
 }
 
 unsafe impl paging::FrameAllocator<Size2MiB> for EnarxAllocator {
+    #[allow(unused_unsafe)]
     fn allocate_frame(&mut self) -> Option<PhysFrame<Size2MiB>> {
-        let frame_address = self.next_huge_page;
-        self.next_huge_page += Offset::from_items(1);
+        self.try_alloc(unsafe {
+            Layout::from_size_align_unchecked(
+                Page::<Size2MiB>::SIZE as _,
+                Page::<Size2MiB>::SIZE as _,
+            )
+        })
+        .map(|a| a.as_ptr())
+        .map(shim_virt_to_enc_phys)
+        .map(PhysFrame::containing_address)
+    }
+}
 
-        if self.balloon(self.next_huge_page.raw()).is_err() {
-            // OOM
-            return None;
-        }
+unsafe impl paging::FrameAllocator<Size1GiB> for EnarxAllocator {
+    #[allow(unused_unsafe)]
+    fn allocate_frame(&mut self) -> Option<PhysFrame<Size1GiB>> {
+        self.try_alloc(unsafe {
+            Layout::from_size_align_unchecked(
+                Page::<Size1GiB>::SIZE as _,
+                Page::<Size1GiB>::SIZE as _,
+            )
+        })
+        .map(|a| a.as_ptr())
+        .map(shim_virt_to_enc_phys)
+        .map(PhysFrame::containing_address)
+    }
+}
 
-        Some(PhysFrame::containing_address(PhysAddr::new(
-            frame_address.raw() as u64 | get_cbit_mask(),
-        )))
+#[inline]
+fn shim_virt_to_enc_phys<T>(p: *mut T) -> PhysAddr {
+    let addr = Address::<u64, _>::from(p);
+    let virt = ShimVirtAddr::try_from(addr).unwrap();
+    let phys = ShimPhysAddr::try_from(virt).unwrap();
+    PhysAddr::new(phys.raw().raw() | get_cbit_mask())
+}
+
+unsafe impl GlobalAlloc for RWLocked<EnarxAllocator> {
+    unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
+        let mut this = self.write();
+        this.try_alloc(layout)
+            .map_or(core::ptr::null_mut(), |p| p.as_ptr())
+    }
+
+    unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
+        let mut this = self.write();
+        this.deallocate(ptr, layout);
     }
 }

@@ -123,10 +123,10 @@ impl<P: Personality> Thread for Cpu<X86, P> {
 
                         SYS_ENARX_MEM_INFO => {
                             let mem_slots = keep.kvm.get_nr_memslots();
-                            let virt_offset: i64 =
+                            let virt_start =
                                 keep.regions.first().unwrap().as_virt().start.as_u64() as _;
                             let mem_info: MemInfo = MemInfo {
-                                virt_offset,
+                                virt_start,
                                 mem_slots,
                             };
 

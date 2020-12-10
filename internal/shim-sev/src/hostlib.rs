@@ -111,7 +111,7 @@ pub struct BootInfo {
 #[derive(Copy, Clone, Default, PartialEq, Eq)]
 pub struct MemInfo {
     /// Loader virtual memory offset to shim physical memory
-    pub virt_offset: i64,
+    pub virt_start: usize,
     /// Number of memory slot available for ballooning
     pub mem_slots: usize,
 }
@@ -120,8 +120,8 @@ impl core::fmt::Debug for MemInfo {
     fn fmt(&self, f: &mut core::fmt::Formatter) -> Result<(), core::fmt::Error> {
         f.debug_struct("MemInfo")
             .field(
-                "virt_offset",
-                &format_args!("{:#?}", self.virt_offset as *const u8),
+                "virt_start",
+                &format_args!("{:#?}", self.virt_start as *const u8),
             )
             .field("mem_slots", &self.mem_slots)
             .finish()

@@ -146,7 +146,7 @@ impl HostCall {
     }
 
     /// Balloon the memory
-    pub fn balloon(&mut self, pages: usize) -> Result<i64, libc::c_int> {
+    pub fn balloon(&mut self, pages: usize) -> Result<usize, libc::c_int> {
         self.block.as_mut().unwrap().msg.req = request!(SYS_ENARX_BALLOON_MEMORY => pages);
         Ok(unsafe { self.hostcall() }?[0].into())
     }
