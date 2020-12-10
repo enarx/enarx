@@ -341,3 +341,9 @@ fn bind() {
 fn listen() {
     run_test("listen", 0, None, None, None);
 }
+
+#[test]
+#[serial]
+fn memspike() {
+    run_test("memspike", 0, None, None, None);
+}

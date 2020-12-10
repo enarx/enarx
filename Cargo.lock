@@ -226,6 +226,7 @@ dependencies = [
  "codicon",
  "colorful",
  "goblin 0.3.0",
+ "iocuddle",
  "koine",
  "kvm-bindings",
  "kvm-ioctls",

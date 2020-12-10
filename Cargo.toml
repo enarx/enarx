@@ -39,6 +39,7 @@ kvm-bindings = { version = "0.3", optional = true }
 kvm-ioctls = { version = "0.6", optional = true }
 primordial = "0.1"
 structopt = "0.3"
+iocuddle = "0.1"
 colorful = "0.2"
 codicon = "3.0"
 mmarinus = "0.2"
