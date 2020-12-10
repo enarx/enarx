@@ -6,7 +6,7 @@ mod vm;
 
 pub const SHIM: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/bin/shim-sev"));
 
-pub use vm::{Arch, Builder, Hook, Hv2GpFn, Vm, X86};
+pub use vm::{personality::Personality, Arch, Builder, Hook, Hv2GpFn, Vm, X86};
 
 use crate::backend::{self, Datum, Keep};
 use crate::binary::Component;
@@ -57,7 +57,9 @@ impl backend::Backend for Backend {
     fn build(&self, code: Component, _sock: Option<&Path>) -> Result<Arc<dyn Keep>> {
         let shim = Component::from_bytes(SHIM)?;
 
-        let vm = Builder::new(shim, code, builder::Kvm).build::<X86>()?.vm();
+        let vm = Builder::new(shim, code, builder::Kvm)
+            .build::<X86, ()>()?
+            .vm();
 
         Ok(Arc::new(RwLock::new(vm)))
     }
@@ -66,7 +68,7 @@ impl backend::Backend for Backend {
         let shim = Component::from_bytes(SHIM)?;
 
         let digest = Builder::new(shim, code, builder::Kvm)
-            .build::<X86>()?
+            .build::<X86, ()>()?
             .measurement(MessageDigest::null())?;
 
         let json = format!(r#"{{ "backend": "kvm", "null": {:?} }}"#, digest);

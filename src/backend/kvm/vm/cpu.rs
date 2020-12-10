@@ -9,6 +9,8 @@ use crate::backend::{Command, Thread};
 use crate::sallyport::{Block, Reply};
 use crate::syscall::{SYS_ENARX_BALLOON_MEMORY, SYS_ENARX_MEM_INFO};
 
+use super::personality::Personality;
+
 use anyhow::{anyhow, Result};
 use kvm_ioctls::{VcpuExit, VcpuFd};
 use primordial::Register;
@@ -18,15 +20,15 @@ use x86_64::PhysAddr;
 
 use std::sync::{Arc, RwLock};
 
-pub struct Cpu<A: Arch> {
+pub struct Cpu<A: Arch, P: Personality> {
     fd: VcpuFd,
-    keep: Arc<RwLock<Vm<A>>>,
+    keep: Arc<RwLock<Vm<A, P>>>,
 }
 
-impl Cpu<X86> {
+impl<P: Personality> Cpu<X86, P> {
     pub fn new(
         fd: VcpuFd,
-        keep: Arc<RwLock<Vm<X86>>>,
+        keep: Arc<RwLock<Vm<X86, P>>>,
         entry: PhysAddr,
         cr3: PhysAddr,
     ) -> Result<Self> {
@@ -83,7 +85,7 @@ impl Cpu<X86> {
     }
 }
 
-impl Thread for Cpu<X86> {
+impl<P: Personality> Thread for Cpu<X86, P> {
     fn enter(&mut self) -> Result<Command> {
         match self.fd.run()? {
             VcpuExit::IoOut(port, data) => match port {

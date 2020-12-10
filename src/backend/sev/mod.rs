@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 mod builder;
+mod personality;
 mod unattested_launch;
 
 use crate::backend::kvm::Builder;
@@ -249,7 +250,7 @@ impl backend::Backend for Backend {
         let sock = attestation_bridge(sock)?;
 
         let vm = Builder::new(shim, code, builder::Sev::new(sock))
-            .build::<X86>()?
+            .build::<X86, personality::Sev>()?
             .vm();
 
         Ok(Arc::new(RwLock::new(vm)))
@@ -260,7 +261,7 @@ impl backend::Backend for Backend {
         let sock = attestation_bridge(None)?;
 
         let digest = Builder::new(shim, code, builder::Sev::new(sock))
-            .build::<X86>()?
+            .build::<X86, ()>()?
             .measurement(MessageDigest::sha256())?;
 
         let json = format!(r#"{{ "backend": "sev", "sha256": {:?} }}"#, digest);

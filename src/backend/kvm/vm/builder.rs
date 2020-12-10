@@ -5,6 +5,8 @@ use crate::backend::kvm::shim::BootInfo;
 use crate::binary::Component;
 use crate::sallyport::Block;
 
+use personality::Personality;
+
 use anyhow::Result;
 use kvm_ioctls::{Kvm, VmFd};
 use lset::{Line, Span};
@@ -54,8 +56,8 @@ pub struct Builder<T: Hook> {
     code: Component,
 }
 
-pub struct Built<A: image::Arch> {
-    vm: Vm<A>,
+pub struct Built<A: image::Arch, P: Personality> {
+    vm: Vm<A, P>,
 }
 
 impl<T: Hook> Builder<T> {
@@ -63,7 +65,7 @@ impl<T: Hook> Builder<T> {
         Self { shim, code, hook }
     }
 
-    pub fn build<A: image::Arch>(mut self) -> Result<Built<A>> {
+    pub fn build<A: image::Arch, P: Personality>(mut self) -> Result<Built<A, P>> {
         let kvm = Kvm::new()?;
         let mut fd = kvm.create_vm()?;
 
@@ -111,6 +113,7 @@ impl<T: Hook> Builder<T> {
             shim_start: PhysAddr::new(shim_start as _),
             arch,
             _phantom: PhantomData,
+            _personality: PhantomData,
         };
 
         Ok(Built { vm })
@@ -153,7 +156,7 @@ impl<T: Hook> Builder<T> {
     }
 }
 
-impl<A: image::Arch> Built<A> {
+impl<A: image::Arch, P: Personality> Built<A, P> {
     pub fn measurement(&self, ty: MessageDigest) -> Result<DigestBytes> {
         let address_space = self.vm.regions.first().unwrap().as_virt();
         let address_space = unsafe {
@@ -169,7 +172,7 @@ impl<A: image::Arch> Built<A> {
         Ok(digest)
     }
 
-    pub fn vm(self) -> Vm<A> {
+    pub fn vm(self) -> Vm<A, P> {
         self.vm
     }
 }

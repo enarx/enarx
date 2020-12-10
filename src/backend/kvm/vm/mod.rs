@@ -4,12 +4,14 @@ pub mod builder;
 mod cpu;
 pub mod image;
 mod mem;
+pub mod personality;
 
 use crate::backend::kvm::shim::MAX_SETUP_SIZE;
 use crate::backend::{Keep, Thread};
 
 use cpu::Cpu;
 use mem::Region;
+use personality::Personality;
 
 pub use builder::{Builder, Hook, Hv2GpFn};
 pub use image::{x86::X86, Arch};
@@ -28,7 +30,7 @@ use std::marker::PhantomData;
 use std::num::NonZeroUsize;
 use std::sync::{Arc, RwLock};
 
-pub struct Vm<A: Arch> {
+pub struct Vm<A: Arch, P: Personality> {
     kvm: Kvm,
     fd: VmFd,
     regions: Vec<Region>,
@@ -38,9 +40,10 @@ pub struct Vm<A: Arch> {
     hv2gp: Box<Hv2GpFn>,
     arch: VirtAddr,
     _phantom: PhantomData<A>,
+    _personality: PhantomData<P>,
 }
 
-impl<A: Arch> Vm<A> {
+impl<A: Arch, P: Personality> Vm<A, P> {
     pub fn add_memory(&mut self, pages: usize) -> Result<i64> {
         let mem_size = pages * Page::size();
         let last_region = self.regions.last().unwrap().as_guest();
@@ -63,13 +66,15 @@ impl<A: Arch> Vm<A> {
             self.fd.set_user_memory_region(region)?;
         }
 
+        P::add_memory(&self.fd, &region);
+
         self.regions.push(Region::new(region, map));
 
         Ok(region_start as _)
     }
 }
 
-impl Keep for RwLock<Vm<X86>> {
+impl<P: 'static + Personality> Keep for RwLock<Vm<X86, P>> {
     fn add_thread(self: Arc<Self>) -> Result<Box<dyn Thread>> {
         let keep = self.write().unwrap();
         let id = 0;
