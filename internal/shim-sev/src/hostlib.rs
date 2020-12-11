@@ -144,7 +144,6 @@ impl BootInfo {
     ///
     /// `NoMemory`: if there is not enough memory for the shim to operate
     #[inline]
-    #[allow(clippy::integer_arithmetic)]
     pub fn calculate(
         setup: Line<usize>,
         shim: Span<usize>,
@@ -165,9 +164,7 @@ impl BootInfo {
             .ok_or(NoMemory(()))?
             .into();
 
-        let mut mem_size = raise(code.end, Page::size()).ok_or(NoMemory(()))?;
-        // Initial space for basic memory allocations
-        mem_size = mem_size.checked_add(bytes!(32; MiB)).unwrap();
+        let mem_size = raise(code.end, Page::size()).ok_or(NoMemory(()))?;
 
         Ok(Self {
             setup,
