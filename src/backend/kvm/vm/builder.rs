@@ -11,7 +11,6 @@ use anyhow::Result;
 use kvm_ioctls::{Kvm, VmFd};
 use lset::{Line, Span};
 use mmarinus::{perms, Kind, Map};
-use nbytes::bytes;
 use openssl::hash::{DigestBytes, Hasher, MessageDigest};
 use x86_64::{align_up, PhysAddr, VirtAddr};
 
@@ -74,7 +73,7 @@ impl<T: Hook> Builder<T> {
             self.code.region().into(),
         )?;
 
-        let mem_size = align_up(boot_info.mem_size as _, bytes![2; MiB]);
+        let mem_size = align_up(boot_info.mem_size as _, size_of::<Page>() as _);
         // fill out remaining fields of `BootInfo`
         boot_info.nr_syscall_blocks = num_syscall_blocks::<A>();
         boot_info.mem_size = mem_size as _;
