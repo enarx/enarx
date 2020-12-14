@@ -112,6 +112,16 @@ checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 [[package]]
 name = "ciborium"
 version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "de6836a1b6197d8acdaac74a01af077a26aa6953d2e9251eef061c646b0d432c"
+dependencies = [
+ "half",
+ "serde",
+]
+
+[[package]]
+name = "ciborium"
+version = "0.1.0"
 source = "git+https://github.com/enarx/ciborium?rev=bcaec75#bcaec756e8b82897c897ae4775d182c7555eb41f"
 dependencies = [
  "half",
@@ -214,6 +224,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "cc",
+ "ciborium 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "codicon",
  "colorful",
  "goblin 0.3.0",
@@ -230,8 +241,6 @@ dependencies = [
  "process_control",
  "protobuf",
  "protobuf-codegen-pure",
- "serde",
- "serde_cbor",
  "serial_test",
  "sev",
  "sgx",
@@ -338,7 +347,7 @@ name = "koine"
 version = "0.1.0"
 source = "git+https://github.com/enarx/koine#abd3641d525fa292d2bead78f5e97874aa287472"
 dependencies = [
- "ciborium",
+ "ciborium 0.1.0 (git+https://github.com/enarx/ciborium?rev=bcaec75)",
  "serde",
  "tokio",
  "uuid",
@@ -687,16 +696,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "06c64263859d87aa2eb554587e2d23183398d617427327cf2b3d0ed8c69e4800"
 dependencies = [
  "serde_derive",
-]
-
-[[package]]
-name = "serde_cbor"
-version = "0.11.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1e18acfa2f90e8b735b2836ab8d538de304cbb6729a7360729ea5a895d15a622"
-dependencies = [
- "half",
- "serde",
 ]
 
 [[package]]

@@ -7,11 +7,10 @@ use crate::backend::kvm::Hv2GpFn;
 use sev::firmware::Firmware;
 use sev::launch::{Launcher, Secret};
 
+use ciborium::{de::from_reader, ser::into_writer};
 use codicon::{Decoder, Encoder};
 use koine::attestation::sev::*;
 use kvm_ioctls::VmFd;
-use serde::Deserialize;
-use serde_cbor as serde_flavor;
 use x86_64::{PhysAddr, VirtAddr};
 
 use anyhow::Result;
@@ -58,10 +57,10 @@ impl kvm::Hook for Sev {
             sev::Generation::Naples => Message::CertificateChainNaples(chain_container),
             sev::Generation::Rome => Message::CertificateChainRome(chain_container),
         };
-        serde_flavor::to_writer(&self.0, &chain_packet)?;
+        into_writer(&chain_packet, &self.0)?;
 
-        let mut de = serde_flavor::Deserializer::from_reader(&self.0);
-        let start_packet = match Message::deserialize(&mut de)? {
+        let start_packet = from_reader(&self.0)?;
+        let start_packet = match start_packet {
             Message::LaunchStart(ls) => LaunchStart {
                 policy: ls.policy,
                 cert: ls.cert,
@@ -71,9 +70,9 @@ impl kvm::Hook for Sev {
         };
 
         let start = sev::launch::Start {
-            policy: serde_flavor::from_reader(start_packet.policy.as_slice())?,
+            policy: from_reader(start_packet.policy.as_slice())?,
             cert: sev::certs::sev::Certificate::decode(start_packet.cert.as_slice(), ())?,
-            session: serde_flavor::from_reader(start_packet.session.as_slice())?,
+            session: from_reader(start_packet.session.as_slice())?,
         };
 
         let (mut launcher, measurement) = {
@@ -89,18 +88,18 @@ impl kvm::Hook for Sev {
             build: vec![],
             measurement: vec![],
         };
-        serde_flavor::to_writer(&mut msr_container.build, &build)?;
-        serde_flavor::to_writer(&mut msr_container.measurement, &measurement)?;
+        into_writer(&build, &mut msr_container.build)?;
+        into_writer(&measurement, &mut msr_container.measurement)?;
         let msr_packet = Message::Measurement(msr_container);
-        serde_flavor::to_writer(&self.0, &msr_packet)?;
+        into_writer(&msr_packet, &self.0)?;
 
-        let secret = match Message::deserialize(&mut de)? {
+        let secret = match from_reader(&self.0)? {
             Message::Secret(bytes) => bytes,
             _ => return Err(std::io::Error::from(std::io::ErrorKind::InvalidInput).into()),
         };
 
         if !secret.is_empty() {
-            let secret: Secret = serde_flavor::from_reader(secret.as_slice())?;
+            let secret: Secret = from_reader(secret.as_slice())?;
 
             let secret_ptr = SevSecret::get_secret_ptr(syscall_blocks.as_ptr::<BootInfo>());
 
@@ -108,7 +107,7 @@ impl kvm::Hook for Sev {
         }
 
         let finish_packet = Message::Finish(Finish);
-        serde_flavor::to_writer(&self.0, &finish_packet)?;
+        into_writer(&finish_packet, &self.0)?;
 
         let _handle = launcher.finish()?;
 

@@ -40,6 +40,7 @@ kvm-ioctls = { version = "0.6", optional = true }
 primordial = "0.1"
 structopt = "0.3"
 iocuddle = "0.1"
+ciborium = "0.1"
 colorful = "0.2"
 codicon = "3.0"
 mmarinus = "0.2"
@@ -49,8 +50,6 @@ goblin = "0.3"
 libc = "0.2"
 lset = "0.1"
 protobuf = "2.18"
-serde = "1.0"
-serde_cbor = "0.11"
 openssl = "0.10"
 
 [build-dependencies]

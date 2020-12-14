@@ -22,15 +22,13 @@ use std::os::unix::net::UnixStream;
 use ::sev::certs::{ca, sev};
 use ::sev::launch::Policy;
 use ::sev::session::Session;
+use ciborium::{de::from_reader, ser::into_writer};
 use codicon::{Decoder, Encoder};
 use koine::attestation::sev::*;
-use serde::de::Deserialize;
-use serde_cbor as serde_flavor;
 
 pub fn launch(sock: UnixStream) {
-    let mut de = serde_flavor::Deserializer::from_reader(&sock);
     let chain_packet =
-        Message::deserialize(&mut de).expect("failed to deserialize expected certificate chain");
+        from_reader(&sock).expect("failed to deserialize expected certificate chain");
     let chain_packet = match chain_packet {
         Message::CertificateChainNaples(chain) => chain,
         Message::CertificateChainRome(chain) => chain,
@@ -59,25 +57,24 @@ pub fn launch(sock: UnixStream) {
         cert: vec![],
         session: vec![],
     };
-    serde_flavor::to_writer(&mut ls.policy, &start.policy).expect("failed to serialize policy");
+    into_writer(&start.policy, &mut ls.policy).expect("failed to serialize policy");
     start
         .cert
         .encode(&mut ls.cert, ())
         .expect("start cert encode");
-    serde_flavor::to_writer(&mut ls.session, &start.session).expect("failed to serialize session");
+    into_writer(&start.session, &mut ls.session).expect("failed to serialize session");
 
     let start_packet = Message::LaunchStart(ls);
-    serde_flavor::to_writer(&sock, &start_packet).expect("failed to serialize launch start");
+    into_writer(&start_packet, &sock).expect("failed to serialize launch start");
 
     // Discard the measurement, the synthetic client doesn't care
     // for an unattested launch.
-    let msr =
-        Message::deserialize(&mut de).expect("failed to deserialize expected measurement packet");
+    let msr = from_reader(&sock).expect("failed to deserialize expected measurement packet");
     assert!(matches!(msr, Message::Measurement(_)));
 
     let secret_packet = Message::Secret(vec![]);
-    serde_flavor::to_writer(&sock, &secret_packet).expect("failed to serialize secret packet");
+    into_writer(&secret_packet, &sock).expect("failed to serialize secret packet");
 
-    let fin = Message::deserialize(&mut de).expect("failed to deserialize expected finish packet");
+    let fin = from_reader(&sock).expect("failed to deserialize expected finish packet");
     assert!(matches!(fin, Message::Finish(_)));
 }
