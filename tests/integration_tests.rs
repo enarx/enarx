@@ -4,6 +4,7 @@
 use std::fs;
 use std::io::{Read, Write};
 use std::mem::{size_of, MaybeUninit};
+use std::os::unix::ffi::OsStrExt;
 use std::os::unix::net::{UnixListener, UnixStream};
 use std::path::Path;
 use std::process::{Command, Stdio};
@@ -13,6 +14,8 @@ use std::time::Duration;
 
 use process_control::{ChildExt, Output, Timeout};
 use serial_test::serial;
+use std::sync::Arc;
+use tempdir::TempDir;
 
 const CRATE: &str = env!("CARGO_MANIFEST_DIR");
 const KEEP_BIN: &str = env!("CARGO_BIN_EXE_enarx-keepldr");
@@ -232,8 +235,9 @@ fn echo() {
 #[test]
 #[serial]
 fn unix_echo() {
-    const FILENAME_IN: &'static str = "/tmp/enarx_unix_echo_to_bin";
-    const FILENAME_OUT: &'static str = "/tmp/enarx_unix_echo_from_bin";
+    let tmpdir = Arc::new(TempDir::new("unix_echo").unwrap());
+    const FILENAME_IN: &'static str = "enarx_unix_echo_to_bin";
+    const FILENAME_OUT: &'static str = "enarx_unix_echo_from_bin";
     let mut input: Vec<u8> = Vec::with_capacity(2 * 1024 * 1024);
 
     let _ = fs::remove_file(FILENAME_IN);
@@ -242,35 +246,42 @@ fn unix_echo() {
         input.push(i as _);
     }
 
-    let handle = thread::spawn(move || {
-        let socket_path = Path::new(FILENAME_IN);
-        let mut cnt = 0;
-        while cnt < 100 && !socket_path.exists() {
-            cnt += 1;
-            thread::sleep(Duration::from_millis(500))
-        }
-        if socket_path.exists() {
-            let _ = fs::remove_file(FILENAME_OUT);
-            let listener = UnixListener::bind(FILENAME_OUT).unwrap();
+    let handle = thread::spawn({
+        let tmpdir = tmpdir.clone();
+        move || {
+            let socket_path = tmpdir.path().join(FILENAME_IN);
+            let mut cnt = 0;
+            while cnt < 100 && !socket_path.exists() {
+                cnt += 1;
+                thread::sleep(Duration::from_millis(500))
+            }
+            if socket_path.exists() {
+                let listener = UnixListener::bind(tmpdir.path().join(FILENAME_OUT)).unwrap();
 
-            let mut socket = UnixStream::connect(FILENAME_IN).unwrap();
-            socket.write_all(&input).unwrap();
-            // close the socket to let the test get EOF
-            drop(socket);
+                let mut socket = UnixStream::connect(tmpdir.path().join(FILENAME_IN)).unwrap();
+                socket.write_all(&input).unwrap();
+                // close the socket to let the test get EOF
+                drop(socket);
 
-            let (mut socket, _) = listener.accept().unwrap();
+                let (mut socket, _) = listener.accept().unwrap();
 
-            let mut buffer = Vec::new();
-            socket.read_to_end(&mut buffer).unwrap();
+                let mut buffer = Vec::new();
+                socket.read_to_end(&mut buffer).unwrap();
 
-            assert_eq_slices(&input, &buffer, "stream output");
+                assert_eq_slices(&input, &buffer, "stream output");
+            }
         }
     });
 
-    run_test("unix_echo", 0, None, None, None);
+    run_test(
+        "unix_echo",
+        0,
+        tmpdir.path().as_os_str().as_bytes(),
+        None,
+        None,
+    );
 
     handle.join().unwrap();
-    let _ = fs::remove_file(FILENAME_IN);
 }
 
 #[test]

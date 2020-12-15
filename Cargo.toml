@@ -60,3 +60,4 @@ protobuf-codegen-pure = "2.3"
 [dev-dependencies]
 process_control = "2.0"
 serial_test = "0.5"
+tempdir = "0.3.7"
