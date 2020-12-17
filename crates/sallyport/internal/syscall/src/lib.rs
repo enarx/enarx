@@ -24,6 +24,8 @@ pub const ARCH_GET_FS: libc::c_int = 0x1003;
 /// missing in libc
 pub const ARCH_GET_GS: libc::c_int = 0x1004;
 
+/// Fake pid returned by enarx
+pub const FAKE_PID: usize = 1000;
 /// Fake uid returned by enarx
 pub const FAKE_UID: usize = 1000;
 /// Fake gid returned by enarx
@@ -167,6 +169,7 @@ pub trait SyscallHandler: AddressValidator + Sized {
             ),
             libc::SYS_madvise => self.madvise(a.into(), b.into(), usize::from(c) as _),
             libc::SYS_poll => self.poll(a.into(), b.into(), usize::from(c) as _),
+            libc::SYS_getpid => self.getpid(),
             libc::SYS_getuid => self.getuid(),
             libc::SYS_getgid => self.getgid(),
             libc::SYS_geteuid => self.geteuid(),
@@ -696,6 +699,12 @@ pub trait SyscallHandler: AddressValidator + Sized {
         }
 
         Ok(result)
+    }
+
+    /// syscall
+    fn getpid(&mut self) -> Result {
+        self.trace("getpid", 0);
+        Ok([FAKE_PID.into(), 0.into()])
     }
 
     /// Do a getuid() syscall
