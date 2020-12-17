@@ -212,6 +212,7 @@ pub trait SyscallHandler: AddressValidator + Sized {
                 usize::from(e) as _,
             ),
             libc::SYS_pipe => self.pipe(a.into()),
+            libc::SYS_epoll_create1 => self.epoll_create1(a.try_into().map_err(|_| libc::EINVAL)?),
 
             SYS_ENARX_GETATT => self.get_attestation(a.into(), b.into(), c.into(), d.into()),
 
@@ -1095,5 +1096,11 @@ pub trait SyscallHandler: AddressValidator + Sized {
         }
 
         Ok(ret)
+    }
+
+    /// syscall
+    fn epoll_create1(&mut self, flags: libc::c_int) -> Result {
+        self.trace("epoll_create1", 1);
+        unsafe { self.proxy(request!(libc::SYS_epoll_create1 => flags)) }
     }
 }
