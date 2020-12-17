@@ -211,6 +211,7 @@ pub trait SyscallHandler: AddressValidator + Sized {
                 d.into(),
                 usize::from(e) as _,
             ),
+            libc::SYS_pipe => self.pipe(a.into()),
 
             SYS_ENARX_GETATT => self.get_attestation(a.into(), b.into(), c.into(), d.into()),
 
@@ -1073,5 +1074,26 @@ pub trait SyscallHandler: AddressValidator + Sized {
         unsafe {
             self.proxy(request!(libc::SYS_setsockopt => sockfd, level,optname, host_virt, optlen))
         }
+    }
+
+    /// syscall
+    fn pipe(&mut self, pipefd: UntrustedRefMut<libc::c_int>) -> Result {
+        self.trace("pipe", 1);
+        let pipefd = pipefd.validate_slice(2, self).ok_or(libc::EFAULT)?;
+        let c = self.new_cursor();
+
+        let (_, hostbuf) = c.alloc::<libc::c_int>(2).or(Err(libc::EMSGSIZE))?;
+        let hostbuf = hostbuf.as_ptr();
+        let host_virt = Self::translate_shim_to_host_addr(hostbuf);
+
+        let ret = unsafe { self.proxy(request!(libc::SYS_pipe => host_virt))? };
+
+        let c = self.new_cursor();
+        unsafe {
+            c.copy_into_slice(2, pipefd.as_mut())
+                .or(Err(libc::EFAULT))?;
+        }
+
+        Ok(ret)
     }
 }
