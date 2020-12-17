@@ -219,6 +219,19 @@ pub trait SyscallHandler: AddressValidator + Sized {
                 usize::from(c) as _,
                 d.into(),
             ),
+            libc::SYS_epoll_wait => self.epoll_wait(
+                usize::from(a) as _,
+                b.into(),
+                usize::from(c) as _,
+                usize::from(d) as _,
+            ),
+            libc::SYS_epoll_pwait => self.epoll_pwait(
+                usize::from(a) as _,
+                b.into(),
+                usize::from(c) as _,
+                usize::from(d) as _,
+                e.into(),
+            ),
 
             SYS_ENARX_GETATT => self.get_attestation(a.into(), b.into(), c.into(), d.into()),
 
@@ -1126,5 +1139,58 @@ pub trait SyscallHandler: AddressValidator + Sized {
         let host_virt = Self::translate_shim_to_host_addr(buf);
 
         unsafe { self.proxy(request!(libc::SYS_epoll_ctl => epfd, op, fd, host_virt)) }
+    }
+
+    /// syscall
+    fn epoll_wait(
+        &mut self,
+        epfd: libc::c_int,
+        event: UntrustedRefMut<libc::epoll_event>,
+        maxevents: libc::c_int,
+        timeout: libc::c_int,
+    ) -> Result {
+        self.trace("epoll_wait", 4);
+
+        let maxevents: usize = maxevents as _;
+
+        let event = event.validate_slice(maxevents, self).ok_or(libc::EFAULT)?;
+
+        let c = self.new_cursor();
+
+        let (_, hostbuf) = c
+            .alloc::<libc::epoll_event>(maxevents)
+            .or(Err(libc::EMSGSIZE))?;
+        let hostbuf = hostbuf.as_ptr();
+        let host_virt = Self::translate_shim_to_host_addr(hostbuf);
+
+        let ret = unsafe {
+            self.proxy(request!(libc::SYS_epoll_wait => epfd, host_virt, maxevents, timeout))?
+        };
+
+        let result_len: usize = ret[0].into();
+
+        if maxevents < result_len {
+            self.attacked();
+        }
+
+        let c = self.new_cursor();
+        unsafe {
+            c.copy_into_slice(maxevents, &mut event[..result_len])
+                .or(Err(libc::EFAULT))?;
+        }
+
+        Ok(ret)
+    }
+
+    /// syscall
+    fn epoll_pwait(
+        &mut self,
+        epfd: libc::c_int,
+        event: UntrustedRefMut<libc::epoll_event>,
+        maxevents: libc::c_int,
+        timeout: libc::c_int,
+        _sigmask: UntrustedRef<libc::sigset_t>,
+    ) -> Result {
+        self.epoll_wait(epfd, event, maxevents, timeout)
     }
 }
