@@ -196,6 +196,14 @@ pub trait SyscallHandler: AddressValidator + Sized {
                 e.into(),
                 f.into(),
             ),
+            libc::SYS_sendto => self.sendto(
+                usize::from(a) as _,
+                b.into(),
+                c.into(),
+                usize::from(d) as _,
+                e.into(),
+                f.into(),
+            ),
 
             SYS_ENARX_GETATT => self.get_attestation(a.into(), b.into(), c.into(), d.into()),
 
@@ -979,6 +987,61 @@ pub trait SyscallHandler: AddressValidator + Sized {
 
                 *addrlen = block_addrlen;
             }
+        }
+
+        Ok(ret)
+    }
+
+    /// syscall
+    fn sendto(
+        &mut self,
+        sockfd: libc::c_int,
+        buf: UntrustedRef<u8>,
+        count: libc::size_t,
+        flags: libc::c_int,
+        dest_addr: UntrustedRef<u8>,
+        addrlen: libc::size_t,
+    ) -> Result {
+        self.trace("sendto", 6);
+
+        // Limit the write to `Block::buf_capacity()`
+        let count = usize::min(count, Block::buf_capacity());
+
+        let buf = buf.validate_slice(count, self).ok_or(libc::EFAULT)?;
+
+        let dest_addr = if dest_addr.as_ptr().is_null() {
+            None
+        } else {
+            Some(
+                dest_addr
+                    .validate_slice(addrlen, self)
+                    .ok_or(libc::EFAULT)?,
+            )
+        };
+
+        let c = self.new_cursor();
+        let (c, buf) = c.copy_from_slice(buf.as_ref()).or(Err(libc::EMSGSIZE))?;
+        let buf = buf.as_ptr();
+        let buf_host_virt = Self::translate_shim_to_host_addr(buf);
+
+        let addr_host_virt = if let Some(dest_addr) = dest_addr {
+            let (_, dest_addr) = c
+                .copy_from_slice(dest_addr.as_ref())
+                .or(Err(libc::EMSGSIZE))?;
+            let dest_addr = dest_addr.as_ptr();
+            Self::translate_shim_to_host_addr(dest_addr)
+        } else {
+            0
+        };
+
+        let ret = unsafe {
+            self.proxy(request!(libc::SYS_sendto => sockfd, buf_host_virt, count, flags, addr_host_virt, addrlen))?
+        };
+
+        let result_len: usize = ret[0].into();
+
+        if result_len > count {
+            self.attacked()
         }
 
         Ok(ret)
