@@ -160,7 +160,11 @@ pub trait SyscallHandler: AddressValidator + Sized {
             libc::SYS_uname => self.uname(a.into()),
             libc::SYS_readlink => self.readlink(a.into(), b.into(), c.into()),
             libc::SYS_fstat => self.fstat(usize::from(a) as _, b.into()),
-            libc::SYS_fcntl => self.fcntl(usize::from(a) as _, usize::from(b) as _),
+            libc::SYS_fcntl => self.fcntl(
+                usize::from(a) as _,
+                usize::from(b) as _,
+                usize::from(c) as _,
+            ),
             libc::SYS_madvise => self.madvise(a.into(), b.into(), usize::from(c) as _),
             libc::SYS_poll => self.poll(a.into(), b.into(), usize::from(c) as _),
             libc::SYS_getuid => self.getuid(),
@@ -627,20 +631,36 @@ pub trait SyscallHandler: AddressValidator + Sized {
     }
 
     /// syscall
-    fn fcntl(&mut self, fd: libc::c_int, cmd: libc::c_int) -> Result {
-        self.trace("fcntl", 2);
+    fn fcntl(&mut self, fd: libc::c_int, cmd: libc::c_int, arg: libc::c_int) -> Result {
+        self.trace("fcntl", 3);
         match (fd, cmd) {
             (libc::STDIN_FILENO, libc::F_GETFL) => {
-                //eprintln!("SC> fcntl({}, F_GETFD) = 0x402 (flags O_RDWR|O_APPEND)", fd);
+                //eprintln!("SC> fcntl({}, F_GETFL) = 0x402 (flags O_RDWR|O_APPEND)", fd);
                 Ok([(libc::O_RDWR | libc::O_APPEND).into(), 0.into()])
             }
             (libc::STDOUT_FILENO, libc::F_GETFL) | (libc::STDERR_FILENO, libc::F_GETFL) => {
-                //eprintln!("SC> fcntl({}, F_GETFD) = 0x1 (flags O_WRONLY)", fd);
+                //eprintln!("SC> fcntl({}, F_GETFL) = 0x1 (flags O_WRONLY)", fd);
                 Ok([libc::O_WRONLY.into(), 0.into()])
             }
             (libc::STDIN_FILENO, _) | (libc::STDOUT_FILENO, _) | (libc::STDERR_FILENO, _) => {
                 //eprintln!("SC> fcntl({}, {}) = -EINVAL", fd, cmd);
                 Err(libc::EINVAL)
+            }
+            (_, libc::F_GETFD) => {
+                //self.trace("fcntl", 3);
+                unsafe { self.proxy(request!(libc::SYS_fcntl => fd, cmd)) }
+            }
+            (_, libc::F_SETFD) => {
+                //self.trace("fcntl", 3);
+                unsafe { self.proxy(request!(libc::SYS_fcntl => fd, cmd, arg)) }
+            }
+            (_, libc::F_GETFL) => {
+                //self.trace("fcntl", 3);
+                unsafe { self.proxy(request!(libc::SYS_fcntl => fd, cmd)) }
+            }
+            (_, libc::F_SETFL) => {
+                //self.trace("fcntl", 3);
+                unsafe { self.proxy(request!(libc::SYS_fcntl => fd, cmd, arg)) }
             }
             (_, _) => {
                 //eprintln!("SC> fcntl({}, {}) = -EBADFD", fd, cmd);
