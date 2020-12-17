@@ -213,6 +213,12 @@ pub trait SyscallHandler: AddressValidator + Sized {
             ),
             libc::SYS_pipe => self.pipe(a.into()),
             libc::SYS_epoll_create1 => self.epoll_create1(a.try_into().map_err(|_| libc::EINVAL)?),
+            libc::SYS_epoll_ctl => self.epoll_ctl(
+                usize::from(a) as _,
+                usize::from(b) as _,
+                usize::from(c) as _,
+                d.into(),
+            ),
 
             SYS_ENARX_GETATT => self.get_attestation(a.into(), b.into(), c.into(), d.into()),
 
@@ -1102,5 +1108,23 @@ pub trait SyscallHandler: AddressValidator + Sized {
     fn epoll_create1(&mut self, flags: libc::c_int) -> Result {
         self.trace("epoll_create1", 1);
         unsafe { self.proxy(request!(libc::SYS_epoll_create1 => flags)) }
+    }
+
+    /// syscall
+    fn epoll_ctl(
+        &mut self,
+        epfd: libc::c_int,
+        op: libc::c_int,
+        fd: libc::c_int,
+        event: UntrustedRef<libc::epoll_event>,
+    ) -> Result {
+        self.trace("epoll_ctl", 4);
+
+        let event = event.validate(self).ok_or(libc::EFAULT)?;
+        let c = self.new_cursor();
+        let (_, buf) = c.write(event).or(Err(libc::EMSGSIZE))?;
+        let host_virt = Self::translate_shim_to_host_addr(buf);
+
+        unsafe { self.proxy(request!(libc::SYS_epoll_ctl => epfd, op, fd, host_virt)) }
     }
 }
