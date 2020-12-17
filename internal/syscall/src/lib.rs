@@ -154,7 +154,7 @@ pub trait SyscallHandler: AddressValidator + Sized {
             libc::SYS_sigaltstack => self.sigaltstack(a.into(), b.into()),
             libc::SYS_getrandom => self.getrandom(a.into(), b.into(), usize::from(c) as _),
             libc::SYS_brk => self.brk(a.into()),
-            libc::SYS_ioctl => self.ioctl(usize::from(a) as _, b.into()),
+            libc::SYS_ioctl => self.ioctl(usize::from(a) as _, b.into(), c.into()),
             libc::SYS_mprotect => self.mprotect(a.into(), b.into(), usize::from(c) as _),
             libc::SYS_clock_gettime => self.clock_gettime(usize::from(a) as _, b.into()),
             libc::SYS_uname => self.uname(a.into()),
@@ -346,8 +346,8 @@ pub trait SyscallHandler: AddressValidator + Sized {
     }
 
     /// syscall
-    fn ioctl(&mut self, fd: libc::c_int, request: libc::c_ulong) -> Result {
-        self.trace("ioctl", 2);
+    fn ioctl(&mut self, fd: libc::c_int, request: libc::c_ulong, arg: usize) -> Result {
+        self.trace("ioctl", 3);
         match (fd as _, request as _) {
             (libc::STDIN_FILENO, libc::TIOCGWINSZ)
             | (libc::STDOUT_FILENO, libc::TIOCGWINSZ)
@@ -360,6 +360,16 @@ pub trait SyscallHandler: AddressValidator + Sized {
                 //eprintln!("SC> ioctl({}, {}), … = -EINVAL", fd, request);
                 Err(libc::EINVAL)
             }
+            (_, libc::FIONBIO) => unsafe {
+                let val = UntrustedRef::from(arg as *const libc::c_int)
+                    .validate(self)
+                    .ok_or(libc::EFAULT)?;
+                let c = self.new_cursor();
+                let (_, buf) = c.write(val).or(Err(libc::EMSGSIZE))?;
+                let host_virt = Self::translate_shim_to_host_addr(buf);
+
+                self.proxy(request!(libc::SYS_ioctl => fd, request, host_virt))
+            },
             _ => {
                 //eprintln!("SC> ioctl({}, {}), … = -EBADFD", fd, request);
                 Err(libc::EBADFD)
