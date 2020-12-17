@@ -204,6 +204,13 @@ pub trait SyscallHandler: AddressValidator + Sized {
                 e.into(),
                 f.into(),
             ),
+            libc::SYS_setsockopt => self.setsockopt(
+                usize::from(a) as _,
+                usize::from(b) as _,
+                usize::from(c) as _,
+                d.into(),
+                usize::from(e) as _,
+            ),
 
             SYS_ENARX_GETATT => self.get_attestation(a.into(), b.into(), c.into(), d.into()),
 
@@ -1045,5 +1052,26 @@ pub trait SyscallHandler: AddressValidator + Sized {
         }
 
         Ok(ret)
+    }
+
+    /// syscall
+    fn setsockopt(
+        &mut self,
+        sockfd: libc::c_int,
+        level: libc::c_int,
+        optname: libc::c_int,
+        optval: UntrustedRef<u8>,
+        optlen: libc::socklen_t,
+    ) -> Result {
+        self.trace("setsockopt", 5);
+
+        let optval = optval.validate_slice(optlen, self).ok_or(libc::EFAULT)?;
+        let c = self.new_cursor();
+        let (_, buf) = c.copy_from_slice(optval).or(Err(libc::EMSGSIZE))?;
+        let host_virt = Self::translate_shim_to_host_addr(buf.as_ptr());
+
+        unsafe {
+            self.proxy(request!(libc::SYS_setsockopt => sockfd, level,optname, host_virt, optlen))
+        }
     }
 }
