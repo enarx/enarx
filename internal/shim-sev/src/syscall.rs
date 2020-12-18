@@ -15,7 +15,11 @@ use core::mem::size_of;
 use core::ops::{Deref, DerefMut};
 use primordial::{Address, Register};
 use sallyport::{Cursor, Request};
-use syscall::{SyscallHandler, ARCH_GET_FS, ARCH_GET_GS, ARCH_SET_FS, ARCH_SET_GS, SEV_TECH};
+use syscall::{
+    BaseSyscallHandler, EnarxSyscallHandler, FileSyscallHandler, MemorySyscallHandler,
+    NetworkSyscallHandler, ProcessSyscallHandler, SyscallHandler, SystemSyscallHandler,
+    ARCH_GET_FS, ARCH_GET_GS, ARCH_SET_FS, ARCH_SET_GS, SEV_TECH,
+};
 use untrusted::{AddressValidator, UntrustedRef, UntrustedRefMut, Validate, ValidateSlice};
 use x86_64::instructions::tlb::flush_all;
 use x86_64::registers::{rdfsbase, rdgsbase, wrfsbase, wrgsbase};
@@ -162,7 +166,12 @@ impl AddressValidator for Handler {
     }
 }
 
-impl SyscallHandler for Handler {
+impl SyscallHandler for Handler {}
+impl SystemSyscallHandler for Handler {}
+impl NetworkSyscallHandler for Handler {}
+impl FileSyscallHandler for Handler {}
+
+impl BaseSyscallHandler for Handler {
     fn unknown_syscall(
         &mut self,
         _a: Register<usize>,
@@ -206,7 +215,9 @@ impl SyscallHandler for Handler {
 
         eprintln!(")");
     }
+}
 
+impl EnarxSyscallHandler for Handler {
     fn get_attestation(
         &mut self,
         _nonce: UntrustedRef<u8>,
@@ -234,7 +245,9 @@ impl SyscallHandler for Handler {
             None => Err(libc::ENOSYS),
         }
     }
+}
 
+impl ProcessSyscallHandler for Handler {
     fn arch_prctl(&mut self, code: i32, addr: u64) -> sallyport::Result {
         self.trace("arch_prctl", 2);
         match code {
@@ -276,7 +289,9 @@ impl SyscallHandler for Handler {
             }
         }
     }
+}
 
+impl MemorySyscallHandler for Handler {
     fn mprotect(&mut self, addr: UntrustedRef<u8>, len: usize, prot: i32) -> sallyport::Result {
         self.trace("mprotect", 3);
         let addr = addr.as_ptr();

@@ -18,8 +18,10 @@ use sgx::{
 };
 use sgx_heap::Heap;
 use syscall::{
-    SyscallHandler, ARCH_GET_FS, ARCH_GET_GS, ARCH_SET_FS, ARCH_SET_GS, SGX_DUMMY_QUOTE,
-    SGX_DUMMY_TI, SGX_QUOTE_SIZE, SGX_TECH, SYS_ENARX_CPUID, SYS_ENARX_GETATT,
+    BaseSyscallHandler, EnarxSyscallHandler, FileSyscallHandler, MemorySyscallHandler,
+    NetworkSyscallHandler, ProcessSyscallHandler, SyscallHandler, SystemSyscallHandler,
+    ARCH_GET_FS, ARCH_GET_GS, ARCH_SET_FS, ARCH_SET_GS, SGX_DUMMY_QUOTE, SGX_DUMMY_TI,
+    SGX_QUOTE_SIZE, SGX_TECH, SYS_ENARX_CPUID, SYS_ENARX_GETATT,
 };
 use untrusted::{AddressValidator, UntrustedRef, UntrustedRefMut, ValidateSlice};
 
@@ -120,7 +122,11 @@ impl<'a> AddressValidator for Handler<'a> {
     }
 }
 
-impl<'a> SyscallHandler for Handler<'a> {
+impl<'a> SyscallHandler for Handler<'a> {}
+impl<'a> SystemSyscallHandler for Handler<'a> {}
+impl<'a> NetworkSyscallHandler for Handler<'a> {}
+
+impl<'a> BaseSyscallHandler for Handler<'a> {
     fn translate_shim_to_host_addr<T>(buf: *const T) -> usize {
         buf as _
     }
@@ -190,7 +196,9 @@ impl<'a> SyscallHandler for Handler<'a> {
 
         debugln!(self, ")");
     }
+}
 
+impl<'a> ProcessSyscallHandler for Handler<'a> {
     /// Do an arch_prctl() syscall
     fn arch_prctl(&mut self, code: libc::c_int, addr: libc::c_ulong) -> sallyport::Result {
         self.trace("arch_prctl", 2);
@@ -207,7 +215,9 @@ impl<'a> SyscallHandler for Handler<'a> {
 
         Ok(Default::default())
     }
+}
 
+impl<'a> FileSyscallHandler for Handler<'a> {
     /// Do a readv() syscall
     fn readv(
         &mut self,
@@ -297,7 +307,9 @@ impl<'a> SyscallHandler for Handler<'a> {
 
         Ok(ret)
     }
+}
 
+impl<'a> MemorySyscallHandler for Handler<'a> {
     /// Do a brk() system call
     fn brk(&mut self, addr: *const u8) -> sallyport::Result {
         self.trace("brk", 1);
@@ -366,7 +378,9 @@ impl<'a> SyscallHandler for Handler<'a> {
         self.trace("madvise", 3);
         Ok(Default::default())
     }
+}
 
+impl<'a> EnarxSyscallHandler for Handler<'a> {
     // Stub for get_attestation() pseudo syscall
     // See: https://github.com/enarx/enarx-keepldr/issues/31
     // NOTE: The Report will never be passed in from the code layer,
