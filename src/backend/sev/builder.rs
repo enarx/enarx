@@ -5,10 +5,9 @@ use crate::backend::kvm::Hv2GpFn;
 use crate::backend::kvm::{self, measure};
 
 use sev::firmware::Firmware;
-use sev::launch::{Launcher, Secret};
+use sev::launch::Launcher;
 
 use ciborium::{de::from_reader, ser::into_writer};
-use codicon::{Decoder, Encoder};
 use koine::attestation::sev::*;
 use kvm_ioctls::VmFd;
 use x86_64::{PhysAddr, VirtAddr};
@@ -40,43 +39,19 @@ impl kvm::Hook for Sev {
         let build = sev.platform_status().unwrap().build;
 
         let chain = sev::cached_chain::get()?;
-        let mut chain_container = Chain {
-            ark: vec![],
-            ask: vec![],
-            oca: vec![],
-            cek: vec![],
-            pek: vec![],
-            pdh: vec![],
-        };
-        chain.ca.ark.encode(&mut chain_container.ark, ())?;
-        chain.ca.ask.encode(&mut chain_container.ask, ())?;
-        chain.sev.oca.encode(&mut chain_container.oca, ())?;
-        chain.sev.cek.encode(&mut chain_container.cek, ())?;
-        chain.sev.pek.encode(&mut chain_container.pek, ())?;
-        chain.sev.pdh.encode(&mut chain_container.pdh, ())?;
 
         let generation = sev::Generation::try_from(&chain.sev)
             .map_err(|_| std::io::Error::from(std::io::ErrorKind::Other))?;
         let chain_packet = match generation {
-            sev::Generation::Naples => Message::CertificateChainNaples(chain_container),
-            sev::Generation::Rome => Message::CertificateChainRome(chain_container),
+            sev::Generation::Naples => Message::CertificateChainNaples(chain),
+            sev::Generation::Rome => Message::CertificateChainRome(chain),
         };
         into_writer(&chain_packet, &self.0)?;
 
         let start_packet = from_reader(&self.0)?;
-        let start_packet = match start_packet {
-            Message::LaunchStart(ls) => LaunchStart {
-                policy: ls.policy,
-                cert: ls.cert,
-                session: ls.session,
-            },
+        let start = match start_packet {
+            Message::LaunchStart(ls) => ls,
             _ => return Err(std::io::Error::from(std::io::ErrorKind::InvalidInput).into()),
-        };
-
-        let start = sev::launch::Start {
-            policy: from_reader(start_packet.policy.as_slice())?,
-            cert: sev::certs::sev::Certificate::decode(start_packet.cert.as_slice(), ())?,
-            session: from_reader(start_packet.session.as_slice())?,
         };
 
         let (mut launcher, measurement) = {
@@ -88,25 +63,17 @@ impl kvm::Hook for Sev {
             (launcher, measurement)
         };
 
-        let mut msr_container = Measurement {
-            build: vec![],
-            measurement: vec![],
-        };
-        into_writer(&build, &mut msr_container.build)?;
-        into_writer(&measurement, &mut msr_container.measurement)?;
-        let msr_packet = Message::Measurement(msr_container);
+        let measurement = Measurement { build, measurement };
+        let msr_packet = Message::Measurement(measurement);
         into_writer(&msr_packet, &self.0)?;
 
         let secret = match from_reader(&self.0)? {
-            Message::Secret(bytes) => bytes,
+            Message::Secret(secret) => secret,
             _ => return Err(std::io::Error::from(std::io::ErrorKind::InvalidInput).into()),
         };
 
-        if !secret.is_empty() {
-            let secret: Secret = from_reader(secret.as_slice())?;
-
+        if let Some(secret) = secret {
             let secret_ptr = SevSecret::get_secret_ptr(syscall_blocks.as_ptr::<BootInfo>());
-
             launcher.inject(secret, secret_ptr as _)?;
         }
 

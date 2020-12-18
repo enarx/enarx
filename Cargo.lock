@@ -120,15 +120,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ciborium"
-version = "0.1.0"
-source = "git+https://github.com/enarx/ciborium?rev=bcaec75#bcaec756e8b82897c897ae4775d182c7555eb41f"
-dependencies = [
- "half",
- "serde",
-]
-
-[[package]]
 name = "clap"
 version = "2.33.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -224,8 +215,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "cc",
- "ciborium 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "codicon",
+ "ciborium",
  "colorful",
  "goblin 0.3.0",
  "iocuddle",
@@ -363,10 +353,11 @@ checksum = "d8972d5be69940353d5347a1344cb375d9b457d6809b428b05bb1ca2fb9ce007"
 [[package]]
 name = "koine"
 version = "0.1.0"
-source = "git+https://github.com/enarx/koine#abd3641d525fa292d2bead78f5e97874aa287472"
+source = "git+https://github.com/enarx/koine#a036b0ea96ce2a0fc669e2427375db419d2075a4"
 dependencies = [
- "ciborium 0.1.0 (git+https://github.com/enarx/ciborium?rev=bcaec75)",
+ "ciborium",
  "serde",
+ "sev",
  "tokio",
  "uuid",
 ]
