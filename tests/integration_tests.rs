@@ -358,3 +358,9 @@ fn listen() {
 fn memspike() {
     run_test("memspike", 0, None, None, None);
 }
+
+#[test]
+#[serial]
+fn memory_stress_test() {
+    run_test("memory_stress_test", 0, None, None, None);
+}
