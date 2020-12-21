@@ -17,6 +17,7 @@ use lset::Span;
 use nbytes::bytes;
 use primordial::{Address, Page as Page4KiB};
 use spinning::Lazy;
+use x86_64::instructions::tlb::flush_all;
 use x86_64::structures::paging::mapper::{MapToError, UnmapError};
 use x86_64::structures::paging::{
     self, Mapper, Page, PageTableFlags, PhysFrame, Size1GiB, Size2MiB, Size4KiB,
@@ -362,9 +363,10 @@ impl EnarxAllocator {
                         MapToError::ParentEntryHugePage => AllocateError::ParentEntryHugePage,
                         MapToError::PageAlreadyMapped(_) => AllocateError::PageAlreadyMapped,
                     })?
-                    .flush();
+                    .ignore();
             }
         }
+        flush_all();
 
         Ok(())
     }
@@ -390,8 +392,7 @@ impl EnarxAllocator {
 
         for frame_from in page_range_to {
             let phys = {
-                let (phys_frame, flush) = mapper.unmap(frame_from)?;
-                flush.flush();
+                let (phys_frame, _) = mapper.unmap(frame_from)?;
                 phys_frame.start_address()
             };
 
@@ -403,6 +404,7 @@ impl EnarxAllocator {
             }
         }
 
+        flush_all();
         Ok(())
     }
 

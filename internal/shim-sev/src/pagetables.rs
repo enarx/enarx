@@ -9,7 +9,7 @@ use crate::addr::SHIM_VIRT_OFFSET;
 use crate::addr::{BYTES_1_GIB, BYTES_2_MIB};
 use crate::paging;
 use array_const_fn_init::array_const_fn_init;
-use x86_64::instructions::tlb::flush;
+use x86_64::instructions::tlb::flush_all;
 use x86_64::structures::paging::{Mapper, Page, PageTableFlags, Size2MiB};
 use x86_64::VirtAddr;
 
@@ -95,11 +95,10 @@ pub fn switch_sallyport_to_unencrypted(c_bit_mask: u64) {
     // Unmap the first 2MB page in the encrypted kernel address space,
     // because a VM is not supposed to map the same physical memory
     // encrypted and unencrypted.
-    page_table
+    let (_frame, _flush) = page_table
         .unmap(Page::<Size2MiB>::containing_address(VirtAddr::new(
             SHIM_VIRT_OFFSET,
         )))
-        .map(|(_, flush)| flush.flush())
         .unwrap();
 
     unsafe {
@@ -107,13 +106,11 @@ pub fn switch_sallyport_to_unencrypted(c_bit_mask: u64) {
             // Clear the C-Bit in the first 2MB identity page entry
             // making the sallyport Block pages unencrypted.
             PDT_IDENT.0[0] &= !c_bit_mask;
-            flush(VirtAddr::new(0x000000));
         }
 
         // Unmap the second and third 2MB page in the identity address space
         PDT_IDENT.0[1] = 0;
-        flush(VirtAddr::new(0x200000));
         PDT_IDENT.0[2] = 0;
-        flush(VirtAddr::new(0x400000));
     }
+    flush_all();
 }

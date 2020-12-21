@@ -17,6 +17,7 @@ use primordial::{Address, Register};
 use sallyport::{Cursor, Request};
 use syscall::{SyscallHandler, ARCH_GET_FS, ARCH_GET_GS, ARCH_SET_FS, ARCH_SET_GS, SEV_TECH};
 use untrusted::{AddressValidator, UntrustedRef, UntrustedRefMut, Validate, ValidateSlice};
+use x86_64::instructions::tlb::flush_all;
 use x86_64::registers::{rdfsbase, rdgsbase, wrfsbase, wrgsbase};
 use x86_64::structures::paging::{Page, PageTableFlags, Size4KiB};
 use x86_64::{align_up, VirtAddr};
@@ -301,7 +302,7 @@ impl SyscallHandler for Handler {
         for page in page_range {
             unsafe {
                 match page_table.update_flags(page, flags) {
-                    Ok(flush) => flush.flush(),
+                    Ok(flush) => flush.ignore(),
                     Err(e) => {
                         eprintln!(
                             "SC> mprotect({:#?}, {}, {}, …) = EINVAL ({:#?})",
@@ -312,6 +313,9 @@ impl SyscallHandler for Handler {
                 }
             }
         }
+
+        flush_all();
+
         eprintln!("SC> mprotect({:#?}, {}, {}, …) = 0", addr, len, prot);
 
         Ok(Default::default())
