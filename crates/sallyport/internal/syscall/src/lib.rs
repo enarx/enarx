@@ -104,7 +104,7 @@ pub trait SyscallHandler: AddressValidator + Sized {
     /// Do a munmap() syscall
     ///
     /// This is currently unimplemented and returns success.
-    fn munmap(&mut self, addr: UntrustedRef<u8>, lenght: libc::size_t) -> Result;
+    fn munmap(&mut self, addr: UntrustedRef<u8>, length: libc::size_t) -> Result;
 
     /// syscall
     fn brk(&mut self, addr: *const u8) -> Result;
