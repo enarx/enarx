@@ -347,11 +347,11 @@ impl<'a> SyscallHandler for Handler<'a> {
     }
 
     /// Do a munmap() system call
-    fn munmap(&mut self, addr: UntrustedRef<u8>, lenght: libc::size_t) -> sallyport::Result {
+    fn munmap(&mut self, addr: UntrustedRef<u8>, length: libc::size_t) -> sallyport::Result {
         self.trace("munmap", 2);
 
         let mut heap = unsafe { Heap::new(self.layout.heap.into()) };
-        heap.munmap::<libc::c_void>(addr.as_ptr() as _, lenght)?;
+        heap.munmap::<libc::c_void>(addr.as_ptr() as _, length)?;
         Ok(Default::default())
     }
 

@@ -377,7 +377,7 @@ impl SyscallHandler for Handler {
         }
     }
 
-    fn munmap(&mut self, _addr: UntrustedRef<u8>, _lenght: usize) -> sallyport::Result {
+    fn munmap(&mut self, _addr: UntrustedRef<u8>, _length: usize) -> sallyport::Result {
         self.trace("munmap", 2);
         Ok(Default::default())
     }
