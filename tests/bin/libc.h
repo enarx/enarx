@@ -5,6 +5,7 @@
 #include <time.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <sys/utsname.h>
 
 int *__errno_location(void) {
     static int errnum = 0;
@@ -190,6 +191,24 @@ int close(int fd) {
         "syscall"
         : "=a" (rax)
         : "a" (SYS_close), "D" (fd)
+        : "%rcx", "%r11"
+    );
+
+    if (rax < 0) {
+        errno = -rax;
+        return -1;
+    }
+
+    return rax;
+}
+
+int uname(struct utsname *buf) {
+    ssize_t rax;
+
+    asm(
+        "syscall"
+        : "=a" (rax)
+        : "a" (SYS_uname), "D" (buf)
         : "%rcx", "%r11"
     );
 
