@@ -111,7 +111,7 @@ fn build_cc_tests(in_path: &Path, out_path: &Path) {
     }
 }
 
-fn create(path: &PathBuf) {
+fn create(path: &Path) {
     match std::fs::create_dir(&path) {
         Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {}
         Err(e) => {
