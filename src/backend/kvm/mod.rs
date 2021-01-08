@@ -6,14 +6,17 @@ mod vm;
 
 pub const SHIM: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/bin/shim-sev"));
 
-pub use vm::{personality::Personality, Arch, Builder, Hook, Hv2GpFn, Vm, X86};
+pub use vm::{
+    measure::{self, Measurement},
+    personality::Personality,
+    Arch, Builder, Hook, Hv2GpFn, Vm, X86,
+};
 
 use crate::backend::{self, Datum, Keep};
 use crate::binary::Component;
 
 use anyhow::Result;
 use kvm_ioctls::Kvm;
-use openssl::hash::MessageDigest;
 
 use std::path::Path;
 use std::sync::{Arc, RwLock};
@@ -69,9 +72,12 @@ impl backend::Backend for Backend {
 
         let digest = Builder::new(shim, code, builder::Kvm)
             .build::<X86, ()>()?
-            .measurement(MessageDigest::null())?;
+            .measurement();
 
-        let json = format!(r#"{{ "backend": "kvm", "null": {:?} }}"#, digest);
+        let json = format!(
+            r#"{{ "backend": "kvm", "{}": {:?} }}"#,
+            digest.kind, digest.digest
+        );
         Ok(json)
     }
 }

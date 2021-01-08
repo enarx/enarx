@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::backend::kvm;
 use crate::backend::kvm::shim::{BootInfo, SevSecret};
 use crate::backend::kvm::Hv2GpFn;
+use crate::backend::kvm::{self, measure};
 
 use sev::firmware::Firmware;
 use sev::launch::{Launcher, Secret};
@@ -26,6 +26,10 @@ impl Sev {
 }
 
 impl kvm::Hook for Sev {
+    fn preferred_digest() -> measure::Kind {
+        measure::Kind::Sha256
+    }
+
     fn code_loaded(
         &mut self,
         vm: &mut VmFd,

@@ -3,6 +3,7 @@
 pub mod builder;
 mod cpu;
 pub mod image;
+pub mod measure;
 mod mem;
 pub mod personality;
 

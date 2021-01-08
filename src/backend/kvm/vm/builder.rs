@@ -11,7 +11,7 @@ use anyhow::Result;
 use kvm_ioctls::{Kvm, VmFd};
 use lset::{Line, Span};
 use mmarinus::{perms, Kind, Map};
-use openssl::hash::{DigestBytes, Hasher, MessageDigest};
+use openssl::hash::Hasher;
 use x86_64::{align_up, PhysAddr, VirtAddr};
 
 use std::mem::size_of;
@@ -31,6 +31,10 @@ fn num_syscall_blocks<A: image::Arch>() -> usize {
 pub type Hv2GpFn = dyn Fn(VirtAddr, VirtAddr) -> PhysAddr;
 
 pub trait Hook {
+    fn preferred_digest() -> measure::Kind {
+        measure::Kind::Null
+    }
+
     fn shim_loaded(&mut self, _vm: &mut VmFd, _addr_space: &[u8]) -> Result<()> {
         Ok(())
     }
@@ -57,6 +61,7 @@ pub struct Builder<T: Hook> {
 
 pub struct Built<A: image::Arch, P: Personality> {
     vm: Vm<A, P>,
+    msr: measure::Measurement,
 }
 
 impl<T: Hook> Builder<T> {
@@ -93,6 +98,22 @@ impl<T: Hook> Builder<T> {
         let shim_entry = PhysAddr::new(self.shim.entry as _);
         self.hook.shim_loaded(&mut fd, &map)?;
 
+        let msr = {
+            let mut hasher = Hasher::new(T::preferred_digest().into())?;
+            let address_space =
+                unsafe { std::slice::from_raw_parts(map.addr() as *const u8, map.size()) };
+            hasher.update(address_space)?;
+            let digest_bytes = hasher.finish()?;
+
+            measure::Measurement {
+                kind: T::preferred_digest(),
+                digest: digest_bytes,
+            }
+        };
+
+        // Be sure to perform any measurements before this hook is called! At
+        // least in the case of SEV, the address space will be encrypted during
+        // that hook, which means you'll be taking a different measurement!
         self.hook
             .code_loaded(&mut fd, &map, initial_state.syscall_region_start())?;
 
@@ -115,7 +136,7 @@ impl<T: Hook> Builder<T> {
             _personality: PhantomData,
         };
 
-        Ok(Built { vm })
+        Ok(Built { vm, msr })
     }
 
     fn calculate_setup_region<A: image::Arch>(
@@ -156,19 +177,8 @@ impl<T: Hook> Builder<T> {
 }
 
 impl<A: image::Arch, P: Personality> Built<A, P> {
-    pub fn measurement(&self, ty: MessageDigest) -> Result<DigestBytes> {
-        let address_space = self.vm.regions.first().unwrap().as_virt();
-        let address_space = unsafe {
-            std::slice::from_raw_parts(
-                address_space.start.as_ptr() as *const u8,
-                address_space.count as _,
-            )
-        };
-
-        let mut hasher = Hasher::new(ty)?;
-        hasher.update(address_space)?;
-        let digest = hasher.finish()?;
-        Ok(digest)
+    pub fn measurement(&self) -> measure::Measurement {
+        self.msr
     }
 
     pub fn vm(self) -> Vm<A, P> {

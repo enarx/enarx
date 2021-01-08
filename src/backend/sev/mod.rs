@@ -14,7 +14,6 @@ use crate::backend::{self, Datum, Keep};
 use crate::binary::Component;
 
 use anyhow::Result;
-use openssl::hash::MessageDigest;
 
 use std::arch::x86_64::__cpuid_count;
 use std::fs::OpenOptions;
@@ -264,9 +263,12 @@ impl backend::Backend for Backend {
 
         let digest = Builder::new(shim, code, builder::Sev::new(sock))
             .build::<X86, ()>()?
-            .measurement(MessageDigest::sha256())?;
+            .measurement();
 
-        let json = format!(r#"{{ "backend": "sev", "sha256": {:?} }}"#, digest);
+        let json = format!(
+            r#"{{ "backend": "sev", "{}": {:?} }}"#,
+            digest.kind, digest.digest
+        );
         Ok(json)
     }
 }
