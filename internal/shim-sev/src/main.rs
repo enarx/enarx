@@ -43,6 +43,7 @@ use crate::hostlib::BootInfo;
 use crate::pagetables::switch_sallyport_to_unencrypted;
 use crate::paging::SHIM_PAGETABLE;
 use crate::payload::PAYLOAD_VIRT_ADDR;
+use crate::print::{enable_printing, is_printing_enabled};
 use core::convert::TryFrom;
 use core::mem::size_of;
 use core::sync::atomic::{AtomicBool, AtomicU64, Ordering};
@@ -60,7 +61,6 @@ static BOOT_INFO: RwLock<Option<BootInfo>> =
 static SHIM_HOSTCALL_PHYS_ADDR: RwLock<Option<usize>> =
     RwLock::<Option<usize>>::const_new(spinning::RawRwLock::const_new(), None);
 
-static mut SHIM_CAN_PRINT: AtomicBool = AtomicBool::new(false);
 static mut PAYLOAD_READY: AtomicBool = AtomicBool::new(false);
 
 /// Get the SEV C-Bit mask
@@ -136,7 +136,7 @@ entry_point!(shim_main);
 pub extern "C" fn shim_main() -> ! {
     unsafe {
         // Everything setup, so print works
-        SHIM_CAN_PRINT.store(true, Ordering::Relaxed);
+        enable_printing();
 
         gdt::init();
     }
@@ -158,7 +158,7 @@ pub fn panic(info: &core::panic::PanicInfo) -> ! {
 
     // Don't print anything, if the FRAME_ALLOCATOR is not yet initialized
     unsafe {
-        if SHIM_CAN_PRINT.load(Ordering::Relaxed)
+        if is_printing_enabled()
             && ALREADY_IN_PANIC
                 .compare_exchange(false, true, Ordering::Acquire, Ordering::Relaxed)
                 .is_ok()

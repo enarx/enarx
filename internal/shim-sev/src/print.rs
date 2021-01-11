@@ -6,13 +6,55 @@ use crate::hostcall::{self, HostFd};
 
 struct HostWrite(HostFd);
 
-use crate::SHIM_CAN_PRINT;
 use core::fmt;
-use core::sync::atomic::Ordering;
+use core::sync::atomic::{AtomicUsize, Ordering};
 
 // FIXME: remove, if https://github.com/enarx/enarx/issues/831 is fleshed out
 /// Global flag allowing debug output.
 pub const TRACE: bool = false;
+
+/// start with printing disabled
+static mut SHIM_CAN_PRINT: AtomicUsize = AtomicUsize::new(1);
+
+/// Unconditionally enable printing
+///
+/// See also [`PrintBarrier`]
+#[inline]
+pub fn enable_printing() {
+    unsafe { SHIM_CAN_PRINT.store(0, Ordering::Release) }
+}
+
+/// Returns true, if shim can (debug) print
+///
+/// See also [`PrintBarrier`]
+#[inline]
+pub fn is_printing_enabled() -> bool {
+    unsafe { SHIM_CAN_PRINT.load(Ordering::Acquire) != 0 }
+}
+
+/// Temporarily disable (debug) printing
+///
+/// Creating a `PrintBarrier` will prevent printing, until the object is dropped.
+/// This helps to avoid dead locks with debug printing, which has to be temporarily
+/// disabled to avoid dead locks with other Mutexes and RwLocks.
+pub struct PrintBarrier;
+
+impl Default for PrintBarrier {
+    fn default() -> Self {
+        unsafe {
+            SHIM_CAN_PRINT.fetch_add(1, Ordering::Release);
+        }
+        Self
+    }
+}
+
+impl Drop for PrintBarrier {
+    fn drop(&mut self) {
+        unsafe {
+            SHIM_CAN_PRINT.fetch_sub(1, Ordering::Release);
+        }
+    }
+}
 
 impl fmt::Write for HostWrite {
     #[inline(always)]
@@ -27,10 +69,9 @@ impl fmt::Write for HostWrite {
 pub fn _print(args: fmt::Arguments) {
     use fmt::Write;
 
-    unsafe {
-        if !SHIM_CAN_PRINT.load(Ordering::Relaxed) {
-            return;
-        }
+    if !is_printing_enabled() {
+        // Early return to prevent dead locks.
+        return;
     }
 
     HostWrite(unsafe { HostFd::from_raw_fd(libc::STDOUT_FILENO) })
@@ -43,10 +84,9 @@ pub fn _print(args: fmt::Arguments) {
 pub fn _eprint(args: fmt::Arguments) {
     use fmt::Write;
 
-    unsafe {
-        if !SHIM_CAN_PRINT.load(Ordering::Relaxed) {
-            return;
-        }
+    if !is_printing_enabled() {
+        // Early return to prevent dead locks.
+        return;
     }
 
     HostWrite(unsafe { HostFd::from_raw_fd(libc::STDERR_FILENO) })
