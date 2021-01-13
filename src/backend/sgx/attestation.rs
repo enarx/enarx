@@ -66,7 +66,7 @@ fn get_ti(out_buf: &mut [u8]) -> Result<usize, Error> {
     stream.read_exact(&mut res_bytes)?;
 
     // Parse Response and extract TargetInfo
-    let mut pb_msg: Response = protobuf::parse_from_bytes(&res_bytes)?;
+    let mut pb_msg: Response = Message::parse_from_bytes(&res_bytes)?;
     let res: Response_InitQuoteResponse = pb_msg.take_initQuoteRes();
     let ti = res.get_targetInfo();
 
@@ -136,7 +136,7 @@ fn get_quote(report: &[u8], out_buf: &mut [u8]) -> Result<usize, std::io::Error>
     stream.read_exact(&mut res_bytes)?;
 
     // Parse Response and extract Quote
-    let mut pb_msg: Response = protobuf::parse_from_bytes(&res_bytes)?;
+    let mut pb_msg: Response = Message::parse_from_bytes(&res_bytes)?;
     let res: Response_GetQuoteResponse = pb_msg.take_getQuoteRes();
     if res.get_errorCode() != 0 {
         return Err(Error::new(
