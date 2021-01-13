@@ -17,6 +17,79 @@ use std::slice::{from_raw_parts, from_raw_parts_mut};
 use protobuf::Message;
 
 const AESM_SOCKET: &str = "/var/run/aesmd/aesm.socket";
+const TIMEOUT: u32 = 1_000_000;
+
+// Specifies the protobuf Request type to communicate with AESMD.
+#[derive(Debug)]
+enum ReqType {
+    TInfo,
+    Quote,
+}
+
+impl ReqType {
+    fn set_request(&self, report: Option<&[u8]>) -> Result<Request, Error> {
+        let mut req = Request::new();
+
+        match self {
+            ReqType::TInfo => {
+                let mut msg = Request_InitQuoteRequest::new();
+                msg.set_timeout(TIMEOUT);
+                req.set_initQuoteReq(msg);
+                Ok(req)
+            }
+            ReqType::Quote => {
+                let report = match report {
+                    Some(r) => r,
+                    None => {
+                        return Err(Error::new(
+                            ErrorKind::Other,
+                            "no Report provided for setting Get Quote request",
+                        ));
+                    }
+                };
+                let mut msg = Request_GetQuoteRequest::new();
+                msg.set_timeout(TIMEOUT);
+                msg.set_report(report[0..432].to_vec());
+                msg.set_quote_type(0);
+                msg.set_spid([0u8; 16].to_vec());
+                msg.set_buf_size(1244);
+                req.set_getQuoteReq(msg);
+                Ok(req)
+            }
+        }
+    }
+
+    fn send_request(&self, req: Request, mut stream: UnixStream) -> Result<Response, Error> {
+        // Set up writer
+        let mut buf_wrtr = vec![0u8; size_of::<u32>()];
+        match req.write_to_writer(&mut buf_wrtr) {
+            Ok(_) => {}
+            Err(e) => {
+                return Err(Error::new(
+                    ErrorKind::Other,
+                    format!("invalid protobuf Request: {:?}. Error: {:?}", req, e),
+                ));
+            }
+        }
+
+        let req_len = (buf_wrtr.len() - size_of::<u32>()) as u32;
+        (&mut buf_wrtr[0..size_of::<u32>()]).copy_from_slice(&req_len.to_le_bytes());
+
+        // Send Request to AESM daemon
+        stream.write_all(&buf_wrtr)?;
+        stream.flush()?;
+
+        // Receive Response
+        let mut res_len_bytes = [0u8; 4];
+        stream.read_exact(&mut res_len_bytes)?;
+        let res_len = u32::from_le_bytes(res_len_bytes);
+
+        let mut res_bytes = vec![0; res_len as usize];
+        stream.read_exact(&mut res_bytes)?;
+
+        Ok(Message::parse_from_bytes(&res_bytes)?)
+    }
+}
 
 /// Fills the Target Info of the QE into the output buffer specified and
 /// returns the number of bytes written.
@@ -24,7 +97,7 @@ fn get_ti(out_buf: &mut [u8]) -> Result<usize, Error> {
     assert_eq!(out_buf.len(), SGX_TI_SIZE, "Invalid size of output buffer");
 
     // If unable to connect to the AESM daemon, return dummy value
-    let mut stream = match UnixStream::connect(AESM_SOCKET) {
+    let stream = match UnixStream::connect(AESM_SOCKET) {
         Ok(s) => s,
         Err(_) => {
             out_buf.copy_from_slice(&SGX_DUMMY_TI);
@@ -32,41 +105,10 @@ fn get_ti(out_buf: &mut [u8]) -> Result<usize, Error> {
         }
     };
 
-    // Set an Init Quote Request
-    let mut req = Request::new();
-    let mut msg = Request_InitQuoteRequest::new();
-    msg.set_timeout(1_000_000);
-    req.set_initQuoteReq(msg);
+    let r = ReqType::TInfo;
+    let pb_req = r.set_request(None)?;
+    let mut pb_msg: Response = r.send_request(pb_req, stream)?;
 
-    // Set up Writer
-    let mut buf_wrtr = vec![0u8; size_of::<u32>()];
-    match req.write_to_writer(&mut buf_wrtr) {
-        Ok(_) => {}
-        Err(e) => {
-            return Err(Error::new(
-                ErrorKind::InvalidInput,
-                format!("Invalid Init Quote Request: {:#?}", e),
-            ));
-        }
-    }
-
-    let req_len = (buf_wrtr.len() - size_of::<u32>()) as u32;
-    (&mut buf_wrtr[0..size_of::<u32>()]).copy_from_slice(&req_len.to_le_bytes());
-
-    // Send Request to AESM daemon
-    stream.write_all(&buf_wrtr)?;
-    stream.flush()?;
-
-    // Receive Response
-    let mut res_len_bytes = [0u8; 4];
-    stream.read_exact(&mut res_len_bytes)?;
-    let res_len = u32::from_le_bytes(res_len_bytes);
-
-    let mut res_bytes = vec![0; res_len as usize];
-    stream.read_exact(&mut res_bytes)?;
-
-    // Parse Response and extract TargetInfo
-    let mut pb_msg: Response = Message::parse_from_bytes(&res_bytes)?;
     let res: Response_InitQuoteResponse = pb_msg.take_initQuoteRes();
     let ti = res.get_targetInfo();
 
@@ -82,7 +124,7 @@ fn get_ti(out_buf: &mut [u8]) -> Result<usize, Error> {
 
 /// Fills the Quote obtained from the AESMD for the Report specified into
 /// the output buffer specified and returns the number of bytes written.
-fn get_quote(report: &[u8], out_buf: &mut [u8]) -> Result<usize, std::io::Error> {
+fn get_quote(report: &[u8], out_buf: &mut [u8]) -> Result<usize, Error> {
     assert_eq!(
         out_buf.len(),
         SGX_QUOTE_SIZE,
@@ -90,7 +132,7 @@ fn get_quote(report: &[u8], out_buf: &mut [u8]) -> Result<usize, std::io::Error>
     );
 
     // If unable to connect to the AESM daemon, return dummy value
-    let mut stream = match UnixStream::connect(AESM_SOCKET) {
+    let stream = match UnixStream::connect(AESM_SOCKET) {
         Ok(s) => s,
         Err(_) => {
             out_buf.copy_from_slice(&SGX_DUMMY_QUOTE);
@@ -98,45 +140,12 @@ fn get_quote(report: &[u8], out_buf: &mut [u8]) -> Result<usize, std::io::Error>
         }
     };
 
-    // Set a Get Quote Request
-    let mut req = Request::new();
-    let mut msg = Request_GetQuoteRequest::new();
-    msg.set_report(report[0..432].to_vec());
-    msg.set_quote_type(0); // TODO: Fix this value
-    msg.set_spid([0u8; 16].to_vec()); // TODO: Fix this value
-    msg.set_buf_size(1244); // TODO: FIx this value
-    msg.set_timeout(1_000_000);
-    req.set_getQuoteReq(msg);
+    let r = ReqType::Quote;
+    let mut report_array = [0u8; 432];
+    report_array.copy_from_slice(&report[0..432]);
+    let req = r.set_request(Some(&report_array))?;
+    let mut pb_msg = r.send_request(req, stream)?;
 
-    // Set up Writer
-    let mut buf_wrtr = vec![0u8; size_of::<u32>()];
-    match req.write_to_writer(&mut buf_wrtr) {
-        Ok(_) => {}
-        Err(e) => {
-            return Err(Error::new(
-                ErrorKind::InvalidInput,
-                format!("Invalid Get Quote Request: {:#?}", e),
-            ));
-        }
-    }
-
-    let req_len = (buf_wrtr.len() - size_of::<u32>()) as u32;
-    (&mut buf_wrtr[0..size_of::<u32>()]).copy_from_slice(&req_len.to_le_bytes());
-
-    // Send Request to AESM daemon
-    stream.write_all(&buf_wrtr)?;
-    stream.flush()?;
-
-    // Receive Response
-    let mut res_len_bytes = [0u8; 4];
-    stream.read_exact(&mut res_len_bytes)?;
-    let res_len = u32::from_le_bytes(res_len_bytes);
-
-    let mut res_bytes = vec![0; res_len as usize];
-    stream.read_exact(&mut res_bytes)?;
-
-    // Parse Response and extract Quote
-    let mut pb_msg: Response = Message::parse_from_bytes(&res_bytes)?;
     let res: Response_GetQuoteResponse = pb_msg.take_getQuoteRes();
     if res.get_errorCode() != 0 {
         return Err(Error::new(
