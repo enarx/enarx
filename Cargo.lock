@@ -553,11 +553,10 @@ dependencies = [
 
 [[package]]
 name = "process_control"
-version = "2.0.2"
+version = "3.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "467104c6d75c2a82ff09ee57a3e2f19a30aa986f6601fc5b9967987a38b10f02"
+checksum = "9cac0d971172c65b01208ef9567f52892fc89b1c4530c50e997c6f29da7ee961"
 dependencies = [
- "cc",
  "libc",
  "winapi",
 ]
