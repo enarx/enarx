@@ -96,14 +96,7 @@ impl ReqType {
 fn get_ti(out_buf: &mut [u8]) -> Result<usize, Error> {
     assert_eq!(out_buf.len(), SGX_TI_SIZE, "Invalid size of output buffer");
 
-    // If unable to connect to the AESM daemon, return dummy value
-    let stream = match UnixStream::connect(AESM_SOCKET) {
-        Ok(s) => s,
-        Err(_) => {
-            out_buf.copy_from_slice(&SGX_DUMMY_TI);
-            return Ok(SGX_TI_SIZE);
-        }
-    };
+    let stream = UnixStream::connect(AESM_SOCKET)?;
 
     let r = ReqType::TInfo;
     let pb_req = r.set_request(None)?;
@@ -131,14 +124,7 @@ fn get_quote(report: &[u8], out_buf: &mut [u8]) -> Result<usize, Error> {
         "Invalid size of output buffer"
     );
 
-    // If unable to connect to the AESM daemon, return dummy value
-    let stream = match UnixStream::connect(AESM_SOCKET) {
-        Ok(s) => s,
-        Err(_) => {
-            out_buf.copy_from_slice(&SGX_DUMMY_QUOTE);
-            return Ok(SGX_QUOTE_SIZE);
-        }
-    };
+    let stream = UnixStream::connect(AESM_SOCKET)?;
 
     let r = ReqType::Quote;
     let mut report_array = [0u8; 432];
@@ -180,6 +166,23 @@ pub fn get_attestation(
     buf_len: usize,
 ) -> Result<usize, Error> {
     let out_buf: &mut [u8] = unsafe { from_raw_parts_mut(buf as *mut u8, buf_len) };
+
+    // If unable to connect to the AESM daemon, return expected dummy value specified
+    // by nonce.
+    // TODO: This should be changed to indicate no connection could be made, but to
+    // also still run the tests. See https://github.com/enarx/enarx-keepldr/issues/228.
+    if UnixStream::connect(AESM_SOCKET).is_err() {
+        match nonce {
+            0 => {
+                out_buf.copy_from_slice(&SGX_DUMMY_TI);
+                return Ok(SGX_TI_SIZE);
+            }
+            _ => {
+                out_buf.copy_from_slice(&SGX_DUMMY_QUOTE);
+                return Ok(SGX_QUOTE_SIZE);
+            }
+        }
+    };
 
     if nonce == 0 {
         get_ti(out_buf)
