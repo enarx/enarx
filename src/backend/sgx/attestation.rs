@@ -4,9 +4,9 @@
 // for examples of AESM Requests.
 
 use crate::protobuf::aesm_proto::{
-    Request, Request_GetQuoteRequest, Request_InitQuoteRequest, Request_SelectAttKeyIDRequest,
-    Response, Response_GetQuoteResponse, Response_InitQuoteResponse,
-    Response_SelectAttKeyIDResponse,
+    Request, Request_GetQuoteRequest, Request_InitQuoteExRequest, Request_InitQuoteRequest,
+    Request_SelectAttKeyIDRequest, Response, Response_GetQuoteResponse,
+    Response_InitQuoteExResponse, Response_InitQuoteResponse, Response_SelectAttKeyIDResponse,
 };
 use crate::syscall::{SGX_DUMMY_QUOTE, SGX_DUMMY_TI, SGX_QUOTE_SIZE, SGX_TI_SIZE};
 
@@ -26,11 +26,16 @@ const TIMEOUT: u32 = 1_000_000;
 enum ReqType {
     AkId,
     TInfo,
+    KeySize,
     Quote,
 }
 
 impl ReqType {
-    fn set_request(&self, report: Option<&[u8]>) -> Result<Request, Error> {
+    fn set_request(
+        &self,
+        report: Option<&[u8; 432]>,
+        akid: Option<Vec<u8>>,
+    ) -> Result<Request, Error> {
         let mut req = Request::new();
 
         match self {
@@ -44,6 +49,23 @@ impl ReqType {
                 let mut msg = Request_InitQuoteRequest::new();
                 msg.set_timeout(TIMEOUT);
                 req.set_initQuoteReq(msg);
+                Ok(req)
+            }
+            ReqType::KeySize => {
+                let akid = match akid {
+                    Some(a) => a,
+                    None => {
+                        return Err(Error::new(
+                            ErrorKind::Other,
+                            "no attestation key ID provided for setting Init Quote Ex request to get key size",
+                        ));
+                    }
+                };
+                let mut msg = Request_InitQuoteExRequest::new();
+                msg.set_timeout(TIMEOUT);
+                msg.set_b_pub_key_id(false);
+                msg.set_att_key_id(akid);
+                req.set_initQuoteExReq(msg);
                 Ok(req)
             }
             ReqType::Quote => {
@@ -106,7 +128,7 @@ fn get_ak_id() -> Result<Vec<u8>, Error> {
     let stream = UnixStream::connect(AESM_SOCKET)?;
 
     let r = ReqType::AkId;
-    let pb_req = r.set_request(None)?;
+    let pb_req = r.set_request(None, None)?;
     let mut pb_msg: Response = r.send_request(pb_req, stream)?;
 
     let mut res: Response_SelectAttKeyIDResponse = pb_msg.take_selectAttKeyIDRes();
@@ -132,7 +154,7 @@ fn get_ti(out_buf: &mut [u8]) -> Result<usize, Error> {
     let stream = UnixStream::connect(AESM_SOCKET)?;
 
     let r = ReqType::TInfo;
-    let pb_req = r.set_request(None)?;
+    let pb_req = r.set_request(None, None)?;
     let mut pb_msg: Response = r.send_request(pb_req, stream)?;
 
     let res: Response_InitQuoteResponse = pb_msg.take_initQuoteRes();
@@ -146,6 +168,27 @@ fn get_ti(out_buf: &mut [u8]) -> Result<usize, Error> {
 
     out_buf.copy_from_slice(ti);
     Ok(ti.len())
+}
+
+/// Gets key size
+#[allow(dead_code)]
+fn get_key_size(akid: Vec<u8>) -> Result<usize, Error> {
+    let stream = UnixStream::connect(AESM_SOCKET)?;
+
+    let r = ReqType::KeySize;
+    let pb_req = r.set_request(None, Some(akid))?;
+    let mut pb_msg: Response = r.send_request(pb_req, stream)?;
+
+    let res: Response_InitQuoteExResponse = pb_msg.take_initQuoteExRes();
+
+    if res.get_errorCode() != 0 {
+        panic!(
+            "Received error code {:?} in Init Quote Ex Response for key size",
+            res.get_errorCode()
+        );
+    }
+
+    Ok(res.get_pub_key_id_size() as usize)
 }
 
 /// Fills the Quote obtained from the AESMD for the Report specified into
@@ -162,7 +205,7 @@ fn get_quote(report: &[u8], out_buf: &mut [u8]) -> Result<usize, Error> {
     let r = ReqType::Quote;
     let mut report_array = [0u8; 432];
     report_array.copy_from_slice(&report[0..432]);
-    let req = r.set_request(Some(&report_array))?;
+    let req = r.set_request(Some(&report_array), None)?;
     let mut pb_msg = r.send_request(req, stream)?;
 
     let res: Response_GetQuoteResponse = pb_msg.take_getQuoteRes();
