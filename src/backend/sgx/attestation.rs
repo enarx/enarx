@@ -4,8 +4,9 @@
 // for examples of AESM Requests.
 
 use crate::protobuf::aesm_proto::{
-    Request, Request_GetQuoteRequest, Request_InitQuoteRequest, Response,
-    Response_GetQuoteResponse, Response_InitQuoteResponse,
+    Request, Request_GetQuoteRequest, Request_InitQuoteRequest, Request_SelectAttKeyIDRequest,
+    Response, Response_GetQuoteResponse, Response_InitQuoteResponse,
+    Response_SelectAttKeyIDResponse,
 };
 use crate::syscall::{SGX_DUMMY_QUOTE, SGX_DUMMY_TI, SGX_QUOTE_SIZE, SGX_TI_SIZE};
 
@@ -21,7 +22,9 @@ const TIMEOUT: u32 = 1_000_000;
 
 // Specifies the protobuf Request type to communicate with AESMD.
 #[derive(Debug)]
+#[allow(dead_code)]
 enum ReqType {
+    AkId,
     TInfo,
     Quote,
 }
@@ -31,6 +34,12 @@ impl ReqType {
         let mut req = Request::new();
 
         match self {
+            ReqType::AkId => {
+                let mut msg = Request_SelectAttKeyIDRequest::new();
+                msg.set_timeout(TIMEOUT);
+                req.set_selectAttKeyIDReq(msg);
+                Ok(req)
+            }
             ReqType::TInfo => {
                 let mut msg = Request_InitQuoteRequest::new();
                 msg.set_timeout(TIMEOUT);
@@ -89,6 +98,30 @@ impl ReqType {
 
         Ok(Message::parse_from_bytes(&res_bytes)?)
     }
+}
+
+/// Gets Att Key ID
+#[allow(dead_code)]
+fn get_ak_id() -> Result<Vec<u8>, Error> {
+    let stream = UnixStream::connect(AESM_SOCKET)?;
+
+    let r = ReqType::AkId;
+    let pb_req = r.set_request(None)?;
+    let mut pb_msg: Response = r.send_request(pb_req, stream)?;
+
+    let mut res: Response_SelectAttKeyIDResponse = pb_msg.take_selectAttKeyIDRes();
+
+    if res.get_errorCode() != 0 {
+        panic!(
+            "Received error code {:?} in Select Att Key ID Response",
+            res.get_errorCode()
+        );
+    }
+
+    let attkeyid = res.take_selected_att_key_id();
+    assert!(!attkeyid.is_empty());
+
+    Ok(attkeyid)
 }
 
 /// Fills the Target Info of the QE into the output buffer specified and
