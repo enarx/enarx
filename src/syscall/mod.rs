@@ -38,7 +38,7 @@ pub const SGX_TECH: usize = 2;
 /// Size in bytes of expected SGX Quote
 // TODO: Determine length of Quote of PCK cert type
 #[allow(dead_code)]
-pub const SGX_QUOTE_SIZE: usize = 1244;
+pub const SGX_QUOTE_SIZE: usize = 4598;
 
 /// Size in bytes of expected SGX QE TargetInfo
 #[allow(dead_code)]

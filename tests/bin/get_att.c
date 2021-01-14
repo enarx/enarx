@@ -5,7 +5,7 @@
 int main(void) {
     // TODO: Good buffer length?
     unsigned char nonce[512];
-    unsigned char buf[1244];
+    unsigned char buf[4598];
     size_t technology;
 
     ssize_t size = get_att(nonce, sizeof(nonce), buf, sizeof(buf), &technology);

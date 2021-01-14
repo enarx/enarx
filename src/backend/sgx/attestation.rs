@@ -4,9 +4,9 @@
 // for examples of AESM Requests.
 
 use crate::protobuf::aesm_proto::{
-    Request, Request_GetQuoteRequest, Request_InitQuoteExRequest, Request_InitQuoteRequest,
-    Request_SelectAttKeyIDRequest, Response, Response_GetQuoteResponse,
-    Response_InitQuoteExResponse, Response_InitQuoteResponse, Response_SelectAttKeyIDResponse,
+    Request, Request_GetQuoteExRequest, Request_InitQuoteExRequest, Request_SelectAttKeyIDRequest,
+    Response, Response_GetQuoteExResponse, Response_InitQuoteExResponse,
+    Response_SelectAttKeyIDResponse,
 };
 use crate::syscall::{SGX_DUMMY_QUOTE, SGX_DUMMY_TI, SGX_QUOTE_SIZE, SGX_TI_SIZE};
 
@@ -22,7 +22,6 @@ const TIMEOUT: u32 = 1_000_000;
 
 // Specifies the protobuf Request type to communicate with AESMD.
 #[derive(Debug)]
-#[allow(dead_code)]
 enum ReqType {
     AkId,
     TInfo,
@@ -35,6 +34,7 @@ impl ReqType {
         &self,
         report: Option<&[u8; 432]>,
         akid: Option<Vec<u8>>,
+        size: Option<usize>,
     ) -> Result<Request, Error> {
         let mut req = Request::new();
 
@@ -46,9 +46,30 @@ impl ReqType {
                 Ok(req)
             }
             ReqType::TInfo => {
-                let mut msg = Request_InitQuoteRequest::new();
+                let akid = match akid {
+                    Some(a) => a,
+                    None => {
+                        return Err(Error::new(
+                            ErrorKind::Other,
+                            "no attestation key ID provided for setting Init Quote Ex request",
+                        ));
+                    }
+                };
+                let size = match size {
+                    Some(s) => s,
+                    None => {
+                        return Err(Error::new(
+                            ErrorKind::Other,
+                            "no key size provided for setting Init Quote Ex request",
+                        ));
+                    }
+                };
+                let mut msg = Request_InitQuoteExRequest::new();
                 msg.set_timeout(TIMEOUT);
-                req.set_initQuoteReq(msg);
+                msg.set_b_pub_key_id(true);
+                msg.set_att_key_id(akid);
+                msg.set_buf_size(size as u64);
+                req.set_initQuoteExReq(msg);
                 Ok(req)
             }
             ReqType::KeySize => {
@@ -74,17 +95,25 @@ impl ReqType {
                     None => {
                         return Err(Error::new(
                             ErrorKind::Other,
-                            "no Report provided for setting Get Quote request",
+                            "no Report provided for setting Get Quote Ex request",
                         ));
                     }
                 };
-                let mut msg = Request_GetQuoteRequest::new();
+                let akid = match akid {
+                    Some(a) => a,
+                    None => {
+                        return Err(Error::new(
+                            ErrorKind::Other,
+                            "no attestation key ID provided for setting Get Quote Ex request",
+                        ));
+                    }
+                };
+                let mut msg = Request_GetQuoteExRequest::new();
                 msg.set_timeout(TIMEOUT);
-                msg.set_report(report[0..432].to_vec());
-                msg.set_quote_type(0);
-                msg.set_spid([0u8; 16].to_vec());
-                msg.set_buf_size(1244);
-                req.set_getQuoteReq(msg);
+                msg.set_report(report.to_vec());
+                msg.set_att_key_id(akid);
+                msg.set_buf_size(SGX_QUOTE_SIZE as u32);
+                req.set_getQuoteExReq(msg);
                 Ok(req)
             }
         }
@@ -123,12 +152,11 @@ impl ReqType {
 }
 
 /// Gets Att Key ID
-#[allow(dead_code)]
 fn get_ak_id() -> Result<Vec<u8>, Error> {
     let stream = UnixStream::connect(AESM_SOCKET)?;
 
     let r = ReqType::AkId;
-    let pb_req = r.set_request(None, None)?;
+    let pb_req = r.set_request(None, None, None)?;
     let mut pb_msg: Response = r.send_request(pb_req, stream)?;
 
     let mut res: Response_SelectAttKeyIDResponse = pb_msg.take_selectAttKeyIDRes();
@@ -148,17 +176,17 @@ fn get_ak_id() -> Result<Vec<u8>, Error> {
 
 /// Fills the Target Info of the QE into the output buffer specified and
 /// returns the number of bytes written.
-fn get_ti(out_buf: &mut [u8]) -> Result<usize, Error> {
+fn get_ti(akid: Vec<u8>, size: usize, out_buf: &mut [u8]) -> Result<usize, Error> {
     assert_eq!(out_buf.len(), SGX_TI_SIZE, "Invalid size of output buffer");
 
     let stream = UnixStream::connect(AESM_SOCKET)?;
 
     let r = ReqType::TInfo;
-    let pb_req = r.set_request(None, None)?;
+    let pb_req = r.set_request(None, Some(akid), Some(size))?;
     let mut pb_msg: Response = r.send_request(pb_req, stream)?;
 
-    let res: Response_InitQuoteResponse = pb_msg.take_initQuoteRes();
-    let ti = res.get_targetInfo();
+    let res: Response_InitQuoteExResponse = pb_msg.take_initQuoteExRes();
+    let ti = res.get_target_info();
 
     assert_eq!(
         ti.len(),
@@ -167,16 +195,16 @@ fn get_ti(out_buf: &mut [u8]) -> Result<usize, Error> {
     );
 
     out_buf.copy_from_slice(ti);
+
     Ok(ti.len())
 }
 
 /// Gets key size
-#[allow(dead_code)]
 fn get_key_size(akid: Vec<u8>) -> Result<usize, Error> {
     let stream = UnixStream::connect(AESM_SOCKET)?;
 
     let r = ReqType::KeySize;
-    let pb_req = r.set_request(None, Some(akid))?;
+    let pb_req = r.set_request(None, Some(akid), None)?;
     let mut pb_msg: Response = r.send_request(pb_req, stream)?;
 
     let res: Response_InitQuoteExResponse = pb_msg.take_initQuoteExRes();
@@ -193,7 +221,7 @@ fn get_key_size(akid: Vec<u8>) -> Result<usize, Error> {
 
 /// Fills the Quote obtained from the AESMD for the Report specified into
 /// the output buffer specified and returns the number of bytes written.
-fn get_quote(report: &[u8], out_buf: &mut [u8]) -> Result<usize, Error> {
+fn get_quote(report: &[u8], akid: Vec<u8>, out_buf: &mut [u8]) -> Result<usize, Error> {
     assert_eq!(
         out_buf.len(),
         SGX_QUOTE_SIZE,
@@ -205,10 +233,10 @@ fn get_quote(report: &[u8], out_buf: &mut [u8]) -> Result<usize, Error> {
     let r = ReqType::Quote;
     let mut report_array = [0u8; 432];
     report_array.copy_from_slice(&report[0..432]);
-    let req = r.set_request(Some(&report_array), None)?;
+    let req = r.set_request(Some(&report_array), Some(akid), None)?;
     let mut pb_msg = r.send_request(req, stream)?;
 
-    let res: Response_GetQuoteResponse = pb_msg.take_getQuoteRes();
+    let res: Response_GetQuoteExResponse = pb_msg.take_getQuoteExRes();
     if res.get_errorCode() != 0 {
         return Err(Error::new(
             ErrorKind::InvalidData,
@@ -261,10 +289,13 @@ pub fn get_attestation(
     };
 
     if nonce == 0 {
-        get_ti(out_buf)
+        let akid = get_ak_id().expect("error obtaining att key id");
+        let pkeysize = get_key_size(akid.clone()).expect("error obtaining key size");
+        get_ti(akid, pkeysize, out_buf)
     } else {
+        let akid = get_ak_id().unwrap();
         let report: &[u8] = unsafe { from_raw_parts(nonce as *const u8, nonce_len) };
-        get_quote(report, out_buf)
+        get_quote(report, akid, out_buf)
     }
 }
 
