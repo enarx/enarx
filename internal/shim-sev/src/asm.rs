@@ -7,6 +7,7 @@ use crate::hostlib::MAX_SETUP_SIZE;
 use core::mem::size_of;
 use x86_64::instructions::tables::lidt;
 use x86_64::structures::DescriptorTablePointer;
+use x86_64::VirtAddr;
 
 #[allow(clippy::integer_arithmetic)]
 const SHIM_OFFSET: u64 = 1u64 + SHIM_VIRT_OFFSET + MAX_SETUP_SIZE as u64;
@@ -29,7 +30,10 @@ pub unsafe fn _enarx_asm_triple_fault() -> ! {
     asm!("mov {}, rbp", out(reg) rbp);
 
     // Create an invalid DescriptorTablePointer with no base and limit
-    let dtp = DescriptorTablePointer { limit: 0, base: 0 };
+    let dtp = DescriptorTablePointer {
+        limit: 0,
+        base: VirtAddr::new(0),
+    };
     // Load the invalid IDT
     lidt(&dtp);
 

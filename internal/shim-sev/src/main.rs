@@ -51,7 +51,7 @@ use core::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use primordial::Address;
 use sallyport::Block;
 use spinning::RwLock;
-use x86_64::structures::paging::MapperAllSizes;
+use x86_64::structures::paging::Translate;
 use x86_64::VirtAddr;
 
 static C_BIT_MASK: AtomicU64 = AtomicU64::new(0);
