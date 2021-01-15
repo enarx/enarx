@@ -19,9 +19,10 @@
 use std::convert::TryFrom;
 use std::os::unix::net::UnixStream;
 
-use ::sev::launch::Policy;
+use ::sev::launch::{HeaderFlags, Policy};
 use ::sev::session::Session;
-use anyhow::{Context, Result};
+use anyhow::{bail, Context, Result};
+use ciborium::value::Bytes;
 use ciborium::{de::from_reader, ser::into_writer};
 use koine::attestation::sev::*;
 
@@ -44,12 +45,31 @@ pub fn launch(sock: UnixStream) -> Result<()> {
     // Discard the measurement, the synthetic client doesn't care
     // for an unattested launch.
     let msr = from_reader(&sock).context("failed to deserialize expected measurement packet")?;
-    assert!(matches!(msr, Message::Measurement(_)));
 
-    let secret_packet = Message::Secret(None);
+    let msr = match msr {
+        Message::Measurement(m) => m,
+        _ => bail!("expected measurement packet"),
+    };
+
+    let session = unsafe { session.mock_verify(msr.measurement) }.context("verify failed")?;
+
+    let ct_vec = vec![0u8, 1u8, 2u8, 3u8, 4u8, 5u8];
+    let mut ct_enc = Vec::new();
+    into_writer(&Bytes::from(ct_vec), &mut ct_enc).context("failed to encode secret")?;
+
+    let secret = session
+        .secret(HeaderFlags::default(), &ct_enc)
+        .context("gen_secret failed")?;
+
+    let secret_packet = Message::Secret(Some(secret));
+
     into_writer(&secret_packet, &sock).context("failed to serialize secret packet")?;
 
     let fin = from_reader(&sock).context("failed to deserialize expected finish packet")?;
-    assert!(matches!(fin, Message::Finish(_)));
+
+    if !matches!(fin, Message::Finish(_)) {
+        bail!("expected finish packet");
+    }
+
     Ok(())
 }

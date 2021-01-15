@@ -6,13 +6,14 @@ use crate::addr::{HostVirtAddr, ShimPhysUnencryptedAddr};
 use crate::allocator::ALLOCATOR;
 use crate::asm::_enarx_asm_triple_fault;
 use crate::attestation::SEV_SECRET;
-use crate::eprintln;
 use crate::hostcall::{HostCall, HOST_CALL_ALLOC};
 use crate::paging::SHIM_PAGETABLE;
 use crate::payload::{NEXT_BRK_RWLOCK, NEXT_MMAP_RWLOCK};
+use crate::{eprintln, C_BIT_MASK};
 use core::convert::TryFrom;
 use core::mem::size_of;
 use core::ops::{Deref, DerefMut};
+use core::sync::atomic::Ordering;
 use primordial::{Address, Register};
 use sallyport::{Cursor, Request};
 use syscall::{
@@ -242,7 +243,13 @@ impl EnarxSyscallHandler for Handler {
 
                 Ok([result_len.into(), SEV_TECH.into()])
             }
-            None => Err(libc::ENOSYS),
+            None => {
+                if C_BIT_MASK.load(Ordering::Relaxed) == 0 {
+                    Err(libc::ENOSYS)
+                } else {
+                    Ok([0.into(), SEV_TECH.into()])
+                }
+            }
         }
     }
 }
