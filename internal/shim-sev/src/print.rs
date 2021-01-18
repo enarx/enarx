@@ -14,14 +14,14 @@ use core::sync::atomic::{AtomicUsize, Ordering};
 pub const TRACE: bool = false;
 
 /// start with printing disabled
-static mut SHIM_CAN_PRINT: AtomicUsize = AtomicUsize::new(1);
+static mut PRINT_INHIBITOR: AtomicUsize = AtomicUsize::new(1);
 
 /// Unconditionally enable printing
 ///
 /// See also [`PrintBarrier`]
 #[inline]
 pub fn enable_printing() {
-    unsafe { SHIM_CAN_PRINT.store(0, Ordering::Release) }
+    unsafe { PRINT_INHIBITOR.store(0, Ordering::Release) }
 }
 
 /// Returns true, if shim can (debug) print
@@ -29,7 +29,7 @@ pub fn enable_printing() {
 /// See also [`PrintBarrier`]
 #[inline]
 pub fn is_printing_enabled() -> bool {
-    unsafe { SHIM_CAN_PRINT.load(Ordering::Acquire) != 0 }
+    unsafe { PRINT_INHIBITOR.load(Ordering::Acquire) == 0 }
 }
 
 /// Temporarily disable (debug) printing
@@ -42,7 +42,7 @@ pub struct PrintBarrier;
 impl Default for PrintBarrier {
     fn default() -> Self {
         unsafe {
-            SHIM_CAN_PRINT.fetch_add(1, Ordering::Release);
+            PRINT_INHIBITOR.fetch_add(1, Ordering::Release);
         }
         Self
     }
@@ -51,7 +51,7 @@ impl Default for PrintBarrier {
 impl Drop for PrintBarrier {
     fn drop(&mut self) {
         unsafe {
-            SHIM_CAN_PRINT.fetch_sub(1, Ordering::Release);
+            PRINT_INHIBITOR.fetch_sub(1, Ordering::Release);
         }
     }
 }
