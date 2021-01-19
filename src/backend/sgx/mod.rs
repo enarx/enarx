@@ -62,9 +62,8 @@ impl crate::backend::Backend for Backend {
     }
 
     fn data(&self) -> Vec<Datum> {
-        let mut data = vec![];
+        let mut data = vec![data::dev_sgx_enclave()];
 
-        data.push(data::dev_sgx_enclave());
         data.extend(data::CPUIDS.iter().map(|c| c.into()));
 
         let max = unsafe { __cpuid_count(0x00000000, 0x00000000) }.eax;
