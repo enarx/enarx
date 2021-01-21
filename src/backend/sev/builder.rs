@@ -12,7 +12,7 @@ use koine::attestation::sev::*;
 use kvm_ioctls::VmFd;
 use x86_64::{PhysAddr, VirtAddr};
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use std::convert::TryFrom;
 use std::os::unix::net::UnixStream;
 
@@ -38,7 +38,9 @@ impl kvm::Hook for Sev {
         let mut sev = Firmware::open()?;
         let build = sev.platform_status().unwrap().build;
 
-        let chain = sev::cached_chain::get()?;
+        let chain = sev::cached_chain::get().with_context(|| {
+            "Failed to read cached certification chain from `/var/cache/amd-sev/chain`"
+        })?;
 
         let generation = sev::Generation::try_from(&chain.sev)
             .map_err(|_| std::io::Error::from(std::io::ErrorKind::Other))?;
