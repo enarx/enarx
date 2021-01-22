@@ -9,7 +9,7 @@ use crate::syscall::{SYS_ENARX_CPUID, SYS_ENARX_ERESUME, SYS_ENARX_GETATT};
 use anyhow::{anyhow, Result};
 use lset::Span;
 use primordial::Page;
-use sgx::enclave::{Builder, Enclave, Entry, Segment};
+use sgx::enclave::{Builder, Enclave, Entry, Registers, Segment};
 use sgx::types::{
     page::{Flags, SecInfo},
     ssa::Exception,
@@ -164,6 +164,7 @@ struct Thread {
 
 impl super::Thread for Thread {
     fn enter(&mut self) -> Result<Command> {
+        let mut registers = Registers::default();
         let mut how = Entry::Enter;
 
         // The main loop event handles different types of enclave exits and
@@ -185,8 +186,9 @@ impl super::Thread for Thread {
         //
         //   4. Asynchronous exits other than invalid opcode will panic.
         loop {
-            how = match self.thread.enter(how, &mut self.block) {
-                Err(Some(ei)) if ei.trap == Exception::InvalidOpcode => Entry::Enter,
+            registers.rdx = (&mut self.block).into();
+            how = match self.thread.enter(how, &mut registers) {
+                Err(ei) if ei.trap == Exception::InvalidOpcode => Entry::Enter,
                 Ok(_) => match unsafe { self.block.msg.req }.num.into() {
                     SYS_ENARX_CPUID => unsafe {
                         let cpuid = core::arch::x86_64::__cpuid_count(
