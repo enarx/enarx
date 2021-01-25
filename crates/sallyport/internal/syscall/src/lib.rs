@@ -155,6 +155,7 @@ pub trait SyscallHandler:
                 usize::from(d) as _,
                 e.into(),
             ),
+            libc::SYS_eventfd2 => self.eventfd2(usize::from(a) as _, usize::from(b) as _),
 
             // NetworkSyscallHandler
             libc::SYS_socket => self.socket(

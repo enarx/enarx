@@ -429,4 +429,10 @@ pub trait FileSyscallHandler: BaseSyscallHandler + AddressValidator + Sized {
     ) -> Result {
         self.epoll_wait(epfd, event, maxevents, timeout)
     }
+
+    /// syscall
+    fn eventfd2(&mut self, initval: libc::c_uint, flags: libc::c_int) -> Result {
+        self.trace("eventfd2", 2);
+        unsafe { self.proxy(request!(libc::SYS_eventfd2 => initval, flags)) }
+    }
 }
