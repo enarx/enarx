@@ -435,4 +435,22 @@ pub trait FileSyscallHandler: BaseSyscallHandler + AddressValidator + Sized {
         self.trace("eventfd2", 2);
         unsafe { self.proxy(request!(libc::SYS_eventfd2 => initval, flags)) }
     }
+
+    /// syscall
+    fn dup(&mut self, oldfd: libc::c_int) -> Result {
+        self.trace("dup", 1);
+        unsafe { self.proxy(request!(libc::SYS_dup => oldfd)) }
+    }
+
+    /// syscall
+    fn dup2(&mut self, oldfd: libc::c_int, newfd: libc::c_int) -> Result {
+        self.trace("dup2", 2);
+        unsafe { self.proxy(request!(libc::SYS_dup2 => oldfd, newfd)) }
+    }
+
+    /// syscall
+    fn dup3(&mut self, oldfd: libc::c_int, newfd: libc::c_int, flags: libc::c_int) -> Result {
+        self.trace("dup3", 3);
+        unsafe { self.proxy(request!(libc::SYS_dup3 => oldfd, newfd, flags)) }
+    }
 }
