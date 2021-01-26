@@ -277,10 +277,12 @@ pub fn get_attestation(
     // also still run the tests. See https://github.com/enarx/enarx-keepldr/issues/228.
     if UnixStream::connect(AESM_SOCKET).is_err() {
         match nonce {
+            // Returns dummy TargetInfo
             0 => {
                 out_buf.copy_from_slice(&SGX_DUMMY_TI);
                 return Ok(SGX_TI_SIZE);
             }
+            // Returns dummy Quote
             _ => {
                 out_buf.copy_from_slice(&SGX_DUMMY_QUOTE);
                 return Ok(SGX_QUOTE_SIZE);
@@ -288,10 +290,12 @@ pub fn get_attestation(
         }
     };
 
+    // Returns TargetInfo
     if nonce == 0 {
         let akid = get_ak_id().expect("error obtaining att key id");
         let pkeysize = get_key_size(akid.clone()).expect("error obtaining key size");
         get_ti(akid, pkeysize, out_buf)
+    // Returns Quote
     } else {
         let akid = get_ak_id().unwrap();
         let report: &[u8] = unsafe { from_raw_parts(nonce as *const u8, nonce_len) };

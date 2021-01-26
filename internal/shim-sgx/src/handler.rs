@@ -389,12 +389,22 @@ impl<'a> EnarxSyscallHandler for Handler<'a> {
     // So we throw these two parameters away.
     fn get_attestation(
         &mut self,
-        _: UntrustedRef<u8>,
-        _: libc::size_t,
+        nonce: UntrustedRef<u8>,
+        nonce_len: libc::size_t,
         buf: UntrustedRefMut<u8>,
         buf_len: libc::size_t,
     ) -> sallyport::Result {
         self.trace("get_att", 0);
+
+        // If hash is NULL ptr, it is a Quote size request; return expected Quote size
+        // without proxying to host. Otherwise get value.
+        let _nonce = match nonce.validate_slice(nonce_len, self) {
+            None => {
+                let rep: sallyport::Reply = Ok([SGX_QUOTE_SIZE.into(), SGX_TECH.into()]).into();
+                return sallyport::Result::from(rep);
+            }
+            Some(h) => h,
+        };
 
         // Used internally for buffer size to host when getting TargetInfo
         const REPORT_LEN: usize = 512;

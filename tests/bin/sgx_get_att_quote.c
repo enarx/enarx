@@ -7,7 +7,7 @@
  * the returned Quote in buf match expected values. */
 
 int main(void) {
-    int* nonce = NULL;
+    int* nonce[1]; /* non-NULL nonce requests Quote */
     unsigned char buf[4598];
     size_t technology;
     int i = 0;
