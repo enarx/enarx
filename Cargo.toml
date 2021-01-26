@@ -60,3 +60,19 @@ protobuf-codegen-pure = "2.3"
 process_control = "3.0"
 serial_test = "0.5"
 tempdir = "0.3.7"
+
+[[example]]
+name="echo"
+path="tests/bin/echo.rs"
+
+[[example]]
+name="memory_stress_test"
+path="tests/bin/memory_stress_test.rs"
+
+[[example]]
+name="memspike"
+path="tests/bin/memspike.rs"
+
+[[example]]
+name="unix_echo"
+path="tests/bin/unix_echo.rs"

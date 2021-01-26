@@ -84,6 +84,10 @@ jobs:
         with:
           command: clippy
           args: ${{ matrix.profile.flag }} --no-default-features --features=backend-${{ matrix.backend.name }} -- -D warnings
+      - uses: actions-rs/cargo@v1
+        with:
+          command: clippy
+          args: ${{ matrix.profile.flag }} --no-default-features --features=backend-${{ matrix.backend.name }} --examples -- -D warnings
     strategy:
       fail-fast: false
       matrix:
