@@ -3,8 +3,7 @@
 #include <errno.h>
 
 int main(void) {
-    // TODO: Good buffer length?
-    unsigned char nonce[512];
+    unsigned char nonce[64]; /* correct hash length for SGX */
     unsigned char buf[4598];
     size_t technology;
 
