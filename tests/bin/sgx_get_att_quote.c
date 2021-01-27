@@ -10,7 +10,7 @@ int main(void) {
     int* nonce[64]; /* empty pseudo-hash value to embed in SGX Quote */
     unsigned char buf[4598];
     size_t technology;
-    int i = 0;
+    int i;
     unsigned char expected[32] = { 
         3, 0, 2, 0, 0, 0, 0, 0, 5, 0,
         10, 0, 147, 154, 114, 51, 247, 156, 76, 169,
@@ -35,7 +35,7 @@ int main(void) {
         return 1;
 
     /* check beginning of quote matches expected value */
-    for (i; i < 32; i++)
+    for (i = 0; i < 32; i++)
     {
         if (buf[i] != expected[i] && buf[i]!= dummy[i])
         {
