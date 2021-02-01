@@ -5,7 +5,7 @@
 use crate::addr::{ShimPhysAddr, ShimVirtAddr};
 use crate::hostcall::HOST_CALL_ALLOC;
 use crate::hostmap::HOSTMAP;
-use crate::spin::RWLocked;
+use crate::spin::RwLocked;
 use crate::{get_cbit_mask, BOOT_INFO, C_BIT_MASK};
 use core::alloc::{GlobalAlloc, Layout};
 use core::convert::TryFrom;
@@ -34,8 +34,8 @@ use x86_64::{align_down, PhysAddr, VirtAddr};
 pub struct Page2MiB([u8; bytes![2; MiB]]);
 
 /// The global EnarxAllocator RwLock
-pub static ALLOCATOR: Lazy<RWLocked<EnarxAllocator>> =
-    Lazy::new(|| RWLocked::<EnarxAllocator>::new(unsafe { EnarxAllocator::new() }));
+pub static ALLOCATOR: Lazy<RwLocked<EnarxAllocator>> =
+    Lazy::new(|| RwLocked::<EnarxAllocator>::new(unsafe { EnarxAllocator::new() }));
 
 /// The allocator
 ///
@@ -489,7 +489,7 @@ fn shim_virt_to_enc_phys<T>(p: *mut T) -> PhysAddr {
     PhysAddr::new(phys.raw().raw() | get_cbit_mask())
 }
 
-unsafe impl GlobalAlloc for RWLocked<EnarxAllocator> {
+unsafe impl GlobalAlloc for RwLocked<EnarxAllocator> {
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
         let mut this = self.write();
         this.try_alloc(layout)

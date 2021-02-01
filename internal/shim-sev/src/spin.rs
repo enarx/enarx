@@ -26,11 +26,11 @@ impl<A> Locked<A> {
 }
 
 /// A wrapper around spinning::RwLock to permit trait implementations.
-pub struct RWLocked<A> {
+pub struct RwLocked<A> {
     inner: RwLock<A>,
 }
 
-impl<A> RWLocked<A> {
+impl<A> RwLocked<A> {
     /// Constructor
     #[inline]
     pub const fn new(inner: A) -> Self {

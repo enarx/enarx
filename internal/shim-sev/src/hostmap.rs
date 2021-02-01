@@ -42,7 +42,7 @@
 use crate::addr::{HostVirtAddr, ShimPhysUnencryptedAddr};
 
 use crate::print::PrintBarrier;
-use crate::spin::RWLocked;
+use crate::spin::RwLocked;
 use core::alloc::Layout;
 use core::mem::{align_of, size_of};
 use linked_list_allocator::Heap;
@@ -51,8 +51,8 @@ use primordial::{Address, Page as Page4KiB};
 use spinning::Lazy;
 
 /// The global [`HostMap`](HostMap) RwLock
-pub static HOSTMAP: Lazy<RWLocked<HostMap>> =
-    Lazy::new(|| RWLocked::<HostMap>::new(HostMap::new()));
+pub static HOSTMAP: Lazy<RwLocked<HostMap>> =
+    Lazy::new(|| RwLocked::<HostMap>::new(HostMap::new()));
 
 struct HostMemListPageHeader {
     next: Option<&'static mut HostMemListPage>,
@@ -163,7 +163,7 @@ impl HostMap {
     }
 }
 
-impl RWLocked<HostMap> {
+impl RwLocked<HostMap> {
     /// Extend the number of slots in the map
     pub fn extend_slots(&self, mem_slots: usize, allocator: &mut Heap) {
         // While updating the HostMap the syscall proxying can't be used,

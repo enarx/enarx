@@ -5,7 +5,7 @@
 use crate::addr::{HostVirtAddr, ShimPhysUnencryptedAddr};
 use crate::asm::_enarx_asm_triple_fault;
 use crate::hostlib::{MemInfo, SYSCALL_TRIGGER_PORT};
-use crate::spin::RWLocked;
+use crate::spin::RwLocked;
 use crate::{BOOT_INFO, SHIM_HOSTCALL_PHYS_ADDR};
 use array_const_fn_init::array_const_fn_init;
 use core::convert::TryFrom;
@@ -51,19 +51,19 @@ fn return_empty_option(_i: usize) -> Option<&'static mut Block> {
 }
 
 /// The static HostCall Mutex
-pub static HOST_CALL_ALLOC: Lazy<RWLocked<HostCallAllocator>> = Lazy::new(|| {
+pub static HOST_CALL_ALLOC: Lazy<RwLocked<HostCallAllocator>> = Lazy::new(|| {
     let block_mut = SHIM_HOSTCALL_PHYS_ADDR.read().unwrap() as *mut Block;
     let mut hostcall_allocator = HostCallAllocator(array_const_fn_init![return_empty_option; 512]);
     for i in 0..BOOT_INFO.read().unwrap().nr_syscall_blocks {
         (hostcall_allocator.0)[i].replace(unsafe { &mut *block_mut.add(i) });
     }
-    RWLocked::<HostCallAllocator>::new(hostcall_allocator)
+    RwLocked::<HostCallAllocator>::new(hostcall_allocator)
 });
 
 /// Allocator for all `sallyport::Block`
 pub struct HostCallAllocator([Option<&'static mut Block>; MAX_BLOCK_NR]);
 
-impl RWLocked<HostCallAllocator> {
+impl RwLocked<HostCallAllocator> {
     /// Try to allocate a `HostCall` object to use a `sallyport::Block`
     pub fn try_alloc(&self) -> Option<HostCall> {
         let mut this = self.write();
