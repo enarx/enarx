@@ -66,7 +66,7 @@ pub struct Built<A: image::Arch, P: Personality> {
 
 impl<T: Hook> Builder<T> {
     pub fn new(shim: Component, code: Component, hook: T) -> Self {
-        Self { shim, code, hook }
+        Self { hook, shim, code }
     }
 
     pub fn build<A: image::Arch, P: Personality>(mut self) -> Result<Built<A, P>> {
