@@ -31,12 +31,12 @@ backend-sev = ["sev", "backend-kvm", "koine"]
 backend-sgx = ["sgx"]
 
 [dependencies]
-sev = { git = "https://github.com/enarx/sev", features = ["openssl"], optional = true }
+sev = { version = "0.1", features = ["openssl"], optional = true }
 sgx = { git = "https://github.com/enarx/sgx", rev = "e805b51", features = ["asm", "crypto"], optional = true }
 koine = { git = "https://github.com/enarx/koine", optional = true }
 x86_64 = { version = "0.11", default-features = false, features = ["stable"], optional = true }
-kvm-bindings = { version = "0.3", optional = true }
-kvm-ioctls = { version = "0.6", optional = true }
+kvm-bindings = { version = "0.4", optional = true }
+kvm-ioctls = { version = "0.8", optional = true }
 primordial = "0.1"
 structopt = "0.3"
 iocuddle = "0.1"
@@ -48,13 +48,13 @@ anyhow = "1.0"
 goblin = "0.3"
 libc = "0.2"
 lset = "0.1"
-protobuf = "2.18"
+protobuf = "2.22"
 openssl = "0.10"
 
 [build-dependencies]
 cc = "1.0"
 walkdir = "2"
-protobuf-codegen-pure = "2.3"
+protobuf-codegen-pure = "2.22"
 
 [dev-dependencies]
 process_control = "3.0"
