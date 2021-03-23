@@ -63,12 +63,7 @@ impl<'a> Handler<'a> {
         ctx: &'a Context,
         block: &'a mut Block,
     ) -> Self {
-        Self {
-            aex,
-            ctx,
-            layout,
-            block,
-        }
+        Self { aex, layout, ctx, block }
     }
     pub fn cpuid(&mut self) {
         if TRACE {
