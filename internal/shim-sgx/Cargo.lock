@@ -105,6 +105,7 @@ dependencies = [
 [[package]]
 name = "rcrt1"
 version = "0.1.0"
+source = "git+https://github.com/enarx/rcrt1?rev=2205dc7#2205dc77b97b7d27dda2f34b4f1dacdb45f37186"
 dependencies = [
  "goblin",
  "libc",

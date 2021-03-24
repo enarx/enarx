@@ -11,7 +11,7 @@ test = false
 
 [dependencies]
 sallyport = { path = "../sallyport", default-features = false }
-rcrt1 = { path = "../rcrt1" }
+rcrt1 = { git = "https://github.com/enarx/rcrt1", rev = "2205dc7" }
 untrusted = { path = "../untrusted"}
 syscall = { path = "../syscall"}
 compiler_builtins = { version = "0.1", default-features = false, features = [ "mem" ] }

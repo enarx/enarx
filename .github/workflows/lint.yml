@@ -21,7 +21,6 @@ jobs:
       matrix:
         crate:
           - {name: enarx-keepldr, path: Cargo.toml}
-          - {name: rcrt1, path: internal/rcrt1/Cargo.toml}
           - {name: sgx-heap, path: internal/sgx-heap/Cargo.toml}
           - {name: sallyport, path: internal/sallyport/Cargo.toml}
           - {name: untrusted, path: internal/untrusted/Cargo.toml}
@@ -56,9 +55,6 @@ jobs:
           - {name: untrusted, path: internal/untrusted/Cargo.toml}
           - {name: syscall, path: internal/syscall/Cargo.toml}
           - {name: sgx-heap, path: internal/sgx-heap/Cargo.toml}
-          - name: rcrt1
-            path: internal/rcrt1/Cargo.toml
-            target: --target=x86_64-unknown-linux-musl
           - name: shim-sgx
             path: internal/shim-sgx/Cargo.toml
             target: --target=x86_64-unknown-linux-musl
@@ -127,7 +123,6 @@ jobs:
       matrix:
         crate:
           - {name: enarx-keepldr, path: ./Cargo.toml}
-          - {name: rcrt1, path: internal/rcrt1/Cargo.toml}
           - {name: sgx-heap, path: internal/sgx-heap/Cargo.toml}
           - {name: sallyport, path: internal/sallyport/Cargo.toml}
           - {name: untrusted, path: internal/untrusted/Cargo.toml}

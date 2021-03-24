@@ -50,7 +50,6 @@ jobs:
       fail-fast: false
       matrix:
         crate:
-          - rcrt1
           - sgx-heap
           - sallyport
           - untrusted
