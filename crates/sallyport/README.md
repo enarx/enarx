@@ -1,4 +1,11 @@
+[![Workflow Status](https://github.com/enarx/sallyport/workflows/test/badge.svg)](https://github.com/enarx/sallyport/actions?query=workflow%3A%22test%22)
+[![Average time to resolve an issue](https://isitmaintained.com/badge/resolution/enarx/sallyport.svg)](https://isitmaintained.com/project/enarx/sallyport "Average time to resolve an issue")
+[![Percentage of issues still open](https://isitmaintained.com/badge/open/enarx/sallyport.svg)](https://isitmaintained.com/project/enarx/sallyport "Percentage of issues still open")
+![Maintenance](https://img.shields.io/badge/maintenance-activly--developed-brightgreen.svg)
+
 # sallyport
+
+API for the hypervisor-microkernel boundary
 
 `sallyport` is a protocol crate for proxying service requests (such as syscalls) from an Enarx Keep
 to the host. A [sally port](https://en.wikipedia.org/wiki/Sally_port) is a secure gateway through
@@ -17,7 +24,7 @@ _The above table was taken from the syscall(2) man page_
 Note that `sallyport` is meant to generalize over all architectures that Enarx anticipates proxying
 syscalls to, not just x86_64 which was listed in the above table for illustration purposes.
 
-## Usage
+### Usage
 
 `sallyport` works by providing the host with the most minimal register context it requires to
 perform the syscall on the Keep's behalf. In doing so, the host can immediately call the desired
@@ -46,7 +53,7 @@ second register parameter points to the location where the bytes have been writt
 **NOT** a pointer to its protected address space_. Furthermore, once the request has been proxied, it is
 the Keep's responsibility to propagate any potentially modified data back to its protected pages.
 
-## Example
+### Example
 
 Here's an example of how the `sallyport` protocol might be used to proxy a syscall between
 the host and a protected virtual machine:
@@ -70,3 +77,5 @@ accessible to the host.
 1. The host-side Enarx code returns control to the shim.
 1. The shim examines the `Reply` in the `Message` header of the `Block` and propagates any mutated data back to
 the protected address space. It may then return control to its workload.
+
+License: Apache-2.0
