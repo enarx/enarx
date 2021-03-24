@@ -51,7 +51,6 @@ jobs:
       matrix:
         crate:
           - sgx-heap
-          - sallyport
           - shim-sgx
           - shim-sev
         profile:

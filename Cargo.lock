@@ -656,6 +656,7 @@ dependencies = [
 [[package]]
 name = "sallyport"
 version = "0.1.0"
+source = "git+https://github.com/enarx/sallyport?rev=efccf0f#efccf0f52bee0a80d7084d63976d962096d204df"
 dependencies = [
  "libc",
  "primordial",

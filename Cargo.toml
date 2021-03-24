@@ -31,7 +31,7 @@ backend-sev = ["sev", "backend-kvm", "koine"]
 backend-sgx = ["sgx"]
 
 [dependencies]
-sallyport = { path = "internal/sallyport" }
+sallyport = { git = "https://github.com/enarx/sallyport", rev = "efccf0f" }
 sev = { version = "0.1", features = ["openssl"], optional = true }
 sgx = { git = "https://github.com/enarx/sgx", rev = "e805b51", features = ["asm", "crypto"], optional = true }
 koine = { git = "https://github.com/enarx/koine", optional = true }
@@ -56,7 +56,7 @@ openssl = "0.10"
 cc = "1.0"
 walkdir = "2"
 protobuf-codegen-pure = "2.22"
-sallyport = { path = "internal/sallyport" }
+sallyport = { git = "https://github.com/enarx/sallyport", rev = "efccf0f" }
 
 [dev-dependencies]
 process_control = "3.0"
