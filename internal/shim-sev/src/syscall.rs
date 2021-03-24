@@ -15,13 +15,15 @@ use core::mem::size_of;
 use core::ops::{Deref, DerefMut};
 use core::sync::atomic::Ordering;
 use primordial::{Address, Register};
-use sallyport::{Cursor, Request};
-use syscall::{
+use sallyport::syscall::{
     BaseSyscallHandler, EnarxSyscallHandler, FileSyscallHandler, MemorySyscallHandler,
     NetworkSyscallHandler, ProcessSyscallHandler, SyscallHandler, SystemSyscallHandler,
     ARCH_GET_FS, ARCH_GET_GS, ARCH_SET_FS, ARCH_SET_GS, SEV_TECH,
 };
-use untrusted::{AddressValidator, UntrustedRef, UntrustedRefMut, Validate, ValidateSlice};
+use sallyport::untrusted::{
+    AddressValidator, UntrustedRef, UntrustedRefMut, Validate, ValidateSlice,
+};
+use sallyport::{Cursor, Request};
 use x86_64::instructions::tlb::flush_all;
 use x86_64::registers::{rdfsbase, rdgsbase, wrfsbase, wrgsbase};
 use x86_64::structures::paging::{Page, PageTableFlags, Size4KiB};

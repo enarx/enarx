@@ -18,6 +18,3 @@ keywords = [
 libc = { version = "0.2", features = [] }
 primordial = "0.1"
 
-[features]
-default = ["std"]
-std = []

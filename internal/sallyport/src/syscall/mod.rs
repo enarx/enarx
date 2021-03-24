@@ -1,10 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-//! Common syscall handling across shims
-
-#![deny(missing_docs)]
-#![deny(clippy::all)]
-#![cfg_attr(not(test), no_std)]
+//! Common syscall handling across shims.
 
 mod base;
 mod enarx;
@@ -14,21 +10,72 @@ mod network;
 mod process;
 mod system;
 
+pub use base::BaseSyscallHandler;
+pub use enarx::EnarxSyscallHandler;
+pub use file::FileSyscallHandler;
+pub use memory::MemorySyscallHandler;
+pub use network::NetworkSyscallHandler;
+pub use process::ProcessSyscallHandler;
+pub use system::SystemSyscallHandler;
+
+use crate::untrusted::AddressValidator;
+use crate::Result;
 use core::convert::TryInto;
 use primordial::Register;
-use sallyport::Result;
-use untrusted::AddressValidator;
 
-pub use crate::base::BaseSyscallHandler;
-pub use crate::enarx::EnarxSyscallHandler;
-pub use crate::file::FileSyscallHandler;
-pub use crate::memory::MemorySyscallHandler;
-pub use crate::network::NetworkSyscallHandler;
-pub use crate::process::ProcessSyscallHandler;
-pub use crate::system::SystemSyscallHandler;
+/// `get_attestation` syscall number
+///
+/// See https://github.com/enarx/enarx-keepldr/issues/31
+#[allow(dead_code)]
+pub const SYS_ENARX_GETATT: i64 = 0xEA01;
 
-// import Enarx syscall constants
-include!("../../../src/syscall/mod.rs");
+/// Enarx syscall extension: get `MemInfo` from the host
+#[allow(dead_code)]
+pub const SYS_ENARX_MEM_INFO: i64 = 0xEA02;
+
+/// Enarx syscall extension: request an additional memory region
+#[allow(dead_code)]
+pub const SYS_ENARX_BALLOON_MEMORY: i64 = 0xEA03;
+
+/// Enarx syscall extension: CPUID
+#[allow(dead_code)]
+pub const SYS_ENARX_CPUID: i64 = 0xEA04;
+
+/// Enarx syscall extension: Resume an enclave after an asynchronous exit
+// Keep in sync with shim-sgx/src/start.S
+#[allow(dead_code)]
+pub const SYS_ENARX_ERESUME: i64 = -1;
+
+/// `get_attestation` technology return value
+///
+/// See https://github.com/enarx/enarx-keepldr/issues/31
+#[allow(dead_code)]
+pub const SEV_TECH: usize = 1;
+
+/// `get_attestation` technology return value
+///
+/// See https://github.com/enarx/enarx-keepldr/issues/31
+#[allow(dead_code)]
+pub const SGX_TECH: usize = 2;
+
+/// Size in bytes of expected SGX Quote
+// TODO: Determine length of Quote of PCK cert type
+#[allow(dead_code)]
+pub const SGX_QUOTE_SIZE: usize = 4598;
+
+/// Size in bytes of expected SGX QE TargetInfo
+#[allow(dead_code)]
+pub const SGX_TI_SIZE: usize = 512;
+
+/// Dummy value returned when daemon to return SGX TargetInfo is
+/// not available on the system.
+#[allow(dead_code)]
+pub const SGX_DUMMY_TI: [u8; SGX_TI_SIZE] = [32u8; SGX_TI_SIZE];
+
+/// Dummy value returned when daemon to return SGX Quote is not
+/// available on the system.
+#[allow(dead_code)]
+pub const SGX_DUMMY_QUOTE: [u8; SGX_QUOTE_SIZE] = [44u8; SGX_QUOTE_SIZE];
 
 // arch_prctl syscalls not available in the libc crate as of version 0.2.69
 /// missing in libc
@@ -52,7 +99,10 @@ pub const FAKE_GID: usize = 1000;
 /// FIXME
 pub struct KernelSigSet;
 
-type KernelSigAction = [u64; 4];
+/// not defined in libc
+///
+/// FIXME
+pub type KernelSigAction = [u64; 4];
 
 /// A trait defining a shim syscall handler
 ///

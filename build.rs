@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
+use sallyport::SALLYPORT_ABI_VERSION;
 use std::collections::HashMap;
 use std::ffi::OsStr;
 use std::fs::OpenOptions;
@@ -246,6 +247,8 @@ fn main() {
 
         let status = Command::new("strip")
             .arg("--strip-unneeded")
+            .arg("-K")
+            .arg(SALLYPORT_ABI_VERSION)
             .arg("-o")
             .arg(&out_bin)
             .arg(&shim_out_bin)

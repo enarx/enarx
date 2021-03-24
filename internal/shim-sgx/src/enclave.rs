@@ -15,7 +15,7 @@ mod _internal {
     use crate::event::event;
     use const_default::ConstDefault;
     use rcrt1::_dyn_reloc;
-    use syscall::SYS_ENARX_ERESUME;
+    use sallyport::syscall::SYS_ENARX_ERESUME;
     use xsave::XSave;
 
     const GPR: u64 = 4096 - 184;

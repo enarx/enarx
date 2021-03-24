@@ -13,7 +13,7 @@ pub use vm::{
 };
 
 use crate::backend::{self, Datum, Keep};
-use crate::binary::Component;
+use crate::binary::{Component, ComponentType};
 
 use anyhow::Result;
 use kvm_ioctls::Kvm;
@@ -58,7 +58,7 @@ impl backend::Backend for Backend {
     }
 
     fn build(&self, code: Component, _sock: Option<&Path>) -> Result<Arc<dyn Keep>> {
-        let shim = Component::from_bytes(SHIM)?;
+        let shim = ComponentType::Shim.into_component_from_bytes(SHIM)?;
 
         let vm = Builder::new(shim, code, builder::Kvm)
             .build::<X86, ()>()?
@@ -68,7 +68,7 @@ impl backend::Backend for Backend {
     }
 
     fn measure(&self, code: Component) -> Result<String> {
-        let shim = Component::from_bytes(SHIM)?;
+        let shim = ComponentType::Shim.into_component_from_bytes(SHIM)?;
 
         let digest = Builder::new(shim, code, builder::Kvm)
             .build::<X86, ()>()?

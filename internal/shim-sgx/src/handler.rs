@@ -5,7 +5,15 @@ use crate::Layout;
 use core::fmt::Write;
 use primordial::Register;
 
+use sallyport::syscall::{
+    BaseSyscallHandler, EnarxSyscallHandler, FileSyscallHandler, MemorySyscallHandler,
+    NetworkSyscallHandler, ProcessSyscallHandler, SyscallHandler, SystemSyscallHandler,
+    ARCH_GET_FS, ARCH_GET_GS, ARCH_SET_FS, ARCH_SET_GS, SGX_DUMMY_QUOTE, SGX_DUMMY_TI,
+    SGX_QUOTE_SIZE, SGX_TECH, SYS_ENARX_CPUID, SYS_ENARX_GETATT,
+};
+use sallyport::untrusted::{AddressValidator, UntrustedRef, UntrustedRefMut, ValidateSlice};
 use sallyport::{request, Block, Cursor, Request};
+
 use sgx::{
     attestation_types::{
         report::Report,
@@ -17,13 +25,6 @@ use sgx::{
     },
 };
 use sgx_heap::Heap;
-use syscall::{
-    BaseSyscallHandler, EnarxSyscallHandler, FileSyscallHandler, MemorySyscallHandler,
-    NetworkSyscallHandler, ProcessSyscallHandler, SyscallHandler, SystemSyscallHandler,
-    ARCH_GET_FS, ARCH_GET_GS, ARCH_SET_FS, ARCH_SET_GS, SGX_DUMMY_QUOTE, SGX_DUMMY_TI,
-    SGX_QUOTE_SIZE, SGX_TECH, SYS_ENARX_CPUID, SYS_ENARX_GETATT,
-};
-use untrusted::{AddressValidator, UntrustedRef, UntrustedRefMut, ValidateSlice};
 
 pub const TRACE: bool = false;
 use crate::enclave::{syscall, Context};

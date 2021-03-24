@@ -4,6 +4,7 @@ mod component;
 mod segment;
 
 pub use component::Component;
+pub use component::ComponentType;
 pub use segment::Segment;
 
 /// Permissions ascribed to a particular program header

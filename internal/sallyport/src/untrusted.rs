@@ -1,10 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-//! New Types to handle verified addresses
-
-#![deny(missing_docs)]
-#![deny(clippy::all)]
-#![cfg_attr(not(test), no_std)]
+//! New Types to validate untrusted memory
 
 use core::convert::TryInto;
 use core::marker::PhantomData;

@@ -8,7 +8,7 @@ use crate::protobuf::aesm_proto::{
     Response, Response_GetQuoteExResponse, Response_InitQuoteExResponse,
     Response_SelectAttKeyIDResponse,
 };
-use crate::syscall::{SGX_DUMMY_QUOTE, SGX_DUMMY_TI, SGX_QUOTE_SIZE, SGX_TI_SIZE};
+use sallyport::syscall::{SGX_DUMMY_QUOTE, SGX_DUMMY_TI, SGX_QUOTE_SIZE, SGX_TI_SIZE};
 
 use std::io::{Error, ErrorKind, Read, Write};
 use std::mem::size_of;

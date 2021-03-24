@@ -59,14 +59,12 @@
 mod backend;
 mod binary;
 mod protobuf;
-mod sallyport;
-mod syscall;
 
 // workaround for sallyport tests, until we have internal crates
 pub use sallyport::Request;
 
 use backend::{Backend, Command};
-use binary::Component;
+use binary::ComponentType;
 
 use anyhow::Result;
 use structopt::StructOpt;
@@ -172,7 +170,7 @@ fn measure(backends: &[Box<dyn Backend>], opts: Report) -> Result<()> {
         .find(|b| b.have());
 
     if let Some(backend) = backend {
-        let code = Component::from_path(&opts.code)?;
+        let code = ComponentType::Payload.into_component_from_path(&opts.code)?;
         let json = backend.measure(code)?;
         println!("{}", json);
     } else {
@@ -196,7 +194,7 @@ fn exec(backends: &[Box<dyn Backend>], opts: Exec) -> Result<()> {
         .find(|b| b.have());
 
     if let Some(backend) = backend {
-        let code = Component::from_path(&opts.code)?;
+        let code = ComponentType::Payload.into_component_from_path(&opts.code)?;
         let keep = backend.build(code, opts.sock.as_deref())?;
 
         let mut thread = keep.clone().add_thread()?;

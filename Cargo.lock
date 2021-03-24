@@ -221,6 +221,7 @@ dependencies = [
  "process_control",
  "protobuf",
  "protobuf-codegen-pure",
+ "sallyport",
  "serial_test",
  "sev",
  "sgx",
@@ -650,6 +651,14 @@ dependencies = [
  "blake2b_simd",
  "constant_time_eq",
  "crossbeam-utils",
+]
+
+[[package]]
+name = "sallyport"
+version = "0.1.0"
+dependencies = [
+ "libc",
+ "primordial",
 ]
 
 [[package]]

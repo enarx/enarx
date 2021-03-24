@@ -9,14 +9,6 @@ updates:
   schedule:
     interval: "daily"
 - package-ecosystem: "cargo"
-  directory: "internal/untrusted"
-  schedule:
-    interval: "daily"
-- package-ecosystem: "cargo"
-  directory: "internal/syscall"
-  schedule:
-    interval: "daily"
-- package-ecosystem: "cargo"
   directory: "internal/sgx-heap"
   schedule:
     interval: "daily"

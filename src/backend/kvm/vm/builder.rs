@@ -3,7 +3,6 @@
 use super::*;
 use crate::backend::kvm::shim::BootInfo;
 use crate::binary::Component;
-use crate::sallyport::Block;
 
 use personality::Personality;
 
@@ -12,6 +11,7 @@ use kvm_ioctls::{Kvm, VmFd};
 use lset::{Line, Span};
 use mmarinus::{perms, Kind, Map};
 use openssl::hash::Hasher;
+use sallyport::Block;
 use x86_64::{align_up, PhysAddr, VirtAddr};
 
 use std::mem::size_of;

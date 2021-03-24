@@ -73,3 +73,5 @@ mod handler;
 mod hostlib;
 
 use hostlib::Layout;
+
+sallyport::declare_abi_version!();

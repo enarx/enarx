@@ -6,7 +6,9 @@ use sgx::types::ssa::{Exception, StateSaveArea};
 use crate::enclave::Context;
 use crate::handler::Handler;
 use crate::Layout;
-use syscall::{BaseSyscallHandler, ProcessSyscallHandler, SyscallHandler, SYS_ENARX_ERESUME};
+use sallyport::syscall::{
+    BaseSyscallHandler, ProcessSyscallHandler, SyscallHandler, SYS_ENARX_ERESUME,
+};
 
 // Opcode constants, details in Volume 2 of the Intel 64 and IA-32 Architectures Software
 // Developer's Manual

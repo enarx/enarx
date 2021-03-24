@@ -2,8 +2,8 @@
 
 //! memory syscalls
 
-use sallyport::Result;
-use untrusted::UntrustedRef;
+use crate::untrusted::UntrustedRef;
+use crate::Result;
 
 /// memory syscalls
 pub trait MemorySyscallHandler {

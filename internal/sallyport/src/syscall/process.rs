@@ -2,9 +2,10 @@
 
 //! process syscalls
 
-use crate::{BaseSyscallHandler, KernelSigAction, KernelSigSet, FAKE_GID, FAKE_PID, FAKE_UID};
-use sallyport::{request, Result};
-use untrusted::{AddressValidator, UntrustedRef, UntrustedRefMut, Validate};
+use super::BaseSyscallHandler;
+use crate::syscall::{KernelSigAction, KernelSigSet, FAKE_GID, FAKE_PID, FAKE_UID};
+use crate::untrusted::{AddressValidator, UntrustedRef, UntrustedRefMut, Validate};
+use crate::{request, Result};
 
 /// process syscalls
 pub trait ProcessSyscallHandler: BaseSyscallHandler + AddressValidator + Sized {

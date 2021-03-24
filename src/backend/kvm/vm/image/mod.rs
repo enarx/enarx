@@ -8,12 +8,12 @@ use std::mem::{align_of, size_of};
 
 use mmarinus::{perms::ReadWrite, Map};
 use primordial::Page;
+use sallyport::Block;
 use x86_64::VirtAddr;
 
 use crate::backend::kvm::shim::BootInfo;
 use crate::backend::kvm::Hook;
 use crate::binary::Component;
-use crate::sallyport::Block;
 
 /// The `Arch` trait enables architecture-specific setup for the initial
 /// image.

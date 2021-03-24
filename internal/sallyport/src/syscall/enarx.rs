@@ -2,8 +2,8 @@
 
 //! enarx syscalls
 
-use sallyport::Result;
-use untrusted::{UntrustedRef, UntrustedRefMut};
+use crate::untrusted::{UntrustedRef, UntrustedRefMut};
+use crate::Result;
 
 /// enarx syscalls
 pub trait EnarxSyscallHandler {

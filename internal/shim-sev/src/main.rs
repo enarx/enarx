@@ -64,6 +64,8 @@ static SHIM_HOSTCALL_PHYS_ADDR: RwLock<Option<usize>> =
 
 static mut PAYLOAD_READY: AtomicBool = AtomicBool::new(false);
 
+sallyport::declare_abi_version!();
+
 /// Get the SEV C-Bit mask
 #[inline(always)]
 pub fn get_cbit_mask() -> u64 {

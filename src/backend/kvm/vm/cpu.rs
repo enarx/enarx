@@ -6,14 +6,14 @@ use crate::backend::kvm::shim::{MemInfo, SYSCALL_TRIGGER_PORT};
 use crate::backend::kvm::vm::image::x86::X86;
 use crate::backend::kvm::vm::image::Arch;
 use crate::backend::{Command, Thread};
-use crate::sallyport::{Block, Reply};
-use crate::syscall::{SYS_ENARX_BALLOON_MEMORY, SYS_ENARX_MEM_INFO};
+use sallyport::syscall::{SYS_ENARX_BALLOON_MEMORY, SYS_ENARX_MEM_INFO};
 
 use super::personality::Personality;
 
 use anyhow::{anyhow, Result};
 use kvm_ioctls::{VcpuExit, VcpuFd};
 use primordial::Register;
+use sallyport::{Block, Reply};
 use x86_64::registers::control::{Cr0Flags, Cr4Flags};
 use x86_64::registers::model_specific::EferFlags;
 use x86_64::PhysAddr;

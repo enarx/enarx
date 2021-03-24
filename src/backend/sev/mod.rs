@@ -11,7 +11,7 @@ use crate::backend::kvm::SHIM;
 use crate::backend::kvm::X86;
 use crate::backend::probe::x86_64::{CpuId, Vendor};
 use crate::backend::{self, Datum, Keep};
-use crate::binary::Component;
+use crate::binary::{Component, ComponentType};
 
 use anyhow::Result;
 
@@ -247,7 +247,7 @@ impl backend::Backend for Backend {
     }
 
     fn build(&self, code: Component, sock: Option<&Path>) -> Result<Arc<dyn Keep>> {
-        let shim = Component::from_bytes(SHIM)?;
+        let shim = ComponentType::Shim.into_component_from_bytes(SHIM)?;
         let sock = attestation_bridge(sock)?;
 
         let vm = Builder::new(shim, code, builder::Sev::new(sock))
@@ -258,7 +258,7 @@ impl backend::Backend for Backend {
     }
 
     fn measure(&self, code: Component) -> Result<String> {
-        let shim = Component::from_bytes(SHIM)?;
+        let shim = ComponentType::Shim.into_component_from_bytes(SHIM)?;
         let sock = attestation_bridge(None)?;
 
         let digest = Builder::new(shim, code, builder::Sev::new(sock))

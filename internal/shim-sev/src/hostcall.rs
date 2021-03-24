@@ -10,9 +10,9 @@ use crate::{BOOT_INFO, SHIM_HOSTCALL_PHYS_ADDR};
 use array_const_fn_init::array_const_fn_init;
 use core::convert::TryFrom;
 use primordial::{Address, Register};
+use sallyport::syscall::{SYS_ENARX_BALLOON_MEMORY, SYS_ENARX_MEM_INFO};
 use sallyport::{request, Block};
 use spinning::Lazy;
-use syscall::{SYS_ENARX_BALLOON_MEMORY, SYS_ENARX_MEM_INFO};
 use x86_64::instructions::port::Port;
 
 /// Host file descriptor

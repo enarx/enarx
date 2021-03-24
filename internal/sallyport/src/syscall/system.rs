@@ -2,9 +2,9 @@
 
 //! system syscalls
 
-use crate::BaseSyscallHandler;
-use sallyport::{request, Result};
-use untrusted::{AddressValidator, UntrustedRefMut, Validate, ValidateSlice};
+use super::BaseSyscallHandler;
+use crate::untrusted::{AddressValidator, UntrustedRefMut, Validate, ValidateSlice};
+use crate::{request, Result};
 
 /// system syscalls
 pub trait SystemSyscallHandler: BaseSyscallHandler + AddressValidator + Sized {

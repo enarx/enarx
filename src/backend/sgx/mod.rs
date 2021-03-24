@@ -2,9 +2,8 @@
 
 use crate::backend::sgx::attestation::get_attestation;
 use crate::backend::{Command, Datum, Keep};
-use crate::binary::Component;
-use crate::sallyport;
-use crate::syscall::{SYS_ENARX_CPUID, SYS_ENARX_ERESUME, SYS_ENARX_GETATT};
+use crate::binary::{Component, ComponentType};
+use sallyport::syscall::{SYS_ENARX_CPUID, SYS_ENARX_ERESUME, SYS_ENARX_GETATT};
 
 use anyhow::{anyhow, Result};
 use lset::Span;
@@ -74,7 +73,7 @@ impl crate::backend::Backend for Backend {
 
     /// Create a keep instance on this backend
     fn build(&self, mut code: Component, _sock: Option<&Path>) -> Result<Arc<dyn Keep>> {
-        let mut shim = Component::from_bytes(SHIM)?;
+        let mut shim = ComponentType::Shim.into_component_from_bytes(SHIM)?;
 
         // Calculate the memory layout for the enclave.
         let layout = crate::backend::sgx::shim::Layout::calculate(shim.region(), code.region());

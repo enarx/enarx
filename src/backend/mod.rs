@@ -10,12 +10,12 @@ pub mod sgx;
 mod probe;
 
 use crate::binary::Component;
-use crate::sallyport::Block;
 
 use std::path::Path;
 use std::sync::Arc;
 
 use anyhow::Result;
+use sallyport::Block;
 
 pub trait Backend {
     /// The name of the backend

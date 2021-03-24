@@ -23,8 +23,6 @@ jobs:
           - {name: enarx-keepldr, path: Cargo.toml}
           - {name: sgx-heap, path: internal/sgx-heap/Cargo.toml}
           - {name: sallyport, path: internal/sallyport/Cargo.toml}
-          - {name: untrusted, path: internal/untrusted/Cargo.toml}
-          - {name: syscall, path: internal/syscall/Cargo.toml}
           - {name: shim-sgx, path: internal/shim-sgx/Cargo.toml}
           - {name: shim-sev, path: internal/shim-sev/Cargo.toml}
 
@@ -52,8 +50,6 @@ jobs:
         crate:
           - {name: enarx-keepldr, path: Cargo.toml}
           - {name: sallyport, path: internal/sallyport/Cargo.toml}
-          - {name: untrusted, path: internal/untrusted/Cargo.toml}
-          - {name: syscall, path: internal/syscall/Cargo.toml}
           - {name: sgx-heap, path: internal/sgx-heap/Cargo.toml}
           - name: shim-sgx
             path: internal/shim-sgx/Cargo.toml
@@ -125,7 +121,5 @@ jobs:
           - {name: enarx-keepldr, path: ./Cargo.toml}
           - {name: sgx-heap, path: internal/sgx-heap/Cargo.toml}
           - {name: sallyport, path: internal/sallyport/Cargo.toml}
-          - {name: untrusted, path: internal/untrusted/Cargo.toml}
-          - {name: syscall, path: internal/syscall/Cargo.toml}
           - {name: shim-sgx, path: internal/shim-sgx/Cargo.toml}
           - {name: shim-sev, path: internal/shim-sev/Cargo.toml}

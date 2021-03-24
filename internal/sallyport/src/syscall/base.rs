@@ -2,8 +2,8 @@
 
 //! basic syscall handler functions
 
+use crate::{Cursor, Request, Result};
 use primordial::Register;
-use sallyport::{Cursor, Request, Result};
 
 /// basic syscall handler functions
 pub trait BaseSyscallHandler {

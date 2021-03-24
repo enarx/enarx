@@ -1,16 +1,37 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use goblin::elf::{header::*, program_header::*, Elf};
 
 use lset::Line;
 use mmarinus::{perms, Kind};
 use primordial::Page;
+use sallyport::SALLYPORT_ABI_VERSION_BASE;
 
 use std::cmp::{max, min};
 use std::path::Path;
 
 use super::Segment;
+
+#[allow(dead_code)]
+pub enum ComponentType {
+    Shim,
+    Payload,
+}
+
+impl ComponentType {
+    /// Loads a binary from a file
+    #[allow(dead_code)]
+    pub fn into_component_from_path(self, path: impl AsRef<Path>) -> Result<Component> {
+        Component::from_path(path, self)
+    }
+
+    /// Loads a binary from bytes
+    #[allow(dead_code)]
+    pub fn into_component_from_bytes(self, bytes: impl AsRef<[u8]>) -> Result<Component> {
+        Component::from_bytes(bytes, self)
+    }
+}
 
 pub struct Component {
     pub segments: Vec<Segment>,
@@ -20,13 +41,13 @@ pub struct Component {
 
 impl Component {
     /// Loads a binary from a file
-    pub fn from_path(path: impl AsRef<Path>) -> Result<Self> {
+    fn from_path(path: impl AsRef<Path>, component_type: ComponentType) -> Result<Self> {
         let map = Kind::Private.load::<perms::Read, _>(path)?;
-        Self::from_bytes(map)
+        Self::from_bytes(map, component_type)
     }
 
     /// Loads a binary from bytes
-    pub fn from_bytes(bytes: impl AsRef<[u8]>) -> Result<Self> {
+    fn from_bytes(bytes: impl AsRef<[u8]>, component_type: ComponentType) -> Result<Self> {
         // Parse the file.
         let elf = Elf::parse(bytes.as_ref()).unwrap();
 
@@ -62,6 +83,18 @@ impl Component {
                 })
                 .count()
         );
+
+        if matches!(component_type, ComponentType::Shim) {
+            // There shouldn't be any symbols in the shim, except this one.
+            let strtab = elf.strtab.to_vec()?;
+            let ver = strtab
+                .iter()
+                .find(|x| x.starts_with(SALLYPORT_ABI_VERSION_BASE))
+                .ok_or_else(|| anyhow!("Couldn't find sallyport version in shim executable."))?;
+
+            sallyport::check_abi_version(ver)
+                .map_err(|_| anyhow!("Sallyport version mismatch in shim executable."))?;
+        }
 
         let mut segments = Vec::new();
         for ph in elf.program_headers.iter() {
