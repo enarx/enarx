@@ -2,10 +2,10 @@
 
 //! file syscalls
 
-use crate::BaseSyscallHandler;
+use super::BaseSyscallHandler;
+use crate::untrusted::{AddressValidator, UntrustedRef, UntrustedRefMut, Validate, ValidateSlice};
+use crate::{request, Block, Result};
 use core::mem::MaybeUninit;
-use sallyport::{request, Block, Result};
-use untrusted::{AddressValidator, UntrustedRef, UntrustedRefMut, Validate, ValidateSlice};
 
 /// file syscalls
 pub trait FileSyscallHandler: BaseSyscallHandler + AddressValidator + Sized {
