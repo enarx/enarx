@@ -42,7 +42,7 @@ while read line; do
     fi
 
     if [[ $ADDR2LINE = "REGS" ]]; then
-        if [[ $line = *"rflags:"* ]] || [[ $line = *"rsp:"* ]] || [[ $line = *"rbp:"* ]]; then
+        if [[ $line = *"rflags:"* ]] || [[ $line = *"rsp:"* ]] || [[ $line = *"rbp:"* ]] || [[ $line = *"rbx:"* ]]; then
             continue
         fi
     fi

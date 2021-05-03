@@ -56,19 +56,18 @@ pub unsafe fn _enarx_asm_triple_fault() -> ! {
     // Provoke an #UD, which will lead to a triple fault, because of the invalid IDT
     asm!("ud2",
     in("rax") frames[2], // the first two frames are from panic
-    in("rbx") frames[3],
-    in("rcx") frames[4],
-    in("rdx") frames[5],
-    in("rsi") frames[6],
-    in("rdi") frames[7],
-    in("r8") frames[8],
-    in("r9") frames[9],
-    in("r10") frames[10],
-    in("r11") frames[11],
-    in("r12") frames[12],
-    in("r13") frames[13],
-    in("r14") frames[14],
-    in("r15") frames[15],
+    in("rcx") frames[3],
+    in("rdx") frames[4],
+    in("rsi") frames[5],
+    in("rdi") frames[6],
+    in("r8") frames[7],
+    in("r9") frames[8],
+    in("r10") frames[9],
+    in("r11") frames[10],
+    in("r12") frames[11],
+    in("r13") frames[12],
+    in("r14") frames[13],
+    in("r15") frames[14],
         options(nomem, nostack)
     );
 
