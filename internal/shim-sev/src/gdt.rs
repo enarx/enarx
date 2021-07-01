@@ -45,26 +45,31 @@ pub static TSS: Lazy<TaskStateSegment> = Lazy::new(|| {
 
     tss.privilege_stack_table[0] = INITIAL_STACK.pointer;
 
+    let ptr_interrupt_stack_table = core::ptr::addr_of_mut!(tss.interrupt_stack_table);
+    let mut interrupt_stack_table = unsafe { ptr_interrupt_stack_table.read_unaligned() };
+
     // Assign the stacks for the exceptions and interrupts
+    interrupt_stack_table
+        .iter_mut()
+        .enumerate()
+        .for_each(|(idx, p)| {
+            let offset: u64 = align_up(
+                SHIM_EX_STACK_SIZE
+                    .checked_add(Page::<Size4KiB>::SIZE.checked_mul(2).unwrap())
+                    .unwrap(),
+                Page::<Size2MiB>::SIZE,
+            );
+
+            let stack_offset = offset.checked_mul(idx as _).unwrap();
+            let start = VirtAddr::new(SHIM_EX_STACK_START.checked_add(stack_offset).unwrap());
+
+            *p = init_stack_with_guard(start, SHIM_EX_STACK_SIZE, PageTableFlags::empty()).pointer;
+        });
+
     unsafe {
-        tss.interrupt_stack_table
-            .iter_mut()
-            .enumerate()
-            .for_each(|(idx, p)| {
-                let offset: u64 = align_up(
-                    SHIM_EX_STACK_SIZE
-                        .checked_add(Page::<Size4KiB>::SIZE.checked_mul(2).unwrap())
-                        .unwrap(),
-                    Page::<Size2MiB>::SIZE,
-                );
-
-                let stack_offset = offset.checked_mul(idx as _).unwrap();
-                let start = VirtAddr::new(SHIM_EX_STACK_START.checked_add(stack_offset).unwrap());
-
-                *p = init_stack_with_guard(start, SHIM_EX_STACK_SIZE, PageTableFlags::empty())
-                    .pointer;
-            });
+        ptr_interrupt_stack_table.write_unaligned(interrupt_stack_table);
     }
+
     tss
 });
 
