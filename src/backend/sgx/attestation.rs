@@ -255,7 +255,7 @@ fn get_quote(report: &[u8], akid: Vec<u8>, out_buf: &mut [u8]) -> Result<usize, 
     }
 
     assert_eq!(quote.len(), out_buf.len(), "Unable to copy Quote to buffer");
-    out_buf.copy_from_slice(&quote);
+    out_buf.copy_from_slice(quote);
 
     Ok(quote.len())
 }

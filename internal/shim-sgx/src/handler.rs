@@ -467,7 +467,7 @@ impl<'a> EnarxSyscallHandler for Handler<'a> {
         };
 
         let c = self.new_cursor();
-        let (c, shim_nonce_ptr) = c.copy_from_slice(&report_bytes).or(Err(libc::EMSGSIZE))?;
+        let (c, shim_nonce_ptr) = c.copy_from_slice(report_bytes).or(Err(libc::EMSGSIZE))?;
         let (_, shim_buf_ptr) = c.alloc::<u8>(buf_len).or(Err(libc::EMSGSIZE))?;
         let req = request!(SYS_ENARX_GETATT => shim_nonce_ptr.as_ptr(), report_bytes.len(), shim_buf_ptr.as_ptr(), buf_len);
         let result = unsafe { self.proxy(req)? };
