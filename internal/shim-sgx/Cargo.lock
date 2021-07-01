@@ -131,7 +131,7 @@ checksum = "fda28d4b4830b807a8b43f7b0e6b5df875311b3e7621d84577188c175b6ec1ec"
 [[package]]
 name = "sgx"
 version = "0.1.0"
-source = "git+https://github.com/enarx/sgx?rev=5292e53#5292e53679a29099d3c2570e2bcb66c9a84de0fd"
+source = "git+https://github.com/enarx/sgx?rev=4bb50e55bc8717c5bc2a98d680bf1be436cda8de#4bb50e55bc8717c5bc2a98d680bf1be436cda8de"
 dependencies = [
  "bitflags",
  "cc",
