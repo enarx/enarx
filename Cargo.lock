@@ -161,7 +161,7 @@ dependencies = [
  "cc",
  "ciborium",
  "colorful",
- "goblin 0.3.4",
+ "goblin 0.4.1",
  "iocuddle",
  "koine",
  "kvm-bindings",
@@ -230,9 +230,9 @@ dependencies = [
 
 [[package]]
 name = "goblin"
-version = "0.3.4"
+version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "669cdc3826f69a51d3f8fc3f86de81c2378110254f678b8407977736122057a4"
+checksum = "ee05c709047abe5eb0571880d2887ac77299c5f0835f8e6b7f4d5404f8962921"
 dependencies = [
  "log",
  "plain",
