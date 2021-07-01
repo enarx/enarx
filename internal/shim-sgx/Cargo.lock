@@ -57,6 +57,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "goblin"
+version = "0.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ee05c709047abe5eb0571880d2887ac77299c5f0835f8e6b7f4d5404f8962921"
+dependencies = [
+ "plain",
+ "scroll",
+]
+
+[[package]]
 name = "libc"
 version = "0.2.97"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -109,7 +119,7 @@ name = "rcrt1"
 version = "0.1.0"
 source = "git+https://github.com/enarx/rcrt1?rev=2205dc7#2205dc77b97b7d27dda2f34b4f1dacdb45f37186"
 dependencies = [
- "goblin",
+ "goblin 0.3.4",
  "libc",
 ]
 
@@ -156,7 +166,7 @@ dependencies = [
  "compiler_builtins",
  "const-default",
  "crt0stack",
- "goblin",
+ "goblin 0.4.1",
  "libc",
  "lset",
  "nbytes",
