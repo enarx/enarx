@@ -14,6 +14,7 @@ use sallyport::syscall::{
 use sallyport::untrusted::{AddressValidator, UntrustedRef, UntrustedRefMut, ValidateSlice};
 use sallyport::{request, Block, Cursor, Request};
 
+use enarx_heap::Heap;
 use sgx::{
     attestation_types::{
         report::Report,
@@ -24,7 +25,6 @@ use sgx::{
         ssa::StateSaveArea,
     },
 };
-use sgx_heap::Heap;
 
 pub const TRACE: bool = false;
 use crate::enclave::{syscall, Context};

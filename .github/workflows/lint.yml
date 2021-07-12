@@ -21,7 +21,6 @@ jobs:
       matrix:
         crate:
           - {name: enarx-keepldr, path: Cargo.toml}
-          - {name: sgx-heap, path: internal/sgx-heap/Cargo.toml}
           - {name: shim-sgx, path: internal/shim-sgx/Cargo.toml}
           - {name: shim-sev, path: internal/shim-sev/Cargo.toml}
 
@@ -48,7 +47,6 @@ jobs:
       matrix:
         crate:
           - {name: enarx-keepldr, path: Cargo.toml}
-          - {name: sgx-heap, path: internal/sgx-heap/Cargo.toml}
           - name: shim-sgx
             path: internal/shim-sgx/Cargo.toml
             target: --target=x86_64-unknown-linux-musl
@@ -117,6 +115,5 @@ jobs:
       matrix:
         crate:
           - {name: enarx-keepldr, path: ./Cargo.toml}
-          - {name: sgx-heap, path: internal/sgx-heap/Cargo.toml}
           - {name: shim-sgx, path: internal/shim-sgx/Cargo.toml}
           - {name: shim-sev, path: internal/shim-sev/Cargo.toml}

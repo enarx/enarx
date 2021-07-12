@@ -50,7 +50,6 @@ jobs:
       fail-fast: false
       matrix:
         crate:
-          - sgx-heap
           - shim-sgx
           - shim-sev
         profile:

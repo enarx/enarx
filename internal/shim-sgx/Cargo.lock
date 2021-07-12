@@ -47,6 +47,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9274b445ee572d50bdeb17a1101be829becc565b5c12b21a697af4d360b48e8d"
 
 [[package]]
+name = "enarx-heap"
+version = "0.1.0"
+source = "git+https://github.com/enarx/enarx-heap?rev=6ecf48aa3db78a0cc17f32870c52446dba30f376#6ecf48aa3db78a0cc17f32870c52446dba30f376"
+dependencies = [
+ "libc",
+ "lset",
+ "primordial",
+]
+
+[[package]]
 name = "goblin"
 version = "0.3.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -151,21 +161,13 @@ dependencies = [
 ]
 
 [[package]]
-name = "sgx-heap"
-version = "0.1.0"
-dependencies = [
- "libc",
- "lset",
- "primordial",
-]
-
-[[package]]
 name = "shim-sgx"
 version = "0.1.0"
 dependencies = [
  "compiler_builtins",
  "const-default",
  "crt0stack",
+ "enarx-heap",
  "goblin 0.4.2",
  "libc",
  "lset",
@@ -174,7 +176,6 @@ dependencies = [
  "rcrt1",
  "sallyport",
  "sgx",
- "sgx-heap",
  "xsave",
 ]
 

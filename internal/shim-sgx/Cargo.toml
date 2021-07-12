@@ -10,7 +10,7 @@ name = "shim-sgx"
 test = false
 
 [dependencies]
-sgx-heap = { path = "../sgx-heap" }
+enarx-heap = { git = "https://github.com/enarx/enarx-heap", rev = "6ecf48aa3db78a0cc17f32870c52446dba30f376" }
 sallyport = { git = "https://github.com/enarx/sallyport", rev = "efccf0f" }
 rcrt1 = { git = "https://github.com/enarx/rcrt1", rev = "2205dc7" }
 compiler_builtins = { version = "0.1", default-features = false, features = [ "mem" ] }

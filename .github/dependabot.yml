@@ -9,10 +9,6 @@ updates:
   schedule:
     interval: "daily"
 - package-ecosystem: "cargo"
-  directory: "internal/sgx-heap"
-  schedule:
-    interval: "daily"
-- package-ecosystem: "cargo"
   directory: "internal/shim-sev"
   schedule:
     interval: "daily"
