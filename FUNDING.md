@@ -1,7 +1,3 @@
-Enarx currently has no corporate backing for engineering or outreach, and we
-are looking for funding opportunities, including VC (Venture Capital)
-investment. 
-
 Enarx wishes to thank the following organisations for their support:
 
 
