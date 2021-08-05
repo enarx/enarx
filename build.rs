@@ -201,6 +201,16 @@ fn main() {
             continue;
         }
 
+        #[cfg(not(any(feature = "backend-kvm", feature = "backend-sev")))]
+        if shim_name.starts_with("shim-sev") {
+            continue;
+        }
+
+        #[cfg(not(feature = "backend-sgx"))]
+        if shim_name.starts_with("shim-sgx") {
+            continue;
+        }
+
         let target_dir = shim_out_dir.clone().into_os_string().into_string().unwrap();
 
         let stdout: Stdio = OpenOptions::new()
