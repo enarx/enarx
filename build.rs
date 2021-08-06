@@ -193,6 +193,7 @@ fn main() {
         println!("cargo:rerun-if-changed={}/Cargo.tml", path);
         println!("cargo:rerun-if-changed={}/Cargo.toml", path);
         println!("cargo:rerun-if-changed={}/Cargo.lock", path);
+        println!("cargo:rerun-if-changed={}/layout.ld", path);
         println!("cargo:rerun-if-changed={}/.cargo/config", path);
 
         rerun_src(&path);
