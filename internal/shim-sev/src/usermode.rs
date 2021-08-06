@@ -53,5 +53,5 @@ pub unsafe fn usermode(ip: u64, sp: u64) -> ! {
     USER_CODE_SEGMENT = const USER_CODE_SEGMENT,
     IP = in(reg) ip,
     options(noreturn, nomem)
-    );
+    )
 }

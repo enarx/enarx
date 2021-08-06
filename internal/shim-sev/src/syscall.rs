@@ -112,7 +112,7 @@ pub unsafe extern "sysv64" fn _syscall_enter() -> ! {
     USER_CODE_SEGMENT = const USER_CODE_SEGMENT,
     syscall_rust = sym syscall_rust,
     options(noreturn)
-    );
+    )
 }
 
 /// Handle a syscall in rust
@@ -195,7 +195,7 @@ impl BaseSyscallHandler for Handler {
 
     fn attacked(&mut self) -> ! {
         // provoke triple fault, causing a VM shutdown
-        unsafe { _enarx_asm_triple_fault() };
+        unsafe { _enarx_asm_triple_fault() }
     }
 
     fn translate_shim_to_host_addr<T>(buf: *const T) -> usize {

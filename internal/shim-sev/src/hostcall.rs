@@ -218,5 +218,5 @@ pub fn shim_exit(status: i32) -> ! {
     }
 
     // provoke triple fault, causing a VM shutdown
-    unsafe { _enarx_asm_triple_fault() };
+    unsafe { _enarx_asm_triple_fault() }
 }

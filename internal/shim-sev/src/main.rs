@@ -90,7 +90,7 @@ pub unsafe fn switch_shim_stack(ip: extern "C" fn() -> !, sp: u64) -> ! {
         SP = in(reg) sp,
         IP = in(reg) ip,
         options(noreturn, nomem)
-    );
+    )
 }
 
 /// Defines the entry point function.
@@ -171,7 +171,7 @@ pub fn panic(info: &core::panic::PanicInfo) -> ! {
     }
 
     // provoke triple fault, causing a VM shutdown
-    unsafe { _enarx_asm_triple_fault() };
+    unsafe { _enarx_asm_triple_fault() }
 }
 
 #[inline(never)]

@@ -192,6 +192,6 @@ pub fn execute_payload() -> ! {
 
     unsafe {
         PAYLOAD_READY.store(true, Ordering::Relaxed);
-        usermode(entry.as_u64(), sp_handle);
+        usermode(entry.as_u64(), sp_handle)
     }
 }
