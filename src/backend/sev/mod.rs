@@ -141,7 +141,7 @@ fn sev_enabled_in_kernel() -> Datum {
     let mod_param = "/sys/module/kvm_amd/parameters/sev";
     if std::path::Path::new(mod_param).exists() {
         if let Ok(val) = std::fs::read_to_string(mod_param) {
-            datum.pass = val.trim() == "1";
+            datum.pass = val.trim() == "1" || val.trim() == "Y";
         }
     }
 
