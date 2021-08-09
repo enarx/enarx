@@ -53,7 +53,9 @@ pub fn launch(sock: UnixStream) -> Result<()> {
 
     let session = unsafe { session.mock_verify(msr.measurement) }.context("verify failed")?;
 
-    let ct_vec = vec![0u8, 1u8, 2u8, 3u8, 4u8, 5u8];
+    let ct_vec = vec![
+        0u8, 1u8, 2u8, 3u8, 4u8, 5u8, 6u8, 7u8, 8u8, 9u8, 10, 11, 12, 13, 14,
+    ];
     let mut ct_enc = Vec::new();
     into_writer(&Bytes::from(ct_vec), &mut ct_enc).context("failed to encode secret")?;
 
