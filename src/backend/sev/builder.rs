@@ -47,6 +47,7 @@ impl kvm::Hook for Sev {
         let chain_packet = match generation {
             sev::Generation::Naples => Message::CertificateChainNaples(chain),
             sev::Generation::Rome => Message::CertificateChainRome(chain),
+            sev::Generation::Milan => Message::CertificateChainMilan(chain),
         };
         into_writer(&chain_packet, &self.0)?;
 

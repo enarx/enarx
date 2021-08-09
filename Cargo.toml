@@ -32,7 +32,7 @@ backend-sgx = ["sgx"]
 
 [dependencies]
 sallyport = { git = "https://github.com/enarx/sallyport", rev = "efccf0f" }
-sev = { version = "0.1", features = ["openssl"], optional = true }
+sev = { git = "https://github.com/enarx/sev" , features = ["openssl"], optional = true }
 sgx = { git = "https://github.com/enarx/sgx", rev = "4bb50e55bc8717c5bc2a98d680bf1be436cda8de", features = ["asm", "crypto"], optional = true }
 koine = { git = "https://github.com/enarx/koine", optional = true }
 x86_64 = { version = "0.11", default-features = false, features = ["stable"], optional = true }

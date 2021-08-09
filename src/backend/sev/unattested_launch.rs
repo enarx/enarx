@@ -32,6 +32,7 @@ pub fn launch(sock: UnixStream) -> Result<()> {
     let chain = match chain_packet {
         Message::CertificateChainNaples(chain) => chain,
         Message::CertificateChainRome(chain) => chain,
+        Message::CertificateChainMilan(chain) => chain,
         _ => panic!("expected certificate chain"),
     };
 
