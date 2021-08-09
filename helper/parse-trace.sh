@@ -23,7 +23,7 @@ while read line; do
         continue
     fi
 
-    if [[ $line = "Error: Shutdown"* ]]; then
+    if [[ $line = "Error: Shutdown"* ]] || [[ $line = "Error: MmioRead"* ]]; then
         ADDR2LINE="REGS"
         continue
     fi
@@ -45,6 +45,9 @@ while read line; do
         if [[ $line = *"rflags:"* ]] || [[ $line = *"rsp:"* ]] || [[ $line = *"rbp:"* ]] || [[ $line = *"rbx:"* ]]; then
             continue
         fi
+        line=${line%,}
+        read _ line <<< "$line"
+        line=${line/ffffff8}
     fi
 
     if [[ $ADDR2LINE = "TRACE" ]] && [[ $line = "P "* ]]; then
