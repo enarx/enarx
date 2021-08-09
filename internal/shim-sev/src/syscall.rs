@@ -40,7 +40,6 @@ struct X8664DoubleReturn {
 /// # Safety
 ///
 /// This function is not be called from rust.
-#[inline(never)]
 #[naked]
 pub unsafe extern "sysv64" fn _syscall_enter() -> ! {
     use crate::gdt::{USER_CODE_SEGMENT, USER_DATA_SEGMENT};
