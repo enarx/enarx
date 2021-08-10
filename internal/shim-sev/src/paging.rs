@@ -6,43 +6,45 @@ use crate::addr::SHIM_VIRT_OFFSET;
 use crate::get_cbit_mask;
 
 use spinning::{Lazy, RwLock};
-use x86_64::structures::paging::{OffsetPageTable, PageTable};
+use x86_64::registers::control::Cr3;
+use x86_64::structures::paging::mapper::PageTableFrameMapping;
+use x86_64::structures::paging::{MappedPageTable, PageTable, PhysFrame};
 use x86_64::VirtAddr;
 
-/// The global `OffsetPageTable` of the shim
-pub static SHIM_PAGETABLE: Lazy<RwLock<OffsetPageTable<'static>>> = Lazy::new(|| {
-    RwLock::<OffsetPageTable<'static>>::const_new(spinning::RawRwLock::const_new(), unsafe {
-        init()
-    })
-});
-
-/// Initialize a new OffsetPageTable.
-///
-/// # Safety
-///
-/// This function is unsafe because the caller must guarantee that the
-/// complete physical memory is mapped to virtual memory at the passed
-/// `physical_memory_offset`. Also, this function must be only called once
-/// to avoid aliasing `&mut` references (which is undefined behavior).
-pub unsafe fn init() -> OffsetPageTable<'static> {
-    let physical_memory_offset = VirtAddr::new(
-        (SHIM_VIRT_OFFSET as u64)
-            .checked_sub(get_cbit_mask())
-            .unwrap()
-            & 0xFFFFFFFFFFFF,
-    );
-    let level_4_table = active_level_4_table(physical_memory_offset);
-    OffsetPageTable::new(level_4_table, physical_memory_offset)
+/// A `PageTableFrameMapping` specialized to encrypted physical pages.
+#[derive(Debug)]
+pub struct EncPhysOffset {
+    /// The virtual address of physical address `0` (without the C-Bit)
+    pub offset: VirtAddr,
+    /// The C-Bit mask indicating encrypted physical pages
+    pub c_bit_mask: u64,
 }
 
-unsafe fn active_level_4_table(physical_memory_offset: VirtAddr) -> &'static mut PageTable {
-    use x86_64::registers::control::Cr3;
-
-    let (level_4_table_frame, _) = Cr3::read();
-
-    let phys = level_4_table_frame.start_address();
-    let virt = physical_memory_offset + phys.as_u64();
-    let page_table_ptr: *mut PageTable = virt.as_mut_ptr();
-
-    &mut *page_table_ptr // unsafe
+unsafe impl PageTableFrameMapping for EncPhysOffset {
+    fn frame_to_pointer(&self, frame: PhysFrame) -> *mut PageTable {
+        let phys_start_address = frame.start_address().as_u64();
+        assert_eq!(phys_start_address & self.c_bit_mask, self.c_bit_mask);
+        let virt = self.offset + (phys_start_address & !self.c_bit_mask);
+        virt.as_mut_ptr()
+    }
 }
+
+/// The global `MappedPageTable` of the shim for encrypted pages.
+pub static SHIM_PAGETABLE: Lazy<RwLock<MappedPageTable<'static, EncPhysOffset>>> =
+    Lazy::new(|| {
+        let enc_phys_offset = EncPhysOffset {
+            offset: VirtAddr::new(SHIM_VIRT_OFFSET as u64),
+            c_bit_mask: get_cbit_mask(),
+        };
+
+        let enc_offset_page_table = unsafe {
+            let level_4_table_ptr = enc_phys_offset.frame_to_pointer(Cr3::read().0);
+
+            MappedPageTable::new(&mut *level_4_table_ptr, enc_phys_offset)
+        };
+
+        RwLock::<MappedPageTable<'static, EncPhysOffset>>::const_new(
+            spinning::RawRwLock::const_new(),
+            enc_offset_page_table,
+        )
+    });
