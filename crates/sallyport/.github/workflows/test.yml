@@ -19,10 +19,18 @@ jobs:
       matrix:
         toolchain:
           - nightly
-          - beta
           - stable
-          - 1.41.0
+          - 1.45.0
+        features:
+          -
         profile:
           - name: debug
           - name: release
             flag: --release
+        include:
+          - toolchain: nightly
+            features: asm
+            profile: {name: debug}
+          - toolchain: nightly
+            features: asm
+            profile: {name: release, flag: --release}

@@ -30,6 +30,7 @@ fn buf_capacity() {
 
 #[test]
 #[cfg_attr(miri, ignore)]
+#[cfg(feature = "asm")]
 fn syscall() {
     // Test syscall failure, including bidirectional conversion.
     let req = request!(libc::SYS_close => -1isize);
