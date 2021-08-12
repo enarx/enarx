@@ -25,7 +25,7 @@ use primordial::Register;
 
 /// `get_attestation` syscall number
 ///
-/// See https://github.com/enarx/enarx-keepldr/issues/31
+/// See <https://github.com/enarx/enarx-keepldr/issues/31>
 #[allow(dead_code)]
 pub const SYS_ENARX_GETATT: i64 = 0xEA01;
 
@@ -48,13 +48,13 @@ pub const SYS_ENARX_ERESUME: i64 = -1;
 
 /// `get_attestation` technology return value
 ///
-/// See https://github.com/enarx/enarx-keepldr/issues/31
+/// See <https://github.com/enarx/enarx-keepldr/issues/31>
 #[allow(dead_code)]
 pub const SEV_TECH: usize = 1;
 
 /// `get_attestation` technology return value
 ///
-/// See https://github.com/enarx/enarx-keepldr/issues/31
+/// See <https://github.com/enarx/enarx-keepldr/issues/31>
 #[allow(dead_code)]
 pub const SGX_TECH: usize = 2;
 
