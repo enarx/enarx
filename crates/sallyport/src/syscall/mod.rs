@@ -3,7 +3,7 @@
 //! Common syscall handling across shims.
 
 mod base;
-mod enarx;
+pub mod enarx;
 mod file;
 mod memory;
 mod network;
@@ -29,7 +29,7 @@ use primordial::Register;
 #[allow(dead_code)]
 pub const SYS_ENARX_GETATT: i64 = 0xEA01;
 
-/// Enarx syscall extension: get `MemInfo` from the host
+/// Enarx syscall extension: get [`MemInfo`](enarx::MemInfo) from the host
 #[allow(dead_code)]
 pub const SYS_ENARX_MEM_INFO: i64 = 0xEA02;
 

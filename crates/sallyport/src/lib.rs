@@ -136,6 +136,9 @@ pub fn check_abi_version(ver: &str) -> core::result::Result<(), ()> {
     Ok(())
 }
 
+/// I/O port used to trigger an exit to the host (`#VMEXIT`) for KVM driven shims.
+pub const KVM_SYSCALL_TRIGGER_PORT: u16 = 0xFF;
+
 /// The maximum size of a UDP packet
 ///
 /// The maximum UDP message size is 65507, as determined by the following formula:
