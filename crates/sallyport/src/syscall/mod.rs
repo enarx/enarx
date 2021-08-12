@@ -120,6 +120,7 @@ pub trait SyscallHandler:
     + SystemSyscallHandler
 {
     /// syscall
+    #[cfg(target_arch = "x86_64")]
     #[allow(clippy::too_many_arguments)]
     fn syscall(
         &mut self,
@@ -131,7 +132,31 @@ pub trait SyscallHandler:
         f: Register<usize>,
         nr: usize,
     ) -> Result {
-        let mut ret = match nr as _ {
+        let mut ret = self.do_syscall(a, b, c, d, e, f, nr);
+
+        if nr < 0xEA00 {
+            // Non Enarx syscalls don't use `ret[1]` and have
+            // to return the original value of `rdx`.
+            ret = ret.map(|ret| [ret[0], c]);
+        }
+
+        ret
+    }
+
+    /// syscall handling without architecture specific return handling
+    #[allow(clippy::too_many_arguments)]
+    #[inline(always)]
+    fn do_syscall(
+        &mut self,
+        a: Register<usize>,
+        b: Register<usize>,
+        c: Register<usize>,
+        d: Register<usize>,
+        e: Register<usize>,
+        f: Register<usize>,
+        nr: usize,
+    ) -> Result {
+        let ret = match nr as _ {
             // MemorySyscallHandler
             libc::SYS_brk => self.brk(a.into()),
             libc::SYS_mmap => self.mmap(
@@ -260,13 +285,6 @@ pub trait SyscallHandler:
                 Err(libc::ENOSYS)
             }
         };
-
-        #[cfg(target_arch = "x86_64")]
-        if nr < 0xEA00 {
-            // Non Enarx syscalls don't use `ret[1]` and have
-            // to return the original value of `rdx`.
-            ret = ret.map(|ret| [ret[0], c]);
-        }
 
         ret
     }
