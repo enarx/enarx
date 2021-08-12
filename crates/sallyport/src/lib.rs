@@ -73,7 +73,7 @@
 //! 1. The shim examines the `Reply` in the `Message` header of the `Block` and propagates any mutated data back to
 //! the protected address space. It may then return control to its workload.
 
-#![feature(asm)]
+#![cfg_attr(feature = "asm", feature(asm))]
 #![deny(missing_docs)]
 #![deny(clippy::all)]
 #![cfg_attr(not(test), no_std)]
@@ -191,6 +191,7 @@ impl Request {
     /// # Safety
     ///
     /// This function is unsafe because syscalls can't be made generically safe.
+    #[cfg(feature = "asm")]
     pub unsafe fn syscall(&self) -> Reply {
         let rax: usize;
         let rdx: usize;
