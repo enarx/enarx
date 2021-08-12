@@ -156,7 +156,7 @@ pub trait SyscallHandler:
         f: Register<usize>,
         nr: usize,
     ) -> Result {
-        let ret = match nr as _ {
+        match nr as _ {
             // MemorySyscallHandler
             libc::SYS_brk => self.brk(a.into()),
             libc::SYS_mmap => self.mmap(
@@ -284,8 +284,6 @@ pub trait SyscallHandler:
 
                 Err(libc::ENOSYS)
             }
-        };
-
-        ret
+        }
     }
 }
