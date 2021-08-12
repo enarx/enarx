@@ -77,7 +77,7 @@ impl kvm::Hook for Sev {
 
         if let Some(secret) = secret {
             let secret_ptr = SevSecret::get_secret_ptr(syscall_blocks.as_ptr::<BootInfo>());
-            launcher.inject(secret, secret_ptr as _)?;
+            launcher.inject(&secret, secret_ptr as _)?;
         }
 
         let finish_packet = Message::Finish(Finish);
