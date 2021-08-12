@@ -243,14 +243,13 @@ pub trait FileSyscallHandler: BaseSyscallHandler + AddressValidator + Sized {
                 let statbuf = statbuf.validate(self).ok_or(libc::EFAULT)?;
                 *statbuf = p;
 
-                /* eprintln!("SC> fstat({}, {{st_dev=makedev(0, 0x19), st_ino=3, st_mode=S_IFIFO|0600,\
-                st_nlink=1, st_uid=1000, st_gid=5, st_blksize=4096, st_blocks=0, st_size=0,\
-                 st_rdev=makedev(0x88, 0), st_atime=1579507218 /* 2020-01-21T11:45:08.467721685+0100 */,\
-                  st_atime_nsec=0, st_mtime=1579507218 /* 2020-01-21T11:45:08.467721685+0100 */,\
-                   st_mtime_nsec=0, st_ctime=1579507218 /* 2020-01-21T11:45:08.467721685+0100 */,\
-                    st_ctime_nsec=0}}) = 0", fd);
+                // eprintln!("SC> fstat({}, {{st_dev=makedev(0, 0x19), st_ino=3, st_mode=S_IFIFO|0600,\
+                //           st_nlink=1, st_uid=1000, st_gid=5, st_blksize=4096, st_blocks=0, st_size=0,\
+                //           st_rdev=makedev(0x88, 0), st_atime=1579507218, /* 2020-01-21T11:45:08.467721685+0100 */,\
+                //           st_atime_nsec=0, st_mtime=1579507218 /* 2020-01-21T11:45:08.467721685+0100 */,\
+                //           st_mtime_nsec=0, st_ctime=1579507218 /* 2020-01-21T11:45:08.467721685+0100 */,\
+                //           st_ctime_nsec=0}}) = 0", fd);
 
-                */
                 Ok(Default::default())
             }
             _ => Err(libc::EBADF),
