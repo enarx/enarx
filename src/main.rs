@@ -169,8 +169,10 @@ fn measure(backends: &[Box<dyn Backend>], opts: Report) -> Result<()> {
         .filter(|b| keep.is_none() || keep == Some(b.name().into()))
         .find(|b| b.have());
 
+    let map = mmarinus::Kind::Private.load::<mmarinus::perms::Read, _>(&opts.code)?;
+
     if let Some(backend) = backend {
-        let code = ComponentType::Payload.into_component_from_path(&opts.code)?;
+        let code = ComponentType::Payload.into_component_from_bytes(map.as_ref())?;
         let json = backend.measure(code)?;
         println!("{}", json);
     } else {
@@ -194,7 +196,8 @@ fn exec(backends: &[Box<dyn Backend>], opts: Exec) -> Result<()> {
         .find(|b| b.have());
 
     if let Some(backend) = backend {
-        let code = ComponentType::Payload.into_component_from_path(&opts.code)?;
+        let map = mmarinus::Kind::Private.load::<mmarinus::perms::Read, _>(&opts.code)?;
+        let code = ComponentType::Payload.into_component_from_bytes(map.as_ref())?;
         let keep = backend.build(code, opts.sock.as_deref())?;
 
         let mut thread = keep.clone().add_thread()?;

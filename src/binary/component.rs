@@ -4,14 +4,9 @@ use anyhow::{anyhow, Result};
 use goblin::elf::{header::*, program_header::*, Elf};
 
 use lset::Line;
-use mmarinus::{perms, Kind};
-use primordial::Page;
 use sallyport::SALLYPORT_ABI_VERSION_BASE;
 
 use std::cmp::{max, min};
-use std::path::Path;
-
-use super::Segment;
 
 #[allow(dead_code)]
 pub enum ComponentType {
@@ -20,36 +15,25 @@ pub enum ComponentType {
 }
 
 impl ComponentType {
-    /// Loads a binary from a file
-    #[allow(dead_code)]
-    pub fn into_component_from_path(self, path: impl AsRef<Path>) -> Result<Component> {
-        Component::from_path(path, self)
-    }
-
     /// Loads a binary from bytes
     #[allow(dead_code)]
-    pub fn into_component_from_bytes(self, bytes: impl AsRef<[u8]>) -> Result<Component> {
+    pub fn into_component_from_bytes(self, bytes: &[u8]) -> Result<Component> {
         Component::from_bytes(bytes, self)
     }
 }
 
-pub struct Component {
-    pub segments: Vec<Segment>,
-    pub entry: usize,
+pub struct Component<'a> {
+    pub bytes: &'a [u8],
+    pub elf: Elf<'a>,
     pub pie: bool,
+    pub component_type: ComponentType,
 }
 
-impl Component {
-    /// Loads a binary from a file
-    fn from_path(path: impl AsRef<Path>, component_type: ComponentType) -> Result<Self> {
-        let map = Kind::Private.load::<perms::Read, _>(path)?;
-        Self::from_bytes(map, component_type)
-    }
-
+impl<'a> Component<'a> {
     /// Loads a binary from bytes
-    fn from_bytes(bytes: impl AsRef<[u8]>, component_type: ComponentType) -> Result<Self> {
+    fn from_bytes(bytes: &'a [u8], component_type: ComponentType) -> Result<Self> {
         // Parse the file.
-        let elf = Elf::parse(bytes.as_ref()).unwrap();
+        let elf = Elf::parse(bytes).unwrap();
 
         // Validate identity assumptions.
         assert_eq!(elf.header.e_ident[EI_CLASS], ELFCLASS64);
@@ -96,32 +80,38 @@ impl Component {
                 .map_err(|_| anyhow!("Sallyport version mismatch in shim executable."))?;
         }
 
-        let mut segments = Vec::new();
-        for ph in elf.program_headers.iter() {
-            if let Some(seg) = Segment::from_ph(&bytes, ph)? {
-                segments.push(seg);
-            }
-        }
+        let component = Self {
+            bytes,
+            elf,
+            component_type,
+            pie,
+        };
 
         // Validate that for pie binaries the first segment starts at 0.
-        assert_eq!(pie, segments[0].dst == 0);
+        assert_eq!(pie, component.find_header(PT_LOAD).unwrap().p_vaddr == 0);
 
-        Ok(Self {
-            entry: elf.entry as _,
-            segments,
-            pie,
-        })
+        Ok(component)
+    }
+
+    pub fn filter_header(&self, type_: u32) -> impl Iterator<Item = &ProgramHeader> {
+        self.elf
+            .program_headers
+            .iter()
+            .filter(move |ph| ph.p_type == type_)
+    }
+
+    pub fn find_header(&self, type_: u32) -> Option<&ProgramHeader> {
+        self.elf
+            .program_headers
+            .iter()
+            .find(|ph| ph.p_type == type_)
     }
 
     /// Find the total memory region for the binary.
     #[allow(dead_code)]
     pub fn region(&self) -> Line<usize> {
-        self.segments
-            .iter()
-            .map(|x| Line {
-                start: x.dst,
-                end: x.dst + x.src.len() * Page::size(),
-            })
+        self.filter_header(PT_LOAD)
+            .map(|x| Line::from(x.vm_range()))
             .fold(usize::max_value()..usize::min_value(), |l, r| {
                 min(l.start, r.start)..max(l.end, r.end)
             })

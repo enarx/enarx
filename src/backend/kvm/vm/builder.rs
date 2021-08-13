@@ -14,6 +14,7 @@ use openssl::hash::Hasher;
 use sallyport::Block;
 use x86_64::{align_up, PhysAddr, VirtAddr};
 
+use goblin::elf::program_header::PT_LOAD;
 use std::mem::size_of;
 
 fn num_syscall_blocks<A: image::Arch>() -> usize {
@@ -53,10 +54,10 @@ pub trait Hook {
     }
 }
 
-pub struct Builder<T: Hook> {
+pub struct Builder<'a, T: Hook> {
     hook: T,
-    shim: Component,
-    code: Component,
+    shim: Component<'a>,
+    code: Component<'a>,
 }
 
 pub struct Built<A: image::Arch, P: Personality> {
@@ -64,9 +65,21 @@ pub struct Built<A: image::Arch, P: Personality> {
     msr: measure::Measurement,
 }
 
-impl<T: Hook> Builder<T> {
-    pub fn new(shim: Component, code: Component, hook: T) -> Self {
+impl<'a, T: Hook> Builder<'a, T> {
+    pub fn new(shim: Component<'a>, code: Component<'a>, hook: T) -> Self {
         Self { hook, shim, code }
+    }
+
+    fn load_component(&self, start: VirtAddr, component: &Component) {
+        use std::slice::from_raw_parts_mut;
+
+        for seg in component.filter_header(PT_LOAD) {
+            let dst = start + seg.p_paddr as u64;
+            let dst = unsafe { from_raw_parts_mut(dst.as_mut_ptr::<u8>(), seg.p_memsz as _) };
+            dst[0..(seg.p_filesz as usize)].copy_from_slice(
+                &component.bytes[(seg.p_offset as usize)..((seg.p_offset + seg.p_filesz) as usize)],
+            );
+        }
     }
 
     pub fn build<A: image::Arch, P: Personality>(mut self) -> Result<Built<A, P>> {
@@ -86,16 +99,19 @@ impl<T: Hook> Builder<T> {
         let (map, region) = Self::allocate_address_space(mem_size as _)?;
         unsafe { fd.set_user_memory_region(region)? };
 
+        self.load_component(
+            VirtAddr::new(map.addr() as _) + boot_info.shim.start,
+            &self.shim,
+        );
+        self.load_component(
+            VirtAddr::new(map.addr() as _) + boot_info.code.start,
+            &self.code,
+        );
         let initial_state = unsafe { &mut *(map.addr() as *mut () as *mut image::Image<A>) };
-
-        let components = &mut [
-            (&mut self.shim, boot_info.shim.start),
-            (&mut self.code, boot_info.code.start),
-        ];
-        initial_state.commit(&map, &boot_info, &self.hook, components);
+        initial_state.commit(&map, &boot_info, &self.hook);
 
         let shim_start = boot_info.shim.start;
-        let shim_entry = PhysAddr::new(self.shim.entry as _);
+        let shim_entry = PhysAddr::new(self.shim.elf.entry + shim_start as u64);
         self.hook.shim_loaded(&mut fd, &map)?;
 
         let msr = {

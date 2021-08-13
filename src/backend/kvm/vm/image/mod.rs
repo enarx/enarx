@@ -7,13 +7,11 @@ pub mod x86;
 use std::mem::{align_of, size_of};
 
 use mmarinus::{perms::ReadWrite, Map};
-use primordial::Page;
 use sallyport::Block;
 use x86_64::VirtAddr;
 
 use crate::backend::kvm::shim::BootInfo;
 use crate::backend::kvm::Hook;
-use crate::binary::Component;
 
 /// The `Arch` trait enables architecture-specific setup for the initial
 /// image.
@@ -41,13 +39,7 @@ impl<A: Arch> Image<A> {
     ///
     /// NOTE: this must only be called through a pointer that superimposes
     /// the `Image` struct over the initial address space.
-    pub fn commit(
-        &mut self,
-        backing: &Map<ReadWrite>,
-        boot_info: &BootInfo,
-        hook: &impl Hook,
-        components: &mut [(&mut Component, usize)],
-    ) {
+    pub fn commit(&mut self, backing: &Map<ReadWrite>, boot_info: &BootInfo, hook: &impl Hook) {
         assert_eq!(backing.addr() % align_of::<Self>(), 0);
         assert!(
             boot_info.mem_size
@@ -60,28 +52,6 @@ impl<A: Arch> Image<A> {
         unsafe {
             let syscall_block = (self as *mut _ as *mut u8).add(size_of::<Self>()) as *mut BootInfo;
             std::ptr::copy_nonoverlapping(boot_info, syscall_block, 1);
-        }
-
-        // Load the shim and code.
-        for (component, offset) in components {
-            self.load_component(VirtAddr::new(backing.addr() as _), component, *offset);
-        }
-    }
-
-    fn load_component(&mut self, start: VirtAddr, component: &mut Component, offset: usize) {
-        use std::slice::from_raw_parts_mut;
-
-        if component.pie {
-            component.entry += offset;
-            for seg in &mut component.segments {
-                seg.dst += offset;
-            }
-        }
-
-        for seg in &component.segments {
-            let dst = VirtAddr::new(seg.dst as u64 + start.as_u64());
-            let dst = unsafe { from_raw_parts_mut(dst.as_mut_ptr::<Page>(), seg.src.len()) };
-            dst.copy_from_slice(&seg.src[..]);
         }
     }
 

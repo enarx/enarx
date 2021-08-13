@@ -6,7 +6,7 @@ use crate::binary::{Component, ComponentType};
 use sallyport::syscall::{SYS_ENARX_CPUID, SYS_ENARX_ERESUME, SYS_ENARX_GETATT};
 
 use anyhow::{anyhow, Result};
-use lset::Span;
+use lset::{Line, Span};
 use primordial::Page;
 use sgx::enclave::{Builder, Enclave, Entry, Registers, Segment};
 use sgx::types::{
@@ -23,29 +23,57 @@ use std::sync::{Arc, RwLock};
 mod attestation;
 mod data;
 mod shim;
+use goblin::elf::program_header::*;
+use std::cmp::min;
+use std::ops::Range;
 
 const SHIM: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/bin/shim-sgx"));
 
-impl From<crate::binary::Segment> for Segment {
-    #[inline]
-    fn from(value: crate::binary::Segment) -> Self {
-        let mut rwx = Flags::empty();
+fn program_header_2_segment(file: impl AsRef<[u8]>, ph: &ProgramHeader) -> Segment {
+    let mut rwx = Flags::empty();
 
-        if value.perms.read {
-            rwx |= Flags::R;
-        }
-        if value.perms.write {
-            rwx |= Flags::W;
-        }
-        if value.perms.execute {
-            rwx |= Flags::X;
-        }
+    if ph.is_read() {
+        rwx |= Flags::R;
+    }
+    if ph.is_write() {
+        rwx |= Flags::W;
+    }
+    if ph.is_executable() {
+        rwx |= Flags::X;
+    }
 
-        Self {
-            si: SecInfo::reg(rwx),
-            dst: value.dst,
-            src: value.src,
-        }
+    let src = Span::from(ph.file_range());
+
+    let unaligned = Line::from(ph.vm_range());
+
+    let frame = Line {
+        start: unaligned.start / Page::size(),
+        end: (unaligned.end + Page::size() - 1) / Page::size(),
+    };
+
+    let aligned = Line {
+        start: frame.start * Page::size(),
+        end: frame.end * Page::size(),
+    };
+
+    let subslice = Span::from(Line {
+        start: unaligned.start - aligned.start,
+        end: unaligned.end - aligned.start,
+    });
+
+    let subslice = Range::from(Span {
+        start: subslice.start,
+        count: min(subslice.count, src.count),
+    });
+
+    let src = &file.as_ref()[Range::from(src)];
+    let mut buf = vec![Page::default(); Span::from(frame).count];
+    unsafe { buf.align_to_mut() }.1[subslice].copy_from_slice(src);
+
+    Segment {
+        si: SecInfo::reg(rwx),
+        dst: aligned.start,
+        src: buf,
     }
 }
 
@@ -72,28 +100,38 @@ impl crate::backend::Backend for Backend {
     }
 
     /// Create a keep instance on this backend
-    fn build(&self, mut code: Component, _sock: Option<&Path>) -> Result<Arc<dyn Keep>> {
-        let mut shim = ComponentType::Shim.into_component_from_bytes(SHIM)?;
+    fn build(&self, code: Component, _sock: Option<&Path>) -> Result<Arc<dyn Keep>> {
+        let shim = ComponentType::Shim.into_component_from_bytes(SHIM)?;
 
         // Calculate the memory layout for the enclave.
         let layout = crate::backend::sgx::shim::Layout::calculate(shim.region(), code.region());
 
+        let mut shim_segs: Vec<_> = shim
+            .filter_header(PT_LOAD)
+            .map(|v| program_header_2_segment(shim.bytes, v))
+            .collect();
+
+        let mut code_segs: Vec<_> = code
+            .filter_header(PT_LOAD)
+            .map(|v| program_header_2_segment(code.bytes, v))
+            .collect();
+
         // Relocate the shim binary.
-        shim.entry += layout.shim.start;
-        for seg in shim.segments.iter_mut() {
+        let shim_entry = shim.elf.entry as usize + layout.shim.start;
+
+        for seg in shim_segs.iter_mut() {
             seg.dst += layout.shim.start;
         }
 
         // Relocate the code binary.
-        code.entry += layout.code.start;
-        for seg in code.segments.iter_mut() {
+        for seg in code_segs.iter_mut() {
             seg.dst += layout.code.start;
         }
 
         // Create SSAs and TCS.
         let ssas = vec![Page::default(); 2];
         let tcs = Tcs::new(
-            shim.entry - layout.enclave.start,
+            shim_entry - layout.enclave.start,
             Page::size() * 2, // SSAs after Layout (see below)
             ssas.len() as _,
         );
@@ -130,9 +168,6 @@ impl crate::backend::Backend for Backend {
                 src: vec![Page::default(); Span::from(layout.stack).count / Page::size()],
             },
         ];
-
-        let shim_segs: Vec<_> = shim.segments.into_iter().map(Segment::from).collect();
-        let code_segs: Vec<_> = code.segments.into_iter().map(Segment::from).collect();
 
         // Initiate the enclave building process.
         let mut builder = Builder::new(layout.enclave).expect("Unable to create builder");
