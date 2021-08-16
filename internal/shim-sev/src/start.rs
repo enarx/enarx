@@ -38,21 +38,21 @@ pub unsafe extern "sysv64" fn _start() -> ! {
     // Intel CPUs supports this CPUID leaf then we are guranteed to have exact
     // same bit definition.
     cmp     eax,    0x8000001f
-    jl      NoSev
+    jl      2f
 
     // Check for memory encryption feature:
     //  CPUID  Fn8000_001F[EAX] - Bit 1
     mov     eax,    0x8000001f
     cpuid
     bt      eax,    1
-    jnc     NoSev
+    jnc     2f
 
     // Check if memory encryption is enabled
     //  MSR_0xC0010131 - Bit 0 (SEV enabled)
     mov     ecx,    0xc0010131
     rdmsr
     bt      eax,    0
-    jnc     NoSev
+    jnc     2f
 
     // Get pte bit position to enable memory encryption
     // CPUID Fn8000_001F[EBX] - Bits 5:0
@@ -61,12 +61,12 @@ pub unsafe extern "sysv64" fn _start() -> ! {
 
     // If SEV is enabled, C-bit is always above 31
     bts     rdx,    rax
-    jmp     SevExit
+    jmp     3f
 
-NoSev:
+2:
     xor     rdx,    rdx
 
-SevExit:
+3:
     // backup edx to r11 and r12
     // r11: C-bit >> 32
     // r12: C-bit full 64bit mask
@@ -113,20 +113,20 @@ SevExit:
     mov     rdx,    r11
     mov     ecx,    512         // Counter to 512 page table entries
     add     rbx,    4           // Pre-advance pointer by 4 bytes for the higher 32bit
-setCBit_PDT_OFFSET:
+4:
     or      DWORD PTR [rbx],edx // set C-bit
     add     rbx,    8           // advance pointer by 8
-    loop    setCBit_PDT_OFFSET
+    loop    4b
 
     // set C-bit in all entries of the PDPT_OFFSET table
     lea     rbx,    [rip + PDPT_OFFSET]
     mov     rdx,    r11
     mov     ecx,    512         // Counter to 512 page table entries
     add     rbx,    4           // Pre-advance pointer by 4 bytes for the higher 32bit
-setCBit_PDPT_OFFSET:
+5:
     or      DWORD PTR [rbx],edx // set C-bit
     add     rbx,    8           // advance pointer by 8
-    loop    setCBit_PDPT_OFFSET
+    loop    5b
 
     // setup PDPT_OFFSET table entry 0 with PDT_OFFSET table
     lea     rbx,    [rip + PDPT_OFFSET]
@@ -162,12 +162,12 @@ setCBit_PDPT_OFFSET:
     mov     cr3,    rax
 
     // advance rip to kernel address space with {SHIM_VIRT_OFFSET}
-    lea     rax,    [rip + _trampoline]
+    lea     rax,    [rip + 6f]
     mov     rbx,    {SHIM_VIRT_OFFSET}
     adox    rax,    rbx
     jmp     rax
 
-_trampoline:
+6:
     mov     r15,    {SHIM_VIRT_OFFSET}
     //  add {SHIM_VIRT_OFFSET} to shim load offset
     adox    rsi,    r15
