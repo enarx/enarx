@@ -39,6 +39,7 @@ mod _internal {
     ///  If rax == 0, we are doing normal execution.
     ///  Otherwise, we are handling an exception.
     #[no_mangle]
+    #[allow(named_asm_labels)]
     #[naked]
     pub unsafe extern "sysv64" fn _start() -> ! {
         asm!("
