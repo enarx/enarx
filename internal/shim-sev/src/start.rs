@@ -5,6 +5,7 @@
 //! see [`_start`](_start)
 
 use crate::addr::SHIM_VIRT_OFFSET;
+use crate::pagetables::{PDPT_IDENT, PDPT_OFFSET, PDT_IDENT, PDT_OFFSET, PML4T};
 use primordial::Page;
 use rcrt1::_dyn_reloc;
 
@@ -102,14 +103,14 @@ pub unsafe extern "sysv64" fn _start() -> ! {
     // done dynamically, otherwise we would have to correct the dynamic symbols twice
 
     // setup PDPT_OFFSET in PML4T table
-    lea     rax,    [rip + PML4T]
-    lea     rbx,    [rip + PDPT_OFFSET]
+    lea     rax,    [rip + {PML4T}]
+    lea     rbx,    [rip + {PDPT_OFFSET}]
     or      rbx,    r12         // set C-bit
     or      rbx,    0x3         // (WRITABLE | PRESENT)
     mov     QWORD PTR [rax + ((({SHIM_VIRT_OFFSET} & 0xFFFFFFFFFFFF) >> 39)*8)],   rbx
 
     // set C-bit in all entries of the PDT_OFFSET table
-    lea     rbx,    [rip + PDT_OFFSET]
+    lea     rbx,    [rip + {PDT_OFFSET}]
     mov     rdx,    r11
     mov     ecx,    512         // Counter to 512 page table entries
     add     rbx,    4           // Pre-advance pointer by 4 bytes for the higher 32bit
@@ -119,7 +120,7 @@ pub unsafe extern "sysv64" fn _start() -> ! {
     loop    4b
 
     // set C-bit in all entries of the PDPT_OFFSET table
-    lea     rbx,    [rip + PDPT_OFFSET]
+    lea     rbx,    [rip + {PDPT_OFFSET}]
     mov     rdx,    r11
     mov     ecx,    512         // Counter to 512 page table entries
     add     rbx,    4           // Pre-advance pointer by 4 bytes for the higher 32bit
@@ -129,8 +130,8 @@ pub unsafe extern "sysv64" fn _start() -> ! {
     loop    5b
 
     // setup PDPT_OFFSET table entry 0 with PDT_OFFSET table
-    lea     rbx,    [rip + PDPT_OFFSET]
-    lea     rcx,    [rip + PDT_OFFSET]
+    lea     rbx,    [rip + {PDPT_OFFSET}]
+    lea     rcx,    [rip + {PDT_OFFSET}]
     or      rcx,    r12         // set C-bit
     or      rcx,    0x3         // ( WRITABLE | PRESENT)
     // store PDT_OFFSET table in PDPT_OFFSET in the correct slot
@@ -138,14 +139,14 @@ pub unsafe extern "sysv64" fn _start() -> ! {
     mov     QWORD PTR [rbx],    rcx
 
     // set C-bit for the first 3 entries in the PDT_IDENT table
-    lea     rcx,    [rip + PDT_IDENT]
+    lea     rcx,    [rip + {PDT_IDENT}]
     mov     rdx,    r11
     or      DWORD PTR [rcx + (0*8 + 4)],    edx
     or      DWORD PTR [rcx + (1*8 + 4)],    edx
     or      DWORD PTR [rcx + (2*8 + 4)],    edx
 
     // setup PDPT_IDENT table entry 0 with PDT_IDENT table
-    lea     rbx,    [rip + PDPT_IDENT]
+    lea     rbx,    [rip + {PDPT_IDENT}]
     or      rcx,    r12         // set C-bit
     or      rcx,    0x3         // ( WRITABLE | PRESENT)
     // store PDT_IDENT table in PDPT_IDENT in the correct slot
@@ -155,7 +156,7 @@ pub unsafe extern "sysv64" fn _start() -> ! {
     // setup PDPT_IDENT in PML4T table
     or      rbx,    r12         // set C-bit
     or      rbx,    0x3         // ( WRITABLE | PRESENT)
-    lea     rax,    [rip + PML4T]
+    lea     rax,    [rip + {PML4T}]
     mov     QWORD PTR [rax],    rbx
 
     or      rax,    r12         // set C-bit for new CR3
@@ -175,7 +176,7 @@ pub unsafe extern "sysv64" fn _start() -> ! {
     adox    rdi,    r15
 
     // load stack in shim virtual address space
-    lea     rsp,    [rip + INITIAL_SHIM_STACK]
+    lea     rsp,    [rip + {INITIAL_SHIM_STACK}]
     // sub 8 because we push 8 bytes later and want 16 bytes align
     add     rsp,    {SIZE_OF_INITIAL_STACK}
 
@@ -205,6 +206,12 @@ pub unsafe extern "sysv64" fn _start() -> ! {
     SHIM_VIRT_OFFSET = const SHIM_VIRT_OFFSET,
     SIZE_OF_INITIAL_STACK = const INITIAL_STACK_PAGES * 4096,
     DYN_RELOC = sym _dyn_reloc,
+    PML4T = sym PML4T,
+    PDPT_OFFSET = sym PDPT_OFFSET,
+    PDT_OFFSET = sym PDT_OFFSET,
+    PDT_IDENT = sym PDT_IDENT,
+    PDPT_IDENT = sym PDPT_IDENT,
+    INITIAL_SHIM_STACK = sym INITIAL_SHIM_STACK,
     options(noreturn)
-    );
+    )
 }
