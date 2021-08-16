@@ -1,6 +1,38 @@
 # Enarx
 
-## Introduction
+## Simple overview
+Enarx allows you to run applications on hosts (computers) you don't trust,
+using hardware-based Trusted Execution Environments (TEEs) such as Intel's
+SGX, AMD's SEV and Arm's (upcoming) Realms. Even if the computer you're 
+running your application on is compromised, or its administrator is
+malicious, your application is safe within an Enarx "Keep".  No-one can
+look in, and no-one can change it - both the application and its data
+are protected.
+
+With Enarx, you don't need write your application in a special programming 
+language or write it in a particular way with proprietary SDKs and APIs: we 
+provide support for the (W3C) industry standard WebAssembly, so you can
+easily create applications from many different existing languages (such
+as Java, C, C++, Go, Rust, C#...). Neither does your application need to
+know about _attestation_ (checking that it's really running in a safe
+environment): Enarx deals with all of that, and won't let your application
+run (it won't even load it) if the TEE offered is not cryptographically
+verified.
+
+You also don't need to worry about creating different versions of your 
+application for different hardware (Intel, AMD, Arm) - a single version works
+on systems running any of them.
+
+The most obvious use for Enarx is in the public cloud (because it allows you
+to deploy applications which would normally be too sensitive to trust to 
+Cloud Service Providers - CSPs), but you use it on private clouds, private
+data centres, Edge deployments - wherever you want.
+
+We aim to provide the difficult pieces between your application and the 
+hardware, giving you an audited, open source environment which is simple
+to use and provably as secure as it can be.
+
+## A more technical introduction
 Enarx is an application deployment system enabling applications
 to run within Trusted Execution Environments (TEEs) without rewriting for
 particular platforms or SDKs. It handles attestation and delivery into a
