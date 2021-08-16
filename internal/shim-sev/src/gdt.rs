@@ -7,7 +7,7 @@ use crate::syscall::_syscall_enter;
 use core::ops::Deref;
 use nbytes::bytes;
 use spinning::Lazy;
-use x86_64::instructions::segmentation::{load_ds, load_es, load_fs, load_gs, load_ss, set_cs};
+use x86_64::instructions::segmentation::{Segment, CS, DS, ES, FS, GS, SS};
 use x86_64::instructions::tables::load_tss;
 use x86_64::registers::model_specific::{KernelGsBase, LStar, SFMask, Star};
 use x86_64::registers::rflags::RFlags;
@@ -148,16 +148,16 @@ pub unsafe fn init() {
     GDT.0.load();
 
     // Setup the segment registers with the corresponding selectors
-    set_cs(GDT.1.code);
-    load_ss(GDT.1.data);
+    CS::set_reg(GDT.1.code);
+    SS::set_reg(GDT.1.data);
     load_tss(GDT.1.tss);
 
     // Clear the other segment registers
-    load_ss(SegmentSelector(0));
-    load_ds(SegmentSelector(0));
-    load_es(SegmentSelector(0));
-    load_fs(SegmentSelector(0));
-    load_gs(SegmentSelector(0));
+    SS::set_reg(SegmentSelector(0));
+    DS::set_reg(SegmentSelector(0));
+    ES::set_reg(SegmentSelector(0));
+    FS::set_reg(SegmentSelector(0));
+    GS::set_reg(SegmentSelector(0));
 
     // Set the selectors to be set when userspace uses `syscall`
     Star::write(GDT.1.user_code, GDT.1.user_data, GDT.1.code, GDT.1.data).unwrap();

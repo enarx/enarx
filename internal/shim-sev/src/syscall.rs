@@ -23,8 +23,8 @@ use sallyport::untrusted::{
     AddressValidator, UntrustedRef, UntrustedRefMut, Validate, ValidateSlice,
 };
 use sallyport::{Cursor, Request};
+use x86_64::instructions::segmentation::{Segment64, FS, GS};
 use x86_64::instructions::tlb::flush_all;
-use x86_64::registers::{rdfsbase, rdgsbase, wrfsbase, wrgsbase};
 use x86_64::structures::paging::{Page, PageTableFlags, Size4KiB};
 use x86_64::{align_up, VirtAddr};
 
@@ -259,7 +259,7 @@ impl ProcessSyscallHandler for Handler {
             ARCH_SET_FS => {
                 // FIXME: check `addr` value
                 unsafe {
-                    wrfsbase(addr);
+                    FS::write_base(VirtAddr::new(addr));
                 }
                 eprintln!("SC> arch_prctl(ARCH_SET_FS, {:#x}) = 0", addr);
                 Ok(Default::default())
@@ -267,15 +267,13 @@ impl ProcessSyscallHandler for Handler {
             ARCH_GET_FS => {
                 let addr = UntrustedRefMut::from(addr as *mut libc::c_ulong);
                 let addr = addr.validate(self).ok_or(libc::EFAULT)?;
-                unsafe {
-                    *addr = rdfsbase();
-                }
+                *addr = FS::read_base().as_u64();
                 Ok(Default::default())
             }
             ARCH_SET_GS => {
                 // FIXME: check `addr` value
                 unsafe {
-                    wrgsbase(addr);
+                    GS::write_base(VirtAddr::new(addr));
                 }
                 eprintln!("SC> arch_prctl(ARCH_SET_GS, {:#x}) = 0", addr);
                 Ok(Default::default())
@@ -283,9 +281,7 @@ impl ProcessSyscallHandler for Handler {
             ARCH_GET_GS => {
                 let addr = UntrustedRefMut::from(addr as *mut libc::c_ulong);
                 let addr = addr.validate(self).ok_or(libc::EFAULT)?;
-                unsafe {
-                    *addr = rdgsbase();
-                }
+                *addr = GS::read_base().as_u64();
                 Ok(Default::default())
             }
             x => {
