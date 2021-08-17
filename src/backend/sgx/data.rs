@@ -165,14 +165,14 @@ pub fn epc_size(max: u32) -> Datum {
 pub fn dev_sgx_enclave() -> Datum {
     let mut pass = false;
 
-    if File::open("/dev/sgx/enclave").is_ok() {
+    if File::open("/dev/sgx_enclave").is_ok() {
         pass = true;
     }
 
     Datum {
         name: "Driver".into(),
         pass,
-        info: Some("/dev/sgx/enclave".into()),
+        info: Some("/dev/sgx_enclave".into()),
         mesg: None,
     }
 }
