@@ -95,51 +95,35 @@ pub unsafe fn switch_shim_stack(ip: extern "C" fn() -> !, sp: u64) -> ! {
 
 /// Defines the entry point function.
 ///
-/// The function must have the signature `extern "C" fn() -> !`.
-///
-/// This macro just creates a function named `_start_main`, which the assembler
-/// stub will use as the entry point. The advantage of using this macro instead
-/// of providing an own `_start_main` function is that the macro ensures that the
-/// function and argument types are correct and that the global variables, which
-/// are needed later on, are initialized.
-macro_rules! entry_point {
-    ($path:path) => {
-        #[doc(hidden)]
-        #[export_name = "_start_main"]
-        pub unsafe extern "C" fn __impl_start(boot_info: *mut BootInfo, c_bit_mask: u64) -> ! {
-            // validate the signature of the program entry point
-            let f: extern "C" fn() -> ! = $path;
+/// # Safety
+/// Do not call from Rust.
+pub unsafe extern "sysv64" fn _start_main(boot_info: *mut BootInfo, c_bit_mask: u64) -> ! {
+    C_BIT_MASK.store(c_bit_mask, Ordering::Relaxed);
 
-            C_BIT_MASK.store(c_bit_mask, Ordering::Relaxed);
+    SHIM_HOSTCALL_PHYS_ADDR.write().replace({
+        let address = Address::<u64, Block>::from(boot_info as *mut Block);
+        let shim_virt = ShimVirtAddr::<Block>::try_from(address).unwrap();
+        ShimPhysUnencryptedAddr::<Block>::try_from(shim_virt)
+            .unwrap()
+            .into_mut() as *mut _ as _
+    });
 
-            SHIM_HOSTCALL_PHYS_ADDR.write().replace({
-                let address = Address::<u64, Block>::from(boot_info as *mut Block);
-                let shim_virt = ShimVirtAddr::<Block>::try_from(address).unwrap();
-                ShimPhysUnencryptedAddr::<Block>::try_from(shim_virt)
-                    .unwrap()
-                    .into_mut() as *mut _ as _
-            });
+    // make a local copy of boot_info, before the shared page gets overwritten
+    BOOT_INFO.write().replace(boot_info.read());
 
-            // make a local copy of boot_info, before the shared page gets overwritten
-            BOOT_INFO.write().replace(boot_info.read());
+    SEV_SECRET.write().copy_from_bootinfo(boot_info);
 
-            SEV_SECRET.write().copy_from_bootinfo(boot_info);
+    switch_sallyport_to_unencrypted(c_bit_mask);
 
-            switch_sallyport_to_unencrypted(c_bit_mask);
+    // Everything setup, so print works
+    enable_printing();
 
-            // Everything setup, so print works
-            enable_printing();
-
-            // Switch the stack to a guarded stack
-            switch_shim_stack(f, gdt::INITIAL_STACK.pointer.as_u64())
-        }
-    };
+    // Switch the stack to a guarded stack
+    switch_shim_stack(shim_main, gdt::INITIAL_STACK.pointer.as_u64())
 }
 
-entry_point!(shim_main);
-
 /// The entry point for the shim
-pub extern "C" fn shim_main() -> ! {
+extern "C" fn shim_main() -> ! {
     unsafe { gdt::init() };
     payload::execute_payload()
 }

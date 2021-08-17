@@ -16,6 +16,7 @@ const INITIAL_STACK_PAGES: usize = 50;
 
 #[no_mangle]
 static INITIAL_SHIM_STACK: [Page; INITIAL_STACK_PAGES] = [Page::zeroed(); INITIAL_STACK_PAGES];
+use crate::_start_main;
 
 /// The initial function called at startup
 ///
@@ -201,11 +202,12 @@ pub unsafe extern "sysv64" fn _start() -> ! {
     // call _start_main
     // arg1 %rdi  = address of SYSCALL_PAGE (boot_info)
     // arg2 %rsi  = SEV C-bit mask
-    call    _start_main
+    call    {START_MAIN}
     ",
     SHIM_VIRT_OFFSET = const SHIM_VIRT_OFFSET,
     SIZE_OF_INITIAL_STACK = const INITIAL_STACK_PAGES * 4096,
     DYN_RELOC = sym _dyn_reloc,
+    START_MAIN = sym _start_main,
     PML4T = sym PML4T,
     PDPT_OFFSET = sym PDPT_OFFSET,
     PDT_OFFSET = sym PDT_OFFSET,
