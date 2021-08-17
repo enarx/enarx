@@ -8,23 +8,13 @@ use primordial::Register;
 use sallyport::syscall::{
     BaseSyscallHandler, EnarxSyscallHandler, FileSyscallHandler, MemorySyscallHandler,
     NetworkSyscallHandler, ProcessSyscallHandler, SyscallHandler, SystemSyscallHandler,
-    ARCH_GET_FS, ARCH_GET_GS, ARCH_SET_FS, ARCH_SET_GS, SGX_DUMMY_QUOTE, SGX_DUMMY_TI,
-    SGX_QUOTE_SIZE, SGX_TECH, SYS_ENARX_CPUID, SYS_ENARX_GETATT,
+    ARCH_GET_FS, ARCH_GET_GS, ARCH_SET_FS, ARCH_SET_GS, SYS_ENARX_CPUID,
 };
 use sallyport::untrusted::{AddressValidator, UntrustedRef, UntrustedRefMut, ValidateSlice};
 use sallyport::{request, Block, Cursor, Request};
 
 use enarx_heap::Heap;
-use sgx::{
-    attestation_types::{
-        report::Report,
-        ti::{ReportData, TargetInfo},
-    },
-    types::{
-        attr::{Attributes, Flags, Xfrm},
-        ssa::StateSaveArea,
-    },
-};
+use sgx::types::ssa::StateSaveArea;
 
 pub const TRACE: bool = false;
 use crate::enclave::{syscall, Context};
@@ -387,13 +377,14 @@ impl<'a> EnarxSyscallHandler for Handler<'a> {
     // For more on this syscall, see: https://github.com/enarx/enarx-keepldr/issues/31
     fn get_attestation(
         &mut self,
-        hash: UntrustedRef<u8>,
-        hash_len: libc::size_t,
-        buf: UntrustedRefMut<u8>,
-        buf_len: libc::size_t,
+        _hash: UntrustedRef<u8>,
+        _hash_len: libc::size_t,
+        _buf: UntrustedRefMut<u8>,
+        _buf_len: libc::size_t,
     ) -> sallyport::Result {
         self.trace("get_att", 0);
 
+        /*
         // If hash is NULL ptr, it is a Quote size request; return expected Quote size
         // without proxying to host. Otherwise get hash value.
         let hash = match hash.validate_slice(hash_len, self) {
@@ -485,8 +476,9 @@ impl<'a> EnarxSyscallHandler for Handler<'a> {
             c.copy_into_slice(buf_len, &mut buf[..result_len])
                 .or(Err(libc::EFAULT))?;
         }
+        */
 
-        let rep: sallyport::Reply = Ok([result[0], SGX_TECH.into()]).into();
+        let rep: sallyport::Reply = Err(libc::ENOSYS).into();
         sallyport::Result::from(rep)
     }
 }
