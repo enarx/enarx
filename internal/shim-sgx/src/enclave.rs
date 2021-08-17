@@ -3,19 +3,19 @@
 //! The Enclave entry and exit
 //!
 //! Provides enclave EENTER entry point and a `syscall` interface.
-use sgx::types::ssa::StateSaveArea;
 
 pub enum Context {}
 
-extern "C" {
-    pub fn syscall(aex: &mut StateSaveArea, ctx: &Context) -> u64;
-}
+pub use _internal::syscall;
 
 mod _internal {
+    use crate::enclave::Context;
+    use crate::entry::entry;
     use crate::event::event;
     use const_default::ConstDefault;
     use rcrt1::_dyn_reloc;
     use sallyport::syscall::SYS_ENARX_ERESUME;
+    use sgx::types::ssa::StateSaveArea;
     use xsave::XSave;
 
     const GPR: u64 = 4096 - 184;
@@ -39,14 +39,13 @@ mod _internal {
     ///  If rax == 0, we are doing normal execution.
     ///  Otherwise, we are handling an exception.
     #[no_mangle]
-    #[allow(named_asm_labels)]
     #[naked]
     pub unsafe extern "sysv64" fn _start() -> ! {
         asm!("
     xchg    rcx,                    rbx             # Swap TCS and next instruction.
     add     rcx,                    4096            # rcx = &Layout
     cmp     rax,                    0               # If CSSA > 0...
-    jne     .Levent                                 # ... restore stack from AEX[CSSA-1].
+    jne     2f                                      # ... restore stack from AEX[CSSA-1].
 
     mov     rsp,          QWORD PTR [rcx + {STACK}] # Set stack pointer
 
@@ -102,10 +101,10 @@ mod _internal {
 
     xor     rax,                    rax             # Clear rax
 
-    call    entry                                   # Jump to Rust
+    call    {ENTRY}                                   # Jump to Rust
 
 # CSSA != 0
-.Levent:
+2:
     shl     rax,                    12              # rax = CSSA * 4096
     mov     r11,                    rcx             # r11 = &Layout
     add     r11,                    rax             # r11 = &aex[CSSA - 1]
@@ -135,7 +134,7 @@ mod _internal {
     push    r15
 
     cmp     rax,                    0               # If we are returning from a syscall...
-    jne     .Lsyscall                               # ... finish the job.
+    jne     {RET_FROM_SYSCALL}                      # ... finish the job.
 
     push    rsp                                     # Argument for event()
     push    r11                                     # Argument for event()
@@ -188,9 +187,28 @@ mod _internal {
 
     # Indicate ERESUME to VDSO handler
     mov     r11,                    {SYS_ENARX_ERESUME}
+    jmp     {EEXIT}
+    ",
+        RSPO = const RSPO,
+        SRSP = const SRSP,
+        STACK = const STACK,
+        SHIM = const SHIM,
+        SYS_ENARX_ERESUME = const SYS_ENARX_ERESUME,
+        XSAVE = sym XSAVE,
+        event = sym event,
+        DYN_RELOC = sym _dyn_reloc,
+        ENTRY = sym entry,
+        EEXIT = sym enclu_eexit,
+        RET_FROM_SYSCALL = sym ret_from_syscall,
+        options(noreturn)
+        )
+    }
 
+    #[no_mangle]
+    #[naked]
+    pub unsafe extern "sysv64" fn enclu_eexit() -> ! {
+        asm!("
     # ENCLU[EEXIT]
-.Leexit:
     # Load preserved registers (except rsp)
     pop     r15
     pop     r14
@@ -203,13 +221,23 @@ mod _internal {
     mov     rax,                    4
     enclu
 
+    jmp     {RET_FROM_SYSCALL}
+    ",
+        RET_FROM_SYSCALL = sym ret_from_syscall,
+        options(noreturn)
+        )
+    }
+
+    #[no_mangle]
+    #[naked]
+    pub unsafe extern "sysv64" fn ret_from_syscall() -> ! {
+        asm!("
 # rax = syscall return stack pointer
 # rbx = next non-enclave instruction
 # rcx = &TCS
 # r10 = untrusted stack pointer
 # r11 = &aex[CSSA - 1]
 # rsp = trusted stack pointer
-.Lsyscall:
     mov     QWORD PTR [r11 + {SRSP}], 0             # Clear syscall return stack pointer field
     mov     rsp,                    rax             # Restore the syscall return stack pointer
     mov     rax,                    rdi             # Correct syscall return value register
@@ -239,9 +267,15 @@ mod _internal {
     cld
 
     ret                                             # Jump to address on the stack
+    ",
+        SRSP = const SRSP,
+        options(noreturn)
+        )
+    }
 
-    .global syscall
-syscall:
+    #[naked]
+    pub unsafe extern "sysv64" fn syscall(aex: &mut StateSaveArea, ctx: &Context) -> u64 {
+        asm!("
     # int syscall(rdi = aex, rsi = ctx);
 
     # Save preserved registers (except rsp)
@@ -272,16 +306,11 @@ syscall:
 
     mov     rsp,                    rsi             # Get exit context
 
-    jmp     .Leexit
+    jmp     {EEXIT}
     ",
-        RSPO = const RSPO,
         SRSP = const SRSP,
-        STACK = const STACK,
-        SHIM = const SHIM,
-        SYS_ENARX_ERESUME = const SYS_ENARX_ERESUME,
         XSAVE = sym XSAVE,
-        event = sym event,
-        DYN_RELOC = sym _dyn_reloc,
+        EEXIT = sym enclu_eexit,
         options(noreturn)
         )
     }
