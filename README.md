@@ -30,7 +30,7 @@ data centres, Edge deployments - wherever you want.
 
 We aim to provide the difficult pieces between your application and the 
 hardware, giving you an audited, open source environment which is simple
-to use and provably as secure as it can be.
+to use and probably as secure as it can be.
 
 ## A more technical introduction
 Enarx is an application deployment system enabling applications
@@ -91,7 +91,7 @@ This project is licensed under the Apache 2.0 license - see the
 ## Sponsors
 
 Enarx would not be possible without the support of its sponsors. Many thanks to
-all who contribute to the long term succes of this project!
+all who contribute to the long term success of this project!
 
 ### Confidential Computing Consortium
 
