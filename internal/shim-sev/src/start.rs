@@ -164,17 +164,18 @@ pub unsafe extern "sysv64" fn _start() -> ! {
     mov     cr3,    rax
 
     // advance rip to kernel address space with {SHIM_VIRT_OFFSET}
+    xor     eax,    eax         // clear OF for adox
     lea     rax,    [rip + 6f]
     mov     rbx,    {SHIM_VIRT_OFFSET}
     adox    rax,    rbx
     jmp     rax
 
 6:
-    mov     r15,    {SHIM_VIRT_OFFSET}
+    xor     eax,    eax         // clear OF for adox
     //  add {SHIM_VIRT_OFFSET} to shim load offset
-    adox    rsi,    r15
+    adox    rsi,    rbx
     //  add {SHIM_VIRT_OFFSET} to address of SYSCALL_PAGE (boot_info)
-    adox    rdi,    r15
+    adox    rdi,    rbx
 
     // load stack in shim virtual address space
     lea     rsp,    [rip + {INITIAL_SHIM_STACK}]
