@@ -20,6 +20,15 @@ pub struct EncPhysOffset {
     pub c_bit_mask: u64,
 }
 
+impl Default for EncPhysOffset {
+    fn default() -> Self {
+        EncPhysOffset {
+            offset: VirtAddr::new(SHIM_VIRT_OFFSET as u64),
+            c_bit_mask: get_cbit_mask(),
+        }
+    }
+}
+
 unsafe impl PageTableFrameMapping for EncPhysOffset {
     fn frame_to_pointer(&self, frame: PhysFrame) -> *mut PageTable {
         let phys_start_address = frame.start_address().as_u64();
@@ -32,10 +41,7 @@ unsafe impl PageTableFrameMapping for EncPhysOffset {
 /// The global `MappedPageTable` of the shim for encrypted pages.
 pub static SHIM_PAGETABLE: Lazy<RwLock<MappedPageTable<'static, EncPhysOffset>>> =
     Lazy::new(|| {
-        let enc_phys_offset = EncPhysOffset {
-            offset: VirtAddr::new(SHIM_VIRT_OFFSET as u64),
-            c_bit_mask: get_cbit_mask(),
-        };
+        let enc_phys_offset = EncPhysOffset::default();
 
         let enc_offset_page_table = unsafe {
             let level_4_table_ptr = enc_phys_offset.frame_to_pointer(Cr3::read().0);
