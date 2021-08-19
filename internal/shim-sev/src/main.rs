@@ -176,37 +176,41 @@ unsafe fn stack_trace() {
 
     //Maximum 64 frames
     for _frame in 0..64 {
+        if rbp == 0
+            || active_table
+                .translate_addr(VirtAddr::new(rbp as _))
+                .is_none()
+        {
+            break;
+        }
+
         if let Some(rip_rbp) = rbp.checked_add(size_of::<usize>() as _) {
             if active_table
-                .translate_addr(VirtAddr::new(rbp as _))
-                .is_some()
-                && active_table
-                    .translate_addr(VirtAddr::new(rip_rbp as _))
-                    .is_some()
+                .translate_addr(VirtAddr::new(rip_rbp as _))
+                .is_none()
             {
-                let rip = *(rip_rbp as *const usize);
-                if let Some(rip) = rip.checked_sub(1) {
-                    if rip == 0 {
-                        break;
-                    }
+                break;
+            }
 
-                    if let Some(rip) = rip.checked_sub(shim_offset) {
-                        print::_eprint(format_args!("  0x{:>016x}\n", rip));
-                        rbp = *(rbp as *const usize);
-                    } else if PAYLOAD_READY.load(Ordering::Relaxed) {
-                        if let Some(rip) = rip.checked_sub(PAYLOAD_VIRT_ADDR.read().as_u64() as _) {
-                            print::_eprint(format_args!("P 0x{:>016x}\n", rip));
-                            rbp = *(rbp as *const usize);
-                        } else {
-                            break;
-                        }
-                    }
-                } else {
-                    // RIP zero
+            let rip = *(rip_rbp as *const usize);
+            if let Some(rip) = rip.checked_sub(1) {
+                if rip == 0 {
                     break;
                 }
+
+                if let Some(rip) = rip.checked_sub(shim_offset) {
+                    print::_eprint(format_args!("  0x{:>016x}\n", rip));
+                    rbp = *(rbp as *const usize);
+                } else if PAYLOAD_READY.load(Ordering::Relaxed) {
+                    if let Some(rip) = rip.checked_sub(PAYLOAD_VIRT_ADDR.read().as_u64() as _) {
+                        print::_eprint(format_args!("P 0x{:>016x}\n", rip));
+                        rbp = *(rbp as *const usize);
+                    } else {
+                        break;
+                    }
+                }
             } else {
-                // RBP NOT MAPPED
+                // RIP zero
                 break;
             }
         } else {
