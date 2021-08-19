@@ -20,6 +20,7 @@ pub const BYTES_1_GIB: u64 = bytes![1; GiB];
 use crate::get_cbit_mask;
 use crate::hostmap::HOSTMAP;
 use core::convert::TryFrom;
+use core::ops::Range;
 use nbytes::bytes;
 use primordial::{Address, Register};
 
@@ -154,11 +155,17 @@ impl<U> TryFrom<ShimVirtAddr<U>> for ShimPhysUnencryptedAddr<U> {
     fn try_from(value: ShimVirtAddr<U>) -> Result<Self, Self::Error> {
         #[allow(clippy::integer_arithmetic)]
         let value = value.0.raw();
-        let value = value.checked_sub(SHIM_VIRT_OFFSET).ok_or(())? & (!get_cbit_mask());
 
-        if value >= unsafe { &crate::_ENARX_SALLYPORT_END as *const _ as u64 } {
+        if !(Range {
+            start: unsafe { &crate::_ENARX_SALLYPORT_START as *const _ as u64 },
+            end: unsafe { &crate::_ENARX_SALLYPORT_END as *const _ as u64 },
+        })
+        .contains(&value)
+        {
             return Err(());
         }
+
+        let value = value.checked_sub(SHIM_VIRT_OFFSET).ok_or(())? & (!get_cbit_mask());
 
         Ok(Self(unsafe { Address::unchecked(value) }))
     }
