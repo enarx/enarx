@@ -3,14 +3,10 @@
 //! Functions needing `asm!` blocks
 
 use crate::addr::SHIM_VIRT_OFFSET;
-use crate::hostlib::MAX_SETUP_SIZE;
 use core::mem::size_of;
 use x86_64::instructions::tables::lidt;
 use x86_64::structures::DescriptorTablePointer;
 use x86_64::VirtAddr;
-
-#[allow(clippy::integer_arithmetic)]
-const SHIM_OFFSET: u64 = 1u64 + SHIM_VIRT_OFFSET + MAX_SETUP_SIZE as u64;
 
 /// Debug helper function for the early boot
 ///
@@ -67,7 +63,10 @@ pub unsafe fn _enarx_asm_triple_fault() -> ! {
     for ele in frames.iter_mut() {
         if let Some(rip_rbp) = rbp.checked_add(size_of::<usize>() as _) {
             let rip = *(rip_rbp as *const u64);
-            if let Some(rip) = rip.checked_sub(SHIM_OFFSET) {
+            if let Some(rip) = rip
+                .checked_sub(SHIM_VIRT_OFFSET)
+                .and_then(|v| v.checked_sub(1))
+            {
                 *ele = rip;
                 rbp = *(rbp as *const u64);
             } else {
