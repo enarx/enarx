@@ -1,7 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::backend::kvm::shim::{BootInfo, SevSecret};
-use crate::backend::kvm::Hv2GpFn;
 use crate::backend::kvm::{self, measure};
 
 use sev::firmware::Firmware;
@@ -12,9 +10,11 @@ use koine::attestation::sev::*;
 use kvm_ioctls::VmFd;
 use x86_64::{PhysAddr, VirtAddr};
 
+use crate::binary::{Component, PT_ENARX_PML4};
 use anyhow::{Context, Result};
 use std::convert::TryFrom;
 use std::os::unix::net::UnixStream;
+use x86_64::structures::paging::PageTable;
 
 pub struct Sev(UnixStream);
 
@@ -27,6 +27,64 @@ impl Sev {
 impl kvm::Hook for Sev {
     fn preferred_digest() -> measure::Kind {
         measure::Kind::Sha256
+    }
+
+    fn shim_loaded(
+        &mut self,
+        _vm: &mut VmFd,
+        addr_space: &mut [u8],
+        shim: &Component,
+    ) -> Result<()> {
+        // The initial page tables of the shim must be corrected
+        // with the current CPU's C-bit indicating encrypted memory.
+
+        // query the C-bit location via cpuid
+        use core::arch::x86_64::__cpuid_count;
+        let c_bit_loc = unsafe { __cpuid_count(0x8000_001f, 0x0000_0000) }.ebx;
+        let c_bit_loc = c_bit_loc & 0x3f;
+        let c_bit_mask = 1u64 << c_bit_loc;
+
+        // locate the page tables of the shim via the ELF program headers
+        let pml4 = shim
+            .find_header(PT_ENARX_PML4)
+            .ok_or_else(|| {
+                anyhow::anyhow!("Couldn't find PML4 program header in shim executable.")
+            })?
+            .vm_range()
+            .start;
+
+        let shim_start = shim.region().start;
+
+        let addr_space = addr_space.as_mut_ptr();
+        let host_pml4 = unsafe { addr_space.add(pml4 - shim_start) };
+
+        // The top level page table
+        let pagetable: &mut PageTable = unsafe { &mut *(host_pml4 as *mut PageTable) };
+
+        for entry in pagetable.iter_mut().filter(|x| !x.is_unused()) {
+            let host_addr = unsafe { addr_space.add(entry.addr().as_u64() as usize - shim_start) };
+
+            let pdpt_pagetable: &mut PageTable = unsafe { &mut *(host_addr as *mut PageTable) };
+
+            unsafe {
+                entry.set_addr(
+                    PhysAddr::new_unsafe(entry.addr().as_u64() | c_bit_mask),
+                    entry.flags(),
+                );
+            }
+
+            // Also correct the next level
+            for entry in pdpt_pagetable.iter_mut().filter(|x| !x.is_unused()) {
+                unsafe {
+                    entry.set_addr(
+                        PhysAddr::new_unsafe(entry.addr().as_u64() | c_bit_mask),
+                        entry.flags(),
+                    );
+                }
+            }
+        }
+
+        Ok(())
     }
 
     fn code_loaded(
@@ -76,8 +134,13 @@ impl kvm::Hook for Sev {
         };
 
         if let Some(secret) = secret {
-            let secret_ptr = SevSecret::get_secret_ptr(syscall_blocks.as_ptr::<BootInfo>());
-            launcher.inject(&secret, secret_ptr as _)?;
+            let secret_ptr = syscall_blocks.as_ptr::<u8>() as usize;
+            if secret_ptr & (16 - 1) != 0 {
+                return Err(anyhow::anyhow!(
+                    "sallyport blocks not aligned for sev secret"
+                ));
+            }
+            launcher.inject(&secret, secret_ptr)?;
         }
 
         let finish_packet = Message::Finish(Finish);
@@ -86,15 +149,5 @@ impl kvm::Hook for Sev {
         let _handle = launcher.finish()?;
 
         Ok(())
-    }
-
-    fn hv2gp(&self) -> Box<Hv2GpFn> {
-        use core::arch::x86_64::__cpuid_count;
-        let c_bit_loc = unsafe { __cpuid_count(0x8000_001f, 0x0000_0000) }.ebx;
-        let c_bit_loc = c_bit_loc & 0x3f;
-
-        Box::new(move |target, start| {
-            PhysAddr::new((target.as_u64() - start.as_u64()) | 1 << c_bit_loc)
-        })
     }
 }

@@ -2,17 +2,18 @@
 
 use super::{KvmSegment, Vm};
 
-use crate::backend::kvm::shim::{MemInfo, SYSCALL_TRIGGER_PORT};
 use crate::backend::kvm::vm::image::x86::X86;
 use crate::backend::kvm::vm::image::Arch;
 use crate::backend::{Command, Thread};
+use sallyport::syscall::enarx::MemInfo;
 use sallyport::syscall::{SYS_ENARX_BALLOON_MEMORY, SYS_ENARX_MEM_INFO};
+use sallyport::KVM_SYSCALL_TRIGGER_PORT;
 
 use super::personality::Personality;
 
 use anyhow::{anyhow, Result};
 use kvm_ioctls::{VcpuExit, VcpuFd};
-use primordial::Register;
+use primordial::{Address, Register};
 use sallyport::{Block, Reply};
 use x86_64::registers::control::{Cr0Flags, Cr4Flags};
 use x86_64::registers::model_specific::EferFlags;
@@ -89,7 +90,7 @@ impl<P: Personality> Thread for Cpu<X86, P> {
     fn enter(&mut self) -> Result<Command> {
         match self.fd.run()? {
             VcpuExit::IoOut(port, data) => match port {
-                SYSCALL_TRIGGER_PORT => {
+                KVM_SYSCALL_TRIGGER_PORT => {
                     let mut keep = self.keep.write().unwrap();
 
                     debug_assert_eq!(data.len(), 2);
@@ -123,8 +124,9 @@ impl<P: Personality> Thread for Cpu<X86, P> {
 
                         SYS_ENARX_MEM_INFO => {
                             let mem_slots = keep.kvm.get_nr_memslots();
-                            let virt_start =
-                                keep.regions.first().unwrap().as_virt().start.as_u64() as _;
+                            let virt_start = Address::from(
+                                keep.regions.first().unwrap().as_virt().start.as_ptr(),
+                            );
                             let mem_info: MemInfo = MemInfo {
                                 virt_start,
                                 mem_slots,
@@ -141,7 +143,7 @@ impl<P: Personality> Thread for Cpu<X86, P> {
                             Ok(Command::Continue)
                         }
 
-                        _ => unimplemented!(),
+                        x => Err(anyhow!("syscall {} not implemented", x)),
                     }
                 }
                 _ => Err(anyhow!("data from unexpected port: {}", port)),

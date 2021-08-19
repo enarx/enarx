@@ -5,15 +5,20 @@
 use crate::addr::{ShimPhysAddr, ShimVirtAddr};
 use crate::hostcall::HOST_CALL_ALLOC;
 use crate::hostmap::HOSTMAP;
+use crate::payload::NEXT_MMAP_RWLOCK;
 use crate::spin::RwLocked;
-use crate::{get_cbit_mask, BOOT_INFO, C_BIT_MASK};
+use crate::{get_cbit_mask, C_BIT_MASK};
 use core::alloc::{GlobalAlloc, Layout};
+use core::cmp::{max, min};
 use core::convert::TryFrom;
 use core::mem::{align_of, size_of};
 use core::ptr::NonNull;
 use core::sync::atomic::Ordering;
+use goblin::elf::header::header64::Header;
+use goblin::elf::header::ELFMAG;
+use goblin::elf::program_header::program_header64::*;
 use linked_list_allocator::Heap;
-use lset::Span;
+use lset::{Line, Span};
 use nbytes::bytes;
 use primordial::{Address, Page as Page4KiB};
 use spinning::Lazy;
@@ -22,7 +27,7 @@ use x86_64::structures::paging::mapper::{MapToError, UnmapError};
 use x86_64::structures::paging::{
     self, Mapper, Page, PageTableFlags, PhysFrame, Size1GiB, Size2MiB, Size4KiB,
 };
-use x86_64::{align_down, PhysAddr, VirtAddr};
+use x86_64::{align_down, align_up, PhysAddr, VirtAddr};
 
 /// An aligned 2MiB Page
 ///
@@ -98,8 +103,6 @@ pub enum AllocateError {
 
 impl EnarxAllocator {
     unsafe fn new() -> Self {
-        let boot_info = BOOT_INFO.read().unwrap();
-
         let meminfo = {
             let mut host_call = HOST_CALL_ALLOC.try_alloc().unwrap();
             host_call.mem_info().unwrap()
@@ -139,23 +142,81 @@ impl EnarxAllocator {
         let next_alloc = (2usize).checked_pow(MIN_EXP).unwrap();
         let max_alloc = (2usize).checked_pow(max_exp).unwrap();
 
+        let mem_start = {
+            let address = Address::<u64, Page4KiB>::from(&crate::_ENARX_MEM_START);
+            let shim_virt = ShimVirtAddr::try_from(address).unwrap();
+            ShimPhysAddr::try_from(shim_virt).unwrap().raw().raw()
+        };
+
+        let mem_size = {
+            let code_start = &crate::_ENARX_CODE_START;
+
+            let app_load_addr = Address::<u64, Header>::from(code_start);
+            let app_load_addr_virt = ShimVirtAddr::try_from(app_load_addr).unwrap();
+
+            let header_ptr: *const Header = app_load_addr_virt.into();
+            let header: &Header = &*header_ptr;
+
+            if !header.e_ident[..ELFMAG.len()].eq(ELFMAG) {
+                panic!("Not valid ELF");
+            }
+
+            let headers: &[ProgramHeader] = core::slice::from_raw_parts(
+                (header_ptr as usize as *const u8).offset(header.e_phoff as _)
+                    as *const ProgramHeader,
+                header.e_phnum as _,
+            );
+
+            let region = Span::from(
+                headers
+                    .iter()
+                    .filter(|ph| ph.p_type == PT_LOAD)
+                    .map(|x| {
+                        Line::from(
+                            x.p_vaddr as usize
+                                ..(x.p_vaddr as usize)
+                                    .checked_add(x.p_memsz as usize)
+                                    .unwrap(),
+                        )
+                    })
+                    .fold(
+                        Line {
+                            start: usize::MAX,
+                            end: usize::MIN,
+                        },
+                        |l, r| Line::from(min(l.start, r.start)..max(l.end, r.end)),
+                    ),
+            );
+
+            assert!(
+                (&crate::_ENARX_CODE_END as *const _ as usize)
+                    .checked_sub(&crate::_ENARX_CODE_START as *const _ as usize)
+                    .unwrap()
+                    > region.count
+            );
+
+            align_up(
+                (&crate::_ENARX_CODE_START as *const _ as u64)
+                    .checked_sub(&crate::_ENARX_MEM_START as *const _ as u64)
+                    .unwrap()
+                    .checked_add(region.count as u64)
+                    .unwrap(),
+                Page4KiB::size() as u64,
+            ) as usize
+        };
+
         HOSTMAP.first_entry(
-            0,
+            mem_start as _,
             Span {
-                start: meminfo.virt_start,
-                count: boot_info.mem_size,
+                start: meminfo.virt_start.raw(),
+                count: mem_size,
             },
         );
 
-        debug_assert_ne!(boot_info.mem_size, 0);
+        *NEXT_MMAP_RWLOCK.write() = VirtAddr::new(mem_start.checked_add(mem_size as u64).unwrap())
+            .align_up(Page::<Size4KiB>::SIZE);
 
-        let free_start_phys = Address::<usize, _>::from(boot_info.code.end as *const u8);
-        let shim_phys_page = ShimPhysAddr::from(free_start_phys);
-        let free_start: *mut u8 = ShimVirtAddr::from(shim_phys_page).into();
-
-        let heap_size = boot_info.mem_size.checked_sub(boot_info.code.end).unwrap();
-
-        let allocator = Heap::new(free_start as _, heap_size);
+        let allocator = Heap::empty();
 
         EnarxAllocator {
             next_alloc,

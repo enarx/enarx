@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 mod builder;
-pub mod shim;
 mod vm;
 
 pub const SHIM: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/bin/shim-sev"));
@@ -9,7 +8,7 @@ pub const SHIM: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/bin/shim-sev")
 pub use vm::{
     measure::{self, Measurement},
     personality::Personality,
-    Arch, Builder, Hook, Hv2GpFn, Vm, X86,
+    Arch, Builder, Hook, Vm, X86,
 };
 
 use crate::backend::{self, Datum, Keep};
@@ -62,7 +61,7 @@ impl backend::Backend for Backend {
 
         let vm = Builder::new(shim, code, builder::Kvm)
             .build::<X86, ()>()?
-            .vm();
+            .vm()?;
 
         Ok(Arc::new(RwLock::new(vm)))
     }
@@ -72,7 +71,7 @@ impl backend::Backend for Backend {
 
         let digest = Builder::new(shim, code, builder::Kvm)
             .build::<X86, ()>()?
-            .measurement();
+            .measurement()?;
 
         let json = format!(
             r#"{{ "backend": "kvm", "{}": {:?} }}"#,

@@ -19,6 +19,10 @@ impl Region {
         }
     }
 
+    pub fn backing(&mut self) -> &mut Map<perms::ReadWrite> {
+        &mut self._backing
+    }
+
     pub fn as_guest(&self) -> Span<PhysAddr, u64> {
         Span {
             start: PhysAddr::new(self.kvm_region.guest_phys_addr),

@@ -1,0 +1,117 @@
+/* SPDX-License-Identifier: Apache-2.0 */
+
+ENTRY(_start)
+EXTERN(__SALLYPORT_ABI_)
+
+PHDRS {
+    sallyport    PT_LOAD;
+
+    PML3         PT_LOAD;
+    PML4         PT_LOAD;
+
+    boot_text    PT_LOAD;
+    boot_data    PT_LOAD;
+
+    text         PT_LOAD;
+    rodata       PT_LOAD;
+    data         PT_LOAD;
+
+    dynamic      PT_DYNAMIC;
+
+    PT_ENARX_SALLYPORT  0x634A0001 FLAGS(0x0ff00000);
+    PT_ENARX_PML4       0x634A0002 FLAGS(0x0ff00000);
+    PT_ENARX_CODE       0x634A0003 FLAGS(0x0ff00000);
+}
+
+/* Configure this to a reasonable size
+   Current block size is 69632, which gives a maximum count of 15420
+   for the 3GB - 4GB range.
+*/
+_ENARX_SALLYPORT_BLOCK_COUNT = 2;
+_ENARX_SALLYPORT_BLOCK_SIZE = 69632;
+
+_ENARX_SALLYPORT_SIZE = ALIGN(_ENARX_SALLYPORT_BLOCK_COUNT * _ENARX_SALLYPORT_BLOCK_SIZE, CONSTANT(COMMONPAGESIZE));
+
+ASSERT((_ENARX_SALLYPORT_SIZE <  (0x40000000 - 2 * CONSTANT(COMMONPAGESIZE))), "_ENARX_SALLYPORT_SIZE too big")
+
+reset_vector = 0xFFFFF000;
+_ENARX_SHIM_START = reset_vector + CONSTANT(COMMONPAGESIZE);
+_ENARX_SALLYPORT_START = _ENARX_SHIM_START - _ENARX_SALLYPORT_SIZE - 2 * CONSTANT(COMMONPAGESIZE);
+_ENARX_SALLYPORT_END = _ENARX_SALLYPORT_START + _ENARX_SALLYPORT_SIZE;
+_ENARX_CODE_LEN = 4M;
+
+ASSERT((_ENARX_SHIM_START >= (4 * 0x40000000)), "SHIM_START is too low for current initial identity page table")
+ASSERT((_ENARX_CODE_START < (6 * 0x40000000)), "SHIM is too large for current initial identity page table")
+
+SECTIONS {
+    . = _ENARX_SALLYPORT_START;
+    _ENARX_MEM_START = ABSOLUTE(.);
+
+    .sallyport : ALIGN(CONSTANT(COMMONPAGESIZE)) {
+        FILL(0);
+        . = _ENARX_SALLYPORT_SIZE;
+    } :sallyport :PT_ENARX_SALLYPORT
+
+    .pml3 : ALIGN(CONSTANT(COMMONPAGESIZE)) {
+        PROVIDE_HIDDEN(pml3t_ident = ABSOLUTE(.));
+        QUAD(0);
+        QUAD(0);
+        QUAD(0);
+        QUAD(0);
+        QUAD(4 * 0x40000000 + 0x83); /* Flags::HUGE_PAGE | Flags::WRITABLE | Flags::PRESENT */
+        QUAD(5 * 0x40000000 + 0x83); /* Flags::HUGE_PAGE | Flags::WRITABLE | Flags::PRESENT */
+        FILL(0);
+        . = CONSTANT(COMMONPAGESIZE);
+    } :PML3
+
+    .pml4 : ALIGN(CONSTANT(COMMONPAGESIZE)) {
+        QUAD(pml3t_ident + 0x3); /* Flags::WRITABLE | Flags::PRESENT */
+        FILL(0);
+        . = CONSTANT(COMMONPAGESIZE);
+    } :PML4 :PT_ENARX_PML4
+
+    . = _ENARX_SHIM_START;
+
+    .boot_text   : { KEEP(*(.ram64)) KEEP(*(.entry64)) } :boot_text
+    .rcrt1_text  : { rcrt1*.text rcrt1*.text.* } :boot_text
+
+    . = ALIGN(CONSTANT(COMMONPAGESIZE));
+    .dynamic            : { *(.dynamic) } :boot_data :dynamic
+    .boot_data          : { KEEP(*(.entry64_data)) rcrt1*.data rcrt1*.data.* } :boot_data
+    .data.rel.ro        : { *(.data.rel.ro .data.rel.ro.*) } :boot_data
+    .got                : { *(.got) } :boot_data
+
+    . = ALIGN(CONSTANT(COMMONPAGESIZE));
+    .init               : { KEEP (*(SORT_NONE(.init))) } :text
+    .text               : { *(.text .text.*) } :text
+    .rela.dyn           : { *(.rela.*) } :text
+
+    . = ALIGN(CONSTANT(COMMONPAGESIZE));
+    .rodata             : { *(.rodata .rodata.*) } :rodata
+    .dynsym             : { *(.dynsym) } :rodata
+    .dynstr             : { *(.dynstr) } :rodata
+    .gnu.hash           : { *(.gnu.hash) } :rodata
+
+    . = ALIGN(CONSTANT(COMMONPAGESIZE));
+    .data               : { *(.data .data.*) } :data
+    .bss                : { *(.bss .bss.*) } :data
+
+    .code : ALIGN(CONSTANT(COMMONPAGESIZE)) {
+        _ENARX_CODE_START = ABSOLUTE(.);
+        FILL(0);
+        . += _ENARX_CODE_LEN;
+    } :PT_ENARX_CODE
+    _ENARX_CODE_END = .;
+
+    /DISCARD/ : {
+      *(.eh_frame*)
+      *(.note.GNU-stack)
+      *(.gnu_debuglink)
+      *(.interp)
+      *(.gnu.hash)
+      *(.hash)
+      *(.comment)
+      *(COMMON)
+      *(.note.gnu.build-id)
+    }
+}

@@ -5,11 +5,10 @@
 use crate::addr::{HostVirtAddr, ShimPhysUnencryptedAddr};
 use crate::allocator::ALLOCATOR;
 use crate::asm::_enarx_asm_triple_fault;
-use crate::attestation::SEV_SECRET;
 use crate::hostcall::{HostCall, HOST_CALL_ALLOC};
 use crate::paging::SHIM_PAGETABLE;
 use crate::payload::{NEXT_BRK_RWLOCK, NEXT_MMAP_RWLOCK};
-use crate::{eprintln, C_BIT_MASK};
+use crate::{eprintln, C_BIT_MASK, SEV_SECRET};
 use core::convert::TryFrom;
 use core::mem::size_of;
 use core::ops::{Deref, DerefMut};
@@ -229,17 +228,15 @@ impl EnarxSyscallHandler for Handler {
     ) -> sallyport::Result {
         self.trace("get_attestation", 4);
 
-        let secret = SEV_SECRET.read();
-
+        let secret = &SEV_SECRET.read().unwrap();
         match secret.try_len() {
             Some(mut result_len) => {
                 if buf_len != 0 {
                     result_len = result_len.min(buf_len);
                     let buf = buf.validate_slice(buf_len, self).ok_or(libc::EFAULT)?;
 
-                    buf[..result_len].copy_from_slice(
-                        &(SEV_SECRET.read()).try_as_slice().unwrap()[..result_len],
-                    );
+                    buf[..result_len]
+                        .copy_from_slice(&secret.try_as_slice().unwrap()[..result_len]);
                 }
 
                 Ok([result_len.into(), SEV_TECH.into()])

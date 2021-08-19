@@ -7,8 +7,9 @@ use crate::paging::SHIM_PAGETABLE;
 use crate::random::random;
 use crate::shim_stack::init_stack_with_guard;
 use crate::usermode::usermode;
-use crate::{BOOT_INFO, PAYLOAD_READY};
+use crate::{get_cbit_mask, PAYLOAD_READY};
 
+use core::convert::TryFrom;
 use core::ops::DerefMut;
 use core::sync::atomic::Ordering;
 use crt0stack::{self, Builder, Entry};
@@ -51,28 +52,15 @@ pub static NEXT_BRK_RWLOCK: Lazy<RwLock<VirtAddr>> = Lazy::new(|| {
 });
 
 /// The global NextMMap RwLock
-pub static NEXT_MMAP_RWLOCK: Lazy<RwLock<VirtAddr>> = Lazy::new(|| {
-    let boot_info = BOOT_INFO.read().unwrap();
-    let start = boot_info.code.start;
-    let end = boot_info.code.end;
-    let code_len = end.checked_sub(start).unwrap();
-
-    let mmap_start = *PAYLOAD_VIRT_ADDR.read() + code_len;
-    let mmap_start = mmap_start.align_up(Page::<Size4KiB>::SIZE);
-
-    RwLock::<VirtAddr>::const_new(spinning::RawRwLock::const_new(), mmap_start)
-});
+pub static NEXT_MMAP_RWLOCK: Lazy<RwLock<VirtAddr>> =
+    Lazy::new(|| RwLock::<VirtAddr>::const_new(spinning::RawRwLock::const_new(), VirtAddr::new(0)));
 
 /// load the elf binary
 fn map_elf(app_virt_start: VirtAddr) -> &'static Header {
-    let (code_start, code_end) = {
-        let boot_info = BOOT_INFO.read().unwrap();
-        (boot_info.code.start, boot_info.code.end)
-    };
+    let code_start = unsafe { &crate::_ENARX_CODE_START };
 
-    let app_load_addr = Address::<usize, Header>::from(code_start as *const Header);
-    let app_load_addr_phys = ShimPhysAddr::<Header>::from(app_load_addr);
-    let app_load_addr_virt = ShimVirtAddr::from(app_load_addr_phys);
+    let app_load_addr = Address::<u64, Header>::from(code_start);
+    let app_load_addr_virt = ShimVirtAddr::try_from(app_load_addr).unwrap();
 
     let header_ptr: *const Header = app_load_addr_virt.into();
     let header: &Header = unsafe { &*header_ptr };
@@ -90,17 +78,19 @@ fn map_elf(app_virt_start: VirtAddr) -> &'static Header {
     };
 
     // Convert to shim physical addresses with potential SEV C-Bit set
-    let code_start_addr = Address::<usize, u8>::from(code_start as *const u8);
-    let code_start_phys = ShimPhysAddr::from(code_start_addr).raw().raw();
-    let code_end_addr = Address::<usize, u8>::from(code_end as *const u8);
-    let code_end_phys = ShimPhysAddr::from(code_end_addr).raw().raw();
+    let code_start_addr_virt = ShimVirtAddr::try_from(app_load_addr).unwrap();
+
+    let code_start_phys = ShimPhysAddr::try_from(code_start_addr_virt)
+        .unwrap()
+        .raw()
+        .raw()
+        | get_cbit_mask();
 
     for ph in headers
         .iter()
         .filter(|ph| ph.p_type == PT_LOAD && ph.p_memsz > 0)
     {
         let map_from = PhysAddr::new(code_start_phys.checked_add(ph.p_paddr).unwrap());
-        debug_assert!(map_from.as_u64() < code_end_phys);
 
         let map_to = app_virt_start + ph.p_vaddr;
 

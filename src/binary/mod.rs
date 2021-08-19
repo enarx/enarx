@@ -2,5 +2,4 @@
 
 mod component;
 
-pub use component::Component;
-pub use component::ComponentType;
+pub use component::*;

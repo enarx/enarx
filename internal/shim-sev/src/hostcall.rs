@@ -2,15 +2,16 @@
 
 //! Host <-> Shim Communication
 
-use crate::addr::{HostVirtAddr, ShimPhysUnencryptedAddr};
+use crate::addr::{HostVirtAddr, ShimPhysUnencryptedAddr, ShimVirtAddr};
 use crate::asm::_enarx_asm_triple_fault;
-use crate::hostlib::{MemInfo, SYSCALL_TRIGGER_PORT};
 use crate::spin::RwLocked;
-use crate::{BOOT_INFO, SHIM_HOSTCALL_PHYS_ADDR};
 use array_const_fn_init::array_const_fn_init;
 use core::convert::TryFrom;
+use core::mem::size_of;
 use primordial::{Address, Register};
+use sallyport::syscall::enarx::MemInfo;
 use sallyport::syscall::{SYS_ENARX_BALLOON_MEMORY, SYS_ENARX_MEM_INFO};
+use sallyport::KVM_SYSCALL_TRIGGER_PORT;
 use sallyport::{request, Block};
 use spinning::Lazy;
 use x86_64::instructions::port::Port;
@@ -52,11 +53,30 @@ fn return_empty_option(_i: usize) -> Option<&'static mut Block> {
 
 /// The static HostCall Mutex
 pub static HOST_CALL_ALLOC: Lazy<RwLocked<HostCallAllocator>> = Lazy::new(|| {
-    let block_mut = SHIM_HOSTCALL_PHYS_ADDR.read().unwrap() as *mut Block;
+    let block_mut: *mut Block = unsafe {
+        let address =
+            Address::<u64, Block>::from(&crate::_ENARX_SALLYPORT_START as *const _ as *const Block);
+        let shim_virt = ShimVirtAddr::<Block>::try_from(address).unwrap();
+
+        ShimPhysUnencryptedAddr::<Block>::try_from(shim_virt)
+            .unwrap()
+            .into_mut() as *mut _
+    };
+
+    let nr_syscall_blocks = unsafe {
+        (&crate::_ENARX_SALLYPORT_END as *const _ as usize
+            - &crate::_ENARX_SALLYPORT_START as *const _ as usize)
+            / size_of::<Block>()
+    };
+
+    assert!(nr_syscall_blocks <= 512);
+
     let mut hostcall_allocator = HostCallAllocator(array_const_fn_init![return_empty_option; 512]);
-    for i in 0..BOOT_INFO.read().unwrap().nr_syscall_blocks {
+
+    for i in 0..nr_syscall_blocks {
         (hostcall_allocator.0)[i].replace(unsafe { &mut *block_mut.add(i) });
     }
+
     RwLocked::<HostCallAllocator>::new(hostcall_allocator)
 });
 
@@ -101,7 +121,7 @@ impl HostCall {
     /// The parameters returned can't be trusted.
     #[inline(always)]
     pub unsafe fn hostcall(&mut self) -> sallyport::Result {
-        let mut port = Port::<u16>::new(SYSCALL_TRIGGER_PORT);
+        let mut port = Port::<u16>::new(KVM_SYSCALL_TRIGGER_PORT);
 
         // prevent earlier writes from being moved beyond this point
         core::sync::atomic::compiler_fence(core::sync::atomic::Ordering::Release);

@@ -1,42 +1,32 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use super::*;
-use crate::backend::kvm::shim::BootInfo;
-use crate::binary::Component;
+use crate::binary::{Component, PT_ENARX_CODE, PT_ENARX_SALLYPORT};
 
 use personality::Personality;
 
 use anyhow::Result;
 use kvm_ioctls::{Kvm, VmFd};
-use lset::{Line, Span};
+use lset::Span;
 use mmarinus::{perms, Kind, Map};
 use openssl::hash::Hasher;
-use sallyport::Block;
-use x86_64::{align_up, PhysAddr, VirtAddr};
+use x86_64::{align_up, VirtAddr};
 
 use goblin::elf::program_header::PT_LOAD;
+use sallyport::Block;
 use std::mem::size_of;
-
-fn num_syscall_blocks<A: image::Arch>() -> usize {
-    (MAX_SETUP_SIZE - size_of::<A>()) / size_of::<Block>()
-}
-
-/// A functor type that receives a target address as its first input,
-/// a base/memory region starting address as its second input, and it
-/// returns the guest physical address that corresponds to the target
-/// address.
-///
-/// Implementors may choose to override this so that they can enable
-/// certain bits in the resulting physical address (i.e., SEV memory
-/// encryption).
-pub type Hv2GpFn = dyn Fn(VirtAddr, VirtAddr) -> PhysAddr;
 
 pub trait Hook {
     fn preferred_digest() -> measure::Kind {
         measure::Kind::Null
     }
 
-    fn shim_loaded(&mut self, _vm: &mut VmFd, _addr_space: &[u8]) -> Result<()> {
+    fn shim_loaded(
+        &mut self,
+        _vm: &mut VmFd,
+        _addr_space: &mut [u8],
+        _shim: &Component,
+    ) -> Result<()> {
         Ok(())
     }
 
@@ -48,10 +38,6 @@ pub trait Hook {
     ) -> Result<()> {
         Ok(())
     }
-
-    fn hv2gp(&self) -> Box<Hv2GpFn> {
-        Box::new(|target, start| PhysAddr::new(target.as_u64() - start.as_u64()))
-    }
 }
 
 pub struct Builder<'a, T: Hook> {
@@ -60,9 +46,9 @@ pub struct Builder<'a, T: Hook> {
     code: Component<'a>,
 }
 
-pub struct Built<A: image::Arch, P: Personality> {
+pub struct Built<A: image::Arch, P: Personality, T: Hook> {
+    hook: T,
     vm: Vm<A, P>,
-    msr: measure::Measurement,
 }
 
 impl<'a, T: Hook> Builder<'a, T> {
@@ -82,61 +68,54 @@ impl<'a, T: Hook> Builder<'a, T> {
         }
     }
 
-    pub fn build<A: image::Arch, P: Personality>(mut self) -> Result<Built<A, P>> {
+    pub fn build<A: image::Arch, P: Personality>(mut self) -> Result<Built<A, P, T>> {
         let kvm = Kvm::new()?;
         let mut fd = kvm.create_vm()?;
 
-        let mut boot_info = Self::calculate_setup_region::<A>(
-            self.shim.region().into(),
-            self.code.region().into(),
-        )?;
+        let mem_size = align_up(
+            (Span::from(self.shim.region()).count) as _,
+            size_of::<Page>() as _,
+        ) as usize
+            + align_up(
+                (Span::from(self.code.region()).count) as _,
+                size_of::<Page>() as _,
+            ) as usize;
 
-        let mem_size = align_up(boot_info.mem_size as _, size_of::<Page>() as _);
-        // fill out remaining fields of `BootInfo`
-        boot_info.nr_syscall_blocks = num_syscall_blocks::<A>();
-        boot_info.mem_size = mem_size as _;
+        let shim_start = self.shim.region().start;
 
-        let (map, region) = Self::allocate_address_space(mem_size as _)?;
+        let (mut map, region) = Self::allocate_address_space(shim_start as _, mem_size as _)?;
+
         unsafe { fd.set_user_memory_region(region)? };
 
-        self.load_component(
-            VirtAddr::new(map.addr() as _) + boot_info.shim.start,
-            &self.shim,
+        let sallyport_range = Span::from(
+            self.shim
+                .find_header(PT_ENARX_SALLYPORT)
+                .ok_or_else(|| {
+                    anyhow::anyhow!("Couldn't find SALLYPORT program header in shim executable.")
+                })?
+                .vm_range(),
         );
+
+        let code_range = Span::from(
+            self.shim
+                .find_header(PT_ENARX_CODE)
+                .ok_or_else(|| {
+                    anyhow::anyhow!("Couldn't find CODE program header in shim executable.")
+                })?
+                .vm_range(),
+        );
+
+        self.load_component(VirtAddr::new(map.addr() as _) - shim_start, &self.shim);
+        self.hook.shim_loaded(&mut fd, map.as_mut(), &self.shim)?;
+
         self.load_component(
-            VirtAddr::new(map.addr() as _) + boot_info.code.start,
+            VirtAddr::new(map.addr() as _) - shim_start + code_range.start,
             &self.code,
         );
-        let initial_state = unsafe { &mut *(map.addr() as *mut () as *mut image::Image<A>) };
-        initial_state.commit(&map, &boot_info, &self.hook);
 
-        let shim_start = boot_info.shim.start;
-        let shim_entry = PhysAddr::new(self.shim.elf.entry + shim_start as u64);
-        self.hook.shim_loaded(&mut fd, &map)?;
-
-        let msr = {
-            let mut hasher = Hasher::new(T::preferred_digest().into())?;
-            let address_space =
-                unsafe { std::slice::from_raw_parts(map.addr() as *const u8, map.size()) };
-            hasher.update(address_space)?;
-            let digest_bytes = hasher.finish()?;
-
-            measure::Measurement {
-                kind: T::preferred_digest(),
-                digest: digest_bytes,
-            }
-        };
-
-        // Be sure to perform any measurements before this hook is called! At
-        // least in the case of SEV, the address space will be encrypted during
-        // that hook, which means you'll be taking a different measurement!
-        self.hook
-            .code_loaded(&mut fd, &map, initial_state.syscall_region_start())?;
-
-        let arch = VirtAddr::from_ptr(&initial_state.arch as *const A);
         let syscall_blocks = Span {
-            start: initial_state.syscall_region_start(),
-            count: NonZeroUsize::new(boot_info.nr_syscall_blocks).unwrap(),
+            start: VirtAddr::new(sallyport_range.start as _) - shim_start + map.addr(),
+            count: NonZeroUsize::new(sallyport_range.count / size_of::<Block>()).unwrap(),
         };
 
         let vm = Vm {
@@ -144,33 +123,18 @@ impl<'a, T: Hook> Builder<'a, T> {
             fd,
             regions: vec![Region::new(region, map)],
             syscall_blocks,
-            hv2gp: self.hook.hv2gp(),
-            shim_entry,
-            shim_start: PhysAddr::new(shim_start as _),
-            arch,
-            _phantom: PhantomData,
+            arch: A::new(&self.shim),
             _personality: PhantomData,
         };
 
-        Ok(Built { vm, msr })
-    }
-
-    fn calculate_setup_region<A: image::Arch>(
-        shim_size: Span<usize>,
-        code_size: Span<usize>,
-    ) -> Result<BootInfo> {
-        let setup_size = Line {
-            start: 0,
-            end: size_of::<image::Image<A>>() + num_syscall_blocks::<A>(),
-        };
-
-        let boot_info = BootInfo::calculate(setup_size, shim_size, code_size)
-            .map_err(|_| std::io::Error::from_raw_os_error(libc::ENOMEM))?;
-
-        Ok(boot_info)
+        Ok(Built {
+            vm,
+            hook: self.hook,
+        })
     }
 
     fn allocate_address_space(
+        guest_phys_addr: u64,
         mem_size: usize,
     ) -> Result<(Map<perms::ReadWrite>, KvmUserspaceMemoryRegion)> {
         let map = Map::map(mem_size)
@@ -181,7 +145,7 @@ impl<'a, T: Hook> Builder<'a, T> {
         let region = KvmUserspaceMemoryRegion {
             slot: 0,
             flags: 0,
-            guest_phys_addr: 0,
+            guest_phys_addr,
             memory_size: mem_size as _,
             userspace_addr: map.addr() as _,
         };
@@ -192,12 +156,27 @@ impl<'a, T: Hook> Builder<'a, T> {
     }
 }
 
-impl<A: image::Arch, P: Personality> Built<A, P> {
-    pub fn measurement(&self) -> measure::Measurement {
-        self.msr
+impl<A: image::Arch, P: Personality, T: Hook> Built<A, P, T> {
+    pub fn measurement(&mut self) -> Result<measure::Measurement> {
+        let mut hasher = Hasher::new(T::preferred_digest().into())?;
+        let address_space = self.vm.regions[0].backing();
+
+        hasher.update(address_space)?;
+        let digest_bytes = hasher.finish()?;
+
+        Ok(measure::Measurement {
+            kind: T::preferred_digest(),
+            digest: digest_bytes,
+        })
     }
 
-    pub fn vm(self) -> Vm<A, P> {
-        self.vm
+    pub fn vm(mut self) -> Result<Vm<A, P>> {
+        self.hook.code_loaded(
+            &mut self.vm.fd,
+            self.vm.regions[0].backing(),
+            self.vm.syscall_blocks.start,
+        )?;
+
+        Ok(self.vm)
     }
 }

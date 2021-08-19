@@ -252,7 +252,7 @@ impl backend::Backend for Backend {
 
         let vm = Builder::new(shim, code, builder::Sev::new(sock))
             .build::<X86, personality::Sev>()?
-            .vm();
+            .vm()?;
 
         Ok(Arc::new(RwLock::new(vm)))
     }
@@ -263,7 +263,7 @@ impl backend::Backend for Backend {
 
         let digest = Builder::new(shim, code, builder::Sev::new(sock))
             .build::<X86, ()>()?
-            .measurement();
+            .measurement()?;
 
         let json = format!(
             r#"{{ "backend": "sev", "{}": {:?} }}"#,

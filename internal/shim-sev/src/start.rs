@@ -15,6 +15,7 @@ const INITIAL_STACK_PAGES: usize = 12;
 const INITIAL_STACK_PAGES: usize = 50;
 
 #[no_mangle]
+#[link_section = ".entry64_data"]
 static INITIAL_SHIM_STACK: [Page; INITIAL_STACK_PAGES] = [Page::zeroed(); INITIAL_STACK_PAGES];
 use crate::_start_main;
 
@@ -22,13 +23,10 @@ use crate::_start_main;
 ///
 /// It sets up essential registers, page tables and jumps in shim virtual address space
 /// to the `_start_main` rust function.
-///
-/// Arguments expected from the hypervisor:
-/// * %rdi  = address of SYSCALL_PAGE (boot_info)
-/// * %rsi  = shim load offset
 #[allow(clippy::integer_arithmetic)]
 #[no_mangle]
 #[naked]
+#[link_section = ".entry64"]
 pub unsafe extern "sysv64" fn _start() -> ! {
     asm!(
         "
@@ -90,7 +88,6 @@ pub unsafe extern "sysv64" fn _start() -> ! {
     or      eax,    0x80000021
     mov     cr0,    rax
 
-
     // setup EFER
     // EFER |= LONG_MODE_ACTIVE | LONG_MODE_ENABLE | NO_EXECUTE_ENABLE | SYSTEM_CALL_EXTENSIONS
     // FIXME: what about already set bits?
@@ -136,23 +133,24 @@ pub unsafe extern "sysv64" fn _start() -> ! {
     or      rcx,    r12         // set C-bit
     or      rcx,    0x3         // ( WRITABLE | PRESENT)
     // store PDT_OFFSET table in PDPT_OFFSET in the correct slot
-    // 0x0 - 0x4000_0000
-    mov     QWORD PTR [rbx],    rcx
+    // 3: 0xc000_0000 - 0x1_0000_0000
+    mov     QWORD PTR [rbx + 3*8],    rcx
 
-    // set C-bit for the first 3 entries in the PDT_IDENT table
+    // set C-bit in the PDT_IDENT table
     lea     rcx,    [rip + {PDT_IDENT}]
     mov     rdx,    r11
-    or      DWORD PTR [rcx + (0*8 + 4)],    edx
-    or      DWORD PTR [rcx + (1*8 + 4)],    edx
-    or      DWORD PTR [rcx + (2*8 + 4)],    edx
+    or      DWORD PTR [rcx + (511*8 + 4)],    edx
 
-    // setup PDPT_IDENT table entry 0 with PDT_IDENT table
+    // setup PDPT_IDENT table entry 3 with PDT_IDENT table
     lea     rbx,    [rip + {PDPT_IDENT}]
     or      rcx,    r12         // set C-bit
     or      rcx,    0x3         // ( WRITABLE | PRESENT)
     // store PDT_IDENT table in PDPT_IDENT in the correct slot
-    // 0x0 - 0x4000_0000
-    mov     QWORD PTR [rbx],    rcx
+    mov     QWORD PTR [rbx + 8*3],    rcx
+
+    mov     rcx,    (0x40000000*4 + 0x83)
+    or      rcx,    r12         // set C-bit
+    mov     QWORD PTR [rbx + 8*4],    rcx
 
     // setup PDPT_IDENT in PML4T table
     or      rbx,    r12         // set C-bit
@@ -166,43 +164,29 @@ pub unsafe extern "sysv64" fn _start() -> ! {
     // advance rip to kernel address space with {SHIM_VIRT_OFFSET}
     xor     eax,    eax         // clear OF for adox
     lea     rax,    [rip + 6f]
-    mov     rbx,    {SHIM_VIRT_OFFSET}
-    adox    rax,    rbx
+    mov     rsi,    {SHIM_VIRT_OFFSET}
+    adox    rax,    rsi
     jmp     rax
 
 6:
-    xor     eax,    eax         // clear OF for adox
-    //  add {SHIM_VIRT_OFFSET} to shim load offset
-    adox    rsi,    rbx
-    //  add {SHIM_VIRT_OFFSET} to address of SYSCALL_PAGE (boot_info)
-    adox    rdi,    rbx
-
     // load stack in shim virtual address space
     lea     rsp,    [rip + {INITIAL_SHIM_STACK}]
     // sub 8 because we push 8 bytes later and want 16 bytes align
     add     rsp,    {SIZE_OF_INITIAL_STACK}
 
-    // save arg1
-    push    rdi
-
     .hidden _DYNAMIC
     lea     rdi,    [rip + _DYNAMIC]
     // %rdi - _DYNAMIC + {SHIM_VIRT_OFFSET}
-    // %rsi - shim load offset + {SHIM_VIRT_OFFSET}
+    // %rsi - {SHIM_VIRT_OFFSET}
     // correct dynamic symbols with shim load offset + {SHIM_VIRT_OFFSET}
     .hidden {DYN_RELOC}
     call    {DYN_RELOC}
 
-    // restore arg1
-    pop     rdi
-
-    // set arg2 to SEV C-Bit mask
-    mov     rsi,    r12
+    // set arg1 to SEV C-Bit mask
+    mov     rdi,    r12
     xor     rbp,    rbp
 
-    // call _start_main
-    // arg1 %rdi  = address of SYSCALL_PAGE (boot_info)
-    // arg2 %rsi  = SEV C-bit mask
+    // arg1 %rdi  = SEV C-bit mask
     call    {START_MAIN}
     ",
     SHIM_VIRT_OFFSET = const SHIM_VIRT_OFFSET,

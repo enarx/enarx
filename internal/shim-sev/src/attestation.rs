@@ -2,28 +2,31 @@
 
 //! SEV attestation handling
 
-use crate::hostlib::{BootInfo, SevSecret, SEV_SECRET_MAX_SIZE};
-use crate::C_BIT_MASK;
 use core::hint::unreachable_unchecked;
-use core::sync::atomic::Ordering;
-use spinning::RwLock;
+use core::mem::MaybeUninit;
+use nbytes::bytes;
 
-/// A copy of the injected SEV secret.
+/// The maximum size of the injected secret for SEV keeps
+#[allow(clippy::integer_arithmetic)]
+pub const SEV_SECRET_MAX_SIZE: usize = bytes!(16; KiB);
+
+/// A 16 byte aligned SevSecret with unknown content
+#[repr(C, align(16))]
 #[derive(Copy, Clone, Debug)]
-pub struct SevSecretCopy {
+pub struct SevSecret {
     /// the secret byte blob
-    data: [u8; SEV_SECRET_MAX_SIZE],
+    pub data: MaybeUninit<[u8; SEV_SECRET_MAX_SIZE]>,
 }
 
-/// The secret injected by the Hypervisor
-pub static SEV_SECRET: RwLock<SevSecretCopy> = RwLock::<SevSecretCopy>::const_new(
-    spinning::RawRwLock::const_new(),
-    SevSecretCopy {
-        data: [0u8; SEV_SECRET_MAX_SIZE],
-    },
-);
+impl Default for SevSecret {
+    fn default() -> Self {
+        Self {
+            data: MaybeUninit::uninit(),
+        }
+    }
+}
 
-impl SevSecretCopy {
+impl SevSecret {
     #[allow(clippy::integer_arithmetic)]
     unsafe fn cbor_len(data: *const u8) -> Option<usize> {
         let prefix = data.read();
@@ -58,40 +61,16 @@ impl SevSecretCopy {
     }
 
     /// get the length of the secret
+    #[allow(dead_code)]
     pub fn try_len(&self) -> Option<usize> {
-        unsafe { SevSecretCopy::cbor_len(self.data.as_ptr()) }
-    }
-
-    /// Backup the secret injected by the Hypervisor
-    ///
-    /// # Safety
-    /// The caller has to ensure `boot_info` is pointing
-    /// to the initial BootInfo passed by the Hypervisor.
-    pub unsafe fn copy_from_bootinfo(&mut self, boot_info: *const BootInfo) {
-        if C_BIT_MASK.load(Ordering::Relaxed) == 0 {
-            return;
-        }
-
-        let secret_ptr = SevSecret::get_secret_ptr(boot_info);
-
-        let secret_len = match SevSecretCopy::cbor_len(secret_ptr as *const u8) {
-            None => return,
-            Some(len) => len,
-        };
-
-        if secret_len > SEV_SECRET_MAX_SIZE {
-            return;
-        }
-
-        core::ptr::copy_nonoverlapping::<u8>(
-            (*secret_ptr).data.as_ptr() as _,
-            self.data.as_mut_ptr(),
-            secret_len,
-        );
+        let len = unsafe { SevSecret::cbor_len(self.data.as_ptr() as _) };
+        len.filter(|len| *len <= SEV_SECRET_MAX_SIZE)
     }
 
     /// Get a slice of the secret
+    #[allow(dead_code)]
     pub fn try_as_slice(&self) -> Option<&[u8]> {
-        self.try_len().map(|len| &self.data[..len])
+        self.try_len()
+            .map(|len| &unsafe { &*self.data.as_ptr() }[..len])
     }
 }

@@ -156,7 +156,7 @@ impl<U> TryFrom<ShimVirtAddr<U>> for ShimPhysUnencryptedAddr<U> {
         let value = value.0.raw();
         let value = value.checked_sub(SHIM_VIRT_OFFSET).ok_or(())? & (!get_cbit_mask());
 
-        if value >= BYTES_2_MIB {
+        if value >= unsafe { &crate::_ENARX_SALLYPORT_END as *const _ as u64 } {
             return Err(());
         }
 

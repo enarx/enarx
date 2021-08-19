@@ -24,8 +24,6 @@ pub mod asm;
 pub mod attestation;
 pub mod gdt;
 pub mod hostcall;
-/// Shared components for the shim and the loader
-pub mod hostlib;
 pub mod hostmap;
 pub mod no_std;
 pub mod pagetables;
@@ -38,17 +36,15 @@ mod start;
 pub mod syscall;
 pub mod usermode;
 
-use crate::addr::{ShimPhysUnencryptedAddr, ShimVirtAddr, SHIM_VIRT_OFFSET};
-use crate::attestation::SEV_SECRET;
-use crate::hostlib::BootInfo;
+use crate::attestation::SevSecret;
 use crate::pagetables::switch_sallyport_to_unencrypted;
 use crate::paging::SHIM_PAGETABLE;
 use crate::payload::PAYLOAD_VIRT_ADDR;
 use crate::print::{enable_printing, is_printing_enabled};
-use core::convert::TryFrom;
 use core::mem::size_of;
 use core::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-use primordial::Address;
+use goblin::elf::header::header64::Header;
+use primordial::Page as Page4KiB;
 use sallyport::Block;
 use spinning::RwLock;
 use x86_64::structures::paging::Translate;
@@ -56,13 +52,25 @@ use x86_64::VirtAddr;
 
 static C_BIT_MASK: AtomicU64 = AtomicU64::new(0);
 
-static BOOT_INFO: RwLock<Option<BootInfo>> =
-    RwLock::<Option<BootInfo>>::const_new(spinning::RawRwLock::const_new(), None);
+static SEV_SECRET: RwLock<Option<SevSecret>> =
+    RwLock::<Option<SevSecret>>::const_new(spinning::RawRwLock::const_new(), None);
 
-static SHIM_HOSTCALL_PHYS_ADDR: RwLock<Option<usize>> =
-    RwLock::<Option<usize>>::const_new(spinning::RawRwLock::const_new(), None);
+static PAYLOAD_READY: AtomicBool = AtomicBool::new(false);
 
-static mut PAYLOAD_READY: AtomicBool = AtomicBool::new(false);
+extern "C" {
+    /// Extern
+    pub static _ENARX_SALLYPORT_START: Block;
+    /// Extern
+    pub static _ENARX_SALLYPORT_END: Page4KiB;
+    /// Extern
+    pub static _ENARX_MEM_START: Page4KiB;
+    /// Extern
+    pub static _ENARX_SHIM_START: Page4KiB;
+    /// Extern
+    pub static _ENARX_CODE_START: Header;
+    /// Extern
+    pub static _ENARX_CODE_END: Page4KiB;
+}
 
 sallyport::declare_abi_version!();
 
@@ -97,21 +105,13 @@ pub unsafe fn switch_shim_stack(ip: extern "C" fn() -> !, sp: u64) -> ! {
 ///
 /// # Safety
 /// Do not call from Rust.
-pub unsafe extern "sysv64" fn _start_main(boot_info: *mut BootInfo, c_bit_mask: u64) -> ! {
+pub unsafe extern "sysv64" fn _start_main(c_bit_mask: u64) -> ! {
     C_BIT_MASK.store(c_bit_mask, Ordering::Relaxed);
 
-    SHIM_HOSTCALL_PHYS_ADDR.write().replace({
-        let address = Address::<u64, Block>::from(boot_info as *mut Block);
-        let shim_virt = ShimVirtAddr::<Block>::try_from(address).unwrap();
-        ShimPhysUnencryptedAddr::<Block>::try_from(shim_virt)
-            .unwrap()
-            .into_mut() as *mut _ as _
-    });
-
     // make a local copy of boot_info, before the shared page gets overwritten
-    BOOT_INFO.write().replace(boot_info.read());
-
-    SEV_SECRET.write().copy_from_bootinfo(boot_info);
+    SEV_SECRET
+        .write()
+        .replace((&_ENARX_SALLYPORT_START as *const _ as *const SevSecret).read());
 
     switch_sallyport_to_unencrypted(c_bit_mask);
 
@@ -170,13 +170,7 @@ unsafe fn stack_trace() {
         SHIM_PAGETABLE.force_unlock_write()
     }
 
-    if BOOT_INFO.try_read().is_none() {
-        BOOT_INFO.force_unlock_write();
-    }
-
-    let bootinfo = BOOT_INFO.read();
-    let shim_start = bootinfo.unwrap().shim.start;
-    let shim_offset = shim_start.checked_add(SHIM_VIRT_OFFSET as _).unwrap();
+    let shim_offset = crate::addr::SHIM_VIRT_OFFSET as usize;
 
     let active_table = SHIM_PAGETABLE.read();
 
