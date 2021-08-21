@@ -29,6 +29,53 @@ mod _internal {
     #[no_mangle]
     pub static XSAVE: XSave = XSave::DEFAULT;
 
+    /// Perform relocation
+    ///
+    /// # Safety
+    ///
+    /// This function does not follow any established calling convention. It
+    /// has the following requirements:
+    ///   * `rsp` must point to a stack with the return address (i.e. `call`)
+    ///   * `rcx` must contain the address of the `Layout`
+    ///
+    /// Upon return, all general-purpose registers will have been preserved.
+    #[naked]
+    unsafe extern "sysv64" fn relocate() {
+        asm!(
+            "push   rax",
+            "push   rdi",
+            "push   rsi",
+            "push   rdx",
+            "push   rcx",
+            "push   r8",
+            "push   r9",
+            "push   r10",
+            "push   r11",
+
+            "mov    rsi,    [rcx + {SHIM}]  ", // rsi = shim load offset (Layout.shim.start)
+            ".hidden _DYNAMIC               ",
+            "lea    rdi,    [rip + _DYNAMIC]", // rdi = address of _DYNAMIC section
+            ".hidden {DYN_RELOC}            ",
+            "call   {DYN_RELOC}             ", // relocate the dynamic symbols
+
+            "pop    r11",
+            "pop    r10",
+            "pop    r9",
+            "pop    r8",
+            "pop    rcx",
+            "pop    rdx",
+            "pop    rsi",
+            "pop    rdi",
+            "pop    rax",
+
+            "ret",
+
+            SHIM = const SHIM,
+            DYN_RELOC = sym _dyn_reloc,
+            options(noreturn)
+        )
+    }
+
     /// Entry point
     ///
     /// This function is called during EENTER. Its inputs are as follows:
@@ -70,38 +117,8 @@ mod _internal {
     pop     rdx                                     # Restore rdx
     pop     rax                                     # Restore rax
 
-    xor     rax,                    rax             # Clear rax
-
-    push    rdi
-    push    rsi
-    push    rdx
-    push    rcx
-    push    r8
-    push    r9
-    push    r10
-    push    r11
-
-    # relocate the dynamic symbols
-    # rdi - address of _DYNAMIC section
-    # rsi - shim load offset from Layout.shim.start
-    mov     rsi,          QWORD PTR [rcx + {SHIM}]
-    .hidden _DYNAMIC
-    lea     rdi,                    [rip + _DYNAMIC]
-    .hidden {DYN_RELOC}
-    call    {DYN_RELOC}
-
-    pop     r11
-    pop     r10
-    pop     r9
-    pop     r8
-    pop     rcx
-    pop     rdx
-    pop     rsi
-    pop     rdi
-
-    xor     rax,                    rax             # Clear rax
-
-    call    {ENTRY}                                   # Jump to Rust
+    call    {RELOC}                                 # Relocate symbols
+    call    {ENTRY}                                 # Jump to Rust
 
 # CSSA != 0
 2:
@@ -192,11 +209,10 @@ mod _internal {
         RSPO = const RSPO,
         SRSP = const SRSP,
         STACK = const STACK,
-        SHIM = const SHIM,
         SYS_ENARX_ERESUME = const SYS_ENARX_ERESUME,
         XSAVE = sym XSAVE,
         event = sym event,
-        DYN_RELOC = sym _dyn_reloc,
+        RELOC = sym relocate,
         ENTRY = sym entry,
         EEXIT = sym enclu_eexit,
         RET_FROM_SYSCALL = sym ret_from_syscall,
