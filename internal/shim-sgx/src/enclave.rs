@@ -26,8 +26,64 @@ mod _internal {
     const STACK: u64 = 9 * 8;
     const SHIM: u64 = 10 * 8;
 
-    #[no_mangle]
-    pub static XSAVE: XSave = XSave::DEFAULT;
+    /// Clear CPU flags, extended state and temporary registers (`r10` and `r11`)
+    ///
+    /// This function clears CPU state during enclave transitions.
+    #[naked]
+    extern "C" fn clearx() {
+        static XSAVE: XSave = XSave::DEFAULT;
+
+        unsafe {
+            asm!(
+                // Clear all temporary registers
+                "xor    r10,    r10",
+                "xor    r11,    r11",
+
+                // Clear CPU flags
+                "add    r11,    r11",
+                "cld",
+
+                // Clear the extended CPU state
+                "push    rax            ",  // Save rax
+                "push    rdx            ",  // Save rdx
+                "mov     rdx,   ~0      ",  // Set mask for xrstor in rdx
+                "mov     rax,   ~0      ",  // Set mask for xrstor in rax
+                "xrstor  [rip + {XSAVE}]",  // Clear xCPU state with synthetic state
+                "pop     rdx            ",  // Restore rdx
+                "pop     rax            ",  // Restore rax
+
+                "ret",
+
+                XSAVE = sym XSAVE,
+                options(noreturn)
+            );
+        }
+    }
+
+    /// Clears parameter registers
+    ///
+    /// # Safety
+    ///
+    /// This function should be safe as it only modifies non-preserved
+    /// registers. It really doesn't even need to be a naked function
+    /// except that Rust tries really hard to put `rax` on the stack
+    /// and then pops it off into a random register (usually `rcx`).
+    #[naked]
+    extern "sysv64" fn clearp() {
+        unsafe {
+            asm!(
+                "xor    rax,    rax",
+                "xor    rdi,    rdi",
+                "xor    rsi,    rsi",
+                "xor    rdx,    rdx",
+                "xor    rcx,    rcx",
+                "xor    r8,     r8",
+                "xor    r9,     r9",
+                "ret",
+                options(noreturn)
+            )
+        }
+    }
 
     /// Perform relocation
     ///
@@ -96,27 +152,7 @@ mod _internal {
 
     mov     rsp,          QWORD PTR [rcx + {STACK}] # Set stack pointer
 
-    # Clear all preserved (callee-saved) registers (except rsp)
-    xor     rbx,                    rbx
-    xor     rbp,                    rbp
-    xor     r12,                    r12
-    xor     r13,                    r13
-    xor     r14,                    r14
-    xor     r15,                    r15
-
-    # Clear all temporary registers
-    xor     r10,                    r10
-    xor     r11,                    r11
-
-    # Clear the extended CPU state
-    push    rax                                     # Save rax
-    push    rdx                                     # Save rdx
-    mov     rdx,                    ~0              # Set mask for xrstor in rdx
-    mov     rax,                    ~0              # Set mask for xrstor in rax
-    xrstor  [rip + {XSAVE}]                         # Clear xCPU state with synthetic state
-    pop     rdx                                     # Restore rdx
-    pop     rax                                     # Restore rax
-
+    call    {CLEARX}                                # Clear CPU state
     call    {RELOC}                                 # Relocate symbols
     call    {ENTRY}                                 # Jump to Rust
 
@@ -156,51 +192,12 @@ mod _internal {
     push    rsp                                     # Argument for event()
     push    r11                                     # Argument for event()
 
-    # Clear all preserved (callee-saved) registers (except rsp)
-    xor     rbx,                    rbx
-    xor     rbp,                    rbp
-    xor     r12,                    r12
-    xor     r13,                    r13
-    xor     r14,                    r14
-    xor     r15,                    r15
-
-    # Clear all temporary registers
-    xor     r10,                    r10
-    xor     r11,                    r11
-
-    # Clear CPU flags
-    add     r11,                    r11
-    cld
-
     # void event(rdi, rsi, rdx, layout, r8, r9, &aex[CSSA-1], ctx);
+    call    {CLEARX}                                # Clear CPU state
     call    {event}                                 # Call event()
+    call    {CLEARX}                                # Clear CPU state
+    call    {CLEARP}                                # Clear parameter registers
     add     rsp,                    16              # Remove parameters from stack
-
-    # Prepare CPU context for exit
-    # Clear all temporary registers
-    xor     r10,                    r10
-    xor     r11,                    r11
-
-    # Clear all argument registers
-    xor     rcx,                    rcx
-    xor     rdx,                    rdx
-    xor     rsi,                    rsi
-    xor     rdi,                    rdi
-    xor     r8,                     r8
-    xor     r9,                     r9
-
-    # Clear CPU flags
-    add     r11,                    r11
-    cld
-
-    # Clear the extended CPU state
-    push    rax                                     # Save rax
-    push    rdx                                     # Save rdx
-    mov     rdx,                    ~0              # Set mask for xrstor in rdx
-    mov     rax,                    ~0              # Set mask for xrstor in rax
-    xrstor  [rip + {XSAVE}]                         # Clear xCPU state with synthetic state
-    pop     rdx                                     # Restore rdx
-    pop     rax                                     # Restore rax
 
     # Indicate ERESUME to VDSO handler
     mov     r11,                    {SYS_ENARX_ERESUME}
@@ -210,7 +207,8 @@ mod _internal {
         SRSP = const SRSP,
         STACK = const STACK,
         SYS_ENARX_ERESUME = const SYS_ENARX_ERESUME,
-        XSAVE = sym XSAVE,
+        CLEARX = sym clearx,
+        CLEARP = sym clearp,
         event = sym event,
         RELOC = sym relocate,
         ENTRY = sym entry,
@@ -266,25 +264,17 @@ mod _internal {
     pop     rbp
     pop     rbx
 
-    # Clear all argument registers
-    xor     rcx,                    rcx
-    xor     rdx,                    rdx
-    xor     rsi,                    rsi
-    xor     rdi,                    rdi
-    xor     r8,                     r8
-    xor     r9,                     r9
-
-    # Clear all temporary registers
-    xor     r10,                    r10
-    xor     r11,                    r11
-
-    # Clear CPU flags
-    add     r11,                    r11
-    cld
+    # Clear state
+    sub     rsp,    8
+    call    {CLEARX}
+    call    {CLEARP}
+    add     rsp,    8
 
     ret                                             # Jump to address on the stack
     ",
         SRSP = const SRSP,
+        CLEARX = sym clearx,
+        CLEARP = sym clearp,
         options(noreturn)
         )
     }
@@ -302,30 +292,18 @@ mod _internal {
     push    r14
     push    r15
 
-    mov     QWORD PTR [rdi + {SRSP}], rsp             # Save restoration stack pointer
+    mov     QWORD PTR [rdi + {SRSP}],   rsp # Save restoration stack pointer
 
-    # Clear the extended CPU state
-    push    rax                                     # Save rax
-    push    rdx                                     # Save rdx
-    mov     rdx,                    ~0              # Set mask for xrstor in rdx
-    mov     rax,                    ~0              # Set mask for xrstor in rax
-
-    xrstor  [rip + {XSAVE}]                         # Clear xCPU state with synthetic state
-    pop     rdx                                     # Restore rdx
-    pop     rax                                     # Restore rax
-
-    xor     rcx,                    rcx             # Clear rcx
-
-    # Clear CPU flags
-    add     rcx,                    rcx
-    cld
-
-    mov     rsp,                    rsi             # Get exit context
+    push    rsi
+    call    {CLEARX}
+    call    {CLEARP}
+    pop     rsp                             # Get exit context
 
     jmp     {EEXIT}
     ",
         SRSP = const SRSP,
-        XSAVE = sym XSAVE,
+        CLEARX = sym clearx,
+        CLEARP = sym clearp,
         EEXIT = sym enclu_eexit,
         options(noreturn)
         )
