@@ -29,8 +29,14 @@ mod _internal {
     /// Clear CPU flags, extended state and temporary registers (`r10` and `r11`)
     ///
     /// This function clears CPU state during enclave transitions.
+    ///
+    /// # Safety
+    ///
+    /// This function should be safe as it only modifies non-preserved
+    /// registers. In fact, in addition to the declared calling convention,
+    /// we promise not to modify any of the parameter registers.
     #[naked]
-    extern "C" fn clearx() {
+    extern "sysv64" fn clearx() {
         static XSAVE: XSave = XSave::DEFAULT;
 
         unsafe {
@@ -56,7 +62,7 @@ mod _internal {
 
                 XSAVE = sym XSAVE,
                 options(noreturn)
-            );
+            )
         }
     }
 

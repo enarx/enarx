@@ -196,6 +196,39 @@ struct Thread {
     block: sallyport::Block,
 }
 
+impl Thread {
+    fn cpuid(&mut self) -> Entry {
+        unsafe {
+            let cpuid = core::arch::x86_64::__cpuid_count(
+                self.block.msg.req.arg[0].try_into().unwrap(),
+                self.block.msg.req.arg[1].try_into().unwrap(),
+            );
+
+            self.block.msg.req.arg[0] = cpuid.eax.into();
+            self.block.msg.req.arg[1] = cpuid.ebx.into();
+            self.block.msg.req.arg[2] = cpuid.ecx.into();
+            self.block.msg.req.arg[3] = cpuid.edx.into();
+
+            Entry::Enter
+        }
+    }
+
+    fn attest(&mut self) -> Result<Entry> {
+        let result = unsafe {
+            get_attestation(
+                self.block.msg.req.arg[0].into(),
+                self.block.msg.req.arg[1].into(),
+                self.block.msg.req.arg[2].into(),
+                self.block.msg.req.arg[3].into(),
+            )?
+        };
+
+        self.block.msg.rep = Ok([result.into(), 0.into()]).into();
+
+        Ok(Entry::Enter)
+    }
+}
+
 impl super::Thread for Thread {
     fn enter(&mut self) -> Result<Command> {
         let mut registers = Registers::default();
@@ -224,33 +257,8 @@ impl super::Thread for Thread {
             how = match self.thread.enter(how, &mut registers) {
                 Err(ei) if ei.trap == Exception::InvalidOpcode => Entry::Enter,
                 Ok(_) => match unsafe { self.block.msg.req }.num.into() {
-                    SYS_ENARX_CPUID => unsafe {
-                        let cpuid = core::arch::x86_64::__cpuid_count(
-                            self.block.msg.req.arg[0].try_into().unwrap(),
-                            self.block.msg.req.arg[1].try_into().unwrap(),
-                        );
-
-                        self.block.msg.req.arg[0] = cpuid.eax.into();
-                        self.block.msg.req.arg[1] = cpuid.ebx.into();
-                        self.block.msg.req.arg[2] = cpuid.ecx.into();
-                        self.block.msg.req.arg[3] = cpuid.edx.into();
-
-                        Entry::Enter
-                    },
-                    SYS_ENARX_GETATT => {
-                        let result = unsafe {
-                            get_attestation(
-                                self.block.msg.req.arg[0].into(),
-                                self.block.msg.req.arg[1].into(),
-                                self.block.msg.req.arg[2].into(),
-                                self.block.msg.req.arg[3].into(),
-                            )?
-                        };
-
-                        self.block.msg.rep = Ok([result.into(), 0.into()]).into();
-
-                        Entry::Enter
-                    }
+                    SYS_ENARX_CPUID => self.cpuid(),
+                    SYS_ENARX_GETATT => self.attest()?,
                     SYS_ENARX_ERESUME => Entry::Resume,
                     _ => return Ok(Command::SysCall(&mut self.block)),
                 },
