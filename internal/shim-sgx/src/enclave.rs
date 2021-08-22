@@ -4,24 +4,15 @@
 //!
 //! Provides enclave EENTER entry point and a `syscall` interface.
 
-pub enum Context {}
-
-pub use _internal::syscall;
-
 mod _internal {
-    use crate::enclave::Context;
-    use crate::entry::entry;
-    use crate::event::event;
     use const_default::ConstDefault;
     use rcrt1::_dyn_reloc;
-    use sallyport::syscall::SYS_ENARX_ERESUME;
-    use sgx::types::ssa::StateSaveArea;
     use xsave::XSave;
+
+    const EEXIT: u64 = 4;
 
     const GPR: u64 = 4096 - 184;
     const RSPO: u64 = GPR + 32;
-    const MISC: u64 = GPR - 16;
-    const SRSP: u64 = MISC - 8;
 
     const STACK: u64 = 9 * 8;
     const SHIM: u64 = 10 * 8;
@@ -147,171 +138,67 @@ mod _internal {
     ///
     ///  If rax == 0, we are doing normal execution.
     ///  Otherwise, we are handling an exception.
-    #[no_mangle]
+    ///
+    /// # Safety
+    ///
+    /// Do not call this function from Rust. It is the entry point for SGX.
     #[naked]
+    #[no_mangle]
     pub unsafe extern "sysv64" fn _start() -> ! {
-        asm!("
-    xchg    rcx,                    rbx             # Swap TCS and next instruction.
-    add     rcx,                    4096            # rcx = &Layout
-    cmp     rax,                    0               # If CSSA > 0...
-    jne     2f                                      # ... restore stack from AEX[CSSA-1].
+        asm!(
+            "xchg   rcx,    rbx                 ",  // Swap TCS and next instruction
+            "add    rcx,    4096                ",  // rcx = &Layout
 
-    mov     rsp,          QWORD PTR [rcx + {STACK}] # Set stack pointer
+            // Find stack pointer for CSSA == 0
+            "cmp    rax,    0                   ",  // If CSSA > 0
+            "jne    2f                          ",  // ... jump to the next section
+            "mov    r10,    [rcx + {STACK}]     ",  // r10 = stack pointer
+            "jmp    3f                          ",  // Jump to stack setup
 
-    call    {CLEARX}                                # Clear CPU state
-    call    {RELOC}                                 # Relocate symbols
-    call    {ENTRY}                                 # Jump to Rust
+            // Find stack pointer for CSSA > 0
+            "2:                                 ",
+            "mov    r10,    rax                 ",  // r10 = CSSA
+            "shl    r10,    12                  ",  // r10 = CSSA * 4096
+            "mov    r10,    [rcx + r10 + {RSPO}]",  // r10 = SSA[CSSA - 1].gpr.rsp
+            "sub    r10,    128                 ",  // Skip the red zone
+            "jmp    3f                          ",  // Jump to stack setup
 
-# CSSA != 0
-2:
-    shl     rax,                    12              # rax = CSSA * 4096
-    mov     r11,                    rcx             # r11 = &Layout
-    add     r11,                    rax             # r11 = &aex[CSSA - 1]
+            // Setup the stack
+            "3:                                 ",
+            "and    r10,    ~0xf                ",  // Align the stack
+            "xchg   rsp,    r10                 ",  // Swap r10 and rsp
+            "sub    rsp,    8                   ",  // Align the stack
+            "push   r10                         ",  // Store old stack
 
-    mov     r10,          QWORD PTR [{RSPO} + r11]  # r10 = aex[CSSA - 1].gpr.rsp
-    sub     r10,                    128             # Skip the red zone
-    and     r10,                    ~0xf            # Align
+            // Do relocation if CSSA == 0
+            "cmp    rax,    0                   ",  // If CSSA > 0
+            "jne    4f                          ",  // ... jump to the next section
+            "call   {RELOC}                     ",  // Relocate symbols
 
-    mov     rax,          QWORD PTR [{SRSP} + r11]  # rax = syscall return stack pointer
+            // Clear, call Rust, clear
+            "4:                                 ",
+            "push   rcx                         ",  // Save &Layout
+            "push   rax                         ",  // Save CSSA
+            "mov    rcx,    rsp                 ",  // Setup argument
+            "call   {CLEARX}                    ",  // Clear CPU state
+            "call   {ENTRY}                     ",  // Jump to Rust
+            "call   {CLEARX}                    ",  // Clear CPU state
+            "call   {CLEARP}                    ",  // Clear parameter registers
+            "add    rsp,    16                  ",  // Remove arguments from stack
 
-    # rax = syscall return stack pointer
-    # rbx = next non-enclave instruction
-    # rcx = &layout
-    # r10 = trusted stack pointer
-    # r11 = &aex[CSSA - 1]
-    # rsp = untrusted stack pointer
-    xchg    rsp,                    r10             # Swap to trusted stack
-    push    0                                       # Align stack
-    push    r10                                     # Save untrusted rsp
+            // Exit
+            "pop    rsp                         ",  // Restore old stack
+            "mov    rax,    {EEXIT}             ",  // rax = EEXIT
+            "enclu                              ",  // Exit enclave
 
-    # Save untrusted preserved registers (except rsp)
-    push    rbx
-    push    rbp
-    push    r12
-    push    r13
-    push    r14
-    push    r15
-
-    cmp     rax,                    0               # If we are returning from a syscall...
-    jne     {RET_FROM_SYSCALL}                      # ... finish the job.
-
-    push    rsp                                     # Argument for event()
-    push    r11                                     # Argument for event()
-
-    # void event(rdi, rsi, rdx, layout, r8, r9, &aex[CSSA-1], ctx);
-    call    {CLEARX}                                # Clear CPU state
-    call    {event}                                 # Call event()
-    call    {CLEARX}                                # Clear CPU state
-    call    {CLEARP}                                # Clear parameter registers
-    add     rsp,                    16              # Remove parameters from stack
-
-    # Indicate ERESUME to VDSO handler
-    mov     r11,                    {SYS_ENARX_ERESUME}
-    jmp     {EEXIT}
-    ",
-        RSPO = const RSPO,
-        SRSP = const SRSP,
-        STACK = const STACK,
-        SYS_ENARX_ERESUME = const SYS_ENARX_ERESUME,
-        CLEARX = sym clearx,
-        CLEARP = sym clearp,
-        event = sym event,
-        RELOC = sym relocate,
-        ENTRY = sym entry,
-        EEXIT = sym enclu_eexit,
-        RET_FROM_SYSCALL = sym ret_from_syscall,
-        options(noreturn)
-        )
-    }
-
-    #[no_mangle]
-    #[naked]
-    pub unsafe extern "sysv64" fn enclu_eexit() -> ! {
-        asm!("
-    # ENCLU[EEXIT]
-    # Load preserved registers (except rsp)
-    pop     r15
-    pop     r14
-    pop     r13
-    pop     r12
-    pop     rbp
-    pop     rbx
-
-    pop     rsp                                     # Restore the untrusted stack
-    mov     rax,                    4
-    enclu
-
-    jmp     {RET_FROM_SYSCALL}
-    ",
-        RET_FROM_SYSCALL = sym ret_from_syscall,
-        options(noreturn)
-        )
-    }
-
-    #[no_mangle]
-    #[naked]
-    pub unsafe extern "sysv64" fn ret_from_syscall() -> ! {
-        asm!("
-# rax = syscall return stack pointer
-# rbx = next non-enclave instruction
-# rcx = &TCS
-# r10 = untrusted stack pointer
-# r11 = &aex[CSSA - 1]
-# rsp = trusted stack pointer
-    mov     QWORD PTR [r11 + {SRSP}], 0             # Clear syscall return stack pointer field
-    mov     rsp,                    rax             # Restore the syscall return stack pointer
-    mov     rax,                    rdi             # Correct syscall return value register
-
-    # Load trusted preserved registers (except rsp)
-    pop     r15
-    pop     r14
-    pop     r13
-    pop     r12
-    pop     rbp
-    pop     rbx
-
-    # Clear state
-    sub     rsp,    8
-    call    {CLEARX}
-    call    {CLEARP}
-    add     rsp,    8
-
-    ret                                             # Jump to address on the stack
-    ",
-        SRSP = const SRSP,
-        CLEARX = sym clearx,
-        CLEARP = sym clearp,
-        options(noreturn)
-        )
-    }
-
-    #[naked]
-    pub unsafe extern "sysv64" fn syscall(aex: &mut StateSaveArea, ctx: &Context) -> u64 {
-        asm!("
-    # int syscall(rdi = aex, rsi = ctx);
-
-    # Save preserved registers (except rsp)
-    push    rbx
-    push    rbp
-    push    r12
-    push    r13
-    push    r14
-    push    r15
-
-    mov     QWORD PTR [rdi + {SRSP}],   rsp # Save restoration stack pointer
-
-    push    rsi
-    call    {CLEARX}
-    call    {CLEARP}
-    pop     rsp                             # Get exit context
-
-    jmp     {EEXIT}
-    ",
-        SRSP = const SRSP,
-        CLEARX = sym clearx,
-        CLEARP = sym clearp,
-        EEXIT = sym enclu_eexit,
-        options(noreturn)
+            CLEARX = sym clearx,
+            CLEARP = sym clearp,
+            RELOC = sym relocate,
+            ENTRY = sym crate::main,
+            EEXIT = const EEXIT,
+            STACK = const STACK,
+            RSPO = const RSPO,
+            options(noreturn)
         )
     }
 }

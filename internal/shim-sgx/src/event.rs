@@ -3,35 +3,20 @@
 use sallyport::Block;
 use sgx::types::ssa::{Exception, StateSaveArea};
 
-use crate::enclave::Context;
 use crate::handler::Handler;
 use crate::Layout;
 use sallyport::syscall::{
     BaseSyscallHandler, ProcessSyscallHandler, SyscallHandler, SYS_ENARX_ERESUME,
 };
 
-// Opcode constants, details in Volume 2 of the Intel 64 and IA-32 Architectures Software
-// Developer's Manual
-const OP_SYSCALL: &[u8] = &[0x0f, 0x05];
-const OP_CPUID: &[u8] = &[0x0f, 0xa2];
-
-pub extern "C" fn event(
-    _rdi: u64,
-    _rsi: u64,
-    block: &mut Block,
-    layout: &Layout,
-    _r8: u64,
-    _r9: u64,
-    aex: &mut StateSaveArea,
-    ctx: &Context,
-) {
-    let mut h = Handler::new(layout, aex, ctx, block);
+pub fn event(layout: &Layout, aex: &mut StateSaveArea, block: &mut Block) {
+    let mut h = Handler::new(layout, aex, block);
 
     // Exception Vector Table
     match h.aex.gpr.exitinfo.exception() {
         Some(Exception::InvalidOpcode) => {
             match unsafe { h.aex.gpr.rip.into_slice(2usize) } {
-                OP_SYSCALL => {
+                super::OP_SYSCALL => {
                     let ret = h.syscall(
                         h.aex.gpr.rdi.into(),
                         h.aex.gpr.rsi.into(),
@@ -52,7 +37,7 @@ pub extern "C" fn event(
                     }
                 }
 
-                OP_CPUID => {
+                super::OP_CPUID => {
                     h.cpuid();
                     aex.gpr.rip = (usize::from(aex.gpr.rip) + 2).into();
                 }

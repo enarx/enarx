@@ -66,8 +66,7 @@ fn crt0setup<'a>(
     builder.done()
 }
 
-#[no_mangle]
-pub extern "C" fn entry(_rdi: u64, _rsi: u64, _rdx: u64, layout: &Layout, _r8: u64, _r9: u64) -> ! {
+pub fn entry(layout: &Layout) -> ! {
     // Validate the ELF header.
     let hdr = unsafe { &*(layout.code.start as *const Header) };
 

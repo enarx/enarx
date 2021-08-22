@@ -4,6 +4,7 @@ use crate::backend::sgx::attestation::get_attestation;
 use crate::backend::{Command, Datum, Keep};
 use crate::binary::{Component, ComponentType};
 use sallyport::syscall::{SYS_ENARX_CPUID, SYS_ENARX_ERESUME, SYS_ENARX_GETATT};
+use sallyport::Block;
 
 use anyhow::{anyhow, Result};
 use lset::{Line, Span};
@@ -129,7 +130,7 @@ impl crate::backend::Backend for Backend {
         }
 
         // Create SSAs and TCS.
-        let ssas = vec![Page::default(); 2];
+        let ssas = vec![Page::default(); 3];
         let tcs = Tcs::new(
             shim_entry - layout.enclave.start,
             Page::size() * 2, // SSAs after Layout (see below)
@@ -186,18 +187,24 @@ impl super::Keep for RwLock<Enclave> {
     fn add_thread(self: Arc<Self>) -> Result<Box<dyn crate::backend::Thread>> {
         Ok(Box::new(Thread {
             thread: sgx::enclave::Thread::new(self).ok_or_else(|| anyhow!("out of threads"))?,
-            block: Default::default(),
+            registers: Registers::default(),
+            block: Block::default(),
+            cssa: usize::default(),
+            how: Entry::Enter,
         }))
     }
 }
 
 struct Thread {
     thread: sgx::enclave::Thread,
-    block: sallyport::Block,
+    registers: Registers,
+    block: Block,
+    cssa: usize,
+    how: Entry,
 }
 
 impl Thread {
-    fn cpuid(&mut self) -> Entry {
+    fn cpuid(&mut self) {
         unsafe {
             let cpuid = core::arch::x86_64::__cpuid_count(
                 self.block.msg.req.arg[0].try_into().unwrap(),
@@ -208,12 +215,10 @@ impl Thread {
             self.block.msg.req.arg[1] = cpuid.ebx.into();
             self.block.msg.req.arg[2] = cpuid.ecx.into();
             self.block.msg.req.arg[3] = cpuid.edx.into();
-
-            Entry::Enter
         }
     }
 
-    fn attest(&mut self) -> Result<Entry> {
+    fn attest(&mut self) -> Result<()> {
         let result = unsafe {
             get_attestation(
                 self.block.msg.req.arg[0].into(),
@@ -224,45 +229,38 @@ impl Thread {
         };
 
         self.block.msg.rep = Ok([result.into(), 0.into()]).into();
-
-        Ok(Entry::Enter)
+        Ok(())
     }
 }
 
 impl super::Thread for Thread {
     fn enter(&mut self) -> Result<Command> {
-        let mut registers = Registers::default();
-        let mut how = Entry::Enter;
-
-        // The main loop event handles different types of enclave exits and
-        // re-enters the enclave with specific parameters.
-        //
-        //   1. Asynchronous exits (AEX) with an invalid opcode indicate
-        //      that a syscall should be performed. Execution continues in
-        //      the enclave with EENTER[CSSA = 1]. The syscall
-        //      is proxied and potentially passed back out to the host.
-        //
-        //   2. OK with a syscall number other than SYS_ERESUME indicates the syscall
-        //      to be performed. The syscall is performed here and enclave
-        //      execution resumes with EENTER[CSSA = 1].
-        //
-        //   3. OK with a syscall number of SYS_ERESUME indicates that a syscall has
-        //      been performed as well as handled internally in the enclave
-        //      and normal enclave execution should resume
-        //      with ERESUME[CSSA = 0].
-        //
-        //   4. Asynchronous exits other than invalid opcode will panic.
         loop {
-            registers.rdx = (&mut self.block).into();
-            how = match self.thread.enter(how, &mut registers) {
+            let prev = self.how;
+            self.registers.rdx = (&mut self.block).into();
+            self.how = match self.thread.enter(prev, &mut self.registers) {
                 Err(ei) if ei.trap == Exception::InvalidOpcode => Entry::Enter,
-                Ok(_) => match unsafe { self.block.msg.req }.num.into() {
+                Ok(_) => Entry::Resume,
+                e => panic!("Unexpected AEX: {:?}", e),
+            };
+
+            // Keep track of the CSSA
+            match self.how {
+                Entry::Enter => self.cssa += 1,
+                Entry::Resume => match self.cssa {
+                    0 => unreachable!(),
+                    _ => self.cssa -= 1,
+                },
+            }
+
+            // If we have handled an InvalidOpcode error, evaluate the sallyport.
+            if let (Entry::Enter, Entry::Resume) = (prev, self.how) {
+                match unsafe { self.block.msg.req }.num.into() {
                     SYS_ENARX_CPUID => self.cpuid(),
                     SYS_ENARX_GETATT => self.attest()?,
-                    SYS_ENARX_ERESUME => Entry::Resume,
+                    SYS_ENARX_ERESUME => (),
                     _ => return Ok(Command::SysCall(&mut self.block)),
-                },
-                e => panic!("Unexpected AEX: {:?}", e),
+                }
             }
         }
     }

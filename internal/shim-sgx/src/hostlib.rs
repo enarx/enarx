@@ -5,7 +5,7 @@
 use lset::Line;
 
 /// The enclave layout
-#[repr(C)]
+#[repr(C, align(4096))]
 #[derive(Copy, Clone, Default, Debug, PartialEq, Eq)]
 pub struct Layout {
     /// The boundaries of the enclave.

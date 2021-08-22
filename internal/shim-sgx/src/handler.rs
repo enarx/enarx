@@ -17,12 +17,10 @@ use enarx_heap::Heap;
 use sgx::types::ssa::StateSaveArea;
 
 pub const TRACE: bool = false;
-use crate::enclave::{syscall, Context};
 
 pub struct Handler<'a> {
     pub aex: &'a mut StateSaveArea,
     layout: &'a Layout,
-    ctx: &'a Context,
     block: &'a mut Block,
 }
 
@@ -48,19 +46,10 @@ impl<'a> Write for Handler<'a> {
 
 impl<'a> Handler<'a> {
     /// Create a new handler
-    pub fn new(
-        layout: &'a Layout,
-        aex: &'a mut StateSaveArea,
-        ctx: &'a Context,
-        block: &'a mut Block,
-    ) -> Self {
-        Self {
-            aex,
-            layout,
-            ctx,
-            block,
-        }
+    pub fn new(layout: &'a Layout, aex: &'a mut StateSaveArea, block: &'a mut Block) -> Self {
+        Self { aex, layout, block }
     }
+
     pub fn cpuid(&mut self) {
         if TRACE {
             debug!(
@@ -77,7 +66,7 @@ impl<'a> Handler<'a> {
             // prevent earlier writes from being moved beyond this point
             core::sync::atomic::compiler_fence(core::sync::atomic::Ordering::Release);
 
-            syscall(self.aex, self.ctx);
+            asm!("syscall");
 
             // prevent later reads from being moved before this point
             core::sync::atomic::compiler_fence(core::sync::atomic::Ordering::Acquire);
@@ -132,7 +121,7 @@ impl<'a> BaseSyscallHandler for Handler<'a> {
         // prevent earlier writes from being moved beyond this point
         core::sync::atomic::compiler_fence(core::sync::atomic::Ordering::Release);
 
-        let _ret = syscall(self.aex, self.ctx);
+        asm!("syscall");
 
         // prevent later reads from being moved before this point
         core::sync::atomic::compiler_fence(core::sync::atomic::Ordering::Acquire);
