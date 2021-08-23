@@ -12,7 +12,7 @@ test = false
 [dependencies]
 enarx-heap = { git = "https://github.com/enarx/enarx-heap", rev = "6ecf48aa3db78a0cc17f32870c52446dba30f376" }
 sallyport = { git = "https://github.com/enarx/sallyport", features=[ "asm" ], rev="0d3f139366003b196f9c07c437f86d398c73a18c" }
-rcrt1 = { git = "https://github.com/enarx/rcrt1", rev = "2205dc7" }
+rcrt1 = { git = "https://github.com/enarx/rcrt1", rev = "b28f711" }
 compiler_builtins = { version = "0.1", default-features = false, features = [ "mem" ] }
 sgx = { git = "https://github.com/enarx/sgx", rev = "2f8837a3e27d787ad4d420c588bc54b3ff603402", features = [ "asm" ] }
 goblin = { version = "0.4", default-features = false, features = [ "elf64" ] }

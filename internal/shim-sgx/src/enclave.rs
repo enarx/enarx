@@ -6,7 +6,7 @@
 
 mod _internal {
     use const_default::ConstDefault;
-    use rcrt1::_dyn_reloc;
+    use rcrt1::dyn_reloc;
     use xsave::XSave;
 
     const EEXIT: u64 = 4;
@@ -124,7 +124,7 @@ mod _internal {
             "ret",
 
             SHIM = const SHIM,
-            DYN_RELOC = sym _dyn_reloc,
+            DYN_RELOC = sym dyn_reloc,
             options(noreturn)
         )
     }

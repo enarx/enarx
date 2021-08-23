@@ -7,7 +7,7 @@
 use crate::addr::SHIM_VIRT_OFFSET;
 use crate::pagetables::{PDPT_IDENT, PDPT_OFFSET, PDT_IDENT, PDT_OFFSET, PML4T};
 use primordial::Page;
-use rcrt1::_dyn_reloc;
+use rcrt1::dyn_reloc;
 
 #[cfg(not(debug_assertions))]
 const INITIAL_STACK_PAGES: usize = 12;
@@ -191,7 +191,7 @@ pub unsafe extern "sysv64" fn _start() -> ! {
     ",
     SHIM_VIRT_OFFSET = const SHIM_VIRT_OFFSET,
     SIZE_OF_INITIAL_STACK = const INITIAL_STACK_PAGES * 4096,
-    DYN_RELOC = sym _dyn_reloc,
+    DYN_RELOC = sym dyn_reloc,
     START_MAIN = sym _start_main,
     PML4T = sym PML4T,
     PDPT_OFFSET = sym PDPT_OFFSET,
