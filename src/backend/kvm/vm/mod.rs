@@ -26,6 +26,7 @@ use mmarinus::{perms, Kind, Map};
 use primordial::Page;
 use x86_64::VirtAddr;
 
+use std::collections::VecDeque;
 use std::marker::PhantomData;
 use std::num::NonZeroUsize;
 use std::sync::{Arc, RwLock};
@@ -37,6 +38,7 @@ pub struct Vm<A: Arch, P: Personality> {
     syscall_blocks: Span<VirtAddr, NonZeroUsize>,
     arch: A,
     _personality: PhantomData<P>,
+    cpus: VecDeque<u64>,
 }
 
 impl<A: Arch, P: Personality> Vm<A, P> {
@@ -71,15 +73,17 @@ impl<A: Arch, P: Personality> Vm<A, P> {
 }
 
 impl<P: 'static + Personality> Keep for RwLock<Vm<X86, P>> {
-    fn spawn(self: Arc<Self>) -> Result<Box<dyn Thread>> {
-        let keep = self.write().unwrap();
-        let id = 0;
+    fn spawn(self: Arc<Self>) -> Result<Option<Box<dyn Thread>>> {
+        let mut keep = self.write().unwrap();
 
-        let vcpu = keep.fd.create_vcpu(id as _)?;
+        let vcpu = match keep.cpus.pop_front() {
+            Some(id) => keep.fd.create_vcpu(id)?,
+            None => return Ok(None),
+        };
 
         vcpu.set_cpuid2(&keep.kvm.get_supported_cpuid(KVM_MAX_CPUID_ENTRIES)?)?;
 
         let thread = Cpu::new(vcpu, self.clone(), keep.arch.rip, keep.arch.cr3)?;
-        Ok(Box::new(thread))
+        Ok(Some(Box::new(thread)))
     }
 }

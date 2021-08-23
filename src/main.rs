@@ -200,7 +200,7 @@ fn exec(backends: &[Box<dyn Backend>], opts: Exec) -> Result<()> {
         let code = ComponentType::Payload.into_component_from_bytes(map.as_ref())?;
         let keep = backend.build(code, opts.sock.as_deref())?;
 
-        let mut thread = keep.clone().spawn()?;
+        let mut thread = keep.clone().spawn()?.unwrap();
         loop {
             match thread.enter()? {
                 Command::SysCall(block) => unsafe {

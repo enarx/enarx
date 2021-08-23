@@ -118,6 +118,9 @@ impl<'a, T: Hook> Builder<'a, T> {
             count: NonZeroUsize::new(sallyport_range.count / size_of::<Block>()).unwrap(),
         };
 
+        let mut cpus = VecDeque::new();
+        cpus.push_back(0);
+
         let vm = Vm {
             kvm,
             fd,
@@ -125,6 +128,7 @@ impl<'a, T: Hook> Builder<'a, T> {
             syscall_blocks,
             arch: A::new(&self.shim),
             _personality: PhantomData,
+            cpus,
         };
 
         Ok(Built {

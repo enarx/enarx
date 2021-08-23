@@ -6,7 +6,7 @@ use crate::binary::{Component, ComponentType};
 use sallyport::syscall::{SYS_ENARX_CPUID, SYS_ENARX_ERESUME, SYS_ENARX_GETATT};
 use sallyport::Block;
 
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use lset::{Line, Span};
 use primordial::Page;
 use sgx::enclave::{Builder, Enclave, Entry, Registers, Segment};
@@ -184,14 +184,19 @@ impl crate::backend::Backend for Backend {
 }
 
 impl super::Keep for RwLock<Enclave> {
-    fn spawn(self: Arc<Self>) -> Result<Box<dyn crate::backend::Thread>> {
-        Ok(Box::new(Thread {
-            thread: sgx::enclave::Thread::new(self).ok_or_else(|| anyhow!("out of threads"))?,
+    fn spawn(self: Arc<Self>) -> Result<Option<Box<dyn crate::backend::Thread>>> {
+        let thread = match sgx::enclave::Thread::new(self) {
+            Some(thread) => thread,
+            None => return Ok(None),
+        };
+
+        Ok(Some(Box::new(Thread {
+            thread,
             registers: Registers::default(),
             block: Block::default(),
             cssa: usize::default(),
             how: Entry::Enter,
-        }))
+        })))
     }
 }
 
