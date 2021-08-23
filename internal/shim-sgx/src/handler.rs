@@ -66,7 +66,7 @@ impl<'a> Handler<'a> {
             // prevent earlier writes from being moved beyond this point
             core::sync::atomic::compiler_fence(core::sync::atomic::Ordering::Release);
 
-            asm!("syscall");
+            asm!("cpuid");
 
             // prevent later reads from being moved before this point
             core::sync::atomic::compiler_fence(core::sync::atomic::Ordering::Acquire);

@@ -113,11 +113,10 @@ extern "C" fn main(
             let gpr = &mut rcx.ctx.ssa[n - 1].gpr;
 
             if let Some(Exception::InvalidOpcode) = gpr.exitinfo.exception() {
-                if let OP_SYSCALL = unsafe { gpr.rip.into_slice(2usize) } {
-                    // Skip the syscall instruction.
-                    let mut rip = usize::from(gpr.rip);
-                    rip += OP_SYSCALL.len();
-                    gpr.rip = rip.into();
+                if let OP_SYSCALL | OP_CPUID = unsafe { gpr.rip.into_slice(2usize) } {
+                    // Skip the instruction.
+                    let rip = usize::from(gpr.rip);
+                    gpr.rip = (rip + 2).into();
                     return;
                 }
             }
