@@ -3,13 +3,16 @@
 use crate::backend::kvm::Personality;
 use kvm_ioctls::VmFd;
 
-use super::ioctl::KvmUserspaceMemoryRegion;
-use super::runtime::mark_encrypted;
+use super::ioctl::{KvmEncRegion, KvmUserspaceMemoryRegion, ENCRYPT_REGION};
 
 pub struct Sev;
 
 impl Personality for Sev {
-    fn add_memory(vm: &VmFd, region: &KvmUserspaceMemoryRegion) {
-        mark_encrypted(vm, region).expect("SEV memory pinning failed");
+    fn add_memory(vm: &mut VmFd, region: &KvmUserspaceMemoryRegion) {
+        let enc_region = KvmEncRegion::new(region);
+        ENCRYPT_REGION
+            .ioctl(vm, &enc_region)
+            .map(|_| ())
+            .expect("SEV memory pinning failed");
     }
 }

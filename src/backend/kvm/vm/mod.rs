@@ -64,7 +64,7 @@ impl<A: Arch, P: Personality> Vm<A, P> {
             self.fd.set_user_memory_region(region)?;
         }
 
-        P::add_memory(&self.fd, &region);
+        P::add_memory(&mut self.fd, &region);
 
         self.regions.push(Region::new(region, map));
 

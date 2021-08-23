@@ -3,7 +3,6 @@
 mod builder;
 mod ioctl;
 mod personality;
-mod runtime;
 mod unattested_launch;
 
 use crate::backend::kvm::Builder;

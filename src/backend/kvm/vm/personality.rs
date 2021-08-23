@@ -12,7 +12,7 @@ use super::KvmUserspaceMemoryRegion;
 ///
 /// If a personality is not needed, pass in Unit.
 pub trait Personality {
-    fn add_memory(_vm: &VmFd, _region: &KvmUserspaceMemoryRegion) {}
+    fn add_memory(_vm: &mut VmFd, _region: &KvmUserspaceMemoryRegion) {}
 }
 
 impl Personality for () {}
