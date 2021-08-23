@@ -5,9 +5,7 @@ use sgx::types::ssa::{Exception, StateSaveArea};
 
 use crate::handler::Handler;
 use crate::Layout;
-use sallyport::syscall::{
-    BaseSyscallHandler, ProcessSyscallHandler, SyscallHandler, SYS_ENARX_ERESUME,
-};
+use sallyport::syscall::{BaseSyscallHandler, ProcessSyscallHandler, SyscallHandler};
 
 pub fn event(layout: &Layout, aex: &mut StateSaveArea, block: &mut Block) {
     let mut h = Handler::new(layout, aex, block);
@@ -55,6 +53,4 @@ pub fn event(layout: &Layout, aex: &mut StateSaveArea, block: &mut Block) {
             h.attacked();
         }
     }
-
-    block.msg.req.num = SYS_ENARX_ERESUME.into();
 }

@@ -3,7 +3,7 @@
 use crate::backend::sgx::attestation::get_attestation;
 use crate::backend::{Command, Datum, Keep};
 use crate::binary::Component;
-use sallyport::syscall::{SYS_ENARX_CPUID, SYS_ENARX_ERESUME, SYS_ENARX_GETATT};
+use sallyport::syscall::{SYS_ENARX_CPUID, SYS_ENARX_GETATT};
 use sallyport::Block;
 
 use anyhow::Result;
@@ -245,33 +245,32 @@ impl Thread {
 
 impl super::Thread for Thread {
     fn enter(&mut self) -> Result<Command> {
-        loop {
-            let prev = self.how;
-            self.registers.rdx = (&mut self.block).into();
-            self.how = match self.thread.enter(prev, &mut self.registers) {
-                Err(ei) if ei.trap == Exception::InvalidOpcode => Entry::Enter,
-                Ok(_) => Entry::Resume,
-                e => panic!("Unexpected AEX: {:?}", e),
-            };
+        let prev = self.how;
+        self.registers.rdx = (&mut self.block).into();
+        self.how = match self.thread.enter(prev, &mut self.registers) {
+            Err(ei) if ei.trap == Exception::InvalidOpcode => Entry::Enter,
+            Ok(_) => Entry::Resume,
+            e => panic!("Unexpected AEX: {:?}", e),
+        };
 
-            // Keep track of the CSSA
-            match self.how {
-                Entry::Enter => self.cssa += 1,
-                Entry::Resume => match self.cssa {
-                    0 => unreachable!(),
-                    _ => self.cssa -= 1,
-                },
-            }
+        // Keep track of the CSSA
+        match self.how {
+            Entry::Enter => self.cssa += 1,
+            Entry::Resume => match self.cssa {
+                0 => unreachable!(),
+                _ => self.cssa -= 1,
+            },
+        }
 
-            // If we have handled an InvalidOpcode error, evaluate the sallyport.
-            if let (Entry::Enter, Entry::Resume) = (prev, self.how) {
-                match unsafe { self.block.msg.req }.num.into() {
-                    SYS_ENARX_CPUID => self.cpuid(),
-                    SYS_ENARX_GETATT => self.attest()?,
-                    SYS_ENARX_ERESUME => (),
-                    _ => return Ok(Command::SysCall(&mut self.block)),
-                }
+        // If we have handled an InvalidOpcode error, evaluate the sallyport.
+        if let (Entry::Enter, Entry::Resume) = (prev, self.how) {
+            match unsafe { self.block.msg.req }.num.into() {
+                SYS_ENARX_CPUID => self.cpuid(),
+                SYS_ENARX_GETATT => self.attest()?,
+                _ => return Ok(Command::SysCall(&mut self.block)),
             }
         }
+
+        Ok(Command::Continue)
     }
 }
