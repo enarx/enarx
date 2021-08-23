@@ -21,6 +21,9 @@ pub trait Backend {
     /// The name of the backend
     fn name(&self) -> &'static str;
 
+    /// The builtin shim
+    fn shim(&self) -> &'static [u8];
+
     /// Whether or not the platform has support for this keep type
     fn have(&self) -> bool {
         !self.data().iter().fold(false, |e, d| e | !d.pass)
@@ -30,11 +33,12 @@ pub trait Backend {
     fn data(&self) -> Vec<Datum>;
 
     /// Create a keep instance on this backend
-    fn build(&self, code: Component, sock: Option<&Path>) -> Result<Arc<dyn Keep>>;
+    fn build(&self, shim: Component, code: Component, sock: Option<&Path>)
+        -> Result<Arc<dyn Keep>>;
 
     /// Create a keep instance on this backend, measure the keep
     /// and output a json record for the specific backend
-    fn measure(&self, code: Component) -> Result<String>;
+    fn measure(&self, shim: Component, code: Component) -> Result<String>;
 }
 
 pub struct Datum {

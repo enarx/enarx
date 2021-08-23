@@ -64,7 +64,7 @@ mod protobuf;
 pub use sallyport::Request;
 
 use backend::{Backend, Command};
-use binary::ComponentType;
+use binary::{Component, ComponentType};
 
 use anyhow::Result;
 use structopt::StructOpt;
@@ -169,11 +169,11 @@ fn measure(backends: &[Box<dyn Backend>], opts: Report) -> Result<()> {
         .filter(|b| keep.is_none() || keep == Some(b.name().into()))
         .find(|b| b.have());
 
-    let map = mmarinus::Kind::Private.load::<mmarinus::perms::Read, _>(&opts.code)?;
-
     if let Some(backend) = backend {
-        let code = ComponentType::Payload.into_component_from_bytes(map.as_ref())?;
-        let json = backend.measure(code)?;
+        let map = mmarinus::Kind::Private.load::<mmarinus::perms::Read, _>(&opts.code)?;
+        let shim = Component::from_bytes(backend.shim(), ComponentType::Shim)?;
+        let code = Component::from_bytes(&map, ComponentType::Payload)?;
+        let json = backend.measure(shim, code)?;
         println!("{}", json);
     } else {
         panic!(
@@ -197,8 +197,9 @@ fn exec(backends: &[Box<dyn Backend>], opts: Exec) -> Result<()> {
 
     if let Some(backend) = backend {
         let map = mmarinus::Kind::Private.load::<mmarinus::perms::Read, _>(&opts.code)?;
-        let code = ComponentType::Payload.into_component_from_bytes(map.as_ref())?;
-        let keep = backend.build(code, opts.sock.as_deref())?;
+        let shim = Component::from_bytes(backend.shim(), ComponentType::Shim)?;
+        let code = Component::from_bytes(&map, ComponentType::Payload)?;
+        let keep = backend.build(shim, code, opts.sock.as_deref())?;
 
         let mut thread = keep.clone().spawn()?.unwrap();
         loop {

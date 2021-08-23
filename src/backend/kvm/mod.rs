@@ -3,8 +3,6 @@
 mod builder;
 mod vm;
 
-pub const SHIM: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/bin/shim-sev"));
-
 pub use vm::{
     measure::{self, Measurement},
     personality::Personality,
@@ -12,13 +10,15 @@ pub use vm::{
 };
 
 use crate::backend::{self, Datum, Keep};
-use crate::binary::{Component, ComponentType};
+use crate::binary::Component;
 
 use anyhow::Result;
 use kvm_ioctls::Kvm;
 
 use std::path::Path;
 use std::sync::{Arc, RwLock};
+
+pub const SHIM: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/bin/shim-sev"));
 
 fn dev_kvm() -> Datum {
     let dev_kvm = std::path::Path::new("/dev/kvm");
@@ -52,21 +52,26 @@ impl backend::Backend for Backend {
         "kvm"
     }
 
+    fn shim(&self) -> &'static [u8] {
+        SHIM
+    }
+
     fn data(&self) -> Vec<Datum> {
         vec![dev_kvm(), kvm_version()]
     }
 
-    fn build(&self, code: Component, _sock: Option<&Path>) -> Result<Arc<dyn Keep>> {
-        let shim = ComponentType::Shim.into_component_from_bytes(SHIM)?;
-
+    fn build(
+        &self,
+        shim: Component,
+        code: Component,
+        _sock: Option<&Path>,
+    ) -> Result<Arc<dyn Keep>> {
         let vm = Builder::new(shim, code, builder::Kvm).build::<()>()?.vm()?;
 
         Ok(Arc::new(RwLock::new(vm)))
     }
 
-    fn measure(&self, code: Component) -> Result<String> {
-        let shim = ComponentType::Shim.into_component_from_bytes(SHIM)?;
-
+    fn measure(&self, shim: Component, code: Component) -> Result<String> {
         let digest = Builder::new(shim, code, builder::Kvm)
             .build::<()>()?
             .measurement()?;

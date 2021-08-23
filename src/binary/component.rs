@@ -24,14 +24,6 @@ pub const PT_ENARX_PML4: u32 = PT_LOOS + 0x34a0002;
 #[cfg(any(feature = "backend-sev", feature = "backend-kvm"))]
 pub const PT_ENARX_CODE: u32 = PT_LOOS + 0x34a0003;
 
-impl ComponentType {
-    /// Loads a binary from bytes
-    #[allow(dead_code)]
-    pub fn into_component_from_bytes(self, bytes: &[u8]) -> Result<Component> {
-        Component::from_bytes(bytes, self)
-    }
-}
-
 pub struct Component<'a> {
     pub bytes: &'a [u8],
     pub elf: Elf<'a>,
@@ -41,11 +33,12 @@ pub struct Component<'a> {
 
 impl<'a> Component<'a> {
     /// Loads a binary from bytes
-    fn from_bytes(
+    pub fn from_bytes(
         bytes: &'a (impl AsRef<[u8]> + ?Sized),
         component_type: ComponentType,
     ) -> Result<Self> {
         let bytes = bytes.as_ref();
+
         // Parse the file.
         let elf = Elf::parse(bytes).unwrap();
 

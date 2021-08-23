@@ -9,7 +9,7 @@ use crate::backend::kvm::Builder;
 use crate::backend::kvm::SHIM;
 use crate::backend::probe::x86_64::{CpuId, Vendor};
 use crate::backend::{self, Datum, Keep};
-use crate::binary::{Component, ComponentType};
+use crate::binary::Component;
 
 use anyhow::Result;
 
@@ -232,6 +232,10 @@ impl backend::Backend for Backend {
         "sev"
     }
 
+    fn shim(&self) -> &'static [u8] {
+        SHIM
+    }
+
     fn data(&self) -> Vec<Datum> {
         let mut data = vec![];
         data.extend(CPUIDS.iter().map(|c| c.into()));
@@ -244,8 +248,12 @@ impl backend::Backend for Backend {
         data
     }
 
-    fn build(&self, code: Component, sock: Option<&Path>) -> Result<Arc<dyn Keep>> {
-        let shim = ComponentType::Shim.into_component_from_bytes(SHIM)?;
+    fn build(
+        &self,
+        shim: Component,
+        code: Component,
+        sock: Option<&Path>,
+    ) -> Result<Arc<dyn Keep>> {
         let sock = attestation_bridge(sock)?;
 
         let vm = Builder::new(shim, code, builder::Sev::new(sock))
@@ -255,8 +263,7 @@ impl backend::Backend for Backend {
         Ok(Arc::new(RwLock::new(vm)))
     }
 
-    fn measure(&self, code: Component) -> Result<String> {
-        let shim = ComponentType::Shim.into_component_from_bytes(SHIM)?;
+    fn measure(&self, shim: Component, code: Component) -> Result<String> {
         let sock = attestation_bridge(None)?;
 
         let digest = Builder::new(shim, code, builder::Sev::new(sock))

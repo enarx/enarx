@@ -2,7 +2,7 @@
 
 use crate::backend::sgx::attestation::get_attestation;
 use crate::backend::{Command, Datum, Keep};
-use crate::binary::{Component, ComponentType};
+use crate::binary::Component;
 use sallyport::syscall::{SYS_ENARX_CPUID, SYS_ENARX_ERESUME, SYS_ENARX_GETATT};
 use sallyport::Block;
 
@@ -27,8 +27,6 @@ mod shim;
 use goblin::elf::program_header::*;
 use std::cmp::min;
 use std::ops::Range;
-
-const SHIM: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/bin/shim-sgx"));
 
 fn program_header_2_segment(file: impl AsRef<[u8]>, ph: &ProgramHeader) -> Segment {
     let mut rwx = Flags::empty();
@@ -85,6 +83,10 @@ impl crate::backend::Backend for Backend {
         "sgx"
     }
 
+    fn shim(&self) -> &'static [u8] {
+        include_bytes!(concat!(env!("OUT_DIR"), "/bin/shim-sgx"))
+    }
+
     fn have(&self) -> bool {
         data::dev_sgx_enclave().pass
     }
@@ -101,9 +103,12 @@ impl crate::backend::Backend for Backend {
     }
 
     /// Create a keep instance on this backend
-    fn build(&self, code: Component, _sock: Option<&Path>) -> Result<Arc<dyn Keep>> {
-        let shim = ComponentType::Shim.into_component_from_bytes(SHIM)?;
-
+    fn build(
+        &self,
+        shim: Component,
+        code: Component,
+        _sock: Option<&Path>,
+    ) -> Result<Arc<dyn Keep>> {
         // Calculate the memory layout for the enclave.
         let layout = crate::backend::sgx::shim::Layout::calculate(shim.region(), code.region());
 
@@ -178,7 +183,7 @@ impl crate::backend::Backend for Backend {
         Ok(builder.build()?)
     }
 
-    fn measure(&self, mut _code: Component) -> Result<String> {
+    fn measure(&self, _shim: Component, _code: Component) -> Result<String> {
         unimplemented!()
     }
 }
