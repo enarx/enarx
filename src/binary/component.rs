@@ -31,7 +31,11 @@ pub struct Component<'a> {
 
 impl<'a> Component<'a> {
     /// Loads a binary from bytes
-    fn from_bytes(bytes: &'a [u8], component_type: ComponentType) -> Result<Self> {
+    fn from_bytes(
+        bytes: &'a (impl AsRef<[u8]> + ?Sized),
+        component_type: ComponentType,
+    ) -> Result<Self> {
+        let bytes = bytes.as_ref();
         // Parse the file.
         let elf = Elf::parse(bytes).unwrap();
 
