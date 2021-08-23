@@ -46,9 +46,9 @@ pub struct Builder<'a, T: Hook> {
     code: Component<'a>,
 }
 
-pub struct Built<A: image::Arch, P: Personality, T: Hook> {
+pub struct Built<P: Personality, T: Hook> {
     hook: T,
-    vm: Vm<A, P>,
+    vm: Vm<P>,
 }
 
 impl<'a, T: Hook> Builder<'a, T> {
@@ -68,7 +68,7 @@ impl<'a, T: Hook> Builder<'a, T> {
         }
     }
 
-    pub fn build<A: image::Arch, P: Personality>(mut self) -> Result<Built<A, P, T>> {
+    pub fn build<P: Personality>(mut self) -> Result<Built<P, T>> {
         let kvm = Kvm::new()?;
         let mut fd = kvm.create_vm()?;
 
@@ -126,9 +126,20 @@ impl<'a, T: Hook> Builder<'a, T> {
             fd,
             regions: vec![Region::new(region, map)],
             syscall_blocks,
-            arch: A::new(&self.shim),
             _personality: PhantomData,
             cpus,
+
+            #[cfg(target_arch = "x86_64")]
+            rip: PhysAddr::new(self.shim.elf.entry as _),
+
+            #[cfg(target_arch = "x86_64")]
+            cr3: PhysAddr::new(
+                self.shim
+                    .find_header(crate::binary::PT_ENARX_PML4)
+                    .unwrap()
+                    .vm_range()
+                    .start as _,
+            ),
         };
 
         Ok(Built {
@@ -160,7 +171,7 @@ impl<'a, T: Hook> Builder<'a, T> {
     }
 }
 
-impl<A: image::Arch, P: Personality, T: Hook> Built<A, P, T> {
+impl<P: Personality, T: Hook> Built<P, T> {
     pub fn measurement(&mut self) -> Result<measure::Measurement> {
         let mut hasher = Hasher::new(T::preferred_digest().into())?;
         let address_space = self.vm.regions[0].backing();
@@ -174,7 +185,7 @@ impl<A: image::Arch, P: Personality, T: Hook> Built<A, P, T> {
         })
     }
 
-    pub fn vm(mut self) -> Result<Vm<A, P>> {
+    pub fn vm(mut self) -> Result<Vm<P>> {
         self.hook.code_loaded(
             &mut self.vm.fd,
             self.vm.regions[0].backing(),

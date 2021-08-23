@@ -2,7 +2,6 @@
 
 pub mod builder;
 mod cpu;
-pub mod image;
 pub mod measure;
 mod mem;
 pub mod personality;
@@ -14,7 +13,6 @@ use mem::Region;
 use personality::Personality;
 
 pub use builder::{Builder, Hook};
-pub use image::{x86::X86, Arch};
 pub use kvm_bindings::kvm_segment as KvmSegment;
 pub use kvm_bindings::kvm_userspace_memory_region as KvmUserspaceMemoryRegion;
 
@@ -24,24 +22,31 @@ use kvm_ioctls::{Kvm, VmFd};
 use lset::Span;
 use mmarinus::{perms, Kind, Map};
 use primordial::Page;
-use x86_64::VirtAddr;
+
+#[cfg(target_arch = "x86_64")]
+use x86_64::{PhysAddr, VirtAddr};
 
 use std::collections::VecDeque;
 use std::marker::PhantomData;
 use std::num::NonZeroUsize;
 use std::sync::{Arc, RwLock};
 
-pub struct Vm<A: Arch, P: Personality> {
+pub struct Vm<P: Personality> {
     kvm: Kvm,
     fd: VmFd,
     regions: Vec<Region>,
     syscall_blocks: Span<VirtAddr, NonZeroUsize>,
-    arch: A,
     _personality: PhantomData<P>,
     cpus: VecDeque<u64>,
+
+    #[cfg(target_arch = "x86_64")]
+    rip: PhysAddr,
+
+    #[cfg(target_arch = "x86_64")]
+    cr3: PhysAddr,
 }
 
-impl<A: Arch, P: Personality> Vm<A, P> {
+impl<P: Personality> Vm<P> {
     pub fn add_memory(&mut self, pages: usize) -> Result<i64> {
         let mem_size = pages * Page::size();
         let last_region = self.regions.last().unwrap().as_guest();
@@ -72,7 +77,7 @@ impl<A: Arch, P: Personality> Vm<A, P> {
     }
 }
 
-impl<P: 'static + Personality> Keep for RwLock<Vm<X86, P>> {
+impl<P: 'static + Personality> Keep for RwLock<Vm<P>> {
     fn spawn(self: Arc<Self>) -> Result<Option<Box<dyn Thread>>> {
         let mut keep = self.write().unwrap();
 
@@ -83,7 +88,7 @@ impl<P: 'static + Personality> Keep for RwLock<Vm<X86, P>> {
 
         vcpu.set_cpuid2(&keep.kvm.get_supported_cpuid(KVM_MAX_CPUID_ENTRIES)?)?;
 
-        let thread = Cpu::new(vcpu, self.clone(), keep.arch.rip, keep.arch.cr3)?;
+        let thread = Cpu::new(vcpu, self.clone(), keep.rip, keep.cr3)?;
         Ok(Some(Box::new(thread)))
     }
 }

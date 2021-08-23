@@ -7,7 +7,6 @@ mod unattested_launch;
 
 use crate::backend::kvm::Builder;
 use crate::backend::kvm::SHIM;
-use crate::backend::kvm::X86;
 use crate::backend::probe::x86_64::{CpuId, Vendor};
 use crate::backend::{self, Datum, Keep};
 use crate::binary::{Component, ComponentType};
@@ -250,7 +249,7 @@ impl backend::Backend for Backend {
         let sock = attestation_bridge(sock)?;
 
         let vm = Builder::new(shim, code, builder::Sev::new(sock))
-            .build::<X86, personality::Sev>()?
+            .build::<personality::Sev>()?
             .vm()?;
 
         Ok(Arc::new(RwLock::new(vm)))
@@ -261,7 +260,7 @@ impl backend::Backend for Backend {
         let sock = attestation_bridge(None)?;
 
         let digest = Builder::new(shim, code, builder::Sev::new(sock))
-            .build::<X86, ()>()?
+            .build::<()>()?
             .measurement()?;
 
         let json = format!(

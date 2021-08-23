@@ -2,8 +2,6 @@
 
 use super::{KvmSegment, Vm};
 
-use crate::backend::kvm::vm::image::x86::X86;
-use crate::backend::kvm::vm::image::Arch;
 use crate::backend::{Command, Thread};
 use sallyport::syscall::enarx::MemInfo;
 use sallyport::syscall::{SYS_ENARX_BALLOON_MEMORY, SYS_ENARX_MEM_INFO};
@@ -21,15 +19,15 @@ use x86_64::PhysAddr;
 
 use std::sync::{Arc, RwLock};
 
-pub struct Cpu<A: Arch, P: Personality> {
+pub struct Cpu<P: Personality> {
     fd: VcpuFd,
-    keep: Arc<RwLock<Vm<A, P>>>,
+    keep: Arc<RwLock<Vm<P>>>,
 }
 
-impl<P: Personality> Cpu<X86, P> {
+impl<P: Personality> Cpu<P> {
     pub fn new(
         fd: VcpuFd,
-        keep: Arc<RwLock<Vm<X86, P>>>,
+        keep: Arc<RwLock<Vm<P>>>,
         entry: PhysAddr,
         cr3: PhysAddr,
     ) -> Result<Self> {
@@ -86,7 +84,7 @@ impl<P: Personality> Cpu<X86, P> {
     }
 }
 
-impl<P: Personality> Thread for Cpu<X86, P> {
+impl<P: Personality> Thread for Cpu<P> {
     fn enter(&mut self) -> Result<Command> {
         match self.fd.run()? {
             VcpuExit::IoOut(port, data) => match port {
