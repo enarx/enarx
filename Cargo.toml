@@ -55,7 +55,7 @@ openssl = "0.10"
 [build-dependencies]
 cc = "1.0"
 walkdir = "2"
-protobuf-codegen-pure = "2.22"
+protobuf-codegen-pure = "2.25"
 sallyport = { git = "https://github.com/enarx/sallyport", rev = "efccf0f" }
 
 [dev-dependencies]
