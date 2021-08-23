@@ -53,7 +53,7 @@ pub struct Datum {
 
 pub trait Keep {
     /// Creates a new thread in the keep.
-    fn add_thread(self: Arc<Self>) -> Result<Box<dyn Thread>>;
+    fn spawn(self: Arc<Self>) -> Result<Box<dyn Thread>>;
 }
 
 pub trait Thread {

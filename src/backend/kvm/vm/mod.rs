@@ -71,7 +71,7 @@ impl<A: Arch, P: Personality> Vm<A, P> {
 }
 
 impl<P: 'static + Personality> Keep for RwLock<Vm<X86, P>> {
-    fn add_thread(self: Arc<Self>) -> Result<Box<dyn Thread>> {
+    fn spawn(self: Arc<Self>) -> Result<Box<dyn Thread>> {
         let keep = self.write().unwrap();
         let id = 0;
 

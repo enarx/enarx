@@ -184,7 +184,7 @@ impl crate::backend::Backend for Backend {
 }
 
 impl super::Keep for RwLock<Enclave> {
-    fn add_thread(self: Arc<Self>) -> Result<Box<dyn crate::backend::Thread>> {
+    fn spawn(self: Arc<Self>) -> Result<Box<dyn crate::backend::Thread>> {
         Ok(Box::new(Thread {
             thread: sgx::enclave::Thread::new(self).ok_or_else(|| anyhow!("out of threads"))?,
             registers: Registers::default(),
