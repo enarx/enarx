@@ -3,10 +3,9 @@
 use anyhow::{anyhow, Result};
 use goblin::elf::{header::*, program_header::*, Elf};
 
-use lset::Line;
 use sallyport::SALLYPORT_ABI_VERSION_BASE;
 
-use std::cmp::{max, min};
+use std::ops::Range;
 
 #[allow(dead_code)]
 pub enum ComponentType {
@@ -113,13 +112,17 @@ impl<'a> Component<'a> {
     }
 
     /// Find the total memory region for the binary.
-    #[allow(dead_code)]
-    pub fn region(&self) -> Line<usize> {
-        self.filter_header(PT_LOAD)
-            .map(|x| Line::from(x.vm_range()))
-            .fold(usize::max_value()..usize::min_value(), |l, r| {
-                min(l.start, r.start)..max(l.end, r.end)
-            })
-            .into()
+    pub fn region(&self) -> Range<usize> {
+        let lo = self
+            .filter_header(PT_LOAD)
+            .map(|phdr| phdr.vm_range().start)
+            .min();
+
+        let hi = self
+            .filter_header(PT_LOAD)
+            .map(|phdr| phdr.vm_range().end)
+            .max();
+
+        lo.unwrap_or_default()..hi.unwrap_or_default()
     }
 }

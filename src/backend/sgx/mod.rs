@@ -110,7 +110,10 @@ impl crate::backend::Backend for Backend {
         _sock: Option<&Path>,
     ) -> Result<Arc<dyn Keep>> {
         // Calculate the memory layout for the enclave.
-        let layout = crate::backend::sgx::shim::Layout::calculate(shim.region(), code.region());
+        let layout = crate::backend::sgx::shim::Layout::calculate(
+            shim.region().into(),
+            code.region().into(),
+        );
 
         let mut shim_segs: Vec<_> = shim
             .filter_header(PT_LOAD)
