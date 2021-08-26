@@ -65,9 +65,9 @@ dependencies = [
 
 [[package]]
 name = "lset"
-version = "0.1.0"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "23b20ea162e8026b8fc058e49bbc77ad7dd48d1907b3de206ecbe549c7ce669a"
+checksum = "efeae5282702b072b5e21cf8f430ccd3c5031c1e346321a28429523266c4a9b0"
 
 [[package]]
 name = "nbytes"
