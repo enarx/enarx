@@ -5,7 +5,7 @@
 //! see [`_start`](_start)
 
 use crate::addr::SHIM_VIRT_OFFSET;
-use crate::pagetables::{PDPT_IDENT, PDPT_OFFSET, PDT_IDENT, PDT_OFFSET, PML4T};
+use crate::pagetables::{PDPT_IDENT, PDPT_OFFSET, PDT_IDENT, PDT_OFFSET, PML4T, PT_IDENT};
 use primordial::Page;
 use rcrt1::dyn_reloc;
 
@@ -136,10 +136,12 @@ pub unsafe extern "sysv64" fn _start() -> ! {
     // 3: 0xc000_0000 - 0x1_0000_0000
     mov     QWORD PTR [rbx + 3*8],    rcx
 
-    // set C-bit in the PDT_IDENT table
     lea     rcx,    [rip + {PDT_IDENT}]
-    mov     rdx,    r11
-    or      DWORD PTR [rcx + (511*8 + 4)],    edx
+    lea     rbx,    [rip + {PT_IDENT}]
+    or      rbx,    r12         // set C-bit
+    or      rbx,    0x3         // ( WRITABLE | PRESENT)
+    // store PT_IDENT table in PDT_IDENT in the correct slot
+    mov     QWORD PTR [rcx + 511*8],    rbx
 
     // setup PDPT_IDENT table entry 3 with PDT_IDENT table
     lea     rbx,    [rip + {PDPT_IDENT}]
@@ -196,6 +198,7 @@ pub unsafe extern "sysv64" fn _start() -> ! {
     PML4T = sym PML4T,
     PDPT_OFFSET = sym PDPT_OFFSET,
     PDT_OFFSET = sym PDT_OFFSET,
+    PT_IDENT = sym PT_IDENT,
     PDT_IDENT = sym PDT_IDENT,
     PDPT_IDENT = sym PDPT_IDENT,
     INITIAL_SHIM_STACK = sym INITIAL_SHIM_STACK,

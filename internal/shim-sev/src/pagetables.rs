@@ -14,7 +14,9 @@ use crate::{
 use array_const_fn_init::array_const_fn_init;
 use x86_64::instructions::tlb::flush;
 use x86_64::structures::paging::mapper::PageTableFrameMapping;
-use x86_64::structures::paging::{Mapper, Page, PageTable, PageTableFlags, Size1GiB, Size2MiB};
+use x86_64::structures::paging::{
+    Mapper, Page, PageTable, PageTableFlags, Size1GiB, Size2MiB, Size4KiB,
+};
 use x86_64::{PhysAddr, VirtAddr};
 
 /// A page-aligned Page Table.
@@ -42,6 +44,18 @@ const fn gen_1gb_pdpt_entries(i: usize) -> u64 {
     let base: u64 = HUGE_PAGE_TABLE_FLAGS;
     let step: u64 = BYTES_1_GIB;
     base + (i as u64) * step
+}
+
+#[allow(clippy::integer_arithmetic)]
+const fn gen_4k_pt_entries(i: usize, offset: u64) -> u64 {
+    let base: u64 = (PageTableFlags::WRITABLE.bits() | PageTableFlags::PRESENT.bits()) + offset;
+    let step: u64 = Page::<Size4KiB>::SIZE;
+    base + (i as u64) * step
+}
+
+#[allow(clippy::integer_arithmetic)]
+const fn gen_4k_pt_entries_ffe0_0000(i: usize) -> u64 {
+    gen_4k_pt_entries(i, 0xffe0_0000)
 }
 
 /// The root table of the 4-Level Paging
@@ -87,6 +101,14 @@ pub static mut PDPT_IDENT: AlignedPageTable = AlignedPageTable([0; 512]);
 #[link_section = ".entry64_data"]
 pub static mut PDT_IDENT: AlignedPageTable =
     AlignedPageTable(array_const_fn_init![gen_2mb_pdt_entries_c000_0000; 512]);
+
+/// Identity Page Table
+///
+/// with pointers to 4KiB Huge Page
+#[no_mangle]
+#[link_section = ".entry64_data"]
+pub static mut PT_IDENT: AlignedPageTable =
+    AlignedPageTable(array_const_fn_init![gen_4k_pt_entries_ffe0_0000; 512]);
 
 /// Map the sallyport Block pages to unencrypted memory.
 pub fn switch_sallyport_to_unencrypted(c_bit_mask: u64) {
