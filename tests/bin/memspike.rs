@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 //! `memspike`'s primary intention is to trigger memory ballooning in
 //! VM-based keeps. This will help test the ballooning itself as well
 //! as memory pinning for SEV.

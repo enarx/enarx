@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: BSD-3-Clause
 /*
  * Copyright (C) 2011-2020 Intel Corporation. All rights reserved.
  *
@@ -159,7 +160,7 @@ message Response{
         required   uint32 errorCode             = 1 [default = 1];
         optional   bytes platform_update_info   = 2;
     }
-    
+
     message CheckUpdateStatusResponse{
         required   uint32 errorCode             = 1 [default = 1];
         optional   bytes platform_update_info   = 2;
@@ -205,7 +206,7 @@ message Response{
         required    uint32 errorCode    = 1 [default = 1];
         optional    uint32 quote_size   = 2;
     }
-	
+
     message GetQuoteExResponse{
         required    uint32 errorCode      = 1 [default = 1];
         optional    bytes  quote          = 2;

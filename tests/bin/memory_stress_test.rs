@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 const SIZE_32M: usize = 1024 * 1024 * 32;
 
 fn main() {

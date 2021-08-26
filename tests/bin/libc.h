@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 #include <sys/syscall.h>
 #include <sys/uio.h> /* struct iovec */
 #include <unistd.h>

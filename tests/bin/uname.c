@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 #include "libc.h"
 
 int strcmp(const char* s1, const char* s2)

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 #include "libc.h"
 #include <sys/socket.h>
 #include <string.h>

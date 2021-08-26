@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Read and write a buffer of the size of a maximum sized UDP packet
 // in one go and fail, if it was fragmented.
 

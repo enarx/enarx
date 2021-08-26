@@ -117,3 +117,12 @@ jobs:
           - {name: enarx-keepldr, path: ./Cargo.toml}
           - {name: shim-sgx, path: internal/shim-sgx/Cargo.toml}
           - {name: shim-sev, path: internal/shim-sev/Cargo.toml}
+
+  check-spdx-headers:
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout
+        uses: actions/checkout@v2
+      - uses: enarx/spdx@master
+        with:
+          licenses: Apache-2.0 BSD-3-Clause

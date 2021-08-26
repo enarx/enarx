@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 #include "libc.h"
 #include "enarx.h"
 #include <errno.h>
@@ -11,7 +13,7 @@ int main(void) {
     unsigned char buf[4598];
     size_t technology;
     int i;
-    unsigned char expected[32] = { 
+    unsigned char expected[32] = {
         3, 0, 2, 0, 0, 0, 0, 0, 5, 0,
         10, 0, 147, 154, 114, 51, 247, 156, 76, 169,
         148, 10, 13, 179, 149, 127, 6, 7, 14, 153,
