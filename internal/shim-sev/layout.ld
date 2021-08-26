@@ -19,7 +19,6 @@ PHDRS {
     dynamic      PT_DYNAMIC;
 
     PT_ENARX_SALLYPORT  0x634A0001 FLAGS(0x0ff00000);
-    PT_ENARX_PML4       0x634A0002 FLAGS(0x0ff00000);
     PT_ENARX_CODE       0x634A0003 FLAGS(0x0ff00000);
 }
 
@@ -35,13 +34,16 @@ _ENARX_SALLYPORT_SIZE = ALIGN(_ENARX_SALLYPORT_BLOCK_COUNT * _ENARX_SALLYPORT_BL
 ASSERT((_ENARX_SALLYPORT_SIZE <  (0x40000000 - 2 * CONSTANT(COMMONPAGESIZE))), "_ENARX_SALLYPORT_SIZE too big")
 
 reset_vector = 0xFFFFF000;
-_ENARX_SHIM_START = reset_vector + CONSTANT(COMMONPAGESIZE);
+_ENARX_SHIM_START = reset_vector;
 _ENARX_SALLYPORT_START = _ENARX_SHIM_START - _ENARX_SALLYPORT_SIZE - 2 * CONSTANT(COMMONPAGESIZE);
 _ENARX_SALLYPORT_END = _ENARX_SALLYPORT_START + _ENARX_SALLYPORT_SIZE;
 _ENARX_CODE_LEN = 4M;
 
-ASSERT((_ENARX_SHIM_START >= (4 * 0x40000000)), "SHIM_START is too low for current initial identity page table")
+ASSERT((_ENARX_SHIM_START >= (3 * 0x40000000)), "SHIM_START is too low for current initial identity page table")
 ASSERT((_ENARX_CODE_START < (6 * 0x40000000)), "SHIM is too large for current initial identity page table")
+
+ASSERT((pml4t_ident == (reset_vector - CONSTANT(COMMONPAGESIZE))), "pml4t_ident not at 0xFFFFE000")
+ASSERT((pml3t_ident == (reset_vector - 2*CONSTANT(COMMONPAGESIZE))), "pml3t_ident not at 0xFFFFD000")
 
 SECTIONS {
     . = _ENARX_SALLYPORT_START;
@@ -57,7 +59,7 @@ SECTIONS {
         QUAD(0);
         QUAD(0);
         QUAD(0);
-        QUAD(0);
+        QUAD(3 * 0x40000000 + 0x83); /* Flags::HUGE_PAGE | Flags::WRITABLE | Flags::PRESENT */
         QUAD(4 * 0x40000000 + 0x83); /* Flags::HUGE_PAGE | Flags::WRITABLE | Flags::PRESENT */
         QUAD(5 * 0x40000000 + 0x83); /* Flags::HUGE_PAGE | Flags::WRITABLE | Flags::PRESENT */
         FILL(0);
@@ -65,15 +67,16 @@ SECTIONS {
     } :PML3
 
     .pml4 : ALIGN(CONSTANT(COMMONPAGESIZE)) {
+        PROVIDE_HIDDEN(pml4t_ident = ABSOLUTE(.));
         QUAD(pml3t_ident + 0x3); /* Flags::WRITABLE | Flags::PRESENT */
         FILL(0);
         . = CONSTANT(COMMONPAGESIZE);
-    } :PML4 :PT_ENARX_PML4
+    } :PML4
 
     . = _ENARX_SHIM_START;
 
-    .boot_text   : { KEEP(*(.ram64)) KEEP(*(.entry64)) } :boot_text
-    .rcrt1_text  : { rcrt1*.text rcrt1*.text.* } :boot_text
+    .reset_text   : { KEEP(*(.reset)) } :boot_text
+    .rcrt1_text   : { rcrt1*.text rcrt1*.text.* } :boot_text
 
     . = ALIGN(CONSTANT(COMMONPAGESIZE));
     .dynamic            : { *(.dynamic) } :boot_data :dynamic

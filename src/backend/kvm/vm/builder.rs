@@ -128,18 +128,6 @@ impl<'a, T: Hook> Builder<'a, T> {
             syscall_blocks,
             _personality: PhantomData,
             cpus,
-
-            #[cfg(target_arch = "x86_64")]
-            rip: PhysAddr::new(self.shim.elf.entry as _),
-
-            #[cfg(target_arch = "x86_64")]
-            cr3: PhysAddr::new(
-                self.shim
-                    .find_header(crate::binary::PT_ENARX_PML4)
-                    .unwrap()
-                    .vm_range()
-                    .start as _,
-            ),
         };
 
         Ok(Built {

@@ -17,9 +17,6 @@ pub enum ComponentType {
 /// The sallyport program header type
 #[cfg(any(feature = "backend-sev", feature = "backend-kvm"))]
 pub const PT_ENARX_SALLYPORT: u32 = PT_LOOS + 0x34a0001;
-/// The CR3 pagetable program header type
-#[cfg(any(feature = "backend-sev", feature = "backend-kvm"))]
-pub const PT_ENARX_PML4: u32 = PT_LOOS + 0x34a0002;
 /// The enarx code program header type
 #[cfg(any(feature = "backend-sev", feature = "backend-kvm"))]
 pub const PT_ENARX_CODE: u32 = PT_LOOS + 0x34a0003;

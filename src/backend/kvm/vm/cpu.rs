@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use super::{KvmSegment, Vm};
+use super::Vm;
 
 use crate::backend::{Command, Thread};
 use sallyport::syscall::enarx::MemInfo;
@@ -13,9 +13,6 @@ use anyhow::{anyhow, Result};
 use kvm_ioctls::{VcpuExit, VcpuFd};
 use primordial::{Address, Register};
 use sallyport::{Block, Reply};
-use x86_64::registers::control::{Cr0Flags, Cr4Flags};
-use x86_64::registers::model_specific::EferFlags;
-use x86_64::PhysAddr;
 
 use std::sync::{Arc, RwLock};
 
@@ -25,62 +22,8 @@ pub struct Cpu<P: Personality> {
 }
 
 impl<P: Personality> Cpu<P> {
-    pub fn new(
-        fd: VcpuFd,
-        keep: Arc<RwLock<Vm<P>>>,
-        entry: PhysAddr,
-        cr3: PhysAddr,
-    ) -> Result<Self> {
-        let mut cpu = Self { fd, keep };
-
-        cpu.set_gen_regs(entry)?;
-        cpu.set_special_regs(cr3)?;
-
-        Ok(cpu)
-    }
-
-    fn set_gen_regs(&mut self, entry: PhysAddr) -> Result<()> {
-        let mut regs = self.fd.get_regs()?;
-
-        regs.rip = entry.as_u64();
-        regs.rflags |= 0x2;
-
-        self.fd.set_regs(&regs)?;
-        Ok(())
-    }
-
-    fn set_special_regs(&mut self, cr3: PhysAddr) -> Result<()> {
-        let mut sregs = self.fd.get_sregs()?;
-
-        let cs = KvmSegment {
-            base: 0,
-            limit: 0xFFFFF,
-            selector: 8,
-            type_: 11,
-            present: 1,
-            dpl: 0,
-            db: 0,
-            s: 1,
-            l: 1,
-            g: 1,
-            avl: 0,
-            unusable: 0,
-            padding: 0,
-        };
-
-        sregs.cs = cs;
-
-        sregs.efer = (EferFlags::LONG_MODE_ENABLE | EferFlags::LONG_MODE_ACTIVE).bits();
-        sregs.cr0 = (Cr0Flags::PROTECTED_MODE_ENABLE
-            | Cr0Flags::NUMERIC_ERROR
-            | Cr0Flags::PAGING
-            | Cr0Flags::MONITOR_COPROCESSOR)
-            .bits();
-        sregs.cr3 = cr3.as_u64();
-        sregs.cr4 = (Cr4Flags::PHYSICAL_ADDRESS_EXTENSION).bits();
-
-        self.fd.set_sregs(&sregs)?;
-        Ok(())
+    pub fn new(fd: VcpuFd, keep: Arc<RwLock<Vm<P>>>) -> Result<Self> {
+        Ok(Self { fd, keep })
     }
 }
 
@@ -148,7 +91,12 @@ impl<P: Personality> Thread for Cpu<P> {
             },
             exit_reason => {
                 if cfg!(debug_assertions) {
-                    Err(anyhow!("{:?} {:#x?}", exit_reason, self.fd.get_regs()))
+                    Err(anyhow!(
+                        "{:?} {:#x?} {:#x?}",
+                        exit_reason,
+                        self.fd.get_regs(),
+                        self.fd.get_sregs()
+                    ))
                 } else {
                     Err(anyhow!("{:?}", exit_reason))
                 }

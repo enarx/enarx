@@ -24,7 +24,7 @@ use mmarinus::{perms, Kind, Map};
 use primordial::Page;
 
 #[cfg(target_arch = "x86_64")]
-use x86_64::{PhysAddr, VirtAddr};
+use x86_64::VirtAddr;
 
 use std::collections::VecDeque;
 use std::marker::PhantomData;
@@ -38,12 +38,6 @@ pub struct Vm<P: Personality> {
     syscall_blocks: Span<VirtAddr, NonZeroUsize>,
     _personality: PhantomData<P>,
     cpus: VecDeque<u64>,
-
-    #[cfg(target_arch = "x86_64")]
-    rip: PhysAddr,
-
-    #[cfg(target_arch = "x86_64")]
-    cr3: PhysAddr,
 }
 
 impl<P: Personality> Vm<P> {
@@ -88,7 +82,7 @@ impl<P: 'static + Personality> Keep for RwLock<Vm<P>> {
 
         vcpu.set_cpuid2(&keep.kvm.get_supported_cpuid(KVM_MAX_CPUID_ENTRIES)?)?;
 
-        let thread = Cpu::new(vcpu, self.clone(), keep.rip, keep.cr3)?;
+        let thread = Cpu::new(vcpu, self.clone())?;
         Ok(Some(Box::new(thread)))
     }
 }

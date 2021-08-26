@@ -18,6 +18,7 @@ const INITIAL_STACK_PAGES: usize = 50;
 #[link_section = ".entry64_data"]
 static INITIAL_SHIM_STACK: [Page; INITIAL_STACK_PAGES] = [Page::zeroed(); INITIAL_STACK_PAGES];
 use crate::_start_main;
+use core::mem::size_of;
 
 /// The initial function called at startup
 ///
@@ -26,10 +27,81 @@ use crate::_start_main;
 #[allow(clippy::integer_arithmetic)]
 #[no_mangle]
 #[naked]
-#[link_section = ".entry64"]
+#[link_section = ".reset"]
 pub unsafe extern "sysv64" fn _start() -> ! {
-    asm!(
-        "
+    asm!("
+99:
+// A small jump table with well known addresses
+// to be used because of a rust bug for long jumps
+.code32
+// 0xFFFF_F000
+    jmp     30f      // jump to 32-bit code
+.align 8
+.code64
+// 0xFFFF_F008
+    jmp     40f      // jump to 64-bit code
+
+.align 8
+// gdt32_ptr == 0xFFFF_F010
+    .short 3f - 2f - 1 // GDT length is actually (length - 1)
+    .long 0xFFFFF000 + 2f - 99b // address of gdt32_start
+2: // gdt32_start
+    .quad 0          // First descriptor is always unused
+//code32_desc // base = 0x00000000, limit = 0xfffff x 4K
+    .short 0xffff    // limit[0..16] = 0xffff
+    .short 0x0000    // base [0..16] = 0x0000
+    .byte 0x00       // base[16..24] = 0x00
+    .byte 0x9B       // present, DPL = 0, system, code seg, grows up, readable, accessed
+    .byte 0xCF       // 4K gran, 32-bit, limit[16..20] = 0x1111 = 0xf
+    .byte 0x00       // base[24..32] = 0x00
+//data32_desc // base = 0x00000000, limit = 0xfffff x 4K
+    .short 0xffff    // limit 15:0
+    .short 0x0000    // base 15:0
+    .byte 0x00       // base[16..24] = 0x00
+    .byte 0x93       // present, DPL = 0, system, data seg, ring0 only, writable, accessed
+    .byte 0xCF       // 4K gran, 32-bit, limit[16..20] = 0x1111 = 0xf
+    .byte 0x00       // base[24..32] = 0x00
+//code64_desc
+    // For 64-bit code descriptors, all bits except the following are ignored:
+    // - CS.A=1 (bit 40) segment is accessed, prevents a write on first use.
+    // - CS.R=1 (bit 41) segment is readable. (this might not be necessary)
+    // - CS.C=1 (bit 42) segment is conforming. (this might not be necessary)
+    // - CS.E=1 (bit 43) required, we are a executable code segment.
+    // - CS.S=1 (bit 44) required, we are not a system segment.
+    // - CS.DPL=0 (bits 45/46) we are using this segment in Ring 0.
+    // - CS.P=1 (bit 47) required, the segment is present.
+    // - CS.L=1 (bit 53) required, we are a 64-bit (long mode) segment.
+    // - CS.D=0 (bit 54) required, CS.L=1 && CS.D=1 is resevered for future use.
+    .quad (1<<40) | (1<<41) | (1<<42) | (1<<43) | (1<<44) | (1<<47) | (1<<53)
+3:
+
+20:
+//code16_start:
+.code16
+    cli
+
+    lgdtd   cs:0xFFFFF010
+
+    mov     eax,    cr0
+    or      al,     0x1
+    mov     cr0,    eax
+
+    // Due to a rust/LLVM bug, we have to use an absolute address here
+    jmpl    0x8,    0xFFFFF000
+
+30:
+//code32_start:
+.code32
+    lgdtd   cs:0xFFFFF010
+
+    mov     ax,     0x10 // 0x10 points at the new data selector
+    mov     ds,     ax
+    mov     es,     ax
+    mov     fs,     ax
+    mov     gs,     ax
+    mov     ss,     ax
+
+
     // Check if we have a valid (0x8000_001F) CPUID leaf
     mov     eax,    0x80000000
     cpuid
@@ -56,23 +128,60 @@ pub unsafe extern "sysv64" fn _start() -> ! {
 
     // Get pte bit position to enable memory encryption
     // CPUID Fn8000_001F[EBX] - Bits 5:0
+    and     ebx,    0x3f
     mov     eax,    ebx
-    and     eax,    0x3f
 
-    // If SEV is enabled, C-bit is always above 31
-    bts     rdx,    rax
+    // The encryption bit position is always above 31
+    sub     ebx,    32
+    xor     edx,    edx
+    bts     edx,    ebx
     jmp     3f
 
 2:
-    xor     rdx,    rdx
+    xor     edx,    edx
 
 3:
+    // Correct initial PML3
+    mov     eax, 0xFFFFF000 - 0x2000
+    or      [eax + 4 + 3*8], edx
+    or      [eax + 4 + 4*8], edx
+    or      [eax + 4 + 5*8], edx
+
+    // Correct initial PML4
+    mov     eax, 0xFFFFF000 - 0x1000
+    // Set C-Bit in PML4 - pre 64bit
+    or      [eax + 4], edx
+
+    mov     ebx,    edx
+
+    mov     cr3,    eax
+
+    mov     eax,    cr4
+    or      al,     0x20
+    mov     cr4,    eax
+
+    mov     ecx,    0xc0000080
+    rdmsr
+    or      ah,     0x1
+    wrmsr
+
+    mov     edx,    ebx
+
+    mov     eax,    cr0
+    or      eax,    0x80000000
+    mov     cr0,    eax
+
+    // Due to a rust/LLVM bug, we have to use an absolute address here
+    jmpl    0x18,   0xFFFFF008
+
+40:
+.code64
     // backup edx to r11 and r12
     // r11: C-bit >> 32
     // r12: C-bit full 64bit mask
     mov     r12,    rdx
     mov     r11,    rdx
-    shr     r11,    0x20
+    shl     r12,    0x20
 
     // setup CR4
     mov     rax,    cr4
@@ -160,10 +269,6 @@ pub unsafe extern "sysv64" fn _start() -> ! {
     // store PDT_IDENT table in PDPT_IDENT in the correct slot
     mov     QWORD PTR [rbx + 8*3],    rcx
 
-    mov     rcx,    (0x40000000*4 + 0x83)
-    or      rcx,    r12         // set C-bit
-    mov     QWORD PTR [rbx + 8*4],    rcx
-
     // setup PDPT_IDENT in PML4T table
     or      rbx,    r12         // set C-bit
     or      rbx,    0x3         // ( WRITABLE | PRESENT)
@@ -175,12 +280,12 @@ pub unsafe extern "sysv64" fn _start() -> ! {
 
     // advance rip to kernel address space with {SHIM_VIRT_OFFSET}
     xor     eax,    eax         // clear OF for adox
-    lea     rax,    [rip + 6f]
+    lea     rax,    [rip + 50f]
     mov     rsi,    {SHIM_VIRT_OFFSET}
     adox    rax,    rsi
     jmp     rax
 
-6:
+50:
     // load stack in shim virtual address space
     lea     rsp,    [rip + {INITIAL_SHIM_STACK}]
     // sub 8 because we push 8 bytes later and want 16 bytes align
@@ -200,9 +305,20 @@ pub unsafe extern "sysv64" fn _start() -> ! {
 
     // arg1 %rdi  = SEV C-bit mask
     call    {START_MAIN}
+97:
+.fill((0xFF0 - (97b - 99b)))
+
+// reset vector @ 0xFFFF_FFF0
+.code16
+    jmp 20b
+    hlt
+
+98:
+.fill(({PAGE_SIZE} - (98b - 99b) - 2))
     ",
     SHIM_VIRT_OFFSET = const SHIM_VIRT_OFFSET,
-    SIZE_OF_INITIAL_STACK = const INITIAL_STACK_PAGES * 4096,
+    SIZE_OF_INITIAL_STACK = const INITIAL_STACK_PAGES * size_of::<Page>(),
+    PAGE_SIZE = const size_of::<Page>(),
     DYN_RELOC = sym dyn_reloc,
     START_MAIN = sym _start_main,
     PML4T = sym PML4T,
