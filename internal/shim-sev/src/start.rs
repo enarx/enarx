@@ -136,6 +136,16 @@ pub unsafe extern "sysv64" fn _start() -> ! {
     // 3: 0xc000_0000 - 0x1_0000_0000
     mov     QWORD PTR [rbx + 3*8],    rcx
 
+    // set C-bit in all entries of the PT_IDENT table
+    lea     rbx,    [rip + {PT_IDENT}]
+    mov     rdx,    r11
+    mov     ecx,    512         // Counter to 512 page table entries
+    add     rbx,    4           // Pre-advance pointer by 4 bytes for the higher 32bit
+5:
+    or      DWORD PTR [rbx],edx // set C-bit
+    add     rbx,    8           // advance pointer by 8
+    loop    5b
+
     lea     rcx,    [rip + {PDT_IDENT}]
     lea     rbx,    [rip + {PT_IDENT}]
     or      rbx,    r12         // set C-bit
