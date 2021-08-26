@@ -14,19 +14,31 @@ use x86_64::VirtAddr;
 ///
 /// This function causes a triple fault!
 #[inline(never)]
-pub unsafe fn _enarx_asm_triple_debug(value: u64) -> ! {
-    // Create an invalid DescriptorTablePointer with no base and limit
-    let dtp = DescriptorTablePointer {
-        limit: 0,
-        base: VirtAddr::new(0),
-    };
-    // Load the invalid IDT
-    lidt(&dtp);
+pub unsafe fn _early_debug_panic(reason: u64, value: u64) -> ! {
+    let mut rbp: u64;
+
+    asm!("mov {}, rbp", out(reg) rbp);
+
+    load_invalid_idt();
+
+    let frames = backtrace(rbp);
 
     // Provoke an #UD, which will lead to a triple fault, because of the invalid IDT
     asm!("ud2",
-        in("rax") value, // the first two frames are from panic
-        options(nomem, nostack)
+    in("rax") frames[0],
+    in("rcx") frames[1],
+    in("rdx") frames[2],
+    in("rsi") frames[3],
+    in("rdi") frames[4],
+    in("r8") frames[5],
+    in("r9") frames[6],
+    in("r10") frames[7],
+    in("r11") frames[8],
+    in("r12") frames[9],
+    in("r13") frames[10],
+    in("r14") reason,
+    in("r15") value,
+    options(nomem, nostack)
     );
 
     // Extra hlt loop, in case hell freezes
@@ -48,17 +60,51 @@ pub unsafe fn _enarx_asm_triple_debug(value: u64) -> ! {
 pub unsafe fn _enarx_asm_triple_fault() -> ! {
     let mut rbp: u64;
 
-    let mut frames = [0u64; 16];
-
     asm!("mov {}, rbp", out(reg) rbp);
 
-    // Create an invalid DescriptorTablePointer with no base and limit
+    let frames = backtrace(rbp);
+
+    load_invalid_idt();
+
+    // Provoke an #UD, which will lead to a triple fault, because of the invalid IDT
+    asm!("ud2",
+    in("rax") frames[0],
+    in("rcx") frames[1],
+    in("rdx") frames[2],
+    in("rsi") frames[3],
+    in("rdi") frames[4],
+    in("r8") frames[5],
+    in("r9") frames[6],
+    in("r10") frames[7],
+    in("r11") frames[8],
+    in("r12") frames[9],
+    in("r13") frames[10],
+    in("r14") frames[11],
+    in("r15") frames[12],
+        options(nomem, nostack)
+    );
+
+    // Extra hlt loop, in case hell freezes
+    loop {
+        x86_64::instructions::hlt()
+    }
+}
+
+/// Load an invalid DescriptorTablePointer with no base and limit
+#[inline(always)]
+unsafe fn load_invalid_idt() {
     let dtp = DescriptorTablePointer {
         limit: 0,
         base: VirtAddr::new(0),
     };
     // Load the invalid IDT
     lidt(&dtp);
+}
+
+/// Produce a backtrace from a frame pointer
+#[inline(always)]
+unsafe fn backtrace(mut rbp: u64) -> [u64; 16] {
+    let mut frames = [0u64; 16];
 
     for ele in frames.iter_mut() {
         if let Some(rip_rbp) = rbp.checked_add(size_of::<usize>() as _) {
@@ -78,27 +124,5 @@ pub unsafe fn _enarx_asm_triple_fault() -> ! {
             break;
         }
     }
-
-    // Provoke an #UD, which will lead to a triple fault, because of the invalid IDT
-    asm!("ud2",
-    in("rax") frames[2], // the first two frames are from panic
-    in("rcx") frames[3],
-    in("rdx") frames[4],
-    in("rsi") frames[5],
-    in("rdi") frames[6],
-    in("r8") frames[7],
-    in("r9") frames[8],
-    in("r10") frames[9],
-    in("r11") frames[10],
-    in("r12") frames[11],
-    in("r13") frames[12],
-    in("r14") frames[13],
-    in("r15") frames[14],
-        options(nomem, nostack)
-    );
-
-    // Extra hlt loop, in case hell freezes
-    loop {
-        x86_64::instructions::hlt()
-    }
+    frames
 }
