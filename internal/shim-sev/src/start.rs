@@ -4,8 +4,10 @@
 //!
 //! see [`_start`](_start)
 
+use crate::_start_main;
 use crate::addr::SHIM_VIRT_OFFSET;
 use crate::pagetables::{PDPT_IDENT, PDPT_OFFSET, PDT_IDENT, PDT_OFFSET, PML4T, PT_IDENT};
+use core::mem::size_of;
 use primordial::Page;
 use rcrt1::dyn_reloc;
 
@@ -17,8 +19,6 @@ const INITIAL_STACK_PAGES: usize = 50;
 #[no_mangle]
 #[link_section = ".entry64_data"]
 static INITIAL_SHIM_STACK: [Page; INITIAL_STACK_PAGES] = [Page::zeroed(); INITIAL_STACK_PAGES];
-use crate::_start_main;
-use core::mem::size_of;
 
 /// The initial function called at startup
 ///
@@ -30,22 +30,30 @@ use core::mem::size_of;
 #[link_section = ".reset"]
 pub unsafe extern "sysv64" fn _start() -> ! {
     asm!("
+.set reset_vector, 0xFFFFF000
+.macro define_addr name,label
+.set \\name, (reset_vector + (\\label - 99b))
+.endm
 99:
 // A small jump table with well known addresses
 // to be used because of a rust bug for long jumps
 .code32
 // 0xFFFF_F000
-    jmp     30f      // jump to 32-bit code
+    jmp     30f      // jump to code32_start
 .align 8
 .code64
 // 0xFFFF_F008
-    jmp     40f      // jump to 64-bit code
+    jmp     40f      // jump to code64_start
 
 .align 8
+66:
+define_addr gdt32_ptr 66b
+.align 8
 // gdt32_ptr == 0xFFFF_F010
-    .short 3f - 2f - 1 // GDT length is actually (length - 1)
-    .long 0xFFFFF000 + 2f - 99b // address of gdt32_start
-2: // gdt32_start
+    .short gdt32_end - gdt32_start - 1 // GDT length is actually (length - 1)
+    .long gdt32_start // address of gdt32_start
+define_addr gdt32_start 67f
+67: // gdt32_start
     .quad 0          // First descriptor is always unused
 //code32_desc // base = 0x00000000, limit = 0xfffff x 4K
     .short 0xffff    // limit[0..16] = 0xffff
@@ -73,41 +81,40 @@ pub unsafe extern "sysv64" fn _start() -> ! {
     // - CS.L=1 (bit 53) required, we are a 64-bit (long mode) segment.
     // - CS.D=0 (bit 54) required, CS.L=1 && CS.D=1 is resevered for future use.
     .quad (1<<40) | (1<<41) | (1<<42) | (1<<43) | (1<<44) | (1<<47) | (1<<53)
-3:
+68:
+define_addr gdt32_end 68b
 
 20:
-//code16_start:
+define_addr code16_start 20b
 .code16
     cli
 
-    lgdtd   cs:0xFFFFF010
+    lgdtd   cs:gdt32_ptr
 
+    // setup CR0
     mov     eax,    cr0
+    // set  PROTECTED_MODE_ENABLE
     or      al,     0x1
     mov     cr0,    eax
 
     // Due to a rust/LLVM bug, we have to use an absolute address here
-    jmpl    0x8,    0xFFFFF000
+    // expressions like (reset_vector + (label_2 - label_3)) don't seem to work
+    // jmpl    0x8,    code32_start
+    jmpl    0x8,    reset_vector
 
-30:
-//code32_start:
+define_addr code32_start 30f
+30:  // code32_start:
 .code32
-    lgdtd   cs:0xFFFFF010
-
     mov     ax,     0x10 // 0x10 points at the new data selector
     mov     ds,     ax
-    mov     es,     ax
-    mov     fs,     ax
-    mov     gs,     ax
     mov     ss,     ax
-
 
     // Check if we have a valid (0x8000_001F) CPUID leaf
     mov     eax,    0x80000000
     cpuid
 
     // This check should fail on Intel or Non SEV AMD CPUs. In future if
-    // Intel CPUs supports this CPUID leaf then we are guranteed to have exact
+    // Intel CPUs supports this CPUID leaf then we are guaranteed to have exact
     // same bit definition.
     cmp     eax,    0x8000001f
     jl      2f
@@ -152,50 +159,17 @@ pub unsafe extern "sysv64" fn _start() -> ! {
     // Set C-Bit in PML4 - pre 64bit
     or      [eax + 4], edx
 
-    mov     ebx,    edx
-
+    // activate initial simple identity page table
     mov     cr3,    eax
 
-    mov     eax,    cr4
-    or      al,     0x20
-    mov     cr4,    eax
-
-    mov     ecx,    0xc0000080
-    rdmsr
-    or      ah,     0x1
-    wrmsr
-
-    mov     edx,    ebx
-
-    mov     eax,    cr0
-    or      eax,    0x80000000
-    mov     cr0,    eax
-
-    // Due to a rust/LLVM bug, we have to use an absolute address here
-    jmpl    0x18,   0xFFFFF008
-
-40:
-.code64
-    // backup edx to r11 and r12
-    // r11: C-bit >> 32
-    // r12: C-bit full 64bit mask
-    mov     r12,    rdx
-    mov     r11,    rdx
-    shl     r12,    0x20
+    // backup C-bit
+    mov     ebx,    edx
 
     // setup CR4
-    mov     rax,    cr4
+    mov     eax,    cr4
     // set FSGSBASE | PAE | OSFXSR | OSXMMEXCPT | OSXSAVE
-    or      rax,    0x50620
-    mov     cr4,    rax
-
-    // setup CR0
-    mov     rax,    cr0
-    // mask EMULATE_COPROCESSOR | MONITOR_COPROCESSOR
-    and     eax,    0x60050009
-    // set  PROTECTED_MODE_ENABLE | NUMERIC_ERROR | PAGING
-    or      eax,    0x80000021
-    mov     cr0,    rax
+    or      eax,    0x50620
+    mov     cr4,    eax
 
     // setup EFER
     // EFER |= LONG_MODE_ACTIVE | LONG_MODE_ENABLE | NO_EXECUTE_ENABLE | SYSTEM_CALL_EXTENSIONS
@@ -205,6 +179,28 @@ pub unsafe extern "sysv64" fn _start() -> ! {
     or      eax,    0xd01
     mov     ecx,    0xc0000080
     wrmsr
+
+    // setup CR0
+    mov     eax,    cr0
+    // mask EMULATE_COPROCESSOR | MONITOR_COPROCESSOR
+    and     eax,    0x60050009
+    // set  PROTECTED_MODE_ENABLE | NUMERIC_ERROR | PAGING
+    or      eax,    0x80000021
+    mov     cr0,    eax
+
+    // Due to a rust/LLVM bug, we have to use an absolute address here
+    // jmpl    0x18,    code64_start
+    jmpl    0x18,   (reset_vector + 0x8)
+
+define_addr code64_start 40f
+40: // code64_start:
+.code64
+    // backup edx to r11 and r12
+    // r11: C-bit >> 32
+    // r12: C-bit full 64bit mask
+    mov     r12,    rbx
+    mov     r11,    rbx
+    shl     r12,    0x20
 
     // Setup the pagetables
     // done dynamically, otherwise we would have to correct the dynamic symbols twice
@@ -250,10 +246,10 @@ pub unsafe extern "sysv64" fn _start() -> ! {
     mov     rdx,    r11
     mov     ecx,    512         // Counter to 512 page table entries
     add     rbx,    4           // Pre-advance pointer by 4 bytes for the higher 32bit
-5:
+6:
     or      DWORD PTR [rbx],edx // set C-bit
     add     rbx,    8           // advance pointer by 8
-    loop    5b
+    loop    6b
 
     lea     rcx,    [rip + {PDT_IDENT}]
     lea     rbx,    [rip + {PT_IDENT}]
@@ -280,12 +276,13 @@ pub unsafe extern "sysv64" fn _start() -> ! {
 
     // advance rip to kernel address space with {SHIM_VIRT_OFFSET}
     xor     eax,    eax         // clear OF for adox
-    lea     rax,    [rip + 50f]
+    lea     rax,    [rip + 50f] // trampoline
     mov     rsi,    {SHIM_VIRT_OFFSET}
     adox    rax,    rsi
-    jmp     rax
+    jmp     rax                 // trampoline
 
-50:
+50: // trampoline:
+
     // load stack in shim virtual address space
     lea     rsp,    [rip + {INITIAL_SHIM_STACK}]
     // sub 8 because we push 8 bytes later and want 16 bytes align
@@ -305,7 +302,7 @@ pub unsafe extern "sysv64" fn _start() -> ! {
 
     // arg1 %rdi  = SEV C-bit mask
     call    {START_MAIN}
-97:
+97: // end of code
 .fill((0xFF0 - (97b - 99b)))
 
 // reset vector @ 0xFFFF_FFF0
@@ -313,8 +310,12 @@ pub unsafe extern "sysv64" fn _start() -> ! {
     jmp 20b
     hlt
 
-98:
+98: // end of reset vector jump table
+
+// fill until the end of page minus 2 for the `ud2` rust/llvm add
 .fill(({PAGE_SIZE} - (98b - 99b) - 2))
+
+// END OF PAGE
     ",
     SHIM_VIRT_OFFSET = const SHIM_VIRT_OFFSET,
     SIZE_OF_INITIAL_STACK = const INITIAL_STACK_PAGES * size_of::<Page>(),
