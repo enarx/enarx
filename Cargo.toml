@@ -25,7 +25,6 @@ is-it-maintained-open-issues = { repository = "enarx/enarx-keepldr" }
 [features]
 default = ["backend-sev"]
 
-backend-nil = []
 backend-kvm = ["x86_64", "kvm-bindings", "kvm-ioctls"]
 backend-sev = ["sev", "backend-kvm", "koine"]
 backend-sgx = ["sgx"]

@@ -26,7 +26,6 @@ jobs:
           - {name: sev, host: [self-hosted, linux, sev]}
           - {name: sgx, host: [self-hosted, linux, sgx]}
           - {name: kvm, host: [self-hosted, linux]}
-          - {name: nil, host: ubuntu-20.04}
         profile:
           - name: debug
           - name: release
