@@ -202,7 +202,7 @@ fn main() {
             continue;
         }
 
-        #[cfg(not(any(feature = "backend-kvm", feature = "backend-sev")))]
+        #[cfg(not(any(feature = "backend-kvm")))]
         if shim_name.starts_with("shim-sev") {
             continue;
         }

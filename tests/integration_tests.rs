@@ -324,18 +324,6 @@ fn sgx_get_att_quote_size() {
     run_test("sgx_get_att_quote_size", 0, None, None, None);
 }
 
-#[cfg(feature = "backend-sev")]
-#[test]
-#[serial]
-fn sev_get_att_quote() {
-    if let Ok(s) = std::env::var("ENARX_BACKEND") {
-        if s.eq("sev") {
-            let input: Vec<u8> = vec![79, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14];
-            run_test("sev_get_att_quote", 0, None, input.as_slice(), None);
-        }
-    }
-}
-
 #[test]
 #[serial]
 fn getuid() {

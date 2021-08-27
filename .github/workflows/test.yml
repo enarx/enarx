@@ -23,7 +23,6 @@ jobs:
       fail-fast: false
       matrix:
         backend:
-          - {name: sev, host: [self-hosted, linux, sev]}
           - {name: sgx, host: [self-hosted, linux, sgx]}
           - {name: kvm, host: [self-hosted, linux]}
         profile:

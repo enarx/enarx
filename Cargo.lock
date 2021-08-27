@@ -177,7 +177,6 @@ dependencies = [
  "protobuf-codegen-pure",
  "sallyport",
  "serial_test",
- "sev",
  "sgx",
  "structopt",
  "tempdir",
@@ -682,7 +681,6 @@ dependencies = [
  "codicon",
  "dirs",
  "iocuddle",
- "openssl",
  "serde",
  "serde_bytes",
 ]

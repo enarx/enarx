@@ -15,10 +15,11 @@ pub enum ComponentType {
 }
 
 /// The sallyport program header type
-#[cfg(any(feature = "backend-sev", feature = "backend-kvm"))]
+#[cfg(any(feature = "backend-kvm"))]
 pub const PT_ENARX_SALLYPORT: u32 = PT_LOOS + 0x34a0001;
+
 /// The enarx code program header type
-#[cfg(any(feature = "backend-sev", feature = "backend-kvm"))]
+#[cfg(any(feature = "backend-kvm"))]
 pub const PT_ENARX_CODE: u32 = PT_LOOS + 0x34a0003;
 
 pub struct Component<'a> {
