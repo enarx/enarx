@@ -48,42 +48,19 @@ pub extern "C" fn rust_eh_personality() {
 
 // ============== REAL CODE HERE ===============
 
-macro_rules! debug {
-    ($dst:expr, $($arg:tt)*) => {
-        #[allow(unused_must_use)] {
-            use core::fmt::Write;
-            write!($dst, $($arg)*);
-        }
-    };
-}
-
-macro_rules! debugln {
-    ($dst:expr) => { debugln!($dst,) };
-    ($dst:expr, $($arg:tt)*) => {
-        #[allow(unused_must_use)] {
-            use core::fmt::Write;
-            writeln!($dst, $($arg)*);
-        }
-    };
-}
-
 mod enclave;
 mod entry;
-mod event;
 mod handler;
 mod hostlib;
 
 use hostlib::Layout;
 
-sallyport::declare_abi_version!();
-
 use sallyport::Block;
-use sgx::types::ssa::{Exception, StateSaveArea};
+use sgx::types::ssa::StateSaveArea;
 
-// Opcode constants, details in Volume 2 of the Intel 64 and IA-32 Architectures Software
-// Developer's Manual
-const OP_SYSCALL: &[u8] = &[0x0f, 0x05];
-const OP_CPUID: &[u8] = &[0x0f, 0xa2];
+const DEBUG: bool = false;
+
+sallyport::declare_abi_version!();
 
 #[repr(C)]
 struct Context {
@@ -108,20 +85,7 @@ extern "C" fn main(
 ) {
     match rcx.cssa {
         0 => entry::entry(&rcx.ctx.layout),
-        1 => event::event(&rcx.ctx.layout, &mut rcx.ctx.ssa[0], rdx),
-        n => {
-            let gpr = &mut rcx.ctx.ssa[n - 1].gpr;
-
-            if let Some(Exception::InvalidOpcode) = gpr.exitinfo.exception() {
-                if let OP_SYSCALL | OP_CPUID = unsafe { gpr.rip.into_slice(2usize) } {
-                    // Skip the instruction.
-                    let rip = usize::from(gpr.rip);
-                    gpr.rip = (rip + 2).into();
-                    return;
-                }
-            }
-
-            unreachable!()
-        }
+        1 => handler::Handler::handle(&mut rcx.ctx.ssa[0].gpr, rdx, rcx.ctx.layout.heap),
+        n => handler::Handler::finish(&mut rcx.ctx.ssa[n - 1].gpr),
     }
 }
