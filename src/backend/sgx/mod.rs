@@ -2,77 +2,94 @@
 
 use crate::backend::sgx::attestation::get_attestation;
 use crate::backend::{Command, Datum, Keep};
-use crate::binary::Component;
-use sallyport::syscall::{SYS_ENARX_CPUID, SYS_ENARX_GETATT};
-use sallyport::Block;
+use crate::binary::*;
 
 use anyhow::Result;
+use goblin::elf::program_header::*;
 use lset::{Line, Span};
-use primordial::Page;
-use sgx::enclave::{Builder, Enclave, Entry, Registers, Segment};
-use sgx::types::{
-    page::{Flags, SecInfo},
-    ssa::Exception,
-    tcs::Tcs,
-};
+use primordial::{Page, Pages};
+use sallyport::syscall::{SYS_ENARX_CPUID, SYS_ENARX_GETATT};
+use sallyport::Block;
+use sgx::crypto::Hasher;
+use sgx::enclave::{Builder, Enclave, Entry, InterruptVector, Registers};
+use sgx::loader::{self, Loader};
+use sgx::types::page::{Class, Flags, SecInfo};
+use sgx::types::sig::{Author, Parameters};
 
 use std::arch::x86_64::__cpuid_count;
 use std::convert::TryInto;
+use std::fmt::Debug;
+use std::num::NonZeroU32;
 use std::path::Path;
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
 
 mod attestation;
 mod data;
-mod shim;
-use goblin::elf::program_header::*;
-use std::cmp::min;
-use std::ops::Range;
 
-fn program_header_2_segment(file: impl AsRef<[u8]>, ph: &ProgramHeader) -> Segment {
-    let mut rwx = Flags::empty();
+struct Segment {
+    fline: Line<usize>,
+    mline: Line<usize>,
+    pages: Pages<Vec<Page>>,
+    vpage: usize,
+    sinfo: SecInfo,
+    flags: flagset::FlagSet<loader::Flags>,
+}
 
-    if ph.is_read() {
-        rwx |= Flags::R;
+impl Debug for Segment {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let letter = |b, c| if b { c } else { ' ' };
+
+        f.write_fmt(format_args!(
+            "Segment({:08x}:{:08x} => {:08x}:{:08x} => {:08x}:{:08x} {}{}{}{}{})",
+            self.fline.start,
+            self.fline.end,
+            self.mline.start,
+            self.mline.end,
+            self.vpage * Page::SIZE,
+            self.vpage * Page::SIZE + self.pages.len() * Page::SIZE,
+            letter(self.sinfo.flags.contains(Flags::R), 'r'),
+            letter(self.sinfo.flags.contains(Flags::W), 'w'),
+            letter(self.sinfo.flags.contains(Flags::X), 'x'),
+            letter(self.sinfo.class == Class::Tcs, 't'),
+            letter(self.flags.contains(loader::Flags::Measure), 'm'),
+        ))
     }
-    if ph.is_write() {
-        rwx |= Flags::W;
-    }
-    if ph.is_executable() {
-        rwx |= Flags::X;
-    }
+}
 
-    let src = Span::from(ph.file_range());
+impl Segment {
+    pub fn new(component: &Component, phdr: &ProgramHeader, relocate: usize) -> Self {
+        assert_eq!(relocate % Page::SIZE, 0);
 
-    let unaligned = Line::from(ph.vm_range());
+        let fline = Line::from(phdr.file_range());
+        let mline = Line::from(phdr.vm_range()) >> relocate;
+        let skipb = mline.start % Page::SIZE;
+        let vpage = mline.start / Page::SIZE;
 
-    let frame = Line {
-        start: unaligned.start / Page::size(),
-        end: (unaligned.end + Page::size() - 1) / Page::size(),
-    };
+        let mspan = Span::from(mline);
+        let bytes = &component.bytes[phdr.file_range()];
+        let pages = Pages::copy_into(bytes, mspan.count, skipb);
 
-    let aligned = Line {
-        start: frame.start * Page::size(),
-        end: frame.end * Page::size(),
-    };
+        let mut rwx = Flags::empty();
+        for (input, output) in [(PF_R, Flags::R), (PF_W, Flags::W), (PF_X, Flags::X)] {
+            if phdr.p_flags & input == input {
+                rwx |= output;
+            }
+        }
 
-    let subslice = Span::from(Line {
-        start: unaligned.start - aligned.start,
-        end: unaligned.end - aligned.start,
-    });
-
-    let subslice = Range::from(Span {
-        start: subslice.start,
-        count: min(subslice.count, src.count),
-    });
-
-    let src = &file.as_ref()[Range::from(src)];
-    let mut buf = vec![Page::default(); Span::from(frame).count];
-    unsafe { buf.align_to_mut() }.1[subslice].copy_from_slice(src);
-
-    Segment {
-        si: SecInfo::reg(rwx),
-        dst: aligned.start,
-        src: buf,
+        Self {
+            fline,
+            mline,
+            pages,
+            vpage,
+            sinfo: match phdr.p_flags & PF_ENARX_SGX_TCS {
+                0 => SecInfo::reg(rwx),
+                _ => SecInfo::tcs(),
+            },
+            flags: match phdr.p_flags & PF_ENARX_SGX_UNMEASURED {
+                0 => loader::Flags::Measure.into(),
+                _ => None.into(),
+            },
+        }
     }
 }
 
@@ -109,81 +126,54 @@ impl crate::backend::Backend for Backend {
         code: Component,
         _sock: Option<&Path>,
     ) -> Result<Arc<dyn Keep>> {
-        // Calculate the memory layout for the enclave.
-        let layout = crate::backend::sgx::shim::Layout::calculate(
-            shim.region().into(),
-            code.region().into(),
-        );
+        // Find the offset for loading the code.
+        let slot = Span::from(shim.find_header(PT_ENARX_CODE).unwrap().vm_range());
+        assert!(Span::from(code.region()).count <= slot.count);
 
-        let mut shim_segs: Vec<_> = shim
+        // Find the size of the enclave (in powers of two).
+        let size: u32 = unsafe { shim.read_note("enarx", NOTE_ENARX_SGX_SIZE)?.unwrap() };
+        let size = 1 << size;
+
+        // Find the number of pages in an SSA frame.
+        let ssap: u32 = unsafe { shim.read_note("enarx", NOTE_ENARX_SGX_SSAP)?.unwrap() };
+        let ssap = NonZeroU32::new(ssap).unwrap();
+
+        // Get an array of all final segment (relative) locations.
+        let ssegs = shim
             .filter_header(PT_LOAD)
-            .map(|v| program_header_2_segment(shim.bytes, v))
-            .collect();
-
-        let mut code_segs: Vec<_> = code
+            .map(|phdr| Segment::new(&shim, phdr, 0));
+        let csegs = code
             .filter_header(PT_LOAD)
-            .map(|v| program_header_2_segment(code.bytes, v))
-            .collect();
+            .map(|phdr| Segment::new(&code, phdr, slot.start));
+        let mut segs: Vec<_> = ssegs.chain(csegs).collect();
 
-        // Relocate the shim binary.
-        let shim_entry = shim.elf.entry as usize + layout.shim.start;
-
-        for seg in shim_segs.iter_mut() {
-            seg.dst += layout.shim.start;
+        // Ensure no segments overlap in memory.
+        segs.sort_unstable_by_key(|x| x.vpage);
+        for pair in segs.windows(2) {
+            assert!(pair[0].vpage + pair[0].pages.len() <= pair[1].vpage);
         }
 
-        // Relocate the code binary.
-        for seg in code_segs.iter_mut() {
-            seg.dst += layout.code.start;
+        // Initialize the new enclave.
+        let parameters = Parameters::default();
+        let mut builder = Builder::new(size, ssap, parameters)?;
+        let mut hasher = Hasher::new(size, ssap, parameters);
+
+        // Map all the pages.
+        for seg in segs {
+            builder.load(&seg.pages, seg.vpage, seg.sinfo, seg.flags)?;
+            hasher.load(seg.pages, seg.vpage, seg.sinfo, seg.flags)?;
         }
 
-        // Create SSAs and TCS.
-        let ssas = vec![Page::default(); 3];
-        let tcs = Tcs::new(
-            shim_entry - layout.enclave.start,
-            Page::size() * 2, // SSAs after Layout (see below)
-            ssas.len() as _,
-        );
+        // Generate a signing key.
+        let exp = openssl::bn::BigNum::from_u32(3u32).unwrap();
+        let key = openssl::rsa::Rsa::generate_with_e(3072, &exp)?;
 
-        let internal = vec![
-            // TCS
-            Segment {
-                si: SecInfo::tcs(),
-                dst: layout.prefix.start,
-                src: vec![Page::copy(tcs)],
-            },
-            // Layout
-            Segment {
-                si: SecInfo::reg(Flags::R),
-                dst: layout.prefix.start + Page::size(),
-                src: vec![Page::copy(layout)],
-            },
-            // SSAs
-            Segment {
-                si: SecInfo::reg(Flags::R | Flags::W),
-                dst: layout.prefix.start + Page::size() * 2,
-                src: ssas,
-            },
-            // Heap
-            Segment {
-                si: SecInfo::reg(Flags::R | Flags::W | Flags::X),
-                dst: layout.heap.start,
-                src: vec![Page::default(); Span::from(layout.heap).count / Page::size()],
-            },
-            // Stack
-            Segment {
-                si: SecInfo::reg(Flags::R | Flags::W),
-                dst: layout.stack.start,
-                src: vec![Page::default(); Span::from(layout.stack).count / Page::size()],
-            },
-        ];
+        // Create the enclave signature
+        let vendor = Author::new(0, 0);
+        let signature = hasher.finish().sign(vendor, key)?;
 
-        // Initiate the enclave building process.
-        let mut builder = Builder::new(layout.enclave).expect("Unable to create builder");
-        builder.load(&internal)?;
-        builder.load(&shim_segs)?;
-        builder.load(&code_segs)?;
-        Ok(builder.build()?)
+        // Build the enclave.
+        Ok(builder.build(&signature)?)
     }
 
     fn measure(&self, _shim: Component, _code: Component) -> Result<String> {
@@ -191,9 +181,9 @@ impl crate::backend::Backend for Backend {
     }
 }
 
-impl super::Keep for RwLock<Enclave> {
+impl super::Keep for Enclave {
     fn spawn(self: Arc<Self>) -> Result<Option<Box<dyn crate::backend::Thread>>> {
-        let thread = match sgx::enclave::Thread::new(self) {
+        let thread = match self.spawn() {
             Some(thread) => thread,
             None => return Ok(None),
         };
@@ -249,9 +239,10 @@ impl Thread {
 impl super::Thread for Thread {
     fn enter(&mut self) -> Result<Command> {
         let prev = self.how;
-        self.registers.rdx = (&mut self.block).into();
+        self.registers.rdi = (&mut self.block).into();
+
         self.how = match self.thread.enter(prev, &mut self.registers) {
-            Err(ei) if ei.trap == Exception::InvalidOpcode => Entry::Enter,
+            Err(ei) if ei.trap == InterruptVector::InvalidOpcode => Entry::Enter,
             Ok(_) => Entry::Resume,
             e => panic!("Unexpected AEX: {:?}", e),
         };

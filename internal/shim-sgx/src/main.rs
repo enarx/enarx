@@ -50,16 +50,30 @@ pub extern "C" fn rust_eh_personality() {
 
 mod entry;
 mod handler;
-mod hostlib;
+mod ssa;
 
-use hostlib::Layout;
-
-use sallyport::Block;
-use sgx::types::ssa::StateSaveArea;
+use noted::noted;
 
 const DEBUG: bool = false;
 
 sallyport::declare_abi_version!();
+
+const SSA_FRAME_SIZE: u32 = 1;
+const ENCL_SIZE_BITS: u32 = 31;
+const ENCL_SIZE: usize = 1 << ENCL_SIZE_BITS;
+
+noted! {
+    static NOTE_ENARX_SGX_SIZE<"enarx", 0x73677800>: u32 = ENCL_SIZE_BITS;
+    static NOTE_ENARX_SGX_SSAP<"enarx", 0x73677801>: u32 = SSA_FRAME_SIZE;
+}
+
+// NOTE: You MUST take the address of these symbols for them to work!
+extern "C" {
+    static ENARX_EXEC_START: u8;
+    //static ENARX_EXEC_END: u8;
+    static ENARX_HEAP_START: u8;
+    static ENARX_HEAP_END: u8;
+}
 
 /// Clear CPU flags, extended state and temporary registers (`r10` and `r11`)
 ///
@@ -134,13 +148,10 @@ extern "sysv64" fn clearp() {
 /// This function does not follow any established calling convention. It
 /// has the following requirements:
 ///   * `rsp` must point to a stack with the return address (i.e. `call`)
-///   * `rcx` must contain the address of the `Layout`
 ///
 /// Upon return, all general-purpose registers will have been preserved.
 #[naked]
 unsafe extern "sysv64" fn relocate() {
-    const SHIM: u64 = 10 * 8;
-
     asm!(
         "push   rax",
         "push   rdi",
@@ -152,10 +163,9 @@ unsafe extern "sysv64" fn relocate() {
         "push   r10",
         "push   r11",
 
-        "mov    rsi,    [rcx + {SHIM}]  ", // rsi = shim load offset (Layout.shim.start)
-        ".hidden _DYNAMIC               ",
         "lea    rdi,    [rip + _DYNAMIC]", // rdi = address of _DYNAMIC section
-        ".hidden {DYN_RELOC}            ",
+        "mov    rsi,    -{SIZE}         ", // rsi = enclave start address mask
+        "and    rsi,    rdi             ", // rsi = relocation address
         "call   {DYN_RELOC}             ", // relocate the dynamic symbols
 
         "pop    r11",
@@ -170,7 +180,7 @@ unsafe extern "sysv64" fn relocate() {
 
         "ret",
 
-        SHIM = const SHIM,
+        SIZE = const ENCL_SIZE,
         DYN_RELOC = sym rcrt1::dyn_reloc,
         options(noreturn)
     )
@@ -179,12 +189,13 @@ unsafe extern "sysv64" fn relocate() {
 /// Entry point
 ///
 /// This function is called during EENTER. Its inputs are as follows:
+///
 ///  rax = The current SSA index. (i.e. rbx->cssa)
 ///  rbx = The address of the TCS.
 ///  rcx = The next address after the EENTER instruction.
 ///
-///  If rax == 0, we are doing normal execution.
-///  Otherwise, we are handling an exception.
+/// If rax == 0, we are doing normal execution.
+/// Otherwise, we are handling an exception.
 ///
 /// # Safety
 ///
@@ -201,16 +212,13 @@ pub unsafe extern "sysv64" fn _start() -> ! {
     // RSPO = offset_of!(StateSaveArea, gpr.rsp);
     const RSPO: u64 = GPRO + 32;
 
-    const STACK: u64 = 9 * 8;
-
     asm!(
-        "xchg   rcx,    rbx                 ",  // Swap TCS and next instruction
-        "add    rcx,    4096                ",  // rcx = &Layout
+        "xchg   rbx,    rcx                 ",  // rbx = exit address, rcx = TCS page
 
         // Find stack pointer for CSSA == 0
         "cmp    rax,    0                   ",  // If CSSA > 0
         "jne    2f                          ",  // ... jump to the next section
-        "mov    r10,    [rcx + {STACK}]     ",  // r10 = stack pointer
+        "mov    r10,    rcx                 ",  // r10 = stack pointer
         "jmp    3f                          ",  // Jump to stack setup
 
         // Find stack pointer for CSSA > 0
@@ -219,7 +227,6 @@ pub unsafe extern "sysv64" fn _start() -> ! {
         "shl    r10,    12                  ",  // r10 = CSSA * 4096
         "mov    r10,    [rcx + r10 + {RSPO}]",  // r10 = SSA[CSSA - 1].gpr.rsp
         "sub    r10,    128                 ",  // Skip the red zone
-        "jmp    3f                          ",  // Jump to stack setup
 
         // Setup the stack
         "3:                                 ",
@@ -234,15 +241,13 @@ pub unsafe extern "sysv64" fn _start() -> ! {
         "call   {RELOC}                     ",  // Relocate symbols
 
         // Clear, call Rust, clear
-        "4:                                 ",
-        "push   rcx                         ",  // Save &Layout
-        "push   rax                         ",  // Save CSSA
-        "mov    rcx,    rsp                 ",  // Setup argument
+        "4:                                 ",  // rdi = &mut sallyport::Block (passthrough)
+        "lea    rsi,    [rcx + 4096]        ",  // rsi = &mut [StateSaveArea; N]
+        "mov    rdx,    rax                 ",  // rdx = CSSA
         "call   {CLEARX}                    ",  // Clear CPU state
         "call   {ENTRY}                     ",  // Jump to Rust
         "call   {CLEARX}                    ",  // Clear CPU state
         "call   {CLEARP}                    ",  // Clear parameter registers
-        "add    rsp,    16                  ",  // Remove arguments from stack
 
         // Exit
         "pop    rsp                         ",  // Restore old stack
@@ -254,36 +259,24 @@ pub unsafe extern "sysv64" fn _start() -> ! {
         RELOC = sym relocate,
         ENTRY = sym main,
         EEXIT = const EEXIT,
-        STACK = const STACK,
         RSPO = const RSPO,
         options(noreturn)
     )
 }
 
-#[repr(C)]
-struct Context {
-    layout: hostlib::Layout,
-    ssa: [StateSaveArea],
-}
-
-#[repr(C)]
-struct Input {
+unsafe extern "C" fn main(
+    port: &mut sallyport::Block,
+    ssas: &mut [ssa::StateSaveArea; 3],
     cssa: usize,
-    ctx: &'static mut Context,
-}
-
-#[allow(unreachable_code)]
-extern "C" fn main(
-    _rdi: usize,
-    _rsi: usize,
-    rdx: &mut Block,
-    rcx: &mut Input,
-    _r8: usize,
-    _r9: usize,
 ) {
-    match rcx.cssa {
-        0 => entry::entry(&rcx.ctx.layout),
-        1 => handler::Handler::handle(&mut rcx.ctx.ssa[0].gpr, rdx, rcx.ctx.layout.heap),
-        n => handler::Handler::finish(&mut rcx.ctx.ssa[n - 1].gpr),
+    let heap = lset::Line::new(
+        &ENARX_HEAP_START as *const _ as usize,
+        &ENARX_HEAP_END as *const _ as usize,
+    );
+
+    match cssa {
+        0 => entry::entry(&ENARX_EXEC_START as *const u8 as _),
+        1 => handler::Handler::handle(&mut ssas[0].gpr, port, heap),
+        n => handler::Handler::finish(&mut ssas[n - 1].gpr),
     }
 }

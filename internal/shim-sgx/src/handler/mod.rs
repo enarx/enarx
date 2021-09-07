@@ -30,13 +30,14 @@ mod memory;
 mod other;
 mod process;
 
+use crate::ssa::{Gpr, Vector};
+
 use core::fmt::Write;
 
 use enarx_heap::Heap;
 use lset::Line;
 use sallyport::syscall::*;
 use sallyport::{request, Block};
-use sgx::types::ssa::{Exception, Gpr};
 
 // Opcode constants, details in Volume 2 of the Intel 64 and IA-32 Architectures Software
 // Developer's Manual
@@ -80,7 +81,7 @@ impl<'a> Handler<'a> {
 
     /// Finish handling an exception
     pub fn finish(gpr: &'a mut Gpr) {
-        if let Some(Exception::InvalidOpcode) = gpr.exitinfo.exception() {
+        if let Some(Vector::InvalidOpcode) = gpr.exitinfo.exception() {
             if let OP_SYSCALL | OP_CPUID = unsafe { gpr.rip.into_slice(2usize) } {
                 // Skip the instruction.
                 let rip = usize::from(gpr.rip);
@@ -97,7 +98,7 @@ impl<'a> Handler<'a> {
         let mut h = Self::new(gpr, block, heap);
 
         match h.gpr.exitinfo.exception() {
-            Some(Exception::InvalidOpcode) => match unsafe { h.gpr.rip.into_slice(2usize) } {
+            Some(Vector::InvalidOpcode) => match unsafe { h.gpr.rip.into_slice(2usize) } {
                 OP_SYSCALL => h.handle_syscall(),
                 OP_CPUID => h.handle_cpuid(),
                 r => {

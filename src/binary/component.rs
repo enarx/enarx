@@ -18,8 +18,23 @@ pub enum ComponentType {
 pub const PT_ENARX_SALLYPORT: u32 = PT_LOOS + 0x34a0001;
 
 /// The enarx code program header type
-#[cfg(any(feature = "backend-kvm"))]
 pub const PT_ENARX_CODE: u32 = PT_LOOS + 0x34a0003;
+
+/// This segment contains TCS pages.
+#[cfg(feature = "backend-sgx")]
+pub const PF_ENARX_SGX_TCS: u32 = 1 << 20;
+
+/// This segment contains unmeasured pages.
+#[cfg(feature = "backend-sgx")]
+pub const PF_ENARX_SGX_UNMEASURED: u32 = 1 << 21;
+
+/// This note indicates the SGX enclave size (u32; in powers of 2)
+#[cfg(feature = "backend-sgx")]
+pub const NOTE_ENARX_SGX_SIZE: u32 = 0x73677800;
+
+/// This note indicates the number of pages in an SSA frame (u32)
+#[cfg(feature = "backend-sgx")]
+pub const NOTE_ENARX_SGX_SSAP: u32 = 0x73677801;
 
 pub struct Component<'a> {
     pub bytes: &'a [u8],
@@ -124,5 +139,25 @@ impl<'a> Component<'a> {
             .max();
 
         lo.unwrap_or_default()..hi.unwrap_or_default()
+    }
+
+    /// Read a note from the note section
+    #[cfg(feature = "backend-sgx")]
+    pub unsafe fn read_note<T: Copy>(&self, name: &str, kind: u32) -> Result<Option<T>> {
+        use std::mem::size_of;
+
+        let headers = match self.elf.iter_note_headers(self.bytes) {
+            Some(headers) => headers,
+            None => return Ok(None),
+        };
+
+        for note in headers {
+            let note = note?;
+            if note.name == name && note.n_type == kind && note.desc.len() == size_of::<T>() {
+                return Ok(Some(note.desc.as_ptr().cast::<T>().read_unaligned()));
+            }
+        }
+
+        Ok(None)
     }
 }

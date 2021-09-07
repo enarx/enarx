@@ -42,7 +42,7 @@ pub struct Vm<P: Personality> {
 
 impl<P: Personality> Vm<P> {
     pub fn add_memory(&mut self, pages: usize) -> Result<i64> {
-        let mem_size = pages * Page::size();
+        let mem_size = pages * Page::SIZE;
         let last_region = self.regions.last().unwrap().as_guest();
 
         let map = Map::map(mem_size as usize)

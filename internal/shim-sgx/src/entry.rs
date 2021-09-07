@@ -3,8 +3,6 @@
 use crt0stack::{Builder, Entry, Handle, OutOfSpace};
 use goblin::elf::header::{header64::Header, ELFMAG};
 
-use crate::Layout;
-
 fn exit(code: usize) -> ! {
     loop {
         unsafe {
@@ -30,12 +28,12 @@ fn random() -> u64 {
 }
 
 fn crt0setup<'a>(
-    layout: &Layout,
     hdr: &Header,
     crt0: &'a mut [u8],
+    off: *const (),
 ) -> Result<Handle<'a>, OutOfSpace> {
     let rand = unsafe { core::mem::transmute([random(), random()]) };
-    let phdr = layout.code.start as u64 + hdr.e_phoff;
+    let phdr = off as u64 + hdr.e_phoff;
 
     // Set the arguments
     let mut builder = Builder::new(crt0);
@@ -67,10 +65,9 @@ fn crt0setup<'a>(
     builder.done()
 }
 
-pub fn entry(layout: &Layout) -> ! {
+pub unsafe fn entry(offset: *const ()) -> ! {
     // Validate the ELF header.
-    let hdr = unsafe { &*(layout.code.start as *const Header) };
-
+    let hdr = &*(offset as *const Header);
     if !hdr.e_ident[..ELFMAG.len()].eq(ELFMAG) {
         exit(1);
     }
@@ -78,18 +75,16 @@ pub fn entry(layout: &Layout) -> ! {
     // Prepare the crt0 stack.
     let mut crt0 = [0u8; 1024];
     let space = random() as usize & 0xf0;
-    let handle = match crt0setup(layout, hdr, &mut crt0[space..]) {
+    let handle = match crt0setup(hdr, &mut crt0[space..], offset) {
         Err(OutOfSpace) => exit(1),
         Ok(handle) => handle,
     };
 
-    unsafe {
-        asm!(
-            "mov rsp, {SP}",
-            "jmp {START}",
-            SP = in(reg) &*handle,
-            START = in(reg) layout.code.start as u64 + hdr.e_entry,
-            options(noreturn)
-        )
-    }
+    asm!(
+        "mov rsp, {SP}",
+        "jmp {START}",
+        SP = in(reg) &*handle,
+        START = in(reg) offset as u64 + hdr.e_entry,
+        options(noreturn)
+    )
 }
