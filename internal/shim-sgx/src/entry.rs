@@ -6,13 +6,14 @@ use goblin::elf::header::{header64::Header, ELFMAG};
 use crate::Layout;
 
 fn exit(code: usize) -> ! {
-    unsafe {
-        asm!(
-            "syscall",
-            in("rax") libc::SYS_exit,
-            in("rdi") code,
-            options(noreturn)
-        )
+    loop {
+        unsafe {
+            asm!(
+                "syscall",
+                in("rax") libc::SYS_exit,
+                in("rdi") code
+            );
+        }
     }
 }
 
