@@ -20,7 +20,7 @@ jobs:
         toolchain:
           - nightly
           - stable
-          - 1.45.0
+          - 1.50.0
         features:
           -
         profile:

@@ -19,13 +19,13 @@ fn msg_size() {
 
 #[test]
 fn block_size() {
-    assert_eq!(size_of::<Block>() % Page::size(), 0);
+    assert_eq!(size_of::<Block>() % Page::SIZE, 0);
 }
 
 #[test]
 fn buf_capacity() {
     assert!(Block::buf_capacity() > MAX_UDP_PACKET_SIZE);
-    assert!(Block::buf_capacity() - Page::size() < MAX_UDP_PACKET_SIZE);
+    assert!(Block::buf_capacity() - Page::SIZE < MAX_UDP_PACKET_SIZE);
 }
 
 #[test]
@@ -89,9 +89,7 @@ fn cursor() {
     let mut block = Block::default();
 
     let c = block.cursor();
-    assert!(c
-        .alloc::<usize>(MAX_UDP_PACKET_SIZE + Page::size())
-        .is_err());
+    assert!(c.alloc::<usize>(MAX_UDP_PACKET_SIZE + Page::SIZE).is_err());
 
     let c = block.cursor();
     assert_eq!(c.alloc::<usize>(42usize).unwrap().1.len(), 42);

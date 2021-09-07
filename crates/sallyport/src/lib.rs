@@ -320,8 +320,7 @@ impl Block {
     /// Returns the capacity of `Block.buf`
     pub const fn buf_capacity() -> usize {
         // At least MAX_UDP_PACKET_SIZE rounded up Page::size() alignment
-        (MAX_UDP_PACKET_SIZE + size_of::<Message>() + Page::size() - 1) / Page::size()
-            * Page::size()
+        (MAX_UDP_PACKET_SIZE + size_of::<Message>() + Page::SIZE - 1) / Page::SIZE * Page::SIZE
             - size_of::<Message>()
     }
 

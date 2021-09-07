@@ -26,5 +26,4 @@ asm = []
 
 [dependencies]
 libc = { version = "0.2", features = [] }
-primordial = "0.1"
-
+primordial = "0.3"
