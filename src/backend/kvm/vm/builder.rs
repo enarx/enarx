@@ -9,7 +9,6 @@ use anyhow::Result;
 use kvm_ioctls::{Kvm, VmFd};
 use lset::Span;
 use mmarinus::{perms, Kind, Map};
-use openssl::hash::Hasher;
 use x86_64::{align_up, VirtAddr};
 
 use goblin::elf::program_header::PT_LOAD;
@@ -160,19 +159,6 @@ impl<'a, T: Hook> Builder<'a, T> {
 }
 
 impl<P: Personality, T: Hook> Built<P, T> {
-    pub fn measurement(&mut self) -> Result<measure::Measurement> {
-        let mut hasher = Hasher::new(T::preferred_digest().into())?;
-        let address_space = self.vm.regions[0].backing();
-
-        hasher.update(address_space)?;
-        let digest_bytes = hasher.finish()?;
-
-        Ok(measure::Measurement {
-            kind: T::preferred_digest(),
-            digest: digest_bytes,
-        })
-    }
-
     pub fn vm(mut self) -> Result<Vm<P>> {
         self.hook.code_loaded(
             &mut self.vm.fd,

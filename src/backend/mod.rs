@@ -32,10 +32,6 @@ pub trait Backend {
 
     /// Create a keep instance on this backend
     fn build(&self, shim: Component, code: Component) -> Result<Arc<dyn Keep>>;
-
-    /// Create a keep instance on this backend, measure the keep
-    /// and output a json record for the specific backend
-    fn measure(&self, shim: Component, code: Component) -> Result<String>;
 }
 
 pub struct Datum {

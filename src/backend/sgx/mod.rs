@@ -169,10 +169,6 @@ impl crate::backend::Backend for Backend {
         // Build the enclave.
         Ok(builder.build(&signature)?)
     }
-
-    fn measure(&self, _shim: Component, _code: Component) -> Result<String> {
-        unimplemented!()
-    }
 }
 
 impl super::Keep for Enclave {

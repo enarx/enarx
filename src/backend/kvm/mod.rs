@@ -64,16 +64,4 @@ impl backend::Backend for Backend {
 
         Ok(Arc::new(RwLock::new(vm)))
     }
-
-    fn measure(&self, shim: Component, code: Component) -> Result<String> {
-        let digest = Builder::new(shim, code, builder::Kvm)
-            .build::<()>()?
-            .measurement()?;
-
-        let json = format!(
-            r#"{{ "backend": "kvm", "{}": {:?} }}"#,
-            digest.kind, digest.digest
-        );
-        Ok(json)
-    }
 }

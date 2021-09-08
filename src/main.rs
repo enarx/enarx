@@ -85,19 +85,11 @@ struct Exec {
     code: PathBuf,
 }
 
-/// Get a report from a keep
-#[derive(StructOpt)]
-struct Report {
-    /// The payload to run inside the keep
-    code: PathBuf,
-}
-
 #[derive(StructOpt)]
 #[structopt(version=VERSION, author=AUTHORS.split(";").nth(0).unwrap())]
 enum Options {
     Info(Info),
     Exec(Exec),
-    Report(Report),
 }
 
 #[allow(clippy::unnecessary_wraps)]
@@ -112,7 +104,6 @@ fn main() -> Result<()> {
     match Options::from_args() {
         Options::Info(_) => info(backends),
         Options::Exec(e) => exec(backends, e),
-        Options::Report(e) => measure(backends, e),
     }
 }
 
@@ -162,18 +153,6 @@ fn backend(backends: &[Box<dyn Backend>]) -> &dyn Backend {
         (None, None) => panic!("No supported backend found!"),
         (_, Some(backend)) => &**backend,
     }
-}
-
-fn measure(backends: &[Box<dyn Backend>], opts: Report) -> Result<()> {
-    let backend = backend(backends);
-
-    let map = mmarinus::Kind::Private.load::<mmarinus::perms::Read, _>(&opts.code)?;
-    let shim = Component::from_bytes(backend.shim(), ComponentType::Shim)?;
-    let code = Component::from_bytes(&map, ComponentType::Payload)?;
-    let json = backend.measure(shim, code)?;
-    println!("{}", json);
-
-    Ok(())
 }
 
 fn exec(backends: &[Box<dyn Backend>], opts: Exec) -> Result<()> {
