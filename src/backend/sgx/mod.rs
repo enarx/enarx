@@ -20,7 +20,6 @@ use std::arch::x86_64::__cpuid_count;
 use std::convert::TryInto;
 use std::fmt::Debug;
 use std::num::NonZeroU32;
-use std::path::Path;
 use std::sync::Arc;
 
 mod attestation;
@@ -120,12 +119,7 @@ impl crate::backend::Backend for Backend {
     }
 
     /// Create a keep instance on this backend
-    fn build(
-        &self,
-        shim: Component,
-        code: Component,
-        _sock: Option<&Path>,
-    ) -> Result<Arc<dyn Keep>> {
+    fn build(&self, shim: Component, code: Component) -> Result<Arc<dyn Keep>> {
         // Find the offset for loading the code.
         let slot = Span::from(shim.find_header(PT_ENARX_CODE).unwrap().vm_range());
         assert!(Span::from(code.region()).count <= slot.count);

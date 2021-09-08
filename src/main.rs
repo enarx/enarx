@@ -81,10 +81,6 @@ struct Info {}
 /// Executes a keep
 #[derive(StructOpt)]
 struct Exec {
-    /// The socket to use for preattestation
-    #[structopt(short, long)]
-    sock: Option<PathBuf>,
-
     /// The payload to run inside the keep
     code: PathBuf,
 }
@@ -186,7 +182,7 @@ fn exec(backends: &[Box<dyn Backend>], opts: Exec) -> Result<()> {
     let map = mmarinus::Kind::Private.load::<mmarinus::perms::Read, _>(&opts.code)?;
     let shim = Component::from_bytes(backend.shim(), ComponentType::Shim)?;
     let code = Component::from_bytes(&map, ComponentType::Payload)?;
-    let keep = backend.build(shim, code, opts.sock.as_deref())?;
+    let keep = backend.build(shim, code)?;
 
     let mut thread = keep.clone().spawn()?.unwrap();
     loop {

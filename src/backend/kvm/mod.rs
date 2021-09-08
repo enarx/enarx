@@ -15,7 +15,6 @@ use crate::binary::Component;
 use anyhow::Result;
 use kvm_ioctls::Kvm;
 
-use std::path::Path;
 use std::sync::{Arc, RwLock};
 
 pub const SHIM: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/bin/shim-sev"));
@@ -60,12 +59,7 @@ impl backend::Backend for Backend {
         vec![dev_kvm(), kvm_version()]
     }
 
-    fn build(
-        &self,
-        shim: Component,
-        code: Component,
-        _sock: Option<&Path>,
-    ) -> Result<Arc<dyn Keep>> {
+    fn build(&self, shim: Component, code: Component) -> Result<Arc<dyn Keep>> {
         let vm = Builder::new(shim, code, builder::Kvm).build::<()>()?.vm()?;
 
         Ok(Arc::new(RwLock::new(vm)))

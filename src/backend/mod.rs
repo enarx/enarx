@@ -10,7 +10,6 @@ mod probe;
 
 use crate::binary::Component;
 
-use std::path::Path;
 use std::sync::Arc;
 
 use anyhow::Result;
@@ -32,8 +31,7 @@ pub trait Backend {
     fn data(&self) -> Vec<Datum>;
 
     /// Create a keep instance on this backend
-    fn build(&self, shim: Component, code: Component, sock: Option<&Path>)
-        -> Result<Arc<dyn Keep>>;
+    fn build(&self, shim: Component, code: Component) -> Result<Arc<dyn Keep>>;
 
     /// Create a keep instance on this backend, measure the keep
     /// and output a json record for the specific backend
