@@ -39,7 +39,6 @@ pub const NOTE_ENARX_SGX_SSAP: u32 = 0x73677801;
 pub struct Component<'a> {
     pub bytes: &'a [u8],
     pub elf: Elf<'a>,
-    pub pie: bool,
     pub component_type: ComponentType,
 }
 
@@ -62,11 +61,6 @@ impl<'a> Component<'a> {
         // Validate header assumptions.
         assert_eq!(elf.header.e_machine, EM_X86_64);
         assert_eq!(elf.header.e_version, EV_CURRENT as _);
-        let pie = match elf.header.e_type {
-            ET_DYN => true,
-            ET_EXEC => false,
-            _ => panic!("Unsupported ELF type!"),
-        };
 
         // Validate that there is no interpreter.
         assert!(!elf
@@ -103,11 +97,7 @@ impl<'a> Component<'a> {
             bytes,
             elf,
             component_type,
-            pie,
         };
-
-        // Validate that for pie binaries the first segment starts at 0.
-        assert_eq!(pie, component.find_header(PT_LOAD).unwrap().p_vaddr == 0);
 
         Ok(component)
     }
