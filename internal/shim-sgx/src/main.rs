@@ -53,16 +53,16 @@ mod handler;
 mod ssa;
 
 use noted::noted;
+use sallyport::REQUIRES;
 
 const DEBUG: bool = false;
-
-sallyport::declare_abi_version!();
 
 const SSA_FRAME_SIZE: u32 = 1;
 const ENCL_SIZE_BITS: u32 = 31;
 const ENCL_SIZE: usize = 1 << ENCL_SIZE_BITS;
 
 noted! {
+    static NOTE_ENARX_SALLYPORT<"sallyport", 0>: [u8; REQUIRES.len()] = REQUIRES;
     static NOTE_ENARX_SGX_SIZE<"enarx", 0x73677800>: u32 = ENCL_SIZE_BITS;
     static NOTE_ENARX_SGX_SSAP<"enarx", 0x73677801>: u32 = SSA_FRAME_SIZE;
 }

@@ -44,11 +44,16 @@ use crate::print::{enable_printing, is_printing_enabled};
 use core::mem::size_of;
 use core::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use goblin::elf::header::header64::Header;
+use noted::noted;
 use primordial::Page as Page4KiB;
-use sallyport::Block;
+use sallyport::{Block, REQUIRES};
 use spinning::RwLock;
 use x86_64::structures::paging::Translate;
 use x86_64::VirtAddr;
+
+noted! {
+    static NOTE_ENARX_SALLYPORT<"sallyport", 0>: [u8; REQUIRES.len()] = REQUIRES;
+}
 
 static C_BIT_MASK: AtomicU64 = AtomicU64::new(0);
 
@@ -71,8 +76,6 @@ extern "C" {
     /// Extern
     pub static _ENARX_CODE_END: Page4KiB;
 }
-
-sallyport::declare_abi_version!();
 
 /// Get the SEV C-Bit mask
 #[inline(always)]

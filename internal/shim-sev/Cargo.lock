@@ -76,6 +76,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c619aa76dbb3f67970c7cf10fc3efa81da412be26d4dda1726af76b25260dc66"
 
 [[package]]
+name = "noted"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a1bc5b8b5b7171ba3ddd9c2a6027c345f8a787d8a696d3f95bc30f95edbe5516"
+
+[[package]]
 name = "plain"
 version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -99,7 +105,7 @@ dependencies = [
 [[package]]
 name = "sallyport"
 version = "0.1.0"
-source = "git+https://github.com/enarx/sallyport?rev=c8ed47f27a09a021048153042af9adcda3fc9deb#c8ed47f27a09a021048153042af9adcda3fc9deb"
+source = "git+https://github.com/enarx/sallyport?rev=3872722009428b7002f8b703fd8c38958572952c#3872722009428b7002f8b703fd8c38958572952c"
 dependencies = [
  "libc",
  "primordial",
@@ -129,6 +135,7 @@ dependencies = [
  "linked_list_allocator",
  "lset",
  "nbytes",
+ "noted",
  "primordial",
  "rcrt1",
  "sallyport",

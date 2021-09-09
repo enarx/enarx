@@ -17,6 +17,7 @@ PHDRS {
     data         PT_LOAD;
 
     dynamic      PT_DYNAMIC;
+    note         PT_NOTE;
 
     PT_ENARX_SALLYPORT  0x634A0001 FLAGS(0x0ff00000);
     PT_ENARX_CODE       0x634A0003 FLAGS(0x0ff00000);
@@ -85,12 +86,12 @@ SECTIONS {
     .got                : { *(.got) } :boot_data
 
     . = ALIGN(CONSTANT(COMMONPAGESIZE));
-    .init               : { KEEP (*(SORT_NONE(.init))) } :text
     .text               : { *(.text .text.*) } :text
     .rela.dyn           : { *(.rela.*) } :text
 
     . = ALIGN(CONSTANT(COMMONPAGESIZE));
     .rodata             : { *(.rodata .rodata.*) } :rodata
+    .note               : { *(.note) } :rodata :note
     .dynsym             : { *(.dynsym) } :rodata
     .dynstr             : { *(.dynstr) } :rodata
     .gnu.hash           : { *(.gnu.hash) } :rodata

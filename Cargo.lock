@@ -178,6 +178,7 @@ dependencies = [
  "protobuf",
  "protobuf-codegen-pure",
  "sallyport",
+ "semver",
  "serial_test",
  "sgx",
  "structopt",
@@ -596,7 +597,7 @@ dependencies = [
 [[package]]
 name = "sallyport"
 version = "0.1.0"
-source = "git+https://github.com/enarx/sallyport?rev=c8ed47f27a09a021048153042af9adcda3fc9deb#c8ed47f27a09a021048153042af9adcda3fc9deb"
+source = "git+https://github.com/enarx/sallyport?rev=3872722009428b7002f8b703fd8c38958572952c#3872722009428b7002f8b703fd8c38958572952c"
 dependencies = [
  "libc",
  "primordial",
@@ -636,6 +637,12 @@ dependencies = [
  "quote",
  "syn",
 ]
+
+[[package]]
+name = "semver"
+version = "1.0.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "568a8e6258aa33c13358f81fd834adb854c6f7c9468520910a9b1e8fac068012"
 
 [[package]]
 name = "serde"

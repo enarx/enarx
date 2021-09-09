@@ -64,7 +64,7 @@ mod protobuf;
 pub use sallyport::Request;
 
 use backend::{Backend, Command};
-use binary::{Component, ComponentType};
+use binary::Component;
 
 use anyhow::Result;
 use structopt::StructOpt;
@@ -159,10 +159,20 @@ fn exec(backends: &[Box<dyn Backend>], opts: Exec) -> Result<()> {
     let backend = backend(backends);
 
     let map = mmarinus::Kind::Private.load::<mmarinus::perms::Read, _>(&opts.code)?;
-    let shim = Component::from_bytes(backend.shim(), ComponentType::Shim)?;
-    let code = Component::from_bytes(&map, ComponentType::Payload)?;
-    let keep = backend.build(shim, code)?;
+    let shim = Component::from_bytes(backend.shim())?;
+    let code = Component::from_bytes(&map)?;
 
+    let version = semver::Version::parse(sallyport::VERSION).unwrap();
+    let supported = shim
+        .filter_notes("sallyport", 0)
+        .filter_map(|n| std::str::from_utf8(n).ok())
+        .filter_map(|n| semver::VersionReq::parse(n).ok())
+        .any(|req| req.matches(&version));
+    if !supported {
+        panic!("Unable to satisfy sallyport version requirement.");
+    }
+
+    let keep = backend.build(shim, code)?;
     let mut thread = keep.clone().spawn()?.unwrap();
     loop {
         match thread.enter()? {

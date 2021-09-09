@@ -30,7 +30,7 @@ backend-sgx = ["sgx"]
 
 [dependencies]
 sgx = { git = "https://github.com/enarx/sgx", rev = "a0b881cc798f3bafb8d603fa1bad6ca7b2a2c740", features = ["asm", "crypto"], optional = true }
-sallyport = { git = "https://github.com/enarx/sallyport", rev = "c8ed47f27a09a021048153042af9adcda3fc9deb", features = [ "asm" ] }
+sallyport = { git = "https://github.com/enarx/sallyport", rev = "3872722009428b7002f8b703fd8c38958572952c", features = [ "asm" ] }
 x86_64 = { git = "https://github.com/npmccallum/x86_64", branch = "errors", default-features = false, optional = true }
 koine = { git = "https://github.com/enarx/koine", optional = true }
 primordial = { version = "0.3", features = ["alloc"] }
@@ -47,6 +47,7 @@ mmarinus = "0.2"
 flagset = "0.4"
 nbytes = "0.1"
 anyhow = "1.0"
+semver = "1.0"
 goblin = "0.4"
 libc = "0.2"
 lset = "0.2"
@@ -55,7 +56,7 @@ lset = "0.2"
 cc = "1.0"
 walkdir = "2"
 protobuf-codegen-pure = "2.25"
-sallyport = { git = "https://github.com/enarx/sallyport", rev = "c8ed47f27a09a021048153042af9adcda3fc9deb", features = [ "asm" ] }
+sallyport = { git = "https://github.com/enarx/sallyport", rev = "3872722009428b7002f8b703fd8c38958572952c", features = [ "asm" ] }
 
 [dev-dependencies]
 process_control = "3.0"

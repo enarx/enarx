@@ -23,11 +23,10 @@ SECTIONS {
     .dynsym       : { *(.dynsym) }                      :rodata
     .dynstr       : { *(.dynstr) }                      :rodata
     .gnu.hash     : { *(.gnu.hash) }                    :rodata
-    .note         : { *(.note .note.*) }                :rodata :note
+    .note         : { *(.note) }                        :rodata :note
 
     . = ALIGN(4K);
     .data.rel.ro  : { *(.data.rel.ro .data.rel.ro.*) }  :data
-    .init         : { KEEP(*(.init .init.*)) }          :data
     .dynamic      : { *(.dynamic) }                     :data :dynamic
     .data         : { *(.data .data.*) }                :data
     .rela.dyn     : { *(.rela.*) }                      :data

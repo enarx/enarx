@@ -144,7 +144,7 @@ dependencies = [
 [[package]]
 name = "sallyport"
 version = "0.1.0"
-source = "git+https://github.com/enarx/sallyport?rev=c8ed47f27a09a021048153042af9adcda3fc9deb#c8ed47f27a09a021048153042af9adcda3fc9deb"
+source = "git+https://github.com/enarx/sallyport?rev=3872722009428b7002f8b703fd8c38958572952c#3872722009428b7002f8b703fd8c38958572952c"
 dependencies = [
  "libc",
  "primordial 0.3.0",

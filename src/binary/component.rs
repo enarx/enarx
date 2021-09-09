@@ -1,17 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use anyhow::{anyhow, Result};
-use goblin::elf::{header::*, program_header::*, Elf};
-
-use sallyport::SALLYPORT_ABI_VERSION_BASE;
+use anyhow::Result;
+use goblin::elf::{header::*, note::NoteIterator, program_header::*, Elf};
 
 use std::ops::Range;
-
-#[allow(dead_code)]
-pub enum ComponentType {
-    Shim,
-    Payload,
-}
 
 /// The sallyport program header type
 #[cfg(any(feature = "backend-kvm"))]
@@ -39,15 +31,11 @@ pub const NOTE_ENARX_SGX_SSAP: u32 = 0x73677801;
 pub struct Component<'a> {
     pub bytes: &'a [u8],
     pub elf: Elf<'a>,
-    pub component_type: ComponentType,
 }
 
 impl<'a> Component<'a> {
     /// Loads a binary from bytes
-    pub fn from_bytes(
-        bytes: &'a (impl AsRef<[u8]> + ?Sized),
-        component_type: ComponentType,
-    ) -> Result<Self> {
+    pub fn from_bytes(bytes: &'a (impl AsRef<[u8]> + ?Sized)) -> Result<Self> {
         let bytes = bytes.as_ref();
 
         // Parse the file.
@@ -81,25 +69,7 @@ impl<'a> Component<'a> {
                 .count()
         );
 
-        if matches!(component_type, ComponentType::Shim) {
-            // There shouldn't be any symbols in the shim, except this one.
-            let strtab = elf.strtab.to_vec()?;
-            let ver = strtab
-                .iter()
-                .find(|x| x.starts_with(SALLYPORT_ABI_VERSION_BASE))
-                .ok_or_else(|| anyhow!("Couldn't find sallyport version in shim executable."))?;
-
-            sallyport::check_abi_version(ver)
-                .map_err(|_| anyhow!("Sallyport version mismatch in shim executable."))?;
-        }
-
-        let component = Self {
-            bytes,
-            elf,
-            component_type,
-        };
-
-        Ok(component)
+        Ok(Self { bytes, elf })
     }
 
     pub fn filter_header(&self, type_: u32) -> impl Iterator<Item = &ProgramHeader> {
@@ -114,6 +84,21 @@ impl<'a> Component<'a> {
             .program_headers
             .iter()
             .find(|ph| ph.p_type == type_)
+    }
+
+    pub fn filter_notes(&'a self, name: &'a str, kind: u32) -> impl Iterator<Item = &'a [u8]> {
+        let empty = NoteIterator {
+            iters: vec![],
+            index: 0,
+        };
+
+        self.elf
+            .iter_note_headers(self.bytes)
+            .unwrap_or(empty)
+            .filter_map(Result::ok)
+            .filter(move |n| n.n_type == kind)
+            .filter(move |n| n.name == name)
+            .map(|n| n.desc)
     }
 
     /// Find the total memory region for the binary.
@@ -134,17 +119,11 @@ impl<'a> Component<'a> {
     /// Read a note from the note section
     #[cfg(feature = "backend-sgx")]
     pub unsafe fn read_note<T: Copy>(&self, name: &str, kind: u32) -> Result<Option<T>> {
-        use std::mem::size_of;
+        use core::mem::size_of;
 
-        let headers = match self.elf.iter_note_headers(self.bytes) {
-            Some(headers) => headers,
-            None => return Ok(None),
-        };
-
-        for note in headers {
-            let note = note?;
-            if note.name == name && note.n_type == kind && note.desc.len() == size_of::<T>() {
-                return Ok(Some(note.desc.as_ptr().cast::<T>().read_unaligned()));
+        for note in self.filter_notes(name, kind) {
+            if note.len() == size_of::<T>() {
+                return Ok(Some(note.as_ptr().cast::<T>().read_unaligned()));
             }
         }
 
