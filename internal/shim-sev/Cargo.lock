@@ -83,9 +83,9 @@ checksum = "b4596b6d070b27117e987119b4dac604f3c58cfb0b191112e24771b2faeac1a6"
 
 [[package]]
 name = "primordial"
-version = "0.1.0"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "979d94833957a6485c5cac4b71d552a9cd0b9f3f6fd1c7c5dc8096b3ee2bcd13"
+checksum = "55d6312462222758b3fb6c7e84d819ce87c315c446e0e2c11b0b9258dedd3f25"
 
 [[package]]
 name = "rcrt1"
@@ -99,7 +99,7 @@ dependencies = [
 [[package]]
 name = "sallyport"
 version = "0.1.0"
-source = "git+https://github.com/enarx/sallyport?rev=0d3f139366003b196f9c07c437f86d398c73a18c#0d3f139366003b196f9c07c437f86d398c73a18c"
+source = "git+https://github.com/enarx/sallyport?rev=c8ed47f27a09a021048153042af9adcda3fc9deb#c8ed47f27a09a021048153042af9adcda3fc9deb"
 dependencies = [
  "libc",
  "primordial",

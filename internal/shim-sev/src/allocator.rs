@@ -201,7 +201,7 @@ impl EnarxAllocator {
                     .unwrap()
                     .checked_add(region.count as u64)
                     .unwrap(),
-                Page4KiB::size() as u64,
+                Page4KiB::SIZE as u64,
             ) as usize
         };
 
@@ -235,7 +235,7 @@ impl EnarxAllocator {
                 .checked_mul(last_size as u64)
                 .unwrap_or(last_size as u64) as _;
             let new_size = new_size.min(self.max_alloc);
-            let num_pages = new_size.checked_div(Page4KiB::size() as _).unwrap();
+            let num_pages = new_size.checked_div(Page4KiB::SIZE as _).unwrap();
 
             let ret = HOST_CALL_ALLOC.try_alloc().unwrap().balloon(num_pages);
 
@@ -275,7 +275,7 @@ impl EnarxAllocator {
             // Failed to get more memory.
             // Try again with half of the memory.
             last_size = last_size.checked_div(2).unwrap();
-            if last_size < Page4KiB::size() {
+            if last_size < Page4KiB::SIZE {
                 // Host does not have even a page of memory
                 return false;
             }

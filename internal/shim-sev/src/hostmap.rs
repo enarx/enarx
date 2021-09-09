@@ -66,7 +66,7 @@ struct HostMemEntry {
 }
 
 /// Number of memory list entries per page
-pub const HOST_MEM_LIST_NUM_ENTRIES: usize = (Page4KiB::size()
+pub const HOST_MEM_LIST_NUM_ENTRIES: usize = (Page4KiB::SIZE
     - core::mem::size_of::<HostMemListPageHeader>())
     / core::mem::size_of::<HostMemEntry>();
 
