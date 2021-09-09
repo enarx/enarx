@@ -87,54 +87,29 @@ use core::mem::MaybeUninit;
 use core::ptr::NonNull;
 use primordial::{Page, Register};
 
-/// The ABI version of the sallyport interface
-pub const SALLYPORT_ABI_VERSION_BASE: &str = "__SALLYPORT_ABI_";
-/// The ABI version of the sallyport interface
-pub const SALLYPORT_ABI_VERSION: &str = "__SALLYPORT_ABI_1_0_0";
-/// The ABI version of the sallyport interface
-pub const SALLYPORT_ABI_VERSION_MAJOR: u32 = 1;
-/// The ABI version of the sallyport interface
-pub const SALLYPORT_ABI_VERSION_MINOR: u32 = 0;
+/// The sallyport version
+pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
-/// declare the sallyport ABI version
-#[macro_export]
-macro_rules! declare_abi_version {
-    () => {
-        /// The ABI of the sallyport interface
-        #[used]
-        #[no_mangle]
-        #[link_section = ".init"]
-        pub static __SALLYPORT_ABI: &'static str = $crate::SALLYPORT_ABI_VERSION;
+/// The sallyport version requires
+///
+/// This value provides a semver version requirement. It insists that the
+/// other side must use a compatible release to this one. For example, if
+/// the `VERSION` of sallyport is 1.2.3, `REQUIRES` will contain `^1.2.3`.
+///
+/// See [this link](https://docs.rs/semver/1.0.0/semver/enum.Op.html#opcaretcompatible-updates)
+/// for more details.
+pub const REQUIRES: [u8; VERSION.len() + 1] = {
+    let mut value = [0u8; VERSION.len() + 1];
+    let mut i = 0;
 
-        /// The ABI of the sallyport interface
-        #[used]
-        #[no_mangle]
-        #[link_section = ".init"]
-        pub static __SALLYPORT_ABI_1_0_0: &'static str = $crate::SALLYPORT_ABI_VERSION;
-    };
-}
-
-/// Check the symbol string against the support sallyport ABI version
-#[allow(clippy::result_unit_err)]
-pub fn check_abi_version(ver: &str) -> core::result::Result<(), ()> {
-    let ver = ver.strip_prefix(SALLYPORT_ABI_VERSION_BASE).ok_or(())?;
-
-    let mut vers = ver.split('_').filter_map(|x| x.parse::<u32>().ok());
-
-    let major = vers.next().ok_or(())?;
-
-    if major != SALLYPORT_ABI_VERSION_MAJOR {
-        return Err(());
+    value[0] = b'^';
+    while i < VERSION.len() {
+        value[i + 1] = VERSION.as_bytes()[i];
+        i += 1;
     }
 
-    let minor = vers.next().ok_or(())?;
-
-    if minor > SALLYPORT_ABI_VERSION_MINOR {
-        return Err(());
-    }
-
-    Ok(())
-}
+    value
+};
 
 /// I/O port used to trigger an exit to the host (`#VMEXIT`) for KVM driven shims.
 pub const KVM_SYSCALL_TRIGGER_PORT: u16 = 0xFF;
