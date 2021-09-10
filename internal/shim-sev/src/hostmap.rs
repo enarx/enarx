@@ -221,7 +221,7 @@ impl RwLocked<HostMap> {
 
             // we have reached the end of the free slot page
             // advance to the next page
-            if let Some(f) = free.header.next {
+            if let Some(f) = free.header.next.as_mut() {
                 free = f;
             } else {
                 return None;
