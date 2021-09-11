@@ -26,7 +26,7 @@ is-it-maintained-open-issues = { repository = "enarx/enarx-keepldr" }
 default = ["backend-kvm", "backend-sgx"]
 
 backend-kvm = ["x86_64", "kvm-bindings", "kvm-ioctls"]
-backend-sgx = ["sgx"]
+backend-sgx = ["x86_64", "sgx"]
 
 [dependencies]
 sgx = { git = "https://github.com/enarx/sgx", rev = "a0b881cc798f3bafb8d603fa1bad6ca7b2a2c740", features = ["asm", "crypto"], optional = true }
@@ -51,6 +51,7 @@ semver = "1.0"
 goblin = "0.4"
 libc = "0.2"
 lset = "0.2"
+vdso = "0.1"
 
 [build-dependencies]
 cc = "1.0"

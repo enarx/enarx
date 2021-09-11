@@ -183,6 +183,7 @@ dependencies = [
  "sgx",
  "structopt",
  "tempdir",
+ "vdso",
  "walkdir",
  "x86_64",
 ]

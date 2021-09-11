@@ -1,8 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
+mod enclave;
+
 use crate::backend::sgx::attestation::get_attestation;
 use crate::backend::{Command, Datum, Keep};
 use crate::binary::*;
+use enclave::{Builder, Enclave, Entry, InterruptVector, Registers};
 
 use anyhow::Result;
 use goblin::elf::program_header::*;
@@ -11,7 +14,6 @@ use primordial::{Page, Pages};
 use sallyport::syscall::{SYS_ENARX_CPUID, SYS_ENARX_GETATT};
 use sallyport::Block;
 use sgx::crypto::Hasher;
-use sgx::enclave::{Builder, Enclave, Entry, InterruptVector, Registers};
 use sgx::loader::{self, Loader};
 use sgx::types::page::{Class, Flags, SecInfo};
 use sgx::types::sig::{Author, Parameters};
@@ -189,7 +191,7 @@ impl super::Keep for Enclave {
 }
 
 struct Thread {
-    thread: sgx::enclave::Thread,
+    thread: enclave::Thread,
     registers: Registers,
     block: Block,
     cssa: usize,
