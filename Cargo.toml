@@ -29,7 +29,7 @@ backend-kvm = ["x86_64", "kvm-bindings", "kvm-ioctls"]
 backend-sgx = ["x86_64", "sgx"]
 
 [dependencies]
-sgx = { git = "https://github.com/enarx/sgx", rev = "7919ce9f63722fff07900ff1615c66ddc84091f7", features = ["asm", "crypto"], optional = true }
+sgx = { git = "https://github.com/enarx/sgx", rev = "216c5b09c0fe155ac1091484c3ab0feb24bf8c31", features = ["asm", "crypto"], optional = true }
 sallyport = { git = "https://github.com/enarx/sallyport", rev = "3872722009428b7002f8b703fd8c38958572952c", features = [ "asm" ] }
 x86_64 = { version = "^0.14.5", default-features = false, optional = true }
 koine = { git = "https://github.com/enarx/koine", optional = true }
@@ -44,7 +44,6 @@ iocuddle = "0.1"
 ciborium = "0.1"
 colorful = "0.2"
 mmarinus = "0.2"
-flagset = "0.4"
 nbytes = "0.1"
 anyhow = "1.0"
 semver = "1.0"

@@ -5,9 +5,7 @@ use super::{ioctls, Enclave};
 use lset::Span;
 use mmarinus::{perms, Kind, Map};
 use primordial::Page;
-use sgx::loader::{Flags, Loader};
-use sgx::types::page::{self, Class, SecInfo};
-use sgx::types::{secs::*, sig::*};
+use sgx::{Class, Parameters, Permissions, SecInfo, Secs, Signature};
 
 use std::fs::{File, OpenOptions};
 use std::io::{Error, Result};
@@ -45,13 +43,8 @@ impl Builder {
         ssa_frame_pages: NonZeroU32,
         parameters: Parameters,
     ) -> Result<Self> {
-        let span = Span {
-            start: mmap.addr(),
-            count: mmap.size(),
-        };
-
         // Validate the mapping constraints
-        if span.count == 0 || !span.count.is_power_of_two() || span.start % span.count != 0 {
+        if mmap.size() == 0 || !mmap.size().is_power_of_two() || mmap.addr() % mmap.size() != 0 {
             return Err(Error::from_raw_os_error(libc::EINVAL));
         }
 
@@ -62,7 +55,12 @@ impl Builder {
             .open("/dev/sgx_enclave")?;
 
         // Create the enclave.
-        let secs = Secs::new(span, ssa_frame_pages, parameters);
+        let secs = Secs::new(
+            mmap.addr() as *const (),
+            mmap.size(),
+            ssa_frame_pages,
+            parameters,
+        );
         let create = ioctls::Create::new(&secs);
         ioctls::ENCLAVE_CREATE.ioctl(&mut file, &create)?;
 
@@ -103,6 +101,47 @@ impl Builder {
         Self::new_at(l, ssa_frame_pages, parameters)
     }
 
+    /// Adds pages to an enclave
+    ///
+    /// For those familiar with the Intel documentation, this function wraps
+    /// the call to the kernel to issue the `EADD` instruction.
+    pub fn load(
+        &mut self,
+        bytes: &[u8],
+        offset: usize,
+        secinfo: SecInfo,
+        measure: bool,
+    ) -> Result<()> {
+        // Ignore regions with no pages.
+        if bytes.is_empty() {
+            return Ok(());
+        }
+
+        // Update the enclave.
+        let mut ap = ioctls::AddPages::new(bytes, offset, &secinfo, measure);
+        ioctls::ENCLAVE_ADD_PAGES.ioctl(&mut self.file, &mut ap)?;
+
+        // Calculate an absolute span for this region.
+        let span = Span {
+            start: self.mmap.addr() + offset,
+            count: bytes.len(),
+        };
+
+        // Save permissions fixups for later.
+        self.perm.push((span, secinfo));
+
+        // Keep track of TCS pages.
+        if secinfo.class == Class::Tcs {
+            let mut addr = self.mmap.addr() + offset;
+            for chunk in bytes.chunks(Page::SIZE) {
+                self.tcsp.push(addr);
+                addr += chunk.len();
+            }
+        }
+
+        Ok(())
+    }
+
     /// Finalizes the SGX enclave
     ///
     /// This function finalizes the SGX enclave and prepares it for execution.
@@ -121,16 +160,13 @@ impl Builder {
                 Class::Tcs => libc::PROT_READ | libc::PROT_WRITE,
                 Class::Reg => {
                     let mut prot = libc::PROT_NONE;
-
-                    if si.flags.contains(page::Flags::R) {
+                    if si.perms.contains(Permissions::READ) {
                         prot |= libc::PROT_READ;
                     }
-
-                    if si.flags.contains(page::Flags::W) {
+                    if si.perms.contains(Permissions::WRITE) {
                         prot |= libc::PROT_WRITE;
                     }
-
-                    if si.flags.contains(page::Flags::X) {
+                    if si.perms.contains(Permissions::EXECUTE) {
                         prot |= libc::PROT_EXEC;
                     }
 
@@ -155,52 +191,5 @@ impl Builder {
             _mem: self.mmap,
             tcs: RwLock::new(self.tcsp),
         }))
-    }
-}
-
-impl Loader for Builder {
-    type Error = std::io::Error;
-
-    /// Adds pages to an enclave
-    ///
-    /// For those familiar with the Intel documentation, this function wraps
-    /// the call to the kernel to issue the `EADD` instruction.
-    fn load(
-        &mut self,
-        pages: impl AsRef<[Page]>,
-        offset: usize,
-        secinfo: SecInfo,
-        flags: impl Into<flagset::FlagSet<Flags>>,
-    ) -> Result<()> {
-        let offset = offset * Page::SIZE;
-        let pages = pages.as_ref();
-        let flags = flags.into();
-
-        // Ignore regions with no pages.
-        if pages.is_empty() {
-            return Ok(());
-        }
-
-        // Update the enclave.
-        let mut ap = ioctls::AddPages::new(pages, offset, &secinfo, flags);
-        ioctls::ENCLAVE_ADD_PAGES.ioctl(&mut self.file, &mut ap)?;
-
-        // Calculate an absolute span for this region.
-        let span = Span {
-            start: self.mmap.addr() + offset,
-            count: pages.len() * Page::SIZE,
-        };
-
-        // Save permissions fixups for later.
-        self.perm.push((span, secinfo));
-
-        // Keep track of TCS pages.
-        if secinfo.class == page::Class::Tcs {
-            for i in 0..pages.len() {
-                self.tcsp.push(span.start + i * Page::SIZE);
-            }
-        }
-
-        Ok(())
     }
 }

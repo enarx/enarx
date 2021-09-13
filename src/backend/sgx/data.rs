@@ -3,10 +3,7 @@
 use crate::backend::probe::x86_64::{CpuId, Vendor};
 use crate::backend::Datum;
 
-use sgx::types::{
-    attr::{Flags, Xfrm},
-    misc::MiscSelect,
-};
+use sgx::{Features, MiscSelect, Xfrm};
 
 use std::arch::x86_64::__cpuid_count;
 use std::fs::File;
@@ -110,11 +107,11 @@ pub const CPUIDS: &[CpuId] = &[
         vend: Some(Vendor::Intel),
     },
     CpuId {
-        name: "  Flags",
+        name: "  Features",
         leaf: 0x00000012,
         subl: 0x00000001,
-        func: |res| match Flags::from_bits((res.ebx as u64) << 32 | res.eax as u64) {
-            Some(flags) => (true, Some(format!("{:?}", flags))),
+        func: |res| match Features::from_bits((res.ebx as u64) << 32 | res.eax as u64) {
+            Some(features) => (true, Some(format!("{:?}", features))),
             None => (false, None),
         },
         vend: Some(Vendor::Intel),

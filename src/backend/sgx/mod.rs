@@ -13,10 +13,10 @@ use lset::{Line, Span};
 use primordial::{Page, Pages};
 use sallyport::syscall::{SYS_ENARX_CPUID, SYS_ENARX_GETATT};
 use sallyport::Block;
-use sgx::crypto::Hasher;
-use sgx::loader::{self, Loader};
-use sgx::types::page::{Class, Flags, SecInfo};
-use sgx::types::sig::{Author, Parameters};
+use sgx::{
+    Attributes, Author, Class, Features, Hasher, MiscSelect, Parameters, Permissions, ProductId,
+    SecInfo, SecurityVersion, Xfrm,
+};
 
 use std::arch::x86_64::__cpuid_count;
 use std::convert::TryInto;
@@ -31,9 +31,9 @@ struct Segment {
     fline: Line<usize>,
     mline: Line<usize>,
     pages: Pages<Vec<Page>>,
-    vpage: usize,
+    vaddr: usize,
     sinfo: SecInfo,
-    flags: flagset::FlagSet<loader::Flags>,
+    phash: bool,
 }
 
 impl Debug for Segment {
@@ -46,13 +46,13 @@ impl Debug for Segment {
             self.fline.end,
             self.mline.start,
             self.mline.end,
-            self.vpage * Page::SIZE,
-            self.vpage * Page::SIZE + self.pages.len() * Page::SIZE,
-            letter(self.sinfo.flags.contains(Flags::R), 'r'),
-            letter(self.sinfo.flags.contains(Flags::W), 'w'),
-            letter(self.sinfo.flags.contains(Flags::X), 'x'),
+            self.vaddr,
+            self.vaddr + self.pages.len() * Page::SIZE,
+            letter(self.sinfo.perms.contains(Permissions::READ), 'r'),
+            letter(self.sinfo.perms.contains(Permissions::WRITE), 'w'),
+            letter(self.sinfo.perms.contains(Permissions::EXECUTE), 'x'),
             letter(self.sinfo.class == Class::Tcs, 't'),
-            letter(self.flags.contains(loader::Flags::Measure), 'm'),
+            letter(self.phash, 'm'),
         ))
     }
 }
@@ -63,33 +63,33 @@ impl Segment {
 
         let fline = Line::from(phdr.file_range());
         let mline = Line::from(phdr.vm_range()) >> relocate;
-        let skipb = mline.start % Page::SIZE;
-        let vpage = mline.start / Page::SIZE;
+        let vaddr = mline.start / Page::SIZE * Page::SIZE;
 
         let mspan = Span::from(mline);
         let bytes = &component.bytes[phdr.file_range()];
-        let pages = Pages::copy_into(bytes, mspan.count, skipb);
+        let pages = Pages::copy_into(bytes, mspan.count, mline.start % Page::SIZE);
 
-        let mut rwx = Flags::empty();
-        for (input, output) in [(PF_R, Flags::R), (PF_W, Flags::W), (PF_X, Flags::X)] {
-            if phdr.p_flags & input == input {
-                rwx |= output;
-            }
+        let mut rwx = Permissions::empty();
+        if phdr.p_flags & PF_R != 0 {
+            rwx |= Permissions::READ;
+        }
+        if phdr.p_flags & PF_W != 0 {
+            rwx |= Permissions::WRITE;
+        }
+        if phdr.p_flags & PF_X != 0 {
+            rwx |= Permissions::EXECUTE;
         }
 
         Self {
             fline,
             mline,
             pages,
-            vpage,
+            vaddr,
             sinfo: match phdr.p_flags & PF_ENARX_SGX_TCS {
                 0 => SecInfo::reg(rwx),
                 _ => SecInfo::tcs(),
             },
-            flags: match phdr.p_flags & PF_ENARX_SGX_UNMEASURED {
-                0 => loader::Flags::Measure.into(),
-                _ => None.into(),
-            },
+            phash: phdr.p_flags & PF_ENARX_SGX_UNMEASURED == 0,
         }
     }
 }
@@ -144,20 +144,27 @@ impl crate::backend::Backend for Backend {
         let mut segs: Vec<_> = ssegs.chain(csegs).collect();
 
         // Ensure no segments overlap in memory.
-        segs.sort_unstable_by_key(|x| x.vpage);
+        segs.sort_unstable_by_key(|x| x.vaddr);
         for pair in segs.windows(2) {
-            assert!(pair[0].vpage + pair[0].pages.len() <= pair[1].vpage);
+            let bytes: &[u8] = pair[0].pages.as_ref();
+            assert!(pair[0].vaddr + bytes.len() <= pair[1].vaddr);
         }
 
         // Initialize the new enclave.
-        let parameters = Parameters::default();
+        let parameters = Parameters {
+            misc: MiscSelect::empty().into(),
+            attr: Attributes::new(Features::MODE64BIT, Xfrm::X87 | Xfrm::SSE).into(),
+            isv_prod_id: ProductId::default(),
+            isv_svn: SecurityVersion::default(),
+        };
         let mut builder = Builder::new(size, ssap, parameters)?;
         let mut hasher = Hasher::new(size, ssap, parameters);
 
         // Map all the pages.
         for seg in segs {
-            builder.load(&seg.pages, seg.vpage, seg.sinfo, seg.flags)?;
-            hasher.load(seg.pages, seg.vpage, seg.sinfo, seg.flags)?;
+            let bytes = seg.pages.as_ref();
+            builder.load(bytes, seg.vaddr, seg.sinfo, seg.phash)?;
+            hasher.load(bytes, seg.vaddr, seg.sinfo, seg.phash).unwrap();
         }
 
         // Generate a signing key.

@@ -36,12 +36,6 @@ checksum = "cdb031dd78e28731d87d56cc8ffef4a8f36ca26c38fe2de700543e627f8a464a"
 
 [[package]]
 name = "bit_field"
-version = "0.9.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ed8765909f9009617974ab6b7d332625b320b33c326b1e9321382ef1999b5d56"
-
-[[package]]
-name = "bit_field"
 version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dcb6dd1c2376d2e096796e234a70e17e94cc2d5d54ff8ce42b28cef1d0d359a4"
@@ -108,26 +102,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0bca1619ff57dd7a56b58a8e25ef4199f123e78e503fe1653410350a1b98ae65"
 
 [[package]]
-name = "const-default"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d59d84f451ba351bb70fe7f150a46314fdca5f98bb5f51353734806e879f228b"
-dependencies = [
- "const-default-derive",
-]
-
-[[package]]
-name = "const-default-derive"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "67a575ae520bba956e5f9d1d7bdfac9ca7530d8a4dfa34ad1976244096a8fa04"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn",
-]
-
-[[package]]
 name = "crt0stack"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -167,7 +141,6 @@ dependencies = [
  "cc",
  "ciborium",
  "colorful",
- "flagset",
  "goblin 0.4.2",
  "iocuddle",
  "itertools",
@@ -191,14 +164,8 @@ dependencies = [
  "tempdir",
  "vdso",
  "walkdir",
- "x86_64 0.14.5",
+ "x86_64",
 ]
-
-[[package]]
-name = "flagset"
-version = "0.4.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1207393e01e20804589a3fc9781c9df2a70687cd81362ca58e33b2a726ec83cf"
 
 [[package]]
 name = "foreign-types"
@@ -719,20 +686,11 @@ dependencies = [
 [[package]]
 name = "sgx"
 version = "0.1.0"
-source = "git+https://github.com/enarx/sgx?rev=7919ce9f63722fff07900ff1615c66ddc84091f7#7919ce9f63722fff07900ff1615c66ddc84091f7"
+source = "git+https://github.com/enarx/sgx?rev=216c5b09c0fe155ac1091484c3ab0feb24bf8c31#216c5b09c0fe155ac1091484c3ab0feb24bf8c31"
 dependencies = [
  "bitflags",
- "cc",
- "flagset",
- "iocuddle",
- "libc",
- "lset",
- "mmarinus",
  "openssl",
- "primordial",
- "vdso",
- "x86_64 0.14.4",
- "xsave",
+ "x86_64",
 ]
 
 [[package]]
@@ -923,31 +881,11 @@ checksum = "712e227841d057c1ee1cd2fb22fa7e5a5461ae8e48fa2ca79ec42cfc1931183f"
 
 [[package]]
 name = "x86_64"
-version = "0.14.4"
-source = "git+https://github.com/npmccallum/x86_64?branch=errors#137f55571334e16bbe3e2b15eec2cb325817beef"
-dependencies = [
- "bit_field 0.9.0",
- "bitflags",
- "volatile",
-]
-
-[[package]]
-name = "x86_64"
 version = "0.14.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4522ae25e1e0dbf4302ffde77e55c43afe3d7523cba662943b5de8ff04871f6c"
 dependencies = [
- "bit_field 0.10.1",
+ "bit_field",
  "bitflags",
  "volatile",
-]
-
-[[package]]
-name = "xsave"
-version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8b36775a33bebddc33e8b05f223b772c7a68179f731fce929b0921fa74511ae9"
-dependencies = [
- "bitflags",
- "const-default",
 ]

@@ -6,11 +6,8 @@
 
 use std::marker::PhantomData;
 
-use flagset::FlagSet;
 use iocuddle::*;
-use primordial::Page;
-use sgx::loader::Flags;
-use sgx::types::{page::SecInfo, secs, sig};
+use sgx::{SecInfo, Secs, Signature};
 
 const SGX: Group = Group::new(0xA4);
 
@@ -32,7 +29,7 @@ pub struct Create<'a>(u64, PhantomData<&'a ()>);
 
 impl<'a> Create<'a> {
     /// A new Create struct wraps an SECS struct from the sgx-types crate.
-    pub fn new(secs: &'a secs::Secs) -> Self {
+    pub fn new(secs: &'a Secs) -> Self {
         Create(secs as *const _ as _, PhantomData)
     }
 }
@@ -52,29 +49,20 @@ pub struct AddPages<'a> {
 
 impl<'a> AddPages<'a> {
     /// Creates a new AddPages struct for a page at a certain offset
-    pub fn new(
-        data: &'a [Page],
-        offset: usize,
-        secinfo: &'a SecInfo,
-        flags: impl Into<FlagSet<Flags>>,
-    ) -> Self {
+    pub fn new(bytes: &'a [u8], offset: usize, secinfo: &'a SecInfo, measure: bool) -> Self {
         const MEASURE: u64 = 1 << 0;
 
-        let data = unsafe { data.align_to::<u8>().1 };
-        let mut nflags = 0;
-
-        for flag in flags.into() {
-            nflags |= match flag {
-                Flags::Measure => MEASURE,
-            };
-        }
+        let flags = match measure {
+            true => MEASURE,
+            false => 0,
+        };
 
         Self {
-            src: data.as_ptr() as _,
+            src: bytes.as_ptr() as _,
             offset: offset as _,
-            length: data.len() as _,
+            length: bytes.len() as _,
             secinfo: secinfo as *const _ as _,
-            flags: nflags,
+            flags,
             count: 0,
             phantom: PhantomData,
         }
@@ -94,7 +82,7 @@ pub struct Init<'a>(u64, PhantomData<&'a ()>);
 
 impl<'a> Init<'a> {
     /// A new Init struct must wrap a Signature from the sgx-types crate.
-    pub fn new(sig: &'a sig::Signature) -> Self {
+    pub fn new(sig: &'a Signature) -> Self {
         Init(sig as *const _ as _, PhantomData)
     }
 }
