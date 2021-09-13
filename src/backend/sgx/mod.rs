@@ -13,10 +13,7 @@ use lset::{Line, Span};
 use primordial::{Page, Pages};
 use sallyport::syscall::{SYS_ENARX_CPUID, SYS_ENARX_GETATT};
 use sallyport::Block;
-use sgx::{
-    Attributes, Author, Class, Features, Hasher, MiscSelect, Parameters, Permissions, ProductId,
-    SecInfo, SecurityVersion, Xfrm,
-};
+use sgx::{Author, Class, Hasher, Parameters, Permissions, SecInfo};
 
 use std::arch::x86_64::__cpuid_count;
 use std::convert::TryInto;
@@ -134,6 +131,9 @@ impl crate::backend::Backend for Backend {
         let ssap: u32 = unsafe { shim.read_note("enarx", NOTE_ENARX_SGX_SSAP)?.unwrap() };
         let ssap = NonZeroU32::new(ssap).unwrap();
 
+        // Find the enclave parameters.
+        let params: Parameters = unsafe { shim.read_note("enarx", NOTE_ENARX_SGX_PRMS)?.unwrap() };
+
         // Get an array of all final segment (relative) locations.
         let ssegs = shim
             .filter_header(PT_LOAD)
@@ -151,14 +151,8 @@ impl crate::backend::Backend for Backend {
         }
 
         // Initialize the new enclave.
-        let parameters = Parameters {
-            misc: MiscSelect::empty().into(),
-            attr: Attributes::new(Features::MODE64BIT, Xfrm::X87 | Xfrm::SSE).into(),
-            isv_prod_id: ProductId::default(),
-            isv_svn: SecurityVersion::default(),
-        };
-        let mut builder = Builder::new(size, ssap, parameters)?;
-        let mut hasher = Hasher::new(size, ssap, parameters);
+        let mut builder = Builder::new(size, ssap, params)?;
+        let mut hasher = Hasher::new(size, ssap, params);
 
         // Map all the pages.
         for seg in segs {

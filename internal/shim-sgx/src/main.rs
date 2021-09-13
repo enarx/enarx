@@ -54,6 +54,7 @@ mod ssa;
 
 use noted::noted;
 use sallyport::REQUIRES;
+use sgx::{Attributes, Features, Masked, MiscSelect, Parameters, ProductId, SecurityVersion, Xfrm};
 
 const DEBUG: bool = false;
 
@@ -61,10 +62,20 @@ const SSA_FRAME_SIZE: u32 = 1;
 const ENCL_SIZE_BITS: u32 = 31;
 const ENCL_SIZE: usize = 1 << ENCL_SIZE_BITS;
 
+const ATTR: Attributes = Attributes::new(Features::MODE64BIT, XFRM);
+const MISC: MiscSelect = MiscSelect::empty();
+const XFRM: Xfrm = Xfrm::from_bits_truncate(Xfrm::X87.bits() | Xfrm::SSE.bits());
+
 noted! {
     static NOTE_ENARX_SALLYPORT<"sallyport", 0>: [u8; REQUIRES.len()] = REQUIRES;
     static NOTE_ENARX_SGX_SIZE<"enarx", 0x73677800>: u32 = ENCL_SIZE_BITS;
     static NOTE_ENARX_SGX_SSAP<"enarx", 0x73677801>: u32 = SSA_FRAME_SIZE;
+    static NOTE_ENARX_SGX_PRMS<"enarx", 0x73677802>: Parameters = Parameters {
+        misc: Masked { data: MISC, mask: MISC },
+        attr: Masked { data: ATTR, mask: ATTR },
+        isv_prod_id: ProductId::new(0),
+        isv_svn: SecurityVersion::new(0),
+    };
 }
 
 // NOTE: You MUST take the address of these symbols for them to work!

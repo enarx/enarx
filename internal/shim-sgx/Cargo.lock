@@ -157,6 +157,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fda28d4b4830b807a8b43f7b0e6b5df875311b3e7621d84577188c175b6ec1ec"
 
 [[package]]
+name = "sgx"
+version = "0.1.0"
+source = "git+https://github.com/enarx/sgx?rev=216c5b09c0fe155ac1091484c3ab0feb24bf8c31#216c5b09c0fe155ac1091484c3ab0feb24bf8c31"
+dependencies = [
+ "bitflags",
+ "x86_64",
+]
+
+[[package]]
 name = "shim-sgx"
 version = "0.1.0"
 dependencies = [
@@ -173,6 +182,7 @@ dependencies = [
  "primordial 0.3.0",
  "rcrt1",
  "sallyport",
+ "sgx",
  "x86_64",
  "xsave",
 ]

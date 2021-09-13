@@ -28,6 +28,10 @@ pub const NOTE_ENARX_SGX_SIZE: u32 = 0x73677800;
 #[cfg(feature = "backend-sgx")]
 pub const NOTE_ENARX_SGX_SSAP: u32 = 0x73677801;
 
+/// This note indicates the enclave parameters (i.e. `Parameters`).
+#[cfg(feature = "backend-sgx")]
+pub const NOTE_ENARX_SGX_PRMS: u32 = 0x73677802;
+
 pub struct Component<'a> {
     pub bytes: &'a [u8],
     pub elf: Elf<'a>,
