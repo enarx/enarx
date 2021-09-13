@@ -5,7 +5,7 @@ use core::mem::size_of;
 use primordial::{Page, Register};
 use xsave::XSave;
 
-pub use x86_64::InterruptVector as Vector;
+pub use x86_64::structures::idt::ExceptionVector as Vector;
 
 /// Section 38.9.1.1, Table 38-9
 #[repr(C, align(4))]

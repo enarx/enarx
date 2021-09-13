@@ -13,9 +13,9 @@ dependencies = [
 
 [[package]]
 name = "anyhow"
-version = "1.0.43"
+version = "1.0.44"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "28ae2b3dec75a406790005a200b1bd89785afc02517a00ca99ecfe093ee9e6cf"
+checksum = "61604a8f862e1d5c3229fdd78f8b02c68dcf73a4c4b05fd636d12240aaa242c1"
 
 [[package]]
 name = "atty"
@@ -39,6 +39,12 @@ name = "bit_field"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ed8765909f9009617974ab6b7d332625b320b33c326b1e9321382ef1999b5d56"
+
+[[package]]
+name = "bit_field"
+version = "0.10.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dcb6dd1c2376d2e096796e234a70e17e94cc2d5d54ff8ce42b28cef1d0d359a4"
 
 [[package]]
 name = "bitfield"
@@ -185,7 +191,7 @@ dependencies = [
  "tempdir",
  "vdso",
  "walkdir",
- "x86_64",
+ "x86_64 0.14.5",
 ]
 
 [[package]]
@@ -713,7 +719,7 @@ dependencies = [
 [[package]]
 name = "sgx"
 version = "0.1.0"
-source = "git+https://github.com/enarx/sgx?rev=a0b881cc798f3bafb8d603fa1bad6ca7b2a2c740#a0b881cc798f3bafb8d603fa1bad6ca7b2a2c740"
+source = "git+https://github.com/enarx/sgx?rev=7919ce9f63722fff07900ff1615c66ddc84091f7#7919ce9f63722fff07900ff1615c66ddc84091f7"
 dependencies = [
  "bitflags",
  "cc",
@@ -725,7 +731,7 @@ dependencies = [
  "openssl",
  "primordial",
  "vdso",
- "x86_64",
+ "x86_64 0.14.4",
  "xsave",
 ]
 
@@ -918,9 +924,20 @@ checksum = "712e227841d057c1ee1cd2fb22fa7e5a5461ae8e48fa2ca79ec42cfc1931183f"
 [[package]]
 name = "x86_64"
 version = "0.14.4"
-source = "git+https://github.com/npmccallum/x86_64?branch=errors#502ba0c17b1feeb152390a91664d9ee939943071"
+source = "git+https://github.com/npmccallum/x86_64?branch=errors#137f55571334e16bbe3e2b15eec2cb325817beef"
 dependencies = [
- "bit_field",
+ "bit_field 0.9.0",
+ "bitflags",
+ "volatile",
+]
+
+[[package]]
+name = "x86_64"
+version = "0.14.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4522ae25e1e0dbf4302ffde77e55c43afe3d7523cba662943b5de8ff04871f6c"
+dependencies = [
+ "bit_field 0.10.1",
  "bitflags",
  "volatile",
 ]

@@ -5,7 +5,7 @@ mod enclave;
 use crate::backend::sgx::attestation::get_attestation;
 use crate::backend::{Command, Datum, Keep};
 use crate::binary::*;
-use enclave::{Builder, Enclave, Entry, InterruptVector, Registers};
+use enclave::{Builder, Enclave, Entry, Registers, Vector};
 
 use anyhow::Result;
 use goblin::elf::program_header::*;
@@ -234,7 +234,7 @@ impl super::Thread for Thread {
         self.registers.rdi = (&mut self.block).into();
 
         self.how = match self.thread.enter(prev, &mut self.registers) {
-            Err(ei) if ei.trap == InterruptVector::InvalidOpcode => Entry::Enter,
+            Err(ei) if ei.trap == Vector::InvalidOpcode => Entry::Enter,
             Ok(_) => Entry::Resume,
             e => panic!("Unexpected AEX: {:?}", e),
         };

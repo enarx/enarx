@@ -13,9 +13,9 @@ test = false
 sallyport = { git = "https://github.com/enarx/sallyport", rev = "3872722009428b7002f8b703fd8c38958572952c", features=[ "asm" ] }
 enarx-heap = { git = "https://github.com/enarx/enarx-heap", rev = "9cbfb3367edd4aa17f4a7409ea0c0f7d83fa8ce3" }
 rcrt1 = { git = "https://github.com/enarx/rcrt1", rev = "b28f711" }
-x86_64 = { git = "https://github.com/npmccallum/x86_64", branch = "errors" }
 compiler_builtins = { version = "0.1", default-features = false, features = [ "mem" ] }
 goblin = { version = "0.4", default-features = false, features = [ "elf64" ] }
+x86_64 = { version = "^0.14.5", default-features = false }
 crt0stack = { version = "0.1", default-features = false }
 libc = { version = "0.2", default-features = false }
 const-default = "0.1"

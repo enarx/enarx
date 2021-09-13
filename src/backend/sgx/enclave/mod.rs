@@ -45,7 +45,7 @@ mod execute;
 mod ioctls;
 
 pub use builder::Builder;
-pub use execute::{Entry, ExceptionInfo, InterruptVector, Registers};
+pub use execute::{Entry, ExceptionInfo, Registers, Vector};
 
 use std::sync::{Arc, RwLock};
 

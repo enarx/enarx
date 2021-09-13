@@ -2,7 +2,7 @@
 
 use primordial::{Address, Register};
 
-pub use x86_64::InterruptVector;
+pub use x86_64::structures::idt::ExceptionVector as Vector;
 
 use super::Thread;
 
@@ -27,7 +27,7 @@ pub struct ExceptionInfo {
     pub last: Entry,
 
     /// Interrupt vector
-    pub trap: InterruptVector,
+    pub trap: Vector,
 
     /// Trapping code
     pub code: u16,
