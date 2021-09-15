@@ -102,6 +102,26 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0bca1619ff57dd7a56b58a8e25ef4199f123e78e503fe1653410350a1b98ae65"
 
 [[package]]
+name = "const-default"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3a9e8347466efbc524900ef2cddbbfc70c32f66d0e93ba62df93e4eef3055ee5"
+dependencies = [
+ "const-default-derive",
+]
+
+[[package]]
+name = "const-default-derive"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "67a575ae520bba956e5f9d1d7bdfac9ca7530d8a4dfa34ad1976244096a8fa04"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "crt0stack"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -571,8 +591,9 @@ dependencies = [
 [[package]]
 name = "sallyport"
 version = "0.1.0"
-source = "git+https://github.com/enarx/sallyport?rev=3872722009428b7002f8b703fd8c38958572952c#3872722009428b7002f8b703fd8c38958572952c"
+source = "git+https://github.com/enarx/sallyport?rev=156bcdfc1b3edc4dfc8c74b1573e89aaef18eaa3#156bcdfc1b3edc4dfc8c74b1573e89aaef18eaa3"
 dependencies = [
+ "goblin 0.4.2",
  "libc",
  "primordial",
 ]
@@ -686,11 +707,12 @@ dependencies = [
 [[package]]
 name = "sgx"
 version = "0.1.0"
-source = "git+https://github.com/enarx/sgx?rev=216c5b09c0fe155ac1091484c3ab0feb24bf8c31#216c5b09c0fe155ac1091484c3ab0feb24bf8c31"
+source = "git+https://github.com/enarx/sgx?rev=57df3753a0ea1777963dbf3023452993df2edb8c#57df3753a0ea1777963dbf3023452993df2edb8c"
 dependencies = [
  "bitflags",
  "openssl",
  "x86_64",
+ "xsave",
 ]
 
 [[package]]
@@ -881,11 +903,21 @@ checksum = "712e227841d057c1ee1cd2fb22fa7e5a5461ae8e48fa2ca79ec42cfc1931183f"
 
 [[package]]
 name = "x86_64"
-version = "0.14.5"
+version = "0.14.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4522ae25e1e0dbf4302ffde77e55c43afe3d7523cba662943b5de8ff04871f6c"
+checksum = "bbc6ed1ed2cd4536b083c34041aff7b84448ee25ac4aa5e9d54802ce226f9815"
 dependencies = [
  "bit_field",
  "bitflags",
  "volatile",
+]
+
+[[package]]
+name = "xsave"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0f980b1e0ed898c5b60ac780eae2786ebb8b7a3ea8d9eea9592718159fc26ad8"
+dependencies = [
+ "bitflags",
+ "const-default",
 ]

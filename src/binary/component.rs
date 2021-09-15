@@ -5,33 +5,6 @@ use goblin::elf::{header::*, note::NoteIterator, program_header::*, Elf};
 
 use std::ops::Range;
 
-/// The sallyport program header type
-#[cfg(any(feature = "backend-kvm"))]
-pub const PT_ENARX_SALLYPORT: u32 = PT_LOOS + 0x34a0001;
-
-/// The enarx code program header type
-pub const PT_ENARX_CODE: u32 = PT_LOOS + 0x34a0003;
-
-/// This segment contains TCS pages.
-#[cfg(feature = "backend-sgx")]
-pub const PF_ENARX_SGX_TCS: u32 = 1 << 20;
-
-/// This segment contains unmeasured pages.
-#[cfg(feature = "backend-sgx")]
-pub const PF_ENARX_SGX_UNMEASURED: u32 = 1 << 21;
-
-/// This note indicates the SGX enclave size (u32; in powers of 2)
-#[cfg(feature = "backend-sgx")]
-pub const NOTE_ENARX_SGX_SIZE: u32 = 0x73677800;
-
-/// This note indicates the number of pages in an SSA frame (u32)
-#[cfg(feature = "backend-sgx")]
-pub const NOTE_ENARX_SGX_SSAP: u32 = 0x73677801;
-
-/// This note indicates the enclave parameters (i.e. `Parameters`).
-#[cfg(feature = "backend-sgx")]
-pub const NOTE_ENARX_SGX_PRMS: u32 = 0x73677802;
-
 pub struct Component<'a> {
     pub bytes: &'a [u8],
     pub elf: Elf<'a>,

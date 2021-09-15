@@ -10,17 +10,17 @@ name = "shim-sev"
 test = false
 
 [dependencies]
-sallyport = { git = "https://github.com/enarx/sallyport", rev = "3872722009428b7002f8b703fd8c38958572952c", features=[ "asm" ] }
+sallyport = { git = "https://github.com/enarx/sallyport", rev = "156bcdfc1b3edc4dfc8c74b1573e89aaef18eaa3", features=[ "asm" ] }
 rcrt1 = { git = "https://github.com/enarx/rcrt1", rev = "b28f711" }
 compiler_builtins = { version = "0.1", default-features = false, features = [ "mem" ] }
-x86_64 = { version = "0.14", default-features = false, features = ["instructions", "inline_asm"] }
+x86_64 = { version = "^0.14.6", default-features = false, features = ["instructions", "inline_asm"] }
 goblin = { version = "0.4", default-features = false, features = [ "elf64" ] }
 crt0stack = { version = "0.1", default-features = false }
 spinning = { version = "0.1", default-features = false }
 libc = { version = "0.2", default-features = false }
 primordial = "0.3"
+noted = "^1.0.0"
 nbytes = "0.1"
-noted = "0.1"
 lset = "0.2"
 array-const-fn-init = "0.1"
 linked_list_allocator = { version = "0.9.0", default-features = false }

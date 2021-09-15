@@ -149,7 +149,7 @@ impl EnarxAllocator {
         };
 
         let mem_size = {
-            let code_start = &crate::_ENARX_CODE_START;
+            let code_start = &crate::_ENARX_EXEC_START;
 
             let app_load_addr = Address::<u64, Header>::from(code_start);
             let app_load_addr_virt = ShimVirtAddr::try_from(app_load_addr).unwrap();
@@ -189,14 +189,14 @@ impl EnarxAllocator {
             );
 
             assert!(
-                (&crate::_ENARX_CODE_END as *const _ as usize)
-                    .checked_sub(&crate::_ENARX_CODE_START as *const _ as usize)
+                (&crate::_ENARX_EXEC_END as *const _ as usize)
+                    .checked_sub(&crate::_ENARX_EXEC_START as *const _ as usize)
                     .unwrap()
                     > region.count
             );
 
             align_up(
-                (&crate::_ENARX_CODE_START as *const _ as u64)
+                (&crate::_ENARX_EXEC_START as *const _ as u64)
                     .checked_sub(&crate::_ENARX_MEM_START as *const _ as u64)
                     .unwrap()
                     .checked_add(region.count as u64)

@@ -11,8 +11,8 @@ impl<'a> ProcessSyscallHandler for super::Handler<'a> {
         // TODO: Check that addr in %rdx does not point to an unmapped address
         // and is not outside of the process address space.
         match code {
-            ARCH_SET_FS => self.ssa.gpr.fsbase = addr.into(),
-            ARCH_SET_GS => self.ssa.gpr.gsbase = addr.into(),
+            ARCH_SET_FS => self.ssa.gpr.fsbase = addr,
+            ARCH_SET_GS => self.ssa.gpr.gsbase = addr,
             ARCH_GET_FS => return Err(libc::ENOSYS),
             ARCH_GET_GS => return Err(libc::ENOSYS),
             _ => return Err(libc::EINVAL),

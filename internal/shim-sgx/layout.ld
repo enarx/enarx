@@ -8,10 +8,10 @@ PHDRS {
     note PT_NOTE;
 
     stk0 PT_LOAD;
-    tcs0 PT_LOAD FLAGS(1 << 20); /* PF_ENARX_SGX_TCS */
+    tcs0 PT_LOAD FLAGS(1 << 20); /* sallyport::elf::pf::sgx::TCS */
     ssa0 PT_LOAD;
 
-    exec 0x634A0003 FLAGS(0); /* PT_ENARX_EXEC */
+    exec 0x63400000 FLAGS(0); /* sallyport::elf::pt::EXEC */
     heap PT_LOAD FLAGS(7);
 }
 

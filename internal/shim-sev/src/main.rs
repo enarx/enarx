@@ -46,13 +46,13 @@ use core::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use goblin::elf::header::header64::Header;
 use noted::noted;
 use primordial::Page as Page4KiB;
-use sallyport::{Block, REQUIRES};
+use sallyport::{elf::note, Block, REQUIRES};
 use spinning::RwLock;
 use x86_64::structures::paging::Translate;
 use x86_64::VirtAddr;
 
 noted! {
-    static NOTE_ENARX_SALLYPORT<"sallyport", 0>: [u8; REQUIRES.len()] = REQUIRES;
+    static NOTE_ENARX_SALLYPORT<note::NAME, note::REQUIRES, [u8; REQUIRES.len()]> = REQUIRES;
 }
 
 static C_BIT_MASK: AtomicU64 = AtomicU64::new(0);
@@ -72,9 +72,9 @@ extern "C" {
     /// Extern
     pub static _ENARX_SHIM_START: Page4KiB;
     /// Extern
-    pub static _ENARX_CODE_START: Header;
+    pub static _ENARX_EXEC_START: Header;
     /// Extern
-    pub static _ENARX_CODE_END: Page4KiB;
+    pub static _ENARX_EXEC_END: Page4KiB;
 }
 
 /// Get the SEV C-Bit mask

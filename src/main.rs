@@ -61,6 +61,7 @@ mod binary;
 mod protobuf;
 
 // workaround for sallyport tests, until we have internal crates
+use sallyport::elf;
 pub use sallyport::Request;
 
 use backend::{Backend, Command};
@@ -164,7 +165,7 @@ fn exec(backends: &[Box<dyn Backend>], opts: Exec) -> Result<()> {
 
     let version = semver::Version::parse(sallyport::VERSION).unwrap();
     let supported = shim
-        .filter_notes("sallyport", 0)
+        .filter_notes(elf::note::NAME, elf::note::REQUIRES)
         .filter_map(|n| std::str::from_utf8(n).ok())
         .filter_map(|n| semver::VersionReq::parse(n).ok())
         .any(|req| req.matches(&version));

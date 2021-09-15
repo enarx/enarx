@@ -29,9 +29,9 @@ backend-kvm = ["x86_64", "kvm-bindings", "kvm-ioctls"]
 backend-sgx = ["x86_64", "sgx"]
 
 [dependencies]
-sgx = { git = "https://github.com/enarx/sgx", rev = "216c5b09c0fe155ac1091484c3ab0feb24bf8c31", features = ["asm", "crypto"], optional = true }
-sallyport = { git = "https://github.com/enarx/sallyport", rev = "3872722009428b7002f8b703fd8c38958572952c", features = [ "asm" ] }
-x86_64 = { version = "^0.14.5", default-features = false, optional = true }
+sgx = { git = "https://github.com/enarx/sgx", rev = "57df3753a0ea1777963dbf3023452993df2edb8c", features = ["openssl"], optional = true }
+sallyport = { git = "https://github.com/enarx/sallyport", rev = "156bcdfc1b3edc4dfc8c74b1573e89aaef18eaa3", features = [ "asm" ] }
+x86_64 = { version = "^0.14.6", default-features = false, optional = true }
 koine = { git = "https://github.com/enarx/koine", optional = true }
 primordial = { version = "0.3", features = ["alloc"] }
 kvm-bindings = { version = "0.5", optional = true }
@@ -56,7 +56,7 @@ vdso = "0.1"
 cc = "1.0"
 walkdir = "2"
 protobuf-codegen-pure = "2.25"
-sallyport = { git = "https://github.com/enarx/sallyport", rev = "3872722009428b7002f8b703fd8c38958572952c", features = [ "asm" ] }
+sallyport = { git = "https://github.com/enarx/sallyport", rev = "156bcdfc1b3edc4dfc8c74b1573e89aaef18eaa3", features = [ "asm" ] }
 
 [dev-dependencies]
 process_control = "3.0"

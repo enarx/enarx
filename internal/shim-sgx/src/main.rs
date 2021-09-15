@@ -50,32 +50,32 @@ pub extern "C" fn rust_eh_personality() {
 
 mod entry;
 mod handler;
-mod ssa;
 
 use noted::noted;
-use sallyport::REQUIRES;
-use sgx::{Attributes, Features, Masked, MiscSelect, Parameters, ProductId, SecurityVersion, Xfrm};
+use sallyport::{elf::note, REQUIRES};
+use sgx::parameters::{Attributes, Features, MiscSelect, Xfrm};
+use sgx::ssa::StateSaveArea;
 
 const DEBUG: bool = false;
 
-const SSA_FRAME_SIZE: u32 = 1;
-const ENCL_SIZE_BITS: u32 = 31;
+const ENCL_SIZE_BITS: u8 = 31;
 const ENCL_SIZE: usize = 1 << ENCL_SIZE_BITS;
 
-const ATTR: Attributes = Attributes::new(Features::MODE64BIT, XFRM);
-const MISC: MiscSelect = MiscSelect::empty();
 const XFRM: Xfrm = Xfrm::from_bits_truncate(Xfrm::X87.bits() | Xfrm::SSE.bits());
+const ATTR: Attributes = Attributes::new(Features::MODE64BIT, XFRM);
 
 noted! {
-    static NOTE_ENARX_SALLYPORT<"sallyport", 0>: [u8; REQUIRES.len()] = REQUIRES;
-    static NOTE_ENARX_SGX_SIZE<"enarx", 0x73677800>: u32 = ENCL_SIZE_BITS;
-    static NOTE_ENARX_SGX_SSAP<"enarx", 0x73677801>: u32 = SSA_FRAME_SIZE;
-    static NOTE_ENARX_SGX_PRMS<"enarx", 0x73677802>: Parameters = Parameters {
-        misc: Masked { data: MISC, mask: MISC },
-        attr: Masked { data: ATTR, mask: ATTR },
-        isv_prod_id: ProductId::new(0),
-        isv_svn: SecurityVersion::new(0),
-    };
+    static NOTE_REQUIRES<note::NAME, note::REQUIRES, [u8; REQUIRES.len()]> = REQUIRES;
+
+    static NOTE_BITS<note::NAME, note::sgx::BITS, u8> = ENCL_SIZE_BITS;
+    static NOTE_SSAP<note::NAME, note::sgx::SSAP, u8> = 1;
+
+    static NOTE_PID<note::NAME, note::sgx::PID, u16> = 0;
+    static NOTE_SVN<note::NAME, note::sgx::SVN, u16> = 0;
+    static NOTE_MISC<note::NAME, note::sgx::MISC, MiscSelect> = MiscSelect::empty();
+    static NOTE_MISCMASK<note::NAME, note::sgx::MISCMASK, MiscSelect> = MiscSelect::empty();
+    static NOTE_ATTR<note::NAME, note::sgx::ATTR, Attributes> = ATTR;
+    static NOTE_ATTRMASK<note::NAME, note::sgx::ATTRMASK, Attributes> = ATTR;
 }
 
 // NOTE: You MUST take the address of these symbols for them to work!
@@ -275,11 +275,7 @@ pub unsafe extern "sysv64" fn _start() -> ! {
     )
 }
 
-unsafe extern "C" fn main(
-    port: &mut sallyport::Block,
-    ssas: &mut [ssa::StateSaveArea; 3],
-    cssa: usize,
-) {
+unsafe extern "C" fn main(port: &mut sallyport::Block, ssas: &mut [StateSaveArea; 3], cssa: usize) {
     let heap = lset::Line::new(
         &ENARX_HEAP_START as *const _ as usize,
         &ENARX_HEAP_END as *const _ as usize,

@@ -7,7 +7,8 @@
 use std::marker::PhantomData;
 
 use iocuddle::*;
-use sgx::{SecInfo, Secs, Signature};
+use sgx::page::{SecInfo, Secs};
+use sgx::signature::Signature;
 
 const SGX: Group = Group::new(0xA4);
 

@@ -57,7 +57,7 @@ pub static NEXT_MMAP_RWLOCK: Lazy<RwLock<VirtAddr>> =
 
 /// load the elf binary
 fn map_elf(app_virt_start: VirtAddr) -> &'static Header {
-    let code_start = unsafe { &crate::_ENARX_CODE_START };
+    let code_start = unsafe { &crate::_ENARX_EXEC_START };
 
     let app_load_addr = Address::<u64, Header>::from(code_start);
     let app_load_addr_virt = ShimVirtAddr::try_from(app_load_addr).unwrap();

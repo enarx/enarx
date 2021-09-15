@@ -30,19 +30,20 @@ mod memory;
 mod other;
 mod process;
 
-use crate::ssa::{StateSaveArea, Vector};
-
 use core::fmt::Write;
+use core::ptr::read_unaligned;
 
 use enarx_heap::Heap;
 use lset::Line;
 use sallyport::syscall::*;
 use sallyport::{request, Block};
+use sgx::ssa::StateSaveArea;
+use x86_64::structures::idt::ExceptionVector;
 
 // Opcode constants, details in Volume 2 of the Intel 64 and IA-32 Architectures Software
 // Developer's Manual
-const OP_SYSCALL: &[u8] = &[0x0f, 0x05];
-const OP_CPUID: &[u8] = &[0x0f, 0xa2];
+const OP_SYSCALL: u16 = 0x050f;
+const OP_CPUID: u16 = 0xa20f;
 
 pub struct Handler<'a> {
     block: &'a mut Block,
@@ -81,11 +82,10 @@ impl<'a> Handler<'a> {
 
     /// Finish handling an exception
     pub fn finish(ssa: &'a mut StateSaveArea) {
-        if let Some(Vector::InvalidOpcode) = ssa.gpr.exitinfo.exception() {
-            if let OP_SYSCALL | OP_CPUID = unsafe { ssa.gpr.rip.into_slice(2usize) } {
+        if let Some(ExceptionVector::InvalidOpcode) = ssa.vector() {
+            if let OP_SYSCALL | OP_CPUID = unsafe { read_unaligned(ssa.gpr.rip as _) } {
                 // Skip the instruction.
-                let rip = usize::from(ssa.gpr.rip);
-                ssa.gpr.rip = (rip + 2).into();
+                ssa.gpr.rip += 2;
                 return;
             }
         }
@@ -97,15 +97,17 @@ impl<'a> Handler<'a> {
     pub fn handle(ssa: &'a mut StateSaveArea, block: &'a mut Block, heap: Line<usize>) {
         let mut h = Self::new(ssa, block, heap);
 
-        match h.ssa.gpr.exitinfo.exception() {
-            Some(Vector::InvalidOpcode) => match unsafe { h.ssa.gpr.rip.into_slice(2usize) } {
-                OP_SYSCALL => h.handle_syscall(),
-                OP_CPUID => h.handle_cpuid(),
-                r => {
-                    debugln!(h, "unsupported opcode: {:?}", r);
-                    h.exit(1)
+        match h.ssa.vector() {
+            Some(ExceptionVector::InvalidOpcode) => {
+                match unsafe { read_unaligned(h.ssa.gpr.rip as _) } {
+                    OP_SYSCALL => h.handle_syscall(),
+                    OP_CPUID => h.handle_cpuid(),
+                    r => {
+                        debugln!(h, "unsupported opcode: {:?}", r);
+                        h.exit(1)
+                    }
                 }
-            },
+            }
 
             _ => h.attacked(),
         }
@@ -119,13 +121,13 @@ impl<'a> Handler<'a> {
             self.ssa.gpr.r10.into(),
             self.ssa.gpr.r8.into(),
             self.ssa.gpr.r9.into(),
-            self.ssa.gpr.rax.into(),
+            self.ssa.gpr.rax as usize,
         );
 
-        self.ssa.gpr.rip = (usize::from(self.ssa.gpr.rip) + 2).into();
+        self.ssa.gpr.rip += 2;
 
         match ret {
-            Err(e) => self.ssa.gpr.rax = (-e).into(),
+            Err(e) => self.ssa.gpr.rax = -e as u64,
             Ok([rax, rdx]) => {
                 self.ssa.gpr.rax = rax.into();
                 self.ssa.gpr.rdx = rdx.into();
@@ -137,8 +139,8 @@ impl<'a> Handler<'a> {
         debug!(
             self,
             "cpuid({:08x}, {:08x})",
-            usize::from(self.ssa.gpr.rax),
-            usize::from(self.ssa.gpr.rcx)
+            self.ssa.gpr.rax.clone(),
+            self.ssa.gpr.rcx.clone(),
         );
 
         self.block.msg.req = request!(SYS_ENARX_CPUID => self.ssa.gpr.rax, self.ssa.gpr.rcx);
@@ -161,12 +163,12 @@ impl<'a> Handler<'a> {
         debugln!(
             self,
             " = ({:08x}, {:08x}, {:08x}, {:08x})",
-            usize::from(self.ssa.gpr.rax),
-            usize::from(self.ssa.gpr.rbx),
-            usize::from(self.ssa.gpr.rcx),
-            usize::from(self.ssa.gpr.rdx)
+            self.ssa.gpr.rax.clone(),
+            self.ssa.gpr.rbx.clone(),
+            self.ssa.gpr.rcx.clone(),
+            self.ssa.gpr.rdx.clone()
         );
 
-        self.ssa.gpr.rip = (usize::from(self.ssa.gpr.rip) + 2).into();
+        self.ssa.gpr.rip += 2;
     }
 }

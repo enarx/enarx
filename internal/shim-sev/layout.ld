@@ -19,8 +19,8 @@ PHDRS {
     dynamic      PT_DYNAMIC;
     note         PT_NOTE;
 
-    PT_ENARX_SALLYPORT  0x634A0001 FLAGS(0x0ff00000);
-    PT_ENARX_CODE       0x634A0003 FLAGS(0x0ff00000);
+    sallyport    0x634A0001 FLAGS(0x0ff00000);
+    exec         0x63400000 FLAGS(0x0ff00000);
 }
 
 /* Configure this to a reasonable size
@@ -38,10 +38,10 @@ reset_vector = 0xFFFFF000;
 _ENARX_SHIM_START = reset_vector;
 _ENARX_SALLYPORT_START = _ENARX_SHIM_START - _ENARX_SALLYPORT_SIZE - 2 * CONSTANT(COMMONPAGESIZE);
 _ENARX_SALLYPORT_END = _ENARX_SALLYPORT_START + _ENARX_SALLYPORT_SIZE;
-_ENARX_CODE_LEN = 4M;
+_ENARX_EXEC_LEN = 4M;
 
 ASSERT((_ENARX_SHIM_START >= (3 * 0x40000000)), "SHIM_START is too low for current initial identity page table")
-ASSERT((_ENARX_CODE_START < (6 * 0x40000000)), "SHIM is too large for current initial identity page table")
+ASSERT((_ENARX_EXEC_START < (6 * 0x40000000)), "SHIM is too large for current initial identity page table")
 
 ASSERT((pml4t_ident == (reset_vector - CONSTANT(COMMONPAGESIZE))), "pml4t_ident not at 0xFFFFE000")
 ASSERT((pml3t_ident == (reset_vector - 2*CONSTANT(COMMONPAGESIZE))), "pml3t_ident not at 0xFFFFD000")
@@ -53,7 +53,7 @@ SECTIONS {
     .sallyport : ALIGN(CONSTANT(COMMONPAGESIZE)) {
         FILL(0);
         . = _ENARX_SALLYPORT_SIZE;
-    } :sallyport :PT_ENARX_SALLYPORT
+    } :sallyport :sallyport
 
     .pml3 : ALIGN(CONSTANT(COMMONPAGESIZE)) {
         PROVIDE_HIDDEN(pml3t_ident = ABSOLUTE(.));
@@ -101,11 +101,11 @@ SECTIONS {
     .bss                : { *(.bss .bss.*) } :data
 
     .code : ALIGN(CONSTANT(COMMONPAGESIZE)) {
-        _ENARX_CODE_START = ABSOLUTE(.);
+        _ENARX_EXEC_START = ABSOLUTE(.);
         FILL(0);
-        . += _ENARX_CODE_LEN;
-    } :PT_ENARX_CODE
-    _ENARX_CODE_END = .;
+        . += _ENARX_EXEC_LEN;
+    } :exec
+    _ENARX_EXEC_END = .;
 
     /DISCARD/ : {
       *(.eh_frame*)

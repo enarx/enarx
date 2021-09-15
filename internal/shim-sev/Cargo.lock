@@ -77,9 +77,9 @@ checksum = "c619aa76dbb3f67970c7cf10fc3efa81da412be26d4dda1726af76b25260dc66"
 
 [[package]]
 name = "noted"
-version = "0.1.0"
+version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a1bc5b8b5b7171ba3ddd9c2a6027c345f8a787d8a696d3f95bc30f95edbe5516"
+checksum = "c9ed3de88cf5f12b1b461eb59a5b85f60d84216207bda41bf0f0eb2d7d51d397"
 
 [[package]]
 name = "plain"
@@ -105,8 +105,9 @@ dependencies = [
 [[package]]
 name = "sallyport"
 version = "0.1.0"
-source = "git+https://github.com/enarx/sallyport?rev=3872722009428b7002f8b703fd8c38958572952c#3872722009428b7002f8b703fd8c38958572952c"
+source = "git+https://github.com/enarx/sallyport?rev=156bcdfc1b3edc4dfc8c74b1573e89aaef18eaa3#156bcdfc1b3edc4dfc8c74b1573e89aaef18eaa3"
 dependencies = [
+ "goblin",
  "libc",
  "primordial",
 ]
@@ -160,9 +161,9 @@ checksum = "e4c2dbd44eb8b53973357e6e207e370f0c1059990df850aca1eca8947cf464f0"
 
 [[package]]
 name = "x86_64"
-version = "0.14.5"
+version = "0.14.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4522ae25e1e0dbf4302ffde77e55c43afe3d7523cba662943b5de8ff04871f6c"
+checksum = "bbc6ed1ed2cd4536b083c34041aff7b84448ee25ac4aa5e9d54802ce226f9815"
 dependencies = [
  "bit_field",
  "bitflags",

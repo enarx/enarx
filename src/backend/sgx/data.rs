@@ -3,7 +3,7 @@
 use crate::backend::probe::x86_64::{CpuId, Vendor};
 use crate::backend::Datum;
 
-use sgx::{Features, MiscSelect, Xfrm};
+use sgx::parameters::{Features, MiscSelect, Xfrm};
 
 use std::arch::x86_64::__cpuid_count;
 use std::fs::File;

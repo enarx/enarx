@@ -10,7 +10,7 @@ use crate::addr::{BYTES_1_GIB, BYTES_2_MIB};
 use crate::asm::_early_debug_panic;
 use crate::paging::EncPhysOffset;
 use crate::{
-    paging, _ENARX_CODE_END, _ENARX_SALLYPORT_END, _ENARX_SALLYPORT_START, _ENARX_SHIM_START,
+    paging, _ENARX_EXEC_END, _ENARX_SALLYPORT_END, _ENARX_SALLYPORT_START, _ENARX_SHIM_START,
 };
 use array_const_fn_init::array_const_fn_init;
 use x86_64::instructions::tlb::flush;
@@ -117,7 +117,7 @@ pub fn switch_sallyport_to_unencrypted(c_bit_mask: u64) {
     // encrypted and unencrypted.
 
     let start = VirtAddr::from_ptr(unsafe { &_ENARX_SHIM_START }) - SHIM_VIRT_OFFSET;
-    let end = VirtAddr::from_ptr(unsafe { &_ENARX_CODE_END }) - SHIM_VIRT_OFFSET;
+    let end = VirtAddr::from_ptr(unsafe { &_ENARX_EXEC_END }) - SHIM_VIRT_OFFSET;
 
     if unmap_address_range(start, end).is_err() {
         unsafe {

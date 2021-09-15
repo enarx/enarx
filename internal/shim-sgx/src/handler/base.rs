@@ -62,7 +62,7 @@ impl<'a> BaseSyscallHandler for super::Handler<'a> {
         debug!(self, "{}(", name);
         for (i, arg) in argv[..argc].iter().copied().enumerate() {
             let prefix = if i > 0 { ", " } else { "" };
-            debug!(self, "{}0x{:x}", prefix, u64::from(arg));
+            debug!(self, "{}0x{:x}", prefix, arg);
         }
 
         debugln!(self, ")");

@@ -12,8 +12,12 @@ use goblin::elf::program_header::*;
 use lset::{Line, Span};
 use primordial::{Page, Pages};
 use sallyport::syscall::{SYS_ENARX_CPUID, SYS_ENARX_GETATT};
-use sallyport::Block;
-use sgx::{Author, Class, Hasher, Parameters, Permissions, SecInfo};
+use sallyport::{elf, Block};
+use sgx::crypto::openssl::{RS256PrivateKey, S256Digest};
+use sgx::crypto::PrivateKey;
+use sgx::page::{Class, Flags, SecInfo};
+use sgx::parameters::{Masked, Parameters};
+use sgx::signature::{Author, Hasher, Signature};
 
 use std::arch::x86_64::__cpuid_count;
 use std::convert::TryInto;
@@ -45,10 +49,10 @@ impl Debug for Segment {
             self.mline.end,
             self.vaddr,
             self.vaddr + self.pages.len() * Page::SIZE,
-            letter(self.sinfo.perms.contains(Permissions::READ), 'r'),
-            letter(self.sinfo.perms.contains(Permissions::WRITE), 'w'),
-            letter(self.sinfo.perms.contains(Permissions::EXECUTE), 'x'),
-            letter(self.sinfo.class == Class::Tcs, 't'),
+            letter(self.sinfo.flags().contains(Flags::READ), 'r'),
+            letter(self.sinfo.flags().contains(Flags::WRITE), 'w'),
+            letter(self.sinfo.flags().contains(Flags::EXECUTE), 'x'),
+            letter(self.sinfo.class() == Class::Tcs, 't'),
             letter(self.phash, 'm'),
         ))
     }
@@ -66,15 +70,15 @@ impl Segment {
         let bytes = &component.bytes[phdr.file_range()];
         let pages = Pages::copy_into(bytes, mspan.count, mline.start % Page::SIZE);
 
-        let mut rwx = Permissions::empty();
+        let mut rwx = Flags::empty();
         if phdr.p_flags & PF_R != 0 {
-            rwx |= Permissions::READ;
+            rwx |= Flags::READ;
         }
         if phdr.p_flags & PF_W != 0 {
-            rwx |= Permissions::WRITE;
+            rwx |= Flags::WRITE;
         }
         if phdr.p_flags & PF_X != 0 {
-            rwx |= Permissions::EXECUTE;
+            rwx |= Flags::EXECUTE;
         }
 
         Self {
@@ -82,11 +86,11 @@ impl Segment {
             mline,
             pages,
             vaddr,
-            sinfo: match phdr.p_flags & PF_ENARX_SGX_TCS {
+            sinfo: match phdr.p_flags & elf::pf::sgx::TCS {
                 0 => SecInfo::reg(rwx),
                 _ => SecInfo::tcs(),
             },
-            phash: phdr.p_flags & PF_ENARX_SGX_UNMEASURED == 0,
+            phash: phdr.p_flags & elf::pf::sgx::UNMEASURED == 0,
         }
     }
 }
@@ -120,19 +124,50 @@ impl crate::backend::Backend for Backend {
     /// Create a keep instance on this backend
     fn build(&self, shim: Component, code: Component) -> Result<Arc<dyn Keep>> {
         // Find the offset for loading the code.
-        let slot = Span::from(shim.find_header(PT_ENARX_CODE).unwrap().vm_range());
+        let slot = Span::from(shim.find_header(elf::pt::EXEC).unwrap().vm_range());
         assert!(Span::from(code.region()).count <= slot.count);
 
         // Find the size of the enclave (in powers of two).
-        let size: u32 = unsafe { shim.read_note("enarx", NOTE_ENARX_SGX_SIZE)?.unwrap() };
+        let size: u8 = unsafe {
+            shim.read_note(elf::note::NAME, elf::note::sgx::BITS)?
+                .unwrap()
+        };
         let size = 1 << size;
 
         // Find the number of pages in an SSA frame.
-        let ssap: u32 = unsafe { shim.read_note("enarx", NOTE_ENARX_SGX_SSAP)?.unwrap() };
-        let ssap = NonZeroU32::new(ssap).unwrap();
+        let ssap: u8 = unsafe {
+            shim.read_note(elf::note::NAME, elf::note::sgx::SSAP)?
+                .unwrap()
+        };
+        let ssap = NonZeroU32::new(ssap.into()).unwrap();
 
         // Find the enclave parameters.
-        let params: Parameters = unsafe { shim.read_note("enarx", NOTE_ENARX_SGX_PRMS)?.unwrap() };
+        let params: Parameters = unsafe {
+            Parameters {
+                misc: Masked {
+                    data: shim
+                        .read_note(elf::note::NAME, elf::note::sgx::MISC)?
+                        .unwrap(),
+                    mask: shim
+                        .read_note(elf::note::NAME, elf::note::sgx::MISCMASK)?
+                        .unwrap(),
+                },
+                attr: Masked {
+                    data: shim
+                        .read_note(elf::note::NAME, elf::note::sgx::ATTR)?
+                        .unwrap(),
+                    mask: shim
+                        .read_note(elf::note::NAME, elf::note::sgx::ATTRMASK)?
+                        .unwrap(),
+                },
+                pid: shim
+                    .read_note(elf::note::NAME, elf::note::sgx::PID)?
+                    .unwrap(),
+                svn: shim
+                    .read_note(elf::note::NAME, elf::note::sgx::SVN)?
+                    .unwrap(),
+            }
+        };
 
         // Get an array of all final segment (relative) locations.
         let ssegs = shim
@@ -152,7 +187,7 @@ impl crate::backend::Backend for Backend {
 
         // Initialize the new enclave.
         let mut builder = Builder::new(size, ssap, params)?;
-        let mut hasher = Hasher::new(size, ssap, params);
+        let mut hasher = Hasher::<S256Digest>::new(size, ssap);
 
         // Map all the pages.
         for seg in segs {
@@ -161,13 +196,12 @@ impl crate::backend::Backend for Backend {
             hasher.load(bytes, seg.vaddr, seg.sinfo, seg.phash).unwrap();
         }
 
-        // Generate a signing key.
-        let exp = openssl::bn::BigNum::from_u32(3u32).unwrap();
-        let key = openssl::rsa::Rsa::generate_with_e(3072, &exp)?;
-
         // Create the enclave signature
-        let vendor = Author::new(0, 0);
-        let signature = hasher.finish().sign(vendor, key)?;
+        let hash = hasher.finish();
+        let author = Author::new(0, 0);
+        let body = params.body(hash);
+        let key = RS256PrivateKey::generate(3)?;
+        let signature = Signature::new(&key, author, body)?;
 
         // Build the enclave.
         Ok(builder.build(&signature)?)

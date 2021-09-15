@@ -10,21 +10,21 @@ name = "shim-sgx"
 test = false
 
 [dependencies]
-sallyport = { git = "https://github.com/enarx/sallyport", rev = "3872722009428b7002f8b703fd8c38958572952c", features=[ "asm" ] }
+sallyport = { git = "https://github.com/enarx/sallyport", rev = "156bcdfc1b3edc4dfc8c74b1573e89aaef18eaa3", features=[ "asm" ] }
 enarx-heap = { git = "https://github.com/enarx/enarx-heap", rev = "9cbfb3367edd4aa17f4a7409ea0c0f7d83fa8ce3" }
-sgx = { git = "https://github.com/enarx/sgx", rev = "216c5b09c0fe155ac1091484c3ab0feb24bf8c31" }
+sgx = { git = "https://github.com/enarx/sgx", rev = "57df3753a0ea1777963dbf3023452993df2edb8c" }
 rcrt1 = { git = "https://github.com/enarx/rcrt1", rev = "b28f711" }
 compiler_builtins = { version = "0.1", default-features = false, features = [ "mem" ] }
 goblin = { version = "0.4", default-features = false, features = [ "elf64" ] }
-x86_64 = { version = "^0.14.5", default-features = false }
+x86_64 = { version = "^0.14.6", default-features = false }
 crt0stack = { version = "0.1", default-features = false }
 libc = { version = "0.2", default-features = false }
-const-default = "0.1"
+const-default = "0.2"
 primordial = "0.3.0"
+noted = "^1.0.0"
+xsave = "^1.0.0"
 flagset = "0.4"
-xsave = "0.1.1"
 nbytes = "0.1"
-noted = "0.1"
 lset = "0.2"
 
 [profile.dev.package.rcrt1]

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use super::*;
-use crate::binary::{Component, PT_ENARX_CODE, PT_ENARX_SALLYPORT};
+use crate::binary::Component;
 
 use personality::Personality;
 
@@ -88,7 +88,7 @@ impl<'a, T: Hook> Builder<'a, T> {
 
         let sallyport_range = Span::from(
             self.shim
-                .find_header(PT_ENARX_SALLYPORT)
+                .find_header(sallyport::elf::pt::kvm::SALLYPORT)
                 .ok_or_else(|| {
                     anyhow::anyhow!("Couldn't find SALLYPORT program header in shim executable.")
                 })?
@@ -97,7 +97,7 @@ impl<'a, T: Hook> Builder<'a, T> {
 
         let code_range = Span::from(
             self.shim
-                .find_header(PT_ENARX_CODE)
+                .find_header(sallyport::elf::pt::EXEC)
                 .ok_or_else(|| {
                     anyhow::anyhow!("Couldn't find CODE program header in shim executable.")
                 })?

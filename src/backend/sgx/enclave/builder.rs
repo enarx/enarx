@@ -5,7 +5,9 @@ use super::{ioctls, Enclave};
 use lset::Span;
 use mmarinus::{perms, Kind, Map};
 use primordial::Page;
-use sgx::{Class, Parameters, Permissions, SecInfo, Secs, Signature};
+use sgx::page::{Class, Flags, SecInfo};
+use sgx::parameters::Parameters;
+use sgx::signature::Signature;
 
 use std::fs::{File, OpenOptions};
 use std::io::{Error, Result};
@@ -55,12 +57,7 @@ impl Builder {
             .open("/dev/sgx_enclave")?;
 
         // Create the enclave.
-        let secs = Secs::new(
-            mmap.addr() as *const (),
-            mmap.size(),
-            ssa_frame_pages,
-            parameters,
-        );
+        let secs = parameters.secs(mmap.addr() as *const (), mmap.size(), ssa_frame_pages);
         let create = ioctls::Create::new(&secs);
         ioctls::ENCLAVE_CREATE.ioctl(&mut file, &create)?;
 
@@ -131,7 +128,7 @@ impl Builder {
         self.perm.push((span, secinfo));
 
         // Keep track of TCS pages.
-        if secinfo.class == Class::Tcs {
+        if secinfo.class() == Class::Tcs {
             let mut addr = self.mmap.addr() + offset;
             for chunk in bytes.chunks(Page::SIZE) {
                 self.tcsp.push(addr);
@@ -156,17 +153,17 @@ impl Builder {
         // Fix up mapped permissions.
         self.perm.sort_by(|l, r| l.0.start.cmp(&r.0.start));
         for (span, si) in self.perm {
-            let rwx = match si.class {
+            let rwx = match si.class() {
                 Class::Tcs => libc::PROT_READ | libc::PROT_WRITE,
                 Class::Reg => {
                     let mut prot = libc::PROT_NONE;
-                    if si.perms.contains(Permissions::READ) {
+                    if si.flags().contains(Flags::READ) {
                         prot |= libc::PROT_READ;
                     }
-                    if si.perms.contains(Permissions::WRITE) {
+                    if si.flags().contains(Flags::WRITE) {
                         prot |= libc::PROT_WRITE;
                     }
-                    if si.perms.contains(Permissions::EXECUTE) {
+                    if si.flags().contains(Flags::EXECUTE) {
                         prot |= libc::PROT_EXEC;
                     }
 
