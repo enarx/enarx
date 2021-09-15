@@ -30,7 +30,7 @@ mod memory;
 mod other;
 mod process;
 
-use crate::ssa::{Gpr, Vector};
+use crate::ssa::{StateSaveArea, Vector};
 
 use core::fmt::Write;
 
@@ -46,7 +46,7 @@ const OP_CPUID: &[u8] = &[0x0f, 0xa2];
 
 pub struct Handler<'a> {
     block: &'a mut Block,
-    gpr: &'a mut Gpr,
+    ssa: &'a mut StateSaveArea,
     heap: Heap,
 }
 
@@ -71,21 +71,21 @@ impl<'a> Write for Handler<'a> {
 }
 
 impl<'a> Handler<'a> {
-    fn new(gpr: &'a mut Gpr, block: &'a mut Block, heap: Line<usize>) -> Self {
+    fn new(ssa: &'a mut StateSaveArea, block: &'a mut Block, heap: Line<usize>) -> Self {
         Self {
-            gpr,
+            ssa,
             block,
             heap: unsafe { Heap::new(heap.into()) },
         }
     }
 
     /// Finish handling an exception
-    pub fn finish(gpr: &'a mut Gpr) {
-        if let Some(Vector::InvalidOpcode) = gpr.exitinfo.exception() {
-            if let OP_SYSCALL | OP_CPUID = unsafe { gpr.rip.into_slice(2usize) } {
+    pub fn finish(ssa: &'a mut StateSaveArea) {
+        if let Some(Vector::InvalidOpcode) = ssa.gpr.exitinfo.exception() {
+            if let OP_SYSCALL | OP_CPUID = unsafe { ssa.gpr.rip.into_slice(2usize) } {
                 // Skip the instruction.
-                let rip = usize::from(gpr.rip);
-                gpr.rip = (rip + 2).into();
+                let rip = usize::from(ssa.gpr.rip);
+                ssa.gpr.rip = (rip + 2).into();
                 return;
             }
         }
@@ -94,11 +94,11 @@ impl<'a> Handler<'a> {
     }
 
     /// Handle an exception
-    pub fn handle(gpr: &'a mut Gpr, block: &'a mut Block, heap: Line<usize>) {
-        let mut h = Self::new(gpr, block, heap);
+    pub fn handle(ssa: &'a mut StateSaveArea, block: &'a mut Block, heap: Line<usize>) {
+        let mut h = Self::new(ssa, block, heap);
 
-        match h.gpr.exitinfo.exception() {
-            Some(Vector::InvalidOpcode) => match unsafe { h.gpr.rip.into_slice(2usize) } {
+        match h.ssa.gpr.exitinfo.exception() {
+            Some(Vector::InvalidOpcode) => match unsafe { h.ssa.gpr.rip.into_slice(2usize) } {
                 OP_SYSCALL => h.handle_syscall(),
                 OP_CPUID => h.handle_cpuid(),
                 r => {
@@ -113,22 +113,22 @@ impl<'a> Handler<'a> {
 
     fn handle_syscall(&mut self) {
         let ret = self.syscall(
-            self.gpr.rdi.into(),
-            self.gpr.rsi.into(),
-            self.gpr.rdx.into(),
-            self.gpr.r10.into(),
-            self.gpr.r8.into(),
-            self.gpr.r9.into(),
-            self.gpr.rax.into(),
+            self.ssa.gpr.rdi.into(),
+            self.ssa.gpr.rsi.into(),
+            self.ssa.gpr.rdx.into(),
+            self.ssa.gpr.r10.into(),
+            self.ssa.gpr.r8.into(),
+            self.ssa.gpr.r9.into(),
+            self.ssa.gpr.rax.into(),
         );
 
-        self.gpr.rip = (usize::from(self.gpr.rip) + 2).into();
+        self.ssa.gpr.rip = (usize::from(self.ssa.gpr.rip) + 2).into();
 
         match ret {
-            Err(e) => self.gpr.rax = (-e).into(),
+            Err(e) => self.ssa.gpr.rax = (-e).into(),
             Ok([rax, rdx]) => {
-                self.gpr.rax = rax.into();
-                self.gpr.rdx = rdx.into();
+                self.ssa.gpr.rax = rax.into();
+                self.ssa.gpr.rdx = rdx.into();
             }
         }
     }
@@ -137,11 +137,11 @@ impl<'a> Handler<'a> {
         debug!(
             self,
             "cpuid({:08x}, {:08x})",
-            usize::from(self.gpr.rax),
-            usize::from(self.gpr.rcx)
+            usize::from(self.ssa.gpr.rax),
+            usize::from(self.ssa.gpr.rcx)
         );
 
-        self.block.msg.req = request!(SYS_ENARX_CPUID => self.gpr.rax, self.gpr.rcx);
+        self.block.msg.req = request!(SYS_ENARX_CPUID => self.ssa.gpr.rax, self.ssa.gpr.rcx);
 
         unsafe {
             // prevent earlier writes from being moved beyond this point
@@ -152,21 +152,21 @@ impl<'a> Handler<'a> {
             // prevent later reads from being moved before this point
             core::sync::atomic::compiler_fence(core::sync::atomic::Ordering::Acquire);
 
-            self.gpr.rax = self.block.msg.req.arg[0].into();
-            self.gpr.rbx = self.block.msg.req.arg[1].into();
-            self.gpr.rcx = self.block.msg.req.arg[2].into();
-            self.gpr.rdx = self.block.msg.req.arg[3].into();
+            self.ssa.gpr.rax = self.block.msg.req.arg[0].into();
+            self.ssa.gpr.rbx = self.block.msg.req.arg[1].into();
+            self.ssa.gpr.rcx = self.block.msg.req.arg[2].into();
+            self.ssa.gpr.rdx = self.block.msg.req.arg[3].into();
         }
 
         debugln!(
             self,
             " = ({:08x}, {:08x}, {:08x}, {:08x})",
-            usize::from(self.gpr.rax),
-            usize::from(self.gpr.rbx),
-            usize::from(self.gpr.rcx),
-            usize::from(self.gpr.rdx)
+            usize::from(self.ssa.gpr.rax),
+            usize::from(self.ssa.gpr.rbx),
+            usize::from(self.ssa.gpr.rcx),
+            usize::from(self.ssa.gpr.rdx)
         );
 
-        self.gpr.rip = (usize::from(self.gpr.rip) + 2).into();
+        self.ssa.gpr.rip = (usize::from(self.ssa.gpr.rip) + 2).into();
     }
 }

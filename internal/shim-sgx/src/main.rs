@@ -287,7 +287,7 @@ unsafe extern "C" fn main(
 
     match cssa {
         0 => entry::entry(&ENARX_EXEC_START as *const u8 as _),
-        1 => handler::Handler::handle(&mut ssas[0].gpr, port, heap),
-        n => handler::Handler::finish(&mut ssas[n - 1].gpr),
+        1 => handler::Handler::handle(&mut ssas[0], port, heap),
+        n => handler::Handler::finish(&mut ssas[n - 1]),
     }
 }

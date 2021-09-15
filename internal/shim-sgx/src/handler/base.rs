@@ -51,12 +51,12 @@ impl<'a> BaseSyscallHandler for super::Handler<'a> {
 
     fn trace(&mut self, name: &str, argc: usize) {
         let argv = [
-            self.gpr.rdi,
-            self.gpr.rsi,
-            self.gpr.rdx,
-            self.gpr.r10,
-            self.gpr.r8,
-            self.gpr.r9,
+            self.ssa.gpr.rdi,
+            self.ssa.gpr.rsi,
+            self.ssa.gpr.rdx,
+            self.ssa.gpr.r10,
+            self.ssa.gpr.r8,
+            self.ssa.gpr.r9,
         ];
 
         debug!(self, "{}(", name);
