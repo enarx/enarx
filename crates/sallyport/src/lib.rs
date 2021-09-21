@@ -85,6 +85,7 @@ pub mod untrusted;
 use core::mem::size_of;
 use core::mem::MaybeUninit;
 use core::ptr::NonNull;
+use goblin::elf64::program_header::PT_LOOS;
 use primordial::{Page, Register};
 
 /// The sallyport version
@@ -110,6 +111,18 @@ pub const REQUIRES: [u8; VERSION.len() + 1] = {
 
     value
 };
+
+/// The sallyport program header type
+pub const PT_ENARX_SALLYPORT: u32 = PT_LOOS + 0x34a0001;
+
+/// The enarx code program header type
+pub const PT_ENARX_CODE: u32 = PT_LOOS + 0x34a0003;
+
+/// The enarx cpuid page program header type
+pub const PT_ENARX_CPUID: u32 = PT_LOOS + 0x34a0004;
+
+/// The enarx secrets page program header type
+pub const PT_ENARX_SECRET: u32 = PT_LOOS + 0x34a0005;
 
 /// I/O port used to trigger an exit to the host (`#VMEXIT`) for KVM driven shims.
 pub const KVM_SYSCALL_TRIGGER_PORT: u16 = 0xFF;
