@@ -43,11 +43,8 @@ pub mod note {
     /// The name used for all note sections
     pub const NAME: &str = "sallyport";
 
-    /// The name of the backend to use (utf-8 string)
-    pub const BACKEND: u32 = 0;
-
     /// The minimum sallyport semver requires
-    pub const REQUIRES: u32 = 1;
+    pub const REQUIRES: u32 = 0;
 
     /// SGX ELF Notes
     pub mod sgx {
