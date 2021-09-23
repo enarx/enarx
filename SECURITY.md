@@ -6,7 +6,7 @@ The Enarx project welcomes the responsible disclosure of vulnerabilities, includ
 - Enarx documentation
 - 3rd party hardware or firmware
 
-# Initial Contact
+## Initial Contact
 
 All security bugs in Enarx should be reported to the security team. 
 To do so, please reach out either by email at security@enarx.dev or on the
@@ -42,7 +42,7 @@ As a reminder, **when escalating in these venues, please do not discuss your
 issue.** 
 
 
-# Disclosure Policy
+## Disclosure Policy
 
 The Enarx project has a 5 step disclosure process.
 1. Contact is established, a private channel created, and the security report 
@@ -66,7 +66,7 @@ of vulnerabilities and fixes. We welcome reports of issues to the project,
 and want to ensure that the community is aware of and celebrates security 
 improvements.
 
-# Embargoes
+## Embargoes
 
 While the Enarx project aims to follow the highest standards of transparency 
 and openness (cf. [Enarx Principles](https://github.com/enarx/enarx/wiki/Design-principles)), 
