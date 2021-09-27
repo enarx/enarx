@@ -3,14 +3,40 @@
 #[cfg(feature = "backend-sgx")]
 pub mod sgx;
 
+mod binary;
 mod probe;
 
-use crate::binary::Component;
+use binary::Binary;
 
+use std::convert::TryFrom;
 use std::sync::Arc;
 
-use anyhow::Result;
+use anyhow::{Error, Result};
+use mmarinus::{perms, Map};
 use sallyport::Block;
+
+trait Config: Sized {
+    type Flags;
+
+    fn flags(flags: u32) -> Self::Flags;
+    fn new(shim: &Binary, exec: &Binary) -> Result<Self>;
+}
+
+trait Mapper: Sized + TryFrom<Self::Config, Error = Error> {
+    type Config: Config;
+    type Output: TryFrom<Self, Error = Error>;
+
+    fn map(
+        &mut self,
+        pages: Map<perms::ReadWrite>,
+        to: usize,
+        with: <Self::Config as Config>::Flags,
+    ) -> Result<()>;
+}
+
+trait Loader: Mapper {
+    fn load(shim: impl AsRef<[u8]>, exec: impl AsRef<[u8]>) -> Result<Self::Output>;
+}
 
 pub trait Backend {
     /// The name of the backend
@@ -19,16 +45,19 @@ pub trait Backend {
     /// The builtin shim
     fn shim(&self) -> &'static [u8];
 
+    /// The tests that show platform support for the backend
+    fn data(&self) -> Vec<Datum>;
+
+    /// Create a keep instance
+    fn keep(&self, shim: &[u8], exec: &[u8]) -> Result<Arc<dyn Keep>>;
+
+    /// Hash the inputs
+    fn hash(&self, shim: &[u8], exec: &[u8]) -> Result<Vec<u8>>;
+
     /// Whether or not the platform has support for this keep type
     fn have(&self) -> bool {
         !self.data().iter().fold(false, |e, d| e | !d.pass)
     }
-
-    /// The tests that show platform support for the backend
-    fn data(&self) -> Vec<Datum>;
-
-    /// Create a keep instance on this backend
-    fn build(&self, shim: Component, code: Component) -> Result<Arc<dyn Keep>>;
 }
 
 pub struct Datum {
@@ -58,6 +87,10 @@ pub trait Thread {
 pub enum Command<'a> {
     #[allow(dead_code)]
     SysCall(&'a mut Block),
+
+    #[allow(dead_code)]
+    CpuId(&'a mut Block),
+
     #[allow(dead_code)]
     Continue,
 }

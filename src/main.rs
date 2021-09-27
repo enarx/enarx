@@ -57,20 +57,15 @@
 #![feature(asm)]
 
 mod backend;
-mod binary;
 mod protobuf;
 
-// workaround for sallyport tests, until we have internal crates
-use sallyport::elf;
-pub use sallyport::Request;
-
 use backend::{Backend, Command};
-use binary::Component;
+
+use std::convert::TryInto;
+use std::path::PathBuf;
 
 use anyhow::Result;
 use structopt::StructOpt;
-
-use std::path::PathBuf;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 const AUTHORS: &str = env!("CARGO_PKG_AUTHORS");
@@ -158,26 +153,27 @@ fn exec(backends: &[Box<dyn Backend>], opts: Exec) -> Result<()> {
     let backend = backend(backends);
 
     let map = mmarinus::Kind::Private.load::<mmarinus::perms::Read, _>(&opts.code)?;
-    let shim = Component::from_bytes(backend.shim())?;
-    let code = Component::from_bytes(&map)?;
 
-    let version = semver::Version::parse(sallyport::VERSION).unwrap();
-    let supported = shim
-        .filter_notes(elf::note::NAME, elf::note::REQUIRES)
-        .filter_map(|n| std::str::from_utf8(n).ok())
-        .filter_map(|n| semver::VersionReq::parse(n).ok())
-        .any(|req| req.matches(&version));
-    if !supported {
-        panic!("Unable to satisfy sallyport version requirement.");
-    }
-
-    let keep = backend.build(shim, code)?;
+    let keep = backend.keep(backend.shim(), &map)?;
     let mut thread = keep.clone().spawn()?.unwrap();
     loop {
         match thread.enter()? {
             Command::SysCall(block) => unsafe {
                 block.msg.rep = block.msg.req.syscall();
             },
+
+            Command::CpuId(block) => unsafe {
+                let cpuid = core::arch::x86_64::__cpuid_count(
+                    block.msg.req.arg[0].try_into().unwrap(),
+                    block.msg.req.arg[1].try_into().unwrap(),
+                );
+
+                block.msg.req.arg[0] = cpuid.eax.into();
+                block.msg.req.arg[1] = cpuid.ebx.into();
+                block.msg.req.arg[2] = cpuid.ecx.into();
+                block.msg.req.arg[3] = cpuid.edx.into();
+            },
+
             Command::Continue => (),
         }
     }
