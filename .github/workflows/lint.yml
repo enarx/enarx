@@ -81,6 +81,7 @@ jobs:
       matrix:
         backend:
           - {name: sgx, host: [self-hosted, linux, sgx]}
+          - {name: kvm, host: [self-hosted, linux]}
         profile:
           - name: debug
           - name: release

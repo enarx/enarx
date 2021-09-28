@@ -4,7 +4,7 @@ ENTRY(_start)
 EXTERN(__SALLYPORT_ABI_)
 
 PHDRS {
-    sallyport    PT_LOAD;
+    sallyport    PT_LOAD FLAGS(1 << 22); /* sallyport::elf::pf::kvm::SALLYPORT */
 
     PML3         PT_LOAD;
     PML4         PT_LOAD;
@@ -19,8 +19,7 @@ PHDRS {
     dynamic      PT_DYNAMIC;
     note         PT_NOTE;
 
-    sallyport    0x634A0001 FLAGS(0x0ff00000);
-    exec         0x63400000 FLAGS(0x0ff00000);
+    exec         0x63400000 FLAGS(0);
 }
 
 /* Configure this to a reasonable size
@@ -50,10 +49,9 @@ SECTIONS {
     . = _ENARX_SALLYPORT_START;
     _ENARX_MEM_START = ABSOLUTE(.);
 
-    .sallyport : ALIGN(CONSTANT(COMMONPAGESIZE)) {
-        FILL(0);
-        . = _ENARX_SALLYPORT_SIZE;
-    } :sallyport :sallyport
+    .sallyport (NOLOAD) : ALIGN(CONSTANT(COMMONPAGESIZE)) {
+        . += _ENARX_SALLYPORT_SIZE;
+    } :sallyport
 
     .pml3 : ALIGN(CONSTANT(COMMONPAGESIZE)) {
         PROVIDE_HIDDEN(pml3t_ident = ABSOLUTE(.));

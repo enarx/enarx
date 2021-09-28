@@ -1,5 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
+#[cfg(feature = "backend-kvm")]
+pub mod kvm;
+
 #[cfg(feature = "backend-sgx")]
 pub mod sgx;
 

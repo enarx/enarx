@@ -15,6 +15,7 @@ use sallyport::KVM_SYSCALL_TRIGGER_PORT;
 use sallyport::{request, Block};
 use spinning::Lazy;
 use x86_64::instructions::port::Port;
+use x86_64::PhysAddr;
 
 /// Host file descriptor
 #[derive(Copy, Clone)]
@@ -166,8 +167,9 @@ impl HostCall {
     }
 
     /// Balloon the memory
-    pub fn balloon(&mut self, pages: usize) -> Result<usize, libc::c_int> {
-        self.block.as_mut().unwrap().msg.req = request!(SYS_ENARX_BALLOON_MEMORY => pages);
+    pub fn balloon(&mut self, pages: usize, gpa: PhysAddr) -> Result<usize, libc::c_int> {
+        self.block.as_mut().unwrap().msg.req =
+            request!(SYS_ENARX_BALLOON_MEMORY => 12, pages, gpa.as_u64());
         Ok(unsafe { self.hostcall() }?[0].into())
     }
 

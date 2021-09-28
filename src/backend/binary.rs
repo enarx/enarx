@@ -121,6 +121,7 @@ impl<'a> Binary<'a> {
     /// # Safety
     ///
     /// This function transmutes the bytes into the specified type. Beware!
+    #[allow(dead_code)]
     pub unsafe fn note<T: Copy>(&self, name: &str, kind: u32) -> Option<T> {
         use core::mem::size_of;
 

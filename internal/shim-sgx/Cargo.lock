@@ -144,7 +144,7 @@ dependencies = [
 [[package]]
 name = "sallyport"
 version = "0.1.0"
-source = "git+https://github.com/enarx/sallyport?rev=156bcdfc1b3edc4dfc8c74b1573e89aaef18eaa3#156bcdfc1b3edc4dfc8c74b1573e89aaef18eaa3"
+source = "git+https://github.com/enarx/sallyport?rev=a567a22665c7e5ba88a8c4acd64ab43ee32b4681#a567a22665c7e5ba88a8c4acd64ab43ee32b4681"
 dependencies = [
  "goblin",
  "libc",

@@ -239,7 +239,10 @@ impl EnarxAllocator {
 
             let end_phys = HOSTMAP.end_of_mem();
 
-            let ret = HOST_CALL_ALLOC.try_alloc().unwrap().balloon(num_pages);
+            let ret = HOST_CALL_ALLOC
+                .try_alloc()
+                .unwrap()
+                .balloon(num_pages, end_phys);
 
             if let Ok(virt_start) = ret {
                 match HOSTMAP.new_entry(end_phys, VirtAddr::new(virt_start as _), new_size) {
