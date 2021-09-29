@@ -10,20 +10,6 @@ pub mod pt {
     /// load the executable. The executable must be loaded at the start of the
     /// region and must (obviously) fit in the region.
     pub const EXEC: u32 = PT_LOOS + 0x3400000;
-
-    /// KVM Program Headers Types
-    pub mod kvm {
-        use super::PT_LOOS;
-
-        /// The sallyport program header type
-        pub const SALLYPORT: u32 = PT_LOOS + 0x34a0001;
-
-        /// The enarx cpuid page program header type
-        pub const CPUID: u32 = PT_LOOS + 0x34a0002;
-
-        /// The enarx secrets page program header type
-        pub const SECRET: u32 = PT_LOOS + 0x34a0003;
-    }
 }
 
 /// Program Header Flags
@@ -35,6 +21,21 @@ pub mod pf {
 
         /// This segment contains unmeasured pages.
         pub const UNMEASURED: u32 = 1 << 21;
+    }
+
+    /// KVM Program Headers Flags
+    pub mod kvm {
+        /// This segment contains the initial sallyport blocks.
+        pub const SALLYPORT: u32 = 1 << 22;
+    }
+
+    /// SNP Program Headers Flags
+    pub mod snp {
+        /// This segment contains cpuid page.
+        pub const CPUID: u32 = 1 << 23;
+
+        /// This segment contains the SNP secrets page.
+        pub const SECRETS: u32 = 1 << 24;
     }
 }
 
