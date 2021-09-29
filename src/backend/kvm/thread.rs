@@ -4,6 +4,7 @@ use super::super::Command;
 
 use std::sync::{Arc, RwLock};
 
+use crate::backend::kvm::KeepPersonality;
 use anyhow::{anyhow, Result};
 use kvm_ioctls::{VcpuExit, VcpuFd};
 use mmarinus::{perms, Kind, Map};
@@ -13,19 +14,19 @@ use sallyport::syscall::{SYS_ENARX_BALLOON_MEMORY, SYS_ENARX_MEM_INFO};
 use sallyport::Block;
 use sallyport::{Request, KVM_SYSCALL_TRIGGER_PORT};
 
-pub struct Thread {
-    keep: Arc<RwLock<super::Keep>>,
+pub struct Thread<P: KeepPersonality> {
+    keep: Arc<RwLock<super::Keep<P>>>,
     vcpu_fd: Option<VcpuFd>,
 }
 
-impl Drop for Thread {
+impl<P: KeepPersonality> Drop for Thread<P> {
     fn drop(&mut self) {
         let vcpu_fd = self.vcpu_fd.take().unwrap();
         self.keep.write().unwrap().cpu_fds.push(vcpu_fd);
     }
 }
 
-impl super::super::Keep for RwLock<super::Keep> {
+impl<P: KeepPersonality + 'static> super::super::Keep for RwLock<super::Keep<P>> {
     fn spawn(self: Arc<Self>) -> Result<Option<Box<dyn super::super::Thread>>> {
         let cpu_opt = self.write().unwrap().cpu_fds.pop();
         match cpu_opt {
@@ -38,7 +39,7 @@ impl super::super::Keep for RwLock<super::Keep> {
     }
 }
 
-impl Thread {
+impl<P: KeepPersonality> Thread<P> {
     pub fn balloon(&mut self, req: &Request) -> Result<[Register<usize>; 2], i32> {
         let log2: usize = req.arg[0].into();
         let npgs: usize = req.arg[1].into(); // Number of Pages
@@ -97,7 +98,7 @@ impl Thread {
     }
 }
 
-impl super::super::Thread for Thread {
+impl<P: KeepPersonality> super::super::Thread for Thread<P> {
     fn enter(&mut self) -> Result<Command> {
         let vcpu_fd = self.vcpu_fd.as_mut().unwrap();
         match vcpu_fd.run()? {

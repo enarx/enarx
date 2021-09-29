@@ -7,10 +7,10 @@ use sallyport::elf::pf::kvm::SALLYPORT;
 pub struct Config {}
 
 impl super::super::Config for Config {
-    type Flags = bool;
+    type Flags = u32;
 
     fn flags(flags: u32) -> Self::Flags {
-        flags & SALLYPORT != 0
+        flags
     }
 
     fn new(shim: &super::super::Binary, _exec: &super::super::Binary) -> Result<Self> {

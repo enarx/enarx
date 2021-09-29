@@ -12,15 +12,36 @@ use mmarinus::{perms, Map};
 use std::sync::Arc;
 use x86_64::VirtAddr;
 
-mod builder;
-mod config;
-mod data;
-mod mem;
-mod thread;
+pub mod builder;
+pub mod config;
+pub mod data;
+pub mod mem;
+pub mod thread;
 
-impl Keep {
+pub trait KeepPersonality {
+    fn map(_vm_fd: &mut VmFd, _region: &Region) -> std::io::Result<()> {
+        Ok(())
+    }
+}
+
+struct KvmKeepPersonality(());
+
+impl KeepPersonality for KvmKeepPersonality {}
+
+pub struct Keep<P: KeepPersonality> {
+    pub kvm_fd: Kvm,
+    pub vm_fd: VmFd,
+    pub cpu_fds: Vec<VcpuFd>,
+    // FIXME: This will be removed in the near future
+    pub sallyport_start: VirtAddr,
+    pub sallyports: Vec<Option<VirtAddr>>,
+    pub regions: Vec<Region>,
+    pub personality: P,
+}
+
+impl<P: KeepPersonality> Keep<P> {
     pub fn map(&mut self, pages: Map<perms::ReadWrite>, to: usize) -> std::io::Result<&mut Region> {
-        let region = kvm_userspace_memory_region {
+        let kvm_region = kvm_userspace_memory_region {
             slot: self.regions.len() as u32,
             flags: 0,
             guest_phys_addr: to as u64,
@@ -28,21 +49,16 @@ impl Keep {
             userspace_addr: pages.addr() as u64,
         };
 
-        unsafe { self.vm_fd.set_user_memory_region(region)? };
+        unsafe { self.vm_fd.set_user_memory_region(kvm_region)? };
 
-        self.regions.push(Region::new(region, pages));
+        let region = Region::new(kvm_region, pages);
+
+        P::map(&mut self.vm_fd, &region)?;
+
+        self.regions.push(region);
+
         Ok(self.regions.last_mut().unwrap())
     }
-}
-
-struct Keep {
-    kvm_fd: Kvm,
-    vm_fd: VmFd,
-    cpu_fds: Vec<VcpuFd>,
-    // FIXME: This will be removed in the near future
-    sallyport_start: VirtAddr,
-    sallyports: Vec<Option<VirtAddr>>,
-    regions: Vec<Region>,
 }
 
 pub struct Backend;
