@@ -254,6 +254,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let dir_name = path.file_name().unwrap().to_str().unwrap_or_default();
 
         match dir_name {
+            #[cfg(feature = "wasmldr")]
+            "wasmldr" => cargo_build_bin(&path, &out_dir, target, "wasmldr")?,
 
             #[cfg(feature = "backend-kvm")]
             "shim-sev" => cargo_build_bin(&path, &out_dir, target, "shim-sev")?,
