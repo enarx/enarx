@@ -58,8 +58,10 @@
 
 mod backend;
 mod protobuf;
+mod workldr;
 
 use backend::{Backend, Command};
+use workldr::Workldr;
 
 use std::convert::TryInto;
 use std::path::PathBuf;
@@ -78,7 +80,7 @@ struct Info {}
 #[derive(StructOpt)]
 struct Exec {
     /// The payload to run inside the keep
-    code: PathBuf,
+    code: Option<PathBuf>,
 }
 
 #[derive(StructOpt)]
@@ -97,9 +99,24 @@ fn main() -> Result<()> {
         Box::new(backend::kvm::Backend),
     ];
 
+    let workldrs: &[Box<dyn Workldr>] = &[
+        #[cfg(feature = "wasmldr")]
+        Box::new(workldr::wasmldr::Wasmldr),
+    ];
+
     match Options::from_args() {
         Options::Info(_) => info(backends),
-        Options::Exec(e) => exec(backends, e),
+        Options::Exec(e) => {
+            // FUTURE: accept tenant-provided shim, or fall back to builtin..
+            let backend = backend(backends);
+            let shim_bytes = backend.shim();
+            if let Some(path) = e.code {
+                let map = mmarinus::Kind::Private.load::<mmarinus::perms::Read, _>(&path)?;
+                exec(backend, shim_bytes, map)
+            } else {
+                exec(backend, shim_bytes, workldr(workldrs).exec())
+            }
+        }
     }
 }
 
@@ -151,12 +168,16 @@ fn backend(backends: &[Box<dyn Backend>]) -> &dyn Backend {
     }
 }
 
-fn exec(backends: &[Box<dyn Backend>], opts: Exec) -> Result<()> {
-    let backend = backend(backends);
+#[inline]
+fn workldr(workldrs: &[Box<dyn Workldr>]) -> &dyn Workldr {
+    // NOTE: this is stupid, but we only have one workldr, so... ¯\_(ツ)_/¯
+    &*workldrs[0]
+}
 
-    let map = mmarinus::Kind::Private.load::<mmarinus::perms::Read, _>(&opts.code)?;
+fn exec(backend: &dyn Backend, shim: impl AsRef<[u8]>, exec: impl AsRef<[u8]>) -> Result<()> {
+    //let map = mmarinus::Kind::Private.load::<mmarinus::perms::Read, _>(&opts.code)?;
 
-    let keep = backend.keep(backend.shim(), &map)?;
+    let keep = backend.keep(shim.as_ref(), exec.as_ref())?;
     let mut thread = keep.clone().spawn()?.unwrap();
     loop {
         match thread.enter()? {
