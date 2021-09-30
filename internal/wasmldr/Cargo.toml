@@ -1,0 +1,35 @@
+[package]
+name = "wasmldr"
+version = "0.2.0"
+authors = ["Will Woods <will@profian.com>"]
+edition = "2018"
+license = "Apache-2.0"
+description = "Enarx WebAssembly Loader"
+readme = "README.md"
+
+# TODO: merge these into the toplevel actions/gitignore
+exclude = [ ".gitignore", ".github/*" ]
+
+[[bin]]
+name = "wasmldr"
+
+[dependencies]
+wasmtime = { version = "0.30", default-features = false, features = ["cranelift"] }
+wasmtime-wasi = { version = "0.30", default-features = false, features = ["sync"] }
+wasi-common = { version = "0.30", default-features = false }
+wasmparser = "0.80"
+structopt = { version = "0.3", default-features = false }
+anyhow = "1.0"
+env_logger = { version = "0.9", default-features = false }
+log = "0.4"
+
+[build-dependencies]
+wat = "1.0"
+
+[profile.release]
+incremental = false
+codegen-units = 1
+panic = "abort"
+lto = true
+debug = 1
+opt-level = "s"

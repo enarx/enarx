@@ -23,10 +23,11 @@ is-it-maintained-issue-resolution = { repository = "enarx/enarx" }
 is-it-maintained-open-issues = { repository = "enarx/enarx" }
 
 [features]
-default = ["backend-kvm", "backend-sgx"]
+default = ["backend-kvm", "backend-sgx", "wasmldr"]
 
 backend-kvm = ["x86_64", "kvm-bindings", "kvm-ioctls"]
 backend-sgx = ["x86_64", "sgx"]
+wasmldr = []
 
 [dependencies]
 sgx = { git = "https://github.com/enarx/sgx", rev = "57df3753a0ea1777963dbf3023452993df2edb8c", features = ["openssl"], optional = true }
