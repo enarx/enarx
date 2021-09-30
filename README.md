@@ -93,6 +93,11 @@ This project is licensed under the Apache 2.0 license - see the
 Enarx would not be possible without the support of its sponsors. Many thanks to
 all who contribute to the long term success of this project!
 
+### Profian
+
+[Profian](https://profian.com) is the custodian of Enarx, and employs engineers
+and our community manager.
+
 ### Confidential Computing Consortium
 
 Enarx is a software project in the [Confidential Computing
@@ -100,13 +105,13 @@ Consortium](https://confidentialcomputing.io), a project community at the Linux
 Foundation dedicated to defining and accelerating the adoption of confidential
 computing.
 
-### Red Hat
-
-[Red Hat](https://www.redhat.com) employs many of the engineers who work on this
-project.
-
 ### Equinix Metal
 
 [Equinix Metal](https://metal.equinix.com/) currently provides development and
 testing infrastructure to the Enarx project from their easy to use bare-metal
 cloud.
+
+### Red Hat
+
+[Red Hat](https://www.redhat.com) donated the project to the Linux Foundation
+provided the engineering resources for much of the early work on Enarx.
