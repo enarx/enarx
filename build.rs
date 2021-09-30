@@ -107,6 +107,99 @@ fn build_cc_tests(in_path: &Path, out_path: &Path) {
     }
 }
 
+// Build a binary named `bin_name` from the crate located at `in_dir`,
+// targeting `target_name`, then strip the resulting binary and place it
+// at `out_dir`/bin/`bin_name`.
+fn cargo_build_bin(
+    in_dir: &Path,
+    out_dir: &Path,
+    target_name: &str,
+    bin_name: &str,
+) -> std::io::Result<()> {
+    let profile: &[&str] = match std::env::var("PROFILE").unwrap().as_str() {
+        "release" => &["--release"],
+        _ => &[],
+    };
+
+    let filtered_env: HashMap<String, String> = std::env::vars()
+        .filter(|&(ref k, _)| {
+            k == "TERM" || k == "TZ" || k == "LANG" || k == "PATH" || k == "RUSTUP_HOME"
+        })
+        .collect();
+
+    let path = in_dir.as_os_str().to_str().unwrap();
+
+    println!("cargo:rerun-if-changed={}/Cargo.tml", path);
+    println!("cargo:rerun-if-changed={}/Cargo.toml", path);
+    println!("cargo:rerun-if-changed={}/Cargo.lock", path);
+    println!("cargo:rerun-if-changed={}/layout.ld", path);
+    println!("cargo:rerun-if-changed={}/.cargo/config", path);
+
+    rerun_src(&path);
+
+    let target_dir = out_dir.join(path);
+
+    let stdout: Stdio = OpenOptions::new()
+        .write(true)
+        .open("/dev/tty")
+        .map(Stdio::from)
+        .unwrap_or_else(|_| Stdio::inherit());
+
+    let stderr: Stdio = OpenOptions::new()
+        .write(true)
+        .open("/dev/tty")
+        .map(Stdio::from)
+        .unwrap_or_else(|_| Stdio::inherit());
+
+    let status = Command::new("cargo")
+        .current_dir(&path)
+        .env_clear()
+        .envs(&filtered_env)
+        .stdout(stdout)
+        .stderr(stderr)
+        .arg("+nightly")
+        .arg("build")
+        .args(profile)
+        .arg("--target-dir")
+        .arg(&target_dir)
+        .arg("--target")
+        .arg(target_name)
+        .arg("--bin")
+        .arg(bin_name)
+        .status()?;
+
+    if !status.success() {
+        eprintln!("Failed to build in {}", path);
+        std::process::exit(1);
+    }
+
+    // This is the path to the newly-built binary.
+    // See https://doc.rust-lang.org/cargo/guide/build-cache.html for details.
+    let target_bin = target_dir
+        .join(target_name)
+        .join(std::env::var("PROFILE").unwrap())
+        .join(bin_name);
+
+    // And here's where we'd like to place the final (stripped) binary
+    let out_bin = out_dir.join("bin").join(bin_name);
+
+    // Strip the binary
+    let status = Command::new("strip")
+        .arg("--strip-unneeded")
+        .arg("-o")
+        .arg(&out_bin)
+        .arg(&target_bin)
+        .status()?;
+
+    // Failing that, just copy it into place
+    if !status.success() {
+        println!("cargo:warning=Failed to run `strip` on {:?}", target_bin);
+        std::fs::rename(&target_bin, &out_bin)?;
+    }
+
+    Ok(())
+}
+
 fn create(path: &Path) {
     match std::fs::create_dir(&path) {
         Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {}
@@ -118,7 +211,7 @@ fn create(path: &Path) {
     }
 }
 
-fn main() {
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("cargo:rerun-if-env-changed=OUT_DIR");
     println!("cargo:rerun-if-env-changed=PROFILE");
 
@@ -143,127 +236,34 @@ fn main() {
     build_cc_tests(&Path::new(CRATE).join(TEST_BINS_IN), &out_dir_bin);
     build_rs_tests(&Path::new(CRATE).join(TEST_BINS_IN), &out_dir_bin);
 
-    let profile: &[&str] = match std::env::var("PROFILE").unwrap().as_str() {
-        "release" => &["--release"],
-        _ => &[],
-    };
-
-    let target_name = "x86_64-unknown-linux-musl";
-
-    let filtered_env: HashMap<String, String> = std::env::vars()
-        .filter(|&(ref k, _)| {
-            k == "TERM" || k == "TZ" || k == "LANG" || k == "PATH" || k == "RUSTUP_HOME"
-        })
-        .collect();
+    let target = "x86_64-unknown-linux-musl";
 
     // internal crates are not included, if there is a `Cargo.toml` file
     // trick cargo by renaming the `Cargo.toml` to `Cargo.tml` before
     // publishing and rename it back here.
-    for entry in std::fs::read_dir("internal").unwrap() {
-        let path = entry.unwrap().path();
+    for entry in std::fs::read_dir("internal")? {
+        let path = entry?.path();
 
         let cargo_toml = path.join("Cargo.toml");
         let cargo_tml = path.join("Cargo.tml");
 
         if cargo_tml.exists() {
-            std::fs::copy(cargo_tml, cargo_toml).unwrap();
+            std::fs::copy(cargo_tml, cargo_toml)?;
+        }
+
+        let dir_name = path.file_name().unwrap().to_str().unwrap_or_default();
+
+        match dir_name {
+
+            #[cfg(feature = "backend-kvm")]
+            "shim-sev" => cargo_build_bin(&path, &out_dir, target, "shim-sev")?,
+
+            #[cfg(feature = "backend-sgx")]
+            "shim-sgx" => cargo_build_bin(&path, &out_dir, target, "shim-sgx")?,
+
+            _ => continue,
         }
     }
 
-    for entry in std::fs::read_dir("internal").unwrap() {
-        let path_buf = entry.unwrap().path();
-
-        let shim_name = path_buf.clone();
-        let shim_name = shim_name
-            .file_name()
-            .unwrap()
-            .to_os_string()
-            .into_string()
-            .unwrap();
-
-        let shim_out_dir = out_dir.join(&path_buf);
-
-        let path: String = path_buf.into_os_string().into_string().unwrap();
-
-        println!("cargo:rerun-if-changed={}/Cargo.tml", path);
-        println!("cargo:rerun-if-changed={}/Cargo.toml", path);
-        println!("cargo:rerun-if-changed={}/Cargo.lock", path);
-        println!("cargo:rerun-if-changed={}/layout.ld", path);
-        println!("cargo:rerun-if-changed={}/.cargo/config", path);
-
-        rerun_src(&path);
-
-        if !shim_name.starts_with("shim-") {
-            continue;
-        }
-
-        #[cfg(not(any(feature = "backend-kvm")))]
-        if shim_name.starts_with("shim-sev") {
-            continue;
-        }
-
-        #[cfg(not(feature = "backend-sgx"))]
-        if shim_name.starts_with("shim-sgx") {
-            continue;
-        }
-
-        let target_dir = shim_out_dir.clone().into_os_string().into_string().unwrap();
-
-        let stdout: Stdio = OpenOptions::new()
-            .write(true)
-            .open("/dev/tty")
-            .map(Stdio::from)
-            .unwrap_or_else(|_| Stdio::inherit());
-
-        let stderr: Stdio = OpenOptions::new()
-            .write(true)
-            .open("/dev/tty")
-            .map(Stdio::from)
-            .unwrap_or_else(|_| Stdio::inherit());
-
-        let status = Command::new("cargo")
-            .current_dir(&path)
-            .env_clear()
-            .envs(&filtered_env)
-            .stdout(stdout)
-            .stderr(stderr)
-            .arg("+nightly")
-            .arg("build")
-            .args(profile)
-            .arg("--target-dir")
-            .arg(&target_dir)
-            .arg("--target")
-            .arg(target_name)
-            .arg("--bin")
-            .arg(&shim_name)
-            .status()
-            .expect("failed to build shim");
-
-        if !status.success() {
-            eprintln!("Failed to build shim {}", path);
-            std::process::exit(1);
-        }
-
-        let out_bin = out_dir_bin.join(&shim_name);
-
-        let shim_out_bin = shim_out_dir
-            .join(&target_name)
-            .join(&std::env::var("PROFILE").unwrap())
-            .join(&shim_name);
-
-        let status = Command::new("strip")
-            .arg("--strip-unneeded")
-            .arg("-o")
-            .arg(&out_bin)
-            .arg(&shim_out_bin)
-            .status();
-
-        match status {
-            Ok(status) if status.success() => {}
-            _ => {
-                println!("cargo:warning=Failed to run `strip` on {:?}", &shim_out_bin);
-                std::fs::rename(&shim_out_bin, &out_bin).expect("move failed")
-            }
-        }
-    }
+    Ok(())
 }
