@@ -13,7 +13,7 @@ jobs:
       - uses: actions-rs/toolchain@v1
         with:
           target: x86_64-unknown-linux-musl
-          toolchain: nightly
+          toolchain: nightly-2021-09-30
           override: true
       - uses: actions-rs/cargo@v1
         with:
@@ -39,7 +39,7 @@ jobs:
       - uses: actions-rs/toolchain@v1
         with:
           target: x86_64-unknown-linux-musl
-          toolchain: nightly
+          toolchain: nightly-2021-09-30
           override: true
       - run: cargo test ${{ matrix.profile.flag }}
         working-directory: internal/${{ matrix.crate }}

@@ -34,7 +34,7 @@ jobs:
       - uses: actions-rs/toolchain@v1
         with:
           components: clippy
-          toolchain: nightly
+          toolchain: nightly-2021-09-30
           profile: minimal
           target: x86_64-unknown-linux-musl
           override: true
@@ -64,7 +64,7 @@ jobs:
       - uses: actions-rs/toolchain@v1
         with:
           components: clippy
-          toolchain: nightly
+          toolchain: nightly-2021-09-30
           profile: minimal
           target: x86_64-unknown-linux-musl
           override: true
