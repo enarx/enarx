@@ -148,7 +148,7 @@ impl EnarxAllocator {
             ShimPhysAddr::try_from(shim_virt).unwrap().raw().raw()
         };
 
-        let mem_size = {
+        let code_size = {
             let code_start = &crate::_ENARX_EXEC_START;
 
             let app_load_addr = Address::<u64, Header>::from(code_start);
@@ -195,15 +195,17 @@ impl EnarxAllocator {
                     > region.count
             );
 
-            align_up(
-                (&crate::_ENARX_EXEC_START as *const _ as u64)
-                    .checked_sub(&crate::_ENARX_MEM_START as *const _ as u64)
-                    .unwrap()
-                    .checked_add(region.count as u64)
-                    .unwrap(),
-                Page4KiB::SIZE as u64,
-            ) as usize
+            align_up(region.count as u64, Page4KiB::SIZE as u64) as usize
         };
+
+        let mem_size = align_up(
+            (&crate::_ENARX_EXEC_START as *const _ as u64)
+                .checked_sub(&crate::_ENARX_MEM_START as *const _ as u64)
+                .unwrap()
+                .checked_add(code_size as u64)
+                .unwrap(),
+            Page4KiB::SIZE as u64,
+        ) as usize;
 
         HOSTMAP.first_entry(
             PhysAddr::new(mem_start as _),
@@ -211,8 +213,8 @@ impl EnarxAllocator {
             mem_size,
         );
 
-        *NEXT_MMAP_RWLOCK.write() = VirtAddr::new(mem_start.checked_add(mem_size as u64).unwrap())
-            .align_up(Page::<Size4KiB>::SIZE);
+        *NEXT_MMAP_RWLOCK.write() =
+            (*NEXT_MMAP_RWLOCK.read() + code_size).align_up(Page::<Size4KiB>::SIZE);
 
         let allocator = Heap::empty();
 
