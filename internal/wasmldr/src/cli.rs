@@ -24,8 +24,8 @@ pub struct RunOptions {
     // TODO: --inherit-env
     // TODO: --stdin, --stdout, --stderr
     /// Path of the WebAssembly module to run
-    #[structopt(index = 1, required = true, value_name = "MODULE", parse(from_os_str))]
-    pub module: PathBuf,
+    #[structopt(index = 1, value_name = "MODULE", parse(from_os_str))]
+    pub module: Option<PathBuf>,
 
     // NOTE: this has to come last for TrailingVarArg
     /// Arguments to pass to the WebAssembly module
