@@ -206,11 +206,9 @@ impl EnarxAllocator {
         };
 
         HOSTMAP.first_entry(
-            mem_start as _,
-            Span {
-                start: meminfo.virt_start.raw(),
-                count: mem_size,
-            },
+            PhysAddr::new(mem_start as _),
+            VirtAddr::new(meminfo.virt_start.raw() as _),
+            mem_size,
         );
 
         *NEXT_MMAP_RWLOCK.write() = VirtAddr::new(mem_start.checked_add(mem_size as u64).unwrap())
@@ -237,29 +235,27 @@ impl EnarxAllocator {
             let new_size = new_size.min(self.max_alloc);
             let num_pages = new_size.checked_div(Page4KiB::SIZE as _).unwrap();
 
+            let end_phys = HOSTMAP.end_of_mem();
+
             let ret = HOST_CALL_ALLOC.try_alloc().unwrap().balloon(num_pages);
 
             if let Ok(virt_start) = ret {
-                match HOSTMAP.new_entry(Span {
-                    start: virt_start,
-                    count: new_size,
-                }) {
+                match HOSTMAP.new_entry(end_phys, VirtAddr::new(virt_start as _), new_size) {
                     None => return false,
                     Some(line) => {
-                        let mut region = Span::from(line);
+                        let region = Span::from(line);
 
                         // convert to shim virtual address
-                        let free_start_phys = Address::<usize, _>::from(region.start as *const u8);
+                        let free_start_phys =
+                            Address::<usize, _>::from(region.start.as_u64() as *const u8);
                         let shim_phys_page = ShimPhysAddr::from(free_start_phys);
                         let free_start: *mut u8 = ShimVirtAddr::from(shim_phys_page).into();
-
-                        region.start = free_start as _;
 
                         unsafe {
                             if self.allocator.size() > 0 {
                                 self.allocator.extend(region.count);
                             } else {
-                                self.allocator.init(region.start, region.count);
+                                self.allocator.init(free_start as _, region.count);
                             }
                         }
                         self.next_alloc = new_size;

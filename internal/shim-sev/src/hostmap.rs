@@ -49,6 +49,7 @@ use linked_list_allocator::Heap;
 use lset::{Line, Span};
 use primordial::{Address, Page as Page4KiB};
 use spinning::Lazy;
+use x86_64::{PhysAddr, VirtAddr};
 
 /// The global [`HostMap`](HostMap) RwLock
 pub static HOSTMAP: Lazy<RwLocked<HostMap>> =
@@ -61,8 +62,8 @@ struct HostMemListPageHeader {
 /// A physical memory region with the corresponding host virtual start address
 #[derive(Clone, Copy)]
 struct HostMemEntry {
-    shim: Line<usize>,
-    virt_start: usize,
+    shim: Span<PhysAddr, usize>,
+    virt_start: VirtAddr,
 }
 
 /// Number of memory list entries per page
@@ -78,6 +79,7 @@ struct HostMemListPage {
 /// A mapping of the shim physical addresses to the hypervisor host virtual addresses
 pub struct HostMap {
     num_pages: usize,
+    end_of_mem: PhysAddr,
     host_mem: HostMemListPage,
 }
 
@@ -85,31 +87,35 @@ impl HostMap {
     fn new() -> Self {
         HostMap {
             num_pages: 0,
+            end_of_mem: PhysAddr::new(0),
             host_mem: HostMemListPage {
                 header: HostMemListPageHeader { next: None },
                 ent: [HostMemEntry {
-                    shim: Line { start: 0, end: 0 },
-                    virt_start: 0,
+                    shim: Span {
+                        start: PhysAddr::new(0),
+                        count: 0,
+                    },
+                    virt_start: VirtAddr::new(0),
                 }; HOST_MEM_LIST_NUM_ENTRIES],
             },
         }
     }
 
     /// Get the host virtual address for a shim physical address
-    fn get_virt_addr(&self, addr: usize) -> Option<usize> {
+    fn get_virt_addr(&self, addr: PhysAddr) -> Option<VirtAddr> {
         let mut free = &self.host_mem;
         loop {
             for i in free.ent.iter() {
-                if i.shim.end == 0 {
+                if i.shim.count == 0 {
                     // Found an unused map entry
                     return None;
                 }
-                if i.shim.end > addr as usize {
-                    return Some(
-                        i.virt_start
-                            .checked_add(addr.checked_sub(i.shim.start).unwrap())
-                            .unwrap(),
-                    );
+
+                let line = Line::from(i.shim);
+
+                if line.end > addr {
+                    let offset = addr.as_u64().checked_sub(i.shim.start.as_u64()).unwrap();
+                    return Some(i.virt_start + offset);
                 }
             }
             match free.header.next {
@@ -182,7 +188,7 @@ impl RwLocked<HostMap> {
         shim_phys: ShimPhysUnencryptedAddr<U>,
     ) -> HostVirtAddr<U> {
         let this = self.read();
-        let addr: usize = shim_phys.raw().raw() as _;
+        let addr = PhysAddr::new(shim_phys.raw().raw() as _);
 
         let virt_addr = this.get_virt_addr(addr).unwrap_or_else(|| {
             panic!(
@@ -191,32 +197,42 @@ impl RwLocked<HostMap> {
             )
         });
 
-        unsafe { HostVirtAddr::new(Address::<u64, U>::unchecked(virt_addr as _)) }
+        unsafe { HostVirtAddr::new(Address::<u64, U>::unchecked(virt_addr.as_u64() as _)) }
     }
 
     /// set the initial map entry
-    pub fn first_entry(&self, start: usize, host_span: Span<usize>) {
+    pub fn first_entry(&self, vm_phys: PhysAddr, host_virt: VirtAddr, size: usize) {
         let mut this = self.write();
-        this.host_mem.ent[0].shim.start = start;
-        this.host_mem.ent[0].shim.end = start.checked_add(host_span.count).unwrap();
-        this.host_mem.ent[0].virt_start = host_span.start;
+        this.host_mem.ent[0].shim.start = vm_phys;
+        this.host_mem.ent[0].shim.count = size;
+        this.host_mem.ent[0].virt_start = host_virt;
+        this.end_of_mem = vm_phys + size;
     }
 
     /// Add a new map entry
-    pub fn new_entry(&self, host_span: Span<usize>) -> Option<Line<usize>> {
+    pub fn new_entry(
+        &self,
+        vm_phys: PhysAddr,
+        host_virt: VirtAddr,
+        size: usize,
+    ) -> Option<Span<PhysAddr, usize>> {
         let mut this = self.write();
+
+        let vm_line = Line::from(Span::new(vm_phys, size));
+
+        let old_max = this.end_of_mem;
+        this.end_of_mem = PhysAddr::new(u64::max(this.end_of_mem.as_u64(), vm_line.end.as_u64()));
+
         let mut free = &mut this.host_mem;
-        let mut last_end: usize = 0;
 
         loop {
             for i in free.ent.iter_mut() {
-                if i.shim.end == 0 {
-                    i.virt_start = host_span.start;
-                    i.shim.start = last_end;
-                    i.shim.end = i.shim.start.checked_add(host_span.count).unwrap();
+                if i.shim.count == 0 {
+                    i.virt_start = host_virt;
+                    i.shim.start = vm_phys;
+                    i.shim.count = size;
                     return Some(i.shim);
                 }
-                last_end = i.shim.end;
             }
 
             // we have reached the end of the free slot page
@@ -224,8 +240,15 @@ impl RwLocked<HostMap> {
             if let Some(f) = free.header.next.as_mut() {
                 free = f;
             } else {
+                // restore the old value in case of the unlikely error case
+                this.end_of_mem = old_max;
                 return None;
             }
         }
+    }
+
+    /// Return the first unused physical address
+    pub fn end_of_mem(&self) -> PhysAddr {
+        self.read().end_of_mem
     }
 }
