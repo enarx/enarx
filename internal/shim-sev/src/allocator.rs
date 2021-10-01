@@ -52,7 +52,7 @@ pub static ALLOCATOR: Lazy<RwLocked<EnarxAllocator>> =
 /// * paging::FrameAllocator<Size4KiB>
 /// * paging::FrameAllocator<Size2MiB>
 pub struct EnarxAllocator {
-    next_alloc: usize,
+    last_alloc: usize,
     max_alloc: usize,
     mem_slots: usize,
     allocator: Heap,
@@ -61,7 +61,7 @@ pub struct EnarxAllocator {
 impl core::fmt::Debug for EnarxAllocator {
     fn fmt(&self, f: &mut core::fmt::Formatter) -> Result<(), core::fmt::Error> {
         f.debug_struct("EnarxAllocator")
-            .field("next_alloc", &self.next_alloc)
+            .field("last_alloc", &self.last_alloc)
             .field("max_alloc", &self.max_alloc)
             .finish()
     }
@@ -217,7 +217,7 @@ impl EnarxAllocator {
         let allocator = Heap::empty();
 
         EnarxAllocator {
-            next_alloc,
+            last_alloc: next_alloc.checked_div(2).unwrap(),
             max_alloc,
             mem_slots: meminfo.mem_slots,
             allocator,
@@ -225,7 +225,7 @@ impl EnarxAllocator {
     }
 
     fn balloon(&mut self) -> bool {
-        let mut last_size: usize = self.next_alloc;
+        let mut last_size: usize = self.last_alloc;
 
         loop {
             // request new memory from the host
@@ -258,7 +258,7 @@ impl EnarxAllocator {
                                 self.allocator.init(free_start as _, region.count);
                             }
                         }
-                        self.next_alloc = new_size;
+                        self.last_alloc = new_size;
 
                         // After every ballooning, the hostmap could need some extension
                         HOSTMAP.extend_slots(self.mem_slots, &mut self.allocator);
