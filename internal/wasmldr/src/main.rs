@@ -36,6 +36,7 @@ use structopt::StructOpt;
 
 use std::fs::File;
 use std::io::Read;
+use std::os::unix::io::{FromRawFd, RawFd};
 
 fn main() {
     // Initialize the logger, taking settings from the default env vars
@@ -47,9 +48,13 @@ fn main() {
     let opts = cli::RunOptions::from_args();
     info!("opts: {:#?}", opts);
 
-    info!("reading {:?}", opts.module);
-    // TODO: don't just panic here...
-    let mut reader = File::open(&opts.module).expect("Unable to open file");
+    let mut reader = if let Some(module) = opts.module {
+        info!("reading module from {:?}", &module);
+        File::open(&module).expect("Unable to open file")
+    } else {
+        info!("reading module from fd 3");
+        unsafe { File::from_raw_fd(RawFd::from(3)) }
+    };
 
     let mut bytes = Vec::new();
     reader
