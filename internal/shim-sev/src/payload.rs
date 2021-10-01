@@ -52,8 +52,9 @@ pub static NEXT_BRK_RWLOCK: Lazy<RwLock<VirtAddr>> = Lazy::new(|| {
 });
 
 /// The global NextMMap RwLock
-pub static NEXT_MMAP_RWLOCK: Lazy<RwLock<VirtAddr>> =
-    Lazy::new(|| RwLock::<VirtAddr>::const_new(spinning::RawRwLock::const_new(), VirtAddr::new(0)));
+pub static NEXT_MMAP_RWLOCK: Lazy<RwLock<VirtAddr>> = Lazy::new(|| {
+    RwLock::<VirtAddr>::const_new(spinning::RawRwLock::const_new(), *PAYLOAD_VIRT_ADDR.read())
+});
 
 /// load the elf binary
 fn map_elf(app_virt_start: VirtAddr) -> &'static Header {
