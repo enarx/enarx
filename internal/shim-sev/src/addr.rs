@@ -23,6 +23,7 @@ use core::convert::TryFrom;
 use core::ops::Range;
 use nbytes::bytes;
 use primordial::{Address, Register};
+use x86_64::PhysAddr;
 
 /// Address in the host virtual address space
 pub struct HostVirtAddr<U>(Address<u64, U>);
@@ -66,6 +67,19 @@ where
         let mut val: Address<u64, U> = val.into();
         val = unsafe { Address::unchecked(val.raw() | get_cbit_mask()) };
         Self(val)
+    }
+}
+
+impl<U> TryFrom<PhysAddr> for ShimPhysAddr<U> {
+    type Error = ();
+
+    fn try_from(value: PhysAddr) -> Result<Self, Self::Error> {
+        Address::<u64, ()>::from(value.as_u64())
+            .try_cast::<U>()
+            .map(|val| {
+                ShimPhysAddr::from(unsafe { Address::unchecked(val.raw() | get_cbit_mask()) })
+            })
+            .map_err(|_| ())
     }
 }
 
