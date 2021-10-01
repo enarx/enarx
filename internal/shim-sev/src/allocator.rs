@@ -142,10 +142,10 @@ impl EnarxAllocator {
         let next_alloc = (2usize).checked_pow(MIN_EXP).unwrap();
         let max_alloc = (2usize).checked_pow(max_exp).unwrap();
 
-        let mem_start = {
-            let address = Address::<u64, Page4KiB>::from(&crate::_ENARX_MEM_START);
+        let mem_start: PhysAddr = {
+            let address = Address::<u64, _>::from(&crate::_ENARX_MEM_START);
             let shim_virt = ShimVirtAddr::try_from(address).unwrap();
-            ShimPhysAddr::try_from(shim_virt).unwrap().raw().raw()
+            PhysAddr::new(ShimPhysAddr::try_from(shim_virt).unwrap().raw().raw())
         };
 
         let code_size = {
@@ -208,7 +208,7 @@ impl EnarxAllocator {
         ) as usize;
 
         HOSTMAP.first_entry(
-            PhysAddr::new(mem_start as _),
+            mem_start,
             VirtAddr::new(meminfo.virt_start.raw() as _),
             mem_size,
         );
@@ -245,19 +245,15 @@ impl EnarxAllocator {
                 match HOSTMAP.new_entry(end_phys, VirtAddr::new(virt_start as _), new_size) {
                     None => return false,
                     Some(line) => {
-                        let region = Span::from(line);
-
                         // convert to shim virtual address
-                        let free_start_phys =
-                            Address::<usize, _>::from(region.start.as_u64() as *const u8);
-                        let shim_phys_page = ShimPhysAddr::from(free_start_phys);
+                        let shim_phys_page = ShimPhysAddr::<u8>::try_from(line.start).unwrap();
                         let free_start: *mut u8 = ShimVirtAddr::from(shim_phys_page).into();
 
                         unsafe {
                             if self.allocator.size() > 0 {
-                                self.allocator.extend(region.count);
+                                self.allocator.extend(line.count);
                             } else {
-                                self.allocator.init(free_start as _, region.count);
+                                self.allocator.init(free_start as _, line.count);
                             }
                         }
                         self.last_alloc = new_size;
