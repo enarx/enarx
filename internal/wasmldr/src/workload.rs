@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use log::debug;
+use log::{debug, warn};
 use wasmtime_wasi::sync::WasiCtxBuilder;
 
 /// The error codes of workload execution.
@@ -82,12 +82,16 @@ pub fn run<T: AsRef<str>, U: AsRef<str>>(
             .or(Err(Error::StringTableError))?;
     }
 
+    // TODO: plaintext stdio to/from the (untrusted!) host system isn't a
+    // secure default behavior. But.. we don't have any *trusted* I/O yet, so..
+    warn!("🌭DEV-ONLY BUILD🌭: inheriting stdio from calling process");
+    wasi = wasi.inherit_stdio();
+
     debug!("creating wasmtime Store");
     let mut store = wasmtime::Store::new(&engine, wasi.build());
 
     debug!("instantiating module from bytes");
     let module = wasmtime::Module::from_binary(&engine, bytes.as_ref())?;
-    //.or(Err(Error::InstantiationFailed))?;
 
     debug!("adding module to store");
     linker
