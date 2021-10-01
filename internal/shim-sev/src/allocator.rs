@@ -108,7 +108,7 @@ impl EnarxAllocator {
             host_call.mem_info().unwrap()
         };
 
-        const MIN_EXP: u32 = 25; // start with 2^25 = 32 MiB
+        const MIN_EXP: u32 = 24; // start with 2^24 = 16 MiB
         let c_bit_mask = C_BIT_MASK.load(Ordering::Relaxed);
         let target_exp: u32 = if c_bit_mask > 0 {
             msb(c_bit_mask as _).checked_sub(1).unwrap() // don't want to address more than c_bit_mask
