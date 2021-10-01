@@ -77,9 +77,7 @@ fn build_rs_tests(in_path: &Path, out_path: &Path) {
             .status()
             .unwrap_or_else(|_| panic!("failed to compile {:#?}", &in_source));
 
-        if !status.success() {
-            panic!("Failed to compile {:?}", &in_source);
-        }
+        assert!(status.success(), "Failed to compile {:?}", &in_source);
     }
 }
 
@@ -105,9 +103,7 @@ fn build_cc_tests(in_path: &Path, out_path: &Path) {
             .status()
             .unwrap_or_else(|_| panic!("failed to compile {:#?}", &in_source));
 
-        if !status.success() {
-            panic!("Failed to compile {:?}", &in_source);
-        }
+        assert!(status.success(), "Failed to compile {:?}", &in_source);
     }
 }
 
