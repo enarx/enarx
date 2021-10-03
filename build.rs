@@ -227,7 +227,7 @@ fn main() {
             .envs(&filtered_env)
             .stdout(stdout)
             .stderr(stderr)
-            .arg("+nightly-2021-09-30")
+            .arg("+nightly")
             .arg("build")
             .args(profile)
             .arg("--target-dir")
