@@ -66,8 +66,29 @@ fn main() {
 
     info!("running workload");
     // TODO: pass opts.wasm_features
-    let result = workload::run(bytes, opts.args, opts.envs).expect("Failed to run workload");
+    let result = workload::run(bytes, opts.args, opts.envs);
     info!("got result: {:#?}", result);
-    // TODO: exit with the resulting code, if the result is a return code
+
     // FUTURE: produce attestation report here
+    // TODO: print the returned value(s) in some format (json?)
+
+    // Choose an appropriate exit code
+    // TODO: exit with the resulting code, if the result is a return code
+    std::process::exit(match result {
+        // Success -> EX_OK
+        Ok(_) => 0,
+
+        // wasmtime/WASI/module setup errors -> EX_DATAERR
+        Err(workload::Error::ConfigurationError) => 65,
+        Err(workload::Error::StringTableError) => 65,
+        Err(workload::Error::InstantiationFailed) => 65,
+        Err(workload::Error::ExportNotFound) => 65,
+        Err(workload::Error::CallFailed) => 65,
+
+        // Internal WASI errors -> EX_SOFTWARE
+        Err(workload::Error::WASIError(_)) => 70,
+
+        // General IO errors -> EX_IOERR
+        Err(workload::Error::IoError(_)) => 74,
+    });
 }
