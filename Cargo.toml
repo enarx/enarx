@@ -27,7 +27,7 @@ default = ["backend-kvm", "backend-sgx", "wasmldr"]
 
 backend-kvm = ["x86_64", "kvm-bindings", "kvm-ioctls"]
 backend-sgx = ["x86_64", "sgx"]
-wasmldr = []
+wasmldr = ["wat"]
 
 [dependencies]
 sgx = { git = "https://github.com/enarx/sgx", rev = "57df3753a0ea1777963dbf3023452993df2edb8c", features = ["openssl"], optional = true }
@@ -55,6 +55,7 @@ vdso = "0.1"
 
 [build-dependencies]
 cc = "1.0"
+wat = { version = "1.0", optional = true }
 walkdir = "2"
 protobuf-codegen-pure = "2.25"
 sallyport = { git = "https://github.com/enarx/sallyport", rev = "a567a22665c7e5ba88a8c4acd64ab43ee32b4681", features = [ "asm" ] }

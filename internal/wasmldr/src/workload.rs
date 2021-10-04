@@ -114,9 +114,57 @@ pub(crate) mod test {
     use crate::workload;
     use std::iter::empty;
 
+    const NO_EXPORT_WAT: &'static str = r#"(module
+      (memory (export "") 1)
+    )"#;
+
+    const RETURN_1_WAT: &'static str = r#"(module
+      (func (export "") (result i32) i32.const 1)
+    )"#;
+
+    const WASI_COUNT_ARGS_WAT: &'static str = r#"(module
+      (import "wasi_snapshot_preview1" "args_sizes_get"
+        (func $__wasi_args_sizes_get (param i32 i32) (result i32)))
+      (func (export "_start") (result i32)
+        (i32.store (i32.const 0) (i32.const 0))
+        (i32.store (i32.const 4) (i32.const 0))
+        (call $__wasi_args_sizes_get (i32.const 0) (i32.const 4))
+        drop
+        (i32.load (i32.const 0))
+      )
+      (memory 1)
+      (export "memory" (memory 0))
+    )"#;
+
+    const HELLO_WASI_WAT: &'static str = r#"(module
+      (import "wasi_snapshot_preview1" "proc_exit"
+        (func $__wasi_proc_exit (param i32)))
+      (import "wasi_snapshot_preview1" "fd_write"
+        (func $__wasi_fd_write (param i32 i32 i32 i32) (result i32)))
+      (func $_start
+        (i32.store (i32.const 24) (i32.const 14))
+        (i32.store (i32.const 20) (i32.const 0))
+        (block
+          (br_if 0
+            (call $__wasi_fd_write
+              (i32.const 1)
+              (i32.const 20)
+              (i32.const 1)
+              (i32.const 16)))
+          (br_if 0 (i32.ne (i32.load (i32.const 16)) (i32.const 14)))
+          (br 1)
+        )
+        (call $__wasi_proc_exit (i32.const 1))
+      )
+      (memory 1)
+      (export "memory" (memory 0))
+      (export "_start" (func $_start))
+      (data (i32.const 0) "Hello, world!\0a")
+    )"#;
+
     #[test]
     fn workload_run_return_1() {
-        let bytes = include_bytes!(concat!(env!("OUT_DIR"), "/fixtures/return_1.wasm")).to_vec();
+        let bytes = wat::parse_str(RETURN_1_WAT).expect("error parsing wat");
 
         let results: Vec<i32> =
             workload::run(&bytes, empty::<String>(), empty::<(String, String)>())
@@ -130,7 +178,7 @@ pub(crate) mod test {
 
     #[test]
     fn workload_run_no_export() {
-        let bytes = include_bytes!(concat!(env!("OUT_DIR"), "/fixtures/no_export.wasm")).to_vec();
+        let bytes = wat::parse_str(NO_EXPORT_WAT).expect("error parsing wat");
 
         match workload::run(&bytes, empty::<String>(), empty::<(String, String)>()) {
             Err(workload::Error::ExportNotFound) => {}
@@ -139,9 +187,8 @@ pub(crate) mod test {
     }
 
     #[test]
-    fn workload_run_wasi_snapshot1() {
-        let bytes =
-            include_bytes!(concat!(env!("OUT_DIR"), "/fixtures/wasi_snapshot1.wasm")).to_vec();
+    fn workload_run_wasi_count_args() {
+        let bytes = wat::parse_str(WASI_COUNT_ARGS_WAT).expect("error parsing wat");
 
         let results: Vec<i32> = workload::run(
             &bytes,
@@ -156,18 +203,17 @@ pub(crate) mod test {
         assert_eq!(results, vec![3]);
     }
 
-    #[cfg(bundle_tests)]
     #[test]
-    fn workload_run_bundled() {
-        let bytes = include_bytes!(concat!(
-            env!("OUT_DIR"),
-            "/fixtures/hello_wasi_snapshot1.bundled.wasm"
-        ))
-        .to_vec();
+    fn workload_run_hello_wasi() {
+        let bytes = wat::parse_str(HELLO_WASI_WAT).expect("error parsing wat");
+        let args: Vec<String> = vec![];
+        let envs: Vec<(String, String)> = vec![];
 
-        workload::run(&bytes, empty::<&str>(), empty::<(&str, &str)>()).unwrap();
+        let results = workload::run(&bytes, args, envs).unwrap();
 
-        let output = std::fs::read("stdout.txt").unwrap();
-        assert_eq!(output, "Hello, world!\n".to_string().into_bytes());
+        assert_eq!(results.len(), 0);
+
+        // TODO/FIXME: we need a way to configure WASI stdout so we can capture
+        // and check it here...
     }
 }

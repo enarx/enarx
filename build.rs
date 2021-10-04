@@ -107,6 +107,18 @@ fn build_cc_tests(in_path: &Path, out_path: &Path) {
     }
 }
 
+#[cfg(feature = "wasmldr")]
+fn build_wasm_tests(in_path: &Path, out_path: &Path) {
+    for wat in find_files_with_extensions(&["wat"], &in_path) {
+        let wasm = out_path
+            .join(wat.file_stem().unwrap())
+            .with_extension("wasm");
+        let bin = wat::parse_file(&wat).unwrap_or_else(|_| panic!("failed to compile {:?}", &wat));
+        std::fs::write(&wasm, &bin).unwrap_or_else(|_| panic!("failed to write {:?}", &wasm));
+        println!("cargo:rerun-if-changed={}", &wat.display());
+    }
+}
+
 // Build a binary named `bin_name` from the crate located at `in_dir`,
 // targeting `target_name`, then strip the resulting binary and place it
 // at `out_dir`/bin/`bin_name`.
@@ -235,6 +247,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     build_cc_tests(&Path::new(CRATE).join(TEST_BINS_IN), &out_dir_bin);
     build_rs_tests(&Path::new(CRATE).join(TEST_BINS_IN), &out_dir_bin);
+    #[cfg(feature = "wasmldr")]
+    build_wasm_tests(&Path::new(CRATE).join("tests/wasm"), &out_dir_bin);
 
     let target = "x86_64-unknown-linux-musl";
 
