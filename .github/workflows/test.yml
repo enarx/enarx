@@ -18,7 +18,7 @@ jobs:
       - uses: actions-rs/cargo@v1
         with:
           command: test
-          args: ${{ matrix.profile.flag }} --no-default-features --features=backend-${{ matrix.backend.name }}
+          args: ${{ matrix.profile.flag }} --no-default-features --features=backend-${{ matrix.backend.name }} --features=wasmldr
     strategy:
       fail-fast: false
       matrix:
@@ -50,6 +50,7 @@ jobs:
         crate:
           - shim-sgx
           - shim-sev
+          - wasmldr
         profile:
           - name: debug
           - name: release
