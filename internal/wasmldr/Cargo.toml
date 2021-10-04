@@ -23,7 +23,7 @@ anyhow = "1.0"
 env_logger = { version = "0.9", default-features = false }
 log = "0.4"
 
-[build-dependencies]
+[dev-dependencies]
 wat = "1.0"
 
 [profile.release]
