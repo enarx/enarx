@@ -6,130 +6,16 @@ use std::io::{Read, Write};
 use std::mem::{size_of, MaybeUninit};
 use std::os::unix::ffi::OsStrExt;
 use std::os::unix::net::{UnixListener, UnixStream};
-use std::path::Path;
-use std::process::{Command, Stdio};
 use std::slice::from_raw_parts_mut;
 use std::thread;
 use std::time::Duration;
 
-use process_control::{ChildExt, Output, Timeout};
 use serial_test::serial;
 use std::sync::Arc;
 use tempdir::TempDir;
 
-const CRATE: &str = env!("CARGO_MANIFEST_DIR");
-const KEEP_BIN: &str = env!("CARGO_BIN_EXE_enarx");
-const OUT_DIR: &str = env!("OUT_DIR");
-const TEST_BINS_OUT: &str = "bin";
-const TIMEOUT_SECS: u64 = 10;
-const MAX_ASSERT_ELEMENTS: usize = 100;
-
-fn assert_eq_slices(expected_output: &[u8], output: &[u8], what: &str) {
-    let max_len = usize::min(output.len(), expected_output.len());
-    let max_len = max_len.min(MAX_ASSERT_ELEMENTS);
-    assert_eq!(
-        output[..max_len],
-        expected_output[..max_len],
-        "Expected contents of {} differs",
-        what
-    );
-    assert_eq!(
-        output.len(),
-        expected_output.len(),
-        "Expected length of {} differs",
-        what
-    );
-    assert_eq!(
-        output, expected_output,
-        "Expected contents of {} differs",
-        what
-    );
-}
-
-/// Returns a handle to a child process through which output (stdout, stderr) can
-/// be accessed.
-fn run_test<'a>(
-    bin: &str,
-    status: i32,
-    input: impl Into<Option<&'a [u8]>>,
-    expected_stdout: impl Into<Option<&'a [u8]>>,
-    expected_stderr: impl Into<Option<&'a [u8]>>,
-) -> Output {
-    let expected_stdout = expected_stdout.into();
-    let expected_stderr = expected_stderr.into();
-    let bin_path = Path::new(CRATE).join(OUT_DIR).join(TEST_BINS_OUT).join(bin);
-
-    let mut child = Command::new(&String::from(KEEP_BIN))
-        .current_dir(CRATE)
-        .arg("exec")
-        .arg(bin_path)
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .unwrap_or_else(|e| panic!("failed to run `{}`: {:#?}", bin, e));
-
-    if let Some(input) = input.into() {
-        child
-            .stdin
-            .as_mut()
-            .unwrap()
-            .write_all(input)
-            .expect("failed to write stdin to child");
-
-        drop(child.stdin.take());
-    }
-
-    let output = child
-        .with_output_timeout(Duration::from_secs(TIMEOUT_SECS))
-        .terminating()
-        .wait()
-        .unwrap_or_else(|e| panic!("failed to run `{}`: {:#?}", bin, e))
-        .unwrap_or_else(|| panic!("process `{}` timed out", bin));
-
-    let exit_status = output.status.code().unwrap_or_else(|| {
-        panic!(
-            "process `{}` terminated by signal {:?}",
-            bin,
-            output.status.signal()
-        )
-    });
-
-    // Output potential error messages
-    if expected_stderr.is_none() && !output.stderr.is_empty() {
-        let _ = std::io::stderr().write_all(&output.stderr);
-    }
-
-    if let Some(expected_stdout) = expected_stdout {
-        if output.stdout.len() < MAX_ASSERT_ELEMENTS && expected_stdout.len() < MAX_ASSERT_ELEMENTS
-        {
-            assert_eq!(
-                output.stdout, expected_stdout,
-                "Expected contents of stdout output differs"
-            );
-        } else {
-            assert_eq_slices(expected_stdout, &output.stdout, "stdout output");
-        }
-    }
-
-    if let Some(expected_stderr) = expected_stderr {
-        if output.stderr.len() < MAX_ASSERT_ELEMENTS && expected_stderr.len() < MAX_ASSERT_ELEMENTS
-        {
-            assert_eq!(
-                output.stderr, expected_stderr,
-                "Expected contents of stderr output differs."
-            );
-        } else {
-            assert_eq_slices(expected_stderr, &output.stderr, "stderr output");
-        }
-    }
-
-    if exit_status != status as i64 {
-        assert_eq!(exit_status, status as i64, "Expected exit status differs.");
-    }
-
-    output
-}
+mod common;
+use common::{assert_eq_slices, run_test};
 
 fn read_item<T: Copy>(mut rdr: impl Read) -> std::io::Result<T> {
     let mut item = MaybeUninit::uninit();
