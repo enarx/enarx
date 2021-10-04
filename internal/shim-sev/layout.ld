@@ -37,7 +37,7 @@ reset_vector = 0xFFFFF000;
 _ENARX_SHIM_START = reset_vector;
 _ENARX_SALLYPORT_START = _ENARX_SHIM_START - _ENARX_SALLYPORT_SIZE - 2 * CONSTANT(COMMONPAGESIZE);
 _ENARX_SALLYPORT_END = _ENARX_SALLYPORT_START + _ENARX_SALLYPORT_SIZE;
-_ENARX_EXEC_LEN = 4M;
+_ENARX_EXEC_LEN = 128M;
 
 ASSERT((_ENARX_SHIM_START >= (3 * 0x40000000)), "SHIM_START is too low for current initial identity page table")
 ASSERT((_ENARX_EXEC_START < (6 * 0x40000000)), "SHIM is too large for current initial identity page table")
