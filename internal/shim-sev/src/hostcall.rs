@@ -3,7 +3,7 @@
 //! Host <-> Shim Communication
 
 use crate::addr::{HostVirtAddr, ShimPhysUnencryptedAddr};
-use crate::asm::_enarx_asm_triple_fault;
+use crate::debug::_enarx_asm_triple_fault;
 use crate::spin::RwLocked;
 use crate::_ENARX_SALLYPORT_START;
 use array_const_fn_init::array_const_fn_init;
