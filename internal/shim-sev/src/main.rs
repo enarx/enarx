@@ -31,6 +31,7 @@ pub mod paging;
 pub mod payload;
 pub mod random;
 pub mod shim_stack;
+pub mod snp;
 pub mod spin;
 mod start;
 pub mod syscall;
@@ -38,8 +39,11 @@ pub mod usermode;
 
 use crate::attestation::SevSecret;
 use crate::debug::print_stack_trace;
-use crate::pagetables::switch_sallyport_to_unencrypted;
+use crate::pagetables::unmap_identity;
 use crate::print::{enable_printing, is_printing_enabled};
+use crate::snp::cpuid_page::CpuidPage;
+use crate::snp::ghcb::Ghcb;
+use crate::snp::secrets_page::SnpSecretsPage;
 use core::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use goblin::elf::header::header64::Header;
 use noted::noted;
@@ -71,6 +75,12 @@ extern "C" {
     pub static _ENARX_EXEC_START: Header;
     /// Extern
     pub static _ENARX_EXEC_END: Page4KiB;
+    /// Extern
+    pub static _ENARX_CPUID: CpuidPage;
+    /// Extern
+    pub static mut _ENARX_GHCB: Ghcb;
+    /// Extern
+    pub static mut _ENARX_SECRETS: SnpSecretsPage;
 }
 
 /// Get the SEV C-Bit mask
@@ -112,7 +122,7 @@ pub unsafe extern "sysv64" fn _start_main(c_bit_mask: u64) -> ! {
         .write()
         .replace((&_ENARX_SALLYPORT_START as *const _ as *const SevSecret).read());
 
-    switch_sallyport_to_unencrypted(c_bit_mask);
+    unmap_identity();
 
     // Everything setup, so print works
     enable_printing();
