@@ -3,14 +3,12 @@
 //! Functions dealing with the payload
 use crate::addr::ShimPhysAddr;
 use crate::allocator::ALLOCATOR;
-use crate::paging::SHIM_PAGETABLE;
 use crate::random::random;
 use crate::shim_stack::init_stack_with_guard;
 use crate::usermode::usermode;
 use crate::PAYLOAD_READY;
 
 use core::convert::TryFrom;
-use core::ops::DerefMut;
 use core::sync::atomic::Ordering;
 use crt0stack::{self, Builder, Entry};
 use goblin::elf::header::header64::Header;
@@ -99,7 +97,6 @@ fn map_elf(app_virt_start: VirtAddr) -> &'static Header {
         ALLOCATOR
             .write()
             .map_memory(
-                SHIM_PAGETABLE.write().deref_mut(),
                 map_from,
                 map_to,
                 ph.p_memsz as _,

@@ -308,15 +308,14 @@ impl MemorySyscallHandler for Handler {
             flags |= PageTableFlags::NO_EXECUTE;
         }
 
-        let mut page_table = SHIM_PAGETABLE.write();
-
         let start_addr = VirtAddr::from_ptr(addr);
         let start_page: Page = Page::containing_address(start_addr);
         let end_page: Page = Page::containing_address(start_addr + len - 1u64);
         let page_range = Page::range_inclusive(start_page, end_page);
         for page in page_range {
             unsafe {
-                match page_table.update_flags(page, flags) {
+                let ret = SHIM_PAGETABLE.write().update_flags(page, flags);
+                match ret {
                     Ok(flush) => flush.ignore(),
                     Err(e) => {
                         eprintln!(
@@ -367,7 +366,6 @@ impl MemorySyscallHandler for Handler {
                 let mem_slice = ALLOCATOR
                     .write()
                     .allocate_and_map_memory(
-                        SHIM_PAGETABLE.write().deref_mut(),
                         virt_addr,
                         len_aligned,
                         flags,
@@ -403,11 +401,7 @@ impl MemorySyscallHandler for Handler {
 
         ALLOCATOR
             .write()
-            .unmap_memory(
-                SHIM_PAGETABLE.write().deref_mut(),
-                VirtAddr::from_ptr(addr.as_ptr()),
-                length,
-            )
+            .unmap_memory(VirtAddr::from_ptr(addr.as_ptr()), length)
             .map_err(|_| libc::EINVAL)?;
 
         Ok(Default::default())
@@ -448,7 +442,6 @@ impl MemorySyscallHandler for Handler {
                 let _ = ALLOCATOR
                     .write()
                     .allocate_and_map_memory(
-                        SHIM_PAGETABLE.write().deref_mut(),
                         virt_addr,
                         len_aligned,
                         PageTableFlags::PRESENT
