@@ -25,6 +25,8 @@ pub mod debug;
 pub mod gdt;
 pub mod hostcall;
 pub mod hostmap;
+pub mod idt;
+pub mod interrupts;
 pub mod no_std;
 pub mod pagetables;
 pub mod paging;
@@ -124,6 +126,8 @@ pub unsafe extern "sysv64" fn _start_main(c_bit_mask: u64) -> ! {
 /// The entry point for the shim
 extern "C" fn shim_main() -> ! {
     unsafe { gdt::init() };
+    interrupts::init();
+
     payload::execute_payload()
 }
 
