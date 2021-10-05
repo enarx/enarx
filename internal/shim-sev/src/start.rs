@@ -6,10 +6,11 @@
 
 use crate::_start_main;
 use crate::addr::SHIM_VIRT_OFFSET;
-use crate::pagetables::{PDPT_IDENT, PDPT_OFFSET, PDT_IDENT, PDT_OFFSET, PML4T, PT_IDENT};
+use crate::pagetables::{PDPT, PDT_C000_0000, PML4T, PT_FFE0_0000};
 use core::mem::size_of;
 use primordial::Page;
 use rcrt1::dyn_reloc;
+use x86_64::registers::control::{Cr0Flags, Cr4Flags, EferFlags};
 
 #[cfg(not(debug_assertions))]
 const INITIAL_STACK_PAGES: usize = 12;
@@ -30,16 +31,20 @@ static INITIAL_SHIM_STACK: [Page; INITIAL_STACK_PAGES] = [Page::zeroed(); INITIA
 #[link_section = ".reset"]
 pub unsafe extern "sysv64" fn _start() -> ! {
     asm!("
-.set reset_vector, 0xFFFFF000
+.set reset_vector_page, 0xFFFFF000
+
 .macro define_addr name,label
-.set \\name, (reset_vector + (\\label - 99b))
+.set \\name, (reset_vector_page + (\\label - 99b))
 .endm
-99:
+
+99: // 0xFFFF_F000
+
 // A small jump table with well known addresses
 // to be used because of a rust bug for long jumps
 .code32
 // 0xFFFF_F000
     jmp     30f      // jump to code32_start
+
 .align 8
 .code64
 // 0xFFFF_F008
@@ -48,7 +53,6 @@ pub unsafe extern "sysv64" fn _start() -> ! {
 .align 8
 66:
 define_addr gdt32_ptr 66b
-.align 8
 // gdt32_ptr == 0xFFFF_F010
     .short gdt32_end - gdt32_start - 1 // GDT length is actually (length - 1)
     .long gdt32_start // address of gdt32_start
@@ -94,13 +98,13 @@ define_addr code16_start 20b
     // setup CR0
     mov     eax,    cr0
     // set  PROTECTED_MODE_ENABLE
-    or      al,     0x1
+    or      al,     {PROTECTED_MODE_ENABLE}
     mov     cr0,    eax
 
     // Due to a rust/LLVM bug, we have to use an absolute address here
     // expressions like (reset_vector + (label_2 - label_3)) don't seem to work
     // jmpl    0x8,    code32_start
-    jmpl    0x8,    reset_vector
+    jmpl    0x8,    reset_vector_page
 
 define_addr code32_start 30f
 30:  // code32_start:
@@ -109,34 +113,31 @@ define_addr code32_start 30f
     mov     ds,     ax
     mov     ss,     ax
 
-    // Check if we have a valid (0x8000_001F) CPUID leaf
-    mov     eax,    0x80000000
-    cpuid
+    mov     eax,    DWORD PTR {CPUID_PAGE}
+    mov     ecx,    DWORD PTR [eax]
 
-    // This check should fail on Intel or Non SEV AMD CPUs. In future if
-    // Intel CPUs supports this CPUID leaf then we are guaranteed to have exact
-    // same bit definition.
-    cmp     eax,    0x8000001f
-    jl      2f
+    test    ecx,    ecx
+    je      2f
 
-    // Check for memory encryption feature:
-    //  CPUID  Fn8000_001F[EAX] - Bit 1
-    mov     eax,    0x8000001f
-    cpuid
-    bt      eax,    1
-    jnc     2f
+    add    ecx,     0x1
+13:
+    add    ecx,     0xffffffff
 
-    // Check if memory encryption is enabled
-    //  MSR_0xC0010131 - Bit 0 (SEV enabled)
-    mov     ecx,    0xc0010131
-    rdmsr
-    bt      eax,    0
-    jnc     2f
+    // CPUID not found
+    je     88f
 
+    mov    edi,     eax
+    add    eax,     0x30
     // Get pte bit position to enable memory encryption
     // CPUID Fn8000_001F[EBX] - Bits 5:0
+    cmp    DWORD PTR [edi+0x10],0x8000001f
+    jne    13b
+    cmp    DWORD PTR [edi+0x14],0
+    jne    13b
+
+    // found the entry
+    mov    ebx,     DWORD PTR [edi+0x2C]
     and     ebx,    0x3f
-    mov     eax,    ebx
 
     // The encryption bit position is always above 31
     sub     ebx,    32
@@ -149,13 +150,13 @@ define_addr code32_start 30f
 
 3:
     // Correct initial PML3
-    mov     eax, 0xFFFFF000 - 0x2000
+    mov     eax,    {INITIAL_PML3}
     or      [eax + 4 + 3*8], edx
     or      [eax + 4 + 4*8], edx
     or      [eax + 4 + 5*8], edx
 
     // Correct initial PML4
-    mov     eax, 0xFFFFF000 - 0x1000
+    mov     eax, {INITIAL_PML4}
     // Set C-Bit in PML4 - pre 64bit
     or      [eax + 4], edx
 
@@ -168,7 +169,7 @@ define_addr code32_start 30f
     // setup CR4
     mov     eax,    cr4
     // set FSGSBASE | PAE | OSFXSR | OSXMMEXCPT | OSXSAVE
-    or      eax,    0x50620
+    or      eax,    {CR4_FLAGS}
     mov     cr4,    eax
 
     // setup EFER
@@ -176,21 +177,33 @@ define_addr code32_start 30f
     // FIXME: what about already set bits?
     mov     ecx,    0xc0000080
     rdmsr
-    or      eax,    0xd01
-    mov     ecx,    0xc0000080
+    or      eax,    {EFER_FLAGS}
     wrmsr
 
     // setup CR0
     mov     eax,    cr0
-    // mask EMULATE_COPROCESSOR | MONITOR_COPROCESSOR
-    and     eax,    0x60050009
-    // set  PROTECTED_MODE_ENABLE | NUMERIC_ERROR | PAGING
-    or      eax,    0x80000021
+    // set PG
+    or     eax,     {CR0_PAGING}
+    // enable paging
     mov     cr0,    eax
 
     // Due to a rust/LLVM bug, we have to use an absolute address here
     // jmpl    0x18,    code64_start
-    jmpl    0x18,   (reset_vector + 0x8)
+    jmpl    0x18,   (reset_vector_page + 0x8)
+
+88: // Terminate with a GHCB exit
+    // set exit reason and exit code
+    mov     eax,    (0x2 << 16) + 0x1100
+    xor     edx,    edx
+    mov     ecx,    {SEV_GHCB_MSR}
+    wrmsr
+    rep     vmmcall
+    #
+    # We shouldn't come back from the VMGEXIT, but if we do, just loop.
+    #
+2:
+    hlt
+    jmp 2b
 
 define_addr code64_start 40f
 40: // code64_start:
@@ -205,15 +218,34 @@ define_addr code64_start 40f
     // Setup the pagetables
     // done dynamically, otherwise we would have to correct the dynamic symbols twice
 
-    // setup PDPT_OFFSET in PML4T table
+    // setup PDPT in PML4T table
     lea     rax,    [rip + {PML4T}]
-    lea     rbx,    [rip + {PDPT_OFFSET}]
+    lea     rbx,    [rip + {PDPT}]
     or      rbx,    r12         // set C-bit
     or      rbx,    0x3         // (WRITABLE | PRESENT)
+    // SHIM_VIRT_OFFSET
     mov     QWORD PTR [rax + ((({SHIM_VIRT_OFFSET} & 0xFFFFFFFFFFFF) >> 39)*8)],   rbx
+    // IDENTITY
+    mov     QWORD PTR [rax],    rbx
 
-    // set C-bit in all entries of the PDT_OFFSET table
-    lea     rbx,    [rip + {PDT_OFFSET}]
+    // setup PDPT table entry 0 with PDT_C000_0000 table
+    lea     rbx,    [rip + {PDPT}]
+    lea     rcx,    [rip + {PDT_C000_0000}]
+    or      rcx,    r12         // set C-bit
+    or      rcx,    0x3         // ( WRITABLE | PRESENT)
+    // store PDT_C000_0000 table in PDPT in the correct slot
+    // 3: 0xc000_0000 - 0x1_0000_0000
+    mov     QWORD PTR [rbx + 3*8],    rcx
+
+    lea     rcx,    [rip + {PDT_C000_0000}]
+    lea     rbx,    [rip + {PT_FFE0_0000}]
+    or      rbx,    r12         // set C-bit
+    or      rbx,    0x3         // ( WRITABLE | PRESENT)
+    // store PT_FFE0_0000 table in PDT_C000_0000 in the correct slot
+    mov     QWORD PTR [rcx + 511*8],    rbx
+
+    // set C-bit in all entries of the PDPT table
+    lea     rbx,    [rip + {PDPT}]
     mov     rdx,    r11
     mov     ecx,    512         // Counter to 512 page table entries
     add     rbx,    4           // Pre-advance pointer by 4 bytes for the higher 32bit
@@ -222,8 +254,8 @@ define_addr code64_start 40f
     add     rbx,    8           // advance pointer by 8
     loop    4b
 
-    // set C-bit in all entries of the PDPT_OFFSET table
-    lea     rbx,    [rip + {PDPT_OFFSET}]
+    // set C-bit in all entries of the PDT_C000_0000 table
+    lea     rbx,    [rip + {PDT_C000_0000}]
     mov     rdx,    r11
     mov     ecx,    512         // Counter to 512 page table entries
     add     rbx,    4           // Pre-advance pointer by 4 bytes for the higher 32bit
@@ -232,17 +264,8 @@ define_addr code64_start 40f
     add     rbx,    8           // advance pointer by 8
     loop    5b
 
-    // setup PDPT_OFFSET table entry 0 with PDT_OFFSET table
-    lea     rbx,    [rip + {PDPT_OFFSET}]
-    lea     rcx,    [rip + {PDT_OFFSET}]
-    or      rcx,    r12         // set C-bit
-    or      rcx,    0x3         // ( WRITABLE | PRESENT)
-    // store PDT_OFFSET table in PDPT_OFFSET in the correct slot
-    // 3: 0xc000_0000 - 0x1_0000_0000
-    mov     QWORD PTR [rbx + 3*8],    rcx
-
-    // set C-bit in all entries of the PT_IDENT table
-    lea     rbx,    [rip + {PT_IDENT}]
+    // set C-bit in all entries of the PT_FFE0_0000 table
+    lea     rbx,    [rip + {PT_FFE0_0000}]
     mov     rdx,    r11
     mov     ecx,    512         // Counter to 512 page table entries
     add     rbx,    4           // Pre-advance pointer by 4 bytes for the higher 32bit
@@ -250,26 +273,6 @@ define_addr code64_start 40f
     or      DWORD PTR [rbx],edx // set C-bit
     add     rbx,    8           // advance pointer by 8
     loop    6b
-
-    lea     rcx,    [rip + {PDT_IDENT}]
-    lea     rbx,    [rip + {PT_IDENT}]
-    or      rbx,    r12         // set C-bit
-    or      rbx,    0x3         // ( WRITABLE | PRESENT)
-    // store PT_IDENT table in PDT_IDENT in the correct slot
-    mov     QWORD PTR [rcx + 511*8],    rbx
-
-    // setup PDPT_IDENT table entry 3 with PDT_IDENT table
-    lea     rbx,    [rip + {PDPT_IDENT}]
-    or      rcx,    r12         // set C-bit
-    or      rcx,    0x3         // ( WRITABLE | PRESENT)
-    // store PDT_IDENT table in PDPT_IDENT in the correct slot
-    mov     QWORD PTR [rbx + 8*3],    rcx
-
-    // setup PDPT_IDENT in PML4T table
-    or      rbx,    r12         // set C-bit
-    or      rbx,    0x3         // ( WRITABLE | PRESENT)
-    lea     rax,    [rip + {PML4T}]
-    mov     QWORD PTR [rax],    rbx
 
     or      rax,    r12         // set C-bit for new CR3
     mov     cr3,    rax
@@ -279,6 +282,7 @@ define_addr code64_start 40f
     lea     rax,    [rip + 50f] // trampoline
     mov     rsi,    {SHIM_VIRT_OFFSET}
     adox    rax,    rsi
+
     jmp     rax                 // trampoline
 
 50: // trampoline:
@@ -300,14 +304,18 @@ define_addr code64_start 40f
     mov     rdi,    r12
     xor     rbp,    rbp
 
+    sub     rsp,    8
+    push    rbp
+
     // arg1 %rdi  = SEV C-bit mask
     call    {START_MAIN}
+
 97: // end of code
-.fill((0xFF0 - (97b - 99b)))
+.fill (0xFF0 - (97b - 99b))
 
 // reset vector @ 0xFFFF_FFF0
 .code16
-    jmp 20b
+    jmp     20b
     hlt
 
 98: // end of reset vector jump table
@@ -317,18 +325,24 @@ define_addr code64_start 40f
 
 // END OF PAGE
     ",
+    EFER_FLAGS = const (EferFlags::LONG_MODE_ENABLE.bits() | EferFlags::SYSTEM_CALL_EXTENSIONS.bits() | EferFlags::NO_EXECUTE_ENABLE.bits()),
     SHIM_VIRT_OFFSET = const SHIM_VIRT_OFFSET,
     SIZE_OF_INITIAL_STACK = const INITIAL_STACK_PAGES * size_of::<Page>(),
     PAGE_SIZE = const size_of::<Page>(),
     DYN_RELOC = sym dyn_reloc,
     START_MAIN = sym _start_main,
     PML4T = sym PML4T,
-    PDPT_OFFSET = sym PDPT_OFFSET,
-    PDT_OFFSET = sym PDT_OFFSET,
-    PT_IDENT = sym PT_IDENT,
-    PDT_IDENT = sym PDT_IDENT,
-    PDPT_IDENT = sym PDPT_IDENT,
+    PDPT = sym PDPT,
+    PDT_C000_0000 = sym PDT_C000_0000,
+    PT_FFE0_0000 = sym PT_FFE0_0000,
     INITIAL_SHIM_STACK = sym INITIAL_SHIM_STACK,
+    CPUID_PAGE = const 0xFFFF_C000u32,
+    INITIAL_PML3 = const 0xFFFF_D000u32,
+    INITIAL_PML4 = const 0xFFFF_E000u32,
+    SEV_GHCB_MSR = const 0xC001_0130u32,
+    CR4_FLAGS = const (Cr4Flags::FSGSBASE.bits() | Cr4Flags::PHYSICAL_ADDRESS_EXTENSION.bits() | Cr4Flags::OSFXSR.bits() | Cr4Flags::OSXMMEXCPT_ENABLE.bits() | Cr4Flags::OSXSAVE.bits()),
+    PROTECTED_MODE_ENABLE = const Cr0Flags::PROTECTED_MODE_ENABLE.bits(),
+    CR0_PAGING = const Cr0Flags::PAGING.bits(),
     options(noreturn)
     )
 }
