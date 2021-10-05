@@ -7,7 +7,7 @@
 
 use crate::addr::SHIM_VIRT_OFFSET;
 use crate::addr::{BYTES_1_GIB, BYTES_2_MIB};
-use crate::asm::_early_debug_panic;
+use crate::debug::_early_debug_panic;
 use crate::paging::EncPhysOffset;
 use crate::{
     paging, _ENARX_EXEC_END, _ENARX_SALLYPORT_END, _ENARX_SALLYPORT_START, _ENARX_SHIM_START,

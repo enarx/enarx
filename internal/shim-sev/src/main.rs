@@ -20,8 +20,8 @@ pub mod print;
 
 pub mod addr;
 pub mod allocator;
-pub mod asm;
 pub mod attestation;
+pub mod debug;
 pub mod gdt;
 pub mod hostcall;
 pub mod hostmap;
@@ -37,19 +37,15 @@ pub mod syscall;
 pub mod usermode;
 
 use crate::attestation::SevSecret;
+use crate::debug::print_stack_trace;
 use crate::pagetables::switch_sallyport_to_unencrypted;
-use crate::paging::SHIM_PAGETABLE;
-use crate::payload::PAYLOAD_VIRT_ADDR;
 use crate::print::{enable_printing, is_printing_enabled};
-use core::mem::size_of;
 use core::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use goblin::elf::header::header64::Header;
 use noted::noted;
 use primordial::Page as Page4KiB;
 use sallyport::{elf::note, Block, REQUIRES};
 use spinning::RwLock;
-use x86_64::structures::paging::Translate;
-use x86_64::VirtAddr;
 
 noted! {
     static NOTE_ENARX_SALLYPORT<note::NAME, note::REQUIRES, [u8; REQUIRES.len()]> = REQUIRES;
@@ -139,7 +135,7 @@ extern "C" fn shim_main() -> ! {
 /// if it can't print the panic and exit normally with an error code.
 #[panic_handler]
 pub fn panic(info: &core::panic::PanicInfo) -> ! {
-    use asm::_enarx_asm_triple_fault;
+    use debug::_enarx_asm_triple_fault;
 
     static mut ALREADY_IN_PANIC: AtomicBool = AtomicBool::new(false);
 
@@ -151,7 +147,7 @@ pub fn panic(info: &core::panic::PanicInfo) -> ! {
                 .is_ok()
         {
             print::_eprint(format_args!("{}\n", info));
-            stack_trace();
+            print_stack_trace();
             // FIXME: might want to have a custom panic hostcall
             hostcall::shim_exit(255);
         }
@@ -159,66 +155,4 @@ pub fn panic(info: &core::panic::PanicInfo) -> ! {
 
     // provoke triple fault, causing a VM shutdown
     unsafe { _enarx_asm_triple_fault() }
-}
-
-#[inline(never)]
-unsafe fn stack_trace() {
-    let mut rbp: usize;
-
-    asm!("mov {}, rbp", out(reg) rbp);
-
-    print::_eprint(format_args!("TRACE:\n"));
-
-    if SHIM_PAGETABLE.try_read().is_none() {
-        SHIM_PAGETABLE.force_unlock_write()
-    }
-
-    let shim_offset = crate::addr::SHIM_VIRT_OFFSET as usize;
-
-    let active_table = SHIM_PAGETABLE.read();
-
-    //Maximum 64 frames
-    for _frame in 0..64 {
-        if rbp == 0
-            || active_table
-                .translate_addr(VirtAddr::new(rbp as _))
-                .is_none()
-        {
-            break;
-        }
-
-        if let Some(rip_rbp) = rbp.checked_add(size_of::<usize>() as _) {
-            if active_table
-                .translate_addr(VirtAddr::new(rip_rbp as _))
-                .is_none()
-            {
-                break;
-            }
-
-            let rip = *(rip_rbp as *const usize);
-            if let Some(rip) = rip.checked_sub(1) {
-                if rip == 0 {
-                    break;
-                }
-
-                if let Some(rip) = rip.checked_sub(shim_offset) {
-                    print::_eprint(format_args!("  0x{:>016x}\n", rip));
-                    rbp = *(rbp as *const usize);
-                } else if PAYLOAD_READY.load(Ordering::Relaxed) {
-                    if let Some(rip) = rip.checked_sub(PAYLOAD_VIRT_ADDR.read().as_u64() as _) {
-                        print::_eprint(format_args!("P 0x{:>016x}\n", rip));
-                        rbp = *(rbp as *const usize);
-                    } else {
-                        break;
-                    }
-                }
-            } else {
-                // RIP zero
-                break;
-            }
-        } else {
-            // RBP OVERFLOW
-            break;
-        }
-    }
 }
