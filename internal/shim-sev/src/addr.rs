@@ -19,11 +19,12 @@ pub const BYTES_1_GIB: u64 = bytes![1; GiB];
 
 use crate::get_cbit_mask;
 use crate::hostmap::HOSTMAP;
-use core::convert::TryFrom;
-use core::ops::Range;
+use crate::paging::SHIM_PAGETABLE;
+use core::convert::{TryFrom, TryInto};
 use nbytes::bytes;
 use primordial::{Address, Register};
-use x86_64::PhysAddr;
+use x86_64::structures::paging::Translate;
+use x86_64::{PhysAddr, VirtAddr};
 
 /// Address in the host virtual address space
 pub struct HostVirtAddr<U>(Address<u64, U>);
@@ -41,7 +42,7 @@ impl<U> HostVirtAddr<U> {
 impl<U> From<ShimPhysUnencryptedAddr<U>> for HostVirtAddr<U> {
     #[inline(always)]
     fn from(val: ShimPhysUnencryptedAddr<U>) -> Self {
-        HOSTMAP.shim_phys_to_host_virt(val)
+        HOSTMAP.shim_phys_to_host_virt(PhysAddr::new(val.0.raw()))
     }
 }
 
@@ -52,6 +53,13 @@ where
     #[inline(always)]
     fn from(val: HostVirtAddr<U>) -> Self {
         Register::<u64>::from(val.0).into()
+    }
+}
+
+impl<T: Sized> From<HostVirtAddr<T>> for Address<usize, T> {
+    #[inline(always)]
+    fn from(val: HostVirtAddr<T>) -> Self {
+        val.0.into()
     }
 }
 
@@ -90,22 +98,31 @@ impl<U> ShimPhysAddr<U> {
     }
 }
 
+impl<U> TryFrom<*const U> for ShimPhysAddr<U> {
+    type Error = ();
+
+    fn try_from(value: *const U) -> Result<Self, Self::Error> {
+        let pa = SHIM_PAGETABLE
+            .read()
+            .translate_addr(VirtAddr::from_ptr(value))
+            .ok_or(())?;
+        Ok(unsafe { Self(Address::unchecked(pa.as_u64())) })
+    }
+}
+
 /// Address in the shim virtual address space
 #[derive(Clone)]
 pub struct ShimVirtAddr<U>(Address<u64, U>);
 
-impl<U> TryFrom<Address<u64, U>> for ShimVirtAddr<U> {
-    type Error = ();
+impl<U> From<&U> for ShimVirtAddr<U> {
+    fn from(val: &U) -> Self {
+        ShimVirtAddr(Address::from(val))
+    }
+}
 
-    #[inline(always)]
-    fn try_from(value: Address<u64, U>) -> Result<Self, Self::Error> {
-        let value = value.raw();
-
-        if value < SHIM_VIRT_OFFSET {
-            return Err(());
-        }
-
-        Ok(Self(unsafe { Address::unchecked(value) }))
+impl<U> From<*const U> for ShimVirtAddr<U> {
+    fn from(val: *const U) -> Self {
+        ShimVirtAddr(Address::from(val))
     }
 }
 
@@ -148,17 +165,37 @@ impl<U> TryFrom<ShimVirtAddr<U>> for ShimPhysAddr<U> {
 }
 
 /// Address in the shim virtual address space
+#[derive(Copy, Clone)]
 pub struct ShimPhysUnencryptedAddr<U>(Address<u64, U>);
 
 impl<U> ShimPhysUnencryptedAddr<U> {
     /// Get the raw address
+    #[inline(always)]
     pub fn raw(self) -> Address<u64, U> {
         self.0
     }
 
     /// convert to mutable reference
+    #[inline(always)]
     pub fn into_mut<'a>(self) -> &'a mut U {
-        unsafe { &mut *(self.0.raw() as *mut U) }
+        unsafe { &mut *(self.0.raw().checked_add(SHIM_VIRT_OFFSET).unwrap() as *mut U) }
+    }
+}
+
+impl<U> TryFrom<*const U> for ShimPhysUnencryptedAddr<U> {
+    type Error = ();
+
+    fn try_from(value: *const U) -> Result<Self, Self::Error> {
+        let pa = SHIM_PAGETABLE
+            .read()
+            .translate_addr(VirtAddr::from_ptr(value))
+            .ok_or(())?;
+
+        if pa.as_u64() & get_cbit_mask() != 0 {
+            return Err(());
+        }
+
+        Ok(unsafe { Self(Address::unchecked(pa.as_u64())) })
     }
 }
 
@@ -168,20 +205,9 @@ impl<U> TryFrom<ShimVirtAddr<U>> for ShimPhysUnencryptedAddr<U> {
     #[inline(always)]
     fn try_from(value: ShimVirtAddr<U>) -> Result<Self, Self::Error> {
         #[allow(clippy::integer_arithmetic)]
-        let value = value.0.raw();
+        let value = value.0;
 
-        if !(Range {
-            start: unsafe { &crate::_ENARX_SALLYPORT_START as *const _ as u64 },
-            end: unsafe { &crate::_ENARX_SALLYPORT_END as *const _ as u64 },
-        })
-        .contains(&value)
-        {
-            return Err(());
-        }
-
-        let value = value.checked_sub(SHIM_VIRT_OFFSET).ok_or(())? & (!get_cbit_mask());
-
-        Ok(Self(unsafe { Address::unchecked(value) }))
+        value.try_into()
     }
 }
 
@@ -192,10 +218,15 @@ impl<U> TryFrom<Address<u64, U>> for ShimPhysUnencryptedAddr<U> {
     fn try_from(value: Address<u64, U>) -> Result<Self, Self::Error> {
         let value = value.raw();
 
-        if (value & get_cbit_mask()) != 0 {
+        let pa = SHIM_PAGETABLE
+            .read()
+            .translate_addr(VirtAddr::new(value))
+            .ok_or(())?;
+
+        if pa.as_u64() & get_cbit_mask() != 0 {
             return Err(());
         }
 
-        Ok(Self(unsafe { Address::unchecked(value) }))
+        Ok(Self(unsafe { Address::unchecked(pa.as_u64()) }))
     }
 }

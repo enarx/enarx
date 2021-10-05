@@ -2,7 +2,7 @@
 
 //! The global Allocator
 
-use crate::addr::{ShimPhysAddr, ShimVirtAddr};
+use crate::addr::{ShimPhysAddr, ShimVirtAddr, SHIM_VIRT_OFFSET};
 use crate::get_cbit_mask;
 use crate::hostcall::HOST_CALL_ALLOC;
 use crate::hostmap::HOSTMAP;
@@ -142,19 +142,13 @@ impl EnarxAllocator {
         let max_alloc = (2usize).checked_pow(max_exp).unwrap();
 
         let mem_start: PhysAddr = {
-            let address = Address::<u64, _>::from(&crate::_ENARX_MEM_START);
-            let shim_virt = ShimVirtAddr::try_from(address).unwrap();
+            let shim_virt = ShimVirtAddr::from(&crate::_ENARX_MEM_START);
             PhysAddr::new(ShimPhysAddr::try_from(shim_virt).unwrap().raw().raw())
         };
 
         let code_size = {
-            let code_start = &crate::_ENARX_EXEC_START;
-
-            let app_load_addr = Address::<u64, Header>::from(code_start);
-            let app_load_addr_virt = ShimVirtAddr::try_from(app_load_addr).unwrap();
-
-            let header_ptr: *const Header = app_load_addr_virt.into();
-            let header: &Header = &*header_ptr;
+            let header: &Header = &crate::_ENARX_EXEC_START;
+            let header_ptr = header as *const _;
 
             if !header.e_ident[..ELFMAG.len()].eq(ELFMAG) {
                 panic!("Not valid ELF");
@@ -538,12 +532,13 @@ unsafe impl paging::FrameAllocator<Size1GiB> for EnarxAllocator {
     }
 }
 
+// We can't use `ShimPhysAddr::try_from` because `SHIM_PAGETABLE` can't be locked
+// but we need it to point to encrypted pages anyway.
 #[inline]
 fn shim_virt_to_enc_phys<T>(p: *mut T) -> PhysAddr {
-    let addr = Address::<u64, _>::from(p);
-    let virt = ShimVirtAddr::try_from(addr).unwrap();
-    let phys = ShimPhysAddr::try_from(virt).unwrap();
-    PhysAddr::new(phys.raw().raw() | get_cbit_mask())
+    let virt = VirtAddr::from_ptr(p);
+    debug_assert!(virt.as_u64() > SHIM_VIRT_OFFSET);
+    PhysAddr::new(virt.as_u64().checked_sub(SHIM_VIRT_OFFSET).unwrap() | get_cbit_mask())
 }
 
 unsafe impl GlobalAlloc for RwLocked<EnarxAllocator> {

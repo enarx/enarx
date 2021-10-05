@@ -2,13 +2,14 @@
 
 //! Host <-> Shim Communication
 
-use crate::addr::{HostVirtAddr, ShimPhysUnencryptedAddr, ShimVirtAddr};
+use crate::addr::{HostVirtAddr, ShimPhysUnencryptedAddr};
 use crate::asm::_enarx_asm_triple_fault;
 use crate::spin::RwLocked;
+use crate::_ENARX_SALLYPORT_START;
 use array_const_fn_init::array_const_fn_init;
 use core::convert::TryFrom;
 use core::mem::size_of;
-use primordial::{Address, Register};
+use primordial::Register;
 use sallyport::syscall::enarx::MemInfo;
 use sallyport::syscall::{SYS_ENARX_BALLOON_MEMORY, SYS_ENARX_MEM_INFO};
 use sallyport::KVM_SYSCALL_TRIGGER_PORT;
@@ -54,15 +55,7 @@ fn return_empty_option(_i: usize) -> Option<&'static mut Block> {
 
 /// The static HostCall Mutex
 pub static HOST_CALL_ALLOC: Lazy<RwLocked<HostCallAllocator>> = Lazy::new(|| {
-    let block_mut: *mut Block = unsafe {
-        let address =
-            Address::<u64, Block>::from(&crate::_ENARX_SALLYPORT_START as *const _ as *const Block);
-        let shim_virt = ShimVirtAddr::<Block>::try_from(address).unwrap();
-
-        ShimPhysUnencryptedAddr::<Block>::try_from(shim_virt)
-            .unwrap()
-            .into_mut() as *mut _
-    };
+    let block_mut: *mut Block = unsafe { &mut _ENARX_SALLYPORT_START as *mut _ };
 
     let nr_syscall_blocks = unsafe {
         (&crate::_ENARX_SALLYPORT_END as *const _ as usize
@@ -156,13 +149,13 @@ impl HostCall {
     pub unsafe fn write(&mut self, fd: libc::c_int, bytes: &[u8]) -> sallyport::Result {
         let cursor = self.block.as_mut().unwrap().cursor();
         let (_, buf) = cursor.copy_from_slice(bytes).or(Err(libc::EMSGSIZE))?;
+        let phys_unencrypted = ShimPhysUnencryptedAddr::try_from(buf.as_ptr()).unwrap();
 
-        let buf_address = Address::from(buf.as_ptr());
-        let phys_unencrypted = ShimPhysUnencryptedAddr::try_from(buf_address).unwrap();
         let host_virt: HostVirtAddr<_> = phys_unencrypted.into();
 
         self.block.as_mut().unwrap().msg.req =
             request!(libc::SYS_write => fd, host_virt, buf.len());
+
         self.hostcall()
     }
 

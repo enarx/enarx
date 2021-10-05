@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 
 //! Functions dealing with the payload
-use crate::addr::{ShimPhysAddr, ShimVirtAddr};
+use crate::addr::ShimPhysAddr;
 use crate::allocator::ALLOCATOR;
 use crate::paging::SHIM_PAGETABLE;
 use crate::random::random;
 use crate::shim_stack::init_stack_with_guard;
 use crate::usermode::usermode;
-use crate::{get_cbit_mask, PAYLOAD_READY};
+use crate::PAYLOAD_READY;
 
 use core::convert::TryFrom;
 use core::ops::DerefMut;
@@ -17,7 +17,6 @@ use goblin::elf::header::header64::Header;
 use goblin::elf::header::ELFMAG;
 use goblin::elf::program_header::program_header64::*;
 use nbytes::bytes;
-use primordial::Address;
 use spinning::{Lazy, RwLock};
 use x86_64::structures::paging::{Page, PageTableFlags, Size4KiB};
 use x86_64::{PhysAddr, VirtAddr};
@@ -58,13 +57,8 @@ pub static NEXT_MMAP_RWLOCK: Lazy<RwLock<VirtAddr>> = Lazy::new(|| {
 
 /// load the elf binary
 fn map_elf(app_virt_start: VirtAddr) -> &'static Header {
-    let code_start = unsafe { &crate::_ENARX_EXEC_START };
-
-    let app_load_addr = Address::<u64, Header>::from(code_start);
-    let app_load_addr_virt = ShimVirtAddr::try_from(app_load_addr).unwrap();
-
-    let header_ptr: *const Header = app_load_addr_virt.into();
-    let header: &Header = unsafe { &*header_ptr };
+    let header: &Header = unsafe { &crate::_ENARX_EXEC_START };
+    let header_ptr = header as *const _;
 
     if !header.e_ident[..ELFMAG.len()].eq(ELFMAG) {
         panic!("Not valid ELF");
@@ -79,13 +73,10 @@ fn map_elf(app_virt_start: VirtAddr) -> &'static Header {
     };
 
     // Convert to shim physical addresses with potential SEV C-Bit set
-    let code_start_addr_virt = ShimVirtAddr::try_from(app_load_addr).unwrap();
-
-    let code_start_phys = ShimPhysAddr::try_from(code_start_addr_virt)
+    let code_start_phys = ShimPhysAddr::try_from(header as *const _)
         .unwrap()
         .raw()
-        .raw()
-        | get_cbit_mask();
+        .raw();
 
     for ph in headers
         .iter()
