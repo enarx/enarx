@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-//! This crate provides the `enarx-keepldr` executable which loads `static-pie`
+//! This crate provides the `enarx` executable which loads `static-pie`
 //! binaries into an Enarx Keep - that is a hardware isolated environment using
 //! technologies such as Intel SGX or AMD SEV.
 //!
@@ -24,24 +24,24 @@
 //!     EOF
 //!
 //!     $ musl-gcc -static-pie -fPIC -o test test.c
-//!     $ target/debug/enarx-keepldr exec ./test
+//!     $ target/debug/enarx exec ./test
 //!     Hello World!
 //!
 //! # Select a Different Backend
 //!
-//! `enarx-keepldr exec` will probe the machine it is running on
+//! `enarx exec` will probe the machine it is running on
 //! in an attempt to deduce an appropriate deployment backend unless
 //! that target is already specified in an environment variable
 //! called `ENARX_BACKEND`.
 //!
 //! To see what backends are supported on your system, run:
 //!
-//!     $ target/debug/enarx-keepldr info
+//!     $ target/debug/enarx info
 //!
 //! To manually select a backend, set the `ENARX_BACKEND` environment
 //! variable:
 //!
-//!     $ ENARX_BACKEND=sgx target/debug/enarx-keepldr exec ./test
+//!     $ ENARX_BACKEND=sgx target/debug/enarx exec ./test
 //!
 //! Note that some backends are conditionally compiled. They can all
 //! be compiled in like so:

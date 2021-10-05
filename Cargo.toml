@@ -1,12 +1,12 @@
 [package]
-name = "enarx-keepldr"
+name = "enarx"
 version = "0.1.0"
 authors = ["Nathaniel McCallum <npmccallum@redhat.com>"]
 license = "Apache-2.0"
 edition = "2018"
 build = "build.rs"
-homepage = "https://github.com/enarx/enarx-keepldr"
-repository = "https://github.com/enarx/enarx-keepldr"
+homepage = "https://github.com/enarx/enarx"
+repository = "https://github.com/enarx/enarx"
 description = "Enarx Keep Loader"
 readme = "README.md"
 keywords = ["sgx", "sev", "kvm", "tee"]
@@ -16,11 +16,11 @@ include = [ "src", "internal" ]
 
 [badges]
 # See https://doc.rust-lang.org/cargo/reference/manifest.html#the-badges-section
-github = { repository = "enarx/enarx-keepldr", workflow = "test" }
-#github = { repository = "enarx/enarx-keepldr", workflow = "lint" }
+github = { repository = "enarx/enarx", workflow = "test" }
+#github = { repository = "enarx/enarx", workflow = "lint" }
 maintenance = { status = "actively-developed" }
-is-it-maintained-issue-resolution = { repository = "enarx/enarx-keepldr" }
-is-it-maintained-open-issues = { repository = "enarx/enarx-keepldr" }
+is-it-maintained-issue-resolution = { repository = "enarx/enarx" }
+is-it-maintained-open-issues = { repository = "enarx/enarx" }
 
 [features]
 default = ["backend-kvm", "backend-sgx"]

@@ -18,7 +18,7 @@ use std::sync::Arc;
 use tempdir::TempDir;
 
 const CRATE: &str = env!("CARGO_MANIFEST_DIR");
-const KEEP_BIN: &str = env!("CARGO_BIN_EXE_enarx-keepldr");
+const KEEP_BIN: &str = env!("CARGO_BIN_EXE_enarx");
 const OUT_DIR: &str = env!("OUT_DIR");
 const TEST_BINS_OUT: &str = "bin";
 const TIMEOUT_SECS: u64 = 10;

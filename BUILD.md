@@ -17,7 +17,7 @@ worked at some point in the past and therefore they are listed here
 in the hopes that they might be useful to you.
 
 Please feel free to file a pull request to add your favorite distribution
-if you're able to build and run the `enarx-keepldr` test suite.
+if you're able to build and run the `enarx` test suite.
 
 ### A note on gcc
 
@@ -34,7 +34,7 @@ Failure to do so might result in weird failures at runtime.
 
 Note: you may want to add that final `source` command to a `~/.profile`,
 `~/.bashrc` / or `~/.bash_profile` equivalent, otherwise you must remember
-to source that file prior to building `enarx-keepldr`.
+to source that file prior to building `enarx`.
 
 ### Debian / Ubuntu
 
@@ -49,6 +49,6 @@ to source that file prior to building `enarx-keepldr`.
 
 ## Build
 
-    $ git clone https://github.com/enarx/enarx-keepldr
-    $ cd enarx-keepldr/
+    $ git clone https://github.com/enarx/enarx
+    $ cd enarx/
     $ cargo build
