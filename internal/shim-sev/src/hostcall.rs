@@ -4,8 +4,9 @@
 
 use crate::addr::{HostVirtAddr, ShimPhysUnencryptedAddr};
 use crate::debug::_enarx_asm_triple_fault;
+use crate::snp::ghcb::GHCB;
 use crate::spin::RwLocked;
-use crate::_ENARX_SALLYPORT_START;
+use crate::{get_cbit_mask, _ENARX_SALLYPORT_END, _ENARX_SALLYPORT_START};
 use array_const_fn_init::array_const_fn_init;
 use core::convert::TryFrom;
 use core::mem::size_of;
@@ -16,7 +17,8 @@ use sallyport::KVM_SYSCALL_TRIGGER_PORT;
 use sallyport::{request, Block};
 use spinning::Lazy;
 use x86_64::instructions::port::Port;
-use x86_64::PhysAddr;
+use x86_64::structures::paging::{Page, Size4KiB};
+use x86_64::{PhysAddr, VirtAddr};
 
 /// Host file descriptor
 #[derive(Copy, Clone)]
@@ -55,6 +57,20 @@ fn return_empty_option(_i: usize) -> Option<&'static mut Block> {
 
 /// The static HostCall Mutex
 pub static HOST_CALL_ALLOC: Lazy<RwLocked<HostCallAllocator>> = Lazy::new(|| {
+    if get_cbit_mask() != 0 {
+        // For SEV-SNP mark the sallyport pages as shared/unencrypted
+
+        let npages = (unsafe {
+            &_ENARX_SALLYPORT_END as *const _ as usize
+                - &_ENARX_SALLYPORT_START as *const _ as usize
+        }) / Page::<Size4KiB>::SIZE as usize;
+
+        GHCB.set_memory_shared(
+            VirtAddr::from_ptr(unsafe { &_ENARX_SALLYPORT_START }),
+            npages,
+        );
+    }
+
     let block_mut: *mut Block = unsafe { &mut _ENARX_SALLYPORT_START as *mut _ };
 
     let nr_syscall_blocks = unsafe {
@@ -115,15 +131,24 @@ impl HostCall {
     /// The parameters returned can't be trusted.
     #[inline(always)]
     pub unsafe fn hostcall(&mut self) -> sallyport::Result {
-        let mut port = Port::<u16>::new(KVM_SYSCALL_TRIGGER_PORT);
+        if get_cbit_mask() == 0 {
+            let mut port = Port::<u16>::new(KVM_SYSCALL_TRIGGER_PORT);
 
-        // prevent earlier writes from being moved beyond this point
-        core::sync::atomic::compiler_fence(core::sync::atomic::Ordering::Release);
+            // prevent earlier writes from being moved beyond this point
+            core::sync::atomic::compiler_fence(core::sync::atomic::Ordering::Release);
 
-        port.write(self.block_index);
+            port.write(self.block_index);
 
-        // prevent later reads from being moved before this point
-        core::sync::atomic::compiler_fence(core::sync::atomic::Ordering::Acquire);
+            // prevent later reads from being moved before this point
+            core::sync::atomic::compiler_fence(core::sync::atomic::Ordering::Acquire);
+        } else {
+            // prevent earlier writes from being moved beyond this point
+            core::sync::atomic::compiler_fence(core::sync::atomic::Ordering::Release);
+
+            GHCB.do_io_out(KVM_SYSCALL_TRIGGER_PORT, self.block_index);
+            // prevent later reads from being moved before this point
+            core::sync::atomic::compiler_fence(core::sync::atomic::Ordering::Acquire);
+        }
 
         self.block.as_mut().unwrap().msg.rep.into()
     }
