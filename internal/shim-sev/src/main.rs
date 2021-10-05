@@ -37,7 +37,6 @@ mod start;
 pub mod syscall;
 pub mod usermode;
 
-use crate::attestation::SevSecret;
 use crate::debug::print_stack_trace;
 use crate::pagetables::unmap_identity;
 use crate::print::{enable_printing, is_printing_enabled};
@@ -49,16 +48,12 @@ use goblin::elf::header::header64::Header;
 use noted::noted;
 use primordial::Page as Page4KiB;
 use sallyport::{elf::note, Block, REQUIRES};
-use spinning::RwLock;
 
 noted! {
     static NOTE_ENARX_SALLYPORT<note::NAME, note::REQUIRES, [u8; REQUIRES.len()]> = REQUIRES;
 }
 
 static C_BIT_MASK: AtomicU64 = AtomicU64::new(0);
-
-static SEV_SECRET: RwLock<Option<SevSecret>> =
-    RwLock::<Option<SevSecret>>::const_new(spinning::RawRwLock::const_new(), None);
 
 static PAYLOAD_READY: AtomicBool = AtomicBool::new(false);
 
@@ -116,11 +111,6 @@ pub unsafe fn switch_shim_stack(ip: extern "C" fn() -> !, sp: u64) -> ! {
 /// Do not call from Rust.
 pub unsafe extern "sysv64" fn _start_main(c_bit_mask: u64) -> ! {
     C_BIT_MASK.store(c_bit_mask, Ordering::Relaxed);
-
-    // make a local copy of boot_info, before the shared page gets overwritten
-    SEV_SECRET
-        .write()
-        .replace((&_ENARX_SALLYPORT_START as *const _ as *const SevSecret).read());
 
     unmap_identity();
 
