@@ -64,7 +64,7 @@ static PAYLOAD_READY: AtomicBool = AtomicBool::new(false);
 
 extern "C" {
     /// Extern
-    pub static _ENARX_SALLYPORT_START: Block;
+    pub static mut _ENARX_SALLYPORT_START: Block;
     /// Extern
     pub static _ENARX_SALLYPORT_END: Page4KiB;
     /// Extern

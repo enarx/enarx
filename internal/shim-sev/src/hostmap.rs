@@ -39,7 +39,7 @@
 //!                                 |          |
 //!                                 |          |
 //! ```
-use crate::addr::{HostVirtAddr, ShimPhysUnencryptedAddr};
+use crate::addr::HostVirtAddr;
 
 use crate::print::PrintBarrier;
 use crate::spin::RwLocked;
@@ -183,17 +183,13 @@ impl RwLocked<HostMap> {
     }
 
     /// Translate a shim physical unencrypted address to a host virtual address
-    pub fn shim_phys_to_host_virt<U>(
-        &self,
-        shim_phys: ShimPhysUnencryptedAddr<U>,
-    ) -> HostVirtAddr<U> {
+    pub fn shim_phys_to_host_virt<U>(&self, shim_phys: PhysAddr) -> HostVirtAddr<U> {
         let this = self.read();
-        let addr = PhysAddr::new(shim_phys.raw().raw() as _);
 
-        let virt_addr = this.get_virt_addr(addr).unwrap_or_else(|| {
+        let virt_addr = this.get_virt_addr(shim_phys).unwrap_or_else(|| {
             panic!(
                 "Trying to get virtual offset from unmmapped location {:#?}",
-                addr
+                shim_phys
             )
         });
 
