@@ -8,6 +8,7 @@ use crate::shim_stack::init_stack_with_guard;
 use crate::usermode::usermode;
 use crate::PAYLOAD_READY;
 
+use crate::snp::cpuid;
 use core::convert::TryFrom;
 use core::sync::atomic::Ordering;
 use crt0stack::{self, Builder, Entry};
@@ -125,7 +126,8 @@ fn crt0setup(
     let ph_header = app_virt_start + header.e_phoff;
     let ph_entry = app_virt_start + header.e_entry;
 
-    let hwcap = unsafe { core::arch::x86_64::__cpuid(1) }.edx;
+    let hwcap = cpuid(1).edx;
+
     let rand = unsafe { core::mem::transmute([random(), random()]) };
 
     for aux in &[
