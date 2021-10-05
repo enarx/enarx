@@ -58,8 +58,8 @@ pub unsafe extern "sysv64" fn _syscall_enter() -> ! {
     push   {USER_CODE_SEGMENT}
     push   rcx                                         # push userspace return pointer
 
-    push   rbx
-    mov    rbx, rsp
+    push   rbp
+    mov    rbp, rsp
 
     # Arguments in registers:
     # SYSV:    rdi, rsi, rdx, rcx, r8, r9
@@ -95,7 +95,7 @@ pub unsafe extern "sysv64" fn _syscall_enter() -> ! {
     pop    rsi
     pop    rdi
 
-    pop    rbx
+    pop    rbp
 
     xor    rcx,                     rcx               # do not leak contents to userspace
     xor    r11,                     r11               # do not leak contents to userspace
