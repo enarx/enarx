@@ -2,7 +2,7 @@ on: [push, pull_request]
 name: test
 jobs:
   main:
-    name: enarx-keepldr ${{ matrix.backend.name }} nightly ${{ matrix.profile.name }}
+    name: enarx ${{ matrix.backend.name }} nightly ${{ matrix.profile.name }}
     runs-on: ${{ matrix.backend.host }}
     env:
         ENARX_BACKEND: ${{ matrix.backend.name }}

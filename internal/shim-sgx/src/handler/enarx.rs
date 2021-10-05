@@ -6,7 +6,7 @@ use sallyport::untrusted::{UntrustedRef, UntrustedRefMut};
 impl<'a> EnarxSyscallHandler for super::Handler<'a> {
     // NOTE: The 'nonce' field is called 'hash' here, as it is used to pass in
     // a hash of a public key from the client that is to be embedded in the Quote.
-    // For more on this syscall, see: https://github.com/enarx/enarx-keepldr/issues/31
+    // For more on this syscall, see: https://github.com/enarx/enarx/issues/966
     fn get_attestation(
         &mut self,
         _hash: UntrustedRef<u8>,
