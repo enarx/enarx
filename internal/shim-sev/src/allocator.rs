@@ -8,6 +8,7 @@ use crate::hostcall::HOST_CALL_ALLOC;
 use crate::hostmap::HOSTMAP;
 use crate::paging::SHIM_PAGETABLE;
 use crate::payload::NEXT_MMAP_RWLOCK;
+use crate::snp::{pvalidate, PvalidateSize};
 use crate::spin::RwLocked;
 use core::alloc::{GlobalAlloc, Layout};
 use core::cmp::{max, min};
@@ -245,6 +246,19 @@ impl EnarxAllocator {
                         // convert to shim virtual address
                         let shim_phys_page = ShimPhysAddr::<u8>::try_from(line.start).unwrap();
                         let free_start: *mut u8 = ShimVirtAddr::from(shim_phys_page).into();
+
+                        if get_cbit_mask() != 0 {
+                            // pvalidate the newly assigned memory region
+                            let virt_region = Span::new(free_start as usize, line.count);
+                            let virt_line = Line::from(virt_region);
+
+                            for addr in (virt_line.start..virt_line.end)
+                                .step_by(Page::<Size4KiB>::SIZE as _)
+                            {
+                                let va = VirtAddr::new(addr as _);
+                                unsafe { pvalidate(va, PvalidateSize::Size4K, true).unwrap() };
+                            }
+                        }
 
                         unsafe {
                             if self.allocator.size() > 0 {
