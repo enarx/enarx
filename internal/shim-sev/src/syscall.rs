@@ -8,11 +8,10 @@ use crate::asm::_enarx_asm_triple_fault;
 use crate::hostcall::{HostCall, HOST_CALL_ALLOC};
 use crate::paging::SHIM_PAGETABLE;
 use crate::payload::{NEXT_BRK_RWLOCK, NEXT_MMAP_RWLOCK};
-use crate::{eprintln, C_BIT_MASK, SEV_SECRET};
+use crate::{eprintln, get_cbit_mask, SEV_SECRET};
 use core::convert::TryFrom;
 use core::mem::size_of;
 use core::ops::{Deref, DerefMut};
-use core::sync::atomic::Ordering;
 use primordial::{Address, Register};
 use sallyport::syscall::{
     BaseSyscallHandler, EnarxSyscallHandler, FileSyscallHandler, MemorySyscallHandler,
@@ -242,7 +241,7 @@ impl EnarxSyscallHandler for Handler {
                 Ok([result_len.into(), SEV_TECH.into()])
             }
             None => {
-                if C_BIT_MASK.load(Ordering::Relaxed) == 0 {
+                if get_cbit_mask() == 0 {
                     Err(libc::ENOSYS)
                 } else {
                     Ok([0.into(), SEV_TECH.into()])
