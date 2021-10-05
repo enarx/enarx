@@ -6,8 +6,11 @@ EXTERN(__SALLYPORT_ABI_)
 PHDRS {
     sallyport    PT_LOAD FLAGS(1 << 22); /* sallyport::elf::pf::kvm::SALLYPORT */
 
-    PML3         PT_LOAD;
-    PML4         PT_LOAD;
+    ghcb         PT_LOAD;
+    secrets      PT_LOAD FLAGS(1 << 24); /* sallyport::elf::pf::kvm::SECRETS */
+    cpuid        PT_LOAD FLAGS(1 << 23); /* sallyport::elf::pf::kvm::CPUID */
+
+    pagetables   PT_LOAD;
 
     boot_text    PT_LOAD;
     boot_data    PT_LOAD;
@@ -35,7 +38,7 @@ ASSERT((_ENARX_SALLYPORT_SIZE <  (0x40000000 - 2 * CONSTANT(COMMONPAGESIZE))), "
 
 reset_vector = 0xFFFFF000;
 _ENARX_SHIM_START = reset_vector;
-_ENARX_SALLYPORT_START = _ENARX_SHIM_START - _ENARX_SALLYPORT_SIZE - 2 * CONSTANT(COMMONPAGESIZE);
+_ENARX_SALLYPORT_START = _ENARX_SHIM_START - _ENARX_SALLYPORT_SIZE - 5 * CONSTANT(COMMONPAGESIZE);
 _ENARX_SALLYPORT_END = _ENARX_SALLYPORT_START + _ENARX_SALLYPORT_SIZE;
 _ENARX_EXEC_LEN = 128M;
 
@@ -44,14 +47,32 @@ ASSERT((_ENARX_EXEC_START < (6 * 0x40000000)), "SHIM is too large for current in
 
 ASSERT((pml4t_ident == (reset_vector - CONSTANT(COMMONPAGESIZE))), "pml4t_ident not at 0xFFFFE000")
 ASSERT((pml3t_ident == (reset_vector - 2*CONSTANT(COMMONPAGESIZE))), "pml3t_ident not at 0xFFFFD000")
+ASSERT((_ENARX_CPUID == (reset_vector - 3*CONSTANT(COMMONPAGESIZE))), "_ENARX_CPUID not at 0xFFFFC000")
+ASSERT((_ENARX_SECRETS == (reset_vector - 4*CONSTANT(COMMONPAGESIZE))), "_ENARX_SECRETS not at 0xFFFFB000")
+ASSERT((_ENARX_GHCB == (reset_vector - 5*CONSTANT(COMMONPAGESIZE))), "_ENARX_GHCB not at 0xFFFFA000")
 
 SECTIONS {
     . = _ENARX_SALLYPORT_START;
     _ENARX_MEM_START = ABSOLUTE(.);
 
-    .sallyport (NOLOAD) : ALIGN(CONSTANT(COMMONPAGESIZE)) {
-        . += _ENARX_SALLYPORT_SIZE;
+    .sallyport (NOLOAD) : ALIGN(CONSTANT(COMMONPAGESIZE))  {
+        . = _ENARX_SALLYPORT_SIZE;
     } :sallyport
+
+    .ghcb (NOLOAD) : ALIGN(CONSTANT(COMMONPAGESIZE)) {
+        _ENARX_GHCB = .;
+        . += CONSTANT(COMMONPAGESIZE);
+    } :ghcb
+
+    .secrets (NOLOAD) : ALIGN(CONSTANT(COMMONPAGESIZE)) {
+        _ENARX_SECRETS = .;
+        . += CONSTANT(COMMONPAGESIZE);
+    } :secrets
+
+    .cpuid (NOLOAD) : ALIGN(CONSTANT(COMMONPAGESIZE)) {
+        _ENARX_CPUID = .;
+        . += CONSTANT(COMMONPAGESIZE);
+    } :cpuid
 
     .pml3 : ALIGN(CONSTANT(COMMONPAGESIZE)) {
         PROVIDE_HIDDEN(pml3t_ident = ABSOLUTE(.));
@@ -63,14 +84,14 @@ SECTIONS {
         QUAD(5 * 0x40000000 + 0x83); /* Flags::HUGE_PAGE | Flags::WRITABLE | Flags::PRESENT */
         FILL(0);
         . = CONSTANT(COMMONPAGESIZE);
-    } :PML3
+    } :pagetables
 
     .pml4 : ALIGN(CONSTANT(COMMONPAGESIZE)) {
         PROVIDE_HIDDEN(pml4t_ident = ABSOLUTE(.));
         QUAD(pml3t_ident + 0x3); /* Flags::WRITABLE | Flags::PRESENT */
         FILL(0);
         . = CONSTANT(COMMONPAGESIZE);
-    } :PML4
+    } :pagetables
 
     . = _ENARX_SHIM_START;
 
