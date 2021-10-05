@@ -6,6 +6,7 @@ use crate::addr::{ShimPhysAddr, ShimVirtAddr, SHIM_VIRT_OFFSET};
 use crate::get_cbit_mask;
 use crate::hostcall::HOST_CALL_ALLOC;
 use crate::hostmap::HOSTMAP;
+use crate::paging::SHIM_PAGETABLE;
 use crate::payload::NEXT_MMAP_RWLOCK;
 use crate::spin::RwLocked;
 use core::alloc::{GlobalAlloc, Layout};
@@ -304,7 +305,6 @@ impl EnarxAllocator {
     /// Allocate memory and map it to the given virtual address
     pub fn allocate_and_map_memory(
         &mut self,
-        mapper: &mut (impl Mapper<Size4KiB> + Mapper<Size2MiB>),
         map_to: VirtAddr,
         size: usize,
         flags: PageTableFlags,
@@ -346,7 +346,6 @@ impl EnarxAllocator {
 
         if second_half_size > 0 {
             if let Err(e) = self.allocate_and_map_memory(
-                mapper,
                 map_to + first_half_size,
                 second_half_size,
                 flags,
@@ -360,15 +359,13 @@ impl EnarxAllocator {
         }
 
         let phys = shim_virt_to_enc_phys(first_half);
-        if let Err(e) = self.map_memory(mapper, phys, map_to, first_half_size, flags, parent_flags)
-        {
+        if let Err(e) = self.map_memory(phys, map_to, first_half_size, flags, parent_flags) {
             unsafe {
                 self.dealloc_pages(first_half, first_half_size);
             }
-            let _ = self.unmap_memory(mapper, map_to + first_half_size, second_half_size);
+            let _ = self.unmap_memory(map_to + first_half_size, second_half_size);
             return Err(e);
         }
-
         // transmute the whole thing to one big bytes slice
         Ok(unsafe { core::slice::from_raw_parts_mut(map_to.as_mut_ptr() as *mut u8, size) })
     }
@@ -376,9 +373,8 @@ impl EnarxAllocator {
     /// Map physical memory to the given virtual address
     ///
     /// FIXME: change PhysAddr to ShimPhysAddr to ensure encrypted memory
-    pub fn map_memory<T: Mapper<Size4KiB> + Mapper<Size2MiB>>(
+    pub fn map_memory(
         &mut self,
-        mapper: &mut T,
         map_from: PhysAddr,
         map_to: VirtAddr,
         size: usize,
@@ -388,7 +384,6 @@ impl EnarxAllocator {
         if size == 0 {
             return Err(AllocateError::ZeroSize);
         }
-
         let frame_range_from = {
             let start = map_from;
             let end = start + size - 1u64;
@@ -407,7 +402,8 @@ impl EnarxAllocator {
 
         for (frame_from, page_to) in frame_range_from.zip(page_range_to) {
             unsafe {
-                mapper
+                SHIM_PAGETABLE
+                    .write()
                     .map_to_with_table_flags(page_to, frame_from, flags, parent_flags, self)
                     .map_err(|e| match e {
                         MapToError::FrameAllocationFailed => AllocateError::OutOfMemory,
@@ -423,12 +419,7 @@ impl EnarxAllocator {
     }
 
     /// FIXME: unmap
-    pub fn unmap_memory<T: Mapper<Size4KiB> + Mapper<Size2MiB>>(
-        &mut self,
-        mapper: &mut T,
-        virt_addr: VirtAddr,
-        size: usize,
-    ) -> Result<(), UnmapError> {
+    pub fn unmap_memory(&mut self, virt_addr: VirtAddr, size: usize) -> Result<(), UnmapError> {
         if size == 0 {
             return Ok(());
         }
@@ -443,7 +434,7 @@ impl EnarxAllocator {
 
         for frame_from in page_range_to {
             let phys = {
-                let (phys_frame, _) = mapper.unmap(frame_from)?;
+                let (phys_frame, _) = SHIM_PAGETABLE.write().unmap(frame_from)?;
                 phys_frame.start_address()
             };
 

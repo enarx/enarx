@@ -3,8 +3,6 @@
 //! Helper functions for the shim stack
 
 use crate::allocator::ALLOCATOR;
-use crate::paging::SHIM_PAGETABLE;
-use core::ops::DerefMut;
 use x86_64::structures::paging::{Page, PageTableFlags, Size4KiB};
 use x86_64::VirtAddr;
 
@@ -26,7 +24,6 @@ pub fn init_stack_with_guard(
     ALLOCATOR
         .write()
         .allocate_and_map_memory(
-            SHIM_PAGETABLE.write().deref_mut(),
             start - Page::<Size4KiB>::SIZE,
             Page::<Size4KiB>::SIZE as _,
             PageTableFlags::empty(),
@@ -37,7 +34,6 @@ pub fn init_stack_with_guard(
     let mem_slice = ALLOCATOR
         .write()
         .allocate_and_map_memory(
-            SHIM_PAGETABLE.write().deref_mut(),
             start,
             stack_size as _,
             PageTableFlags::PRESENT
@@ -55,7 +51,6 @@ pub fn init_stack_with_guard(
     ALLOCATOR
         .write()
         .allocate_and_map_memory(
-            SHIM_PAGETABLE.write().deref_mut(),
             start + stack_size,
             Page::<Size4KiB>::SIZE as _,
             PageTableFlags::empty(),
