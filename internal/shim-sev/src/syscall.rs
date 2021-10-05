@@ -14,6 +14,8 @@ use core::convert::TryFrom;
 use core::mem::size_of;
 use core::ops::{Deref, DerefMut};
 
+use crate::snp::ghcb::{GHCB_EXT, SNP_ATTESTATION_LEN_MAX};
+use crate::snp::snp_active;
 use primordial::{Address, Register};
 use sallyport::syscall::{
     BaseSyscallHandler, EnarxSyscallHandler, FileSyscallHandler, MemorySyscallHandler,
@@ -223,22 +225,38 @@ impl BaseSyscallHandler for Handler {
 impl EnarxSyscallHandler for Handler {
     fn get_attestation(
         &mut self,
-        _nonce: UntrustedRef<u8>,
-        _nonce_len: libc::size_t,
+        nonce: UntrustedRef<u8>,
+        nonce_len: libc::size_t,
         buf: UntrustedRefMut<u8>,
         buf_len: libc::size_t,
     ) -> sallyport::Result {
         self.trace("get_attestation", 4);
-        let fake_secret = [79u8, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14];
-        let mut result_len = fake_secret.len();
-        if buf_len != 0 {
-            result_len = result_len.min(buf_len);
-            let buf = buf.validate_slice(buf_len, self).ok_or(libc::EFAULT)?;
 
-            buf[..result_len].copy_from_slice(&fake_secret[..result_len]);
+        if !snp_active() {
+            return Ok([0.into(), 0.into()]);
         }
 
-        Ok([result_len.into(), SEV_TECH.into()])
+        if buf_len == 0 {
+            return Ok([SNP_ATTESTATION_LEN_MAX.into(), SEV_TECH.into()]);
+        }
+
+        if buf_len < SNP_ATTESTATION_LEN_MAX {
+            return Err(libc::EINVAL);
+        }
+
+        if nonce_len != 64 {
+            return Err(libc::EINVAL);
+        }
+
+        let nonce = nonce.validate_slice(nonce_len, self).ok_or(libc::EFAULT)?;
+
+        let buf = buf.validate_slice(buf_len, self).ok_or(libc::EFAULT)?;
+
+        let len = GHCB_EXT
+            .get_report(1, nonce, buf)
+            .map_err(|e| e as libc::c_int)?;
+
+        Ok([len.into(), SEV_TECH.into()])
     }
 }
 

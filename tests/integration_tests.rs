@@ -200,6 +200,13 @@ fn get_att() {
     run_test("get_att", 0, None, None, None);
 }
 
+#[cfg(feature = "backend-sev")]
+#[test]
+#[serial]
+fn rust_sev_attestation() {
+    run_test("rust_sev_attestation", 0, None, None, None);
+}
+
 #[cfg(feature = "backend-sgx")]
 #[test]
 #[serial]
