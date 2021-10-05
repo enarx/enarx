@@ -3,17 +3,16 @@
 //! The global Allocator
 
 use crate::addr::{ShimPhysAddr, ShimVirtAddr};
+use crate::get_cbit_mask;
 use crate::hostcall::HOST_CALL_ALLOC;
 use crate::hostmap::HOSTMAP;
 use crate::payload::NEXT_MMAP_RWLOCK;
 use crate::spin::RwLocked;
-use crate::{get_cbit_mask, C_BIT_MASK};
 use core::alloc::{GlobalAlloc, Layout};
 use core::cmp::{max, min};
 use core::convert::TryFrom;
 use core::mem::{align_of, size_of};
 use core::ptr::NonNull;
-use core::sync::atomic::Ordering;
 use goblin::elf::header::header64::Header;
 use goblin::elf::header::ELFMAG;
 use goblin::elf::program_header::program_header64::*;
@@ -109,7 +108,7 @@ impl EnarxAllocator {
         };
 
         const MIN_EXP: u32 = 24; // start with 2^24 = 16 MiB
-        let c_bit_mask = C_BIT_MASK.load(Ordering::Relaxed);
+        let c_bit_mask = get_cbit_mask();
         let target_exp: u32 = if c_bit_mask > 0 {
             u32::min(47, msb(c_bit_mask as _).checked_sub(1).unwrap()) // don't want to address more than c_bit_mask
         } else {
