@@ -59,8 +59,13 @@ pub fn run<T: AsRef<str>, U: AsRef<str>>(
     config.wasm_module_linking(true);
     // module-linking requires multi-memory
     config.wasm_multi_memory(true);
+
     // Prefer dynamic memory allocation style over static memory
     config.static_memory_maximum_size(0);
+    config.static_memory_guard_size(0);
+    config.dynamic_memory_guard_size(0);
+    config.dynamic_memory_reserved_for_growth(1 * 1024 * 1024);
+
     let engine = wasmtime::Engine::new(&config).or(Err(Error::ConfigurationError))?;
 
     debug!("instantiating wasmtime linker");
