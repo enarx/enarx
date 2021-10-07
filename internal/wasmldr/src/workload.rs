@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use log::{debug, warn};
+use nbytes::bytes;
 use wasmtime_wasi::sync::WasiCtxBuilder;
 
 /// The error codes of workload execution.
@@ -64,7 +65,7 @@ pub fn run<T: AsRef<str>, U: AsRef<str>>(
     config.static_memory_maximum_size(0);
     config.static_memory_guard_size(0);
     config.dynamic_memory_guard_size(0);
-    config.dynamic_memory_reserved_for_growth(1 * 1024 * 1024);
+    config.dynamic_memory_reserved_for_growth(bytes![1; MiB]);
 
     let engine = wasmtime::Engine::new(&config).or(Err(Error::ConfigurationError))?;
 
