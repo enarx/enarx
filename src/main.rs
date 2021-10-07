@@ -175,8 +175,6 @@ fn workldr(workldrs: &[Box<dyn Workldr>]) -> &dyn Workldr {
 }
 
 fn exec(backend: &dyn Backend, shim: impl AsRef<[u8]>, exec: impl AsRef<[u8]>) -> Result<()> {
-    //let map = mmarinus::Kind::Private.load::<mmarinus::perms::Read, _>(&opts.code)?;
-
     let keep = backend.keep(shim.as_ref(), exec.as_ref())?;
     let mut thread = keep.clone().spawn()?.unwrap();
     loop {
