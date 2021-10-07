@@ -1,29 +1,46 @@
 // SPDX-License-Identifier: Apache-2.0
 
-//! The Enarx Keep runtime binary.
+//! `wasmldr` - the Enarx WebAssembly loader
 //!
-//! It can be used to run a Wasm file with given command-line
+//! `wasmldr` is responsible for loading and running WebAssembly modules
+//! inside an Enarx keep.
+//!
+//! Users generally won't execute `wasmldr` directly, but for test/debugging
+//! purposes it can be used to run a .wasm file with given command-line
 //! arguments and environment variables.
 //!
 //! ## Example invocation
 //!
 //! ```console
-//! $ wat2wasm fixtures/return_1.wat
-//! $ RUST_LOG=enarx_wasmldr=info RUST_BACKTRACE=1 cargo run return_1.wasm
-//!     Finished dev [unoptimized + debuginfo] target(s) in 0.07s
-//!      Running `target/x86_64-unknown-linux-musl/debug/enarx-wasmldr target/x86_64-unknown-linux-musl/debug/build/enarx-wasmldr-c374d181f6abdda0/out/fixtures/return_1.wasm`
-//! [2020-09-10T17:56:18Z INFO  enarx_wasmldr] got result: [
-//!         I32(
-//!             1,
+//! $ wat2wasm ../tests/wasm/return_1.wat
+//! $ RUST_LOG=wasmldr=info RUST_BACKTRACE=1 cargo run -- return_1.wasm
+//!     Finished dev [unoptimized + debuginfo] target(s) in 0.03s
+//!      Running `target/x86_64-unknown-linux-musl/debug/wasmldr return_1.wasm`
+//! [INFO  wasmldr] version 0.2.0 starting up
+//! [INFO  wasmldr] opts: RunOptions {
+//!         envs: [],
+//!         module: Some(
+//!             "return_1.wasm",
 //!         ),
-//!     ]
+//!         args: [],
+//!     }
+//! [INFO  wasmldr] reading module from "return_1.wasm"
+//! [INFO  wasmldr] running workload
+//! [WARN  wasmldr::workload] 🌭DEV-ONLY BUILD🌭: inheriting stdio from calling process
+//! [INFO  wasmldr] got result: Ok(
+//!         [
+//!             I32(
+//!                 1,
+//!             ),
+//!         ],
+//!     )
 //! ```
 //!
-//! On Unix platforms, the command can also read the workload from the
-//! file descriptor (3):
+//! If no filename is given, `wasmldr` expects to read the WebAssembly module
+//! from file descriptor 3, so this would be equivalent:
 //! ```console
-//! $ RUST_LOG=enarx_wasmldr=info RUST_BACKTRACE=1 cargo run 3< return_1.wasm
-//! ```
+//! $ RUST_LOG=wasmldr=info RUST_BACKTRACE=1 cargo run -- 3< return_1.wasm
+//!  ```
 //!
 #![deny(missing_docs)]
 #![deny(clippy::all)]
