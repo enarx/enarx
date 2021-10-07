@@ -223,7 +223,7 @@ fn create(path: &Path) {
     }
 }
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn main() {
     println!("cargo:rerun-if-env-changed=OUT_DIR");
     println!("cargo:rerun-if-env-changed=PROFILE");
 
@@ -255,31 +255,29 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // internal crates are not included, if there is a `Cargo.toml` file
     // trick cargo by renaming the `Cargo.toml` to `Cargo.tml` before
     // publishing and rename it back here.
-    for entry in std::fs::read_dir("internal")? {
-        let path = entry?.path();
+    for entry in std::fs::read_dir("internal").unwrap() {
+        let path = entry.unwrap().path();
 
         let cargo_toml = path.join("Cargo.toml");
         let cargo_tml = path.join("Cargo.tml");
 
         if cargo_tml.exists() {
-            std::fs::copy(cargo_tml, cargo_toml)?;
+            std::fs::copy(cargo_tml, cargo_toml).unwrap();
         }
 
         let dir_name = path.file_name().unwrap().to_str().unwrap_or_default();
 
         match dir_name {
             #[cfg(feature = "wasmldr")]
-            "wasmldr" => cargo_build_bin(&path, &out_dir, target, "wasmldr")?,
+            "wasmldr" => cargo_build_bin(&path, &out_dir, target, "wasmldr").unwrap(),
 
             #[cfg(feature = "backend-kvm")]
-            "shim-sev" => cargo_build_bin(&path, &out_dir, target, "shim-sev")?,
+            "shim-sev" => cargo_build_bin(&path, &out_dir, target, "shim-sev").unwrap(),
 
             #[cfg(feature = "backend-sgx")]
-            "shim-sgx" => cargo_build_bin(&path, &out_dir, target, "shim-sgx")?,
+            "shim-sgx" => cargo_build_bin(&path, &out_dir, target, "shim-sgx").unwrap(),
 
             _ => continue,
         }
     }
-
-    Ok(())
 }
