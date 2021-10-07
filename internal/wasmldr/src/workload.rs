@@ -39,6 +39,31 @@ impl From<wasmtime_wasi::Error> for Error {
     }
 }
 
+// We use this to provide an exitcode for std::process::exit.
+impl From<Error> for i32 {
+    fn from(err: Error) -> Self {
+        use Error::*;
+        // For now, the exit codes we're using here are pulled from FreeBSD's
+        // sysexits.h. This is really just to help us (the Enarx developers)
+        // debug failures while we're getting things working. The values may
+        // change without warning - this is not part of the public API.
+        match err {
+            // wasmtime/WASI/module setup errors -> EX_DATAERR
+            ConfigurationError => 65,
+            StringTableError => 65,
+            InstantiationFailed => 65,
+            ExportNotFound => 65,
+            CallFailed => 65,
+
+            // Internal WASI errors -> EX_SOFTWARE
+            WASIError(_) => 70,
+
+            // General IO errors -> EX_IOERR
+            IoError(_) => 74,
+        }
+    }
+}
+
 /// Result type used throughout the library.
 pub type Result<T> = std::result::Result<T, Error>;
 

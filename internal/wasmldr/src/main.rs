@@ -89,23 +89,9 @@ fn main() {
     // FUTURE: produce attestation report here
     // TODO: print the returned value(s) in some format (json?)
 
-    // Choose an appropriate exit code
-    // TODO: exit with the resulting code, if the result is a return code
+    // Choose an appropriate exit code from our result
     std::process::exit(match result {
-        // Success -> EX_OK
         Ok(_) => 0,
-
-        // wasmtime/WASI/module setup errors -> EX_DATAERR
-        Err(workload::Error::ConfigurationError) => 65,
-        Err(workload::Error::StringTableError) => 65,
-        Err(workload::Error::InstantiationFailed) => 65,
-        Err(workload::Error::ExportNotFound) => 65,
-        Err(workload::Error::CallFailed) => 65,
-
-        // Internal WASI errors -> EX_SOFTWARE
-        Err(workload::Error::WASIError(_)) => 70,
-
-        // General IO errors -> EX_IOERR
-        Err(workload::Error::IoError(_)) => 74,
+        Err(e) => i32::from(e),
     });
 }
