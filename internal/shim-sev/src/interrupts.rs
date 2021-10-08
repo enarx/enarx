@@ -11,6 +11,9 @@ use crate::payload::PAYLOAD_VIRT_ADDR;
 use crate::snp::cpuid_count;
 use spinning::Lazy;
 
+/// size of area reserved for xsave
+pub const XSAVE_AREA_SIZE: u32 = 15 * 64;
+
 #[derive(Debug)]
 #[repr(C)]
 struct EnarxInterruptStackFrame {
@@ -166,7 +169,8 @@ macro_rules! declare_interrupt {
             iretq
             ",
             SKIP = const ($skip),
-            XSAVE_STACK_OFFSET = const (16*64),
+            // add 64 for alignment
+            XSAVE_STACK_OFFSET = const (XSAVE_AREA_SIZE + 64),
             CALLOUT = sym $callout,
             options(noreturn)
             )

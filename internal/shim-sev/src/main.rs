@@ -35,6 +35,7 @@ pub mod random;
 pub mod shim_stack;
 pub mod snp;
 pub mod spin;
+pub mod sse;
 mod start;
 pub mod syscall;
 pub mod usermode;
@@ -126,6 +127,7 @@ pub unsafe extern "sysv64" fn _start_main(c_bit_mask: u64) -> ! {
 /// The entry point for the shim
 extern "C" fn shim_main() -> ! {
     unsafe { gdt::init() };
+    sse::init_sse();
     interrupts::init();
 
     payload::execute_payload()
