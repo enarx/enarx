@@ -224,7 +224,7 @@ pub trait NetworkSyscallHandler: BaseSyscallHandler + AddressValidator + Sized {
         if src_addr.as_ptr().is_null() {
             let c = self.new_cursor();
             unsafe {
-                c.copy_into_slice(count, &mut buf[..result_len].as_mut())
+                c.copy_into_slice(count, buf[..result_len].as_mut())
                     .or(Err(libc::EFAULT))?
             };
         } else {
@@ -235,7 +235,7 @@ pub trait NetworkSyscallHandler: BaseSyscallHandler + AddressValidator + Sized {
 
             let c = self.new_cursor();
             let c = unsafe {
-                c.copy_into_slice(count, &mut buf[..result_len].as_mut())
+                c.copy_into_slice(count, buf[..result_len].as_mut())
                     .or(Err(libc::EFAULT))?
             };
 
