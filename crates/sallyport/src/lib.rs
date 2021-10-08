@@ -175,22 +175,33 @@ impl Request {
         let rax: usize;
         let rdx: usize;
 
-        asm!(
-        "syscall",
-        inlateout("rax") usize::from(self.num) => rax,
-        in("rdi") usize::from(self.arg[0]),
-        in("rsi") usize::from(self.arg[1]),
-        inlateout("rdx") usize::from(self.arg[2]) => rdx,
-        in("r10") usize::from(self.arg[3]),
-        in("r8") usize::from(self.arg[4]),
-        in("r9") usize::from(self.arg[5]),
-        lateout("rcx") _, // clobbered
-        lateout("r11") _, // clobbered
-        );
+        if i64::from(self.num) == libc::SYS_clock_gettime {
+            let mut ret = libc::clock_gettime(usize::from(self.arg[0]) as _, self.arg[1].into());
+            if ret != 0 {
+                ret = *libc::__errno_location();
+            }
+            Reply {
+                ret: [ret.into(), 0.into()],
+                err: Default::default(),
+            }
+        } else {
+            asm!(
+            "syscall",
+            inlateout("rax") usize::from(self.num) => rax,
+            in("rdi") usize::from(self.arg[0]),
+            in("rsi") usize::from(self.arg[1]),
+            inlateout("rdx") usize::from(self.arg[2]) => rdx,
+            in("r10") usize::from(self.arg[3]),
+            in("r8") usize::from(self.arg[4]),
+            in("r9") usize::from(self.arg[5]),
+            lateout("rcx") _, // clobbered
+            lateout("r11") _, // clobbered
+            );
 
-        Reply {
-            ret: [rax.into(), rdx.into()],
-            err: Default::default(),
+            Reply {
+                ret: [rax.into(), rdx.into()],
+                err: Default::default(),
+            }
         }
     }
 }
