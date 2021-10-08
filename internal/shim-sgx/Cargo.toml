@@ -10,7 +10,7 @@ name = "shim-sgx"
 test = false
 
 [dependencies]
-sallyport = { git = "https://github.com/enarx/sallyport", rev = "a567a22665c7e5ba88a8c4acd64ab43ee32b4681", features = [ "asm" ] }
+sallyport = { git = "https://github.com/enarx/sallyport", rev = "d016f8c6afd50ae2694ddc2d2afea4eec7301a41", features = [ "asm" ] }
 enarx-heap = { git = "https://github.com/enarx/enarx-heap", rev = "9cbfb3367edd4aa17f4a7409ea0c0f7d83fa8ce3" }
 sgx = { git = "https://github.com/enarx/sgx", rev = "57df3753a0ea1777963dbf3023452993df2edb8c" }
 rcrt1 = { git = "https://github.com/enarx/rcrt1", rev = "b28f711" }
