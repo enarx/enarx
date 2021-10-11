@@ -72,3 +72,32 @@ asm!(
     out("r11") _,
 );
 ```
+
+## Wrapping
+
+One nice thing that `cargo fmt` does is wrap method invocations to improve
+readability. However, in some cases this wrapping is more harmful than
+beneficial.
+
+1. Whenever wrapping occurs, consider using an intermediate variable. A good
+   rule of thumb is that if a single intermediate variable causes no wrapping
+   to occur, it is probably better to use the intermediate variable. This is
+   not a hard and fast rule. Try to use good judgement.
+
+2. Wrapping **MUST NOT** occur in any position that can cause a branch.
+   Examples of this include the boolean value of an `if` statement or `while`
+   loop. This makes understanding the flow of the program more difficult. Use
+   an intermediate variable to separate the logic producing the boolean from
+   the control flow statements. For example:
+
+```rust
+   let dangerous = object
+      .produce()
+      .aboolean()
+      .from()
+      .invocations();
+
+   if dangerous {
+      ...
+   }
+```
