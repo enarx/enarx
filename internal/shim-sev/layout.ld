@@ -93,6 +93,7 @@ SECTIONS {
     .dynsym             : { *(.dynsym) } :rodata
     .dynstr             : { *(.dynstr) } :rodata
     .gnu.hash           : { *(.gnu.hash) } :rodata
+    .hash               : { *(.hash) } :rodata
 
     . = ALIGN(CONSTANT(COMMONPAGESIZE));
     .data               : { *(.data .data.*) } :data
@@ -110,8 +111,6 @@ SECTIONS {
       *(.note.GNU-stack)
       *(.gnu_debuglink)
       *(.interp)
-      *(.gnu.hash)
-      *(.hash)
       *(.comment)
       *(COMMON)
       *(.note.gnu.build-id)
