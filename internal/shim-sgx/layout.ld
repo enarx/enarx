@@ -23,6 +23,7 @@ SECTIONS {
     .dynsym       : { *(.dynsym) }                      :rodata
     .dynstr       : { *(.dynstr) }                      :rodata
     .gnu.hash     : { *(.gnu.hash) }                    :rodata
+    .hash         : { *(.hash) }                        :rodata
     .note         : { *(.note) }                        :rodata :note
 
     . = ALIGN(4K);
@@ -41,8 +42,6 @@ SECTIONS {
         *(.note.GNU-stack)
         *(.gnu_debuglink)
         *(.interp)
-        *(.gnu.hash)
-        *(.hash)
         *(.comment)
         *(COMMON)
         *(.note.gnu.build-id)
