@@ -101,3 +101,32 @@ beneficial.
       ...
    }
 ```
+
+## Use Declarations
+
+When creating `use` statements, these statement should be divided into groups
+separated by an empty line. Empty groups can be omitted altogether (i.e. no
+double empty lines). Formatting imports like this allows `cargo fmt` to
+sort within the groups, but the groups are always kept in the same relative
+order betwen them. The groups are, in order:
+
+1. Reexports from the same crate.
+2. Reexports from the `core`, `alloc` or `std`.
+3. Reexports from other crates.
+4. Imports from the same crate.
+5. Imports from the `core`, `alloc` or `std`.
+6. Imports from other crates.
+
+### Example
+
+```rust
+pub use foo::{Bar, Baz}; // Group #1
+
+use super::Bat; // Group #4
+
+use core::convert::{TryFrom, TryInto}; // Group #5
+use core::num::NonZeroU8; // Group #5
+
+use noted::noted; // Group #6
+use primordial::Page; // Group #6
+```
