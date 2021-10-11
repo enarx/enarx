@@ -169,7 +169,6 @@ fn cargo_build_bin(
         .envs(&filtered_env)
         .stdout(stdout)
         .stderr(stderr)
-        .arg("+nightly")
         .arg("build")
         .args(profile)
         .arg("--target-dir")
