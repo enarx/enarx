@@ -24,16 +24,29 @@
 #[cfg(feature = "wasmldr")]
 pub mod wasmldr;
 
+use once_cell::sync::OnceCell;
+
 /// A trait for the "Workloader" - shortened to Workldr, also known as "exec"
 /// (as in Backend::keep(shim, exec) [q.v.]) and formerly known as the "code"
 /// layer. This is the part that runs inside the keep, prepares the workload
 /// environment, and then actually executes the tenant's workload.
 ///
 /// Basically, this is a generic view of wasmldr.
-pub trait Workldr {
+pub trait Workldr: Sync + Send {
     /// The name of the Workldr
     fn name(&self) -> &'static str;
 
     /// The builtin Workldr binary (e.g. wasmldr)
     fn exec(&self) -> &'static [u8];
+}
+
+#[inline]
+pub fn builtin_workldrs() -> &'static [Box<dyn Workldr>] {
+    static WORKLDRS: OnceCell<Vec<Box<dyn Workldr>>> = OnceCell::new();
+    &WORKLDRS.get_or_init(|| {
+        vec![
+            #[cfg(feature = "wasmldr")]
+            Box::new(wasmldr::Wasmldr),
+        ]
+    })[..]
 }
