@@ -19,6 +19,7 @@ crt0stack = { version = "0.1", default-features = false }
 spinning = { version = "0.1", default-features = false }
 libc = { version = "0.2", default-features = false }
 primordial = "0.3"
+xsave = "1.0.0"
 noted = "^1.0.0"
 nbytes = "0.1"
 lset = "0.2"

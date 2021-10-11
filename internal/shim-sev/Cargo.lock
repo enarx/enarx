@@ -291,6 +291,7 @@ dependencies = [
  "sallyport",
  "spinning",
  "x86_64",
+ "xsave",
 ]
 
 [[package]]
@@ -362,4 +363,14 @@ dependencies = [
  "bit_field",
  "bitflags",
  "volatile",
+]
+
+[[package]]
+name = "xsave"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0f980b1e0ed898c5b60ac780eae2786ebb8b7a3ea8d9eea9592718159fc26ad8"
+dependencies = [
+ "bitflags",
+ "const-default",
 ]

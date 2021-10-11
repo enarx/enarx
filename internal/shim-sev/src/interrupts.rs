@@ -9,10 +9,12 @@ use crate::eprintln;
 use crate::hostcall::shim_exit;
 use crate::payload::PAYLOAD_VIRT_ADDR;
 use crate::snp::cpuid_count;
+use core::mem::size_of;
 use spinning::Lazy;
+use xsave::XSave;
 
 /// size of area reserved for xsave
-pub const XSAVE_AREA_SIZE: u32 = 15 * 64;
+pub const XSAVE_AREA_SIZE: u32 = size_of::<XSave>() as _;
 
 #[derive(Debug)]
 #[repr(C)]
