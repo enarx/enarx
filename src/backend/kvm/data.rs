@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::backend::Datum;
+
 use kvm_ioctls::Kvm;
 
 pub fn dev_kvm() -> Datum {

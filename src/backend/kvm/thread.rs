@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use super::super::Command;
+use super::KeepPersonality;
 
 use std::sync::{Arc, RwLock};
 
-use crate::backend::kvm::KeepPersonality;
 use anyhow::{anyhow, Result};
 use kvm_ioctls::{VcpuExit, VcpuFd};
 use mmarinus::{perms, Kind, Map};

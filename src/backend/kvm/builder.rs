@@ -1,7 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use super::mem::Region;
-use crate::backend::kvm::KvmKeepPersonality;
+use super::KvmKeepPersonality;
+
+use std::convert::TryFrom;
+use std::mem::size_of;
+use std::sync::{Arc, RwLock};
+
 use anyhow::{Error, Result};
 use kvm_bindings::bindings::kvm_userspace_memory_region;
 use kvm_bindings::fam_wrappers::KVM_MAX_CPUID_ENTRIES;
@@ -9,9 +14,6 @@ use kvm_ioctls::{Kvm, VcpuFd, VmFd};
 use mmarinus::{perms, Map};
 use sallyport::elf::pf::kvm::SALLYPORT;
 use sallyport::Block;
-use std::convert::TryFrom;
-use std::mem::size_of;
-use std::sync::{Arc, RwLock};
 use x86_64::VirtAddr;
 
 pub struct Builder {

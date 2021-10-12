@@ -3,13 +3,14 @@
 //! FIXME
 
 use const_default::ConstDefault;
-use core::mem::size_of;
 
 use core::fmt::{Debug, Formatter};
+use core::mem::size_of;
+use std::fmt::Display;
+
 use kvm_bindings::bindings::KVM_CPUID_FLAG_SIGNIFCANT_INDEX;
 use kvm_bindings::fam_wrappers::KVM_MAX_CPUID_ENTRIES;
 use kvm_ioctls::Kvm;
-use std::fmt::Display;
 
 const COUNT_MAX: usize = 64;
 

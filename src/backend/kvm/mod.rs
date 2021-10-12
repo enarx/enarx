@@ -1,15 +1,18 @@
 // SPDX-License-Identifier: Apache-2.0
 
+pub use kvm_bindings::kvm_userspace_memory_region as KvmUserspaceMemoryRegion;
+
 use super::Loader;
-use crate::backend::kvm::data::{dev_kvm, kvm_version};
-use crate::backend::kvm::mem::Region;
+use data::{dev_kvm, kvm_version};
+use mem::Region;
+
+use std::sync::Arc;
+
 use anyhow::Result;
 use kvm_bindings::bindings::kvm_userspace_memory_region;
-pub use kvm_bindings::kvm_userspace_memory_region as KvmUserspaceMemoryRegion;
 use kvm_ioctls::Kvm;
 use kvm_ioctls::{VcpuFd, VmFd};
 use mmarinus::{perms, Map};
-use std::sync::Arc;
 use x86_64::VirtAddr;
 
 pub mod builder;
