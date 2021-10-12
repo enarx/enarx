@@ -1,8 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use super::kvm::{mem, Keep, KeepPersonality};
-use super::sev::mem::Region;
+use super::kvm::mem::Region;
+use super::kvm::{Keep, KeepPersonality};
 use super::Loader;
+
+use std::sync::Arc;
+
 use anyhow::Result;
 use data::{
     dev_kvm, dev_sev, dev_sev_readable, dev_sev_writable, has_reasonable_memlock_rlimit,
@@ -11,7 +14,6 @@ use data::{
 use kvm_ioctls::VmFd;
 use sev::firmware::Firmware;
 use sev::launch::linux::ioctl::KvmEncRegion;
-use std::sync::Arc;
 
 mod builder;
 mod cpuid_page;

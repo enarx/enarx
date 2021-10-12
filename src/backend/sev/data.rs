@@ -1,13 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 
+pub use crate::backend::kvm::data::{dev_kvm, kvm_version};
+
 use crate::backend::probe::x86_64::{CpuId, Vendor};
 use crate::backend::Datum;
+
 use std::arch::x86_64::__cpuid_count;
 use std::fs::OpenOptions;
 use std::mem::{transmute, MaybeUninit};
 use std::str::from_utf8;
-
-pub use super::super::kvm::data::{dev_kvm, kvm_version};
 
 pub fn has_reasonable_memlock_rlimit() -> Datum {
     let mut rlimits = MaybeUninit::uninit();

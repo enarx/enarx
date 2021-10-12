@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 
+use super::cpuid_page::CpuidPage;
+use super::SnpKeepPersonality;
+use crate::backend::kvm::builder::kvm_try_from_builder;
+use crate::backend::kvm::mem::Region;
+
 use std::convert::TryFrom;
 use std::sync::{Arc, RwLock};
 
-use super::cpuid_page::CpuidPage;
-use super::mem::Region;
-use crate::backend::kvm::builder::kvm_try_from_builder;
-use crate::backend::sev::SnpKeepPersonality;
 use anyhow::Context;
 use anyhow::{Error, Result};
 use kvm_ioctls::{Kvm, VmFd};
