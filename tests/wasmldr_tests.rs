@@ -2,16 +2,9 @@
 #![cfg(feature = "wasmldr")]
 
 use process_control::{ChildExt, Output, Timeout};
-use std::fs::File;
-use std::os::unix::io::{IntoRawFd, RawFd};
-use std::os::unix::process::CommandExt;
 use std::path::Path;
 use std::process::{Command, Stdio};
 
-extern crate libc;
-use libc::c_int;
-
-use std::io;
 use std::io::Write;
 use std::time::Duration;
 
@@ -20,57 +13,19 @@ use common::{check_output, CRATE, KEEP_BIN, OUT_DIR, TEST_BINS_OUT, TIMEOUT_SECS
 
 use serial_test::serial;
 
-const MODULE_FD: RawFd = 3;
-
-// wrap a libc call to return io::Result<c_int>
-fn cvt(rv: c_int) -> io::Result<c_int> {
-    if rv == -1 {
-        Err(io::Error::last_os_error())
-    } else {
-        Ok(rv)
-    }
-}
-
-// wrap a libc call to return io::Result<()>
-fn cv(rv: c_int) -> io::Result<()> {
-    cvt(rv).and(Ok(()))
-}
-
-trait CommandFdExt {
-    fn inherit_with_fd(&mut self, file: impl IntoRawFd, child_fd: RawFd) -> &mut Self;
-}
-
-impl CommandFdExt for Command {
-    fn inherit_with_fd(&mut self, file: impl IntoRawFd, child_fd: RawFd) -> &mut Self {
-        let fd = file.into_raw_fd();
-        if fd == child_fd {
-            unsafe {
-                self.pre_exec(move || cv(libc::fcntl(fd, libc::F_SETFD, 0)));
-            }
-        } else {
-            unsafe {
-                self.pre_exec(move || cv(libc::dup2(fd, child_fd)));
-            }
-        }
-        self
-    }
-}
-
-pub fn wasmldr_exec<'a>(wasm: &str, input: impl Into<Option<&'a [u8]>>) -> Output {
+pub fn enarx_run<'a>(wasm: &str, input: impl Into<Option<&'a [u8]>>) -> Output {
     let wasm_path = Path::new(CRATE)
         .join(OUT_DIR)
         .join(TEST_BINS_OUT)
         .join(wasm);
-    let wasm_file =
-        File::open(wasm_path).unwrap_or_else(|e| panic!("failed to open `{}`: {:#?}", wasm, e));
 
     let mut child = Command::new(&String::from(KEEP_BIN))
         .current_dir(CRATE)
-        .arg("exec")
+        .arg("run")
+        .arg(wasm_path)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
-        .inherit_with_fd(wasm_file, MODULE_FD)
         .spawn()
         .unwrap_or_else(|e| panic!("failed to run `{}`: {:#?}", wasm, e));
 
@@ -109,7 +64,7 @@ fn run_wasm_test<'a>(
     expected_stdout: impl Into<Option<&'a [u8]>>,
     expected_stderr: impl Into<Option<&'a [u8]>>,
 ) -> Output {
-    let output = wasmldr_exec(wasm, input);
+    let output = enarx_run(wasm, input);
     check_output(&output, status, expected_stdout, expected_stderr);
     output
 }
