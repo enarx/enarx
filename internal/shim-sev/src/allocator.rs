@@ -3,12 +3,11 @@
 //! The global Allocator
 
 use crate::addr::{ShimPhysAddr, ShimVirtAddr, SHIM_VIRT_OFFSET};
-use crate::get_cbit_mask;
 use crate::hostcall::HOST_CALL_ALLOC;
 use crate::hostmap::HOSTMAP;
 use crate::paging::SHIM_PAGETABLE;
 use crate::payload::NEXT_MMAP_RWLOCK;
-use crate::snp::{pvalidate, PvalidateSize};
+use crate::snp::{get_cbit_mask, pvalidate, snp_active, PvalidateSize};
 use crate::spin::RwLocked;
 
 use core::alloc::{GlobalAlloc, Layout};
@@ -249,7 +248,7 @@ impl EnarxAllocator {
                         let shim_phys_page = ShimPhysAddr::<u8>::try_from(line.start).unwrap();
                         let free_start: *mut u8 = ShimVirtAddr::from(shim_phys_page).into();
 
-                        if get_cbit_mask() != 0 {
+                        if snp_active() {
                             // pvalidate the newly assigned memory region
                             let virt_region = Span::new(free_start as usize, line.count);
                             let virt_line = Line::from(virt_region);

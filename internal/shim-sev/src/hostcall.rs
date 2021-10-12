@@ -2,12 +2,6 @@
 
 //! Host <-> Shim Communication
 
-use crate::addr::{HostVirtAddr, ShimPhysUnencryptedAddr};
-use crate::debug::_enarx_asm_triple_fault;
-use crate::snp::ghcb::GHCB;
-use crate::spin::RwLocked;
-use crate::{get_cbit_mask, _ENARX_SALLYPORT_END, _ENARX_SALLYPORT_START};
-
 use core::convert::TryFrom;
 use core::mem::size_of;
 
@@ -21,6 +15,13 @@ use spinning::Lazy;
 use x86_64::instructions::port::Port;
 use x86_64::structures::paging::{Page, Size4KiB};
 use x86_64::{PhysAddr, VirtAddr};
+
+use crate::addr::{HostVirtAddr, ShimPhysUnencryptedAddr};
+use crate::debug::_enarx_asm_triple_fault;
+use crate::snp::ghcb::GHCB;
+use crate::snp::snp_active;
+use crate::spin::RwLocked;
+use crate::{_ENARX_SALLYPORT_END, _ENARX_SALLYPORT_START};
 
 /// Host file descriptor
 #[derive(Copy, Clone)]
@@ -59,7 +60,7 @@ fn return_empty_option(_i: usize) -> Option<&'static mut Block> {
 
 /// The static HostCall Mutex
 pub static HOST_CALL_ALLOC: Lazy<RwLocked<HostCallAllocator>> = Lazy::new(|| {
-    if get_cbit_mask() != 0 {
+    if snp_active() {
         // For SEV-SNP mark the sallyport pages as shared/unencrypted
 
         let npages = (unsafe {
@@ -133,7 +134,7 @@ impl HostCall {
     /// The parameters returned can't be trusted.
     #[inline(always)]
     pub unsafe fn hostcall(&mut self) -> sallyport::Result {
-        if get_cbit_mask() == 0 {
+        if !snp_active() {
             let mut port = Port::<u16>::new(KVM_SYSCALL_TRIGGER_PORT);
 
             // prevent earlier writes from being moved beyond this point

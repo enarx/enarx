@@ -2,13 +2,6 @@
 
 //! Debug functions
 
-use crate::addr::SHIM_VIRT_OFFSET;
-use crate::paging::SHIM_PAGETABLE;
-use crate::payload::PAYLOAD_VIRT_ADDR;
-use crate::snp::ghcb::{vmgexit_msr, GHCB_MSR_EXIT_REQ};
-use crate::PAYLOAD_READY;
-use crate::{get_cbit_mask, print};
-
 use core::mem::size_of;
 use core::sync::atomic::Ordering;
 
@@ -16,6 +9,14 @@ use x86_64::instructions::tables::lidt;
 use x86_64::structures::paging::Translate;
 use x86_64::structures::DescriptorTablePointer;
 use x86_64::VirtAddr;
+
+use crate::addr::SHIM_VIRT_OFFSET;
+use crate::paging::SHIM_PAGETABLE;
+use crate::payload::PAYLOAD_VIRT_ADDR;
+use crate::print;
+use crate::snp::ghcb::{vmgexit_msr, GHCB_MSR_EXIT_REQ};
+use crate::snp::snp_active;
+use crate::PAYLOAD_READY;
 
 /// Debug helper function for the early boot
 ///
@@ -29,7 +30,7 @@ pub unsafe fn _early_debug_panic(reason: u64, value: u64) -> ! {
     // Safe the contents of the rbp register containing the stack frame pointer
     asm!("mov {}, rbp", out(reg) rbp);
 
-    if get_cbit_mask() > 0 {
+    if snp_active() {
         _load_invalid_idt();
 
         vmgexit_msr(
@@ -66,7 +67,7 @@ pub unsafe fn _enarx_asm_triple_fault() -> ! {
     // Safe the contents of the rbp register containing the stack frame pointer
     asm!("mov {}, rbp", out(reg) rbp);
 
-    if get_cbit_mask() > 0 {
+    if snp_active() {
         _early_debug_panic(0x7, 0xFF);
     }
 

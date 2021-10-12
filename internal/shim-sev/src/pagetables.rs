@@ -2,11 +2,6 @@
 
 //! Page Tables
 
-use crate::addr::{BYTES_1_GIB, BYTES_2_MIB, SHIM_VIRT_OFFSET};
-use crate::allocator::ALLOCATOR;
-use crate::paging::{EncPhysOffset, SHIM_PAGETABLE};
-use crate::{get_cbit_mask, paging};
-
 use core::alloc::Layout;
 use core::mem::size_of;
 
@@ -18,6 +13,12 @@ use x86_64::structures::paging::{
     Page, PageTable, PageTableFlags, Size1GiB, Size2MiB, Size4KiB, Translate,
 };
 use x86_64::{PhysAddr, VirtAddr};
+
+use crate::addr::{BYTES_1_GIB, BYTES_2_MIB, SHIM_VIRT_OFFSET};
+use crate::allocator::ALLOCATOR;
+use crate::paging;
+use crate::paging::{EncPhysOffset, SHIM_PAGETABLE};
+use crate::snp::get_cbit_mask;
 
 /// A page-aligned Page Table.
 #[repr(C, align(4096))]
