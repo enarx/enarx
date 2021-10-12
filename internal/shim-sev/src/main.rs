@@ -18,6 +18,9 @@ extern crate rcrt1;
 use crate::debug::print_stack_trace;
 use crate::pagetables::unmap_identity;
 use crate::print::{enable_printing, is_printing_enabled};
+use crate::snp::cpuid_page::CpuidPage;
+use crate::snp::ghcb::Ghcb;
+use crate::snp::secrets_page::SnpSecretsPage;
 
 use core::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 
@@ -25,9 +28,6 @@ use goblin::elf::header::header64::Header;
 use noted::noted;
 use primordial::Page as Page4KiB;
 use sallyport::{elf::note, Block, REQUIRES};
-use snp::cpuid_page::CpuidPage;
-use snp::ghcb::Ghcb;
-use snp::secrets_page::SnpSecretsPage;
 
 noted! {
     static NOTE_ENARX_SALLYPORT<note::NAME, note::REQUIRES, [u8; REQUIRES.len()]> = REQUIRES;

@@ -4,10 +4,10 @@
 
 use crate::hostcall::{self, HostFd};
 
-struct HostWrite(HostFd);
-
 use core::fmt;
 use core::sync::atomic::{AtomicUsize, Ordering};
+
+struct HostWrite(HostFd);
 
 // FIXME: remove, if https://github.com/enarx/enarx/issues/831 is fleshed out
 /// Global flag allowing debug output.

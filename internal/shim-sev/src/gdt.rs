@@ -4,7 +4,9 @@
 
 use crate::shim_stack::{init_stack_with_guard, GuardedStack};
 use crate::syscall::_syscall_enter;
+
 use core::ops::Deref;
+
 use nbytes::bytes;
 use spinning::Lazy;
 use x86_64::instructions::segmentation::{Segment, CS, DS, ES, FS, GS, SS};

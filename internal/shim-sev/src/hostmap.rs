@@ -39,12 +39,14 @@
 //!                                 |          |
 //!                                 |          |
 //! ```
-use crate::addr::HostVirtAddr;
 
+use crate::addr::HostVirtAddr;
 use crate::print::PrintBarrier;
 use crate::spin::RwLocked;
+
 use core::alloc::Layout;
 use core::mem::{align_of, size_of};
+
 use linked_list_allocator::Heap;
 use lset::{Line, Span};
 use primordial::{Address, Page as Page4KiB};

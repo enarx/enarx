@@ -3,6 +3,7 @@
 //! Helper functions for the shim stack
 
 use crate::allocator::ALLOCATOR;
+
 use x86_64::structures::paging::{Page, PageTableFlags, Size4KiB};
 use x86_64::VirtAddr;
 

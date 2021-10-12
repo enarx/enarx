@@ -2,6 +2,17 @@
 
 //! Some basic address operations
 
+use crate::get_cbit_mask;
+use crate::hostmap::HOSTMAP;
+use crate::paging::SHIM_PAGETABLE;
+
+use core::convert::{TryFrom, TryInto};
+
+use nbytes::bytes;
+use primordial::{Address, Register};
+use x86_64::structures::paging::Translate;
+use x86_64::{PhysAddr, VirtAddr};
+
 /// The offset of shim virtual address space to the physical address
 ///
 /// physical address + `SHIM_VIRT_OFFSET` = shim virtual address
@@ -16,15 +27,6 @@ pub const BYTES_2_MIB: u64 = bytes![2; MiB];
 /// 1 GiB
 #[allow(clippy::integer_arithmetic)]
 pub const BYTES_1_GIB: u64 = bytes![1; GiB];
-
-use crate::get_cbit_mask;
-use crate::hostmap::HOSTMAP;
-use crate::paging::SHIM_PAGETABLE;
-use core::convert::{TryFrom, TryInto};
-use nbytes::bytes;
-use primordial::{Address, Register};
-use x86_64::structures::paging::Translate;
-use x86_64::{PhysAddr, VirtAddr};
 
 /// Address in the host virtual address space
 pub struct HostVirtAddr<U>(Address<u64, U>);

@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 //! SNP specific modules and functions
+
 use crate::snp::Error::{FailInput, FailSizeMismatch, Unknown};
+
 use x86_64::VirtAddr;
 
 pub mod cpuid_page;

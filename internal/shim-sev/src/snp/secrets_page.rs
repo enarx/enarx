@@ -1,11 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
-// SPDX-License-Identifier: Apache-2.0
-
 //! Secrets page
 
 use crate::spin::RwLocked;
 use crate::_ENARX_SECRETS;
+
 use spinning::Lazy;
 
 /// The SEV-SNP secrets page OS area

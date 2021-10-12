@@ -7,9 +7,11 @@ use crate::debug::_enarx_asm_triple_fault;
 use crate::snp::ghcb::GHCB;
 use crate::spin::RwLocked;
 use crate::{get_cbit_mask, _ENARX_SALLYPORT_END, _ENARX_SALLYPORT_START};
-use array_const_fn_init::array_const_fn_init;
+
 use core::convert::TryFrom;
 use core::mem::size_of;
+
+use array_const_fn_init::array_const_fn_init;
 use primordial::Register;
 use sallyport::syscall::enarx::MemInfo;
 use sallyport::syscall::{SYS_ENARX_BALLOON_MEMORY, SYS_ENARX_MEM_INFO};
