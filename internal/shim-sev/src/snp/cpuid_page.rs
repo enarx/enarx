@@ -2,12 +2,14 @@
 
 //! FIXME: move to sev crate
 
-use crate::{get_cbit_mask, _ENARX_CPUID};
-
-use const_default::ConstDefault;
 use core::arch::x86_64::CpuidResult;
 use core::fmt::Debug;
 use core::mem::size_of;
+
+use const_default::ConstDefault;
+
+use crate::snp::snp_active;
+use crate::_ENARX_CPUID;
 
 const COUNT_MAX: usize = 64;
 
@@ -135,7 +137,7 @@ pub fn cpuid(leaf: u32) -> CpuidResult {
 /// [amd64_ref]: http://support.amd.com/TechDocs/24594.pdf
 #[inline]
 pub fn cpuid_count(leaf: u32, sub_leaf: u32) -> CpuidResult {
-    if get_cbit_mask() == 0 {
+    if !snp_active() {
         unsafe { core::arch::x86_64::__cpuid_count(leaf, sub_leaf) }
     } else {
         let cpuid = &unsafe { _ENARX_CPUID };

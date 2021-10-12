@@ -2,15 +2,32 @@
 
 //! SNP specific modules and functions
 
-use crate::snp::Error::{FailInput, FailSizeMismatch, Unknown};
+use core::sync::atomic::{AtomicU64, Ordering};
 
 use x86_64::VirtAddr;
+
+pub use cpuid_page::{cpuid, cpuid_count, get_cpuid_max};
+
+use crate::snp::Error::{FailInput, FailSizeMismatch, Unknown};
 
 pub mod cpuid_page;
 pub mod ghcb;
 pub mod secrets_page;
 
-pub use cpuid_page::{cpuid, cpuid_count, get_cpuid_max};
+/// The C-Bit mask indicating encrypted physical addresses
+pub static C_BIT_MASK: AtomicU64 = AtomicU64::new(0);
+
+/// Get the SEV C-Bit mask
+#[inline(always)]
+pub fn get_cbit_mask() -> u64 {
+    C_BIT_MASK.load(Ordering::Relaxed)
+}
+
+/// Test, if SEV-SNP is enabled
+#[inline(always)]
+pub fn snp_active() -> bool {
+    get_cbit_mask() > 0
+}
 
 /// Error returned by pvalidate
 #[derive(Debug)]

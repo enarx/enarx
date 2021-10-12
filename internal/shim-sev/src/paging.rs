@@ -3,7 +3,7 @@
 //! Paging
 
 use crate::addr::SHIM_VIRT_OFFSET;
-use crate::get_cbit_mask;
+use crate::snp::get_cbit_mask;
 
 use spinning::{Lazy, RwLock};
 use x86_64::registers::control::Cr3;

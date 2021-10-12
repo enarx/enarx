@@ -2,9 +2,9 @@
 
 //! Some basic address operations
 
-use crate::get_cbit_mask;
 use crate::hostmap::HOSTMAP;
 use crate::paging::SHIM_PAGETABLE;
+use crate::snp::get_cbit_mask;
 
 use core::convert::{TryFrom, TryInto};
 

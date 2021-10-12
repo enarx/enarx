@@ -21,8 +21,9 @@ use crate::print::{enable_printing, is_printing_enabled};
 use crate::snp::cpuid_page::CpuidPage;
 use crate::snp::ghcb::Ghcb;
 use crate::snp::secrets_page::SnpSecretsPage;
+use crate::snp::C_BIT_MASK;
 
-use core::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use core::sync::atomic::{AtomicBool, Ordering};
 
 use goblin::elf::header::header64::Header;
 use noted::noted;
@@ -58,8 +59,6 @@ mod start;
 pub mod syscall;
 pub mod usermode;
 
-static C_BIT_MASK: AtomicU64 = AtomicU64::new(0);
-
 static PAYLOAD_READY: AtomicBool = AtomicBool::new(false);
 
 extern "C" {
@@ -81,12 +80,6 @@ extern "C" {
     pub static mut _ENARX_GHCB: Ghcb;
     /// Extern
     pub static mut _ENARX_SECRETS: SnpSecretsPage;
-}
-
-/// Get the SEV C-Bit mask
-#[inline(always)]
-pub fn get_cbit_mask() -> u64 {
-    C_BIT_MASK.load(Ordering::Relaxed)
 }
 
 /// Switch the stack and jump to a function
