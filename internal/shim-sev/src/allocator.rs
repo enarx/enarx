@@ -10,11 +10,13 @@ use crate::paging::SHIM_PAGETABLE;
 use crate::payload::NEXT_MMAP_RWLOCK;
 use crate::snp::{pvalidate, PvalidateSize};
 use crate::spin::RwLocked;
+
 use core::alloc::{GlobalAlloc, Layout};
 use core::cmp::{max, min};
 use core::convert::TryFrom;
 use core::mem::{align_of, size_of};
 use core::ptr::NonNull;
+
 use goblin::elf::header::header64::Header;
 use goblin::elf::header::ELFMAG;
 use goblin::elf::program_header::program_header64::*;

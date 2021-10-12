@@ -6,9 +6,11 @@ use crate::addr::{BYTES_1_GIB, BYTES_2_MIB, SHIM_VIRT_OFFSET};
 use crate::allocator::ALLOCATOR;
 use crate::paging::{EncPhysOffset, SHIM_PAGETABLE};
 use crate::{get_cbit_mask, paging};
-use array_const_fn_init::array_const_fn_init;
+
 use core::alloc::Layout;
 use core::mem::size_of;
+
+use array_const_fn_init::array_const_fn_init;
 use x86_64::instructions::tlb::{flush, flush_all};
 use x86_64::structures::paging::mapper::{MappedFrame, PageTableFrameMapping, TranslateResult};
 use x86_64::structures::paging::page_table::PageTableEntry;

@@ -2,14 +2,16 @@
 
 //! Interrupt handling
 
-use super::idt::{InterruptDescriptorTable, InterruptStackFrame, PageFaultErrorCode};
 use crate::addr::SHIM_VIRT_OFFSET;
 use crate::debug::print_stack_trace;
 use crate::eprintln;
 use crate::hostcall::shim_exit;
+use crate::idt::{InterruptDescriptorTable, InterruptStackFrame, PageFaultErrorCode};
 use crate::payload::PAYLOAD_VIRT_ADDR;
 use crate::snp::cpuid_count;
+
 use core::mem::size_of;
+
 use spinning::Lazy;
 use xsave::XSave;
 

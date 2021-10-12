@@ -7,7 +7,9 @@
 use crate::_start_main;
 use crate::addr::SHIM_VIRT_OFFSET;
 use crate::pagetables::{PDPT, PDT_C000_0000, PML4T, PT_FFE0_0000};
+
 use core::mem::size_of;
+
 use primordial::Page;
 use rcrt1::dyn_reloc;
 use x86_64::registers::control::{Cr0Flags, Cr4Flags, EferFlags};

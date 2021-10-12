@@ -9,9 +9,11 @@ use crate::eprintln;
 use crate::hostcall::{HostCall, HOST_CALL_ALLOC};
 use crate::paging::SHIM_PAGETABLE;
 use crate::payload::{NEXT_BRK_RWLOCK, NEXT_MMAP_RWLOCK};
+
 use core::convert::TryFrom;
 use core::mem::size_of;
 use core::ops::{Deref, DerefMut};
+
 use primordial::{Address, Register};
 use sallyport::syscall::{
     BaseSyscallHandler, EnarxSyscallHandler, FileSyscallHandler, MemorySyscallHandler,

@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
-//! FIXME
+//! FIXME: move to sev crate
 
 use crate::{get_cbit_mask, _ENARX_CPUID};
+
 use const_default::ConstDefault;
 use core::arch::x86_64::CpuidResult;
 use core::fmt::Debug;

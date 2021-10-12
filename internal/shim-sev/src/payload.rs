@@ -1,16 +1,18 @@
 // SPDX-License-Identifier: Apache-2.0
 
 //! Functions dealing with the payload
+
 use crate::addr::ShimPhysAddr;
 use crate::allocator::ALLOCATOR;
 use crate::random::random;
 use crate::shim_stack::init_stack_with_guard;
+use crate::snp::cpuid;
 use crate::usermode::usermode;
 use crate::PAYLOAD_READY;
 
-use crate::snp::cpuid;
 use core::convert::TryFrom;
 use core::sync::atomic::Ordering;
+
 use crt0stack::{self, Builder, Entry};
 use goblin::elf::header::header64::Header;
 use goblin::elf::header::ELFMAG;

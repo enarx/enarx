@@ -16,12 +16,13 @@
 
 //! Provides types for the Interrupt Descriptor Table and its entries.
 
-use bit_field::BitField;
-use bitflags::bitflags;
 use core::fmt;
 use core::marker::PhantomData;
 use core::ops::Bound::{Excluded, Included, Unbounded};
 use core::ops::{Deref, Index, IndexMut, RangeBounds};
+
+use bit_field::BitField;
+use bitflags::bitflags;
 use x86_64::instructions::segmentation::Segment;
 use x86_64::instructions::segmentation::CS;
 use x86_64::{PrivilegeLevel, VirtAddr};

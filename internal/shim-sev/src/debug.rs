@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-//! Functions needing `asm!` blocks
+//! Debug functions
 
 use crate::addr::SHIM_VIRT_OFFSET;
 use crate::paging::SHIM_PAGETABLE;
@@ -8,8 +8,10 @@ use crate::payload::PAYLOAD_VIRT_ADDR;
 use crate::snp::ghcb::{vmgexit_msr, GHCB_MSR_EXIT_REQ};
 use crate::PAYLOAD_READY;
 use crate::{get_cbit_mask, print};
+
 use core::mem::size_of;
 use core::sync::atomic::Ordering;
+
 use x86_64::instructions::tables::lidt;
 use x86_64::structures::paging::Translate;
 use x86_64::structures::DescriptorTablePointer;

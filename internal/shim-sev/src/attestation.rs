@@ -4,6 +4,7 @@
 
 use core::hint::unreachable_unchecked;
 use core::mem::MaybeUninit;
+
 use nbytes::bytes;
 
 /// The maximum size of the injected secret for SEV keeps

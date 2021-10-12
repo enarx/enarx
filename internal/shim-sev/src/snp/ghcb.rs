@@ -12,12 +12,14 @@ use crate::snp::secrets_page::SECRETS;
 use crate::snp::{pvalidate, PvalidateSize};
 use crate::spin::RwLocked;
 use crate::_ENARX_GHCB;
+
+use core::mem::size_of;
+use core::ptr;
+
 use aes_gcm::AeadInPlace;
 use aes_gcm::NewAead;
 use aes_gcm::{Aes256Gcm, Key, Nonce, Tag};
 use const_default::ConstDefault;
-use core::mem::size_of;
-use core::ptr;
 use spinning::Lazy;
 use x86_64::registers::model_specific::Msr;
 use x86_64::structures::paging::{Page, Size4KiB};
