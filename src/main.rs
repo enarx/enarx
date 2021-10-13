@@ -90,7 +90,7 @@ fn main() -> Result<()> {
         cli::Command::Info(info) => info.display(),
         cli::Command::Exec(exec) => {
             let backend = exec.backend.pick()?;
-            let binary = mmarinus::Kind::Private.load::<mmarinus::perms::Read, _>(&exec.code)?;
+            let binary = mmarinus::Kind::Private.load::<mmarinus::perms::Read, _>(&exec.binpath)?;
             keep_exec(backend, backend.shim(), binary)
         }
         cli::Command::Run(run) => {
