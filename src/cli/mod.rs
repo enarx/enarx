@@ -6,7 +6,7 @@ mod log;
 mod run;
 
 use anyhow::{anyhow, Result};
-use structopt::StructOpt;
+use structopt::{clap::AppSettings, StructOpt};
 
 pub use self::log::LogOptions;
 
@@ -14,6 +14,7 @@ pub use self::log::LogOptions;
 #[derive(StructOpt, Debug)]
 pub enum Command {
     Info(info::Options),
+    #[structopt(setting(AppSettings::Hidden))]
     Exec(exec::Options),
     Run(run::Options),
 }
@@ -34,7 +35,6 @@ pub struct BackendOptions {
 }
 
 impl BackendOptions {
-    ///
     pub fn pick(&self) -> Result<&dyn Backend> {
         let backends = builtin_backends();
 
@@ -60,8 +60,7 @@ use crate::workldr::{builtin_workldrs, Workldr};
 
 #[derive(StructOpt, Debug)]
 pub struct WorkldrOptions {
-    // TODO: Path to an external workldr binary
-//workldr: Option<PathBuf>,
+    // FUTURE: Path to an external workldr binary
 }
 
 impl WorkldrOptions {
