@@ -57,126 +57,70 @@
 #![feature(asm)]
 
 mod backend;
+mod cli;
 mod protobuf;
 mod workldr;
 
 use backend::{Backend, Command};
-use workldr::Workldr;
 
 use std::convert::TryInto;
-use std::path::PathBuf;
+use std::fs::File;
+use std::os::unix::io::AsRawFd;
 
 use anyhow::Result;
+use log::info;
 use structopt::StructOpt;
 
-const VERSION: &str = env!("CARGO_PKG_VERSION");
-const AUTHORS: &str = env!("CARGO_PKG_AUTHORS");
+// This defines the toplevel `enarx` CLI
+#[derive(StructOpt, Debug)]
+#[structopt(
+    setting = structopt::clap::AppSettings::DeriveDisplayOrder,
+)]
+struct Options {
+    /// Logging options
+    #[structopt(flatten)]
+    log: cli::LogOptions,
 
-/// Prints information about your current platform
-#[derive(StructOpt)]
-struct Info {}
-
-/// Executes a keep
-#[derive(StructOpt)]
-struct Exec {
-    /// The payload to run inside the keep
-    code: Option<PathBuf>,
-}
-
-#[derive(StructOpt)]
-#[structopt(version=VERSION, author=AUTHORS.split(";").nth(0).unwrap())]
-enum Options {
-    Info(Info),
-    Exec(Exec),
+    /// Subcommands (with their own options)
+    #[structopt(flatten)]
+    cmd: cli::Command,
 }
 
 #[allow(clippy::unnecessary_wraps)]
 fn main() -> Result<()> {
-    let backends: &[Box<dyn Backend>] = &[
-        #[cfg(feature = "backend-sgx")]
-        Box::new(backend::sgx::Backend),
-        #[cfg(feature = "backend-sev")]
-        Box::new(backend::sev::Backend),
-        #[cfg(feature = "backend-kvm")]
-        Box::new(backend::kvm::Backend),
-    ];
+    let opts = Options::from_args();
+    opts.log.init_logger();
 
-    let workldrs: &[Box<dyn Workldr>] = &[
-        #[cfg(feature = "wasmldr")]
-        Box::new(workldr::wasmldr::Wasmldr),
-    ];
+    info!("logging initialized!");
+    info!("CLI opts: {:?}", &opts);
 
-    match Options::from_args() {
-        Options::Info(_) => info(backends),
-        Options::Exec(e) => {
-            // FUTURE: accept tenant-provided shim, or fall back to builtin..
-            let backend = backend(backends);
-            let shim_bytes = backend.shim();
-            if let Some(path) = e.code {
-                let map = mmarinus::Kind::Private.load::<mmarinus::perms::Read, _>(&path)?;
-                exec(backend, shim_bytes, map)
-            } else {
-                exec(backend, shim_bytes, workldr(workldrs).exec())
-            }
+    match opts.cmd {
+        cli::Command::Info(info) => info.display(),
+        cli::Command::Exec(exec) => {
+            let backend = exec.backend.pick()?;
+            let binary = mmarinus::Kind::Private.load::<mmarinus::perms::Read, _>(&exec.code)?;
+            keep_exec(backend, backend.shim(), binary)
+        }
+        cli::Command::Run(run) => {
+            let modfile = File::open(run.module)?;
+            let open_fd = modfile.as_raw_fd();
+            // FIXME (v0.1.0 KEEP-CONFIG HACK): since we don't have any way to
+            // pass configuration or data into a keep yet, for v0.1.0 we've
+            // just hardcoded wasmldr to assume the module is open for reading
+            // on FD3. That *should* always be the case here (since nothing
+            // above opens files or anything), but if that assumption is wrong
+            // then things will break mysteriously later on. So this assert
+            // is just here to make them break earlier, and with less mystery.
+            assert!(open_fd == 3, "module got unexpected fd {}", open_fd);
+            // TODO: pass open_fd (or its contents) into the keep.
+            let backend = run.backend.pick()?;
+            let workldr = run.workldr.pick()?;
+            keep_exec(backend, backend.shim(), workldr.exec())
         }
     }
 }
 
-#[allow(clippy::unnecessary_wraps)]
-fn info(backends: &[Box<dyn Backend>]) -> Result<()> {
-    use colorful::*;
-
-    for backend in backends {
-        println!("Backend: {}", backend.name());
-
-        let data = backend.data();
-
-        for datum in &data {
-            let icon = match datum.pass {
-                true => "✔".green(),
-                false => "✗".red(),
-            };
-
-            if let Some(info) = datum.info.as_ref() {
-                println!(" {} {}: {}", icon, datum.name, info);
-            } else {
-                println!(" {} {}", icon, datum.name);
-            }
-        }
-
-        for datum in &data {
-            if let Some(mesg) = datum.mesg.as_ref() {
-                println!("\n{}\n", mesg);
-            }
-        }
-    }
-
-    Ok(())
-}
-
-#[inline]
-fn backend(backends: &[Box<dyn Backend>]) -> &dyn Backend {
-    let keep = std::env::var_os("ENARX_BACKEND").map(|x| x.into_string().unwrap());
-
-    let backend = backends
-        .iter()
-        .filter(|b| keep.is_none() || keep == Some(b.name().into()))
-        .find(|b| b.have());
-
-    match (keep, backend) {
-        (Some(name), None) => panic!("Keep backend '{:?}' is unsupported.", name),
-        (None, None) => panic!("No supported backend found!"),
-        (_, Some(backend)) => &**backend,
-    }
-}
-
-#[inline]
-fn workldr(workldrs: &[Box<dyn Workldr>]) -> &dyn Workldr {
-    // NOTE: this is stupid, but we only have one workldr, so... ¯\_(ツ)_/¯
-    &*workldrs[0]
-}
-
-fn exec(backend: &dyn Backend, shim: impl AsRef<[u8]>, exec: impl AsRef<[u8]>) -> Result<()> {
+fn keep_exec(backend: &dyn Backend, shim: impl AsRef<[u8]>, exec: impl AsRef<[u8]>) -> Result<()> {
     let keep = backend.keep(shim.as_ref(), exec.as_ref())?;
     let mut thread = keep.clone().spawn()?.unwrap();
     loop {
