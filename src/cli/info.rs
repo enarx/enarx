@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::backend::builtin_backends;
+use crate::backend::BACKENDS;
 use crate::cli::{Result, StructOpt};
+use std::ops::Deref;
 
 /// Show details about backend support on this system
 #[derive(StructOpt, Debug)]
@@ -13,7 +14,7 @@ impl Options {
     pub fn display(self) -> Result<()> {
         use colorful::*;
 
-        for backend in builtin_backends() {
+        for backend in BACKENDS.deref() {
             println!("Backend: {}", backend.name());
 
             let data = backend.data();

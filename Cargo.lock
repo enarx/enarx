@@ -183,7 +183,6 @@ dependencies = [
  "lset",
  "mmarinus",
  "nbytes",
- "once_cell",
  "openssl",
  "primordial",
  "process_control",
@@ -194,6 +193,7 @@ dependencies = [
  "serial_test",
  "sev",
  "sgx",
+ "spinning",
  "structopt",
  "tempdir",
  "vdso",
@@ -773,6 +773,15 @@ name = "smallvec"
 version = "1.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1ecab6c735a6bb4139c0caafd0cc3635748bbb3acf4550e8138122099251f309"
+
+[[package]]
+name = "spinning"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2d4f0e86297cad2658d92a707320d87bf4e6ae1050287f51d19b67ef3f153a7b"
+dependencies = [
+ "lock_api",
+]
 
 [[package]]
 name = "strsim"
