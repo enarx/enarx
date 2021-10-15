@@ -6,6 +6,7 @@ mod log;
 mod run;
 
 use anyhow::{anyhow, Result};
+use std::ops::Deref;
 use structopt::{clap::AppSettings, StructOpt};
 
 pub use self::log::LogOptions;
@@ -23,7 +24,7 @@ pub enum Command {
 // Options & shared setup code for backends/shims
 //
 
-use crate::backend::{builtin_backends, Backend};
+use crate::backend::{Backend, BACKENDS};
 
 #[derive(StructOpt, Debug)]
 pub struct BackendOptions {
@@ -36,15 +37,15 @@ pub struct BackendOptions {
 
 impl BackendOptions {
     pub fn pick(&self) -> Result<&dyn Backend> {
-        let backends = builtin_backends();
-
         if let Some(ref name) = self.backend {
-            backends
+            BACKENDS
+                .deref()
                 .iter()
                 .find(|b| b.have() && b.name() == name)
                 .ok_or_else(|| anyhow!("Keep backend {:?} is unsupported", name))
         } else {
-            backends
+            BACKENDS
+                .deref()
                 .iter()
                 .find(|b| b.have())
                 .ok_or_else(|| anyhow!("No supported backend found"))
@@ -56,7 +57,7 @@ impl BackendOptions {
 //
 // Options & shared setup code for workldr
 //
-use crate::workldr::{builtin_workldrs, Workldr};
+use crate::workldr::{Workldr, WORKLDRS};
 
 #[derive(StructOpt, Debug)]
 pub struct WorkldrOptions {
@@ -65,9 +66,8 @@ pub struct WorkldrOptions {
 
 impl WorkldrOptions {
     pub fn pick(&self) -> Result<&dyn Workldr> {
-        let workldrs = builtin_workldrs();
-
-        workldrs
+        WORKLDRS
+            .deref()
             .iter()
             .find(|_| true)
             .ok_or_else(|| anyhow!("No supported workldr found"))

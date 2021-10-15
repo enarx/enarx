@@ -20,8 +20,7 @@ use std::sync::Arc;
 use anyhow::{Error, Result};
 use mmarinus::{perms, Map};
 use sallyport::Block;
-
-use once_cell::sync::OnceCell;
+use spinning::Lazy;
 
 trait Config: Sized {
     type Flags;
@@ -103,17 +102,13 @@ pub enum Command<'a> {
     Continue,
 }
 
-#[inline]
-pub fn builtin_backends() -> &'static [Box<dyn Backend>] {
-    static BACKENDS: OnceCell<Vec<Box<dyn Backend>>> = OnceCell::new();
-    &BACKENDS.get_or_init(|| {
-        vec![
-            #[cfg(feature = "backend-sgx")]
-            Box::new(sgx::Backend),
-            #[cfg(feature = "backend-sev")]
-            Box::new(sev::Backend),
-            #[cfg(feature = "backend-kvm")]
-            Box::new(kvm::Backend),
-        ]
-    })[..]
-}
+pub static BACKENDS: Lazy<Vec<Box<dyn Backend>>> = Lazy::new(|| {
+    vec![
+        #[cfg(feature = "backend-sgx")]
+        Box::new(sgx::Backend),
+        #[cfg(feature = "backend-sev")]
+        Box::new(sev::Backend),
+        #[cfg(feature = "backend-kvm")]
+        Box::new(kvm::Backend),
+    ]
+});
