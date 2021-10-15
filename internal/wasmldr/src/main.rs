@@ -17,6 +17,7 @@
 //!     Finished dev [unoptimized + debuginfo] target(s) in 0.03s
 //!      Running `target/x86_64-unknown-linux-musl/debug/wasmldr return_1.wasm`
 //! [INFO  wasmldr] version 0.2.0 starting up
+//! [WARN  wasmldr] 🌭DEV-ONLY BUILD, NOT FOR PRODUCTION USE🌭
 //! [INFO  wasmldr] opts: RunOptions {
 //!         envs: [],
 //!         module: Some(
@@ -26,7 +27,7 @@
 //!     }
 //! [INFO  wasmldr] reading module from "return_1.wasm"
 //! [INFO  wasmldr] running workload
-//! [WARN  wasmldr::workload] 🌭DEV-ONLY BUILD🌭: inheriting stdio from calling process
+//! [WARN  wasmldr::workload] inheriting stdio from calling process
 //! [INFO  wasmldr] got result: Ok(
 //!         [
 //!             I32(
@@ -48,18 +49,31 @@
 mod cli;
 mod workload;
 
-use log::{debug, info};
+use log::{debug, info, warn};
 use structopt::StructOpt;
 
 use std::fs::File;
 use std::io::Read;
 use std::os::unix::io::FromRawFd;
 
+// v0.1.0 KEEP-CONFIG HACK
+// We don't yet have a well-defined way to pass runtime configuration from
+// the frontend/CLI into the keep, so the keep configuration is pre-defined:
+//   * the .wasm module is open on fd3 and gets no arguments or env vars
+//   * stdin, stdout, and stderr are enabled and should go to fd 0,1,2
+//   * logging should be turned on at "debug" level, output goes to stderr
+//
+
 fn main() {
-    // Initialize the logger, taking settings from the default env vars
+    // KEEP-CONFIG HACK: we've inherited stdio and the shim sets
+    // "RUST_LOG=debug", so this should make logging go to stderr.
+    // FUTURE: we should have a keep-provided debug channel where we can
+    // (safely, securely) send logs. Might need our own logger for that..
     env_logger::Builder::from_default_env().init();
 
     info!("version {} starting up", env!("CARGO_PKG_VERSION"));
+
+    warn!("🌭DEV-ONLY BUILD, NOT FOR PRODUCTION USE🌭");
 
     debug!("parsing argv");
     let opts = cli::RunOptions::from_args();
@@ -69,6 +83,7 @@ fn main() {
         info!("reading module from {:?}", &module);
         File::open(&module).expect("Unable to open file")
     } else {
+        // v0.1.0 KEEP-CONFIG HACK: just assume module is on FD3
         info!("reading module from fd 3");
         unsafe { File::from_raw_fd(3) }
     };
@@ -78,11 +93,10 @@ fn main() {
         .read_to_end(&mut bytes)
         .expect("Failed to load workload");
 
-    // FUTURE: measure opts.envs, opts.args, opts.wasm_features
-    // FUTURE: fork() the workload off into a separate memory space
+    // TODO: split up / refactor workload::run() so we can configure things
+    // like WASI stdio or wasmtime features before executing the workload..
 
     info!("running workload");
-    // TODO: pass opts.wasm_features
     let result = workload::run(bytes, opts.args, opts.envs);
     info!("got result: {:#?}", result);
 

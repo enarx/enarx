@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use log::{debug, warn};
+use log::{debug, info};
 use nbytes::bytes;
 use wasmtime_wasi::sync::WasiCtxBuilder;
 
@@ -113,9 +113,9 @@ pub fn run<T: AsRef<str>, U: AsRef<str>>(
             .or(Err(Error::StringTableError))?;
     }
 
-    // TODO: plaintext stdio to/from the (untrusted!) host system isn't a
-    // secure default behavior. But.. we don't have any *trusted* I/O yet, so..
-    warn!("🌭DEV-ONLY BUILD🌭: inheriting stdio from calling process");
+    // v0.1.0 KEEP-CONFIG HACK: let wasmtime/wasi inherit our stdio.
+    // FIXME: this isn't a safe default if you don't trust the host!
+    info!("inheriting stdio from calling process");
     wasi = wasi.inherit_stdio();
 
     debug!("creating wasmtime Store");

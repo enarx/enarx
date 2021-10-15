@@ -17,6 +17,7 @@ $ RUST_LOG=wasmldr=info RUST_BACKTRACE=1 cargo run -- return_1.wasm
     Finished dev [unoptimized + debuginfo] target(s) in 0.03s
      Running `target/x86_64-unknown-linux-musl/debug/wasmldr return_1.wasm`
 [INFO  wasmldr] version 0.2.0 starting up
+[WARN  wasmldr] 🌭DEV-ONLY BUILD, NOT FOR PRODUCTION USE🌭
 [INFO  wasmldr] opts: RunOptions {
         envs: [],
         module: Some(
@@ -26,7 +27,7 @@ $ RUST_LOG=wasmldr=info RUST_BACKTRACE=1 cargo run -- return_1.wasm
     }
 [INFO  wasmldr] reading module from "return_1.wasm"
 [INFO  wasmldr] running workload
-[WARN  wasmldr::workload] 🌭DEV-ONLY BUILD🌭: inheriting stdio from calling process
+[WARN  wasmldr::workload] inheriting stdio from calling process
 [INFO  wasmldr] got result: Ok(
         [
             I32(
