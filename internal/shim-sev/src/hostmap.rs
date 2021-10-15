@@ -11,7 +11,7 @@
 //! Because of memory ballooning (requesting more memory on demand) the hosts memory
 //! is not contiguous and therefore we need a map for every memory region.
 //!
-//! ```
+//! ```text
 //!                   Host             Shim
 //!                  virtual          physical
 //!    0x7fee0000  +--------+------>+--0x0000--+

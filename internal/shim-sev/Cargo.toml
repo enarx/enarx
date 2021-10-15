@@ -33,6 +33,9 @@ lock_api = "0.4.5"
 aes-gcm = { version = "0.9.4", features = ["aes"], default-features = false  }
 const-default = { version = "0.2", features = [ "derive" ] }
 
+[dev-dependencies]
+memoffset = "0.6.1"
+
 [profile.dev.package.rcrt1]
 opt-level = 3
 
