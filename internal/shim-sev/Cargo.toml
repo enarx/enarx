@@ -13,6 +13,8 @@ test = false
 sallyport = { git = "https://github.com/enarx/sallyport", rev = "d016f8c6afd50ae2694ddc2d2afea4eec7301a41", features = [ "asm" ] }
 rcrt1 = { git = "https://github.com/enarx/rcrt1", rev = "b28f711" }
 compiler_builtins = { version = "0.1", default-features = false, features = [ "mem" ] }
+# FIXME: can be removed with the release of `x86_64` > 0.14.6
+volatile = "0.4.4"
 x86_64 = { version = "^0.14.6", default-features = false, features = ["instructions", "inline_asm"] }
 goblin = { version = "0.4", default-features = false, features = [ "elf64" ] }
 crt0stack = { version = "0.1", default-features = false }

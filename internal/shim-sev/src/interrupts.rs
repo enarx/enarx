@@ -6,13 +6,14 @@ use crate::addr::SHIM_VIRT_OFFSET;
 use crate::debug::print_stack_trace;
 use crate::eprintln;
 use crate::hostcall::shim_exit;
-use crate::idt::{InterruptDescriptorTable, InterruptStackFrame, PageFaultErrorCode};
+use crate::idt::{InterruptDescriptorTable, InterruptStackFrame};
 use crate::payload::PAYLOAD_VIRT_ADDR;
 use crate::snp::cpuid_count;
 
 use core::mem::size_of;
 
 use spinning::Lazy;
+use x86_64::structures::idt::PageFaultErrorCode;
 use xsave::XSave;
 
 /// size of area reserved for xsave
@@ -402,10 +403,6 @@ extern "sysv64" fn vmm_communication_exception_handler(
     stack_frame: &mut EnarxInterruptStackFrameWithArg,
     error_code: u64,
 ) {
-    //eprintln!("vmm_communication_exception_handler");
-    //eprintln!("Error Code: {:?}", error_code);
-    //eprintln!("{:x?}", stack_frame);
-
     // AMD Progammer's Manual Vol. 2 Appendix C - SVM Intercept Exit Codes
     match error_code {
         0x72 => {
@@ -420,9 +417,9 @@ extern "sysv64" fn vmm_communication_exception_handler(
 
             // advance RIP by length of cpuid instruction
             unsafe {
-                stack_frame.frame.as_mut().instruction_pointer =
-                    stack_frame.frame.instruction_pointer + 2u64;
-            }
+                let mut frame = stack_frame.frame.as_mut();
+                frame.update(|frame| frame.instruction_pointer += 2u64)
+            };
         }
         _ => panic!("Unhandled #VC: {:x?}", error_code),
     }

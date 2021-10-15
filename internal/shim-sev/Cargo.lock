@@ -290,6 +290,7 @@ dependencies = [
  "rcrt1",
  "sallyport",
  "spinning",
+ "volatile",
  "x86_64",
  "xsave",
 ]
