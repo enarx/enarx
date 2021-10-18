@@ -10,7 +10,6 @@ pub struct Options {}
 
 impl Options {
     /// Display nicely-formatted info about each backend
-    #[allow(clippy::unnecessary_wraps)]
     pub fn display(self) -> Result<()> {
         use colorful::*;
 
