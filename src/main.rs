@@ -78,7 +78,6 @@ struct Options {
     cmd: cli::Command,
 }
 
-#[allow(clippy::unnecessary_wraps)]
 fn main() -> Result<()> {
     let opts = Options::from_args();
     opts.log.init_logger();
