@@ -30,6 +30,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "const-default"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bd9256058c3b49b4eca9d45cfb8b265bfa0a340d6cecb6bb97c4a1cf2fb53947"
+
+[[package]]
 name = "const-default-derive"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -172,7 +178,7 @@ name = "shim-sgx"
 version = "0.1.0"
 dependencies = [
  "compiler_builtins",
- "const-default",
+ "const-default 0.3.0",
  "crt0stack",
  "enarx-heap",
  "flagset",
@@ -230,5 +236,5 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0f980b1e0ed898c5b60ac780eae2786ebb8b7a3ea8d9eea9592718159fc26ad8"
 dependencies = [
  "bitflags",
- "const-default",
+ "const-default 0.2.0",
 ]
