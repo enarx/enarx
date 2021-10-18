@@ -267,3 +267,9 @@ fn memspike() {
 fn memory_stress_test() {
     run_test("memory_stress_test", 0, None, None, None);
 }
+
+#[test]
+#[serial]
+fn cpuid() {
+    run_test("cpuid", 0, None, None, None);
+}

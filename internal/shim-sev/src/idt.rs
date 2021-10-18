@@ -1,5 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
+// FIXME: this file can be completely removed after the following PRs
+// are in a released version of the `x86_64` crate:
+// https://github.com/rust-osdev/x86_64/pull/312
+// https://github.com/rust-osdev/x86_64/pull/313
+
 // Copied and modified for use without the `abi_x86_interrupt` feature.
 // The `abi_x86_interrupt` feature is very unlikely to be stabilized.
 
@@ -17,10 +22,8 @@
 
 use core::fmt;
 use core::marker::PhantomData;
-use core::ops::Deref;
 
 use bit_field::BitField;
-use volatile::Volatile;
 use x86_64::{PrivilegeLevel, VirtAddr};
 
 /// An Interrupt Descriptor Table with 256 entries.
@@ -650,96 +653,5 @@ impl EntryOptions {
         // starts at 0. Therefore we need to add 1 here.
         self.0.set_bits(0..3, index + 1);
         self
-    }
-}
-
-// FIXME: The following can be removed, as soon as `x86_64` > 0.14.6 is released.
-// https://github.com/rust-osdev/x86_64/pull/312
-
-/// Wrapper type for the interrupt stack frame pushed by the CPU.
-///
-/// This type derefs to an [`InterruptStackFrameValue`], which allows reading the actual values.
-///
-/// This wrapper type ensures that no accidental modification of the interrupt stack frame
-/// occurs, which can cause undefined behavior (see the [`as_mut`](InterruptStackFrame::as_mut)
-/// method for more information).
-#[repr(C)]
-pub struct InterruptStackFrame {
-    value: InterruptStackFrameValue,
-}
-
-impl InterruptStackFrame {
-    /// Gives mutable access to the contents of the interrupt stack frame.
-    ///
-    /// The `Volatile` wrapper is used because LLVM optimizations remove non-volatile
-    /// modifications of the interrupt stack frame.
-    ///
-    /// ## Safety
-    ///
-    /// This function is unsafe since modifying the content of the interrupt stack frame
-    /// can easily lead to undefined behavior. For example, by writing an invalid value to
-    /// the instruction pointer field, the CPU can jump to arbitrary code at the end of the
-    /// interrupt.
-    ///
-    /// Also, it is not fully clear yet whether modifications of the interrupt stack frame are
-    /// officially supported by LLVM's x86 interrupt calling convention.
-    #[inline]
-    pub unsafe fn as_mut(&mut self) -> Volatile<&mut InterruptStackFrameValue> {
-        Volatile::new(&mut self.value)
-    }
-}
-
-impl Deref for InterruptStackFrame {
-    type Target = InterruptStackFrameValue;
-
-    #[inline]
-    fn deref(&self) -> &Self::Target {
-        &self.value
-    }
-}
-
-impl fmt::Debug for InterruptStackFrame {
-    #[inline]
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        self.value.fmt(f)
-    }
-}
-
-/// Represents the interrupt stack frame pushed by the CPU on interrupt or exception entry.
-#[derive(Clone, Copy)]
-#[repr(C)]
-pub struct InterruptStackFrameValue {
-    /// This value points to the instruction that should be executed when the interrupt
-    /// handler returns. For most interrupts, this value points to the instruction immediately
-    /// following the last executed instruction. However, for some exceptions (e.g., page faults),
-    /// this value points to the faulting instruction, so that the instruction is restarted on
-    /// return. See the documentation of the [`InterruptDescriptorTable`] fields for more details.
-    pub instruction_pointer: VirtAddr,
-    /// The code segment selector, padded with zeros.
-    pub code_segment: u64,
-    /// The flags register before the interrupt handler was invoked.
-    pub cpu_flags: u64,
-    /// The stack pointer at the time of the interrupt.
-    pub stack_pointer: VirtAddr,
-    /// The stack segment descriptor at the time of the interrupt (often zero in 64-bit mode).
-    pub stack_segment: u64,
-}
-
-impl fmt::Debug for InterruptStackFrameValue {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        struct Hex(u64);
-        impl fmt::Debug for Hex {
-            fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-                write!(f, "{:#x}", self.0)
-            }
-        }
-
-        let mut s = f.debug_struct("InterruptStackFrame");
-        s.field("instruction_pointer", &self.instruction_pointer);
-        s.field("code_segment", &self.code_segment);
-        s.field("cpu_flags", &Hex(self.cpu_flags));
-        s.field("stack_pointer", &self.stack_pointer);
-        s.field("stack_segment", &self.stack_segment);
-        s.finish()
     }
 }
