@@ -15,6 +15,11 @@
 extern crate compiler_builtins;
 extern crate rcrt1;
 
+use shim_sgx::{
+    entry, handler, ATTR, ENARX_EXEC_START, ENARX_HEAP_END, ENARX_HEAP_START, ENCL_SIZE,
+    ENCL_SIZE_BITS,
+};
+
 #[panic_handler]
 #[cfg(not(test))]
 #[allow(clippy::empty_loop)]
@@ -48,21 +53,10 @@ pub extern "C" fn rust_eh_personality() {
 
 // ============== REAL CODE HERE ===============
 
-mod entry;
-mod handler;
-
 use noted::noted;
 use sallyport::{elf::note, REQUIRES};
-use sgx::parameters::{Attributes, Features, MiscSelect, Xfrm};
+use sgx::parameters::{Attributes, MiscSelect};
 use sgx::ssa::StateSaveArea;
-
-const DEBUG: bool = false;
-
-const ENCL_SIZE_BITS: u8 = 31;
-const ENCL_SIZE: usize = 1 << ENCL_SIZE_BITS;
-
-const XFRM: Xfrm = Xfrm::from_bits_truncate(Xfrm::X87.bits() | Xfrm::SSE.bits());
-const ATTR: Attributes = Attributes::new(Features::MODE64BIT, XFRM);
 
 noted! {
     static NOTE_REQUIRES<note::NAME, note::REQUIRES, [u8; REQUIRES.len()]> = REQUIRES;
@@ -76,14 +70,6 @@ noted! {
     static NOTE_MISCMASK<note::NAME, note::sgx::MISCMASK, MiscSelect> = MiscSelect::empty();
     static NOTE_ATTR<note::NAME, note::sgx::ATTR, Attributes> = ATTR;
     static NOTE_ATTRMASK<note::NAME, note::sgx::ATTRMASK, Attributes> = ATTR;
-}
-
-// NOTE: You MUST take the address of these symbols for them to work!
-extern "C" {
-    static ENARX_EXEC_START: u8;
-    //static ENARX_EXEC_END: u8;
-    static ENARX_HEAP_START: u8;
-    static ENARX_HEAP_END: u8;
 }
 
 /// Clear CPU flags, extended state and temporary registers (`r10` and `r11`)
