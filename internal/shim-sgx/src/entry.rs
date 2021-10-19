@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
+//! FIXME: add docs
+
 use crt0stack::{Builder, Entry, Handle, OutOfSpace};
 use goblin::elf::header::{header64::Header, ELFMAG};
 
@@ -77,6 +79,7 @@ fn crt0setup<'a>(
     builder.done()
 }
 
+/// The initial entry function to startup the payload code
 pub unsafe fn entry(offset: *const ()) -> ! {
     // Validate the ELF header.
     let hdr = &*(offset as *const Header);

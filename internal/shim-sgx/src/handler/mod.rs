@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
+//! FIXME: add docs
+
 macro_rules! debug {
     ($dst:expr, $($arg:tt)*) => {
         #[allow(unused_must_use)] {
@@ -45,6 +47,7 @@ use x86_64::structures::idt::ExceptionVector;
 const OP_SYSCALL: u16 = 0x050f;
 const OP_CPUID: u16 = 0xa20f;
 
+/// Thread local storage for the current thread
 pub struct Handler<'a> {
     block: &'a mut Block,
     ssa: &'a mut StateSaveArea,
