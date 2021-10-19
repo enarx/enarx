@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use super::cpuid_page::CpuidPage;
+use super::snp::firmware::Firmware;
+use super::snp::launch::*;
+
 use super::SnpKeepPersonality;
 use crate::backend::kvm::builder::kvm_try_from_builder;
 use crate::backend::kvm::mem::Region;
@@ -14,8 +17,6 @@ use kvm_ioctls::{Kvm, VmFd};
 use mmarinus::{perms, Map};
 use primordial::Page;
 use sallyport::elf::pf::snp::{CPUID, SECRETS};
-use sev::firmware::Firmware;
-use sev::launch::snp::*;
 use x86_64::VirtAddr;
 
 pub struct Builder {
@@ -33,11 +34,12 @@ impl TryFrom<super::super::kvm::config::Config> for Builder {
         let vm_fd = kvm_fd.create_vm()?;
 
         let sev = Firmware::open()?;
+
         let launcher = Launcher::new(vm_fd, sev)?;
 
-        let start = SnpStart {
-            policy: SnpPolicy {
-                flags: SnpPolicyFlags::SMT,
+        let start = Start {
+            policy: Policy {
+                flags: PolicyFlags::SMT,
                 ..Default::default()
             },
             gosvw: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16],
@@ -91,11 +93,11 @@ impl super::super::Mapper for Builder {
                 guest_cpuid_page.write(cpuid_page);
             }
 
-            let update = SnpUpdate::new(
+            let update = Update::new(
                 to as u64 >> 12,
                 &pages,
                 false,
-                SnpPageType::Cpuid,
+                PageType::Cpuid,
                 (dp, dp, dp),
             );
 
@@ -108,11 +110,11 @@ impl super::super::Mapper for Builder {
         } else if with & SECRETS != 0 {
             assert_eq!(pages.len(), Page::SIZE);
 
-            let update = SnpUpdate::new(
+            let update = Update::new(
                 to as u64 >> 12,
                 &pages,
                 false,
-                SnpPageType::Secrets,
+                PageType::Secrets,
                 (dp, dp, dp),
             );
 
@@ -120,11 +122,11 @@ impl super::super::Mapper for Builder {
                 .update_data(update)
                 .context("SNP Launcher update_data")?;
         } else {
-            let update = SnpUpdate::new(
+            let update = Update::new(
                 to as u64 >> 12,
                 &pages,
                 false,
-                SnpPageType::Normal,
+                PageType::Normal,
                 (dp, dp, dp),
             );
 
@@ -149,7 +151,7 @@ impl TryFrom<Builder> for Arc<dyn super::super::Keep> {
             builder.launcher.as_mut(),
         )?;
 
-        let finish = SnpFinish::new(None, None, [0u8; 32]);
+        let finish = Finish::new(None, None, [0u8; 32]);
 
         let (vm_fd, sev_fd) = builder.launcher.finish(finish)?;
 

@@ -25,7 +25,7 @@ is-it-maintained-open-issues = { repository = "enarx/enarx" }
 [features]
 default = ["backend-kvm", "backend-sgx", "backend-sev", "wasmldr"]
 
-backend-sev = ["backend-kvm", "sev"]
+backend-sev = ["backend-kvm"]
 backend-kvm = ["x86_64", "kvm-bindings", "kvm-ioctls"]
 backend-sgx = ["x86_64", "sgx"]
 wasmldr = ["wat"]
@@ -33,7 +33,6 @@ wasmldr = ["wat"]
 [dependencies]
 sgx = { git = "https://github.com/enarx/sgx", rev = "57df3753a0ea1777963dbf3023452993df2edb8c", features = ["openssl"], optional = true }
 sallyport = { git = "https://github.com/enarx/sallyport", rev = "d016f8c6afd50ae2694ddc2d2afea4eec7301a41", features = [ "asm" ] }
-sev = { git = "https://github.com/enarx/sev", rev = "e0e17aac9249b00b0cb3e24a2780ca814d229a11", optional = true}
 x86_64 = { version = "^0.14.6", default-features = false, optional = true }
 const-default = { version = "0.2", features = [ "derive" ] }
 primordial = { version = "0.3", features = ["alloc"] }
@@ -43,6 +42,7 @@ itertools = "0.10"
 protobuf = "2.22"
 structopt = { version = "0.3", features = ["wrap_help"] }
 openssl = "0.10"
+bitflags = "1.2"
 iocuddle = "0.1"
 ciborium = "0.1"
 colorful = "0.2"

@@ -12,12 +12,13 @@ use data::{
     kvm_version, sev_enabled_in_kernel, CPUIDS,
 };
 use kvm_ioctls::VmFd;
-use sev::firmware::Firmware;
-use sev::launch::linux::ioctl::KvmEncRegion;
+use snp::firmware::Firmware;
+use snp::launch::linux::KvmEncRegion;
 
 mod builder;
 mod cpuid_page;
 mod data;
+mod snp;
 
 struct SnpKeepPersonality {
     // Must be kept open for the VM to talk to the SEV Firmware
