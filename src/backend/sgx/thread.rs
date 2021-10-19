@@ -107,10 +107,19 @@ impl super::super::Thread for Thread {
         }
 
         // If we have handled an InvalidOpcode error, evaluate the sallyport.
-        if let (EENTER, ERESUME) = (how, self.how) {
-            match unsafe { self.block.msg.req }.num.into() {
-                SYS_ENARX_CPUID => return Ok(Command::CpuId(&mut self.block)),
-                _ => return Ok(Command::SysCall(&mut self.block)),
+        //
+        // Currently, we have no way to know if the sallyport contains a valid
+        // request by evaluating the sallyport directly. So we must presume
+        // that the sallyport is only valid when moving from CSSA 2 to CSSA 1.
+        //
+        // After the sallyport rework, we can test the sallyport itself and
+        // remove this logic.
+        if self.cssa > 0 {
+            if let (EENTER, ERESUME) = (how, self.how) {
+                match unsafe { self.block.msg.req }.num.into() {
+                    SYS_ENARX_CPUID => return Ok(Command::CpuId(&mut self.block)),
+                    _ => return Ok(Command::SysCall(&mut self.block)),
+                }
             }
         }
 
