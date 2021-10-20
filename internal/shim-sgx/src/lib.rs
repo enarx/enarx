@@ -13,6 +13,7 @@
 
 pub mod entry;
 pub mod handler;
+pub mod heap;
 
 use sgx::parameters::{Attributes, Features, Xfrm};
 

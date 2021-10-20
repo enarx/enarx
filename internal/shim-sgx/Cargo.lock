@@ -47,16 +47,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9274b445ee572d50bdeb17a1101be829becc565b5c12b21a697af4d360b48e8d"
 
 [[package]]
-name = "enarx-heap"
-version = "0.1.0"
-source = "git+https://github.com/enarx/enarx-heap?rev=9cbfb3367edd4aa17f4a7409ea0c0f7d83fa8ce3#9cbfb3367edd4aa17f4a7409ea0c0f7d83fa8ce3"
-dependencies = [
- "libc",
- "lset",
- "primordial 0.1.0",
-]
-
-[[package]]
 name = "flagset"
 version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -104,12 +94,6 @@ checksum = "b4596b6d070b27117e987119b4dac604f3c58cfb0b191112e24771b2faeac1a6"
 
 [[package]]
 name = "primordial"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "979d94833957a6485c5cac4b71d552a9cd0b9f3f6fd1c7c5dc8096b3ee2bcd13"
-
-[[package]]
-name = "primordial"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "55d6312462222758b3fb6c7e84d819ce87c315c446e0e2c11b0b9258dedd3f25"
@@ -149,7 +133,7 @@ source = "git+https://github.com/enarx/sallyport?rev=d016f8c6afd50ae2694ddc2d2af
 dependencies = [
  "goblin",
  "libc",
- "primordial 0.3.0",
+ "primordial",
 ]
 
 [[package]]
@@ -175,14 +159,13 @@ dependencies = [
  "compiler_builtins",
  "const-default",
  "crt0stack",
- "enarx-heap",
  "flagset",
  "goblin",
  "libc",
  "lset",
  "nbytes",
  "noted",
- "primordial 0.3.0",
+ "primordial",
  "rcrt1",
  "sallyport",
  "sgx",
