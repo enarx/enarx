@@ -814,22 +814,17 @@ fn test_gcm() {
     let cipher = Aes256Gcm::new(key);
 
     let mut seqno_nonce = [0u8; 12];
-    seqno_nonce[0..8].copy_from_slice(unsafe {
-        core::slice::from_raw_parts(&request.hdr.msg_seqno as *const _ as *const u8, 8)
-    });
+    let msg_seqno_ptr = &request.hdr.msg_seqno as *const _ as *const u8;
+    seqno_nonce[0..8].copy_from_slice(unsafe { core::slice::from_raw_parts(msg_seqno_ptr, 8) });
 
     let nonce = Nonce::from_slice(&seqno_nonce); // 96-bits; unique per message
 
-    let asssoc_data =
-        unsafe { core::slice::from_raw_parts(&request.hdr.algo as *const _ as *const u8, 48) };
+    let algo_ptr = &request.hdr.algo as *const _ as *const u8;
+    let asssoc_data = unsafe { core::slice::from_raw_parts(algo_ptr, 48) };
 
-    let tag = cipher
-        .encrypt_in_place_detached(
-            nonce,
-            asssoc_data,
-            &mut request.payload[0..payload_size as usize],
-        )
-        .expect("encrypt failed");
+    let payload_slice = &mut request.payload[0..payload_size as usize];
+    let enc_res = cipher.encrypt_in_place_detached(nonce, asssoc_data, payload_slice);
+    let tag = enc_res.expect("encrypt failed");
 
     request.hdr.authtag[0..16].copy_from_slice(&tag.as_slice()[0..16]);
 
@@ -837,15 +832,10 @@ fn test_gcm() {
 
     let tag = Tag::from_slice(&request.hdr.authtag[0..16]);
 
-    plaintext[0..request.hdr.msg_sz as usize]
-        .copy_from_slice(&request.payload[0..request.hdr.msg_sz as usize]);
+    let payload_slice = &request.payload[0..request.hdr.msg_sz as usize];
+    plaintext[0..request.hdr.msg_sz as usize].copy_from_slice(payload_slice);
 
-    cipher
-        .decrypt_in_place_detached(
-            nonce,
-            asssoc_data,
-            &mut plaintext[0..request.hdr.msg_sz as usize],
-            &tag,
-        )
-        .expect("decrypt failed!");
+    let plain_slice = &mut plaintext[0..request.hdr.msg_sz as usize];
+    let dec_ret = cipher.decrypt_in_place_detached(nonce, asssoc_data, plain_slice, &tag);
+    let _ = dec_ret.expect("decrypt failed!");
 }
