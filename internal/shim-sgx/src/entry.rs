@@ -80,6 +80,10 @@ fn crt0setup<'a>(
 }
 
 /// The initial entry function to startup the payload code
+///
+/// # Safety
+///
+/// The caller has to ensure `offset` points to a valid, aligned Elf header and is non-null.
 pub unsafe fn entry(offset: *const ()) -> ! {
     // Validate the ELF header.
     let hdr = &*(offset as *const Header);
