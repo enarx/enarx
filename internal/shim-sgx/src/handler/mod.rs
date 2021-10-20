@@ -35,7 +35,7 @@ mod process;
 use core::fmt::Write;
 use core::ptr::read_unaligned;
 
-use enarx_heap::Heap;
+use crate::heap::Heap;
 use lset::Line;
 use sallyport::syscall::*;
 use sallyport::{request, Block};

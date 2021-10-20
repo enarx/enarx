@@ -11,7 +11,6 @@ test = false
 
 [dependencies]
 sallyport = { git = "https://github.com/enarx/sallyport", rev = "d016f8c6afd50ae2694ddc2d2afea4eec7301a41", features = [ "asm" ] }
-enarx-heap = { git = "https://github.com/enarx/enarx-heap", rev = "9cbfb3367edd4aa17f4a7409ea0c0f7d83fa8ce3" }
 sgx = { git = "https://github.com/enarx/sgx", rev = "57df3753a0ea1777963dbf3023452993df2edb8c" }
 rcrt1 = { git = "https://github.com/enarx/rcrt1", rev = "b28f711" }
 compiler_builtins = { version = "0.1", default-features = false, features = [ "mem" ] }
