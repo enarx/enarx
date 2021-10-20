@@ -11,7 +11,6 @@ test = false
 
 [dependencies]
 sallyport = { git = "https://github.com/enarx/sallyport", rev = "d016f8c6afd50ae2694ddc2d2afea4eec7301a41", features = [ "asm" ] }
-rcrt1 = { git = "https://github.com/enarx/rcrt1", rev = "b28f711" }
 compiler_builtins = { version = "0.1", default-features = false, features = [ "mem" ] }
 # FIXME: can be removed with the release of `x86_64` > 0.14.6
 volatile = "0.4.4"
@@ -24,6 +23,7 @@ primordial = "0.3"
 xsave = "1.0.0"
 noted = "^1.0.0"
 nbytes = "0.1"
+rcrt1 = "1.0.0"
 lset = "0.2"
 array-const-fn-init = "0.1"
 linked_list_allocator = { version = "0.9.1", default-features = false }

@@ -239,8 +239,9 @@ dependencies = [
 
 [[package]]
 name = "rcrt1"
-version = "0.1.0"
-source = "git+https://github.com/enarx/rcrt1?rev=b28f711#b28f711b4de0236053021878d83f11b5e48c4035"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "600700255f80d582e1e37170d7a5b458cdc9c88a17d90b0ced5ed2d3f3ec4cab"
 dependencies = [
  "goblin",
  "libc",
