@@ -3,7 +3,7 @@
 //! Operations for managing the SEV platform.
 
 use super::super::{Error, Indeterminate, Version};
-use super::{Build, State, Status, TcbStatus, TcbVersion};
+use super::{Build, Identifier, State, Status, TcbStatus, TcbVersion};
 
 use iocuddle::{Group, Ioctl, WriteRead};
 
@@ -16,14 +16,43 @@ use std::os::unix::io::{AsRawFd, RawFd};
 impl_const_id! {
     pub Id => u32;
     // […]
+    GetId<'_> = 8, /* GET_ID2 is 8, the deprecated GET_ID ioctl is 7 */
     SnpPlatformStatus = 9,
 }
 
 const SEV: Group = Group::new(b'S');
 
+/// Get the CPU's unique ID that can be used for getting a certificate for the CEK public key.
+const GET_ID: Ioctl<WriteRead, &Command<GetId<'_>>> = unsafe { SEV.write_read(0) };
+
 /// Return information about the current status and capabilities of the SEV-SNP platform.
 const SNP_PLATFORM_STATUS: Ioctl<WriteRead, &Command<SnpPlatformStatus>> =
     unsafe { SEV.write_read(0) };
+
+/// Get the CPU's unique ID that can be used for getting
+/// a certificate for the CEK public key.
+#[repr(C, packed)]
+struct GetId<'a> {
+    id_addr: u64,
+    id_len: u32,
+    _phantom: PhantomData<&'a ()>,
+}
+
+impl<'a> GetId<'a> {
+    pub fn new(id: &'a mut [u8; 64]) -> Self {
+        Self {
+            id_addr: id.as_mut_ptr() as _,
+            id_len: id.len() as _,
+            _phantom: PhantomData,
+        }
+    }
+
+    /// This method is only meaningful if called *after* the GET_ID2 ioctl is called because the
+    /// kernel will write the length of the unique CPU ID to `GetId.id_len`.
+    pub fn as_slice(&self) -> &[u8] {
+        unsafe { std::slice::from_raw_parts(self.id_addr as *const u8, self.id_len as _) }
+    }
+}
 
 /// Query the SEV-SNP platform status.
 ///
@@ -124,6 +153,19 @@ impl Firmware {
                 _ => return Err(Indeterminate::Unknown),
             },
         })
+    }
+
+    /// Query the unique CPU identifier.
+    ///
+    /// This is especially helpful for sending AMD an HTTP request to fetch
+    /// the signed CEK certificate.
+    pub fn identifier(&mut self) -> Result<Identifier, Indeterminate<Error>> {
+        let mut bytes = [0u8; 64];
+        let mut id = GetId::new(&mut bytes);
+
+        GET_ID.ioctl(&mut self.0, &mut Command::from_mut(&mut id))?;
+
+        Ok(Identifier(id.as_slice().to_vec()))
     }
 }
 
