@@ -150,7 +150,7 @@ pub struct TcbVersion {
     /// Current PSP OS version.
     /// SVN of PSP operating system.
     pub tee: u8,
-    _reserved: [u8; 4],
+    pub _reserved: [u8; 4],
     /// Version of the SNP firmware.
     /// Security Version Number (SVN) of SNP firmware.
     pub snp: u8,
