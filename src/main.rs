@@ -108,6 +108,8 @@ fn main() -> Result<()> {
             let workldr = run.workldr.pick()?;
             keep_exec(backend, backend.shim(), workldr.exec())
         }
+        #[cfg(feature = "backend-sev")]
+        cli::Command::Sev(cmd) => cli::sev::run(cmd),
     }
 }
 
