@@ -122,10 +122,6 @@ impl Firmware {
         ))
     }
 
-    // FIXME: remove `allow(unused)`
-    // because we want to use  `platform_status()` later in a sub command.
-    // See: https://github.com/enarx/enarx/issues/1020
-    #[allow(unused)]
     /// Query the SNP platform status.
     pub fn platform_status(&mut self) -> Result<Status, Indeterminate<Error>> {
         let mut info: SnpPlatformStatus = Default::default();

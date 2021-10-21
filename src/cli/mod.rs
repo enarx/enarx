@@ -4,6 +4,8 @@ mod exec;
 mod info;
 mod log;
 mod run;
+#[cfg(feature = "backend-sev")]
+pub mod sev;
 
 use anyhow::{anyhow, Result};
 use std::ops::Deref;
@@ -18,6 +20,8 @@ pub enum Command {
     #[structopt(setting(AppSettings::Hidden))]
     Exec(exec::Options),
     Run(run::Options),
+    #[cfg(feature = "backend-sev")]
+    Sev(sev::Command),
 }
 
 //

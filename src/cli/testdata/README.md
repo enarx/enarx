@@ -1,0 +1,2 @@
+- `chain.pem` contains an AMD SEV-SNP VCEK certificate chain obtained from https://kdsintf.amd.com/vcek/v1/Milan/cert_chain
+- `vcek.der` contains an AMD SEV-SNP VCEK certificate obtained from https://kdsintf.amd.com/vcek/v1/Milan/8ba826b2dd6ab65e401e0c4d4128ef4b434ed0ccb213f66c5f577b518730ef5892f78a78be259976973125a3b9b3d19f286c912cf5776fdfcee5260fa4576c4b?blSPL=00&teeSPL=00&snpSPL=03&ucodeSPL=29
