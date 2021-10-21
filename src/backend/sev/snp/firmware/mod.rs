@@ -62,6 +62,12 @@ impl From<Identifier> for Vec<u8> {
     }
 }
 
+impl From<Vec<u8>> for Identifier {
+    fn from(vec: Vec<u8>) -> Self {
+        Identifier(vec)
+    }
+}
+
 impl std::fmt::Display for Identifier {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         for b in self.0.iter() {
