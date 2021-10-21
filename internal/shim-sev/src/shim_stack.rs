@@ -5,7 +5,7 @@
 use crate::allocator::ALLOCATOR;
 
 use x86_64::structures::paging::{Page, PageTableFlags, Size4KiB};
-use x86_64::VirtAddr;
+use x86_64::{PhysAddr, VirtAddr};
 
 /// A guarded stack
 pub struct GuardedStack {
@@ -21,19 +21,20 @@ pub fn init_stack_with_guard(
     stack_size: u64,
     extra_flags: PageTableFlags,
 ) -> GuardedStack {
+    let mut allocator = ALLOCATOR.write();
+
     // guard page
-    ALLOCATOR
-        .write()
-        .allocate_and_map_memory(
+    allocator
+        .map_memory(
+            PhysAddr::new(0),
             start - Page::<Size4KiB>::SIZE,
             Page::<Size4KiB>::SIZE as _,
             PageTableFlags::empty(),
             PageTableFlags::PRESENT | PageTableFlags::WRITABLE,
         )
-        .expect("Stack guard page allocation failed");
+        .expect("Stack guard page mapping failed");
 
-    let mem_slice = ALLOCATOR
-        .write()
+    let mem_slice = allocator
         .allocate_and_map_memory(
             start,
             stack_size as _,
@@ -49,15 +50,15 @@ pub fn init_stack_with_guard(
         .expect("Stack allocation failed");
 
     // guard page
-    ALLOCATOR
-        .write()
-        .allocate_and_map_memory(
+    allocator
+        .map_memory(
+            PhysAddr::new(0),
             start + stack_size,
             Page::<Size4KiB>::SIZE as _,
             PageTableFlags::empty(),
             PageTableFlags::PRESENT | PageTableFlags::WRITABLE,
         )
-        .expect("Stack guard page allocation failed");
+        .expect("Stack guard page mapping failed");
 
     // Point to the end of the stack
     let stack_ptr = unsafe { mem_slice.as_ptr().add(mem_slice.len()) };
