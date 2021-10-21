@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
+pub use snp::certs;
+
 use super::kvm::mem::Region;
 use super::kvm::{Keep, KeepPersonality};
 use super::Loader;
