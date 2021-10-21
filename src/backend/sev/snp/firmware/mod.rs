@@ -78,6 +78,16 @@ impl std::fmt::Display for Identifier {
     }
 }
 
+impl std::fmt::LowerHex for Identifier {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        for b in self.0.iter() {
+            write!(f, "{:02x}", b)?;
+        }
+
+        Ok(())
+    }
+}
+
 /// Information regarding the SEV-SNP platform's TCB version.
 #[derive(Clone, Debug, PartialEq)]
 pub struct TcbStatus {
