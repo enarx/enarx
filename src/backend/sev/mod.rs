@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 pub use snp::certs;
+pub use snp::firmware::Firmware;
 
 use super::kvm::mem::Region;
 use super::kvm::{Keep, KeepPersonality};
@@ -14,7 +15,6 @@ use data::{
     kvm_version, sev_enabled_in_kernel, CPUIDS,
 };
 use kvm_ioctls::VmFd;
-use snp::firmware::Firmware;
 use snp::launch::linux::KvmEncRegion;
 
 mod builder;
