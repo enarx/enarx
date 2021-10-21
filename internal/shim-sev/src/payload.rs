@@ -33,7 +33,7 @@ const PAYLOAD_STACK_VIRT_ADDR_BASE: VirtAddr = VirtAddr::new_truncate(0x7ff0_000
 
 /// Initial payload stack size
 #[allow(clippy::integer_arithmetic)]
-const PAYLOAD_STACK_SIZE: u64 = bytes![8; MiB];
+const PAYLOAD_STACK_SIZE: u64 = bytes![2; MiB];
 
 /// The randomized virtual address of the payload
 pub static PAYLOAD_VIRT_ADDR: Lazy<RwLock<VirtAddr>> = Lazy::new(|| {
