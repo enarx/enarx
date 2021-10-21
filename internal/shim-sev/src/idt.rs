@@ -2,11 +2,7 @@
 
 // FIXME: this file can be completely removed after the following PRs
 // are in a released version of the `x86_64` crate:
-// https://github.com/rust-osdev/x86_64/pull/312
 // https://github.com/rust-osdev/x86_64/pull/313
-
-// Copied and modified for use without the `abi_x86_interrupt` feature.
-// The `abi_x86_interrupt` feature is very unlikely to be stabilized.
 
 // Copyright 2017 Philipp Oppermann. See the README.md
 // file at the top-level directory of
@@ -20,11 +16,11 @@
 
 //! Provides types for the Interrupt Descriptor Table and its entries.
 
-use core::fmt;
-use core::marker::PhantomData;
-
-use bit_field::BitField;
-use x86_64::{PrivilegeLevel, VirtAddr};
+use x86_64::structures::idt::{
+    DivergingHandlerFunc, DivergingHandlerFuncWithErrCode, Entry, HandlerFunc,
+    HandlerFuncWithErrCode, PageFaultHandlerFunc,
+};
+use x86_64::VirtAddr;
 
 /// An Interrupt Descriptor Table with 256 entries.
 ///
@@ -34,15 +30,14 @@ use x86_64::{PrivilegeLevel, VirtAddr};
 /// not possible for entries for which an error code is pushed.
 ///
 /// The remaining entries are used for interrupts. They can be accesed through index
-/// operations on the idt, e.g. `idt[32]` returns the first interrupt entry, which is the 32th IDT
+/// operations on the idt, e.g. `idt[32]` returns the first interrupt entry, which is the 32nd IDT
 /// entry).
 ///
 ///
 /// The field descriptions are taken from the
 /// [AMD64 manual volume 2](https://support.amd.com/TechDocs/24593.pdf)
 /// (with slight modifications).
-#[allow(missing_debug_implementations)]
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 #[repr(C)]
 #[repr(align(16))]
 pub struct InterruptDescriptorTable {
@@ -53,7 +48,7 @@ pub struct InterruptDescriptorTable {
     /// The saved instruction pointer points to the instruction that caused the `#DE`.
     ///
     /// The vector number of the `#DE` exception is 0.
-    pub divide_error: Entry<EnarxHandlerFunc>,
+    pub divide_error: Entry<HandlerFunc>,
 
     /// When the debug-exception mechanism is enabled, a `#DB` exception can occur under any
     /// of the following circumstances:
@@ -85,7 +80,7 @@ pub struct InterruptDescriptorTable {
     /// instruction pointer points to the instruction after the one that caused the `#DB`.
     ///
     /// The vector number of the `#DB` exception is 1.
-    pub debug: Entry<EnarxHandlerFunc>,
+    pub debug: Entry<HandlerFunc>,
 
     /// An non maskable interrupt exception (NMI) occurs as a result of system logic
     /// signaling a non-maskable interrupt to the processor.
@@ -95,7 +90,7 @@ pub struct InterruptDescriptorTable {
     /// boundary where the NMI was recognized.
     ///
     /// The vector number of the NMI exception is 2.
-    pub non_maskable_interrupt: Entry<EnarxHandlerFunc>,
+    pub non_maskable_interrupt: Entry<HandlerFunc>,
 
     /// A breakpoint (`#BP`) exception occurs when an `INT3` instruction is executed. The
     /// `INT3` is normally used by debug software to set instruction breakpoints by replacing
@@ -103,7 +98,7 @@ pub struct InterruptDescriptorTable {
     /// The saved instruction pointer points to the byte after the `INT3` instruction.
     ///
     /// The vector number of the `#BP` exception is 3.
-    pub breakpoint: Entry<EnarxHandlerFunc>,
+    pub breakpoint: Entry<HandlerFunc>,
 
     /// An overflow exception (`#OF`) occurs as a result of executing an `INTO` instruction
     /// while the overflow bit in `RFLAGS` is set to 1.
@@ -112,7 +107,7 @@ pub struct InterruptDescriptorTable {
     /// instruction that caused the `#OF`.
     ///
     /// The vector number of the `#OF` exception is 4.
-    pub overflow: Entry<EnarxHandlerFunc>,
+    pub overflow: Entry<HandlerFunc>,
 
     /// A bound-range exception (`#BR`) exception can occur as a result of executing
     /// the `BOUND` instruction. The `BOUND` instruction compares an array index (first
@@ -122,7 +117,7 @@ pub struct InterruptDescriptorTable {
     /// The saved instruction pointer points to the `BOUND` instruction that caused the `#BR`.
     ///
     /// The vector number of the `#BR` exception is 5.
-    pub bound_range_exceeded: Entry<EnarxHandlerFunc>,
+    pub bound_range_exceeded: Entry<HandlerFunc>,
 
     /// An invalid opcode exception (`#UD`) occurs when an attempt is made to execute an
     /// invalid or undefined opcode. The validity of an opcode often depends on the
@@ -156,7 +151,7 @@ pub struct InterruptDescriptorTable {
     /// The saved instruction pointer points to the instruction that caused the `#UD`.
     ///
     /// The vector number of the `#UD` exception is 6.
-    pub invalid_opcode: Entry<EnarxHandlerFunc>,
+    pub invalid_opcode: Entry<HandlerFunc>,
 
     /// A device not available exception (`#NM`) occurs under any of the following conditions:
     ///
@@ -173,7 +168,7 @@ pub struct InterruptDescriptorTable {
     /// The saved instruction pointer points to the instruction that caused the `#NM`.
     ///
     /// The vector number of the `#NM` exception is 7.
-    pub device_not_available: Entry<EnarxHandlerFunc>,
+    pub device_not_available: Entry<HandlerFunc>,
 
     /// A double fault (`#DF`) exception can occur when a second exception occurs during
     /// the handling of a prior (first) exception or interrupt handler.
@@ -207,14 +202,14 @@ pub struct InterruptDescriptorTable {
     /// and the program cannot be restarted.
     ///
     /// The vector number of the `#DF` exception is 8.
-    pub double_fault: Entry<EnarxHandlerFunc>,
+    pub double_fault: Entry<DivergingHandlerFuncWithErrCode>,
 
     /// This interrupt vector is reserved. It is for a discontinued exception originally used
     /// by processors that supported external x87-instruction coprocessors. On those processors,
     /// the exception condition is caused by an invalid-segment or invalid-page access on an
     /// x87-instruction coprocessor-instruction operand. On current processors, this condition
     /// causes a general-protection exception to occur.
-    coprocessor_segment_overrun: Entry<EnarxHandlerFunc>,
+    coprocessor_segment_overrun: Entry<HandlerFunc>,
 
     /// An invalid TSS exception (`#TS`) occurs only as a result of a control transfer through
     /// a gate descriptor that results in an invalid stack-segment reference using an `SS`
@@ -224,7 +219,7 @@ pub struct InterruptDescriptorTable {
     /// points to the control-transfer instruction that caused the `#TS`.
     ///
     /// The vector number of the `#TS` exception is 10.
-    pub invalid_tss: Entry<EnarxHandlerFunc>,
+    pub invalid_tss: Entry<HandlerFuncWithErrCode>,
 
     /// An segment-not-present exception (`#NP`) occurs when an attempt is made to load a
     /// segment or gate with a clear present bit.
@@ -234,7 +229,7 @@ pub struct InterruptDescriptorTable {
     /// that loaded the segment selector resulting in the `#NP`.
     ///
     /// The vector number of the `#NP` exception is 11.
-    pub segment_not_present: Entry<EnarxHandlerFunc>,
+    pub segment_not_present: Entry<HandlerFuncWithErrCode>,
 
     /// An stack segment exception (`#SS`) can occur in the following situations:
     ///
@@ -251,7 +246,7 @@ pub struct InterruptDescriptorTable {
     /// caused the `#SS`.
     ///
     /// The vector number of the `#NP` exception is 12.
-    pub stack_segment_fault: Entry<EnarxHandlerFunc>,
+    pub stack_segment_fault: Entry<HandlerFuncWithErrCode>,
 
     /// A general protection fault (`#GP`) can occur in various situations. Common causes include:
     ///
@@ -267,7 +262,7 @@ pub struct InterruptDescriptorTable {
     /// the instruction that caused the `#GP`.
     ///
     /// The vector number of the `#GP` exception is 13.
-    pub general_protection_fault: Entry<EnarxHandlerFunc>,
+    pub general_protection_fault: Entry<HandlerFuncWithErrCode>,
 
     /// A page fault (`#PF`) can occur during a memory access in any of the following situations:
     ///
@@ -288,10 +283,10 @@ pub struct InterruptDescriptorTable {
     /// [`PageFaultErrorCode`](struct.PageFaultErrorCode.html) struct.
     ///
     /// The vector number of the `#PF` exception is 14.
-    pub page_fault: Entry<EnarxHandlerFunc>,
+    pub page_fault: Entry<PageFaultHandlerFunc>,
 
     /// vector nr. 15
-    reserved_1: Entry<EnarxHandlerFunc>,
+    reserved_1: Entry<HandlerFunc>,
 
     /// The x87 Floating-Point Exception-Pending exception (`#MF`) is used to handle unmasked x87
     /// floating-point exceptions. In 64-bit mode, the x87 floating point unit is not used
@@ -299,7 +294,7 @@ pub struct InterruptDescriptorTable {
     /// compatibility mode.
     ///
     /// The vector number of the `#MF` exception is 16.
-    pub x87_floating_point: Entry<EnarxHandlerFunc>,
+    pub x87_floating_point: Entry<HandlerFunc>,
 
     /// An alignment check exception (`#AC`) occurs when an unaligned-memory data reference
     /// is performed while alignment checking is enabled. An `#AC` can occur only when CPL=3.
@@ -308,7 +303,7 @@ pub struct InterruptDescriptorTable {
     /// instruction that caused the `#AC`.
     ///
     /// The vector number of the `#AC` exception is 17.
-    pub alignment_check: Entry<EnarxHandlerFunc>,
+    pub alignment_check: Entry<HandlerFuncWithErrCode>,
 
     /// The machine check exception (`#MC`) is model specific. Processor implementations
     /// are not required to support the `#MC` exception, and those implementations that do
@@ -317,7 +312,7 @@ pub struct InterruptDescriptorTable {
     /// There is no reliable way to restart the program.
     ///
     /// The vector number of the `#MC` exception is 18.
-    pub machine_check: Entry<EnarxHandlerFunc>,
+    pub machine_check: Entry<DivergingHandlerFunc>,
 
     /// The SIMD Floating-Point Exception (`#XF`) is used to handle unmasked SSE
     /// floating-point exceptions. The SSE floating-point exceptions reported by
@@ -333,30 +328,42 @@ pub struct InterruptDescriptorTable {
     /// The saved instruction pointer points to the instruction that caused the `#XF`.
     ///
     /// The vector number of the `#XF` exception is 19.
-    pub simd_floating_point: Entry<EnarxHandlerFunc>,
+    pub simd_floating_point: Entry<HandlerFunc>,
 
     /// vector nr. 20
-    pub virtualization: Entry<EnarxHandlerFunc>,
+    pub virtualization: Entry<HandlerFunc>,
 
     /// vector nr. 21-29
-    reserved_2: [Entry<EnarxHandlerFunc>; 8],
+    reserved_2: [Entry<HandlerFunc>; 8],
 
-    /// The VMM Communication Exception (#VC) is always generated by hardware when an SEV-ES
-    /// enabled guest is running and an NAE event occurs. The #VC exception is a precise, contributory, fault-
-    /// type exception utilizing exception vector 29. This exception cannot be masked. The error code of the
-    /// #VC exception is equal to the #VMEXIT code of the event that caused the NAE.
-    /// In response to a #VC exception, a typical flow would involve the guest handler inspecting the error
+    /// The VMM Communication Exception (`#VC`) is always generated by hardware when an `SEV-ES`
+    /// enabled guest is running and an `NAE` event occurs.
+    ///
+    /// `SEV-ES` stands for the _"Encrypted State"_ feature of the _"AMD Secure Encrypted Virtualization"_
+    /// technology. `NAE` stands for an _"Non-Automatic Exit"_, which is an `VMEXIT` event that requires
+    /// hypervisor emulation. See
+    /// [this whitepaper](https://www.amd.com/system/files/TechDocs/Protecting%20VM%20Register%20State%20with%20SEV-ES.pdf)
+    /// for an overview of the `SEV-ES` feature.
+    ///
+    /// The `#VC` exception is a precise, contributory, fault-type exception utilizing exception vector 29.
+    /// This exception cannot be masked. The error code of the `#VC` exception is equal
+    /// to the `#VMEXIT` code of the event that caused the `NAE`.
+    ///
+    /// In response to a `#VC` exception, a typical flow would involve the guest handler inspecting the error
     /// code to determine the cause of the exception and deciding what register state must be copied to the
-    /// GHCB for the event to be handled. The handler should then execute the VMGEXIT instruction to
-    /// create an AE and invoke the hypervisor. After a later VMRUN, guest execution will resume after the
-    /// VMGEXIT instruction where the handler can view the results from the hypervisor and copy state from
-    /// the GHCB back to its internal state as needed.
-    /// Note that it is inadvisable for the hypervisor to set the VMCB intercept bit for the #VC exception as
-    /// this would prevent proper handling of NAEs by the guest. Similarly, the hypervisor should avoid
-    /// setting intercept bits for events that would occur in the #VC handler (such as IRET).
+    /// `GHCB` (_"Guest Hypervisor Communication Block"_) for the event to be handled. The handler
+    /// should then execute the `VMGEXIT` instruction to
+    /// create an `AE` and invoke the hypervisor. After a later `VMRUN`, guest execution will resume after the
+    /// `VMGEXIT` instruction where the handler can view the results from the hypervisor and copy state from
+    /// the `GHCB` back to its internal state as needed.
+    ///
+    /// Note that it is inadvisable for the hypervisor to set the `VMCB` (_"Virtual Machine Control Block"_)
+    /// intercept bit for the `#VC` exception as
+    /// this would prevent proper handling of `NAE`s by the guest. Similarly, the hypervisor should avoid
+    /// setting intercept bits for events that would occur in the `#VC` handler (such as `IRET`).
     ///
     /// The vector number of the ``#VC`` exception is 29.
-    pub vmm_communication_exception: Entry<EnarxHandlerFunc>,
+    pub vmm_communication_exception: Entry<HandlerFuncWithErrCode>,
 
     /// The Security Exception (`#SX`) signals security-sensitive events that occur while
     /// executing the VMM, in the form of an exception so that the VMM may take appropriate
@@ -367,10 +374,10 @@ pub struct InterruptDescriptorTable {
     /// The only error code currently defined is 1, and indicates redirection of INIT has occurred.
     ///
     /// The vector number of the ``#SX`` exception is 30.
-    pub security_exception: Entry<EnarxHandlerFunc>,
+    pub security_exception: Entry<HandlerFuncWithErrCode>,
 
     /// vector nr. 31
-    reserved_3: Entry<EnarxHandlerFunc>,
+    reserved_3: Entry<HandlerFunc>,
 
     /// User-defined interrupts can be initiated either by system logic or software. They occur
     /// when:
@@ -392,7 +399,7 @@ pub struct InterruptDescriptorTable {
     ///   external interrupt was recognized.
     /// - If the interrupt occurs as a result of executing the INTn instruction, the saved
     ///   instruction pointer points to the instruction after the INTn.
-    interrupts: [Entry<EnarxHandlerFunc>; 256 - 32],
+    interrupts: [Entry<HandlerFunc>; 256 - 32],
 }
 
 impl InterruptDescriptorTable {
@@ -489,169 +496,5 @@ impl InterruptDescriptorTable {
             base: VirtAddr::new(self as *const _ as u64),
             limit: size_of::<Self>().checked_sub(1).unwrap() as u16,
         }
-    }
-}
-
-/// An Interrupt Descriptor Table entry.
-///
-/// The generic parameter can either be `HandlerFunc` or `HandlerFuncWithErrCode`, depending
-/// on the interrupt vector.
-#[derive(Clone, Copy)]
-#[repr(C)]
-pub struct Entry<F> {
-    pointer_low: u16,
-    gdt_selector: u16,
-    options: EntryOptions,
-    pointer_middle: u16,
-    pointer_high: u32,
-    reserved: u32,
-    phantom: PhantomData<F>,
-}
-
-impl<T> fmt::Debug for Entry<T> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("Entry")
-            .field("handler_addr", &format_args!("{:#x}", self.handler_addr()))
-            .field("gdt_selector", &self.gdt_selector)
-            .field("options", &self.options)
-            .finish()
-    }
-}
-
-impl<F> Entry<F> {
-    /// Creates a non-present IDT entry (but sets the must-be-one bits).
-    #[inline]
-    pub const fn missing() -> Self {
-        Entry {
-            gdt_selector: 0,
-            pointer_low: 0,
-            pointer_middle: 0,
-            pointer_high: 0,
-            options: EntryOptions::minimal(),
-            reserved: 0,
-            phantom: PhantomData,
-        }
-    }
-
-    /// Set the handler address for the IDT entry and sets the present bit.
-    ///
-    /// For the code selector field, this function uses the code segment selector currently
-    /// active in the CPU.
-    ///
-    /// The function returns a mutable reference to the entry's options that allows
-    /// further customization.
-    ///
-    /// # Safety
-    ///
-    /// The caller must ensure that `addr` is the address of a valid interrupt handler function,
-    /// and the signature of such a function is correct for the entry type.
-    #[inline]
-    #[allow(clippy::integer_arithmetic)]
-    pub unsafe fn set_handler_addr(&mut self, addr: VirtAddr) -> &mut EntryOptions {
-        use x86_64::instructions::segmentation::{Segment, CS};
-
-        let addr = addr.as_u64();
-
-        self.pointer_low = addr as u16;
-        self.pointer_middle = (addr >> 16) as u16;
-        self.pointer_high = (addr >> 32) as u32;
-
-        self.gdt_selector = CS::get_reg().0;
-
-        self.options.set_present(true);
-        &mut self.options
-    }
-
-    #[inline]
-    #[allow(clippy::integer_arithmetic)]
-    fn handler_addr(&self) -> u64 {
-        self.pointer_low as u64
-            | (self.pointer_middle as u64) << 16
-            | (self.pointer_high as u64) << 32
-    }
-}
-
-/// Our handler function is a asm naked function, because we don't want
-/// to use the `abi_x86_interrupt` feature, which the `x86_64` crate relies on
-/// for their idt implementation.
-pub type EnarxHandlerFunc = unsafe extern "sysv64" fn() -> !;
-
-impl Entry<EnarxHandlerFunc> {
-    /// Set the handler function for the IDT entry and sets the present bit.
-    ///
-    /// For the code selector field, this function uses the code segment selector currently
-    /// active in the CPU.
-    ///
-    /// The function returns a mutable reference to the entry's options that allows
-    /// further customization.
-    pub fn set_handler_fn(&mut self, handler: EnarxHandlerFunc) -> &mut EntryOptions {
-        let handler = VirtAddr::new(handler as usize as u64);
-        unsafe { self.set_handler_addr(handler) }
-    }
-}
-
-/// Represents the options field of an IDT entry.
-#[repr(transparent)]
-#[derive(Clone, Copy, PartialEq)]
-pub struct EntryOptions(u16);
-
-impl fmt::Debug for EntryOptions {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_tuple("EntryOptions")
-            .field(&format_args!("{:#06x}", self.0))
-            .finish()
-    }
-}
-
-impl EntryOptions {
-    /// Creates a minimal options field with all the must-be-one bits set.
-    #[inline]
-    const fn minimal() -> Self {
-        EntryOptions(0b1110_0000_0000)
-    }
-
-    /// Set or reset the preset bit.
-    #[inline]
-    pub fn set_present(&mut self, present: bool) -> &mut Self {
-        self.0.set_bit(15, present);
-        self
-    }
-
-    /// Let the CPU disable hardware interrupts when the handler is invoked. By default,
-    /// interrupts are disabled on handler invocation.
-    #[inline]
-    pub fn disable_interrupts(&mut self, disable: bool) -> &mut Self {
-        self.0.set_bit(8, !disable);
-        self
-    }
-
-    /// Set the required privilege level (DPL) for invoking the handler. The DPL can be 0, 1, 2,
-    /// or 3, the default is 0. If CPL < DPL, a general protection fault occurs.
-    #[inline]
-    pub fn set_privilege_level(&mut self, dpl: PrivilegeLevel) -> &mut Self {
-        self.0.set_bits(13..15, dpl as u16);
-        self
-    }
-
-    /// Assigns a Interrupt Stack Table (IST) stack to this handler. The CPU will then always
-    /// switch to the specified stack before the handler is invoked. This allows kernels to
-    /// recover from corrupt stack pointers (e.g., on kernel stack overflow).
-    ///
-    /// An IST stack is specified by an IST index between 0 and 6 (inclusive). Using the same
-    /// stack for multiple interrupts can be dangerous when nested interrupts are possible.
-    ///
-    /// This function panics if the index is not in the range 0..7.
-    ///
-    /// ## Safety
-    ///
-    /// This function is unsafe because the caller must ensure that the passed stack index is
-    /// valid and not used by other interrupts. Otherwise, memory safety violations are possible.
-    #[inline]
-    #[allow(clippy::integer_arithmetic)]
-    pub unsafe fn set_stack_index(&mut self, index: u16) -> &mut Self {
-        // The hardware IST index starts at 1, but our software IST index
-        // starts at 0. Therefore we need to add 1 here.
-        self.0.set_bits(0..3, index + 1);
-        self
     }
 }
