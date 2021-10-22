@@ -11,8 +11,7 @@ description = "Enarx Keep Loader"
 readme = "README.md"
 keywords = ["sgx", "sev", "kvm", "tee"]
 categories = ["os", "os::linux-apis", "network-programming", "hardware-support"]
-exclude = [ ".gitignore", ".github/*" ]
-include = [ "src", "internal" ]
+include = [ "src", "internal", "build.rs", "LICENSE", "README.md", "tests" ]
 
 [badges]
 # See https://doc.rust-lang.org/cargo/reference/manifest.html#the-badges-section
