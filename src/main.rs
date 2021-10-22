@@ -4,22 +4,52 @@
 //! code inside an Enarx Keep - that is a hardware isolated environment using
 //! technologies such as Intel SGX or AMD SEV.
 //!
-//! # Building
+//! For more information about the project and the technology used
+//! visit the [Enarx Project home page](https://enarx.dev/).
 //!
-//! Please see **BUILD.md** for instructions.
+//! # SGX and SEV machine setup
 //!
-//! # Run Tests
+//! Please see
+//! [this wiki page](https://github.com/enarx/enarx/wiki/Reproducible-builds-and-Machine-setup)
+//! for instructions.
 //!
-//!     $ cargo test
+//! # Building and Testing
+//!
+//! Please see [BUILD.md](https://github.com/enarx/enarx/blob/main/BUILD.md) for instructions.
+//!
+//! # Install
+//!
+//! First install all the build dependencies (see [BUILD.md](https://github.com/enarx/enarx/blob/main/BUILD.md)).
+//!
+//! Install directly from `crates.io`:
+//!
+//!     $ cargo install --bin enarx -- enarx
+//!
+//! or from the checked out git repository:
+//!
+//!     $ cargo install --bin enarx --path ./
 //!
 //! # Build and run a WebAssembly module
+//!
+//! Install the Webassembly rust toolchain:
+//!
+//!     $ rustup target install wasm32-wasi
+//!
+//! Create simple rust program:
 //!
 //!     $ cargo init --bin hello-world
 //!     $ cd hello-world
 //!     $ echo 'fn main() { println!("Hello, Enarx!"); }' > src/main.rs
 //!     $ cargo build --release --target=wasm32-wasi
+//!
+//! Assuming you did install the `enarx` binary and have it in your `$PATH`, you can
+//! now run the Webassembly program in an Enarx keep.
+//!
 //!     $ enarx run target/wasm32-wasi/release/hello-world.wasm
+//!     […]
 //!     Hello, Enarx!
+//!
+//! If you want to suppress the debug output, add `2>/dev/null`.
 //!
 //! # Select a Different Backend
 //!
@@ -32,17 +62,8 @@
 //! You can manually select a backend with the `--backend` option, or by
 //! setting the `ENARX_BACKEND` environment variable:
 //!
-//!     $ enarx run --backend=sgx test.wasm
-//!     $ ENARX_BACKEND=sgx enarx run test.wasm
-//!
-//! Note that some backends are conditionally compiled. They can all
-//! be compiled in like so:
-//!
-//!     $ cargo build --all-features
-//!
-//! Or specific backends can be compiled in:
-//!
-//!     $ cargo build --features=backend-sgx,backend-kvm
+//!     $ enarx run --backend=sgx target/wasm32-wasi/release/hello-world.wasm
+//!     $ ENARX_BACKEND=sgx enarx run target/wasm32-wasi/release/hello-world.wasm
 
 #![deny(clippy::all)]
 #![deny(missing_docs)]
