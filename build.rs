@@ -141,11 +141,18 @@ fn cargo_build_bin(
 
     let path = in_dir.as_os_str().to_str().unwrap();
 
-    println!("cargo:rerun-if-changed={}/Cargo.tml", path);
-    println!("cargo:rerun-if-changed={}/Cargo.toml", path);
-    println!("cargo:rerun-if-changed={}/Cargo.lock", path);
-    println!("cargo:rerun-if-changed={}/layout.ld", path);
-    println!("cargo:rerun-if-changed={}/.cargo/config", path);
+    for p in [
+        "Cargo.tml",
+        "Cargo.toml",
+        "Cargo.lock",
+        "layout.ld",
+        ".cargo/config",
+    ] {
+        let file = in_dir.join(p);
+        if file.exists() {
+            println!("cargo:rerun-if-changed={}/{}", path, p);
+        }
+    }
 
     rerun_src(&path);
 
