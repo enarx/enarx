@@ -200,9 +200,6 @@ unsafe extern "sysv64" fn relocate() {
 #[naked]
 #[no_mangle]
 pub unsafe extern "sysv64" fn _start() -> ! {
-    // The constant for ENCLU[EEXIT]
-    const EEXIT: u64 = 4;
-
     // GPRO = offset_of!(StateSaveArea, gpr);
     const GPRO: u64 = 4096 - 184;
 
@@ -255,7 +252,7 @@ pub unsafe extern "sysv64" fn _start() -> ! {
         CLEARP = sym clearp,
         RELOC = sym relocate,
         ENTRY = sym main,
-        EEXIT = const EEXIT,
+        EEXIT = const sgx::enclu::EEXIT,
         RSPO = const RSPO,
         options(noreturn)
     )
