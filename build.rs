@@ -261,7 +261,7 @@ fn main() {
         let cargo_tml = path.join("Cargo.tml");
 
         if cargo_tml.exists() {
-            std::fs::copy(cargo_tml, cargo_toml).unwrap();
+            std::fs::copy(&cargo_tml, &cargo_toml).unwrap();
         }
 
         let dir_name = path.file_name().unwrap().to_str().unwrap_or_default();
@@ -276,7 +276,11 @@ fn main() {
             #[cfg(feature = "backend-sgx")]
             "shim-sgx" => cargo_build_bin(&path, &out_dir, target, "shim-sgx").unwrap(),
 
-            _ => continue,
+            _ => eprintln!("Unknown internal directory: {}", dir_name),
+        }
+
+        if cargo_tml.exists() {
+            std::fs::remove_file(&cargo_toml).unwrap()
         }
     }
 }
