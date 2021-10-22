@@ -304,7 +304,7 @@ pub static IDT: Lazy<InterruptDescriptorTable> = Lazy::new(|| {
         let virt = VirtAddr::new_unsafe(vmm_communication_exception_handler as usize as u64);
         idt.vmm_communication_exception
             .set_handler_addr(virt)
-            .set_stack_index(6);
+            .set_stack_index(3);
 
         let virt = VirtAddr::new_unsafe(security_exception_handler as usize as u64);
         idt.security_exception
