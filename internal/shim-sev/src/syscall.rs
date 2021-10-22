@@ -42,75 +42,75 @@ struct X8664DoubleReturn {
 /// This function is not be called from rust.
 #[naked]
 pub unsafe extern "sysv64" fn _syscall_enter() -> ! {
-    use crate::gdt::{USER_CODE_SEGMENT, USER_DATA_SEGMENT};
     // TaskStateSegment.privilege_stack_table[0]
     const KERNEL_RSP_OFF: usize = size_of::<u32>();
     // TaskStateSegment.privilege_stack_table[3]
     const USR_RSP_OFF: usize = size_of::<u32>() + 3 * size_of::<u64>();
 
-    asm!("
-    # prepare the stack for iretq and load the kernel rsp
-    swapgs                                             # set gs segment to TSS
-    mov    QWORD PTR gs:{USR},      rsp                # save userspace rsp
-    mov    rsp,                     QWORD PTR gs:{KRN} # load kernel rsp
-    push   {USER_DATA_SEGMENT}
-    push   QWORD PTR gs:{USR}                          # push userspace rsp - stack_pointer_ring_3
-    mov    QWORD PTR gs:{USR},      0x0                # clear userspace rsp in the TSS
-    push   r11                                         # push RFLAGS stored in r11
-    push   {USER_CODE_SEGMENT}
-    push   rcx                                         # push userspace return pointer
+    asm!(
+    // prepare the stack for sysretq and load the kernel rsp
+    "swapgs",                                           // set gs segment to TSS
 
-    push   rbp
-    mov    rbp, rsp
+    // swapgs variant of Spectre V1. Disable speculation past this point
+    "lfence",
 
-    # Arguments in registers:
-    # SYSV:    rdi, rsi, rdx, rcx, r8, r9
-    # SYSCALL: rdi, rsi, rdx, r10, r8, r9 and syscall number in rax
-    mov    rcx,                     r10
+    "mov    QWORD PTR gs:{USR},     rsp",               // save userspace rsp
+    "mov    rsp,                    QWORD PTR gs:{KRN}",// load kernel rsp
+    "push   QWORD PTR gs:{USR}",                        // push userspace rsp - stack_pointer_ring_3
+    "mov    QWORD PTR gs:{USR},     0x0",               // clear userspace rsp in the TSS
+    "push   r11",                                       // push RFLAGS stored in r11
+    "push   rcx",                                       // push userspace return pointer
+    "push   rbp",
+    "mov    rbp,                    rsp",               // Save stack frame
 
-    # These will be preserved by `syscall_rust` via the SYS-V ABI
-    # rbx, rsp, rbp, r12, r13, r14, r15
+    // Arguments in registers:
+    // SYSV:    rdi, rsi, rdx, rcx, r8, r9
+    // SYSCALL: rdi, rsi, rdx, r10, r8, r9 and syscall number in rax
+    "mov    rcx,                    r10",
 
-    # save registers
-    push   rdi
-    push   rsi
-    push   rdx
-    push   r11
-    push   r10
-    push   r8
-    push   r9
+    // These will be preserved by `syscall_rust` via the SYS-V ABI
+    // rbx, rsp, rbp, r12, r13, r14, r15
 
-    # syscall number on the stack as the seventh argument
-    push   rax
+    // save registers
+    "push   rdi",
+    "push   rsi",
+    "push   r10",
+    "push   r9",
+    "push   r8",
 
-    call   {syscall_rust}
+    // syscall number on the stack as the seventh argument
+    "push   rax",
 
-    # skip %rax pop, as it is the return value
-    add    rsp,                     0x8
+    "call   {syscall_rust}",
 
-    # restore registers
-    pop    r9
-    pop    r8
-    pop    r10
-    pop    r11
-    add    rsp,                     0x8               # skip rdx, because it is a return value
-    pop    rsi
-    pop    rdi
+    // skip rax pop, as it is the return value
+    "add    rsp,                    0x8",
 
-    pop    rbp
+    // restore registers
+    "pop    r8",
+    "pop    r9",
+    "pop    r10",
+    "pop    rsi",
+    "pop    rdi",
 
-    xor    rcx,                     rcx               # do not leak contents to userspace
-    xor    r11,                     r11               # do not leak contents to userspace
+    "pop    rbp",
 
-    swapgs                                            # restore gs
+    "pop    rcx",                                       // Pop userspace return pointer
+    "pop    r11",                                       // pop rflags to r11
+    "pop    QWORD PTR gs:{USR}",                        // Pop userspace rsp
+    "mov    rsp, gs:{USR}",                             // Restore userspace rsp
 
-    iretq
-    ",
+    "swapgs",
+
+    // swapgs variant of Spectre V1. Disable speculation past this point
+    "lfence",
+
+    "sysretq",
+
     USR = const USR_RSP_OFF,
     KRN = const KERNEL_RSP_OFF,
-    USER_DATA_SEGMENT = const USER_DATA_SEGMENT,
-    USER_CODE_SEGMENT = const USER_CODE_SEGMENT,
     syscall_rust = sym syscall_rust,
+
     options(noreturn)
     )
 }
