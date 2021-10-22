@@ -55,7 +55,7 @@ pub extern "C" fn rust_eh_personality() {
 use noted::noted;
 use sallyport::{elf::note, REQUIRES};
 use sgx::parameters::{Attributes, MiscSelect};
-use sgx::ssa::StateSaveArea;
+use sgx::ssa::{GenPurposeRegs, StateSaveArea};
 
 noted! {
     static NOTE_REQUIRES<note::NAME, note::REQUIRES, [u8; REQUIRES.len()]> = REQUIRES;
@@ -199,11 +199,7 @@ unsafe extern "sysv64" fn relocate() {
 #[naked]
 #[no_mangle]
 pub unsafe extern "sysv64" fn _start() -> ! {
-    // GPRO = offset_of!(StateSaveArea, gpr);
-    const GPRO: u64 = 4096 - 184;
-
-    // RSPO = offset_of!(StateSaveArea, gpr.rsp);
-    const RSPO: u64 = GPRO + 32;
+    use core::mem::size_of;
 
     asm!(
         "xchg   rbx,    rcx                 ",  // rbx = exit address, rcx = TCS page
@@ -247,12 +243,14 @@ pub unsafe extern "sysv64" fn _start() -> ! {
         "mov    rax,    {EEXIT}             ",  // rax = EEXIT
         "enclu                              ",  // Exit enclave
 
+        // offset_of!(StateSaveArea, gpr.rsp)
+        RSPO = const size_of::<StateSaveArea>() - size_of::<GenPurposeRegs>() + 32,
+
         CLEARX = sym clearx,
         CLEARP = sym clearp,
         RELOC = sym relocate,
         ENTRY = sym main,
         EEXIT = const sgx::enclu::EEXIT,
-        RSPO = const RSPO,
         options(noreturn)
     )
 }
