@@ -210,11 +210,19 @@ pub unsafe extern "sysv64" fn _start() -> ! {
         "mov    r10,    rcx                 ",  // r10 = stack pointer
         "jmp    3f                          ",  // Jump to stack setup
 
-        // Find stack pointer for CSSA > 0
+        // Get the address of the previous SSA
         "2:                                 ",
         "mov    r10,    rax                 ",  // r10 = CSSA
         "shl    r10,    12                  ",  // r10 = CSSA * 4096
-        "mov    r10,    [rcx + r10 + {RSPO}]",  // r10 = SSA[CSSA - 1].gpr.rsp
+        "add    r10,    rcx                 ",  // r10 = &SSA[CSSA - 1]
+
+        // Determine if exceptions were enabled
+        "mov    r11,    [r10 + {EXTO}]      ",  // r11 = SSA[CSSA - 1].extra[0]
+        "cmp    r11,    0                   ",  // If exceptions aren't enabled yet...
+        "je     2b                          ",  // ... loop forever.
+
+        // Find stack pointer for CSSA > 0
+        "mov    r10,    [r10 + {RSPO}]      ",  // r10 = SSA[CSSA - 1].gpr.rsp
         "sub    r10,    128                 ",  // Skip the red zone
 
         // Setup the stack
@@ -246,6 +254,9 @@ pub unsafe extern "sysv64" fn _start() -> ! {
         // offset_of!(StateSaveArea, gpr.rsp)
         RSPO = const size_of::<StateSaveArea>() - size_of::<GenPurposeRegs>() + 32,
 
+        // offset_of!(StateSaveArea, extra)
+        EXTO = const size_of::<xsave::XSave>(),
+
         CLEARX = sym clearx,
         CLEARP = sym clearp,
         RELOC = sym relocate,
@@ -256,6 +267,8 @@ pub unsafe extern "sysv64" fn _start() -> ! {
 }
 
 unsafe extern "C" fn main(port: &mut sallyport::Block, ssas: &mut [StateSaveArea; 3], cssa: usize) {
+    ssas[cssa].extra[0] = 1; // Enable exceptions
+
     let heap = lset::Line::new(
         &ENARX_HEAP_START as *const _ as usize,
         &ENARX_HEAP_END as *const _ as usize,
@@ -266,4 +279,6 @@ unsafe extern "C" fn main(port: &mut sallyport::Block, ssas: &mut [StateSaveArea
         1 => handler::Handler::handle(&mut ssas[0], port, heap),
         n => handler::Handler::finish(&mut ssas[n - 1]),
     }
+
+    ssas[cssa].extra[0] = 0; // Disable exceptions
 }
