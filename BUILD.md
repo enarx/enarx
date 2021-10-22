@@ -45,7 +45,7 @@ to source that file prior to building `enarx`.
 
     $ curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
     $ source $HOME/.cargo/env
-    $ rustup toolchain install nightly --allow-downgrade -t x86_64-unknown-linux-musl
+    $ rustup toolchain install nightly --allow-downgrade -t x86_64-unknown-linux-musl,x86_64-unknown-linux-gnu
 
 ## Build
 
