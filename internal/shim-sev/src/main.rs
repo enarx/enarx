@@ -20,7 +20,7 @@ use shim_sev::gdt;
 use shim_sev::interrupts;
 use shim_sev::pagetables::{unmap_identity, PDPT, PDT_C000_0000, PML4T, PT_FFE0_0000};
 use shim_sev::payload;
-use shim_sev::print::{self, enable_printing, is_printing_enabled};
+use shim_sev::print::{self, enable_printing, is_printing_enabled, TRACE};
 use shim_sev::snp::C_BIT_MASK;
 use shim_sev::sse;
 
@@ -115,13 +115,14 @@ pub fn panic(info: &core::panic::PanicInfo) -> ! {
 
     // Don't print anything, if the FRAME_ALLOCATOR is not yet initialized
     unsafe {
-        if is_printing_enabled()
-            && ALREADY_IN_PANIC
-                .compare_exchange(false, true, Ordering::Acquire, Ordering::Relaxed)
-                .is_ok()
+        if ALREADY_IN_PANIC
+            .compare_exchange(false, true, Ordering::Acquire, Ordering::Relaxed)
+            .is_ok()
         {
-            print::_eprint(format_args!("{}\n", info));
-            print_stack_trace();
+            if is_printing_enabled() && TRACE {
+                print::_eprint(format_args!("{}\n", info));
+                print_stack_trace();
+            }
             // FIXME: might want to have a custom panic hostcall
             shim_sev::hostcall::shim_exit(255);
         }
