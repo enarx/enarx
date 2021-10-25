@@ -164,38 +164,38 @@ macro_rules! declare_interrupt {
                     "push   rbp",
 
                     // save stack frame
-                    "mov    rbx, rsp",
+                    "mov    rbx,                    rsp",
 
                     // rsp is first argument
-                    "mov    rdi, rsp",
+                    "mov    rdi,                    rsp",
 
-                    "sub   rsp, {XSAVE_STACK_OFFSET}",
+                    "sub    rsp,                     {XSAVE_STACK_OFFSET}",
                     // align stack
-                    "and   rsp, (~(0x40-1))",
+                    "and    rsp,                     (~(0x40-1))",
 
                     // xsave
                     // memzero xsave array
-                    "xor     rax, rax",
+                    "xor    rax,                   rax",
                     "2:",
-                    "mov     QWORD PTR [rsp+rax*8], 0x0",
-                    "add     eax, 0x1",
-                    "cmp     eax, ({XSAVE_STACK_OFFSET}/8)",
-                    "jne     2b",
+                    "mov    QWORD PTR [rsp+rax*8], 0x0",
+                    "add    eax,                   0x1",
+                    "cmp    eax,                   ({XSAVE_STACK_OFFSET}/8)",
+                    "jne    2b",
 
-                    "mov   edx, -1",
-                    "mov   eax, -1",
+                    "mov    edx,                     -1",
+                    "mov    eax,                     -1",
                     "xsave  [rsp]",
 
                     // SYSV:    rdi, rsi, rdx, rcx, r8, r9
                     "call  {CALLOUT}",
 
                     // xrstor
-                    "mov   edx, -1",
-                    "mov   eax, -1",
+                    "mov    edx,                     -1",
+                    "mov    eax,                     -1",
                     "xrstor [rsp]",
 
                     // restore stack frame
-                    "mov    rsp, rbx",
+                    "mov    rsp,                    rbx",
 
                     "pop    rbp",
                     "pop    rbx",
