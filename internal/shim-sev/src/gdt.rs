@@ -9,7 +9,7 @@ use core::ops::Deref;
 
 use nbytes::bytes;
 use spinning::Lazy;
-use x86_64::instructions::segmentation::{Segment, CS, DS, ES, FS, GS, SS};
+use x86_64::instructions::segmentation::{Segment, Segment64, CS, DS, ES, FS, GS, SS};
 use x86_64::instructions::tables::load_tss;
 use x86_64::registers::model_specific::{KernelGsBase, LStar, SFMask, Star};
 use x86_64::registers::rflags::RFlags;
@@ -172,5 +172,7 @@ pub unsafe fn init() {
 
     // Set the kernel gs base to the TSS to be used in `_syscall_enter`
     // Important: TSS.deref() != &TSS because of lazy_static
-    KernelGsBase::write(VirtAddr::new(TSS.deref() as *const _ as u64));
+    let base = VirtAddr::new(TSS.deref() as *const _ as u64);
+    KernelGsBase::write(base);
+    GS::write_base(base);
 }
