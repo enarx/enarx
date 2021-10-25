@@ -530,15 +530,16 @@ declare_interrupt!(
         eprintln!("Error Code: {:?}", error_code);
         eprintln!("{:x?}", stack_frame);
 
+        let payload_virt = *PAYLOAD_VIRT_ADDR.read();
         let mut addr = stack_frame.instruction_pointer;
 
-        let payload_virt = *PAYLOAD_VIRT_ADDR.read();
-
-        if addr.as_u64() < SHIM_VIRT_OFFSET && addr > payload_virt {
+        if addr.as_u64() > SHIM_VIRT_OFFSET {
+            addr -= SHIM_VIRT_OFFSET;
+            eprintln!("TRACE:\nS 0x{:>016x}", addr.as_u64());
+        } else if addr > payload_virt {
             addr -= payload_virt.as_u64();
+            eprintln!("TRACE:\nP 0x{:>016x}", addr.as_u64());
         };
-
-        eprintln!("RIP: {:?}", addr);
 
         print_stack_trace();
 
