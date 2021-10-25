@@ -16,7 +16,7 @@ use x86_64::registers::rflags::RFlags;
 use x86_64::structures::gdt::{Descriptor, GlobalDescriptorTable, SegmentSelector};
 use x86_64::structures::paging::{Page, PageTableFlags, Size2MiB, Size4KiB};
 use x86_64::structures::tss::TaskStateSegment;
-use x86_64::{align_up, PrivilegeLevel, VirtAddr};
+use x86_64::{align_up, VirtAddr};
 
 /// The virtual address of the main kernel stack
 pub const SHIM_STACK_START: u64 = 0xFFFF_FF48_4800_0000;
@@ -102,10 +102,7 @@ pub static GDT: Lazy<(GlobalDescriptorTable, Selectors)> = Lazy::new(|| {
     // `sysret` loads segments from STAR MSR assuming `user_code_segment` follows `user_data_segment`
     // so the ordering is crucial here. Star::write() will panic otherwise later.
     let user_data = gdt.add_entry(Descriptor::user_data_segment());
-    debug_assert_eq!(USER_DATA_SEGMENT, user_data.0 as u64);
-
     let user_code = gdt.add_entry(Descriptor::user_code_segment());
-    debug_assert_eq!(USER_CODE_SEGMENT, user_code.0 as u64);
 
     // Important: TSS.deref() != &TSS because of lazy_static
     let tss = gdt.add_entry(Descriptor::tss_segment(TSS.deref()));
@@ -120,22 +117,6 @@ pub static GDT: Lazy<(GlobalDescriptorTable, Selectors)> = Lazy::new(|| {
 
     (gdt, selectors)
 });
-
-/// The user data segment
-///
-/// For performance and simplicity reasons, this is a constant
-/// in the assembler code and here for debug_assert!()
-const USER_DATA_SEGMENT_INDEX: u64 = 3;
-/// The User Data Segment as a constant to be used in asm!() blocks
-pub const USER_DATA_SEGMENT: u64 = (USER_DATA_SEGMENT_INDEX << 3) | (PrivilegeLevel::Ring3 as u64);
-
-/// The user code segment
-///
-/// For performance and simplicity reasons, this is a constant
-/// in the assembler code and here for debug_assert!()
-const USER_CODE_SEGMENT_INDEX: u64 = 4;
-/// The User Code Segment as a constant to be used in asm!() blocks
-pub const USER_CODE_SEGMENT: u64 = (USER_CODE_SEGMENT_INDEX << 3) | (PrivilegeLevel::Ring3 as u64);
 
 /// Initialize the GDT
 ///
