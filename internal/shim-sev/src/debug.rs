@@ -14,6 +14,7 @@ use crate::addr::SHIM_VIRT_OFFSET;
 use crate::paging::SHIM_PAGETABLE;
 use crate::payload::PAYLOAD_VIRT_ADDR;
 use crate::print;
+use crate::print::TRACE;
 use crate::snp::ghcb::{vmgexit_msr, GHCB_MSR_EXIT_REQ};
 use crate::snp::snp_active;
 use crate::PAYLOAD_READY;
@@ -149,6 +150,10 @@ unsafe fn backtrace(mut rbp: u64) -> [u64; 16] {
 /// print a stack trace from a stack frame pointer
 pub fn print_stack_trace() {
     let mut rbp: usize;
+
+    if !TRACE {
+        return;
+    }
 
     unsafe {
         asm!("mov {}, rbp", out(reg) rbp);
