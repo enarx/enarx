@@ -14,7 +14,7 @@ compiler_builtins = { version = "0.1", default-features = false, features = [ "m
 goblin = { version = "0.4", default-features = false, features = [ "elf64" ] }
 x86_64 = { version = "^0.14.6", default-features = false }
 crt0stack = { version = "0.1", default-features = false }
-sallyport = { version = "0.1", features = [ "asm" ] }
+sallyport = { version = "0.1" }
 libc = { version = "0.2", default-features = false }
 const-default = "0.2"
 primordial = "0.3.0"
