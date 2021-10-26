@@ -14,8 +14,7 @@ use crate::addr::SHIM_VIRT_OFFSET;
 use crate::paging::SHIM_PAGETABLE;
 use crate::payload::PAYLOAD_VIRT_ADDR;
 use crate::print;
-use crate::print::TRACE;
-use crate::snp::ghcb::{vmgexit_msr, GHCB_MSR_EXIT_REQ};
+use crate::snp::ghcb::{vmgexit_msr, GhcbMsr};
 use crate::snp::snp_active;
 use crate::PAYLOAD_READY;
 
@@ -35,7 +34,7 @@ pub unsafe fn _early_debug_panic(reason: u64, value: u64) -> ! {
         _load_invalid_idt();
 
         vmgexit_msr(
-            GHCB_MSR_EXIT_REQ,
+            GhcbMsr::EXIT_REQ,
             value.wrapping_shl(16) | (reason & 0x7).wrapping_shl(12),
             0,
         );
@@ -151,7 +150,7 @@ unsafe fn backtrace(mut rbp: u64) -> [u64; 16] {
 pub fn print_stack_trace() {
     let mut rbp: usize;
 
-    if !TRACE {
+    if !print::TRACE {
         return;
     }
 
