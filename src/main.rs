@@ -13,21 +13,15 @@
 //! [this wiki page](https://github.com/enarx/enarx/wiki/Reproducible-builds-and-Machine-setup)
 //! for instructions.
 //!
-//! # Building and Testing
+//! # Building and Testing Enarx
 //!
 //! Please see [BUILD.md](https://github.com/enarx/enarx/blob/main/BUILD.md) for instructions.
 //!
-//! # Install
+//! # Installing Enarx
 //!
-//! First install all the build dependencies (see [BUILD.md](https://github.com/enarx/enarx/blob/main/BUILD.md)).
-//!
-//! Install directly from `crates.io`:
-//!
-//!     $ cargo install --bin enarx -- enarx
-//!
-//! or from the checked out git repository:
-//!
-//!     $ cargo install --bin enarx --path ./
+//! Please see
+//! [this wiki page](https://github.com/enarx/enarx/wiki/Install-Enarx)
+//! for instructions.
 //!
 //! # Build and run a WebAssembly module
 //!
