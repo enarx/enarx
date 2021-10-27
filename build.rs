@@ -59,7 +59,18 @@ fn build_rs_tests(in_path: &Path, out_path: &Path) {
 
         let output = in_source.file_stem().unwrap();
 
-        let status = Command::new("rustc")
+        // Use the same toolchain channel of `rustc` as `cargo`, e.g. nightly
+        let cargo_path = PathBuf::from(std::env::var("CARGO").unwrap());
+        let cargo_path = cargo_path.parent().unwrap();
+        let rustc_path = cargo_path.join("rustc");
+        // Fallback to `rustc` in PATH, if it does not exist.
+        let rustc_path = if rustc_path.exists() {
+            rustc_path.as_os_str()
+        } else {
+            OsStr::new("rustc")
+        };
+
+        let status = Command::new(rustc_path)
             .current_dir(&out_path)
             .env_clear()
             .envs(&filtered_env)
