@@ -38,6 +38,7 @@ jobs:
       - run: sudo apt update
       - run: sudo apt install -y musl-tools
       - uses: actions/checkout@v2
+      - run: for i in internal/*; do (cd $i; [[ -f Cargo.tml ]] && cp Cargo.tml Cargo.toml); done
       - uses: actions-rs/toolchain@v1
         with:
           target: x86_64-unknown-linux-gnu
