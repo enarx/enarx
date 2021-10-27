@@ -1,0 +1,20 @@
+infrastructure:
+- .github/**/*
+- helper/**/*
+
+amd sev:
+- internal/shim-sev/**/*
+
+intel sgx:
+- internal/shim-sgx/**/*
+
+wasm:
+- internal/wasmldr/**/*
+- tests/wasm/**/*
+
+client:
+- src/cli/**/*
+
+testing:
+- tests/**/*
+
