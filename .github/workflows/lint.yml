@@ -6,6 +6,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
+      - run: for i in internal/*; do (cd $i; [[ -f Cargo.tml ]] && cp Cargo.tml Cargo.toml); done
       - uses: actions-rs/toolchain@v1
         with:
           components: rustfmt
@@ -32,6 +33,7 @@ jobs:
       - run: sudo apt update
       - run: sudo apt install -y musl-tools
       - uses: actions/checkout@v2
+      - run: for i in internal/*; do (cd $i; [[ -f Cargo.tml ]] && cp Cargo.tml Cargo.toml); done
       - uses: actions-rs/toolchain@v1
         with:
           components: clippy
@@ -65,6 +67,7 @@ jobs:
       - run: sudo apt update
       - run: sudo apt install -y musl-tools
       - uses: actions/checkout@v2
+      - run: for i in internal/*; do (cd $i; [[ -f Cargo.tml ]] && cp Cargo.tml Cargo.toml); done
       - uses: actions-rs/toolchain@v1
         with:
           components: clippy
@@ -97,6 +100,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
+      - run: for i in internal/*; do (cd $i; [[ -f Cargo.tml ]] && cp Cargo.tml Cargo.toml); done
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: nightly
@@ -116,6 +120,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
+      - run: for i in internal/*; do (cd $i; [[ -f Cargo.tml ]] && cp Cargo.tml Cargo.toml); done
       - uses: EmbarkStudios/cargo-deny-action@v1
         with:
           arguments: --manifest-path=${{ matrix.crate.path }}
