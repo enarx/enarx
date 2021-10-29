@@ -78,6 +78,56 @@ pub fn keepldr_exec<'a>(bin: &str, input: impl Into<Option<&'a [u8]>>) -> Output
     output
 }
 
+/// Returns a handle to a child process through which output (stdout, stderr) can
+/// be accessed.
+pub fn keepldr_exec_crate<'a>(
+    crate_name: &str,
+    bin: &str,
+    input: impl Into<Option<&'a [u8]>>,
+) -> Output {
+    let crate_path = Path::new(CRATE).join(crate_name);
+
+    let mut child = Command::new("cargo")
+        .current_dir(crate_path)
+        .arg("run")
+        .arg("--quiet")
+        .arg("--bin")
+        .arg(bin)
+        .env("ENARX_BIN", KEEP_BIN)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .unwrap_or_else(|e| panic!("failed to run `{}`: {:#?}", bin, e));
+
+    if let Some(input) = input.into() {
+        child
+            .stdin
+            .as_mut()
+            .unwrap()
+            .write_all(input)
+            .expect("failed to write stdin to child");
+
+        drop(child.stdin.take());
+    }
+
+    let output = child
+        .with_output_timeout(Duration::from_secs(TIMEOUT_SECS))
+        .terminating()
+        .wait()
+        .unwrap_or_else(|e| panic!("failed to run `{}`: {:#?}", bin, e))
+        .unwrap_or_else(|| panic!("process `{}` timed out", bin));
+
+    assert!(
+        output.status.code().is_some(),
+        "process `{}` terminated by signal {:?}",
+        bin,
+        output.status.signal()
+    );
+
+    output
+}
+
 pub fn check_output<'a>(
     output: &Output,
     expected_status: i32,
@@ -133,6 +183,21 @@ pub fn run_test<'a>(
     expected_stderr: impl Into<Option<&'a [u8]>>,
 ) -> Output {
     let output = keepldr_exec(bin, input);
+    check_output(&output, status.into(), expected_stdout, expected_stderr);
+    output
+}
+
+/// Returns a handle to a child process through which output (stdout, stderr) can
+/// be accessed.
+pub fn run_crate<'a>(
+    crate_name: &str,
+    bin: &str,
+    status: i32,
+    input: impl Into<Option<&'a [u8]>>,
+    expected_stdout: impl Into<Option<&'a [u8]>>,
+    expected_stderr: impl Into<Option<&'a [u8]>>,
+) -> Output {
+    let output = keepldr_exec_crate(crate_name, bin, input);
     check_output(&output, status.into(), expected_stdout, expected_stderr);
     output
 }

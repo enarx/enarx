@@ -15,7 +15,7 @@ use std::sync::Arc;
 use tempdir::TempDir;
 
 mod common;
-use common::{assert_eq_slices, run_test};
+use common::{assert_eq_slices, run_crate, run_test};
 
 fn read_item<T: Copy>(mut rdr: impl Read) -> std::io::Result<T> {
     let mut item = MaybeUninit::uninit();
@@ -119,7 +119,14 @@ fn echo() {
     for i in 0..input.capacity() {
         input.push(i as _);
     }
-    run_test("echo", 0, input.as_slice(), input.as_slice(), None);
+    run_crate(
+        "integration/simple",
+        "echo",
+        0,
+        input.as_slice(),
+        input.as_slice(),
+        None,
+    );
 }
 
 #[test]
@@ -169,7 +176,8 @@ fn unix_echo() {
         }
     });
 
-    run_test(
+    run_crate(
+        "integration/simple",
         "unix_echo",
         0,
         tmpdir.path().as_os_str().as_bytes(),
@@ -204,7 +212,14 @@ fn get_att() {
 #[test]
 #[serial]
 fn rust_sev_attestation() {
-    run_test("rust_sev_attestation", 0, None, None, None);
+    run_crate(
+        "integration/sev_attestation",
+        "sev_attestation",
+        0,
+        None,
+        None,
+        None,
+    );
 }
 
 #[cfg(feature = "backend-sgx")]
@@ -266,17 +281,24 @@ fn listen() {
 #[test]
 #[serial]
 fn memspike() {
-    run_test("memspike", 0, None, None, None);
+    run_crate("integration/simple", "memspike", 0, None, None, None);
 }
 
 #[test]
 #[serial]
 fn memory_stress_test() {
-    run_test("memory_stress_test", 0, None, None, None);
+    run_crate(
+        "integration/simple",
+        "memory_stress_test",
+        0,
+        None,
+        None,
+        None,
+    );
 }
 
 #[test]
 #[serial]
 fn cpuid() {
-    run_test("cpuid", 0, None, None, None);
+    run_crate("integration/simple", "cpuid", 0, None, None, None);
 }

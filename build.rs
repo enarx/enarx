@@ -35,63 +35,6 @@ fn rerun_src(path: impl AsRef<Path>) {
     }
 }
 
-fn build_rs_tests(in_path: &Path, out_path: &Path) {
-    let filtered_env: HashMap<String, String> = std::env::vars()
-        .filter(|&(ref k, _)| {
-            k == "TERM" || k == "TZ" || k == "LANG" || k == "PATH" || k == "RUSTUP_HOME"
-        })
-        .collect();
-
-    let target_name = "x86_64-unknown-linux-musl";
-
-    for in_source in find_files_with_extensions(&["rs"], &in_path) {
-        let stdout: Stdio = OpenOptions::new()
-            .write(true)
-            .open("/dev/tty")
-            .map(Stdio::from)
-            .unwrap_or_else(|_| Stdio::inherit());
-
-        let stderr: Stdio = OpenOptions::new()
-            .write(true)
-            .open("/dev/tty")
-            .map(Stdio::from)
-            .unwrap_or_else(|_| Stdio::inherit());
-
-        let output = in_source.file_stem().unwrap();
-
-        // Use the same toolchain channel of `rustc` as `cargo`, e.g. nightly
-        let cargo_path = PathBuf::from(std::env::var("CARGO").unwrap());
-        let cargo_path = cargo_path.parent().unwrap();
-        let rustc_path = cargo_path.join("rustc");
-        // Fallback to `rustc` in PATH, if it does not exist.
-        let rustc_path = if rustc_path.exists() {
-            rustc_path.as_os_str()
-        } else {
-            OsStr::new("rustc")
-        };
-
-        let status = Command::new(rustc_path)
-            .current_dir(&out_path)
-            .env_clear()
-            .envs(&filtered_env)
-            .stdout(stdout)
-            .stderr(stderr)
-            .arg("-C")
-            .arg("force-frame-pointers=yes")
-            .arg("-C")
-            .arg("debuginfo=2")
-            .arg("--target")
-            .arg(target_name)
-            .arg(&in_source)
-            .arg("-o")
-            .arg(output)
-            .status()
-            .unwrap_or_else(|_| panic!("failed to compile {:#?}", &in_source));
-
-        assert!(status.success(), "Failed to compile {:?}", &in_source);
-    }
-}
-
 fn build_cc_tests(in_path: &Path, out_path: &Path) {
     for in_source in find_files_with_extensions(&["c", "s", "S"], &in_path) {
         let output = in_source.file_stem().unwrap();
@@ -263,7 +206,7 @@ fn main() {
     create(&out_dir_bin);
 
     build_cc_tests(&Path::new(CRATE).join(TEST_BINS_IN), &out_dir_bin);
-    build_rs_tests(&Path::new(CRATE).join(TEST_BINS_IN), &out_dir_bin);
+
     #[cfg(feature = "wasmldr")]
     build_wasm_tests(&Path::new(CRATE).join("tests/wasm"), &out_dir_bin);
 

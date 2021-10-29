@@ -70,22 +70,6 @@ process_control = "3.0"
 serial_test = "0.5"
 tempdir = "0.3.7"
 
-[[example]]
-name="echo"
-path="tests/bin/echo.rs"
-
-[[example]]
-name="memory_stress_test"
-path="tests/bin/memory_stress_test.rs"
-
-[[example]]
-name="memspike"
-path="tests/bin/memspike.rs"
-
-[[example]]
-name="unix_echo"
-path="tests/bin/unix_echo.rs"
-
-[[example]]
-name="rust_sev_attestation"
-path="tests/bin/rust_sev_attestation.rs"
+[workspace]
+members = [ "integration/sev_attestation", "integration/simple" ]
+exclude = [ "internal/shim-sev", "internal/shim-sgx", "internal/wasmldr" ]
