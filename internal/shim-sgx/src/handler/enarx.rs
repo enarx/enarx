@@ -17,11 +17,11 @@ impl<'a> EnarxSyscallHandler for super::Handler<'a> {
     ) -> sallyport::Result {
         self.trace("get_att", 0);
 
-        return match hash.validate_slice(hash_len, self) {
+        match hash.validate_slice(hash_len, self) {
             None => Reply::from(Ok([SGX_QUOTE_SIZE.into(), SGX_TECH.into()])),
             Some(..) => Reply::from(Err(libc::ENOSYS)),
         }
-        .into();
+        .into()
 
         /*
         // If hash is NULL ptr, it is a Quote size request; return expected Quote size
