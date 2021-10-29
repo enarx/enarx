@@ -62,7 +62,6 @@ reqwest = { version = "0.11.6", features = [ "blocking" ], optional = true }
 cc = "1.0"
 walkdir = "2"
 protobuf-codegen-pure = "2.25"
-sallyport = { version = "0.1", features = [ "asm" ] }
 
 [dev-dependencies]
 process_control = "3.0"
