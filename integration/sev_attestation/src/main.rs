@@ -122,16 +122,16 @@ pub fn get_att_syscall(
 
     unsafe {
         asm!(
-        "syscall",
-        inlateout("rax") 0xEA01u64 => rax,
-        in("rdi") arg0,
-        in("rsi") arg1,
-        inlateout("rdx") arg2 => rdx,
-        in("r10") arg3,
-        in("r8") 0,
-        in("r9") 0,
-        lateout("rcx") _, // clobbered
-        lateout("r11") _, // clobbered
+            "syscall",
+            inlateout("rax") sallyport::syscall::SYS_ENARX_GETATT => rax,
+            in("rdi") arg0,
+            in("rsi") arg1,
+            inlateout("rdx") arg2 => rdx,
+            in("r10") arg3,
+            in("r8") 0,
+            in("r9") 0,
+            lateout("rcx") _, // clobbered
+            lateout("r11") _, // clobbered
         );
     }
 
