@@ -27,7 +27,7 @@ default = ["backend-kvm", "backend-sgx", "backend-sev", "wasmldr"]
 backend-sev = ["backend-kvm", "reqwest"]
 backend-kvm = ["x86_64", "kvm-bindings", "kvm-ioctls"]
 backend-sgx = ["x86_64", "sgx"]
-wasmldr = ["wat"]
+wasmldr = []
 
 [dependencies]
 x86_64 = { version = "^0.14.6", default-features = false, optional = true }
@@ -60,7 +60,6 @@ reqwest = { version = "0.11.6", features = [ "blocking" ], optional = true }
 
 [build-dependencies]
 cc = "1.0"
-wat = { version = "1.0", optional = true }
 walkdir = "2"
 protobuf-codegen-pure = "2.25"
 sallyport = { version = "0.1", features = [ "asm" ] }
@@ -69,6 +68,8 @@ sallyport = { version = "0.1", features = [ "asm" ] }
 process_control = "3.0"
 serial_test = "0.5"
 tempdir = "0.3.7"
+walkdir = "2"
+wat = { version = "1.0" }
 
 [workspace]
 members = [ "integration/sev_attestation", "integration/simple" ]

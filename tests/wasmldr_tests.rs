@@ -2,16 +2,26 @@
 #![cfg(feature = "wasmldr")]
 
 use process_control::{ChildExt, Output, Timeout};
-use std::path::Path;
-use std::process::{Command, Stdio};
+use serial_test::serial;
 
 use std::io::Write;
+use std::path::Path;
+use std::process::{Command, Stdio};
 use std::time::Duration;
 
 pub mod common;
 use common::{check_output, CRATE, KEEP_BIN, OUT_DIR, TEST_BINS_OUT, TIMEOUT_SECS};
 
-use serial_test::serial;
+fn create(path: &Path) {
+    match std::fs::create_dir(&path) {
+        Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {}
+        Err(e) => {
+            eprintln!("Can't create {:#?} : {:#?}", path, e);
+            std::process::exit(1);
+        }
+        Ok(_) => {}
+    }
+}
 
 pub fn enarx_run<'a>(wasm: &str, input: impl Into<Option<&'a [u8]>>) -> Output {
     let wasm_path = Path::new(CRATE)
@@ -57,6 +67,36 @@ pub fn enarx_run<'a>(wasm: &str, input: impl Into<Option<&'a [u8]>>) -> Output {
     output
 }
 
+fn compile(wasm: &str) {
+    let out_dir = Path::new(CRATE).join(OUT_DIR).join(TEST_BINS_OUT);
+    let wasm = out_dir.join(wasm);
+
+    create(&out_dir);
+
+    let src_path = &Path::new(CRATE).join("tests/wasm");
+
+    let wat = src_path
+        .join(wasm.file_stem().unwrap())
+        .with_extension("wat");
+
+    // poor mans `make`
+    if wasm.exists() {
+        let wasm_meta = wasm.metadata().unwrap();
+        let wasm_time = wasm_meta.modified().unwrap();
+
+        let wat_meta = wat.metadata().unwrap();
+        let wat_time = wat_meta.modified().unwrap();
+
+        if wasm_meta.len() > 0 && wasm_time > wat_time {
+            // skip, if already compiled and newer than original
+            return;
+        }
+    }
+
+    let bin = wat::parse_file(&wat).unwrap_or_else(|_| panic!("failed to compile {:?}", &wat));
+    std::fs::write(&wasm, &bin).unwrap_or_else(|_| panic!("failed to write {:?}", &wasm));
+}
+
 fn run_wasm_test<'a>(
     wasm: &str,
     status: i32,
@@ -64,6 +104,8 @@ fn run_wasm_test<'a>(
     expected_stdout: impl Into<Option<&'a [u8]>>,
     expected_stderr: impl Into<Option<&'a [u8]>>,
 ) -> Output {
+    compile(wasm);
+
     let output = enarx_run(wasm, input);
     check_output(&output, status, expected_stdout, expected_stderr);
     output
