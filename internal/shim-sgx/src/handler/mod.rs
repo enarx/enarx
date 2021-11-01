@@ -132,7 +132,7 @@ impl<'a> Handler<'a> {
                     OP_SYSCALL => h.handle_syscall(),
                     OP_CPUID => h.handle_cpuid(),
                     r => {
-                        debugln!(h, "unsupported opcode: {:?}", r);
+                        debugln!(h, "unsupported opcode: 0x{:04x}", r);
                         h.exit(1)
                     }
                 }
