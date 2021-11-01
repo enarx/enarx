@@ -49,6 +49,9 @@ const OP_CPUID: u16 = 0xa20f;
 
 /// Thread local storage for the current thread
 pub struct Handler<'a> {
+    buffer: [u8; 4096],
+    offset: usize,
+
     block: &'a mut Block,
     ssa: &'a mut StateSaveArea,
     heap: Heap,
@@ -56,20 +59,40 @@ pub struct Handler<'a> {
 
 impl<'a> Write for Handler<'a> {
     fn write_str(&mut self, s: &str) -> core::fmt::Result {
-        if s.as_bytes().is_empty() {
+        let bytes = s.as_bytes();
+        if bytes.is_empty() {
             return Ok(());
         }
 
-        let c = self.new_cursor();
-        let (_, untrusted) = c.copy_from_slice(s.as_bytes()).or(Err(core::fmt::Error))?;
+        if bytes.len() + self.offset > self.buffer.len() {
+            return Err(core::fmt::Error);
+        }
 
-        let req = request!(libc::SYS_write => libc::STDERR_FILENO, untrusted, untrusted.len());
-        let res = unsafe { self.proxy(req) };
+        let mut buffer = [0u8; 4096];
+        buffer[..self.offset].copy_from_slice(&self.buffer[..self.offset]);
+        buffer[self.offset..][..bytes.len()].copy_from_slice(bytes);
+        let offset = self.offset + bytes.len();
 
-        match res {
-            Ok(res) if usize::from(res[0]) > s.bytes().len() => self.attacked(),
-            Ok(res) if usize::from(res[0]) == s.bytes().len() => Ok(()),
-            _ => Err(core::fmt::Error),
+        if let Some(index) = buffer[..offset].iter().rposition(|b| b == &b'\n') {
+            let (output, reserve) = buffer.split_at(index + 1);
+            self.buffer[..reserve.len()].copy_from_slice(reserve);
+            self.offset = reserve.len();
+
+            let c = self.new_cursor();
+            let (_, untrusted) = c.copy_from_slice(output).or(Err(core::fmt::Error))?;
+
+            let req = request!(libc::SYS_write => libc::STDERR_FILENO, untrusted, untrusted.len());
+            let res = unsafe { self.proxy(req) };
+
+            match res {
+                Ok(res) if usize::from(res[0]) > output.len() => self.attacked(),
+                Ok(res) if usize::from(res[0]) == output.len() => Ok(()),
+                _ => Err(core::fmt::Error),
+            }
+        } else {
+            self.buffer[..offset].copy_from_slice(&buffer[..offset]);
+            self.offset = offset;
+            Ok(())
         }
     }
 }
@@ -77,6 +100,9 @@ impl<'a> Write for Handler<'a> {
 impl<'a> Handler<'a> {
     fn new(ssa: &'a mut StateSaveArea, block: &'a mut Block, heap: Line<usize>) -> Self {
         Self {
+            buffer: [0u8; 4096],
+            offset: 0,
+
             ssa,
             block,
             heap: unsafe { Heap::new(heap.into()) },
