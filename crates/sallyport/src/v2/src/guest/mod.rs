@@ -2,7 +2,23 @@
 
 //! Guest entrypoint into the sallyport.
 //!
-//! # Phase-based request allocation
+//! The main entrypoint into this module is a long-lived [`Handler`], which allocates the requests
+//! within the untrusted sallyport block, passes control to the host for execution of the block via
+//! [platform-specific `sally`](Platform::sally) and reads the replies once it gets the control
+//! back after verifying the integrity of the block.
+//!
+//! In case the [`Handler`] detects that integrity of the request block is not maintained, it
+//! attempts to [`exit`](`Handler::exit`) immediately and does so in an infinite loop.
+//!
+//! [`Handler`] provides:
+//! - API for execution of an arbitrary call:
+//!     - [`execute`](Handler::execute)
+//!
+//! - [`libc`]-like API for syscall execution using safe Rust abstractions where possible, for example:
+//!     - [`syscall`](Handler::syscall) corresponding to [`libc::syscall`].
+//!     - [`exit`](Handler::exit) corresponding to [`libc::exit`].
+//!
+//! # Call lifetime phases
 //!
 //! The crate identifies 3 distinct phases of an arbitrary call lifetime:
 //!
@@ -37,11 +53,11 @@
 //! [output references]: alloc::OutRef
 
 #[allow(clippy::len_without_is_empty)]
-#[cfg(test)]
 pub mod alloc;
-#[cfg(test)]
 pub mod syscall;
 
+mod handler;
 mod platform;
 
+pub use handler::*;
 pub use platform::*;
