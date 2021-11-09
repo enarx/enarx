@@ -1,0 +1,24 @@
+[package]
+name = "sallyport"
+version = "0.2.0"
+authors = ["The Enarx Project Developers"]
+license = "Apache-2.0"
+edition = "2018"
+homepage = "https://github.com/enarx/sallyport"
+repository = "https://github.com/enarx/sallyport"
+description = "API for the Enarx hypervisor-microkernel boundary"
+readme = "README.md"
+keywords = ["enarx", "syscall"]
+categories = [ "no-std" ]
+exclude = [ ".gitignore", ".github/*" ]
+
+[badges]
+# See https://doc.rust-lang.org/cargo/reference/manifest.html#the-badges-section
+github = { repository = "enarx/sallyport", workflow = "test" }
+#github = { repository = "enarx/sallyport", workflow = "lint" }
+maintenance = { status = "actively-developed" }
+is-it-maintained-issue-resolution = { repository = "enarx/sallyport" }
+is-it-maintained-open-issues = { repository = "enarx/sallyport" }
+
+[dependencies]
+libc = { version = "0.2", features = [] }
