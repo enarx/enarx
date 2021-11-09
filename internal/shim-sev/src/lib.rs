@@ -9,7 +9,7 @@
 #![deny(clippy::all)]
 #![deny(clippy::integer_arithmetic)]
 #![deny(missing_docs)]
-#![feature(asm, naked_functions)]
+#![feature(asm, asm_const, asm_sym, naked_functions)]
 
 use crate::snp::cpuid_page::CpuidPage;
 use crate::snp::ghcb::Ghcb;
