@@ -18,7 +18,7 @@
 //! This may happen concurrently for `N` staged requests.
 //!
 //! Once this phase is finished, the untrusted sallyport block is ready to be passed to the host for execution
-//! via platform-specific `sally` implementation.
+//! via [platform-specific `sally`](Platform::sally).
 //!
 //! Entities that can be committed implement the [`Commit`](alloc::Commit) trait.
 //!
@@ -41,3 +41,7 @@
 pub mod alloc;
 #[cfg(test)]
 pub mod syscall;
+
+mod platform;
+
+pub use platform::*;
