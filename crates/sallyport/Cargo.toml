@@ -28,3 +28,4 @@ asm = []
 libc = { version = "0.2", features = [] }
 primordial = "^0.4.0"
 goblin = { version = "0.4", default-features = false, features = [ "elf64" ] }
+v2 = { path = "src/v2", package = "sallyport" }
