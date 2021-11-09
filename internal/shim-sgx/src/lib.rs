@@ -32,7 +32,8 @@ pub const ATTR: Attributes = Attributes::new(Features::MODE64BIT, XFRM);
 extern "C" {
     /// Extern
     pub static ENARX_EXEC_START: u8;
-    //static ENARX_EXEC_END: u8;
+    /// Extern
+    pub static ENARX_EXEC_END: u8;
     /// Extern
     pub static ENARX_HEAP_START: u8;
     /// Extern
