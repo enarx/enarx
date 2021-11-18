@@ -41,6 +41,22 @@ pub const SYS_ENARX_BALLOON_MEMORY: i64 = 0xEA03;
 #[allow(dead_code)]
 pub const SYS_ENARX_CPUID: i64 = 0xEA04;
 
+/// Enarx gdb extension
+#[allow(dead_code)]
+pub const SYS_ENARX_GDB_START: i64 = 0xEA10;
+
+/// Enarx gdb extension
+#[allow(dead_code)]
+pub const SYS_ENARX_GDB_READ: i64 = 0xEA11;
+
+/// Enarx gdb extension
+#[allow(dead_code)]
+pub const SYS_ENARX_GDB_PEEK: i64 = 0xEA12;
+
+/// Enarx gdb extension
+#[allow(dead_code)]
+pub const SYS_ENARX_GDB_WRITE: i64 = 0xEA13;
+
 /// Enarx syscall extension: Resume an enclave after an asynchronous exit
 // Keep in sync with shim-sgx/src/start.S
 #[allow(dead_code)]
@@ -278,6 +294,11 @@ pub trait SyscallHandler:
             ),
 
             SYS_ENARX_GETATT => self.get_attestation(a.into(), b.into(), c.into(), d.into()),
+
+            SYS_ENARX_GDB_START => self.gdb_start(),
+            SYS_ENARX_GDB_PEEK => self.gdb_peek(),
+            SYS_ENARX_GDB_READ => self.gdb_read(a.into(), b.into()),
+            SYS_ENARX_GDB_WRITE => self.gdb_write(a.into(), b.into()),
 
             _ => {
                 self.unknown_syscall(a, b, c, d, e, f, nr);
