@@ -14,7 +14,6 @@ use core::fmt;
 use core::mem::size_of;
 use core::ops::Deref;
 
-use paste::paste;
 use spinning::Lazy;
 use x86_64::VirtAddr;
 use xsave::XSave;
@@ -69,6 +68,10 @@ impl fmt::Debug for ExtendedInterruptStackFrame {
 pub(crate) struct ExtendedInterruptStackFrameValue {
     pub rbp: u64,
     pub rbx: u64,
+    pub r15: u64,
+    pub r14: u64,
+    pub r13: u64,
+    pub r12: u64,
     pub r11: u64,
     pub r10: u64,
     pub r9: u64,
@@ -100,7 +103,7 @@ pub(crate) struct ExtendedInterruptStackFrameValue {
 /// has_error - has error parameter
 macro_rules! declare_interrupt {
     (fn $name:ident ( $stack:ident : &mut ExtendedInterruptStackFrame $(,)? ) $code:block) => {
-        paste! {
+        ::paste::paste! {
             extern "sysv64" fn [<__interrupt_ $name>]($stack: &mut ExtendedInterruptStackFrame) {
                 $code
             }
@@ -109,7 +112,7 @@ macro_rules! declare_interrupt {
     };
 
     (fn $name:ident ( $stack:ident : &mut ExtendedInterruptStackFrame , $error:ident : u64 $(,)? ) $code:block) => {
-        paste! {
+        ::paste::paste! {
             extern "sysv64" fn [<__interrupt_ $name>]($stack: &mut ExtendedInterruptStackFrame, $error: u64) {
                 $code
             }
@@ -118,7 +121,7 @@ macro_rules! declare_interrupt {
     };
 
     (fn $name:ident ( $stack:ident : &mut ExtendedInterruptStackFrame , $error:ident : x86_64::structures::idt::PageFaultErrorCode $(,)? ) $code:block) => {
-        paste! {
+        ::paste::paste! {
             extern "sysv64" fn [<__interrupt_ $name>]($stack: &mut ExtendedInterruptStackFrame, $error: x86_64::structures::idt::PageFaultErrorCode) {
                 $code
             }
@@ -127,7 +130,7 @@ macro_rules! declare_interrupt {
     };
 
     (fn $name:ident ( $stack:ident : &mut ExtendedInterruptStackFrame $(,)? ) -> ! $code:block) => {
-        paste! {
+        ::paste::paste! {
             extern "sysv64" fn [<__interrupt_ $name>]($stack: &mut ExtendedInterruptStackFrame) {
                 $code
             }
@@ -136,7 +139,7 @@ macro_rules! declare_interrupt {
     };
 
     (fn $name:ident ( $stack:ident : &mut ExtendedInterruptStackFrame, $error:ident : u64 $(,)? )  -> ! $code:block) => {
-        paste! {
+        ::paste::paste! {
             extern "sysv64" fn [<__interrupt_ $name>]($stack: &mut ExtendedInterruptStackFrame, $error: u64) {
                 $code
             }
@@ -145,7 +148,7 @@ macro_rules! declare_interrupt {
     };
 
     ($name:ident => $push_or_exchange:literal) => {
-        paste! {
+        ::paste::paste! {
             #[naked]
             unsafe extern "sysv64" fn $name() -> ! {
                 asm!(
@@ -159,6 +162,10 @@ macro_rules! declare_interrupt {
                     "push   r9",
                     "push   r10",
                     "push   r11",
+                    "push   r12",
+                    "push   r13",
+                    "push   r14",
+                    "push   r15",
                     "push   rbx",
                     "push   rbp",
 
@@ -198,6 +205,10 @@ macro_rules! declare_interrupt {
 
                     "pop    rbp",
                     "pop    rbx",
+                    "pop    r15",
+                    "pop    r14",
+                    "pop    r13",
+                    "pop    r12",
                     "pop    r11",
                     "pop    r10",
                     "pop    r9",
@@ -289,7 +300,10 @@ mod debug {
                 .set_stack_index(2);
 
             let virt = VirtAddr::new_unsafe(breakpoint_handler as usize as u64);
-            let _br_opts = idt.breakpoint.set_handler_addr(virt).set_stack_index(1);
+            let br_opts = idt.breakpoint.set_handler_addr(virt).set_stack_index(1);
+            if cfg!(feature = "gdb") {
+                br_opts.set_privilege_level(x86_64::PrivilegeLevel::Ring3);
+            }
 
             let virt = VirtAddr::new_unsafe(overflow_handler as usize as u64);
             idt.overflow.set_handler_addr(virt).set_stack_index(6);
@@ -399,6 +413,11 @@ mod debug {
 
             interrupt_trace(stack_frame);
 
+            #[cfg(feature = "gdb")]
+            unsafe {
+                crate::gdb::gdb_session(stack_frame.as_mut());
+            }
+
             shim_exit(255);
         }
     );
@@ -413,11 +432,19 @@ mod debug {
 
     declare_interrupt!(
         fn debug_handler(stack_frame: &mut ExtendedInterruptStackFrame) {
+            use x86_64::registers::rflags::RFlags;
+
             eprintln!("debug_handler");
             eprintln!("{:#?}", stack_frame);
             interrupt_trace(stack_frame);
 
-            shim_exit(255);
+            #[cfg(feature = "gdb")]
+            unsafe {
+                crate::gdb::gdb_session(stack_frame.as_mut());
+            }
+
+            // skip breakpoint
+            unsafe { stack_frame.as_mut().cpu_flags |= RFlags::RESUME_FLAG.bits() };
         }
     );
 
@@ -432,6 +459,12 @@ mod debug {
 
             interrupt_trace(stack_frame);
 
+            #[cfg(feature = "gdb")]
+            unsafe {
+                crate::gdb::gdb_session(stack_frame.as_mut());
+            }
+
+            #[cfg(not(feature = "gdb"))]
             shim_exit(255);
         }
     );
@@ -557,8 +590,12 @@ mod debug {
 
             interrupt_trace(stack_frame);
 
-            print_stack_trace();
+            #[cfg(feature = "gdb")]
+            unsafe {
+                crate::gdb::gdb_session(stack_frame.as_mut());
+            }
 
+            #[cfg(not(feature = "gdb"))]
             shim_exit(255)
         }
     );

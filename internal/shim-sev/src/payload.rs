@@ -36,11 +36,18 @@ const PAYLOAD_STACK_VIRT_ADDR_BASE: VirtAddr = VirtAddr::new_truncate(0x7ff0_000
 const PAYLOAD_STACK_SIZE: u64 = bytes![2; MiB];
 
 /// The randomized virtual address of the payload
+#[cfg(not(feature = "gdb"))]
 pub static PAYLOAD_VIRT_ADDR: Lazy<RwLock<VirtAddr>> = Lazy::new(|| {
     RwLock::<VirtAddr>::const_new(
         spinning::RawRwLock::const_new(),
         PAYLOAD_ELF_VIRT_ADDR_BASE + (random() & 0x7F_FFFF_F000),
     )
+});
+
+/// The non-randomized virtual address of the exec in case the gdb feature is active
+#[cfg(feature = "gdb")]
+pub static PAYLOAD_VIRT_ADDR: Lazy<RwLock<VirtAddr>> = Lazy::new(|| {
+    RwLock::<VirtAddr>::const_new(spinning::RawRwLock::const_new(), PAYLOAD_ELF_VIRT_ADDR_BASE)
 });
 
 /// Actual brk virtual address the payload gets, when calling brk
@@ -184,6 +191,18 @@ pub fn execute_payload() -> ! {
     );
 
     let (entry, sp_handle) = crt0setup(*PAYLOAD_VIRT_ADDR.read(), stack.slice, header);
+
+    #[cfg(feature = "gdb")]
+    unsafe {
+        // Breakpoint at the payload entry address
+        asm!(
+            "mov dr0, {}",
+            "mov dr7, {}",
+
+            in(reg) entry.as_u64(),
+            in(reg) 1u64,
+        )
+    };
 
     unsafe {
         PAYLOAD_READY.store(true, Ordering::Relaxed);
