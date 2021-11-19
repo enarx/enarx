@@ -17,6 +17,9 @@ use sallyport::{Request, KVM_SYSCALL_TRIGGER_PORT};
 pub struct Thread<P: KeepPersonality> {
     keep: Arc<RwLock<super::Keep<P>>>,
     vcpu_fd: Option<VcpuFd>,
+
+    #[cfg(feature = "gdb")]
+    gdb_fd: Option<std::net::TcpStream>,
 }
 
 impl<P: KeepPersonality> Drop for Thread<P> {
@@ -34,6 +37,9 @@ impl<P: KeepPersonality + 'static> super::super::Keep for RwLock<super::Keep<P>>
             Some(vcpu_fd) => Ok(Some(Box::new(Thread {
                 keep: self,
                 vcpu_fd: Some(vcpu_fd),
+
+                #[cfg(feature = "gdb")]
+                gdb_fd: None,
             }))),
         }
     }
@@ -128,9 +134,18 @@ impl<P: KeepPersonality> super::super::Thread for Thread<P> {
                         Ok(Command::Continue)
                     }
 
+                    #[cfg(feature = "gdb")]
+                    sallyport::syscall::SYS_ENARX_GDB_START
+                    | sallyport::syscall::SYS_ENARX_GDB_PEEK
+                    | sallyport::syscall::SYS_ENARX_GDB_READ
+                    | sallyport::syscall::SYS_ENARX_GDB_WRITE => {
+                        Ok(Command::Gdb(block, &mut self.gdb_fd))
+                    }
+
                     _ => Ok(Command::SysCall(block)),
                 };
 
+                // In case of gdb, this is unsafe, but we know the block is not misused in the main loop
                 self.keep.write().unwrap().sallyports[block_nr].replace(block_virt);
                 ret
             }

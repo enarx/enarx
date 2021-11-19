@@ -22,4 +22,9 @@ pub struct Options {
     /// Binary to load and run inside the keep
     #[structopt(value_name = "BINARY")]
     pub binpath: PathBuf,
+
+    /// gdb options
+    #[cfg(feature = "gdb")]
+    #[structopt(long, default_value = "localhost:23456")]
+    pub gdblisten: String,
 }
