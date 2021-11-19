@@ -128,6 +128,9 @@ fn cargo_build_bin(
         .arg("--bin")
         .arg(bin_name);
 
+    #[cfg(feature = "gdb")]
+    let cmd = cmd.arg("--features=gdb");
+
     #[cfg(feature = "dbg")]
     let cmd = cmd.arg("--features=dbg");
 

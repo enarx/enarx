@@ -28,8 +28,34 @@ jobs:
           - {name: kvm, host: [self-hosted, linux]}
         profile:
           - name: debug
+          - name: debug with dbg
+            flag: --features=dbg
           - name: release
             flag: --release
+
+  build-only:
+    name: enarx build-only nightly ${{ matrix.profile.name }}
+    runs-on: ubuntu-20.04
+    steps:
+      - run: sudo apt update
+      - run: sudo apt install -y musl-tools
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          target: x86_64-unknown-linux-musl
+          toolchain: nightly
+          override: true
+      - uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: ${{ matrix.profile.flag }}
+    strategy:
+      fail-fast: false
+      matrix:
+        profile:
+          - name: default-features
+          - name: gdb
+            flag: --features=gdb
 
   internal:
     name: ${{ matrix.crate }} nightly ${{ matrix.profile.name }}

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 #![cfg(feature = "wasmldr")]
+#![cfg(not(feature = "gdb"))]
 
 use process_control::{ChildExt, Output, Timeout};
 use serial_test::serial;

@@ -11,6 +11,7 @@ readme = "README.md"
 exclude = [ ".gitignore", ".github/*" ]
 
 [features]
+gdb = []
 dbg = []
 
 [dependencies]
