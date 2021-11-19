@@ -27,6 +27,11 @@ impl super::super::Config for Config {
         }
         if flags & PF_X != 0 {
             rwx |= Flags::EXECUTE;
+
+            // Debugging with gdb also involves modifying executable memory
+            if cfg!(feature = "gdb") {
+                rwx |= Flags::WRITE;
+            }
         }
 
         let m = flags & elf::pf::sgx::UNMEASURED == 0;

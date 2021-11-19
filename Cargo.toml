@@ -28,7 +28,7 @@ backend-sev = ["backend-kvm", "reqwest"]
 backend-kvm = ["x86_64", "kvm-bindings", "kvm-ioctls"]
 backend-sgx = ["x86_64", "sgx"]
 wasmldr = []
-gdb = []
+gdb = ["gdbstub"]
 dbg = []
 
 [dependencies]
@@ -36,9 +36,10 @@ x86_64 = { version = "^0.14.6", default-features = false, optional = true }
 sgx = { version = "0.1.0", features = ["openssl"], optional = true }
 const-default = { version = "1.0", features = [ "derive" ] }
 primordial = { version = "0.3", features = ["alloc"] }
-sallyport = { version = "0.1", features = [ "asm" ] }
+sallyport = { git = "https://github.com/enarx/sallyport", rev = "dd42c91cc9e5cbc74f342eede3bc072f60ba11bd", features = [ "asm" ] }
 kvm-bindings = { version = "0.5", optional = true }
 kvm-ioctls = { version = "0.11", optional = true }
+gdbstub = { version = "0.5.0", optional = true }
 protobuf = "2.22"
 structopt = { version = "0.3", features = ["wrap_help"] }
 openssl = "0.10"
