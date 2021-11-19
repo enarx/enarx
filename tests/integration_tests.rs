@@ -12,7 +12,7 @@ use std::time::Duration;
 
 use serial_test::serial;
 use std::sync::Arc;
-use tempdir::TempDir;
+use tempfile::Builder;
 
 mod common;
 use common::{assert_eq_slices, run_crate, run_test};
@@ -138,7 +138,7 @@ fn uname() {
 #[test]
 #[serial]
 fn unix_echo() {
-    let tmpdir = Arc::new(TempDir::new("unix_echo").unwrap());
+    let tmpdir = Arc::new(Builder::new().prefix("unix_echo").tempdir().unwrap());
     const FILENAME_IN: &'static str = "enarx_unix_echo_to_bin";
     const FILENAME_OUT: &'static str = "enarx_unix_echo_from_bin";
     let mut input: Vec<u8> = Vec::with_capacity(2 * 1024 * 1024);
