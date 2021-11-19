@@ -30,6 +30,7 @@ pub mod print;
 pub mod addr;
 pub mod allocator;
 pub mod debug;
+pub mod gdb;
 pub mod gdt;
 pub mod hostcall;
 pub mod hostmap;

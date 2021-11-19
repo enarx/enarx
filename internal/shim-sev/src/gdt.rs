@@ -30,7 +30,13 @@ pub const SHIM_EX_STACK_START: u64 = 0xFFFF_FF48_F000_0000;
 
 /// The size of the main kernel stack for exceptions
 #[allow(clippy::integer_arithmetic)]
-pub const SHIM_EX_STACK_SIZE: u64 = bytes![32; KiB];
+pub const SHIM_EX_STACK_SIZE: u64 = {
+    if cfg!(feature = "gdb") {
+        bytes![2; MiB]
+    } else {
+        bytes![32; KiB]
+    }
+};
 
 /// The initial shim stack
 pub static INITIAL_STACK: Lazy<GuardedStack> = Lazy::new(|| {

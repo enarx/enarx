@@ -240,5 +240,9 @@ pub(crate) fn interrupt_trace(stack_frame: &crate::interrupts::ExtendedInterrupt
         eprintln!("TRACE:\nP 0x{:>016x}", addr.as_u64());
     };
 
+    unsafe {
+        stack_trace_from_rbp(stack_frame.rbp as _);
+    }
+
     print_stack_trace();
 }

@@ -118,6 +118,40 @@ pub unsafe extern "sysv64" fn _syscall_enter() -> ! {
     )
 }
 
+/// FIXME
+pub trait ProxySyscall {
+    /// FIXME
+    fn proxy(&self, hostcall: HostCall) -> Result<(HostCall, [Register<usize>; 2]), libc::c_int>;
+}
+
+impl ProxySyscall for Request {
+    fn proxy(&self, hostcall: HostCall) -> Result<(HostCall, [Register<usize>; 2]), libc::c_int> {
+        let mut h = Handler {
+            hostcall,
+            argv: [
+                self.arg[0].into(),
+                self.arg[1].into(),
+                self.arg[2].into(),
+                self.arg[3].into(),
+                self.arg[4].into(),
+                self.arg[5].into(),
+            ],
+        };
+
+        let ret = h.syscall(
+            self.arg[0],
+            self.arg[1],
+            self.arg[2],
+            self.arg[3],
+            self.arg[4],
+            self.arg[5],
+            self.num.into(),
+        )?;
+
+        Ok((h.hostcall, ret))
+    }
+}
+
 /// Handle a syscall in rust
 #[allow(clippy::many_single_char_names)]
 extern "sysv64" fn syscall_rust(
