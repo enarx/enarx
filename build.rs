@@ -112,7 +112,8 @@ fn cargo_build_bin(
         .map(Stdio::from)
         .unwrap_or_else(|_| Stdio::inherit());
 
-    let status = Command::new("cargo")
+    let mut cmd = Command::new("cargo");
+    let cmd = cmd
         .current_dir(&path)
         .env_clear()
         .envs(&filtered_env)
@@ -125,8 +126,12 @@ fn cargo_build_bin(
         .arg("--target")
         .arg(target_name)
         .arg("--bin")
-        .arg(bin_name)
-        .status()?;
+        .arg(bin_name);
+
+    #[cfg(feature = "dbg")]
+    let cmd = cmd.arg("--features=dbg");
+
+    let status = cmd.status()?;
 
     if !status.success() {
         eprintln!("Failed to build in {}", path);
