@@ -78,6 +78,7 @@ fn write_stdout() {
     run_test("write_stdout", 0, None, &b"hi\n"[..], None);
 }
 
+#[cfg(not(feature = "dbg"))]
 #[test]
 #[serial]
 // v0.1.0 KEEP-CONFIG HACK: logging is hardcoded to send output to stderr,
