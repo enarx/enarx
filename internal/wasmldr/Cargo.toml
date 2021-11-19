@@ -10,6 +10,9 @@ readme = "README.md"
 # TODO: merge these into the toplevel actions/gitignore
 exclude = [ ".gitignore", ".github/*" ]
 
+[features]
+dbg = []
+
 [dependencies]
 wasmtime = { version = "0.30", default-features = false, features = ["cranelift"] }
 wasmtime-wasi = { version = "0.30", default-features = false, features = ["sync"] }
