@@ -10,6 +10,7 @@ name = "shim-sev"
 test = false
 
 [features]
+gdb = [ "dbg" ]
 dbg = []
 
 [dependencies]

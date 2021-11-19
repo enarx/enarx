@@ -28,6 +28,7 @@ backend-sev = ["backend-kvm", "reqwest"]
 backend-kvm = ["x86_64", "kvm-bindings", "kvm-ioctls"]
 backend-sgx = ["x86_64", "sgx"]
 wasmldr = []
+gdb = []
 dbg = []
 
 [dependencies]
