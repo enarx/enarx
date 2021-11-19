@@ -15,12 +15,11 @@ extern crate compiler_builtins;
 extern crate rcrt1;
 
 use shim_sev::addr::SHIM_VIRT_OFFSET;
-use shim_sev::debug::print_stack_trace;
 use shim_sev::gdt;
 use shim_sev::interrupts;
 use shim_sev::pagetables::{unmap_identity, PDPT, PDT_C000_0000, PML4T, PT_FFE0_0000};
 use shim_sev::payload;
-use shim_sev::print::{self, enable_printing, is_printing_enabled, TRACE};
+use shim_sev::print::enable_printing;
 use shim_sev::snp::C_BIT_MASK;
 use shim_sev::sse;
 
@@ -108,8 +107,10 @@ extern "sysv64" fn main() -> ! {
 /// Reverts to a triple fault, which causes a `#VMEXIT` and a KVM shutdown,
 /// if it can't print the panic and exit normally with an error code.
 #[panic_handler]
-pub fn panic(info: &core::panic::PanicInfo) -> ! {
+pub fn panic(_info: &core::panic::PanicInfo) -> ! {
     use shim_sev::debug::_enarx_asm_triple_fault;
+    #[cfg(feature = "dbg")]
+    use shim_sev::print::{self, is_printing_enabled};
 
     static mut ALREADY_IN_PANIC: AtomicBool = AtomicBool::new(false);
 
@@ -119,9 +120,10 @@ pub fn panic(info: &core::panic::PanicInfo) -> ! {
             .compare_exchange(false, true, Ordering::Acquire, Ordering::Relaxed)
             .is_ok()
         {
-            if is_printing_enabled() && TRACE {
-                print::_eprint(format_args!("{}\n", info));
-                print_stack_trace();
+            #[cfg(feature = "dbg")]
+            if is_printing_enabled() {
+                print::_eprint(format_args!("{}\n", _info));
+                shim_sev::debug::print_stack_trace();
             }
             // FIXME: might want to have a custom panic hostcall
             shim_sev::hostcall::shim_exit(255);
