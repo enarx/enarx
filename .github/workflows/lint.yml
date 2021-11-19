@@ -118,7 +118,7 @@ jobs:
       - uses: actions/checkout@v2
       - uses: EmbarkStudios/cargo-deny-action@v1
         with:
-          arguments: --manifest-path=${{ matrix.crate.path }}
+          arguments: --workspace --manifest-path=${{ matrix.crate.path }}
     strategy:
       fail-fast: false
       matrix:
