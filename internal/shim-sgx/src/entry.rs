@@ -99,11 +99,16 @@ pub unsafe fn entry(offset: *const ()) -> ! {
         Ok(handle) => handle,
     };
 
+    let entry = offset as u64 + hdr.e_entry;
+
+    #[cfg(feature = "gdb")]
+    crate::handler::gdb::set_bp(entry);
+
     asm!(
         "mov rsp, {SP}",
         "jmp {START}",
         SP = in(reg) &*handle,
-        START = in(reg) offset as u64 + hdr.e_entry,
+        START = in(reg) entry,
         options(noreturn)
     )
 }

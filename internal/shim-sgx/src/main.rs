@@ -16,7 +16,7 @@ extern crate rcrt1;
 
 use shim_sgx::{
     entry, handler, ATTR, ENARX_EXEC_START, ENARX_HEAP_END, ENARX_HEAP_START, ENCL_SIZE,
-    ENCL_SIZE_BITS,
+    ENCL_SIZE_BITS, MISC,
 };
 
 #[panic_handler]
@@ -65,8 +65,8 @@ noted! {
 
     static NOTE_PID<note::NAME, note::sgx::PID, u16> = 0;
     static NOTE_SVN<note::NAME, note::sgx::SVN, u16> = 0;
-    static NOTE_MISC<note::NAME, note::sgx::MISC, MiscSelect> = MiscSelect::empty();
-    static NOTE_MISCMASK<note::NAME, note::sgx::MISCMASK, MiscSelect> = MiscSelect::empty();
+    static NOTE_MISC<note::NAME, note::sgx::MISC, MiscSelect> = MISC;
+    static NOTE_MISCMASK<note::NAME, note::sgx::MISCMASK, MiscSelect> = MISC;
     static NOTE_ATTR<note::NAME, note::sgx::ATTR, Attributes> = ATTR;
     static NOTE_ATTRMASK<note::NAME, note::sgx::ATTRMASK, Attributes> = ATTR;
 }

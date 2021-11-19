@@ -16,11 +16,9 @@ macro_rules! debug {
 macro_rules! debugln {
     ($dst:expr) => { debugln!($dst,) };
     ($dst:expr, $($arg:tt)*) => {
-        #[allow(unused_must_use)] {
-            if $crate::DEBUG {
-                use core::fmt::Write;
-                writeln!($dst, $($arg)*);
-            }
+        if $crate::DEBUG {
+            use core::fmt::Write;
+            let _ = writeln!($dst, $($arg)*);
         }
     };
 }
@@ -28,6 +26,7 @@ macro_rules! debugln {
 mod base;
 mod enarx;
 mod file;
+pub(crate) mod gdb;
 mod memory;
 mod other;
 mod process;
@@ -111,9 +110,29 @@ impl<'a> Handler<'a> {
                         debugln!(h, "unsupported opcode: {:#04x}", r);
                         h.print_ssa_stack_trace();
 
-                        h.exit(1)
+                        #[cfg(feature = "gdb")]
+                        if r as u8 == 0xCC {
+                            let rip = h.ssa.gpr.rip;
+                            if unsafe { crate::handler::gdb::unset_bp(rip) } {
+                                debugln!(h, "unset_bp: {:#x}", rip);
+                            }
+                        }
+
+                        #[cfg(feature = "gdb")]
+                        h.gdb_session();
+
+                        if r == unsafe { read_unaligned(h.ssa.gpr.rip as _) } {
+                            h.exit(1)
+                        }
                     }
                 }
+            }
+
+            #[cfg(feature = "gdb")]
+            Some(ExceptionVector::Page) => {
+                h.print_ssa_stack_trace();
+                h.gdb_session();
+                h.exit(1)
             }
 
             _ => h.attacked(),
