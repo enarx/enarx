@@ -17,7 +17,7 @@ pub mod heap;
 
 use sgx::parameters::{Attributes, Features, Xfrm};
 
-const DEBUG: bool = false;
+const DEBUG: bool = cfg!(feature = "dbg");
 
 /// FIXME: doc
 pub const ENCL_SIZE_BITS: u8 = 31;
