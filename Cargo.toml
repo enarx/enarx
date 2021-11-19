@@ -66,7 +66,7 @@ protobuf-codegen-pure = "2.25"
 [dev-dependencies]
 process_control = "3.0"
 serial_test = "0.5"
-tempdir = "0.3.7"
+tempfile = "3.2.0"
 walkdir = "2"
 wat = { version = "1.0" }
 
