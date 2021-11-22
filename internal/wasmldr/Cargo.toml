@@ -19,7 +19,6 @@ structopt = { version = "0.3", default-features = false }
 anyhow = "1.0"
 env_logger = { version = "0.9", default-features = false }
 log = "0.4"
-nbytes = "0.1"
 
 [dev-dependencies]
 wat = "1.0"
