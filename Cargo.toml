@@ -43,7 +43,7 @@ structopt = { version = "0.3", features = ["wrap_help"] }
 openssl = "0.10"
 bitflags = "1.2"
 iocuddle = "0.1"
-ciborium = "0.1"
+ciborium = "0.2"
 colorful = "0.2"
 mmarinus = "0.2"
 nbytes = "0.1"
