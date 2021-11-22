@@ -106,7 +106,7 @@ pub struct SnpGuestMsgHdr {
 
 impl Default for SnpGuestMsgHdr {
     fn default() -> Self {
-        Self::DEFAULT
+        <Self as ConstDefault>::DEFAULT
     }
 }
 
@@ -120,7 +120,7 @@ pub struct SnpGuestMsg {
 
 impl Default for SnpGuestMsg {
     fn default() -> Self {
-        Self::DEFAULT
+        <Self as ConstDefault>::DEFAULT
     }
 }
 
@@ -291,7 +291,7 @@ impl GhcbHandle {
             }
         }
 
-        *ghcb = Ghcb::DEFAULT;
+        *ghcb = <Ghcb as ConstDefault>::DEFAULT;
 
         Self { ghcb }
     }
@@ -440,7 +440,7 @@ impl RwLocked<GhcbHandle> {
         let psc_desc: &mut SnpPscDesc =
             unsafe { &mut *(this.ghcb.shared_buffer.as_mut_ptr() as *mut SnpPscDesc) };
 
-        *psc_desc = SnpPscDesc::DEFAULT;
+        *psc_desc = <SnpPscDesc as ConstDefault>::DEFAULT;
 
         // FIXME
         assert!(psc_desc.entries.len() >= npages);
@@ -572,11 +572,11 @@ pub struct GhcbExtHandle {
 
 impl Default for GhcbExtHandle {
     fn default() -> Self {
-        Self::DEFAULT
+        <Self as ConstDefault>::DEFAULT
     }
 }
 
-static mut GHCBEXTHANDLE: GhcbExtHandle = GhcbExtHandle::DEFAULT;
+static mut GHCBEXTHANDLE: GhcbExtHandle = <GhcbExtHandle as ConstDefault>::DEFAULT;
 
 /// The global Enarx GHCB Ext
 pub static GHCB_EXT: Lazy<RwLocked<&mut GhcbExtHandle>> = Lazy::new(|| unsafe {
@@ -599,7 +599,7 @@ impl GhcbExtHandle {
         let req_gpa =
             PhysAddr::new((VirtAddr::from_ptr(&self.request) - SHIM_VIRT_OFFSET).as_u64());
 
-        self.response = SnpGuestMsg::DEFAULT;
+        self.response = <SnpGuestMsg as ConstDefault>::DEFAULT;
 
         let resp_gpa =
             PhysAddr::new((VirtAddr::from_ptr(&self.response) - SHIM_VIRT_OFFSET).as_u64());
@@ -748,7 +748,7 @@ impl RwLocked<&mut GhcbExtHandle> {
         let mut user_data = [0u8; 64];
         user_data.copy_from_slice(nonce);
 
-        this.request = SnpGuestMsg::DEFAULT;
+        this.request = <SnpGuestMsg as ConstDefault>::DEFAULT;
 
         this.enc_payload(version, SnpMsgType::ReportReq, &mut user_data)
             .expect("encryption failed");
@@ -818,7 +818,7 @@ fn test_gcm() {
     use aes_gcm::{Aes256Gcm, Key, Nonce, Tag};
     use std::mem::size_of;
 
-    let mut request = SnpGuestMsg::DEFAULT;
+    let mut request = <SnpGuestMsg as ConstDefault>::DEFAULT;
     let payload_size = 64;
 
     request.hdr.algo = AeadAlgo::SnpAeadAes256Gcm as _;

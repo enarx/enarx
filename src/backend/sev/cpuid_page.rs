@@ -51,13 +51,13 @@ impl ConstDefault for CpuidPageEntry {
         count: 0,
         reserved_1: 0,
         reserved_2: 0,
-        functions: [CpuidFunctionEntry::DEFAULT; COUNT_MAX],
+        functions: [<CpuidFunctionEntry as ConstDefault>::DEFAULT; COUNT_MAX],
     };
 }
 
 impl Default for CpuidPageEntry {
     fn default() -> Self {
-        Self::DEFAULT
+        <Self as ConstDefault>::DEFAULT
     }
 }
 
@@ -84,7 +84,7 @@ impl ConstDefault for CpuidPage {
 
 impl Default for CpuidPage {
     fn default() -> Self {
-        Self::DEFAULT
+        <Self as ConstDefault>::DEFAULT
     }
 }
 

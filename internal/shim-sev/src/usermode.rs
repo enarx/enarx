@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 //! switch to Ring 3 aka usermode
-
 use const_default::ConstDefault;
 
 /// Enter Ring 3
@@ -11,7 +10,7 @@ use const_default::ConstDefault;
 /// Because the caller can give any `entry_point` and `stack_pointer`
 /// including 0, this function is unsafe.
 pub unsafe fn usermode(ip: u64, sp: u64) -> ! {
-    static XSAVE: xsave::XSave = xsave::XSave::DEFAULT;
+    static XSAVE: xsave::XSave = <xsave::XSave as ConstDefault>::DEFAULT;
 
     // switch to ring3 with the stack setup and registers cleared
     asm!(

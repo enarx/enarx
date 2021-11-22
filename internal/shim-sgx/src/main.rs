@@ -83,7 +83,7 @@ noted! {
 #[naked]
 extern "sysv64" fn clearx() {
     use const_default::ConstDefault;
-    static XSAVE: xsave::XSave = xsave::XSave::DEFAULT;
+    static XSAVE: xsave::XSave = <xsave::XSave as ConstDefault>::DEFAULT;
 
     unsafe {
         asm!(
