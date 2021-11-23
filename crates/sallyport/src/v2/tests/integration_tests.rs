@@ -5,6 +5,7 @@ use std::env::temp_dir;
 use std::ffi::CString;
 use std::fs::{File, OpenOptions};
 use std::io::{Read, Seek, Write};
+use std::mem;
 use std::os::unix::prelude::AsRawFd;
 use std::ptr::NonNull;
 use std::slice;
@@ -63,6 +64,24 @@ fn close() {
             assert_eq!(handler.close(fd), Err(ENOSYS));
         }
     })
+}
+
+#[test]
+#[serial]
+fn fstat() {
+    let file = File::create(temp_dir().join("sallyport-test-fstat")).unwrap();
+    let fd = file.as_raw_fd();
+
+    run_test(3, [0xff; 16], move |handler| {
+        let mut fd_stat: libc::stat = unsafe { mem::zeroed() };
+        assert_eq!(handler.fstat(fd, &mut fd_stat), Err(libc::EBADFD));
+
+        for fd in [libc::STDIN_FILENO, libc::STDOUT_FILENO, libc::STDERR_FILENO] {
+            let mut stat: libc::stat = unsafe { mem::zeroed() };
+            assert_eq!(handler.fstat(fd, &mut stat), Ok(()));
+        }
+    });
+    let _ = file;
 }
 
 #[test]

@@ -4,7 +4,7 @@ use super::alloc::{phase, Alloc, Allocator, Collect, Commit, Committer, Stage};
 use super::{syscall, Platform};
 use crate::{item, Result};
 
-use libc::{c_int, size_t, ENOSYS};
+use libc::{c_int, size_t, stat, ENOSYS};
 
 pub trait Execute {
     type Platform: Platform;
@@ -57,6 +57,10 @@ pub trait Execute {
         match (num as _, argv) {
             (libc::SYS_close, [fd, ..]) => self.close(fd as _).map(|_| [0, 0]),
             (libc::SYS_exit, [status, ..]) => self.exit(status as _).map(|_| self.attacked()),
+            (libc::SYS_fstat, [fd, statbuf, ..]) => {
+                let statbuf = self.platform().validate_mut(statbuf)?;
+                self.fstat(fd as _, statbuf).map(|_| [0, 0])
+            }
             (libc::SYS_read, [fd, buf, count, ..]) => {
                 let buf = self.platform().validate_slice_mut(buf, count)?;
                 self.read(fd as _, buf).map(|ret| [ret, 0])
@@ -78,6 +82,11 @@ pub trait Execute {
     fn exit(&mut self, status: c_int) -> Result<()> {
         self.execute(syscall::Exit { status })?;
         self.attacked()
+    }
+
+    /// Executes [`fstat`](https://man7.org/linux/man-pages/man2/fstat.2.html) syscall akin to [`libc::fstat`].
+    fn fstat(&mut self, fd: c_int, statbuf: &mut stat) -> Result<()> {
+        self.execute(syscall::Fstat { fd, statbuf })?
     }
 
     /// Executes [`read`](https://man7.org/linux/man-pages/man2/read.2.html) syscall akin to [`libc::read`].
