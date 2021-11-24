@@ -96,9 +96,9 @@ pub struct Selectors {
     pub code: SegmentSelector,
     /// shim data selector
     pub data: SegmentSelector,
-    /// payload data selector
+    /// exec data selector
     pub user_data: SegmentSelector,
-    /// payload code selector
+    /// exec code selector
     pub user_code: SegmentSelector,
     /// TSS selector
     pub tss: SegmentSelector,

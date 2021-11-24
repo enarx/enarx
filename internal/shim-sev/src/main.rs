@@ -15,10 +15,10 @@ extern crate compiler_builtins;
 extern crate rcrt1;
 
 use shim_sev::addr::SHIM_VIRT_OFFSET;
+use shim_sev::exec;
 use shim_sev::gdt;
 use shim_sev::interrupts;
 use shim_sev::pagetables::{unmap_identity, PDPT, PDT_C000_0000, PML4T, PT_FFE0_0000};
-use shim_sev::payload;
 use shim_sev::print::enable_printing;
 use shim_sev::snp::C_BIT_MASK;
 use shim_sev::sse;
@@ -97,7 +97,7 @@ extern "sysv64" fn main() -> ! {
     sse::init_sse();
     interrupts::init();
 
-    payload::execute_payload()
+    exec::execute_exec()
 }
 
 /// The panic function

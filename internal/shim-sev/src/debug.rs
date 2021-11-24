@@ -160,8 +160,8 @@ pub fn print_stack_trace() {
 
 #[cfg(feature = "dbg")]
 unsafe fn stack_trace_from_rbp(mut rbp: usize) {
+    use crate::exec::EXEC_VIRT_ADDR;
     use crate::paging::SHIM_PAGETABLE;
-    use crate::payload::PAYLOAD_VIRT_ADDR;
     use crate::print;
 
     use core::mem::size_of;
@@ -206,9 +206,9 @@ unsafe fn stack_trace_from_rbp(mut rbp: usize) {
                 if let Some(rip) = rip.checked_sub(shim_offset) {
                     print::_eprint(format_args!("S 0x{:>016x}\n", rip));
                     rbp = *(rbp as *const usize);
-                } else if crate::PAYLOAD_READY.load(Ordering::Relaxed) {
-                    if let Some(rip) = rip.checked_sub(PAYLOAD_VIRT_ADDR.read().as_u64() as _) {
-                        print::_eprint(format_args!("P 0x{:>016x}\n", rip));
+                } else if crate::exec::EXEC_READY.load(Ordering::Relaxed) {
+                    if let Some(rip) = rip.checked_sub(EXEC_VIRT_ADDR.read().as_u64() as _) {
+                        print::_eprint(format_args!("E 0x{:>016x}\n", rip));
                         rbp = *(rbp as *const usize);
                     } else {
                         break;
@@ -227,17 +227,17 @@ unsafe fn stack_trace_from_rbp(mut rbp: usize) {
 
 #[cfg(feature = "dbg")]
 pub(crate) fn interrupt_trace(stack_frame: &crate::interrupts::ExtendedInterruptStackFrame) {
-    use crate::payload::PAYLOAD_VIRT_ADDR;
+    use crate::exec::EXEC_VIRT_ADDR;
 
-    let payload_virt = *PAYLOAD_VIRT_ADDR.read();
+    let exec_virt = *EXEC_VIRT_ADDR.read();
     let mut addr = stack_frame.instruction_pointer;
 
     if addr.as_u64() > SHIM_VIRT_OFFSET {
         addr -= SHIM_VIRT_OFFSET;
         eprintln!("TRACE:\nS 0x{:>016x}", addr.as_u64());
-    } else if addr > payload_virt {
-        addr -= payload_virt.as_u64();
-        eprintln!("TRACE:\nP 0x{:>016x}", addr.as_u64());
+    } else if addr > exec_virt {
+        addr -= exec_virt.as_u64();
+        eprintln!("TRACE:\nE 0x{:>016x}", addr.as_u64());
     };
 
     unsafe {
