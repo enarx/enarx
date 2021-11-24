@@ -4,17 +4,17 @@
 
 #![cfg(feature = "gdb")]
 
+use crate::exec::EXEC_READY;
 use crate::hostcall::HOST_CALL_ALLOC;
 use crate::interrupts::ExtendedInterruptStackFrameValue;
 use crate::syscall::ProxySyscall;
-use crate::PAYLOAD_READY;
 
 use core::convert::TryFrom;
 use core::sync::atomic::Ordering;
 
 use crate::addr::SHIM_VIRT_OFFSET;
+use crate::exec::EXEC_VIRT_ADDR;
 use crate::paging::SHIM_PAGETABLE;
-use crate::payload::PAYLOAD_VIRT_ADDR;
 use gdbstub::arch::Arch;
 use gdbstub::target::ext::base::singlethread::SingleThreadOps;
 use gdbstub::target::ext::base::singlethread::{GdbInterrupt, ResumeAction, StopReason};
@@ -312,11 +312,11 @@ pub(crate) fn gdb_session(stack_frame: &mut ExtendedInterruptStackFrameValue) {
 
     eprintln!("symbol-file -o {:#x} <shim>", SHIM_VIRT_OFFSET);
 
-    if PAYLOAD_READY.load(Ordering::Relaxed) {
-        let payload_virt = *PAYLOAD_VIRT_ADDR.read();
+    if EXEC_READY.load(Ordering::Relaxed) {
+        let exec_virt = *EXEC_VIRT_ADDR.read();
         eprintln!(
-            "add-symbol-file -o {:?} <payload>",
-            payload_virt.as_mut_ptr::<u8>()
+            "add-symbol-file -o {:?} <exec>",
+            exec_virt.as_mut_ptr::<u8>()
         );
     }
 

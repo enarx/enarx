@@ -3,10 +3,10 @@
 //! The global Allocator
 
 use crate::addr::{ShimPhysAddr, ShimVirtAddr, SHIM_VIRT_OFFSET};
+use crate::exec::NEXT_MMAP_RWLOCK;
 use crate::hostcall::HOST_CALL_ALLOC;
 use crate::hostmap::HOSTMAP;
 use crate::paging::SHIM_PAGETABLE;
-use crate::payload::NEXT_MMAP_RWLOCK;
 use crate::snp::{get_cbit_mask, pvalidate, snp_active, PvalidateSize};
 use crate::spin::RwLocked;
 

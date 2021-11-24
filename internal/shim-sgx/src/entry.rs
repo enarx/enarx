@@ -79,7 +79,7 @@ fn crt0setup<'a>(
     builder.done()
 }
 
-/// The initial entry function to startup the payload code
+/// The initial entry function to startup the exec code
 ///
 /// # Safety
 ///

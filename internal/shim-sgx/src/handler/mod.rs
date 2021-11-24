@@ -205,7 +205,7 @@ impl<'a> Handler<'a> {
         }
     }
 
-    /// Print out `rip` relative to the shim (S) or the payload (P) base address.
+    /// Print out `rip` relative to the shim (S) or the exec (E) base address.
     ///
     /// This can be used with `addr2line` and the executable with debug info
     /// to get the function name and line number.
@@ -218,7 +218,7 @@ impl<'a> Handler<'a> {
 
         if exec_range.contains(&rip) {
             let rip_pie = rip - enarx_exec_start;
-            debugln!(self, "P {:>#016x}", rip_pie);
+            debugln!(self, "E {:>#016x}", rip_pie);
         } else {
             let rip_pie = (shim_start - 1) & rip;
             debugln!(self, "S {:>#016x}", rip_pie);

@@ -6,9 +6,9 @@ use crate::addr::{HostVirtAddr, ShimPhysUnencryptedAddr};
 use crate::allocator::ALLOCATOR;
 use crate::debug::_enarx_asm_triple_fault;
 use crate::eprintln;
+use crate::exec::{NEXT_BRK_RWLOCK, NEXT_MMAP_RWLOCK};
 use crate::hostcall::{HostCall, HOST_CALL_ALLOC};
 use crate::paging::SHIM_PAGETABLE;
-use crate::payload::{NEXT_BRK_RWLOCK, NEXT_MMAP_RWLOCK};
 
 use core::convert::TryFrom;
 use core::mem::size_of;

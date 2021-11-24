@@ -15,8 +15,6 @@ use crate::snp::cpuid_page::CpuidPage;
 use crate::snp::ghcb::Ghcb;
 use crate::snp::secrets_page::SnpSecretsPage;
 
-use core::sync::atomic::AtomicBool;
-
 use goblin::elf::header::header64::Header;
 use primordial::Page as Page4KiB;
 use sallyport::Block;
@@ -30,6 +28,7 @@ pub mod print;
 pub mod addr;
 pub mod allocator;
 pub mod debug;
+pub mod exec;
 pub mod gdb;
 pub mod gdt;
 pub mod hostcall;
@@ -38,7 +37,6 @@ pub mod idt;
 pub mod interrupts;
 pub mod pagetables;
 pub mod paging;
-pub mod payload;
 pub mod random;
 pub mod shim_stack;
 pub mod snp;
@@ -46,8 +44,6 @@ pub mod spin;
 pub mod sse;
 pub mod syscall;
 pub mod usermode;
-
-static PAYLOAD_READY: AtomicBool = AtomicBool::new(false);
 
 extern "C" {
     /// Extern
