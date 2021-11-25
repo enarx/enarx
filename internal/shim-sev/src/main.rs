@@ -63,10 +63,10 @@ unsafe fn switch_shim_stack(ip: extern "sysv64" fn() -> !, sp: u64) -> ! {
 
     // load a new stack pointer and jmp to function
     asm!(
-        "mov rsp, {SP}",
-        "sub rsp, 8",
-        "push rbp",
-        "call {IP}",
+        "mov    rsp,    {SP}",
+        "sub    rsp,    8",
+        "push   rbp",
+        "call   {IP}",
 
         SP = in(reg) sp,
         IP = in(reg) ip,
@@ -218,22 +218,22 @@ pub unsafe extern "sysv64" fn _start() -> ! {
 
         // The GDT entries
         "define_addr gdt_start 67f",
-        "67:", // gdt_start
-        ".quad 0",          // First descriptor is always unused
+        "67:",              // gdt_start
+        ".quad  0",         // First descriptor is always unused
         // code32_desc      // base = 0x00000000, limit = 0xfffff x 4K
         ".short 0xffff",    // limit[0..16] = 0xffff
         ".short 0x0000",    // base [0..16] = 0x0000
-        ".byte 0x00",       // base[16..24] = 0x00
-        ".byte 0x9B",       // present, DPL = 0, system, code seg, grows up, readable, accessed
-        ".byte 0xCF",       // 4K gran, 32-bit, limit[16..20] = 0x1111 = 0xf
-        ".byte 0x00",       // base[24..32] = 0x00
+        ".byte  0x00",      // base[16..24] = 0x00
+        ".byte  0x9B",      // present, DPL = 0, system, code seg, grows up, readable, accessed
+        ".byte  0xCF",      // 4K gran, 32-bit, limit[16..20] = 0x1111 = 0xf
+        ".byte  0x00",      // base[24..32] = 0x00
         // data32_desc      // base = 0x00000000, limit = 0xfffff x 4K
         ".short 0xffff",    // limit 15:0
         ".short 0x0000",    // base 15:0
-        ".byte 0x00",       // base[16..24] = 0x00
-        ".byte 0x93",       // present, DPL = 0, system, data seg, ring0 only, writable, accessed
-        ".byte 0xCF",       // 4K gran, 32-bit, limit[16..20] = 0x1111 = 0xf
-        ".byte 0x00",       // base[24..32] = 0x00
+        ".byte  0x00",      // base[16..24] = 0x00
+        ".byte  0x93",      // present, DPL = 0, system, data seg, ring0 only, writable, accessed
+        ".byte  0xCF",      // 4K gran, 32-bit, limit[16..20] = 0x1111 = 0xf
+        ".byte  0x00",      // base[24..32] = 0x00
         // code64_desc
         // For 64-bit code descriptors, all bits except the following are ignored:
         // - CS.A=1 (bit 40) segment is accessed, prevents a write on first use.
@@ -245,7 +245,7 @@ pub unsafe extern "sysv64" fn _start() -> ! {
         // - CS.P=1 (bit 47) required, the segment is present.
         // - CS.L=1 (bit 53) required, we are a 64-bit (long mode) segment.
         // - CS.D=0 (bit 54) required, CS.L=1 && CS.D=1 is resevered for future use.
-        ".quad (1<<40) | (1<<41) | (1<<42) | (1<<43) | (1<<44) | (1<<47) | (1<<53)",
+        ".quad  (1<<40) | (1<<41) | (1<<42) | (1<<43) | (1<<44) | (1<<47) | (1<<53)",
         "68:",
         "define_addr gdt_end 68b",
 
