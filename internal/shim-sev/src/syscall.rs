@@ -118,9 +118,9 @@ pub unsafe extern "sysv64" fn _syscall_enter() -> ! {
     )
 }
 
-/// FIXME
+/// Do a syscall without the `syscall` op
 pub trait ProxySyscall {
-    /// FIXME
+    /// Proxy a `HostCall` to the host via the Sallyport block
     fn proxy(&self, hostcall: HostCall) -> Result<(HostCall, [Register<usize>; 2]), libc::c_int>;
 }
 
