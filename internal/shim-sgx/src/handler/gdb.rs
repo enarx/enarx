@@ -252,9 +252,8 @@ impl<'a> gdbstub::Connection for super::Handler<'a> {
     }
 }
 
-/// FIXME
 #[derive(Debug)]
-pub struct GdbTarget {
+pub(crate) struct GdbTarget {
     regs: X86_64CoreRegs,
     shim_range: Range<*const u8>,
     block_range: Range<*const u8>,
@@ -262,7 +261,6 @@ pub struct GdbTarget {
 }
 
 impl GdbTarget {
-    /// FIXME
     pub fn new(
         regs: X86_64CoreRegs,
         block_range: Range<*const u8>,

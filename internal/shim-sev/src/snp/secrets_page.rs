@@ -17,22 +17,26 @@ use spinning::Lazy;
 #[repr(C)]
 #[derive(Debug)]
 pub struct SecretsOsArea {
-    /// FIXME
+    /// Message Sequence Number using
+    /// Virtual Machine Private Communication Key 0
     pub msg_seqno_0: u32,
-    /// FIXME
+    /// Message Sequence Number using
+    /// Virtual Machine Private Communication Key 1
     pub msg_seqno_1: u32,
-    /// FIXME
+    /// Message Sequence Number using
+    /// Virtual Machine Private Communication Key 2
     pub msg_seqno_2: u32,
-    /// FIXME
+    /// Message Sequence Number using
+    /// Virtual Machine Private Communication Key 3
     pub msg_seqno_3: u32,
-    /// FIXME
+    /// AP jump table in physical addresses
     pub ap_jump_table_pa: u64,
     rsvd: [u8; 40],
-    /// FIXME
+    /// Free for guest usage
     pub guest_usage: [u8; 32],
 }
 
-/// FIXME
+/// Virtual Machine Private Communication Key Length
 pub const VMPCK_KEY_LEN: usize = 32;
 
 /// The SEV-SNP secrets page
@@ -41,24 +45,24 @@ pub const VMPCK_KEY_LEN: usize = 32;
 #[derive(Debug)]
 #[repr(C, align(4096))]
 pub struct SnpSecretsPage {
-    /// FIXME
+    /// Version
     pub version: u32,
-    /// FIXME
+    /// Indicates that an IMI is used to migrate the guest
     pub imi_en: u32,
-    /// FIXME
+    /// Family, model, and stepping information as reported in CPUID Fn0000_0001_EAX
     pub fms: u32,
     reserved2: u32,
-    /// FIXME
+    /// Guest OS visible workarounds as provided by the HV in SNP_LAUNCH_START
     pub gosvw: [u8; 16],
-    /// FIXME
+    /// Virtual Machine Private Communication Key for VMPL 0
     pub vmpck0: [u8; VMPCK_KEY_LEN],
-    /// FIXME
+    /// Virtual Machine Private Communication Key for VMPL 1
     pub vmpck1: [u8; VMPCK_KEY_LEN],
-    /// FIXME
+    /// Virtual Machine Private Communication Key for VMPL 2
     pub vmpck2: [u8; VMPCK_KEY_LEN],
-    /// FIXME
+    /// Virtual Machine Private Communication Key for VMPL 3
     pub vmpck3: [u8; VMPCK_KEY_LEN],
-    /// FIXME
+    /// Area mutable for the Guest OS
     pub os_area: SecretsOsArea,
     reserved3: [u8; 3840],
 }
@@ -76,19 +80,19 @@ pub static SECRETS: Lazy<RwLocked<SecretsHandle>> = Lazy::new(|| {
 });
 
 impl RwLocked<SecretsHandle> {
-    /// FIXME
+    /// get VM private communication key for VMPL0
     pub fn get_vmpck0(&self) -> [u8; VMPCK_KEY_LEN] {
         let this = self.read();
         this.secrets.vmpck0
     }
 
-    /// FIXME
+    /// get message sequence number for VM private communication key for VMPL0
     pub fn get_msg_seqno_0(&self) -> u32 {
         let this = self.read();
         this.secrets.os_area.msg_seqno_0.checked_add(1).unwrap()
     }
 
-    /// FIXME
+    /// increase message sequence number for VM private communication key for VMPL0
     pub fn inc_msg_seqno_0(&self) {
         let mut this = self.write();
         this.secrets.os_area.msg_seqno_0 = this.secrets.os_area.msg_seqno_0.checked_add(2).unwrap();

@@ -132,7 +132,6 @@ pub(crate) enum GdbTargetError {
     WriteMemoryOutOfRange(u64),
 }
 
-/// FIXME
 #[derive(Debug)]
 pub(crate) struct GdbTarget<'a> {
     frame: &'a mut ExtendedInterruptStackFrameValue,
