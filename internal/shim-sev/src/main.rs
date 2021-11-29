@@ -24,7 +24,7 @@ use shim_sev::snp::C_BIT_MASK;
 use shim_sev::sse;
 
 use core::mem::size_of;
-use core::sync::atomic::{AtomicBool, Ordering};
+use core::sync::atomic::Ordering;
 
 use noted::noted;
 use primordial::Page;
@@ -107,7 +107,9 @@ extern "sysv64" fn main() -> ! {
 /// Reverts to a triple fault, which causes a `#VMEXIT` and a KVM shutdown,
 /// if it can't print the panic and exit normally with an error code.
 #[panic_handler]
-pub fn panic(_info: &core::panic::PanicInfo) -> ! {
+#[cfg(not(test))]
+fn panic(_info: &core::panic::PanicInfo) -> ! {
+    use core::sync::atomic::AtomicBool;
     use shim_sev::debug::_enarx_asm_triple_fault;
     #[cfg(feature = "dbg")]
     use shim_sev::print::{self, is_printing_enabled};
