@@ -103,131 +103,108 @@ pub(crate) struct ExtendedInterruptStackFrameValue {
 /// has_error - has error parameter
 macro_rules! declare_interrupt {
     (fn $name:ident ( $stack:ident : &mut ExtendedInterruptStackFrame $(,)? ) $code:block) => {
-        ::paste::paste! {
-            extern "sysv64" fn [<__interrupt_ $name>]($stack: &mut ExtendedInterruptStackFrame) {
-                $code
-            }
-        }
-        declare_interrupt!($name => "push rsi");
+        declare_interrupt!($name => "push rsi", { $code }, $stack: &mut ExtendedInterruptStackFrame);
     };
 
     (fn $name:ident ( $stack:ident : &mut ExtendedInterruptStackFrame , $error:ident : u64 $(,)? ) $code:block) => {
-        ::paste::paste! {
-            extern "sysv64" fn [<__interrupt_ $name>]($stack: &mut ExtendedInterruptStackFrame, $error: u64) {
-                $code
-            }
-        }
-        declare_interrupt!($name => "xchg [rsp], rsi");
+        declare_interrupt!($name => "xchg [rsp], rsi", { $code }, $stack : &mut ExtendedInterruptStackFrame, $error: u64);
     };
 
     (fn $name:ident ( $stack:ident : &mut ExtendedInterruptStackFrame , $error:ident : x86_64::structures::idt::PageFaultErrorCode $(,)? ) $code:block) => {
-        ::paste::paste! {
-            extern "sysv64" fn [<__interrupt_ $name>]($stack: &mut ExtendedInterruptStackFrame, $error: x86_64::structures::idt::PageFaultErrorCode) {
-                $code
-            }
-        }
-        declare_interrupt!($name => "xchg [rsp], rsi");
+        declare_interrupt!($name => "xchg [rsp], rsi", { $code }, $stack : &mut ExtendedInterruptStackFrame, $error: x86_64::structures::idt::PageFaultErrorCode);
     };
 
     (fn $name:ident ( $stack:ident : &mut ExtendedInterruptStackFrame $(,)? ) -> ! $code:block) => {
-        ::paste::paste! {
-            extern "sysv64" fn [<__interrupt_ $name>]($stack: &mut ExtendedInterruptStackFrame) {
-                $code
-            }
-        }
-        declare_interrupt!($name => "push rsi");
+        declare_interrupt!($name => "push rsi", { $code }, $stack: &mut ExtendedInterruptStackFrame);
     };
 
     (fn $name:ident ( $stack:ident : &mut ExtendedInterruptStackFrame, $error:ident : u64 $(,)? )  -> ! $code:block) => {
-        ::paste::paste! {
-            extern "sysv64" fn [<__interrupt_ $name>]($stack: &mut ExtendedInterruptStackFrame, $error: u64) {
-                $code
-            }
-        }
-        declare_interrupt!($name => "xchg [rsp], rsi");
+        declare_interrupt!($name => "xchg [rsp], rsi", { $code }, $stack: &mut ExtendedInterruptStackFrame, $error: u64);
     };
 
-    ($name:ident => $push_or_exchange:literal) => {
-        ::paste::paste! {
-            #[naked]
-            unsafe extern "sysv64" fn $name() -> ! {
-                asm!(
-                    // either push rsi or exchange with error code
-                    $push_or_exchange,
-                    "push   rdi",
-                    "push   rdx",
-                    "push   rcx",
-                    "push   rax",
-                    "push   r8",
-                    "push   r9",
-                    "push   r10",
-                    "push   r11",
-                    "push   r12",
-                    "push   r13",
-                    "push   r14",
-                    "push   r15",
-                    "push   rbx",
-                    "push   rbp",
-
-                    // save stack frame
-                    "mov    rbx,                    rsp",
-
-                    // rsp is first argument
-                    "mov    rdi,                    rsp",
-
-                    "sub    rsp,                     {XSAVE_STACK_OFFSET}",
-                    // align stack
-                    "and    rsp,                     (~(0x40-1))",
-
-                    // xsave
-                    // memzero xsave array
-                    "xor    rax,                   rax",
-                    "2:",
-                    "mov    QWORD PTR [rsp+rax*8], 0x0",
-                    "add    eax,                   0x1",
-                    "cmp    eax,                   ({XSAVE_STACK_OFFSET}/8)",
-                    "jne    2b",
-
-                    "mov    edx,                     -1",
-                    "mov    eax,                     -1",
-                    "xsave  [rsp]",
-
-                    // SYSV:    rdi, rsi, rdx, rcx, r8, r9
-                    "call  {CALLOUT}",
-
-                    // xrstor
-                    "mov    edx,                     -1",
-                    "mov    eax,                     -1",
-                    "xrstor [rsp]",
-
-                    // restore stack frame
-                    "mov    rsp,                    rbx",
-
-                    "pop    rbp",
-                    "pop    rbx",
-                    "pop    r15",
-                    "pop    r14",
-                    "pop    r13",
-                    "pop    r12",
-                    "pop    r11",
-                    "pop    r10",
-                    "pop    r9",
-                    "pop    r8",
-                    "pop    rax",
-                    "pop    rcx",
-                    "pop    rdx",
-                    "pop    rdi",
-                    "pop    rsi",
-
-                    "iretq",
-
-                    // add 64 for alignment
-                    XSAVE_STACK_OFFSET = const (XSAVE_AREA_SIZE + 64),
-                    CALLOUT = sym [<__interrupt_ $name>],
-
-                    options(noreturn)
-                )
+    ($name:ident => $push_or_exchange:literal, { $code:block }, $($id:ident: $t:ty),*) => {
+        #[naked]
+        unsafe extern "sysv64" fn $name() -> ! {
+            extern "sysv64" fn inner ( $($id: $t,)* ) {
+                $code
             }
+
+            asm!(
+                // either push rsi or exchange with error code
+                $push_or_exchange,
+                "push   rdi",
+                "push   rdx",
+                "push   rcx",
+                "push   rax",
+                "push   r8",
+                "push   r9",
+                "push   r10",
+                "push   r11",
+                "push   r12",
+                "push   r13",
+                "push   r14",
+                "push   r15",
+                "push   rbx",
+                "push   rbp",
+
+                // save stack frame
+                "mov    rbx,                    rsp",
+
+                // rsp is first argument
+                "mov    rdi,                    rsp",
+
+                "sub    rsp,                     {XSAVE_STACK_OFFSET}",
+                // align stack
+                "and    rsp,                     (~(0x40-1))",
+
+                // xsave
+                // memzero xsave array
+                "xor    rax,                   rax",
+                "2:",
+                "mov    QWORD PTR [rsp+rax*8], 0x0",
+                "add    eax,                   0x1",
+                "cmp    eax,                   ({XSAVE_STACK_OFFSET}/8)",
+                "jne    2b",
+
+                "mov    edx,                     -1",
+                "mov    eax,                     -1",
+                "xsave  [rsp]",
+
+                // SYSV:    rdi, rsi, rdx, rcx, r8, r9
+                "call  {CALLOUT}",
+
+                // xrstor
+                "mov    edx,                     -1",
+                "mov    eax,                     -1",
+                "xrstor [rsp]",
+
+                // restore stack frame
+                "mov    rsp,                    rbx",
+
+                "pop    rbp",
+                "pop    rbx",
+                "pop    r15",
+                "pop    r14",
+                "pop    r13",
+                "pop    r12",
+                "pop    r11",
+                "pop    r10",
+                "pop    r9",
+                "pop    r8",
+                "pop    rax",
+                "pop    rcx",
+                "pop    rdx",
+                "pop    rdi",
+                "pop    rsi",
+
+                "iretq",
+
+                // add 64 for alignment
+                XSAVE_STACK_OFFSET = const (XSAVE_AREA_SIZE + 64),
+                CALLOUT = sym inner,
+
+                options(noreturn)
+            )
         }
     };
 }

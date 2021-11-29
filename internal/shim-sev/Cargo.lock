@@ -381,7 +381,6 @@ dependencies = [
  "memoffset",
  "nbytes",
  "noted",
- "paste",
  "primordial",
  "rcrt1",
  "sallyport",
