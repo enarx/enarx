@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use std::env::temp_dir;
-use std::fs::File;
-use std::io::Write;
+use std::fs::{File, OpenOptions};
+use std::io::{Read, Seek, Write};
 use std::os::unix::prelude::AsRawFd;
 use std::ptr::NonNull;
 use std::slice;
@@ -65,4 +65,36 @@ fn read() {
         #[cfg(feature = "asm")]
         assert_eq!(buf, EXPECTED.as_bytes());
     });
+}
+
+#[test]
+#[serial]
+fn write() {
+    const EXPECTED: &str = "write";
+    let path = temp_dir().join("sallyport-test-write");
+
+    run_test(3, [0xff; 16], move |handler| {
+        let mut file = OpenOptions::new()
+            .read(true)
+            .write(true)
+            .truncate(true)
+            .create(true)
+            .open(&path)
+            .unwrap();
+
+        #[cfg(feature = "asm")]
+        let expected_ret = Ok(EXPECTED.len());
+        #[cfg(not(feature = "asm"))]
+        let expected_ret = Err(libc::ENOSYS);
+
+        assert_eq!(
+            handler.write(file.as_raw_fd(), EXPECTED.as_bytes()),
+            expected_ret,
+        );
+        let mut got = String::new();
+        file.rewind().unwrap();
+        file.read_to_string(&mut got).unwrap();
+        #[cfg(feature = "asm")]
+        assert_eq!(got, EXPECTED);
+    })
 }

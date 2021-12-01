@@ -143,6 +143,21 @@ pub(super) unsafe fn execute_syscall(syscall: &mut item::Syscall, data: &mut [u8
         }
         item::Syscall {
             num,
+            argv: [fd, buf_offset, count, ..],
+            ret: [ret, ..],
+        } if *num == libc::SYS_write as _ => {
+            if *count > data.len() || data.len() - *count < *buf_offset {
+                return Err(libc::EFAULT);
+            }
+            Syscall {
+                num: libc::SYS_write,
+                argv: [*fd, data[*buf_offset..].as_ptr() as _, *count],
+                ret: [ret],
+            }
+            .execute();
+        }
+        item::Syscall {
+            num,
             argv: [status, ..],
             ret: [ret, ..],
         } if *num == libc::SYS_exit as _ => Syscall {

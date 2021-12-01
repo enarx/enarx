@@ -58,6 +58,10 @@ pub trait Execute {
                 let buf = self.platform().validate_slice_mut(buf, count)?;
                 self.read(fd as _, buf).map(|ret| [ret, 0])
             }
+            (libc::SYS_write, [fd, buf, count, ..]) => {
+                let buf = self.platform().validate_slice(buf, count)?;
+                self.write(fd as _, buf).map(|ret| [ret, 0])
+            }
             (libc::SYS_exit, [status, ..]) => self.exit(status as _).map(|_| self.attacked()),
             _ => Err(ENOSYS),
         }
@@ -66,6 +70,12 @@ pub trait Execute {
     /// Executes [`read`](https://man7.org/linux/man-pages/man2/read.2.html) syscall akin to [`libc::read`].
     fn read(&mut self, fd: c_int, buf: &mut [u8]) -> Result<size_t> {
         self.execute(syscall::Read { fd, buf })?
+            .unwrap_or_else(|| self.attacked())
+    }
+
+    /// Executes [`write`](https://man7.org/linux/man-pages/man2/write.2.html) syscall akin to [`libc::write`].
+    fn write(&mut self, fd: c_int, buf: &[u8]) -> Result<size_t> {
+        self.execute(syscall::Write { fd, buf })?
             .unwrap_or_else(|| self.attacked())
     }
 

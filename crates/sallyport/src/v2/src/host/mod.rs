@@ -47,7 +47,7 @@ mod tests {
     use super::*;
     use crate::item::Syscall;
 
-    use libc::{SYS_fcntl, SYS_read, ENOSYS, F_GETFD, STDIN_FILENO};
+    use libc::{SYS_fcntl, SYS_read, SYS_write, ENOSYS, F_GETFD, STDIN_FILENO, STDOUT_FILENO};
 
     #[test]
     fn execute() {
@@ -62,6 +62,14 @@ mod tests {
             ),
             (
                 Syscall {
+                    num: SYS_write as _,
+                    argv: [STDOUT_FILENO as _, 0, 0, 0, 0, 0],
+                    ret: [-ENOSYS as _, 0],
+                },
+                [],
+            ),
+            (
+                Syscall {
                     num: SYS_fcntl as _,
                     argv: [STDIN_FILENO as _, F_GETFD as _, 0, 0, 0, 0],
                     ret: [-ENOSYS as _, 0],
@@ -69,11 +77,13 @@ mod tests {
                 [],
             ),
         ];
-        let (first, tail) = syscalls.split_first_mut().unwrap();
-        let (second, _) = tail.split_first_mut().unwrap();
+        let (read, tail) = syscalls.split_first_mut().unwrap();
+        let (write, tail) = tail.split_first_mut().unwrap();
+        let (fcntl, _) = tail.split_first_mut().unwrap();
         super::execute([
-            Item::Syscall(&mut first.0, &mut first.1),
-            Item::Syscall(&mut second.0, &mut second.1),
+            Item::Syscall(&mut read.0, &mut read.1),
+            Item::Syscall(&mut write.0, &mut write.1),
+            Item::Syscall(&mut fcntl.0, &mut fcntl.1),
         ]);
         assert_eq!(
             syscalls,
@@ -82,6 +92,17 @@ mod tests {
                     Syscall {
                         num: SYS_read as _,
                         argv: [STDIN_FILENO as _, 0, 0, 0, 0, 0],
+                        #[cfg(feature = "asm")]
+                        ret: [0, 0],
+                        #[cfg(not(feature = "asm"))]
+                        ret: [-ENOSYS as _, 0],
+                    },
+                    []
+                ),
+                (
+                    Syscall {
+                        num: SYS_write as _,
+                        argv: [STDOUT_FILENO as _, 0, 0, 0, 0, 0],
                         #[cfg(feature = "asm")]
                         ret: [0, 0],
                         #[cfg(not(feature = "asm"))]
