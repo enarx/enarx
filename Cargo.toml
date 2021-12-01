@@ -57,7 +57,7 @@ vdso = "0.1"
 log = "0.4"
 spinning = "0.1.0"
 env_logger = "0.9"
-reqwest = { version = "0.11.6", features = [ "blocking" ], optional = true }
+reqwest = { version = "0.11.7", features = [ "blocking" ], optional = true }
 
 [build-dependencies]
 cc = "1.0"
