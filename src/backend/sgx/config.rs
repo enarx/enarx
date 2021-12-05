@@ -8,6 +8,7 @@ use sallyport::elf;
 use sgx::page::{Flags, SecInfo};
 use sgx::parameters::{Masked, Parameters};
 
+#[derive(Debug)]
 pub struct Config {
     pub parameters: Parameters,
     pub ssap: NonZeroU32,
