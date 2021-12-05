@@ -33,7 +33,7 @@ dbg = []
 
 [dependencies]
 x86_64 = { version = "^0.14.6", default-features = false, optional = true }
-sgx = { version = "0.1.0", features = ["openssl"], optional = true }
+sgx = { version = "0.3.0", features = ["openssl"], optional = true }
 const-default = { version = "1.0", features = [ "derive" ] }
 primordial = { version = "0.3", features = ["alloc"] }
 sallyport = { git = "https://github.com/enarx/sallyport", rev = "dd42c91cc9e5cbc74f342eede3bc072f60ba11bd", features = [ "asm" ] }
