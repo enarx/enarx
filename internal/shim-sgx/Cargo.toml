@@ -28,7 +28,7 @@ noted = "^1.0.0"
 xsave = "^2.0.0"
 rcrt1 = "1.0.0"
 lset = "0.2"
-sgx = "0.1"
+sgx = "0.3"
 
 [profile.dev.package.rcrt1]
 opt-level = 3
