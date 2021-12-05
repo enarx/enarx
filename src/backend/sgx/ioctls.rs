@@ -4,6 +4,8 @@
 //! All references to Section or Tables are from
 //! https://www.intel.com/content/dam/www/public/us/en/documents/manuals/64-ia-32-architectures-software-developer-vol-3d-part-4-manual.pdf
 
+#![allow(dead_code)]
+
 use std::marker::PhantomData;
 
 use iocuddle::*;
@@ -21,7 +23,10 @@ pub const ENCLAVE_ADD_PAGES: Ioctl<WriteRead, &AddPages> = unsafe { SGX.write_re
 /// IOCTL identifier for EINIT (see Section 41-35)
 pub const ENCLAVE_INIT: Ioctl<Write, &Init> = unsafe { SGX.write(0x02) };
 
-//pub const ENCLAVE_SET_ATTRIBUTE: Ioctl<Write, &SetAttribute> = unsafe { SGX.write(0x03) };
+pub const ENCLAVE_SET_ATTRIBUTE: Ioctl<Write, &SetAttribute> = unsafe { SGX.write(0x03) };
+pub const PAGE_MODP: Ioctl<Write, &PageModPerms> = unsafe { SGX.write(0x05) };
+pub const PAGE_MODT: Ioctl<Write, &PageModType> = unsafe { SGX.write(0x06) };
+pub const PAGE_REMOVE: Ioctl<Write, &PageRemove> = unsafe { SGX.write(0x07) };
 
 #[repr(C)]
 #[derive(Debug)]
@@ -90,7 +95,6 @@ impl<'a> Init<'a> {
 
 #[repr(C)]
 #[derive(Debug)]
-#[allow(dead_code)]
 /// Struct for setting enclave attributes - WIP - ERESUME? EREMOVE?
 pub struct SetAttribute<'a>(u64, PhantomData<&'a ()>);
 
@@ -100,4 +104,32 @@ impl<'a> SetAttribute<'a> {
     pub fn new(fd: &'a impl std::os::unix::io::AsRawFd) -> Self {
         SetAttribute(fd.as_raw_fd() as _, PhantomData)
     }
+}
+
+#[repr(C)]
+#[derive(Debug)]
+pub struct PageModPerms {
+    pub offset: u64,
+    pub length: u64,
+    pub prot: u64,
+    pub result: u64,
+    pub count: u64,
+}
+
+#[repr(C)]
+#[derive(Debug)]
+pub struct PageModType {
+    pub offset: u64,
+    pub length: u64,
+    pub kind: u64,
+    pub result: u64,
+    pub count: u64,
+}
+
+#[repr(C)]
+#[derive(Debug)]
+pub struct PageRemove {
+    pub offset: u64,
+    pub length: u64,
+    pub count: u64,
 }
