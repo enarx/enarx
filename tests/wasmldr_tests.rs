@@ -3,7 +3,6 @@
 #![cfg(not(feature = "gdb"))]
 
 use process_control::{ChildExt, Output, Timeout};
-use serial_test::serial;
 
 use std::io::Write;
 use std::path::Path;
@@ -113,7 +112,6 @@ fn run_wasm_test<'a>(
 }
 
 #[test]
-#[serial]
 fn return_1() {
     // This module does, in fact, return 1. But function return values
     // are separate from setting the process exit status code, so
@@ -122,7 +120,6 @@ fn return_1() {
 }
 
 #[test]
-#[serial]
 fn wasi_snapshot1() {
     // This module uses WASI to return the number of commandline args.
     // Since we don't currently do anything with the function return value,
@@ -131,7 +128,6 @@ fn wasi_snapshot1() {
 }
 
 #[test]
-#[serial]
 fn hello_wasi_snapshot1() {
     // This module just prints "Hello, world!" to stdout. Hooray!
     run_wasm_test(
@@ -144,7 +140,6 @@ fn hello_wasi_snapshot1() {
 }
 
 #[test]
-#[serial]
 fn no_export() {
     // This module has no exported functions, so we get Error::ExportNotFound,
     // which wasmldr maps to EX_DATAERR (65) at process exit.

@@ -11,7 +11,6 @@ use std::slice::from_raw_parts_mut;
 use std::thread;
 use std::time::Duration;
 
-use serial_test::serial;
 use std::sync::Arc;
 use tempfile::Builder;
 
@@ -27,19 +26,16 @@ fn read_item<T: Copy>(mut rdr: impl Read) -> std::io::Result<T> {
 }
 
 #[test]
-#[serial]
 fn exit_zero() {
     run_test("exit_zero", 0, None, None, None);
 }
 
 #[test]
-#[serial]
 fn exit_one() {
     run_test("exit_one", 1, None, None, None);
 }
 
 #[test]
-#[serial]
 fn clock_gettime() {
     use libc::{clock_gettime, CLOCK_MONOTONIC};
 
@@ -68,20 +64,17 @@ fn clock_gettime() {
 }
 
 #[test]
-#[serial]
 fn close() {
     run_test("close", 0, None, None, None);
 }
 
 #[test]
-#[serial]
 fn write_stdout() {
     run_test("write_stdout", 0, None, &b"hi\n"[..], None);
 }
 
 #[cfg(not(feature = "dbg"))]
 #[test]
-#[serial]
 // v0.1.0 KEEP-CONFIG HACK: logging is hardcoded to send output to stderr,
 // which clobbers the output here. Skip this test until we have a way to
 // disable log output and/or send it somewhere other than stderr.
@@ -91,7 +84,6 @@ fn write_stderr() {
 }
 
 #[test]
-#[serial]
 // FIXME this should not be ignored, this was applied as part
 // of a commit that must be reverted and implemented properly.
 #[ignore]
@@ -100,21 +92,18 @@ fn write_emsgsize() {
 }
 
 #[test]
-#[serial]
 fn read() {
     const INPUT: &[u8; 12] = b"hello world\n";
     run_test("read", 0, &INPUT[..], &INPUT[..], None);
 }
 
 #[test]
-#[serial]
 fn readv() {
     const INPUT: &[u8; 36] = b"hello, worldhello, worldhello, world";
     run_test("readv", 0, &INPUT[..], &INPUT[..], None);
 }
 
 #[test]
-#[serial]
 fn echo() {
     let mut input: Vec<u8> = Vec::with_capacity(2 * 1024 * 1024);
 
@@ -132,13 +121,11 @@ fn echo() {
 }
 
 #[test]
-#[serial]
 fn uname() {
     run_test("uname", 0, None, None, None);
 }
 
 #[test]
-#[serial]
 fn unix_echo() {
     let tmpdir = Arc::new(Builder::new().prefix("unix_echo").tempdir().unwrap());
     const FILENAME_IN: &'static str = "enarx_unix_echo_to_bin";
@@ -191,7 +178,6 @@ fn unix_echo() {
 }
 
 #[test]
-#[serial]
 fn read_udp() {
     // The maximum UDP message size is 65507, as determined by the following formula:
     // 0xffff - (sizeof(minimal IP Header) + sizeof(UDP Header)) = 65535-(20+8) = 65507
@@ -205,14 +191,12 @@ fn read_udp() {
 }
 
 #[test]
-#[serial]
 fn get_att() {
     run_test("get_att", 0, None, None, None);
 }
 
 #[cfg(feature = "backend-sev")]
 #[test]
-#[serial]
 fn rust_sev_attestation() {
     run_crate(
         "integration/sev_attestation",
@@ -226,68 +210,57 @@ fn rust_sev_attestation() {
 
 #[cfg(feature = "backend-sgx")]
 #[test]
-#[serial]
 fn sgx_get_att_quote() {
     run_test("sgx_get_att_quote", 0, None, None, None);
 }
 
 #[cfg(feature = "backend-sgx")]
 #[test]
-#[serial]
 fn sgx_get_att_quote_size() {
     run_test("sgx_get_att_quote_size", 0, None, None, None);
 }
 
 #[test]
-#[serial]
 fn getuid() {
     run_test("getuid", 0, None, None, None);
 }
 
 #[test]
-#[serial]
 fn geteuid() {
     run_test("geteuid", 0, None, None, None);
 }
 
 #[test]
-#[serial]
 fn getgid() {
     run_test("getgid", 0, None, None, None);
 }
 
 #[test]
-#[serial]
 fn getegid() {
     run_test("getegid", 0, None, None, None);
 }
 
 #[test]
-#[serial]
 fn socket() {
     run_test("socket", 0, None, None, None);
 }
 
 #[test]
-#[serial]
 fn bind() {
     run_test("bind", 0, None, None, None);
 }
 
 #[test]
-#[serial]
 fn listen() {
     run_test("listen", 0, None, None, None);
 }
 
 #[test]
-#[serial]
 fn memspike() {
     run_crate("integration/simple", "memspike", 0, None, None, None);
 }
 
 #[test]
-#[serial]
 fn memory_stress_test() {
     run_crate(
         "integration/simple",
@@ -300,7 +273,6 @@ fn memory_stress_test() {
 }
 
 #[test]
-#[serial]
 fn cpuid() {
     run_crate("integration/simple", "cpuid", 0, None, None, None);
 }
