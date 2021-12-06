@@ -10,4 +10,4 @@ license = "Apache-2.0"
 sallyport = "0.1"
 
 [dev-dependencies]
-memoffset = "0.6.4"
+memoffset = "0.6.5"
