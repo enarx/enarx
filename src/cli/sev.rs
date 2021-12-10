@@ -39,7 +39,7 @@ fn write_vcek<T: io::Write>(w: &mut T) -> Result<()> {
     let client = reqwest::blocking::Client::new();
 
     let vcek_der = client
-        .get(vcek_url(id, status.tcb.reported_version))
+        .get(&vcek_url(id, status.tcb.reported_version))
         .send()
         .context("failed to GET VCEK certificate")?
         .bytes()
