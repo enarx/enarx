@@ -167,7 +167,7 @@ dependencies = [
  "const-default",
  "env_logger",
  "gdbstub",
- "goblin 0.4.3",
+ "goblin",
  "iocuddle",
  "kvm-bindings",
  "kvm-ioctls",
@@ -318,17 +318,6 @@ dependencies = [
  "cfg-if 1.0.0",
  "libc",
  "wasi",
-]
-
-[[package]]
-name = "goblin"
-version = "0.2.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d20fd25aa456527ce4f544271ae4fea65d2eda4a6561ea56f39fb3ee4f7e3884"
-dependencies = [
- "log",
- "plain",
- "scroll",
 ]
 
 [[package]]
@@ -1017,7 +1006,7 @@ name = "sallyport"
 version = "0.1.0"
 source = "git+https://github.com/enarx/sallyport?rev=dd42c91cc9e5cbc74f342eede3bc072f60ba11bd#dd42c91cc9e5cbc74f342eede3bc072f60ba11bd"
 dependencies = [
- "goblin 0.4.3",
+ "goblin",
  "libc",
  "primordial",
 ]
@@ -1455,12 +1444,12 @@ checksum = "accd4ea62f7bb7a82fe23066fb0957d48ef677f6eeb8215f372f52e48bb32426"
 
 [[package]]
 name = "vdso"
-version = "0.1.0"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "874cb63a533677421becf8b55ef4023e29ba8d32e8f81c051e03730bd709cbb9"
+checksum = "8cb399b214a541520e6f674fc7483b13193724d8d09151e0b9e150b617ee61a4"
 dependencies = [
  "crt0stack",
- "goblin 0.2.3",
+ "goblin",
 ]
 
 [[package]]
