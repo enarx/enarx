@@ -241,7 +241,7 @@ impl BaseSyscallHandler for Handler {
         Register::<usize>::from(HostVirtAddr::from(phys_unencrypted)).into()
     }
 
-    fn new_cursor(&mut self) -> Cursor {
+    fn new_cursor(&mut self) -> Cursor<'_> {
         self.hostcall.as_mut_block().cursor()
     }
 
@@ -259,9 +259,9 @@ impl BaseSyscallHandler for Handler {
 impl EnarxSyscallHandler for Handler {
     fn get_attestation(
         &mut self,
-        nonce: UntrustedRef<u8>,
+        nonce: UntrustedRef<'_, u8>,
         nonce_len: libc::size_t,
-        buf: UntrustedRefMut<u8>,
+        buf: UntrustedRefMut<'_, u8>,
         buf_len: libc::size_t,
     ) -> sallyport::Result {
         self.trace("get_attestation", 4);
@@ -335,7 +335,7 @@ impl ProcessSyscallHandler for Handler {
 }
 
 impl MemorySyscallHandler for Handler {
-    fn mprotect(&mut self, addr: UntrustedRef<u8>, len: usize, prot: i32) -> sallyport::Result {
+    fn mprotect(&mut self, addr: UntrustedRef<'_, u8>, len: usize, prot: i32) -> sallyport::Result {
         self.trace("mprotect", 3);
         let addr = addr.as_ptr();
 
@@ -380,7 +380,7 @@ impl MemorySyscallHandler for Handler {
 
     fn mmap(
         &mut self,
-        addr: UntrustedRef<u8>,
+        addr: UntrustedRef<'_, u8>,
         length: usize,
         prot: i32,
         flags: i32,
@@ -437,7 +437,7 @@ impl MemorySyscallHandler for Handler {
         }
     }
 
-    fn munmap(&mut self, addr: UntrustedRef<u8>, length: usize) -> sallyport::Result {
+    fn munmap(&mut self, addr: UntrustedRef<'_, u8>, length: usize) -> sallyport::Result {
         self.trace("munmap", 2);
 
         let addr = addr.validate_slice(length, self).ok_or(libc::EINVAL)?;

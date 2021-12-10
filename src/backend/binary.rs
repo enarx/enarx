@@ -63,7 +63,7 @@ impl<'a> Binary<'a> {
         Ok(Self(bytes, elf))
     }
 
-    fn segments(&self, relocate: usize) -> impl Iterator<Item = Segment> {
+    fn segments(&self, relocate: usize) -> impl Iterator<Item = Segment<'_>> {
         assert_eq!(relocate % Page::SIZE, 0);
 
         self.headers(PT_LOAD).map(move |phdr| {
@@ -169,8 +169,8 @@ impl<T: Mapper> Loader for T {
         let mut loader: Self = Self::Config::new(&sbin, &ebin)?.try_into()?;
 
         // Get an array of all final segment locations (relocated).
-        let ssegs: Vec<Segment> = sbin.segments(0).collect();
-        let esegs: Vec<Segment> = ebin.segments(slot.start).collect();
+        let ssegs: Vec<Segment<'_>> = sbin.segments(0).collect();
+        let esegs: Vec<Segment<'_>> = ebin.segments(slot.start).collect();
 
         // Ensure no segments overlap in memory.
         let mut sorted: Vec<_> = ssegs.iter().chain(esegs.iter()).collect();

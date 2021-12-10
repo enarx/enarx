@@ -17,7 +17,7 @@ impl<'a> MemorySyscallHandler for super::Handler<'a> {
     // What you get is what you get. Fake success.
     fn mprotect(
         &mut self,
-        _addr: UntrustedRef<u8>,
+        _addr: UntrustedRef<'_, u8>,
         _len: libc::size_t,
         _prot: libc::c_int,
     ) -> sallyport::Result {
@@ -29,7 +29,7 @@ impl<'a> MemorySyscallHandler for super::Handler<'a> {
     /// Do a mmap() system call
     fn mmap(
         &mut self,
-        addr: UntrustedRef<u8>,
+        addr: UntrustedRef<'_, u8>,
         length: libc::size_t,
         prot: libc::c_int,
         flags: libc::c_int,
@@ -51,7 +51,7 @@ impl<'a> MemorySyscallHandler for super::Handler<'a> {
     }
 
     /// Do a munmap() system call
-    fn munmap(&mut self, addr: UntrustedRef<u8>, length: libc::size_t) -> sallyport::Result {
+    fn munmap(&mut self, addr: UntrustedRef<'_, u8>, length: libc::size_t) -> sallyport::Result {
         self.trace("munmap", 2);
 
         self.heap

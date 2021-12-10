@@ -291,7 +291,7 @@ impl Target for GdbTarget {
     type Arch = gdbstub_arch::x86::X86_64_SSE;
     type Error = GdbTargetError;
 
-    fn base_ops(&mut self) -> BaseOps<Self::Arch, Self::Error> {
+    fn base_ops(&mut self) -> BaseOps<'_, Self::Arch, Self::Error> {
         BaseOps::SingleThread(self)
     }
 }

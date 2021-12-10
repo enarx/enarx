@@ -105,7 +105,7 @@ impl<P: KeepPersonality> Thread<P> {
 }
 
 impl<P: KeepPersonality> super::super::Thread for Thread<P> {
-    fn enter(&mut self) -> Result<Command> {
+    fn enter(&mut self) -> Result<Command<'_>> {
         let vcpu_fd = self.vcpu_fd.as_mut().unwrap();
         match vcpu_fd.run()? {
             VcpuExit::IoOut(KVM_SYSCALL_TRIGGER_PORT, data) => {

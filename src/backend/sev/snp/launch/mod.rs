@@ -66,7 +66,7 @@ impl<U: AsRawFd, V: AsRawFd> Launcher<New, U, V> {
     }
 
     /// Initialize the flow to launch a guest.
-    pub fn start(mut self, start: Start) -> Result<Launcher<Started, U, V>> {
+    pub fn start(mut self, start: Start<'_>) -> Result<Launcher<Started, U, V>> {
         let mut launch_start = LaunchStart::from(start);
         let mut cmd = Command::from_mut(&mut self.sev, &mut launch_start);
 
@@ -86,7 +86,7 @@ impl<U: AsRawFd, V: AsRawFd> Launcher<New, U, V> {
 
 impl<U: AsRawFd, V: AsRawFd> Launcher<Started, U, V> {
     /// Encrypt guest SNP data.
-    pub fn update_data(&mut self, update: Update) -> Result<()> {
+    pub fn update_data(&mut self, update: Update<'_>) -> Result<()> {
         let launch_update_data = LaunchUpdate::from(update);
         let mut cmd = Command::from(&mut self.sev, &launch_update_data);
 
@@ -100,7 +100,7 @@ impl<U: AsRawFd, V: AsRawFd> Launcher<Started, U, V> {
     }
 
     /// Complete the SNP launch process.
-    pub fn finish(mut self, finish: Finish) -> Result<(U, V)> {
+    pub fn finish(mut self, finish: Finish<'_, '_>) -> Result<(U, V)> {
         let launch_finish = LaunchFinish::from(finish);
         let mut cmd = Command::from(&mut self.sev, &launch_finish);
 

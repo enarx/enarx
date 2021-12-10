@@ -61,7 +61,7 @@ pub struct EnarxAllocator {
 }
 
 impl core::fmt::Debug for EnarxAllocator {
-    fn fmt(&self, f: &mut core::fmt::Formatter) -> Result<(), core::fmt::Error> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> Result<(), core::fmt::Error> {
         f.debug_struct("EnarxAllocator")
             .field("last_alloc", &self.last_alloc)
             .field("max_alloc", &self.max_alloc)

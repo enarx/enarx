@@ -66,7 +66,7 @@ impl fmt::Write for HostWrite {
 
 #[doc(hidden)]
 #[inline(always)]
-pub fn _print(args: fmt::Arguments) {
+pub fn _print(args: fmt::Arguments<'_>) {
     use fmt::Write;
 
     if !is_printing_enabled() {
@@ -81,7 +81,7 @@ pub fn _print(args: fmt::Arguments) {
 
 #[doc(hidden)]
 #[inline(always)]
-pub fn _eprint(args: fmt::Arguments) {
+pub fn _eprint(args: fmt::Arguments<'_>) {
     use fmt::Write;
 
     if !is_printing_enabled() {

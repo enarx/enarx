@@ -9,9 +9,12 @@
 #![feature(asm, asm_const, asm_sym, naked_functions)]
 #![deny(clippy::all)]
 #![deny(missing_docs)]
+#![warn(rust_2018_idioms)]
 #![no_main]
 
+#[allow(unused_extern_crates)]
 extern crate compiler_builtins;
+#[allow(unused_extern_crates)]
 extern crate rcrt1;
 
 use shim_sgx::{
@@ -22,7 +25,7 @@ use shim_sgx::{
 #[panic_handler]
 #[cfg(not(test))]
 #[allow(clippy::empty_loop)]
-fn panic(_info: &core::panic::PanicInfo) -> ! {
+fn panic(_info: &core::panic::PanicInfo<'_>) -> ! {
     loop {}
 }
 

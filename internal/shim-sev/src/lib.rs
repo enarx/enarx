@@ -10,6 +10,7 @@
 #![cfg_attr(not(test), deny(clippy::integer_arithmetic))]
 #![deny(missing_docs)]
 #![feature(asm, asm_const, asm_sym, naked_functions)]
+#![warn(rust_2018_idioms)]
 
 use crate::snp::cpuid_page::CpuidPage;
 use crate::snp::ghcb::Ghcb;

@@ -8,10 +8,13 @@
 #![deny(clippy::all)]
 #![deny(clippy::integer_arithmetic)]
 #![deny(missing_docs)]
+#![warn(rust_2018_idioms)]
 #![no_main]
 #![feature(asm, asm_const, asm_sym, naked_functions)]
 
+#[allow(unused_extern_crates)]
 extern crate compiler_builtins;
+#[allow(unused_extern_crates)]
 extern crate rcrt1;
 
 use shim_sev::addr::SHIM_VIRT_OFFSET;
@@ -108,7 +111,7 @@ extern "sysv64" fn main() -> ! {
 /// if it can't print the panic and exit normally with an error code.
 #[panic_handler]
 #[cfg(not(test))]
-fn panic(_info: &core::panic::PanicInfo) -> ! {
+fn panic(_info: &core::panic::PanicInfo<'_>) -> ! {
     use core::sync::atomic::AtomicBool;
     use shim_sev::debug::_enarx_asm_triple_fault;
     #[cfg(feature = "dbg")]
