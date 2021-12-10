@@ -9,7 +9,7 @@ impl<'a> BaseSyscallHandler for super::Handler<'a> {
         buf as _
     }
 
-    fn new_cursor(&mut self) -> Cursor {
+    fn new_cursor(&mut self) -> Cursor<'_> {
         self.block.cursor()
     }
 

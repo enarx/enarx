@@ -58,7 +58,7 @@ impl Deref for ExtendedInterruptStackFrame {
 
 impl fmt::Debug for ExtendedInterruptStackFrame {
     #[inline]
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.value.fmt(f)
     }
 }

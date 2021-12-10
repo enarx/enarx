@@ -26,7 +26,7 @@ trait Config: Sized {
     type Flags;
 
     fn flags(flags: u32) -> Self::Flags;
-    fn new(shim: &Binary, exec: &Binary) -> Result<Self>;
+    fn new(shim: &Binary<'_>, exec: &Binary<'_>) -> Result<Self>;
 }
 
 trait Mapper: Sized + TryFrom<Self::Config, Error = Error> {
@@ -88,7 +88,7 @@ pub trait Keep {
 
 pub trait Thread {
     /// Enters the keep.
-    fn enter(&mut self) -> Result<Command>;
+    fn enter(&mut self) -> Result<Command<'_>>;
 }
 
 pub enum Command<'a> {

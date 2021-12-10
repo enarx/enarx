@@ -56,7 +56,7 @@ impl super::super::Keep for super::Keep {
 }
 
 impl super::super::Thread for Thread {
-    fn enter(&mut self) -> Result<Command> {
+    fn enter(&mut self) -> Result<Command<'_>> {
         let mut run: Run = unsafe { MaybeUninit::zeroed().assume_init() };
         run.tcs = self.tcs as u64;
         let how = self.how;

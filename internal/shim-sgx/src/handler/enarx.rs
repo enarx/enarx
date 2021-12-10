@@ -10,9 +10,9 @@ impl<'a> EnarxSyscallHandler for super::Handler<'a> {
     // For more on this syscall, see: https://github.com/enarx/enarx/issues/966
     fn get_attestation(
         &mut self,
-        hash: UntrustedRef<u8>,
+        hash: UntrustedRef<'_, u8>,
         hash_len: libc::size_t,
-        _buf: UntrustedRefMut<u8>,
+        _buf: UntrustedRefMut<'_, u8>,
         _buf_len: libc::size_t,
     ) -> sallyport::Result {
         self.trace("get_att", 0);

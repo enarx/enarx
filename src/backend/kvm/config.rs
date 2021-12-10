@@ -13,7 +13,7 @@ impl super::super::Config for Config {
         flags
     }
 
-    fn new(shim: &super::super::Binary, _exec: &super::super::Binary) -> Result<Self> {
+    fn new(shim: &super::super::Binary<'_>, _exec: &super::super::Binary<'_>) -> Result<Self> {
         let sallyport_headers = shim.headers(PT_LOAD).filter(|p| p.p_flags & SALLYPORT != 0);
 
         if sallyport_headers.count() != 1 {

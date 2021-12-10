@@ -15,15 +15,15 @@ use sgx::signature::Signature;
 const SGX: Group = Group::new(0xA4);
 
 /// IOCTL identifier for ECREATE (see Section 41-21)
-pub const ENCLAVE_CREATE: Ioctl<Write, &Create> = unsafe { SGX.write(0x00) };
+pub const ENCLAVE_CREATE: Ioctl<Write, &Create<'_>> = unsafe { SGX.write(0x00) };
 
 /// IOCTL identifier for EADD (see Section 41-11)
-pub const ENCLAVE_ADD_PAGES: Ioctl<WriteRead, &AddPages> = unsafe { SGX.write_read(0x01) };
+pub const ENCLAVE_ADD_PAGES: Ioctl<WriteRead, &AddPages<'_>> = unsafe { SGX.write_read(0x01) };
 
 /// IOCTL identifier for EINIT (see Section 41-35)
-pub const ENCLAVE_INIT: Ioctl<Write, &Init> = unsafe { SGX.write(0x02) };
+pub const ENCLAVE_INIT: Ioctl<Write, &Init<'_>> = unsafe { SGX.write(0x02) };
 
-pub const ENCLAVE_SET_ATTRIBUTE: Ioctl<Write, &SetAttribute> = unsafe { SGX.write(0x03) };
+pub const ENCLAVE_SET_ATTRIBUTE: Ioctl<Write, &SetAttribute<'_>> = unsafe { SGX.write(0x03) };
 pub const PAGE_MODP: Ioctl<Write, &PageModPerms> = unsafe { SGX.write(0x05) };
 pub const PAGE_MODT: Ioctl<Write, &PageModType> = unsafe { SGX.write(0x06) };
 pub const PAGE_REMOVE: Ioctl<Write, &PageRemove> = unsafe { SGX.write(0x07) };

@@ -10,6 +10,7 @@
 #![feature(naked_functions)]
 #![deny(clippy::all)]
 #![deny(missing_docs)]
+#![warn(rust_2018_idioms)]
 
 pub mod entry;
 pub mod handler;

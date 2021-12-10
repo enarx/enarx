@@ -44,7 +44,7 @@ impl super::super::Config for Config {
         (si, m)
     }
 
-    fn new(shim: &super::super::Binary, _exec: &super::super::Binary) -> Result<Self> {
+    fn new(shim: &super::super::Binary<'_>, _exec: &super::super::Binary<'_>) -> Result<Self> {
         unsafe {
             let params: Parameters = Parameters {
                 misc: Masked {

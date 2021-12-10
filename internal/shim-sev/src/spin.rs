@@ -20,7 +20,7 @@ impl<A> Locked<A> {
 
     /// get a [`MutexGuard`](spinning::MutexGuard)
     #[inline]
-    pub fn lock(&self) -> MutexGuard<A> {
+    pub fn lock(&self) -> MutexGuard<'_, A> {
         self.inner.lock()
     }
 }
@@ -41,13 +41,13 @@ impl<A> RwLocked<A> {
 
     /// get a [`RwLockReadGuard`](spinning::RwLockReadGuard)
     #[inline]
-    pub fn read(&self) -> RwLockReadGuard<A> {
+    pub fn read(&self) -> RwLockReadGuard<'_, A> {
         self.inner.read()
     }
 
     /// get a [`RwLockWriteGuard`](spinning::RwLockWriteGuard)
     #[inline]
-    pub fn write(&self) -> RwLockWriteGuard<A> {
+    pub fn write(&self) -> RwLockWriteGuard<'_, A> {
         self.inner.write()
     }
 }
