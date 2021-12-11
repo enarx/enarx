@@ -6,8 +6,11 @@
 //! instructions) from the enclave code and proxies them to the host.
 
 #![cfg_attr(not(test), no_std)]
+#![allow(incomplete_features)]
 #![feature(asm, asm_const, asm_sym)]
+#![feature(generic_const_exprs)]
 #![feature(naked_functions)]
+#![feature(const_mut_refs)]
 #![deny(clippy::all)]
 #![deny(missing_docs)]
 #![warn(rust_2018_idioms)]
@@ -45,8 +48,4 @@ extern "C" {
     pub static ENARX_EXEC_START: u8;
     /// Extern
     pub static ENARX_EXEC_END: u8;
-    /// Extern
-    pub static ENARX_HEAP_START: u8;
-    /// Extern
-    pub static ENARX_HEAP_END: u8;
 }

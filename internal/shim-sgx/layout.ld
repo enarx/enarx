@@ -69,7 +69,5 @@ SECTIONS {
 
     /* HEAP */
     . = ALIGN(128M);
-    HIDDEN(ENARX_HEAP_START = .);
-    .enarx.heap (NOLOAD) : { . += 128M; } :heap =0
-    HIDDEN(ENARX_HEAP_END = .);
+    .enarx.heap (NOLOAD) : { *(.enarx.heap) } :heap =0
 }
