@@ -20,10 +20,10 @@ gdbstub = { version = "0.5.0" , default-features = false, optional = true }
 goblin = { version = "0.4", default-features = false, features = [ "elf64" ] }
 x86_64 = { version = "^0.14.6", default-features = false }
 crt0stack = { version = "0.1", default-features = false }
-sallyport = { git = "https://github.com/enarx/sallyport", rev = "dd42c91cc9e5cbc74f342eede3bc072f60ba11bd" }
+sallyport = { git = "https://github.com/enarx/sallyport", rev = "5b4eca36b41e910ed9ff683adc5ddc0554cdf09c" }
 libc = { version = "0.2.50", default-features = false }
 const-default = "1.0"
-primordial = "0.3.0"
+primordial = "0.4.0"
 noted = "^1.0.0"
 xsave = "^2.0.0"
 rcrt1 = "1.0.0"
