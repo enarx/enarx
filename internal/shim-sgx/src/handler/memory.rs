@@ -8,7 +8,7 @@ impl<'a> MemorySyscallHandler for super::Handler<'a> {
     fn brk(&mut self, addr: *const u8) -> sallyport::Result {
         self.trace("brk", 1);
 
-        let ret = self.heap.brk(addr as _);
+        let ret = crate::heap::HEAP.write().brk(addr as _);
         Ok([ret.into(), Default::default()])
     }
 
@@ -38,7 +38,7 @@ impl<'a> MemorySyscallHandler for super::Handler<'a> {
     ) -> sallyport::Result {
         self.trace("mmap", 6);
 
-        let ret = self.heap.mmap::<libc::c_void>(
+        let ret = crate::heap::HEAP.write().mmap::<libc::c_void>(
             addr.as_ptr() as _,
             length,
             prot,
@@ -54,7 +54,8 @@ impl<'a> MemorySyscallHandler for super::Handler<'a> {
     fn munmap(&mut self, addr: UntrustedRef<'_, u8>, length: libc::size_t) -> sallyport::Result {
         self.trace("munmap", 2);
 
-        self.heap
+        crate::heap::HEAP
+            .write()
             .munmap::<libc::c_void>(addr.as_ptr() as _, length)?;
         Ok(Default::default())
     }

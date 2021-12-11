@@ -17,10 +17,7 @@ extern crate compiler_builtins;
 #[allow(unused_extern_crates)]
 extern crate rcrt1;
 
-use shim_sgx::{
-    entry, handler, ATTR, ENARX_EXEC_START, ENARX_HEAP_END, ENARX_HEAP_START, ENCL_SIZE,
-    ENCL_SIZE_BITS, MISC,
-};
+use shim_sgx::{entry, handler, ATTR, ENARX_EXEC_START, ENCL_SIZE, ENCL_SIZE_BITS, MISC};
 
 #[panic_handler]
 #[cfg(not(test))]
@@ -272,14 +269,9 @@ pub unsafe extern "sysv64" fn _start() -> ! {
 unsafe extern "C" fn main(port: &mut sallyport::Block, ssas: &mut [StateSaveArea; 3], cssa: usize) {
     ssas[cssa].extra[0] = 1; // Enable exceptions
 
-    let heap = lset::Line::new(
-        &ENARX_HEAP_START as *const _ as usize,
-        &ENARX_HEAP_END as *const _ as usize,
-    );
-
     match cssa {
         0 => entry::entry(&ENARX_EXEC_START as *const u8 as _),
-        1 => handler::Handler::handle(&mut ssas[0], port, heap),
+        1 => handler::Handler::handle(&mut ssas[0], port),
         n => handler::Handler::finish(&mut ssas[n - 1]),
     }
 
