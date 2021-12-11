@@ -128,8 +128,8 @@ fn uname() {
 #[test]
 fn unix_echo() {
     let tmpdir = Arc::new(Builder::new().prefix("unix_echo").tempdir().unwrap());
-    const FILENAME_IN: &'static str = "enarx_unix_echo_to_bin";
-    const FILENAME_OUT: &'static str = "enarx_unix_echo_from_bin";
+    const FILENAME_IN: &str = "enarx_unix_echo_to_bin";
+    const FILENAME_OUT: &str = "enarx_unix_echo_from_bin";
     let mut input: Vec<u8> = Vec::with_capacity(2 * 1024 * 1024);
 
     let _ = fs::remove_file(FILENAME_IN);

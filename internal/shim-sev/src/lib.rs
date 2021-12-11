@@ -7,7 +7,7 @@
 
 #![cfg_attr(not(test), no_std)]
 #![deny(clippy::all)]
-#![deny(clippy::integer_arithmetic)]
+#![cfg_attr(not(test), deny(clippy::integer_arithmetic))]
 #![deny(missing_docs)]
 #![feature(asm, asm_const, asm_sym, naked_functions)]
 

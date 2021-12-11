@@ -292,6 +292,7 @@ mod tests {
         oneshot(&mut heap, pages / 2);
     }
 
+    #[allow(clippy::needless_range_loop)]
     fn incremental(heap: &mut Heap, pages: usize) {
         let brk_page = heap.pages.len() - pages;
         let brk = heap.metadata.brk.start + brk_page * Page::SIZE;

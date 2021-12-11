@@ -861,6 +861,6 @@ fn test_gcm() {
     plaintext[0..request.hdr.msg_sz as usize].copy_from_slice(payload_slice);
 
     let plain_slice = &mut plaintext[0..request.hdr.msg_sz as usize];
-    let dec_ret = cipher.decrypt_in_place_detached(nonce, asssoc_data, plain_slice, &tag);
+    let dec_ret = cipher.decrypt_in_place_detached(nonce, asssoc_data, plain_slice, tag);
     let _ = dec_ret.expect("decrypt failed!");
 }
