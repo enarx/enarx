@@ -183,7 +183,7 @@ pub fn run_test<'a>(
     expected_stderr: impl Into<Option<&'a [u8]>>,
 ) -> Output {
     let output = keepldr_exec(bin, input);
-    check_output(&output, status.into(), expected_stdout, expected_stderr);
+    check_output(&output, status, expected_stdout, expected_stderr);
     output
 }
 
@@ -198,6 +198,6 @@ pub fn run_crate<'a>(
     expected_stderr: impl Into<Option<&'a [u8]>>,
 ) -> Output {
     let output = keepldr_exec_crate(crate_name, bin, input);
-    check_output(&output, status.into(), expected_stdout, expected_stderr);
+    check_output(&output, status, expected_stdout, expected_stderr);
     output
 }
