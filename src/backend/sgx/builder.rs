@@ -14,6 +14,8 @@ use sgx::crypto::{openssl::*, *};
 use sgx::page::{Class, Flags, SecInfo};
 use sgx::signature::{Author, Hasher, Signature};
 
+use log::trace;
+
 pub struct Builder {
     file: File,
     cnfg: Config,
@@ -27,6 +29,7 @@ impl TryFrom<super::config::Config> for Builder {
     type Error = Error;
 
     fn try_from(config: super::config::Config) -> Result<Self> {
+        trace!("parsed config: {:?}", config);
         assert!(config.size.is_power_of_two()); // This is verified by `Config`...
 
         // Map the memory for the enclave
@@ -40,6 +43,11 @@ impl TryFrom<super::config::Config> for Builder {
         let addr = (map.addr() + config.size - 1) / config.size * config.size;
         let (_, map) = map.split_at(addr)?;
         let (map, _) = map.split(config.size)?;
+        trace!(
+            "enclave location: {:016x}-{:016x}",
+            map.addr(),
+            map.addr() + map.size()
+        );
 
         // Open the device.
         let mut file = OpenOptions::new()
@@ -51,6 +59,7 @@ impl TryFrom<super::config::Config> for Builder {
         let secs = config
             .parameters
             .secs(map.addr() as *const (), map.size(), config.ssap);
+        trace!("creating enclave: {:?}", secs);
         let create = Create::new(&secs);
         ENCLAVE_CREATE.ioctl(&mut file, &create)?;
 
@@ -79,6 +88,13 @@ impl super::super::Mapper for Builder {
         if pages.is_empty() {
             return Ok(());
         }
+
+        trace!(
+            "adding pages: {:016x}-{:016x} {}",
+            self.mmap.addr() + to,
+            self.mmap.addr() + to + pages.size(),
+            with.0
+        );
 
         // Update the enclave.
         let mut ap = AddPages::new(&*pages, to, &with.0, with.1);
@@ -117,10 +133,18 @@ impl TryFrom<Builder> for Arc<dyn super::super::Keep> {
         // Initialize the enclave.
         let init = Init::new(&signature);
         ENCLAVE_INIT.ioctl(&mut builder.file, &init)?;
+        trace!("enclave initialized");
 
         // Fix up mapped permissions.
         builder.perm.sort_by_key(|x| x.0);
         for (addr, size, si) in builder.perm {
+            trace!(
+                "remapping: {:016x}-{:016x} {}",
+                addr as usize,
+                addr as usize + size,
+                si
+            );
+
             let rwx = match si.class() {
                 Class::Tcs => libc::PROT_READ | libc::PROT_WRITE,
                 Class::Reg => {
@@ -147,9 +171,6 @@ impl TryFrom<Builder> for Arc<dyn super::super::Keep> {
                     .from(&mut builder.file, 0)
                     .unknown(Kind::Shared, rwx)?
             });
-
-            //let line = lset::Line::from(span);
-            //eprintln!("{:016x}-{:016x} {:?}", line.start, line.end, si);
         }
 
         Ok(Arc::new(super::Keep {

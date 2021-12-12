@@ -23,10 +23,10 @@ impl_const_id! {
 const SEV: Group = Group::new(b'S');
 
 /// Get the CPU's unique ID that can be used for getting a certificate for the CEK public key.
-const GET_ID: Ioctl<WriteRead, &Command<GetId<'_>>> = unsafe { SEV.write_read(0) };
+const GET_ID: Ioctl<WriteRead, &Command<'_, GetId<'_>>> = unsafe { SEV.write_read(0) };
 
 /// Return information about the current status and capabilities of the SEV-SNP platform.
-const SNP_PLATFORM_STATUS: Ioctl<WriteRead, &Command<SnpPlatformStatus>> =
+const SNP_PLATFORM_STATUS: Ioctl<WriteRead, &Command<'_, SnpPlatformStatus>> =
     unsafe { SEV.write_read(0) };
 
 /// Get the CPU's unique ID that can be used for getting

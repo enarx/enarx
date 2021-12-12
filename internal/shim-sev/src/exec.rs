@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-//! Functions dealing with the payload
+//! Functions dealing with the exec
 
 use crate::addr::ShimPhysAddr;
 use crate::allocator::ALLOCATOR;
@@ -8,10 +8,9 @@ use crate::random::random;
 use crate::shim_stack::init_stack_with_guard;
 use crate::snp::cpuid;
 use crate::usermode::usermode;
-use crate::PAYLOAD_READY;
 
 use core::convert::TryFrom;
-use core::sync::atomic::Ordering;
+use core::sync::atomic::{AtomicBool, Ordering};
 
 use crt0stack::{self, Builder, Entry};
 use goblin::elf::header::header64::Header;
@@ -22,38 +21,48 @@ use spinning::{Lazy, RwLock};
 use x86_64::structures::paging::{Page, PageTableFlags, Size4KiB};
 use x86_64::{PhysAddr, VirtAddr};
 
-/// Payload virtual address, where the elf binary is mapped to, plus a random offset
-const PAYLOAD_ELF_VIRT_ADDR_BASE: VirtAddr = VirtAddr::new_truncate(0x7f00_0000_0000);
+/// Indicator, if the executable is ready to be executed or already executed
+pub static EXEC_READY: AtomicBool = AtomicBool::new(false);
 
-/// The first brk virtual address the payload gets, plus a random offset
-const PAYLOAD_BRK_VIRT_ADDR_BASE: VirtAddr = VirtAddr::new_truncate(0x5555_0000_0000);
+/// Exec virtual address, where the elf binary is mapped to, plus a random offset
+const EXEC_ELF_VIRT_ADDR_BASE: VirtAddr = VirtAddr::new_truncate(0x7f00_0000_0000);
 
-/// Payload stack virtual address
-const PAYLOAD_STACK_VIRT_ADDR_BASE: VirtAddr = VirtAddr::new_truncate(0x7ff0_0000_0000);
+/// The first brk virtual address the exec gets, plus a random offset
+const EXEC_BRK_VIRT_ADDR_BASE: VirtAddr = VirtAddr::new_truncate(0x5555_0000_0000);
 
-/// Initial payload stack size
+/// Exec stack virtual address
+const EXEC_STACK_VIRT_ADDR_BASE: VirtAddr = VirtAddr::new_truncate(0x7ff0_0000_0000);
+
+/// Initial exec stack size
 #[allow(clippy::integer_arithmetic)]
-const PAYLOAD_STACK_SIZE: u64 = bytes![2; MiB];
+const EXEC_STACK_SIZE: u64 = bytes![2; MiB];
 
-/// The randomized virtual address of the payload
-pub static PAYLOAD_VIRT_ADDR: Lazy<RwLock<VirtAddr>> = Lazy::new(|| {
+/// The randomized virtual address of the exec
+#[cfg(not(feature = "gdb"))]
+pub static EXEC_VIRT_ADDR: Lazy<RwLock<VirtAddr>> = Lazy::new(|| {
     RwLock::<VirtAddr>::const_new(
         spinning::RawRwLock::const_new(),
-        PAYLOAD_ELF_VIRT_ADDR_BASE + (random() & 0x7F_FFFF_F000),
+        EXEC_ELF_VIRT_ADDR_BASE + (random() & 0x7F_FFFF_F000),
     )
 });
 
-/// Actual brk virtual address the payload gets, when calling brk
+/// The non-randomized virtual address of the exec in case the gdb feature is active
+#[cfg(feature = "gdb")]
+pub static EXEC_VIRT_ADDR: Lazy<RwLock<VirtAddr>> = Lazy::new(|| {
+    RwLock::<VirtAddr>::const_new(spinning::RawRwLock::const_new(), EXEC_ELF_VIRT_ADDR_BASE)
+});
+
+/// Actual brk virtual address the exec gets, when calling brk
 pub static NEXT_BRK_RWLOCK: Lazy<RwLock<VirtAddr>> = Lazy::new(|| {
     RwLock::<VirtAddr>::const_new(
         spinning::RawRwLock::const_new(),
-        PAYLOAD_BRK_VIRT_ADDR_BASE + (random() & 0xFFFF_F000),
+        EXEC_BRK_VIRT_ADDR_BASE + (random() & 0xFFFF_F000),
     )
 });
 
 /// The global NextMMap RwLock
 pub static NEXT_MMAP_RWLOCK: Lazy<RwLock<VirtAddr>> = Lazy::new(|| {
-    RwLock::<VirtAddr>::const_new(spinning::RawRwLock::const_new(), *PAYLOAD_VIRT_ADDR.read())
+    RwLock::<VirtAddr>::const_new(spinning::RawRwLock::const_new(), *EXEC_VIRT_ADDR.read())
 });
 
 /// load the elf binary
@@ -108,7 +117,7 @@ fn map_elf(app_virt_start: VirtAddr) -> &'static Header {
                     | PageTableFlags::USER_ACCESSIBLE
                     | PageTableFlags::WRITABLE,
             )
-            .expect("Map payload elf failed!");
+            .expect("Map exec elf failed!");
     }
 
     header
@@ -173,20 +182,32 @@ fn crt0setup(
     (ph_entry, sp)
 }
 
-/// execute the payload
-pub fn execute_payload() -> ! {
-    let header = map_elf(*PAYLOAD_VIRT_ADDR.read());
+/// execute the exec
+pub fn execute_exec() -> ! {
+    let header = map_elf(*EXEC_VIRT_ADDR.read());
 
     let stack = init_stack_with_guard(
-        PAYLOAD_STACK_VIRT_ADDR_BASE + (random() & 0xFFFF_F000),
-        PAYLOAD_STACK_SIZE,
+        EXEC_STACK_VIRT_ADDR_BASE + (random() & 0xFFFF_F000),
+        EXEC_STACK_SIZE,
         PageTableFlags::USER_ACCESSIBLE,
     );
 
-    let (entry, sp_handle) = crt0setup(*PAYLOAD_VIRT_ADDR.read(), stack.slice, header);
+    let (entry, sp_handle) = crt0setup(*EXEC_VIRT_ADDR.read(), stack.slice, header);
+
+    #[cfg(feature = "gdb")]
+    unsafe {
+        // Breakpoint at the exec entry address
+        asm!(
+            "mov dr0, {}",
+            "mov dr7, {}",
+
+            in(reg) entry.as_u64(),
+            in(reg) 1u64,
+        )
+    };
 
     unsafe {
-        PAYLOAD_READY.store(true, Ordering::Relaxed);
+        EXEC_READY.store(true, Ordering::Relaxed);
         usermode(entry.as_u64(), sp_handle)
     }
 }

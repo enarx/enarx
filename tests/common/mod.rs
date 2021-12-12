@@ -10,7 +10,7 @@ pub const CRATE: &str = env!("CARGO_MANIFEST_DIR");
 pub const KEEP_BIN: &str = env!("CARGO_BIN_EXE_enarx");
 pub const OUT_DIR: &str = env!("OUT_DIR");
 pub const TEST_BINS_OUT: &str = "bin";
-pub const TIMEOUT_SECS: u64 = 30;
+pub const TIMEOUT_SECS: u64 = 60 * 60;
 pub const MAX_ASSERT_ELEMENTS: usize = 100;
 
 pub fn assert_eq_slices(expected_output: &[u8], output: &[u8], what: &str) {
@@ -44,6 +44,56 @@ pub fn keepldr_exec<'a>(bin: &str, input: impl Into<Option<&'a [u8]>>) -> Output
         .current_dir(CRATE)
         .arg("exec")
         .arg(bin_path)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .unwrap_or_else(|e| panic!("failed to run `{}`: {:#?}", bin, e));
+
+    if let Some(input) = input.into() {
+        child
+            .stdin
+            .as_mut()
+            .unwrap()
+            .write_all(input)
+            .expect("failed to write stdin to child");
+
+        drop(child.stdin.take());
+    }
+
+    let output = child
+        .with_output_timeout(Duration::from_secs(TIMEOUT_SECS))
+        .terminating()
+        .wait()
+        .unwrap_or_else(|e| panic!("failed to run `{}`: {:#?}", bin, e))
+        .unwrap_or_else(|| panic!("process `{}` timed out", bin));
+
+    assert!(
+        output.status.code().is_some(),
+        "process `{}` terminated by signal {:?}",
+        bin,
+        output.status.signal()
+    );
+
+    output
+}
+
+/// Returns a handle to a child process through which output (stdout, stderr) can
+/// be accessed.
+pub fn keepldr_exec_crate<'a>(
+    crate_name: &str,
+    bin: &str,
+    input: impl Into<Option<&'a [u8]>>,
+) -> Output {
+    let crate_path = Path::new(CRATE).join(crate_name);
+
+    let mut child = Command::new("cargo")
+        .current_dir(crate_path)
+        .arg("run")
+        .arg("--quiet")
+        .arg("--bin")
+        .arg(bin)
+        .env("ENARX_BIN", KEEP_BIN)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
@@ -133,6 +183,21 @@ pub fn run_test<'a>(
     expected_stderr: impl Into<Option<&'a [u8]>>,
 ) -> Output {
     let output = keepldr_exec(bin, input);
-    check_output(&output, status.into(), expected_stdout, expected_stderr);
+    check_output(&output, status, expected_stdout, expected_stderr);
+    output
+}
+
+/// Returns a handle to a child process through which output (stdout, stderr) can
+/// be accessed.
+pub fn run_crate<'a>(
+    crate_name: &str,
+    bin: &str,
+    status: i32,
+    input: impl Into<Option<&'a [u8]>>,
+    expected_stdout: impl Into<Option<&'a [u8]>>,
+    expected_stderr: impl Into<Option<&'a [u8]>>,
+) -> Output {
+    let output = keepldr_exec_crate(crate_name, bin, input);
+    check_output(&output, status, expected_stdout, expected_stderr);
     output
 }

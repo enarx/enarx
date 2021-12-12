@@ -8,24 +8,26 @@
 #![deny(clippy::all)]
 #![deny(clippy::integer_arithmetic)]
 #![deny(missing_docs)]
+#![warn(rust_2018_idioms)]
 #![no_main]
-#![feature(asm, naked_functions)]
+#![feature(asm, asm_const, asm_sym, naked_functions)]
 
+#[allow(unused_extern_crates)]
 extern crate compiler_builtins;
+#[allow(unused_extern_crates)]
 extern crate rcrt1;
 
 use shim_sev::addr::SHIM_VIRT_OFFSET;
-use shim_sev::debug::print_stack_trace;
+use shim_sev::exec;
 use shim_sev::gdt;
 use shim_sev::interrupts;
 use shim_sev::pagetables::{unmap_identity, PDPT, PDT_C000_0000, PML4T, PT_FFE0_0000};
-use shim_sev::payload;
-use shim_sev::print::{self, enable_printing, is_printing_enabled};
+use shim_sev::print::enable_printing;
 use shim_sev::snp::C_BIT_MASK;
 use shim_sev::sse;
 
 use core::mem::size_of;
-use core::sync::atomic::{AtomicBool, Ordering};
+use core::sync::atomic::Ordering;
 
 use noted::noted;
 use primordial::Page;
@@ -64,10 +66,10 @@ unsafe fn switch_shim_stack(ip: extern "sysv64" fn() -> !, sp: u64) -> ! {
 
     // load a new stack pointer and jmp to function
     asm!(
-        "mov rsp, {SP}",
-        "sub rsp, 8",
-        "push rbp",
-        "call {IP}",
+        "mov    rsp,    {SP}",
+        "sub    rsp,    8",
+        "push   rbp",
+        "call   {IP}",
 
         SP = in(reg) sp,
         IP = in(reg) ip,
@@ -98,7 +100,7 @@ extern "sysv64" fn main() -> ! {
     sse::init_sse();
     interrupts::init();
 
-    payload::execute_payload()
+    exec::execute_exec()
 }
 
 /// The panic function
@@ -108,20 +110,26 @@ extern "sysv64" fn main() -> ! {
 /// Reverts to a triple fault, which causes a `#VMEXIT` and a KVM shutdown,
 /// if it can't print the panic and exit normally with an error code.
 #[panic_handler]
-pub fn panic(info: &core::panic::PanicInfo) -> ! {
+#[cfg(not(test))]
+fn panic(_info: &core::panic::PanicInfo<'_>) -> ! {
+    use core::sync::atomic::AtomicBool;
     use shim_sev::debug::_enarx_asm_triple_fault;
+    #[cfg(feature = "dbg")]
+    use shim_sev::print::{self, is_printing_enabled};
 
     static mut ALREADY_IN_PANIC: AtomicBool = AtomicBool::new(false);
 
     // Don't print anything, if the FRAME_ALLOCATOR is not yet initialized
     unsafe {
-        if is_printing_enabled()
-            && ALREADY_IN_PANIC
-                .compare_exchange(false, true, Ordering::Acquire, Ordering::Relaxed)
-                .is_ok()
+        if ALREADY_IN_PANIC
+            .compare_exchange(false, true, Ordering::Acquire, Ordering::Relaxed)
+            .is_ok()
         {
-            print::_eprint(format_args!("{}\n", info));
-            print_stack_trace();
+            #[cfg(feature = "dbg")]
+            if is_printing_enabled() {
+                print::_eprint(format_args!("{}\n", _info));
+                shim_sev::debug::print_stack_trace();
+            }
             // FIXME: might want to have a custom panic hostcall
             shim_sev::hostcall::shim_exit(255);
         }
@@ -215,22 +223,22 @@ pub unsafe extern "sysv64" fn _start() -> ! {
 
         // The GDT entries
         "define_addr gdt_start 67f",
-        "67:", // gdt_start
-        ".quad 0",          // First descriptor is always unused
+        "67:",              // gdt_start
+        ".quad  0",         // First descriptor is always unused
         // code32_desc      // base = 0x00000000, limit = 0xfffff x 4K
         ".short 0xffff",    // limit[0..16] = 0xffff
         ".short 0x0000",    // base [0..16] = 0x0000
-        ".byte 0x00",       // base[16..24] = 0x00
-        ".byte 0x9B",       // present, DPL = 0, system, code seg, grows up, readable, accessed
-        ".byte 0xCF",       // 4K gran, 32-bit, limit[16..20] = 0x1111 = 0xf
-        ".byte 0x00",       // base[24..32] = 0x00
+        ".byte  0x00",      // base[16..24] = 0x00
+        ".byte  0x9B",      // present, DPL = 0, system, code seg, grows up, readable, accessed
+        ".byte  0xCF",      // 4K gran, 32-bit, limit[16..20] = 0x1111 = 0xf
+        ".byte  0x00",      // base[24..32] = 0x00
         // data32_desc      // base = 0x00000000, limit = 0xfffff x 4K
         ".short 0xffff",    // limit 15:0
         ".short 0x0000",    // base 15:0
-        ".byte 0x00",       // base[16..24] = 0x00
-        ".byte 0x93",       // present, DPL = 0, system, data seg, ring0 only, writable, accessed
-        ".byte 0xCF",       // 4K gran, 32-bit, limit[16..20] = 0x1111 = 0xf
-        ".byte 0x00",       // base[24..32] = 0x00
+        ".byte  0x00",      // base[16..24] = 0x00
+        ".byte  0x93",      // present, DPL = 0, system, data seg, ring0 only, writable, accessed
+        ".byte  0xCF",      // 4K gran, 32-bit, limit[16..20] = 0x1111 = 0xf
+        ".byte  0x00",      // base[24..32] = 0x00
         // code64_desc
         // For 64-bit code descriptors, all bits except the following are ignored:
         // - CS.A=1 (bit 40) segment is accessed, prevents a write on first use.
@@ -242,7 +250,7 @@ pub unsafe extern "sysv64" fn _start() -> ! {
         // - CS.P=1 (bit 47) required, the segment is present.
         // - CS.L=1 (bit 53) required, we are a 64-bit (long mode) segment.
         // - CS.D=0 (bit 54) required, CS.L=1 && CS.D=1 is resevered for future use.
-        ".quad (1<<40) | (1<<41) | (1<<42) | (1<<43) | (1<<44) | (1<<47) | (1<<53)",
+        ".quad  (1<<40) | (1<<41) | (1<<42) | (1<<43) | (1<<44) | (1<<47) | (1<<53)",
         "68:",
         "define_addr gdt_end 68b",
 

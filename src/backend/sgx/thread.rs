@@ -3,6 +3,8 @@
 use super::super::Command;
 
 use std::mem::MaybeUninit;
+#[cfg(feature = "gdb")]
+use std::net::TcpStream;
 use std::sync::Arc;
 
 use anyhow::Result;
@@ -18,6 +20,8 @@ pub struct Thread {
     block: Block,
     cssa: usize,
     how: usize,
+    #[cfg(feature = "gdb")]
+    gdb_fd: Option<TcpStream>,
 }
 
 impl Drop for Thread {
@@ -45,12 +49,14 @@ impl super::super::Keep for super::Keep {
             block: Block::default(),
             cssa: usize::default(),
             how: EENTER,
+            #[cfg(feature = "gdb")]
+            gdb_fd: None,
         })))
     }
 }
 
 impl super::super::Thread for Thread {
-    fn enter(&mut self) -> Result<Command> {
+    fn enter(&mut self) -> Result<Command<'_>> {
         let mut run: Run = unsafe { MaybeUninit::zeroed().assume_init() };
         run.tcs = self.tcs as u64;
         let how = self.how;
@@ -92,7 +98,12 @@ impl super::super::Thread for Thread {
 
         self.how = match run.function as usize {
             EENTER | ERESUME if run.vector == Vector::InvalidOpcode => EENTER,
+
+            #[cfg(feature = "gdb")]
+            EENTER | ERESUME if run.vector == Vector::Page => EENTER,
+
             EEXIT => ERESUME,
+
             _ => panic!("Unexpected AEX: {:?}", run.vector),
         };
 
@@ -118,6 +129,15 @@ impl super::super::Thread for Thread {
             if let (EENTER, ERESUME) = (how, self.how) {
                 match unsafe { self.block.msg.req }.num.into() {
                     SYS_ENARX_CPUID => return Ok(Command::CpuId(&mut self.block)),
+
+                    #[cfg(feature = "gdb")]
+                    sallyport::syscall::SYS_ENARX_GDB_START
+                    | sallyport::syscall::SYS_ENARX_GDB_PEEK
+                    | sallyport::syscall::SYS_ENARX_GDB_READ
+                    | sallyport::syscall::SYS_ENARX_GDB_WRITE => {
+                        return Ok(Command::Gdb(&mut self.block, &mut self.gdb_fd))
+                    }
+
                     _ => return Ok(Command::SysCall(&mut self.block)),
                 }
             }

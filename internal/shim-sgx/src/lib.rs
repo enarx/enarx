@@ -6,18 +6,19 @@
 //! instructions) from the enclave code and proxies them to the host.
 
 #![cfg_attr(not(test), no_std)]
-#![feature(asm)]
+#![feature(asm, asm_const, asm_sym)]
 #![feature(naked_functions)]
 #![deny(clippy::all)]
 #![deny(missing_docs)]
+#![warn(rust_2018_idioms)]
 
 pub mod entry;
 pub mod handler;
 pub mod heap;
 
-use sgx::parameters::{Attributes, Features, Xfrm};
+use sgx::parameters::{Attributes, Features, MiscSelect, Xfrm};
 
-const DEBUG: bool = false;
+const DEBUG: bool = cfg!(feature = "dbg");
 
 /// FIXME: doc
 pub const ENCL_SIZE_BITS: u8 = 31;
@@ -25,14 +26,25 @@ pub const ENCL_SIZE_BITS: u8 = 31;
 pub const ENCL_SIZE: usize = 1 << ENCL_SIZE_BITS;
 
 const XFRM: Xfrm = Xfrm::from_bits_truncate(Xfrm::X87.bits() | Xfrm::SSE.bits());
-/// FIXME: doc
+
+/// Default enclave CPU attributes
 pub const ATTR: Attributes = Attributes::new(Features::MODE64BIT, XFRM);
+
+/// Default miscelaneous SSA data selector
+pub const MISC: MiscSelect = {
+    if cfg!(dbg) {
+        MiscSelect::EXINFO
+    } else {
+        MiscSelect::empty()
+    }
+};
 
 // NOTE: You MUST take the address of these symbols for them to work!
 extern "C" {
     /// Extern
     pub static ENARX_EXEC_START: u8;
-    //static ENARX_EXEC_END: u8;
+    /// Extern
+    pub static ENARX_EXEC_END: u8;
     /// Extern
     pub static ENARX_HEAP_START: u8;
     /// Extern

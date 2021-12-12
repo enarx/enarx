@@ -13,21 +13,15 @@
 //! [this wiki page](https://github.com/enarx/enarx/wiki/Reproducible-builds-and-Machine-setup)
 //! for instructions.
 //!
-//! # Building and Testing
+//! # Building and Testing Enarx
 //!
 //! Please see [BUILD.md](https://github.com/enarx/enarx/blob/main/BUILD.md) for instructions.
 //!
-//! # Install
+//! # Installing Enarx
 //!
-//! First install all the build dependencies (see [BUILD.md](https://github.com/enarx/enarx/blob/main/BUILD.md)).
-//!
-//! Install directly from `crates.io`:
-//!
-//!     $ cargo install --bin enarx -- enarx
-//!
-//! or from the checked out git repository:
-//!
-//!     $ cargo install --bin enarx --path ./
+//! Please see
+//! [this wiki page](https://github.com/enarx/enarx/wiki/Install-Enarx)
+//! for instructions.
 //!
 //! # Build and run a WebAssembly module
 //!
@@ -67,6 +61,9 @@
 
 #![deny(clippy::all)]
 #![deny(missing_docs)]
+#![warn(rust_2018_idioms)]
+// protobuf-codegen-pure would generate warnings
+#![allow(elided_lifetimes_in_paths)]
 #![feature(asm)]
 
 mod backend;
@@ -111,7 +108,13 @@ fn main() -> Result<()> {
         cli::Command::Exec(exec) => {
             let backend = exec.backend.pick()?;
             let binary = mmarinus::Kind::Private.load::<mmarinus::perms::Read, _>(&exec.binpath)?;
-            keep_exec(backend, backend.shim(), binary)
+            #[cfg(not(feature = "gdb"))]
+            let gdblisten = None;
+
+            #[cfg(feature = "gdb")]
+            let gdblisten = Some(exec.gdblisten);
+
+            keep_exec(backend, backend.shim(), binary, gdblisten)
         }
         cli::Command::Run(run) => {
             let modfile = File::open(run.module)?;
@@ -127,14 +130,25 @@ fn main() -> Result<()> {
             // TODO: pass open_fd (or its contents) into the keep.
             let backend = run.backend.pick()?;
             let workldr = run.workldr.pick()?;
-            keep_exec(backend, backend.shim(), workldr.exec())
+            #[cfg(not(feature = "gdb"))]
+            let gdblisten = None;
+
+            #[cfg(feature = "gdb")]
+            let gdblisten = Some(run.gdblisten);
+
+            keep_exec(backend, backend.shim(), workldr.exec(), gdblisten)
         }
         #[cfg(feature = "backend-sev")]
         cli::Command::Sev(cmd) => cli::sev::run(cmd),
     }
 }
 
-fn keep_exec(backend: &dyn Backend, shim: impl AsRef<[u8]>, exec: impl AsRef<[u8]>) -> Result<()> {
+fn keep_exec(
+    backend: &dyn Backend,
+    shim: impl AsRef<[u8]>,
+    exec: impl AsRef<[u8]>,
+    _gdblisten: Option<String>,
+) -> Result<()> {
     let keep = backend.keep(shim.as_ref(), exec.as_ref())?;
     let mut thread = keep.clone().spawn()?.unwrap();
     loop {
@@ -154,6 +168,11 @@ fn keep_exec(backend: &dyn Backend, shim: impl AsRef<[u8]>, exec: impl AsRef<[u8
                 block.msg.req.arg[2] = cpuid.ecx.into();
                 block.msg.req.arg[3] = cpuid.edx.into();
             },
+
+            #[cfg(feature = "gdb")]
+            Command::Gdb(block, gdb_fd) => {
+                backend::handle_gdb(block, gdb_fd, _gdblisten.as_ref().unwrap());
+            }
 
             Command::Continue => (),
         }

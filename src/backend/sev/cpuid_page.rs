@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-//! FIXME
+//! Structures and methods to handle the SEV-SNP CPUID page
 
 use const_default::ConstDefault;
 
@@ -51,13 +51,13 @@ impl ConstDefault for CpuidPageEntry {
         count: 0,
         reserved_1: 0,
         reserved_2: 0,
-        functions: [CpuidFunctionEntry::DEFAULT; COUNT_MAX],
+        functions: [<CpuidFunctionEntry as ConstDefault>::DEFAULT; COUNT_MAX],
     };
 }
 
 impl Default for CpuidPageEntry {
     fn default() -> Self {
-        Self::DEFAULT
+        <Self as ConstDefault>::DEFAULT
     }
 }
 
@@ -84,7 +84,7 @@ impl ConstDefault for CpuidPage {
 
 impl Default for CpuidPage {
     fn default() -> Self {
-        Self::DEFAULT
+        <Self as ConstDefault>::DEFAULT
     }
 }
 
@@ -159,11 +159,14 @@ impl CpuidPage {
                 ..Default::default()
             };
 
-            // FIXME: document why
-            // taken from https://github.com/AMDESE/qemu/commit/9ad35600356a2fe1bb1aea6d5f95ea86d205b25d
             if snp_cpuid_entry.eax_in == 0xD
                 && (snp_cpuid_entry.ecx_in == 0x0 || snp_cpuid_entry.ecx_in == 0x1)
             {
+                // Workaround copied from https://github.com/AMDESE/qemu/commit/9ad35600356a2fe1bb1aea6d5f95ea86d205b25d
+
+                // The value returned in EBX gives the save area size requirement in bytes based on the features
+                // currently enabled in the XFEATURE_ENABLED_MASK (XCR0).
+
                 snp_cpuid_entry.ebx = 0x240;
             }
 

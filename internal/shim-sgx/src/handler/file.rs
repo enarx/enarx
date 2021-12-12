@@ -9,7 +9,7 @@ impl<'a> FileSyscallHandler for super::Handler<'a> {
     fn readv(
         &mut self,
         fd: libc::c_int,
-        iovec: UntrustedRef<libc::iovec>,
+        iovec: UntrustedRef<'_, libc::iovec>,
         iovcnt: libc::c_int,
     ) -> sallyport::Result {
         self.trace("readv", 3);
@@ -64,7 +64,7 @@ impl<'a> FileSyscallHandler for super::Handler<'a> {
     fn writev(
         &mut self,
         fd: libc::c_int,
-        iovec: UntrustedRef<libc::iovec>,
+        iovec: UntrustedRef<'_, libc::iovec>,
         iovcnt: libc::c_int,
     ) -> sallyport::Result {
         self.trace("writev", 3);

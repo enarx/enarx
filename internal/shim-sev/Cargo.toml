@@ -2,35 +2,40 @@
 name = "shim-sev"
 version = "0.1.0"
 authors = ["The Enarx Project Developers"]
-edition = "2018"
+edition = "2021"
 license = "Apache-2.0"
 
 [[bin]]
 name = "shim-sev"
 test = false
 
+[features]
+gdb = [ "gdbstub", "gdbstub_arch", "dbg" ]
+dbg = []
+
 [dependencies]
-compiler_builtins = { version = "0.1", default-features = false, features = [ "mem" ] }
+compiler_builtins = { version = "0.1.65", default-features = false, features = [ "mem" ] }
 x86_64 = { version = "^0.14.6", default-features = false, features = ["instructions", "inline_asm"] }
+gdbstub_arch = { version = "0.1.1" , default-features = false, optional = true }
+gdbstub = { version = "0.5.0" , default-features = false, optional = true }
 goblin = { version = "0.4", default-features = false, features = [ "elf64" ] }
 crt0stack = { version = "0.1", default-features = false }
 spinning = { version = "0.1", default-features = false }
-libc = { version = "0.2", default-features = false }
+libc = { version = "0.2.50", default-features = false }
 primordial = "0.3"
-sallyport = "0.1"
-xsave = "1.0.0"
-noted = "^1.0.0"
+sallyport = { git = "https://github.com/enarx/sallyport", rev = "dd42c91cc9e5cbc74f342eede3bc072f60ba11bd" }
+xsave = "2.0.0"
+noted = "1.0.0"
 nbytes = "0.1"
 rcrt1 = "1.0.0"
 lset = "0.2"
 array-const-fn-init = "0.1"
 linked_list_allocator = { version = "0.9.1", default-features = false }
-bit_field = "0.10.1"
-bitflags = "1.3.2"
-lock_api = "0.4.5"
-aes-gcm = { version = "0.9.4", features = ["aes"], default-features = false  }
-const-default = { version = "0.2", features = [ "derive" ] }
-paste = "1.0.5"
+bit_field = "0.10"
+bitflags = "1.3"
+lock_api = "0.4"
+aes-gcm = { version = "0.9", features = ["aes"], default-features = false  }
+const-default = { version = "1.0", features = [ "derive" ] }
 
 [dev-dependencies]
 memoffset = "0.6.1"

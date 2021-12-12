@@ -6,14 +6,16 @@ use crate::addr::{HostVirtAddr, ShimPhysUnencryptedAddr};
 use crate::allocator::ALLOCATOR;
 use crate::debug::_enarx_asm_triple_fault;
 use crate::eprintln;
+use crate::exec::{NEXT_BRK_RWLOCK, NEXT_MMAP_RWLOCK};
 use crate::hostcall::{HostCall, HOST_CALL_ALLOC};
 use crate::paging::SHIM_PAGETABLE;
-use crate::payload::{NEXT_BRK_RWLOCK, NEXT_MMAP_RWLOCK};
 
 use core::convert::TryFrom;
 use core::mem::size_of;
 use core::ops::{Deref, DerefMut};
 
+use crate::snp::ghcb::{GHCB_EXT, SNP_ATTESTATION_LEN_MAX};
+use crate::snp::snp_active;
 use primordial::{Address, Register};
 use sallyport::syscall::{
     BaseSyscallHandler, EnarxSyscallHandler, FileSyscallHandler, MemorySyscallHandler,
@@ -48,71 +50,106 @@ pub unsafe extern "sysv64" fn _syscall_enter() -> ! {
     const USR_RSP_OFF: usize = size_of::<u32>() + 3 * size_of::<u64>();
 
     asm!(
-    // prepare the stack for sysretq and load the kernel rsp
-    "swapgs",                                           // set gs segment to TSS
+        // prepare the stack for sysretq and load the kernel rsp
+        "swapgs",                                           // set gs segment to TSS
 
-    // swapgs variant of Spectre V1. Disable speculation past this point
-    "lfence",
+        // swapgs variant of Spectre V1. Disable speculation past this point
+        "lfence",
 
-    "mov    QWORD PTR gs:{USR},     rsp",               // save userspace rsp
-    "mov    rsp,                    QWORD PTR gs:{KRN}",// load kernel rsp
-    "push   QWORD PTR gs:{USR}",                        // push userspace rsp - stack_pointer_ring_3
-    "mov    QWORD PTR gs:{USR},     0x0",               // clear userspace rsp in the TSS
-    "push   r11",                                       // push RFLAGS stored in r11
-    "push   rcx",                                       // push userspace return pointer
-    "push   rbp",
-    "mov    rbp,                    rsp",               // Save stack frame
+        "mov    QWORD PTR gs:{USR},     rsp",               // save userspace rsp
+        "mov    rsp,                    QWORD PTR gs:{KRN}",// load kernel rsp
+        "push   QWORD PTR gs:{USR}",                        // push userspace rsp - stack_pointer_ring_3
+        "mov    QWORD PTR gs:{USR},     0x0",               // clear userspace rsp in the TSS
+        "push   r11",                                       // push RFLAGS stored in r11
+        "push   rcx",                                       // push userspace return pointer
+        "push   rbp",
+        "mov    rbp,                    rsp",               // Save stack frame
 
-    // Arguments in registers:
-    // SYSV:    rdi, rsi, rdx, rcx, r8, r9
-    // SYSCALL: rdi, rsi, rdx, r10, r8, r9 and syscall number in rax
-    "mov    rcx,                    r10",
+        // Arguments in registers:
+        // SYSV:    rdi, rsi, rdx, rcx, r8, r9
+        // SYSCALL: rdi, rsi, rdx, r10, r8, r9 and syscall number in rax
+        "mov    rcx,                    r10",
 
-    // These will be preserved by `syscall_rust` via the SYS-V ABI
-    // rbx, rsp, rbp, r12, r13, r14, r15
+        // These will be preserved by `syscall_rust` via the SYS-V ABI
+        // rbx, rsp, rbp, r12, r13, r14, r15
 
-    // save registers
-    "push   rdi",
-    "push   rsi",
-    "push   r10",
-    "push   r9",
-    "push   r8",
+        // save registers
+        "push   rdi",
+        "push   rsi",
+        "push   r10",
+        "push   r9",
+        "push   r8",
 
-    // syscall number on the stack as the seventh argument
-    "push   rax",
+        // syscall number on the stack as the seventh argument
+        "push   rax",
 
-    "call   {syscall_rust}",
+        "call   {syscall_rust}",
 
-    // skip rax pop, as it is the return value
-    "add    rsp,                    0x8",
+        // skip rax pop, as it is the return value
+        "add    rsp,                    0x8",
 
-    // restore registers
-    "pop    r8",
-    "pop    r9",
-    "pop    r10",
-    "pop    rsi",
-    "pop    rdi",
+        // restore registers
+        "pop    r8",
+        "pop    r9",
+        "pop    r10",
+        "pop    rsi",
+        "pop    rdi",
 
-    "pop    rbp",
+        "pop    rbp",
 
-    "pop    rcx",                                       // Pop userspace return pointer
-    "pop    r11",                                       // pop rflags to r11
-    "pop    QWORD PTR gs:{USR}",                        // Pop userspace rsp
-    "mov    rsp, gs:{USR}",                             // Restore userspace rsp
+        "pop    rcx",                                       // Pop userspace return pointer
+        "pop    r11",                                       // pop rflags to r11
+        "pop    QWORD PTR gs:{USR}",                        // Pop userspace rsp
+        "mov    rsp, gs:{USR}",                             // Restore userspace rsp
 
-    "swapgs",
+        "swapgs",
 
-    // swapgs variant of Spectre V1. Disable speculation past this point
-    "lfence",
+        // swapgs variant of Spectre V1. Disable speculation past this point
+        "lfence",
 
-    "sysretq",
+        "sysretq",
 
-    USR = const USR_RSP_OFF,
-    KRN = const KERNEL_RSP_OFF,
-    syscall_rust = sym syscall_rust,
+        USR = const USR_RSP_OFF,
+        KRN = const KERNEL_RSP_OFF,
 
-    options(noreturn)
+        syscall_rust = sym syscall_rust,
+
+        options(noreturn)
     )
+}
+
+/// Do a syscall without the `syscall` op
+pub trait ProxySyscall {
+    /// Proxy a `HostCall` to the host via the Sallyport block
+    fn proxy(&self, hostcall: HostCall) -> Result<(HostCall, [Register<usize>; 2]), libc::c_int>;
+}
+
+impl ProxySyscall for Request {
+    fn proxy(&self, hostcall: HostCall) -> Result<(HostCall, [Register<usize>; 2]), libc::c_int> {
+        let mut h = Handler {
+            hostcall,
+            argv: [
+                self.arg[0].into(),
+                self.arg[1].into(),
+                self.arg[2].into(),
+                self.arg[3].into(),
+                self.arg[4].into(),
+                self.arg[5].into(),
+            ],
+        };
+
+        let ret = h.syscall(
+            self.arg[0],
+            self.arg[1],
+            self.arg[2],
+            self.arg[3],
+            self.arg[4],
+            self.arg[5],
+            self.num.into(),
+        )?;
+
+        Ok((h.hostcall, ret))
+    }
 }
 
 /// Handle a syscall in rust
@@ -204,7 +241,7 @@ impl BaseSyscallHandler for Handler {
         Register::<usize>::from(HostVirtAddr::from(phys_unencrypted)).into()
     }
 
-    fn new_cursor(&mut self) -> Cursor {
+    fn new_cursor(&mut self) -> Cursor<'_> {
         self.hostcall.as_mut_block().cursor()
     }
 
@@ -222,22 +259,38 @@ impl BaseSyscallHandler for Handler {
 impl EnarxSyscallHandler for Handler {
     fn get_attestation(
         &mut self,
-        _nonce: UntrustedRef<u8>,
-        _nonce_len: libc::size_t,
-        buf: UntrustedRefMut<u8>,
+        nonce: UntrustedRef<'_, u8>,
+        nonce_len: libc::size_t,
+        buf: UntrustedRefMut<'_, u8>,
         buf_len: libc::size_t,
     ) -> sallyport::Result {
         self.trace("get_attestation", 4);
-        let fake_secret = [79u8, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14];
-        let mut result_len = fake_secret.len();
-        if buf_len != 0 {
-            result_len = result_len.min(buf_len);
-            let buf = buf.validate_slice(buf_len, self).ok_or(libc::EFAULT)?;
 
-            buf[..result_len].copy_from_slice(&fake_secret[..result_len]);
+        if !snp_active() {
+            return Ok([0.into(), 0.into()]);
         }
 
-        Ok([result_len.into(), SEV_TECH.into()])
+        if buf_len == 0 {
+            return Ok([SNP_ATTESTATION_LEN_MAX.into(), SEV_TECH.into()]);
+        }
+
+        if buf_len < SNP_ATTESTATION_LEN_MAX {
+            return Err(libc::EINVAL);
+        }
+
+        if nonce_len != 64 {
+            return Err(libc::EINVAL);
+        }
+
+        let nonce = nonce.validate_slice(nonce_len, self).ok_or(libc::EFAULT)?;
+
+        let buf = buf.validate_slice(buf_len, self).ok_or(libc::EFAULT)?;
+
+        let len = GHCB_EXT
+            .get_report(1, nonce, buf)
+            .map_err(|e| e as libc::c_int)?;
+
+        Ok([len.into(), SEV_TECH.into()])
     }
 }
 
@@ -282,7 +335,7 @@ impl ProcessSyscallHandler for Handler {
 }
 
 impl MemorySyscallHandler for Handler {
-    fn mprotect(&mut self, addr: UntrustedRef<u8>, len: usize, prot: i32) -> sallyport::Result {
+    fn mprotect(&mut self, addr: UntrustedRef<'_, u8>, len: usize, prot: i32) -> sallyport::Result {
         self.trace("mprotect", 3);
         let addr = addr.as_ptr();
 
@@ -327,7 +380,7 @@ impl MemorySyscallHandler for Handler {
 
     fn mmap(
         &mut self,
-        addr: UntrustedRef<u8>,
+        addr: UntrustedRef<'_, u8>,
         length: usize,
         prot: i32,
         flags: i32,
@@ -384,7 +437,7 @@ impl MemorySyscallHandler for Handler {
         }
     }
 
-    fn munmap(&mut self, addr: UntrustedRef<u8>, length: usize) -> sallyport::Result {
+    fn munmap(&mut self, addr: UntrustedRef<'_, u8>, length: usize) -> sallyport::Result {
         self.trace("munmap", 2);
 
         let addr = addr.validate_slice(length, self).ok_or(libc::EINVAL)?;

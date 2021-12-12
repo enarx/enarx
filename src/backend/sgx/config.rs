@@ -8,6 +8,7 @@ use sallyport::elf;
 use sgx::page::{Flags, SecInfo};
 use sgx::parameters::{Masked, Parameters};
 
+#[derive(Debug)]
 pub struct Config {
     pub parameters: Parameters,
     pub ssap: NonZeroU32,
@@ -27,6 +28,11 @@ impl super::super::Config for Config {
         }
         if flags & PF_X != 0 {
             rwx |= Flags::EXECUTE;
+
+            // Debugging with gdb also involves modifying executable memory
+            if cfg!(feature = "gdb") {
+                rwx |= Flags::WRITE;
+            }
         }
 
         let m = flags & elf::pf::sgx::UNMEASURED == 0;
@@ -38,7 +44,7 @@ impl super::super::Config for Config {
         (si, m)
     }
 
-    fn new(shim: &super::super::Binary, _exec: &super::super::Binary) -> Result<Self> {
+    fn new(shim: &super::super::Binary<'_>, _exec: &super::super::Binary<'_>) -> Result<Self> {
         unsafe {
             let params: Parameters = Parameters {
                 misc: Masked {

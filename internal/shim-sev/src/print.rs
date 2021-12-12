@@ -11,7 +11,7 @@ struct HostWrite(HostFd);
 
 // FIXME: remove, if https://github.com/enarx/enarx/issues/831 is fleshed out
 /// Global flag allowing debug output.
-pub const TRACE: bool = false;
+pub const TRACE: bool = cfg!(feature = "dbg");
 
 /// start with printing disabled
 static mut PRINT_INHIBITOR: AtomicUsize = AtomicUsize::new(1);
@@ -66,7 +66,7 @@ impl fmt::Write for HostWrite {
 
 #[doc(hidden)]
 #[inline(always)]
-pub fn _print(args: fmt::Arguments) {
+pub fn _print(args: fmt::Arguments<'_>) {
     use fmt::Write;
 
     if !is_printing_enabled() {
@@ -81,7 +81,7 @@ pub fn _print(args: fmt::Arguments) {
 
 #[doc(hidden)]
 #[inline(always)]
-pub fn _eprint(args: fmt::Arguments) {
+pub fn _eprint(args: fmt::Arguments<'_>) {
     use fmt::Write;
 
     if !is_printing_enabled() {
@@ -147,7 +147,7 @@ macro_rules! println {
 #[macro_export]
 macro_rules! eprint {
     ($($arg:tt)*) => {
-        if $crate::print::TRACE { $crate::print::_eprint(format_args!($($arg)*)) };
+        if $crate::print::TRACE { $crate::print::_eprint(format_args!($($arg)*)) }
     };
 }
 
