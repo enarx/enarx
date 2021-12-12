@@ -1,10 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
-//! GHCB
-
-// FIXME: https://github.com/enarx/enarx/issues/991
-#![allow(missing_docs)]
-#![allow(clippy::result_unit_err)]
+//! Guest Hypervisor Communication Block (GHCB)
+//!
+//! This module provides methods to communicate with the host (hypervisor)
+//! and the SEV-SNP firmware via a shared memory GHCB.
 
 use crate::addr::SHIM_VIRT_OFFSET;
 use crate::pagetables::{clear_c_bit_address_range, smash};
@@ -25,89 +24,89 @@ use x86_64::registers::model_specific::Msr;
 use x86_64::structures::paging::{Page, Size4KiB};
 use x86_64::{PhysAddr, VirtAddr};
 
-pub const SEV_GHCB_MSR: u32 = 0xc001_0130u32;
+/// The GHCB MSR
+pub struct GhcbMsr;
 
-pub const GHCB_MSR_GPA_REQ: u64 = 0x12;
-pub const GHCB_MSR_GPA_RESP: u64 = 0x13;
-pub const GHCB_MSR_PSC_REQ: u64 = 0x14;
-pub const GHCB_MSR_PSC_RESP: u64 = 0x15;
+impl GhcbMsr {
+    /// The underlying model specific register.
+    pub const MSR: Msr = Msr::new(0xC001_0130);
 
-pub const GHCB_MSR_EXIT_REQ: u64 = 0x100;
+    const GPA_REQ: u64 = 0x12;
+    const GPA_RESP: u64 = 0x13;
+    const PSC_REQ: u64 = 0x14;
+    const PSC_RESP: u64 = 0x15;
 
-pub const GHCB_MSR_PSC_OP_POS: u64 = 52;
-pub const GHCB_MSR_PSC_GFN_POS: u64 = 12;
-pub const GHCB_MSR_PSC_ERROR_POS: u64 = 32;
+    /// Request an VM exit via the GHCB MSR protocol
+    pub const EXIT_REQ: u64 = 0x100;
 
-pub const SNP_PAGE_STATE_PRIVATE: u64 = 1;
-pub const SNP_PAGE_STATE_SHARED: u64 = 2;
+    const PSC_OP_POS: u64 = 52;
+    const PSC_ERROR_POS: u64 = 32;
+    const PSC_ERROR_MASK: u64 = u64::MAX >> Self::PSC_ERROR_POS;
+}
 
-pub const GHCB_PROTOCOL_MIN: u16 = 1;
-pub const GHCB_PROTOCOL_MAX: u16 = 2;
-pub const GHCB_DEFAULT_USAGE: u32 = 0;
+const SNP_GUEST_MSG_PAYLOAD_LEN: usize = 4000;
 
-pub const IOIO_TYPE_OUT: u64 = 0;
-pub const IOIO_DATA_16: u64 = 1 << 5;
-pub const SVM_EXIT_IOIO_PROT: u64 = 0x7B;
+/// Maximum length of an attestation report
+pub const SNP_ATTESTATION_LEN_MAX: usize = SNP_GUEST_MSG_PAYLOAD_LEN;
 
-pub const SVM_VMGEXIT_PSC: u64 = 0x80000010;
-pub const SVM_VMGEXIT_GUEST_REQUEST: u64 = 0x80000011;
-pub const SVM_VMGEXIT_EXT_GUEST_REQUEST: u64 = 0x80000012;
-
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, PartialEq)]
 #[repr(u8)]
 #[non_exhaustive]
-pub enum SnpMsgType {
-    TypeInvalid = 0,
-    CpuidReq,
-    CpuidRsp,
-    KeyReq,
-    KeyRsp,
-    ReportReq,
-    ReportRsp,
-    ExportReq,
-    ExportRsp,
-    ImportReq,
-    ImportRsp,
-    AbsorbReq,
-    AbsorbRsp,
-    VmrkReq,
-    VmrkRsp,
+enum SnpMsgType {
+    /*
+       TypeInvalid = 0,
+       CpuidReq,
+       CpuidRsp,
+       KeyReq,
+       KeyRsp,
+    */
+    ReportReq = 5,
+    ReportRsp = 6,
+    /*
+       ExportReq,
+       ExportRsp,
+       ImportReq,
+       ImportRsp,
+       AbsorbReq,
+       AbsorbRsp,
+       VmrkReq,
+       VmrkRsp,
+    */
 }
 
 #[derive(Copy, Clone)]
 #[repr(u8)]
 #[non_exhaustive]
-pub enum AeadAlgo {
-    SnpAeadInvalid = 0,
-    SnpAeadAes256Gcm,
+enum AeadAlgo {
+    // SnpAeadInvalid = 0,
+    SnpAeadAes256Gcm = 1,
 }
 
-pub const AAD_LEN: usize = 48;
-pub const MSG_HDR_VER: u8 = 1;
+const MSG_HDR_VER: u8 = 1;
 
-pub const MAX_AUTHTAG_LEN: usize = 32;
+const MAX_AUTHTAG_LEN: usize = 32;
 
 /// Header of a SnpGuestMsg
 #[derive(Copy, Clone, Debug, ConstDefault)]
 #[repr(C)]
 pub struct SnpGuestMsgHdr {
-    pub authtag: [u8; MAX_AUTHTAG_LEN],
-    pub msg_seqno: u64,
+    authtag: [u8; MAX_AUTHTAG_LEN],
+    msg_seqno: u64,
     rsvd1: [u8; 8],
-    pub algo: u8,
-    pub hdr_version: u8,
-    pub hdr_sz: u16,
-    pub msg_type: u8,
-    pub msg_version: u8,
-    pub msg_sz: u16,
+    algo: u8,
+    hdr_version: u8,
+    hdr_sz: u16,
+    msg_type: u8,
+    msg_version: u8,
+    msg_sz: u16,
     rsvd2: u32,
-    pub msg_vmpck: u8,
+    msg_vmpck: u8,
     rsvd3: [u8; 35],
 }
 
 impl Default for SnpGuestMsgHdr {
     fn default() -> Self {
-        Self::DEFAULT
+        <Self as ConstDefault>::DEFAULT
     }
 }
 
@@ -115,13 +114,13 @@ impl Default for SnpGuestMsgHdr {
 #[derive(Debug, Copy, Clone, ConstDefault)]
 #[repr(C, align(4096))]
 pub struct SnpGuestMsg {
-    pub hdr: SnpGuestMsgHdr,
-    pub payload: [u8; 4000],
+    hdr: SnpGuestMsgHdr,
+    payload: [u8; SNP_GUEST_MSG_PAYLOAD_LEN],
 }
 
 impl Default for SnpGuestMsg {
     fn default() -> Self {
-        Self::DEFAULT
+        <Self as ConstDefault>::DEFAULT
     }
 }
 
@@ -129,20 +128,20 @@ impl Default for SnpGuestMsg {
 #[derive(Copy, Clone)]
 #[repr(C)]
 #[non_exhaustive]
-pub enum RmpPgSize {
+enum RmpPgSize {
     Size4k = 0,
-    Size2m,
+    // Size2m,
 }
 
 /// GHCB page operation
 #[derive(Copy, Clone)]
 #[repr(C)]
 #[non_exhaustive]
-pub enum RmpPgOp {
-    Private = 1,
-    Shared,
-    PSmash,
-    UnSmash,
+enum RmpPgOp {
+    // Private = 1,
+    Shared = 2,
+    // PSmash,
+    // UnSmash,
 }
 
 /// GHCB page state entry
@@ -155,21 +154,19 @@ pub struct PscEntry {
 impl PscEntry {
     #[inline(always)]
     #[allow(clippy::integer_arithmetic)]
-    pub fn set_entry(&mut self, cur_page: u64, operation: RmpPgOp, pagesize: RmpPgSize) {
+    fn set_entry(&mut self, cur_page: u64, operation: RmpPgOp, pagesize: RmpPgSize) {
         self.entry = cur_page | ((operation as u64) << 52) | ((pagesize as u64) << 56)
     }
 }
 
-pub const VMGEXIT_PSC_MAX_ENTRY: usize = 253;
-
 /// GHCB page state description
 #[derive(Debug, Copy, Clone, ConstDefault)]
 #[repr(C)]
-pub struct SnpPscDesc {
+struct SnpPscDesc {
     pub cur_entry: u16,
     pub end_entry: u16,
     pub reserved: u32,
-    pub entries: [PscEntry; VMGEXIT_PSC_MAX_ENTRY],
+    pub entries: [PscEntry; 253],
 }
 
 /// GHCB Save Area
@@ -177,22 +174,22 @@ pub struct SnpPscDesc {
 #[repr(C, packed)]
 pub struct GhcbSaveArea {
     reserved1: [u8; 203],
-    pub cpl: u8,
+    cpl: u8,
     reserved8: [u8; 300],
-    pub rax: u64,
+    rax: u64,
     reserved4: [u8; 264],
-    pub rcx: u64,
-    pub rdx: u64,
-    pub rbx: u64,
+    rcx: u64,
+    rdx: u64,
+    rbx: u64,
     reserved5: [u8; 112],
-    pub sw_exit_code: u64,
-    pub sw_exit_info1: u64,
-    pub sw_exit_info2: u64,
-    pub sw_scratch: u64,
+    sw_exit_code: u64,
+    sw_exit_info1: u64,
+    sw_exit_info2: u64,
+    sw_scratch: u64,
     reserved6: [u8; 56],
-    pub xcr0: u64,
-    pub valid_bitmap: [u8; 16],
-    pub x87state_gpa: u64,
+    xcr0: u64,
+    valid_bitmap: [u8; 16],
+    x87state_gpa: u64,
     reserved7: [u8; 1016],
 }
 
@@ -200,15 +197,27 @@ pub struct GhcbSaveArea {
 #[derive(Debug, Copy, Clone, ConstDefault)]
 #[repr(C, align(4096))]
 pub struct Ghcb {
-    pub save_area: GhcbSaveArea,
-    pub shared_buffer: [u8; 2032],
+    save_area: GhcbSaveArea,
+    shared_buffer: [u8; 2032],
     reserved1: [u8; 10],
-    pub protocol_version: u16,
-    pub ghcb_usage: u32,
+    protocol_version: u16,
+    ghcb_usage: u32,
+}
+
+#[derive(Copy, Clone)]
+#[non_exhaustive]
+enum GhcbError {
+    /// Unexpected state from the VMM
+    VmmError,
+    /// Instruction caused exception
+    Exception,
 }
 
 /// make a page shared with the GHCB MSR Protocol
 fn ghcb_msr_make_page_shared(page_virt: VirtAddr) {
+    // const SNP_PAGE_STATE_PRIVATE: u64 = 1;
+    const SNP_PAGE_STATE_SHARED: u64 = 2;
+
     smash(page_virt).unwrap();
 
     unsafe { pvalidate(page_virt, PvalidateSize::Size4K, false).unwrap() };
@@ -221,16 +230,14 @@ fn ghcb_msr_make_page_shared(page_virt: VirtAddr) {
 
     let gpa = page_virt - SHIM_VIRT_OFFSET;
 
-    const SHARED_BIT: u64 = SNP_PAGE_STATE_SHARED << GHCB_MSR_PSC_OP_POS;
+    const SHARED_BIT: u64 = SNP_PAGE_STATE_SHARED << GhcbMsr::PSC_OP_POS;
 
     let val = gpa.as_u64() | SHARED_BIT;
 
     unsafe {
-        let ret = vmgexit_msr(GHCB_MSR_PSC_REQ, val, GHCB_MSR_PSC_RESP);
+        let ret = vmgexit_msr(GhcbMsr::PSC_REQ, val, GhcbMsr::PSC_RESP);
 
-        const GHCB_MSR_PSC_ERROR_MASK: u64 = u64::MAX >> GHCB_MSR_PSC_ERROR_POS;
-
-        if (ret & GHCB_MSR_PSC_ERROR_MASK) != 0 {
+        if (ret & GhcbMsr::PSC_ERROR_MASK) != 0 {
             crate::debug::_early_debug_panic(4, 0x33);
         }
     }
@@ -244,7 +251,7 @@ fn ghcb_msr_make_page_shared(page_virt: VirtAddr) {
 pub unsafe fn vmgexit_msr(request_code: u64, value: u64, expected_response: u64) -> u64 {
     let val = request_code | value;
 
-    let mut msr: Msr = Msr::new(SEV_GHCB_MSR);
+    let mut msr = GhcbMsr::MSR;
 
     msr.write(val);
 
@@ -277,14 +284,14 @@ impl GhcbHandle {
         unsafe {
             let gpa = (ghcb_virt - SHIM_VIRT_OFFSET).as_u64();
 
-            let ret = vmgexit_msr(GHCB_MSR_GPA_REQ, gpa, GHCB_MSR_GPA_RESP);
+            let ret = vmgexit_msr(GhcbMsr::GPA_REQ, gpa, GhcbMsr::GPA_RESP);
 
             if ret != gpa {
                 crate::debug::_early_debug_panic(4, 0x34);
             }
         }
 
-        *ghcb = Ghcb::DEFAULT;
+        *ghcb = <Ghcb as ConstDefault>::DEFAULT;
 
         Self { ghcb }
     }
@@ -293,12 +300,16 @@ impl GhcbHandle {
     ///
     /// # Safety
     /// undefined behaviour if not everything is setup according to the GHCB protocol
-    pub unsafe fn vmgexit(
+    unsafe fn vmgexit(
         &mut self,
         exit_code: u64,
         exit_info_1: u64,
         exit_info_2: u64,
-    ) -> Result<(), ()> {
+    ) -> Result<(), GhcbError> {
+        // const GHCB_PROTOCOL_MIN: u16 = 1;
+        const GHCB_PROTOCOL_MAX: u16 = 2;
+        const GHCB_DEFAULT_USAGE: u32 = 0;
+
         self.ghcb.save_area.sw_exit_code = exit_code;
         self.set_offset_valid(ptr::addr_of!(self.ghcb.save_area.sw_exit_code) as _);
 
@@ -315,8 +326,9 @@ impl GhcbHandle {
         // prevent earlier writes from being moved beyond this point
         core::sync::atomic::compiler_fence(core::sync::atomic::Ordering::Release);
 
-        let mut msr: Msr = Msr::new(SEV_GHCB_MSR);
         let gpa = (VirtAddr::from_ptr(self.ghcb) - SHIM_VIRT_OFFSET).as_u64();
+        let mut msr = GhcbMsr::MSR;
+
         msr.write(gpa);
 
         asm!("rep vmmcall", options(nostack));
@@ -324,11 +336,29 @@ impl GhcbHandle {
         // prevent later reads from being moved before this point
         core::sync::atomic::compiler_fence(core::sync::atomic::Ordering::Acquire);
 
-        if (self.ghcb.save_area.sw_exit_info1 & 0xffffffff) == 1 {
-            // FIXME: add VmgExitErrorCheck
+        if (self.ghcb.save_area.sw_exit_info1 & 0xffff_ffff) == 1 {
+            const SVM_EVTINJ_VALID: u64 = 1 << 31;
+            const SVM_EVTINJ_TYPE_SHIFT: u64 = 8;
+            const SVM_EVTINJ_TYPE_MASK: u64 = 7 << SVM_EVTINJ_TYPE_SHIFT;
+            const SVM_EVTINJ_TYPE_EXEPT: u64 = 3 << SVM_EVTINJ_TYPE_SHIFT;
+            const SVM_EVTINJ_VEC_MASK: u64 = 0xff;
+            const UD: u64 = 6;
+            const GP: u64 = 13;
+
+            // VmgExitErrorCheck, see
             // https://github.com/AMDESE/ovmf/blob/sev-snp-v6/OvmfPkg/Library/VmgExitLib/VmgExitLib.c
             // or linux kernel arch/x86/kernel/sev-shared.c
-            Err(())
+            let exit_info2 = self.ghcb.save_area.sw_exit_info2;
+            let vector = exit_info2 & SVM_EVTINJ_VEC_MASK;
+
+            if (exit_info2 & SVM_EVTINJ_VALID != 0)
+                && (exit_info2 & SVM_EVTINJ_TYPE_MASK == SVM_EVTINJ_TYPE_EXEPT)
+                && (vector == GP || vector == UD)
+            {
+                return Err(GhcbError::Exception);
+            }
+
+            Err(GhcbError::VmmError)
         } else {
             Ok(())
         }
@@ -356,6 +386,10 @@ impl GhcbHandle {
 impl RwLocked<GhcbHandle> {
     /// GHCB IOIO_PROT
     pub fn do_io_out(&self, portnumber: u16, value: u16) {
+        const IOIO_TYPE_OUT: u64 = 0;
+        const IOIO_DATA_16: u64 = 1 << 5;
+        const SVM_EXIT_IOIO_PROT: u64 = 0x7B;
+
         let mut this = self.write();
 
         this.invalidate();
@@ -382,6 +416,8 @@ impl RwLocked<GhcbHandle> {
 
     /// turn physical pages to decrypted / shared
     pub fn set_memory_shared(&self, virt_addr: VirtAddr, npages: usize) {
+        const SVM_VMGEXIT_PSC: u64 = 0x80000010;
+
         (virt_addr.as_u64()
             ..(virt_addr + Page::<Size4KiB>::SIZE.checked_mul(npages as u64).unwrap()).as_u64())
             .step_by(Page::<Size4KiB>::SIZE as usize)
@@ -404,10 +440,10 @@ impl RwLocked<GhcbHandle> {
         let psc_desc: &mut SnpPscDesc =
             unsafe { &mut *(this.ghcb.shared_buffer.as_mut_ptr() as *mut SnpPscDesc) };
 
-        *psc_desc = SnpPscDesc::DEFAULT;
+        *psc_desc = <SnpPscDesc as ConstDefault>::DEFAULT;
 
         // FIXME
-        assert!(VMGEXIT_PSC_MAX_ENTRY >= npages);
+        assert!(psc_desc.entries.len() >= npages);
 
         psc_desc.cur_entry = 0;
         psc_desc.end_entry = (npages as u16).checked_sub(1).unwrap();
@@ -464,6 +500,8 @@ impl RwLocked<GhcbHandle> {
     /// # Safety
     /// undefined behaviour, if the parameters don't follow the GHCB protocol
     pub unsafe fn guest_req(&self, req_gpa: PhysAddr, resp_gpa: PhysAddr) -> Result<(), u64> {
+        const SVM_VMGEXIT_GUEST_REQUEST: u64 = 0x80000011;
+
         let mut this = self.write();
 
         this.invalidate();
@@ -492,7 +530,9 @@ impl RwLocked<GhcbHandle> {
         num_pages: u64,
         req_gpa: PhysAddr,
         resp_gpa: PhysAddr,
-    ) {
+    ) -> Result<(), u64> {
+        const SVM_VMGEXIT_EXT_GUEST_REQUEST: u64 = 0x80000012;
+
         let mut this = self.write();
 
         this.invalidate();
@@ -510,11 +550,20 @@ impl RwLocked<GhcbHandle> {
             req_gpa.as_u64(),
             resp_gpa.as_u64(),
         )
-        .unwrap();
+        .map_err(|_| u64::MAX)?;
+
+        if this.ghcb.save_area.sw_exit_info2 != 0 {
+            // FIXME: check for SNP_GUEST_REQ_INVALID_LEN == 0x100000000ULL
+            // then extract expected number of pages in
+            // this.ghcb.save_area.rbx if set
+            Err(this.ghcb.save_area.sw_exit_info2)
+        } else {
+            Ok(())
+        }
     }
 }
 
-/// A handle to the GHCB extended
+/// A handle to the GHCB extended request
 #[derive(Debug, ConstDefault)]
 pub struct GhcbExtHandle {
     request: SnpGuestMsg,
@@ -523,11 +572,11 @@ pub struct GhcbExtHandle {
 
 impl Default for GhcbExtHandle {
     fn default() -> Self {
-        Self::DEFAULT
+        <Self as ConstDefault>::DEFAULT
     }
 }
 
-static mut GHCBEXTHANDLE: GhcbExtHandle = GhcbExtHandle::DEFAULT;
+static mut GHCBEXTHANDLE: GhcbExtHandle = <GhcbExtHandle as ConstDefault>::DEFAULT;
 
 /// The global Enarx GHCB Ext
 pub static GHCB_EXT: Lazy<RwLocked<&mut GhcbExtHandle>> = Lazy::new(|| unsafe {
@@ -540,19 +589,17 @@ impl GhcbExtHandle {
         let request_virt = VirtAddr::from_ptr(&self.request);
 
         GHCB.set_memory_shared(request_virt, 1);
-        //ghcb_msr_make_page_shared(request_virt);
 
         let response_virt = VirtAddr::from_ptr(&self.response);
 
         GHCB.set_memory_shared(response_virt, 1);
-        //ghcb_msr_make_page_shared(response_virt);
     }
 
     unsafe fn guest_req(&mut self) -> Result<(), u64> {
         let req_gpa =
             PhysAddr::new((VirtAddr::from_ptr(&self.request) - SHIM_VIRT_OFFSET).as_u64());
 
-        self.response = SnpGuestMsg::DEFAULT;
+        self.response = <SnpGuestMsg as ConstDefault>::DEFAULT;
 
         let resp_gpa =
             PhysAddr::new((VirtAddr::from_ptr(&self.response) - SHIM_VIRT_OFFSET).as_u64());
@@ -564,6 +611,10 @@ impl GhcbExtHandle {
 
         // prevent later reads from being moved before this point
         core::sync::atomic::compiler_fence(core::sync::atomic::Ordering::Acquire);
+
+        if ret.is_ok() {
+            SECRETS.inc_msg_seqno_0();
+        }
 
         ret
     }
@@ -601,8 +652,6 @@ impl GhcbExtHandle {
             core::slice::from_raw_parts(&self.request.hdr.algo as *const _ as *const u8, 48)
         };
 
-        //FIXME: don't use the shared memory for plaintext
-
         let tag = cipher
             .encrypt_in_place_detached(nonce, asssoc_data, plaintext)
             .map_err(|_| ())?;
@@ -614,18 +663,19 @@ impl GhcbExtHandle {
         Ok(())
     }
 
-    fn dec_payload(&mut self, plaintext: &mut [u8]) -> Result<(), ()> {
+    fn dec_payload(
+        &mut self,
+        plaintext: &mut [u8],
+        expected_msg_type: SnpMsgType,
+    ) -> Result<(), ()> {
         let payload_size = plaintext.len();
 
-        // FIXME
-        #[allow(clippy::integer_arithmetic)]
-        if self.request.hdr.msg_seqno + 1 != self.response.hdr.msg_seqno {
+        let next_seqno = self.request.hdr.msg_seqno.checked_add(1).ok_or(())?;
+        if next_seqno != self.response.hdr.msg_seqno {
             return Err(());
         }
 
-        // FIXME
-        #[allow(clippy::integer_arithmetic)]
-        if self.request.hdr.msg_type + 1 != self.response.hdr.msg_type {
+        if expected_msg_type as u8 != self.response.hdr.msg_type {
             return Err(());
         }
 
@@ -683,57 +733,32 @@ impl GhcbExtHandle {
 }
 
 impl RwLocked<&mut GhcbExtHandle> {
-    /// FIXME: doc
-    pub fn get_report(
-        &self,
-        version: u8,
-        user_data: &[u8; 64],
-        response: &mut [u8; 4000],
-    ) -> Result<(), u64> {
+    /// Get an attestation report via the GHCB shared page protocol
+    pub fn get_report(&self, version: u8, nonce: &[u8], response: &mut [u8]) -> Result<usize, u64> {
+        if nonce.len() != 64 {
+            return Err(libc::EINVAL as _);
+        }
+
+        if response.len() < SNP_ATTESTATION_LEN_MAX {
+            return Err(libc::EINVAL as _);
+        }
+
         let mut this = self.write();
 
-        let mut user_data = *user_data;
+        let mut user_data = [0u8; 64];
+        user_data.copy_from_slice(nonce);
 
-        this.request = SnpGuestMsg::DEFAULT;
+        this.request = <SnpGuestMsg as ConstDefault>::DEFAULT;
 
         this.enc_payload(version, SnpMsgType::ReportReq, &mut user_data)
             .expect("encryption failed");
 
-        unsafe {
-            this.guest_req().expect("request failed");
-        }
+        unsafe { this.guest_req().expect("request failed") };
 
-        this.dec_payload(response).expect("decryption failed");
+        this.dec_payload(response, SnpMsgType::ReportRsp)
+            .expect("decryption failed");
 
-        let resp_slice =
-            unsafe { core::slice::from_raw_parts(&this.response as *const _ as *const u8, 4000) };
-
-        response.copy_from_slice(resp_slice);
-        Ok(())
-    }
-
-    /// FIXME: doc
-    pub fn get_key(&self, version: u8, response: &mut [u8; 4000]) -> Result<(), u64> {
-        let mut this = self.write();
-
-        this.request = SnpGuestMsg::DEFAULT;
-
-        let mut user_data = [0u8; 24];
-
-        this.enc_payload(version, SnpMsgType::KeyReq, &mut user_data)
-            .expect("encryption failed");
-
-        unsafe {
-            this.guest_req().expect("request failed");
-        }
-
-        this.dec_payload(response).expect("decryption failed");
-
-        let resp_slice =
-            unsafe { core::slice::from_raw_parts(&this.response as *const _ as *const u8, 4000) };
-
-        response.copy_from_slice(resp_slice);
-        Ok(())
+        Ok(this.response.hdr.msg_sz as _)
     }
 }
 
@@ -793,7 +818,7 @@ fn test_gcm() {
     use aes_gcm::{Aes256Gcm, Key, Nonce, Tag};
     use std::mem::size_of;
 
-    let mut request = SnpGuestMsg::DEFAULT;
+    let mut request = <SnpGuestMsg as ConstDefault>::DEFAULT;
     let payload_size = 64;
 
     request.hdr.algo = AeadAlgo::SnpAeadAes256Gcm as _;
@@ -836,6 +861,6 @@ fn test_gcm() {
     plaintext[0..request.hdr.msg_sz as usize].copy_from_slice(payload_slice);
 
     let plain_slice = &mut plaintext[0..request.hdr.msg_sz as usize];
-    let dec_ret = cipher.decrypt_in_place_detached(nonce, asssoc_data, plain_slice, &tag);
+    let dec_ret = cipher.decrypt_in_place_detached(nonce, asssoc_data, plain_slice, tag);
     let _ = dec_ret.expect("decrypt failed!");
 }

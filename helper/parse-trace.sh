@@ -4,7 +4,7 @@ SHIM="$1"
 PAYLOAD="$2"
 
 if [[ -z $SHIM ]]; then
-    echo "Usage: $0 <shim> [<payload>]"
+    echo "Usage: $0 <shim> [<exec>]"
 fi
 
 strstr() { [[ $1 = *"$2"* ]]; }
@@ -50,15 +50,15 @@ while read line; do
         line=${line/ffffff8}
     fi
 
-    if [[ $ADDR2LINE = "TRACE" ]] && [[ $line = "P "* ]]; then
+    if [[ $ADDR2LINE = "TRACE" ]] && [[ $line = "E "* ]]; then
         if [[ $PAYLOAD ]]; then
             addr2line -apiCf -e "$PAYLOAD" $line | grep -F -v '??' | \
             while read line; do
-                 printf -- "Payl: %s\n" "$line"
+                 printf -- "Exec: %s\n" "$line"
             done
             continue
         else
-            printf -- "Payl: %s\n" "$line"
+            printf -- "Exec: %s\n" "$line"
             continue
         fi
     fi

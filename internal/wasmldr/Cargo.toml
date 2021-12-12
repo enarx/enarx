@@ -2,13 +2,17 @@
 name = "wasmldr"
 version = "0.1.0"
 authors = ["The Enarx Project Developers"]
-edition = "2018"
+edition = "2021"
 license = "Apache-2.0"
 description = "Enarx WebAssembly Loader"
 readme = "README.md"
 
 # TODO: merge these into the toplevel actions/gitignore
 exclude = [ ".gitignore", ".github/*" ]
+
+[features]
+gdb = []
+dbg = []
 
 [dependencies]
 wasmtime = { version = "0.30", default-features = false, features = ["cranelift"] }
@@ -19,7 +23,6 @@ structopt = { version = "0.3", default-features = false }
 anyhow = "1.0"
 env_logger = { version = "0.9", default-features = false }
 log = "0.4"
-nbytes = "0.1"
 
 [dev-dependencies]
 wat = "1.0"

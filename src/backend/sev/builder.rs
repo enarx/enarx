@@ -102,7 +102,7 @@ impl super::super::Mapper for Builder {
             );
 
             if self.launcher.update_data(update).is_err() {
-                // FIXME: just try again with the firmware corrected values
+                // Just try again with the firmware corrected values
                 self.launcher
                     .update_data(update)
                     .context("launcher.update_data for CPUID failed")?;

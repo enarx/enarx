@@ -16,11 +16,9 @@ macro_rules! debug {
 macro_rules! debugln {
     ($dst:expr) => { debugln!($dst,) };
     ($dst:expr, $($arg:tt)*) => {
-        #[allow(unused_must_use)] {
-            if $crate::DEBUG {
-                use core::fmt::Write;
-                writeln!($dst, $($arg)*);
-            }
+        if $crate::DEBUG {
+            use core::fmt::Write;
+            let _ = writeln!($dst, $($arg)*);
         }
     };
 }
@@ -28,14 +26,17 @@ macro_rules! debugln {
 mod base;
 mod enarx;
 mod file;
+pub(crate) mod gdb;
 mod memory;
 mod other;
 mod process;
 
 use core::fmt::Write;
+use core::mem::size_of;
 use core::ptr::read_unaligned;
 
 use crate::heap::Heap;
+use crate::{DEBUG, ENARX_EXEC_END, ENARX_EXEC_START, ENARX_HEAP_END, ENCL_SIZE};
 use lset::Line;
 use sallyport::syscall::*;
 use sallyport::{request, Block};
@@ -106,10 +107,32 @@ impl<'a> Handler<'a> {
                     OP_SYSCALL => h.handle_syscall(),
                     OP_CPUID => h.handle_cpuid(),
                     r => {
-                        debugln!(h, "unsupported opcode: {:?}", r);
-                        h.exit(1)
+                        debugln!(h, "unsupported opcode: {:#04x}", r);
+                        h.print_ssa_stack_trace();
+
+                        #[cfg(feature = "gdb")]
+                        if r as u8 == 0xCC {
+                            let rip = h.ssa.gpr.rip;
+                            if unsafe { crate::handler::gdb::unset_bp(rip) } {
+                                debugln!(h, "unset_bp: {:#x}", rip);
+                            }
+                        }
+
+                        #[cfg(feature = "gdb")]
+                        h.gdb_session();
+
+                        if r == unsafe { read_unaligned(h.ssa.gpr.rip as _) } {
+                            h.exit(1)
+                        }
                     }
                 }
+            }
+
+            #[cfg(feature = "gdb")]
+            Some(ExceptionVector::Page) => {
+                h.print_ssa_stack_trace();
+                h.gdb_session();
+                h.exit(1)
             }
 
             _ => h.attacked(),
@@ -173,5 +196,71 @@ impl<'a> Handler<'a> {
         );
 
         self.ssa.gpr.rip += 2;
+    }
+
+    /// Print a stack trace using the SSA registers.
+    fn print_ssa_stack_trace(&mut self) {
+        if DEBUG {
+            unsafe { self.print_stack_trace(self.ssa.gpr.rip, self.ssa.gpr.rbp) }
+        }
+    }
+
+    /// Print out `rip` relative to the shim (S) or the exec (E) base address.
+    ///
+    /// This can be used with `addr2line` and the executable with debug info
+    /// to get the function name and line number.
+    unsafe fn print_rip(&mut self, rip: u64) {
+        let shim_start = ENCL_SIZE as u64;
+        let enarx_exec_start = &ENARX_EXEC_START as *const _ as u64;
+        let enarx_exec_end = &ENARX_EXEC_END as *const _ as u64;
+
+        let exec_range = enarx_exec_start..enarx_exec_end;
+
+        if exec_range.contains(&rip) {
+            let rip_pie = rip - enarx_exec_start;
+            debugln!(self, "E {:>#016x}", rip_pie);
+        } else {
+            let rip_pie = (shim_start - 1) & rip;
+            debugln!(self, "S {:>#016x}", rip_pie);
+        }
+    }
+
+    /// Print a stack trace with the old `rbp` stack frame pointers
+    unsafe fn print_stack_trace(&mut self, rip: u64, mut rbp: u64) {
+        let shim_start = ENCL_SIZE as u64;
+        let shim_end = &ENARX_HEAP_END as *const _ as u64;
+
+        let shim_range = shim_start..shim_end;
+
+        debugln!(self, "TRACE:");
+
+        self.print_rip(rip);
+
+        //Maximum 64 frames
+        for _frame in 0..64 {
+            if rbp == 0 || rbp & 7 != 0 {
+                break;
+            }
+
+            if !shim_range.contains(&rbp) {
+                debugln!(self, "invalid rbp: {:>#016x}", rbp);
+                break;
+            }
+
+            match rbp.checked_add(size_of::<usize>() as _) {
+                None => break,
+                Some(rip_rbp) => {
+                    let rip = *(rip_rbp as *const u64);
+                    match rip.checked_sub(1) {
+                        None => break,
+                        Some(0) => break,
+                        Some(rip) => {
+                            self.print_rip(rip);
+                            rbp = *(rbp as *const u64);
+                        }
+                    }
+                }
+            }
+        }
     }
 }

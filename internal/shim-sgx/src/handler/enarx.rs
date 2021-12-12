@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use sallyport::syscall::{BaseSyscallHandler, EnarxSyscallHandler};
-use sallyport::untrusted::{UntrustedRef, UntrustedRefMut};
+use sallyport::syscall::{BaseSyscallHandler, EnarxSyscallHandler, SGX_QUOTE_SIZE, SGX_TECH};
+use sallyport::untrusted::{UntrustedRef, UntrustedRefMut, ValidateSlice};
+use sallyport::Reply;
 
 impl<'a> EnarxSyscallHandler for super::Handler<'a> {
     // NOTE: The 'nonce' field is called 'hash' here, as it is used to pass in
@@ -9,12 +10,18 @@ impl<'a> EnarxSyscallHandler for super::Handler<'a> {
     // For more on this syscall, see: https://github.com/enarx/enarx/issues/966
     fn get_attestation(
         &mut self,
-        _hash: UntrustedRef<u8>,
-        _hash_len: libc::size_t,
-        _buf: UntrustedRefMut<u8>,
+        hash: UntrustedRef<'_, u8>,
+        hash_len: libc::size_t,
+        _buf: UntrustedRefMut<'_, u8>,
         _buf_len: libc::size_t,
     ) -> sallyport::Result {
         self.trace("get_att", 0);
+
+        match hash.validate_slice(hash_len, self) {
+            None => Reply::from(Ok([SGX_QUOTE_SIZE.into(), SGX_TECH.into()])),
+            Some(..) => Reply::from(Err(libc::ENOSYS)),
+        }
+        .into()
 
         /*
         // If hash is NULL ptr, it is a Quote size request; return expected Quote size
@@ -109,8 +116,5 @@ impl<'a> EnarxSyscallHandler for super::Handler<'a> {
                 .or(Err(libc::EFAULT))?;
         }
         */
-
-        let rep: sallyport::Reply = Err(libc::ENOSYS).into();
-        sallyport::Result::from(rep)
     }
 }

@@ -3,10 +3,10 @@
 //! The global Allocator
 
 use crate::addr::{ShimPhysAddr, ShimVirtAddr, SHIM_VIRT_OFFSET};
+use crate::exec::NEXT_MMAP_RWLOCK;
 use crate::hostcall::HOST_CALL_ALLOC;
 use crate::hostmap::HOSTMAP;
 use crate::paging::SHIM_PAGETABLE;
-use crate::payload::NEXT_MMAP_RWLOCK;
 use crate::snp::{get_cbit_mask, pvalidate, snp_active, PvalidateSize};
 use crate::spin::RwLocked;
 
@@ -61,7 +61,7 @@ pub struct EnarxAllocator {
 }
 
 impl core::fmt::Debug for EnarxAllocator {
-    fn fmt(&self, f: &mut core::fmt::Formatter) -> Result<(), core::fmt::Error> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> Result<(), core::fmt::Error> {
         f.debug_struct("EnarxAllocator")
             .field("last_alloc", &self.last_alloc)
             .field("max_alloc", &self.max_alloc)

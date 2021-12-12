@@ -40,20 +40,23 @@ const ENC_OP: Ioctl<WriteRead, &c_ulong> = unsafe { KVM.write_read(0xBA) };
 // that ioctl.
 
 /// Corresponds to the `KVM_MEMORY_ENCRYPT_REG_REGION` ioctl
-pub const ENC_REG_REGION: Ioctl<Write, &KvmEncRegion> =
-    unsafe { KVM.read::<KvmEncRegion>(0xBB).lie() };
+pub const ENC_REG_REGION: Ioctl<Write, &KvmEncRegion<'_>> =
+    unsafe { KVM.read::<KvmEncRegion<'_>>(0xBB).lie() };
 
 /// Initialize the SEV-SNP platform in KVM.
-pub const SNP_INIT: Ioctl<WriteRead, &Command<Init>> = unsafe { ENC_OP.lie() };
+pub const SNP_INIT: Ioctl<WriteRead, &Command<'_, Init>> = unsafe { ENC_OP.lie() };
 
 /// Initialize the flow to launch a guest.
-pub const SNP_LAUNCH_START: Ioctl<WriteRead, &Command<LaunchStart>> = unsafe { ENC_OP.lie() };
+pub const SNP_LAUNCH_START: Ioctl<WriteRead, &Command<'_, LaunchStart<'_>>> =
+    unsafe { ENC_OP.lie() };
 
 /// Insert pages into the guest physical address space.
-pub const SNP_LAUNCH_UPDATE: Ioctl<WriteRead, &Command<LaunchUpdate>> = unsafe { ENC_OP.lie() };
+pub const SNP_LAUNCH_UPDATE: Ioctl<WriteRead, &Command<'_, LaunchUpdate<'_>>> =
+    unsafe { ENC_OP.lie() };
 
 /// Complete the guest launch flow.
-pub const SNP_LAUNCH_FINISH: Ioctl<WriteRead, &Command<LaunchFinish>> = unsafe { ENC_OP.lie() };
+pub const SNP_LAUNCH_FINISH: Ioctl<WriteRead, &Command<'_, LaunchFinish<'_>>> =
+    unsafe { ENC_OP.lie() };
 
 /// Corresponds to the kernel struct `kvm_enc_region`
 ///
@@ -159,7 +162,7 @@ pub struct LaunchStart<'a> {
 }
 
 impl From<Start<'_>> for LaunchStart<'_> {
-    fn from(start: Start) -> Self {
+    fn from(start: Start<'_>) -> Self {
         Self {
             policy: start.policy.into(),
             ma_uaddr: if let Some(addr) = start.ma_uaddr {
@@ -209,7 +212,7 @@ pub struct LaunchUpdate<'a> {
 }
 
 impl From<Update<'_>> for LaunchUpdate<'_> {
-    fn from(update: Update) -> Self {
+    fn from(update: Update<'_>) -> Self {
         Self {
             start_gfn: update.start_gfn,
             uaddr: update.uaddr.as_ptr() as _,
@@ -251,7 +254,7 @@ pub struct LaunchFinish<'a> {
 }
 
 impl From<Finish<'_, '_>> for LaunchFinish<'_> {
-    fn from(finish: Finish) -> Self {
+    fn from(finish: Finish<'_, '_>) -> Self {
         let id_block = if let Some(addr) = finish.id_block {
             addr.as_ptr() as u64
         } else {

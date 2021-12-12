@@ -117,16 +117,29 @@ order betwen them. The groups are, in order:
 5. Imports from the `core`, `alloc` or `std`.
 6. Imports from other crates.
 
+## Import paths
+
+1. Default to `use super::...;`. This reduces code churn and aligns with Rust visibility rules.
+2. If the import line gets long, consider using chaining. This is particularly true if the type is used in parent or grandparent crates already.
+3. If the import line remains long or exists in a parallel hierarchy, consider using `crate` instead.
+
+As a general guideline, prefer `super::super::Foo` syntax when importing something defined within a direct ancestor up to 2 levels up and `crate::a::Foo` otherwise.
+
 ### Example
 
 ```rust
 pub use foo::{Bar, Baz}; // Group #1
 
-use super::Bat; // Group #4
+use crate::Bat; // Group #4
+use super::super::Bag; // Group #4
 
 use core::convert::{TryFrom, TryInto}; // Group #5
 use core::num::NonZeroU8; // Group #5
 
 use noted::noted; // Group #6
 use primordial::Page; // Group #6
+
+mod tests {
+    use super::*; // Group #4
+}
 ```

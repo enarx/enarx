@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use log::{debug, info};
-use nbytes::bytes;
 use wasmtime_wasi::sync::WasiCtxBuilder;
 
 /// The error codes of workload execution.
@@ -90,7 +89,7 @@ pub fn run<T: AsRef<str>, U: AsRef<str>>(
     config.static_memory_maximum_size(0);
     config.static_memory_guard_size(0);
     config.dynamic_memory_guard_size(0);
-    config.dynamic_memory_reserved_for_growth(bytes![1; MiB]);
+    config.dynamic_memory_reserved_for_growth(0);
 
     let engine = wasmtime::Engine::new(&config).or(Err(Error::ConfigurationError))?;
 
@@ -145,15 +144,15 @@ pub(crate) mod test {
     use crate::workload;
     use std::iter::empty;
 
-    const NO_EXPORT_WAT: &'static str = r#"(module
+    const NO_EXPORT_WAT: &str = r#"(module
       (memory (export "") 1)
     )"#;
 
-    const RETURN_1_WAT: &'static str = r#"(module
+    const RETURN_1_WAT: &str = r#"(module
       (func (export "") (result i32) i32.const 1)
     )"#;
 
-    const WASI_COUNT_ARGS_WAT: &'static str = r#"(module
+    const WASI_COUNT_ARGS_WAT: &str = r#"(module
       (import "wasi_snapshot_preview1" "args_sizes_get"
         (func $__wasi_args_sizes_get (param i32 i32) (result i32)))
       (func (export "_start") (result i32)
@@ -167,7 +166,7 @@ pub(crate) mod test {
       (export "memory" (memory 0))
     )"#;
 
-    const HELLO_WASI_WAT: &'static str = r#"(module
+    const HELLO_WASI_WAT: &str = r#"(module
       (import "wasi_snapshot_preview1" "proc_exit"
         (func $__wasi_proc_exit (param i32)))
       (import "wasi_snapshot_preview1" "fd_write"

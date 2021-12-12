@@ -26,7 +26,7 @@ trait Config: Sized {
     type Flags;
 
     fn flags(flags: u32) -> Self::Flags;
-    fn new(shim: &Binary, exec: &Binary) -> Result<Self>;
+    fn new(shim: &Binary<'_>, exec: &Binary<'_>) -> Result<Self>;
 }
 
 trait Mapper: Sized + TryFrom<Self::Config, Error = Error> {
@@ -88,7 +88,7 @@ pub trait Keep {
 
 pub trait Thread {
     /// Enters the keep.
-    fn enter(&mut self) -> Result<Command>;
+    fn enter(&mut self) -> Result<Command<'_>>;
 }
 
 pub enum Command<'a> {
@@ -97,6 +97,10 @@ pub enum Command<'a> {
 
     #[allow(dead_code)]
     CpuId(&'a mut Block),
+
+    #[cfg(feature = "gdb")]
+    #[allow(dead_code)]
+    Gdb(&'a mut Block, &'a mut Option<std::net::TcpStream>),
 
     #[allow(dead_code)]
     Continue,
@@ -112,3 +116,84 @@ pub static BACKENDS: Lazy<Vec<Box<dyn Backend>>> = Lazy::new(|| {
         Box::new(kvm::Backend),
     ]
 });
+
+#[cfg(feature = "gdb")]
+pub fn wait_for_gdb_connection(sockaddr: &str) -> std::io::Result<std::net::TcpStream> {
+    use std::net::TcpListener;
+
+    eprintln!("Waiting for a GDB connection on {:?}...", sockaddr);
+    let sock = TcpListener::bind(sockaddr)?;
+    let (stream, addr) = sock.accept()?;
+
+    // Blocks until a GDB client connects via TCP.
+    // i.e: Running `target remote localhost:<port>` from the GDB prompt.
+
+    eprintln!("Debugger connected from {}", addr);
+    Ok(stream) // `TcpStream` implements `gdbstub::Connection`
+}
+
+#[cfg(feature = "gdb")]
+pub fn handle_gdb(block: &mut Block, gdb_fd: &mut Option<std::net::TcpStream>, sockaddr: &str) {
+    use gdbstub::Connection;
+
+    let req = unsafe { block.msg.req };
+    match req.num.into() {
+        sallyport::syscall::SYS_ENARX_GDB_START => {
+            if gdb_fd.is_none() {
+                let mut stream = wait_for_gdb_connection(sockaddr).unwrap();
+                let res = stream
+                    .on_session_start()
+                    .map(|_| [0usize.into(), 0usize.into()])
+                    .map_err(|e| e.raw_os_error().unwrap_or(libc::EINVAL));
+                if res.is_ok() {
+                    gdb_fd.replace(stream);
+                }
+                block.msg.rep = res.into();
+            } else {
+                block.msg.rep = Ok([0usize.into(), 0usize.into()]).into();
+            }
+        }
+
+        sallyport::syscall::SYS_ENARX_GDB_PEEK => {
+            let stream = gdb_fd.as_mut().unwrap();
+
+            let ret = Connection::peek(stream)
+                .map(|v| {
+                    let v = v.map(|v| v as usize).unwrap_or(u8::MAX as usize + 1);
+                    [v.into(), 0usize.into()]
+                })
+                .map_err(|e| e.raw_os_error().unwrap_or(libc::EINVAL));
+            block.msg.rep = ret.into();
+        }
+
+        sallyport::syscall::SYS_ENARX_GDB_READ => {
+            let stream = gdb_fd.as_mut().unwrap();
+
+            let buf_ptr: *mut u8 = req.arg[0].into();
+            let buf_len: usize = req.arg[1].into();
+            let buf = unsafe { core::slice::from_raw_parts_mut(buf_ptr, buf_len) };
+
+            let ret = stream
+                .read_exact(buf)
+                .map(|_| [buf_len.into(), 0usize.into()])
+                .map_err(|e| e.raw_os_error().unwrap_or(libc::EINVAL));
+
+            block.msg.rep = ret.into();
+        }
+
+        sallyport::syscall::SYS_ENARX_GDB_WRITE => {
+            let stream = gdb_fd.as_mut().unwrap();
+
+            let buf_ptr: *mut u8 = req.arg[0].into();
+            let buf_len: usize = req.arg[1].into();
+            let buf = unsafe { core::slice::from_raw_parts(buf_ptr, buf_len) };
+
+            let ret = Connection::write_all(stream, buf)
+                .map(|_| [buf_len.into(), 0usize.into()])
+                .map_err(|e| e.raw_os_error().unwrap_or(libc::EINVAL));
+            block.msg.rep = ret.into();
+        }
+
+        _ => {}
+    }
+}
