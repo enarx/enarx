@@ -347,9 +347,6 @@ pub trait FileSyscallHandler: BaseSyscallHandler + AddressValidator + Sized {
         let (_, buf) = c.write(event).or(Err(libc::EMSGSIZE))?;
         let host_virt = Self::translate_shim_to_host_addr(buf);
 
-        // clear sensitive user data from the event
-        buf.u64 = fd as _;
-
         let ret = unsafe { self.proxy(request!(libc::SYS_epoll_ctl => epfd, op, fd, host_virt))? };
 
         Ok(ret)
