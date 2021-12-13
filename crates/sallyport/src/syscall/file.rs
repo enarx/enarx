@@ -325,27 +325,6 @@ pub trait FileSyscallHandler: BaseSyscallHandler + AddressValidator + Sized {
     }
 
     /// syscall
-    fn pipe(&mut self, pipefd: UntrustedRefMut<libc::c_int>) -> Result {
-        self.trace("pipe", 1);
-        let pipefd = pipefd.validate_slice(2, self).ok_or(libc::EFAULT)?;
-        let c = self.new_cursor();
-
-        let (_, hostbuf) = c.alloc::<libc::c_int>(2).or(Err(libc::EMSGSIZE))?;
-        let hostbuf = hostbuf.as_ptr();
-        let host_virt = Self::translate_shim_to_host_addr(hostbuf);
-
-        let ret = unsafe { self.proxy(request!(libc::SYS_pipe => host_virt))? };
-
-        let c = self.new_cursor();
-        unsafe {
-            c.copy_into_slice(2, pipefd.as_mut())
-                .or(Err(libc::EFAULT))?;
-        }
-
-        Ok(ret)
-    }
-
-    /// syscall
     fn epoll_create1(&mut self, flags: libc::c_int) -> Result {
         self.trace("epoll_create1", 1);
         let ret = unsafe { self.proxy(request!(libc::SYS_epoll_create1 => flags))? };

@@ -225,7 +225,6 @@ pub trait SyscallHandler:
                 usize::from(c) as _,
             ),
             libc::SYS_poll => self.poll(a.into(), b.into(), usize::from(c) as _),
-            libc::SYS_pipe => self.pipe(a.into()),
             libc::SYS_epoll_create1 => self.epoll_create1(a.try_into().map_err(|_| libc::EINVAL)?),
             libc::SYS_epoll_ctl => self.epoll_ctl(
                 usize::from(a) as _,
