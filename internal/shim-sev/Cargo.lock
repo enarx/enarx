@@ -295,6 +295,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "55d6312462222758b3fb6c7e84d819ce87c315c446e0e2c11b0b9258dedd3f25"
 
 [[package]]
+name = "primordial"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b3146f8670eff948342703c5e866cdb6d092032207a7fc2dd53c4c3fef480cfe"
+
+[[package]]
 name = "proc-macro-crate"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -339,7 +345,7 @@ source = "git+https://github.com/enarx/sallyport?rev=dd42c91cc9e5cbc74f342eede3b
 dependencies = [
  "goblin",
  "libc",
- "primordial",
+ "primordial 0.3.0",
 ]
 
 [[package]]
@@ -381,7 +387,7 @@ dependencies = [
  "memoffset",
  "nbytes",
  "noted",
- "primordial",
+ "primordial 0.4.0",
  "rcrt1",
  "sallyport",
  "spinning",
