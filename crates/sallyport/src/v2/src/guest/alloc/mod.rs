@@ -9,12 +9,14 @@ mod inout;
 mod input;
 mod output;
 mod phase_alloc;
+mod syscall;
 
 pub use inout::*;
 pub use input::*;
 pub use output::*;
 
 pub(super) use phase_alloc::*;
+pub use syscall::*;
 
 use crate::Result;
 
