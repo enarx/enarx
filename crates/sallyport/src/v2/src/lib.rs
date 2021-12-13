@@ -56,6 +56,7 @@
 
 #![cfg_attr(not(test), no_std)]
 
+pub mod guest;
 pub mod host;
 pub mod item;
 pub mod iter;
