@@ -13,6 +13,6 @@ pub enum Kind {
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[repr(C, align(8))]
 pub struct Header {
-    pub len: usize,
+    pub size: usize,
     pub kind: Kind,
 }
