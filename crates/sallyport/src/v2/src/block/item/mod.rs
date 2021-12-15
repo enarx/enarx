@@ -2,16 +2,12 @@
 
 pub mod syscall;
 
-#[allow(clippy::enum_clike_unportable_variant)]
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[repr(usize)]
 pub enum Kind {
-    /// Composite types. 
-    // TODO: Define
-    //Batch = 0x01,
+    End = 0x00,
 
-    /// Terminal types.
-    Syscall = 0x01 << (usize::BITS - 8),
+    Syscall = 0x01,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
