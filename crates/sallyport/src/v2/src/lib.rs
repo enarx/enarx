@@ -2,7 +2,7 @@
 
 #![cfg_attr(not(test), no_std)]
 
-pub(crate) mod block;
+pub(crate) mod item;
 
 /// Error type used within this crate.
 pub type Error = libc::c_int;
