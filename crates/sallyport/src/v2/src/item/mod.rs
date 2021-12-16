@@ -2,7 +2,7 @@
 
 use crate::Error;
 
-use core::convert::TryFrom;
+use core::convert::{TryFrom, TryInto};
 use libc::EINVAL;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -31,6 +31,17 @@ impl TryFrom<usize> for Kind {
 pub struct Header {
     pub size: usize,
     pub kind: Kind,
+}
+
+impl TryFrom<[usize; 2]> for Header {
+    type Error = Error;
+
+    #[inline]
+    fn try_from(header: [usize; 2]) -> Result<Self, Self::Error> {
+        let [size, kind] = header;
+        let kind = kind.try_into()?;
+        Ok(Self { size, kind })
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
