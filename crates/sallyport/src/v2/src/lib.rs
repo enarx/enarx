@@ -19,12 +19,13 @@
 //!
 //! # Block format
 //!
-//! The sallyport block is a region of memory containing zero or more items. All items contain the following header:
+//! The sallyport [block](item::Block) is a region of memory containing zero or more [items](item::Item).
+//! All items contain the following [header](item::Header):
 //!
 //! * size: `usize`
 //! * kind: `usize`
 //!
-//! The size parameter includes the full length of the item except the header value. The contents of the item are defined by the value of the `kind` parameter. An item with an unknown `kind` can be skipped since the length of the item is known from the `size` field. The recipient of an item with an unknown `kind` MUST NOT try to interpret or modify the contents of the item in any way.
+//! The size parameter includes the full length of the item except the header value. The contents of the item are defined by the value of the [`kind`](item::Kind) parameter. An item with an unknown [`kind`](item::Kind) can be skipped since the length of the item is known from the `size` field. The recipient of an item with an unknown [`kind`](item::Kind) MUST NOT try to interpret or modify the contents of the item in any way.
 //!
 //! ## Kinds
 //!
@@ -34,7 +35,7 @@
 //!
 //! ### End
 //!
-//! An `END` item MUST have a `size` of `0`. It has no contents and simply marks the end of items in the block. This communicates the end of the items list to the host. However, the guest MUST NOT rely on the presence of a terminator upon return to the guest.
+//! An [`END`](item::Kind::End) item MUST have a `size` of `0`. It has no contents and simply marks the end of items in the block. This communicates the end of the items list to the host. However, the guest MUST NOT rely on the presence of a terminator upon return to the guest.
 //!
 //! ### Syscall
 //!
