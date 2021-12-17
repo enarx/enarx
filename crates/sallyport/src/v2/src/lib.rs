@@ -56,7 +56,7 @@
 #![cfg_attr(not(test), no_std)]
 
 pub mod host;
-pub(crate) mod item;
+pub mod item;
 
 /// Error type used within this crate.
 pub type Error = libc::c_int;
