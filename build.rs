@@ -38,7 +38,12 @@ fn rerun_src(path: impl AsRef<Path>) {
 fn build_rs_tests(in_path: &Path, out_path: &Path) {
     let filtered_env: HashMap<String, String> = std::env::vars()
         .filter(|&(ref k, _)| {
-            k == "TERM" || k == "TZ" || k == "LANG" || k == "PATH" || k == "RUSTUP_HOME"
+            k == "TERM"
+                || k == "TZ"
+                || k == "LANG"
+                || k == "PATH"
+                || k == "RUSTUP_HOME"
+                || k == "RUSTC_BOOTSTRAP"
         })
         .collect();
 
@@ -146,7 +151,12 @@ fn cargo_build_bin(
 
     let filtered_env: HashMap<String, String> = std::env::vars()
         .filter(|&(ref k, _)| {
-            k == "TERM" || k == "TZ" || k == "LANG" || k == "PATH" || k == "RUSTUP_HOME"
+            k == "TERM"
+                || k == "TZ"
+                || k == "LANG"
+                || k == "PATH"
+                || k == "RUSTUP_HOME"
+                || k == "RUSTC_BOOTSTRAP"
         })
         .collect();
 
