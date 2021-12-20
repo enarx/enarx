@@ -10,7 +10,7 @@ jobs:
       - uses: actions-rs/toolchain@v1
         with:
           components: rustfmt
-          toolchain: nightly
+          toolchain: 1.57
           profile: minimal
           override: true
       - uses: actions-rs/cargo@v1
@@ -29,6 +29,8 @@ jobs:
   clippy:
     name: cargo clippy (${{ matrix.crate.name }})
     runs-on: ubuntu-20.04
+    env:
+      RUSTC_BOOTSTRAP: 1
     steps:
       - run: sudo apt update
       - run: sudo apt install -y musl-tools
@@ -37,7 +39,7 @@ jobs:
       - uses: actions-rs/toolchain@v1
         with:
           components: clippy
-          toolchain: nightly
+          toolchain: 1.57
           profile: minimal
           target: x86_64-unknown-linux-musl
           override: true
@@ -63,6 +65,8 @@ jobs:
   clippy-single-backends:
     name: cargo clippy (enarx ${{ matrix.backend.name }} ${{ matrix.profile.name }})
     runs-on: ubuntu-20.04
+    env:
+      RUSTC_BOOTSTRAP: 1
     steps:
       - run: sudo apt update
       - run: sudo apt install -y musl-tools
@@ -71,7 +75,7 @@ jobs:
       - uses: actions-rs/toolchain@v1
         with:
           components: clippy
-          toolchain: nightly
+          toolchain: 1.57
           profile: minimal
           target: x86_64-unknown-linux-musl
           override: true
@@ -103,7 +107,7 @@ jobs:
       - run: for i in internal/*; do (cd $i; [[ -f Cargo.tml ]] && cp Cargo.tml Cargo.toml); done
       - uses: actions-rs/toolchain@v1
         with:
-          toolchain: nightly
+          toolchain: 1.57
           profile: minimal
           override: true
       - run: cargo install cargo-readme

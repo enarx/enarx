@@ -2,10 +2,11 @@ on: [push, pull_request]
 name: test
 jobs:
   main:
-    name: enarx ${{ matrix.backend.name }} nightly ${{ matrix.profile.name }}
+    name: enarx ${{ matrix.backend.name }} 1.57 ${{ matrix.profile.name }}
     runs-on: ${{ matrix.backend.host }}
     env:
         ENARX_BACKEND: ${{ matrix.backend.name }}
+        RUSTC_BOOTSTRAP: 1
     steps:
       - run: sudo apt update
       - run: sudo apt install -y musl-tools
@@ -13,7 +14,7 @@ jobs:
       - uses: actions-rs/toolchain@v1
         with:
           target: x86_64-unknown-linux-musl
-          toolchain: nightly
+          toolchain: 1.57
           override: true
       - uses: actions-rs/cargo@v1
         with:
@@ -32,8 +33,10 @@ jobs:
             flag: --release
 
   internal:
-    name: ${{ matrix.crate }} nightly ${{ matrix.profile.name }}
+    name: ${{ matrix.crate }} 1.57 ${{ matrix.profile.name }}
     runs-on: ubuntu-20.04
+    env:
+      RUSTC_BOOTSTRAP: 1
     steps:
       - run: sudo apt update
       - run: sudo apt install -y musl-tools
@@ -42,7 +45,7 @@ jobs:
       - uses: actions-rs/toolchain@v1
         with:
           target: x86_64-unknown-linux-gnu
-          toolchain: nightly
+          toolchain: 1.57
           override: true
       - run: cargo test ${{ matrix.profile.flag }} --target x86_64-unknown-linux-gnu
         working-directory: internal/${{ matrix.crate }}
