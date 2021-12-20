@@ -9,7 +9,7 @@
 #![deny(clippy::integer_arithmetic)]
 #![deny(missing_docs)]
 #![no_main]
-#![feature(asm, asm_const, asm_sym, naked_functions)]
+#![feature(asm, naked_functions)]
 
 extern crate compiler_builtins;
 extern crate rcrt1;
