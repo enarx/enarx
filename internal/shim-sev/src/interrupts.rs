@@ -7,7 +7,6 @@ use crate::debug::{interrupt_trace, print_stack_trace};
 use crate::eprintln;
 #[cfg(feature = "dbg")]
 use crate::hostcall::shim_exit;
-use crate::idt::InterruptDescriptorTable;
 use crate::snp::cpuid_count;
 
 use core::arch::asm;
@@ -16,6 +15,7 @@ use core::mem::size_of;
 use core::ops::Deref;
 
 use spinning::Lazy;
+use x86_64::structures::idt::InterruptDescriptorTable;
 use x86_64::VirtAddr;
 use xsave::XSave;
 
