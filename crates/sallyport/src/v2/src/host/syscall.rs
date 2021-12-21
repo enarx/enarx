@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use super::Execute;
-use crate::{item, read_first, Result};
+use crate::{item, Result};
 
 use core::arch::asm;
-use core::ptr::NonNull;
+use core::convert::TryInto;
 use libc::c_long;
 
-struct Syscall<const ARGS: usize, const RETS: usize> {
+struct Syscall<'a, const ARGS: usize, const RETS: usize> {
     /// The syscall number for the request.
     ///
     /// See, for example, [`libc::SYS_exit`](libc::SYS_exit).
@@ -17,10 +17,10 @@ struct Syscall<const ARGS: usize, const RETS: usize> {
     argv: [usize; ARGS],
 
     /// Return values.
-    ret: *mut [usize; RETS],
+    ret: &'a mut [usize; RETS],
 }
 
-impl Execute for Syscall<0, 1> {
+impl Execute for Syscall<'_, 0, 1> {
     #[inline]
     unsafe fn execute(self) {
         asm!(
@@ -32,7 +32,7 @@ impl Execute for Syscall<0, 1> {
     }
 }
 
-impl Execute for Syscall<1, 1> {
+impl Execute for Syscall<'_, 1, 1> {
     #[inline]
     unsafe fn execute(self) {
         asm!(
@@ -45,7 +45,7 @@ impl Execute for Syscall<1, 1> {
     }
 }
 
-impl Execute for Syscall<2, 1> {
+impl Execute for Syscall<'_, 2, 1> {
     #[inline]
     unsafe fn execute(self) {
         asm!(
@@ -59,7 +59,7 @@ impl Execute for Syscall<2, 1> {
     }
 }
 
-impl Execute for Syscall<3, 1> {
+impl Execute for Syscall<'_, 3, 1> {
     #[inline]
     unsafe fn execute(self) {
         asm!(
@@ -74,7 +74,7 @@ impl Execute for Syscall<3, 1> {
     }
 }
 
-impl Execute for Syscall<4, 1> {
+impl Execute for Syscall<'_, 4, 1> {
     #[inline]
     unsafe fn execute(self) {
         asm!(
@@ -90,7 +90,7 @@ impl Execute for Syscall<4, 1> {
     }
 }
 
-impl Execute for Syscall<5, 1> {
+impl Execute for Syscall<'_, 5, 1> {
     #[inline]
     unsafe fn execute(self) {
         asm!(
@@ -107,7 +107,7 @@ impl Execute for Syscall<5, 1> {
     }
 }
 
-impl Execute for Syscall<6, 1> {
+impl Execute for Syscall<'_, 6, 1> {
     #[inline]
     unsafe fn execute(self) {
         asm!(
@@ -125,18 +125,18 @@ impl Execute for Syscall<6, 1> {
     }
 }
 
-pub(super) unsafe fn execute_syscall(ptr: NonNull<(item::Syscall, [u8])>) -> Result<()> {
-    let (num, ptr) = read_first(ptr.cast());
-    match num as _ {
-        libc::SYS_exit => {
-            let (status, ptr) = read_first(NonNull::new_unchecked(ptr));
-            Syscall {
-                num: libc::SYS_exit,
-                argv: [status],
-                ret: ptr.add(5) as _,
-            }
-            .execute()
+pub(super) unsafe fn execute_syscall(syscall: &mut item::Syscall, _data: &mut [u8]) -> Result<()> {
+    match syscall {
+        item::Syscall {
+            num,
+            argv: [status, ..],
+            ret,
+        } if *num == libc::SYS_exit as _ => Syscall {
+            num: libc::SYS_exit,
+            argv: [*status],
+            ret: &mut ret[..1].try_into().unwrap(),
         }
+        .execute(),
         _ => return Err(libc::ENOSYS),
     }
     Ok(())
