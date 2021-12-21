@@ -12,6 +12,7 @@ use crate::snp::{pvalidate, PvalidateSize};
 use crate::spin::RwLocked;
 use crate::_ENARX_GHCB;
 
+use core::arch::asm;
 use core::mem::size_of;
 use core::ptr;
 

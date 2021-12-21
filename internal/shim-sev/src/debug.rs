@@ -2,6 +2,8 @@
 
 //! Debug functions
 
+use core::arch::asm;
+
 use x86_64::instructions::tables::lidt;
 use x86_64::structures::DescriptorTablePointer;
 use x86_64::VirtAddr;

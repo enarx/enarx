@@ -9,6 +9,7 @@ use crate::hostcall::HOST_CALL_ALLOC;
 use crate::interrupts::ExtendedInterruptStackFrameValue;
 use crate::syscall::ProxySyscall;
 
+use core::arch::asm;
 use core::convert::TryFrom;
 use core::sync::atomic::Ordering;
 

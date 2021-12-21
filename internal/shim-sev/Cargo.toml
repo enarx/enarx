@@ -15,7 +15,7 @@ dbg = []
 
 [dependencies]
 compiler_builtins = { version = "0.1.65", default-features = false, features = [ "mem" ] }
-x86_64 = { version = "^0.14.6", default-features = false, features = ["instructions", "inline_asm"] }
+x86_64 = { version = "0.14.7", default-features = false, features = ["instructions", "inline_asm"] }
 gdbstub_arch = { version = "0.1.1" , default-features = false, optional = true }
 gdbstub = { version = "0.5.0" , default-features = false, optional = true }
 goblin = { version = "0.4", default-features = false, features = [ "elf64" ] }
@@ -23,8 +23,8 @@ crt0stack = { version = "0.1", default-features = false }
 spinning = { version = "0.1", default-features = false }
 libc = { version = "0.2.50", default-features = false }
 primordial = "0.4"
-sallyport = { git = "https://github.com/enarx/sallyport", rev = "5b4eca36b41e910ed9ff683adc5ddc0554cdf09c" }
-xsave = "2.0.0"
+sallyport = { git = "https://github.com/enarx/sallyport", rev = "167a7b5a626e88f42083d2644ff5423e8e66b17a" }
+xsave = { git = "https://github.com/enarx/xsave", rev = "4819a862953c114a69f1ff7153b41bb558f96365" }
 noted = "1.0.0"
 nbytes = "0.1"
 rcrt1 = "1.0.0"

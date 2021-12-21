@@ -2,6 +2,7 @@
 
 use super::super::Command;
 
+use std::arch::asm;
 use std::mem::MaybeUninit;
 #[cfg(feature = "gdb")]
 use std::net::TcpStream;

@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 //! switch to Ring 3 aka usermode
+
+use core::arch::asm;
+
 use const_default::ConstDefault;
 
 /// Enter Ring 3

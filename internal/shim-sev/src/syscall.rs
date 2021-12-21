@@ -10,6 +10,7 @@ use crate::exec::{NEXT_BRK_RWLOCK, NEXT_MMAP_RWLOCK};
 use crate::hostcall::{HostCall, HOST_CALL_ALLOC};
 use crate::paging::SHIM_PAGETABLE;
 
+use core::arch::asm;
 use core::convert::TryFrom;
 use core::mem::size_of;
 use core::ops::{Deref, DerefMut};

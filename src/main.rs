@@ -64,7 +64,6 @@
 #![warn(rust_2018_idioms)]
 // protobuf-codegen-pure would generate warnings
 #![allow(elided_lifetimes_in_paths)]
-#![feature(asm)]
 
 mod backend;
 mod cli;

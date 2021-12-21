@@ -10,6 +10,7 @@ use crate::hostcall::shim_exit;
 use crate::idt::InterruptDescriptorTable;
 use crate::snp::cpuid_count;
 
+use core::arch::asm;
 use core::fmt;
 use core::mem::size_of;
 use core::ops::Deref;

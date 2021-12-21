@@ -10,7 +10,7 @@
 #![deny(missing_docs)]
 #![warn(rust_2018_idioms)]
 #![no_main]
-#![feature(asm, asm_const, asm_sym, naked_functions)]
+#![feature(asm_const, asm_sym, naked_functions)]
 
 #[allow(unused_extern_crates)]
 extern crate compiler_builtins;
@@ -26,6 +26,7 @@ use shim_sev::print::enable_printing;
 use shim_sev::snp::C_BIT_MASK;
 use shim_sev::sse;
 
+use core::arch::asm;
 use core::mem::size_of;
 use core::sync::atomic::Ordering;
 
