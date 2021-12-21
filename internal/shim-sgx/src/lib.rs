@@ -7,7 +7,7 @@
 
 #![cfg_attr(not(test), no_std)]
 #![allow(incomplete_features)]
-#![feature(asm, asm_const, asm_sym)]
+#![feature(asm_const, asm_sym)]
 #![feature(generic_const_exprs)]
 #![feature(naked_functions)]
 #![feature(const_mut_refs)]

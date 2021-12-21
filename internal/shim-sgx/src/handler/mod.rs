@@ -31,6 +31,7 @@ mod memory;
 mod other;
 mod process;
 
+use core::arch::asm;
 use core::fmt::Write;
 use core::mem::size_of;
 use core::ptr::read_unaligned;

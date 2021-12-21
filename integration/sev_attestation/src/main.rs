@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-#![feature(asm)]
-
+use std::arch::asm;
 use std::convert::TryFrom;
 
 pub const MAX_AUTHTAG_LEN: usize = 32;

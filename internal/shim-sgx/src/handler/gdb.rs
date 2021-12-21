@@ -2,6 +2,7 @@
 
 #![cfg(feature = "gdb")]
 
+use core::arch::asm;
 use core::convert::TryFrom;
 use core::mem::size_of;
 use core::ops::Range;

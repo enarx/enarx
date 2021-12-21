@@ -6,7 +6,7 @@
 //! instructions) from the enclave code and proxies them to the host.
 
 #![no_std]
-#![feature(asm, asm_const, asm_sym, naked_functions)]
+#![feature(asm_const, asm_sym, naked_functions)]
 #![deny(clippy::all)]
 #![deny(missing_docs)]
 #![warn(rust_2018_idioms)]
@@ -16,6 +16,8 @@
 extern crate compiler_builtins;
 #[allow(unused_extern_crates)]
 extern crate rcrt1;
+
+use core::arch::asm;
 
 use shim_sgx::{entry, handler, ATTR, ENARX_EXEC_START, ENCL_SIZE, ENCL_SIZE_BITS, MISC};
 

@@ -5,6 +5,8 @@
 use crate::interrupts::XSAVE_AREA_SIZE;
 use crate::snp::cpuid_count;
 
+use core::arch::asm;
+
 use x86_64::registers::xcontrol::{XCr0, XCr0Flags};
 use xsave::MxCsr;
 
