@@ -34,7 +34,6 @@ pub mod gdb;
 pub mod gdt;
 pub mod hostcall;
 pub mod hostmap;
-pub mod idt;
 pub mod interrupts;
 pub mod pagetables;
 pub mod paging;
