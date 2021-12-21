@@ -182,7 +182,7 @@ dependencies = [
  "protobuf",
  "protobuf-codegen-pure",
  "reqwest",
- "sallyport 0.1.0 (git+https://github.com/enarx/sallyport?rev=167a7b5a626e88f42083d2644ff5423e8e66b17a)",
+ "sallyport 0.1.0 (git+https://github.com/enarx/sallyport?rev=fa4c6eea1c8dab54a8b8843a498b6fb883c006dd)",
  "semver",
  "serial_test",
  "sgx",
@@ -1016,21 +1016,30 @@ checksum = "73b4b750c782965c211b42f022f59af1fbceabdd026623714f104152f1ec149f"
 [[package]]
 name = "sallyport"
 version = "0.1.0"
-source = "git+https://github.com/enarx/sallyport?rev=167a7b5a626e88f42083d2644ff5423e8e66b17a#167a7b5a626e88f42083d2644ff5423e8e66b17a"
-dependencies = [
- "goblin",
- "libc",
- "primordial 0.4.0",
-]
-
-[[package]]
-name = "sallyport"
-version = "0.1.0"
 source = "git+https://github.com/enarx/sallyport?rev=dd42c91cc9e5cbc74f342eede3bc072f60ba11bd#dd42c91cc9e5cbc74f342eede3bc072f60ba11bd"
 dependencies = [
  "goblin",
  "libc",
  "primordial 0.3.0",
+]
+
+[[package]]
+name = "sallyport"
+version = "0.1.0"
+source = "git+https://github.com/enarx/sallyport?rev=fa4c6eea1c8dab54a8b8843a498b6fb883c006dd#fa4c6eea1c8dab54a8b8843a498b6fb883c006dd"
+dependencies = [
+ "goblin",
+ "libc",
+ "primordial 0.4.0",
+ "sallyport 0.2.0",
+]
+
+[[package]]
+name = "sallyport"
+version = "0.2.0"
+source = "git+https://github.com/enarx/sallyport?rev=fa4c6eea1c8dab54a8b8843a498b6fb883c006dd#fa4c6eea1c8dab54a8b8843a498b6fb883c006dd"
+dependencies = [
+ "libc",
 ]
 
 [[package]]

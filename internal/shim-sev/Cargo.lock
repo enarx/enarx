@@ -335,11 +335,20 @@ dependencies = [
 [[package]]
 name = "sallyport"
 version = "0.1.0"
-source = "git+https://github.com/enarx/sallyport?rev=167a7b5a626e88f42083d2644ff5423e8e66b17a#167a7b5a626e88f42083d2644ff5423e8e66b17a"
+source = "git+https://github.com/enarx/sallyport?rev=fa4c6eea1c8dab54a8b8843a498b6fb883c006dd#fa4c6eea1c8dab54a8b8843a498b6fb883c006dd"
 dependencies = [
  "goblin",
  "libc",
  "primordial",
+ "sallyport 0.2.0",
+]
+
+[[package]]
+name = "sallyport"
+version = "0.2.0"
+source = "git+https://github.com/enarx/sallyport?rev=fa4c6eea1c8dab54a8b8843a498b6fb883c006dd#fa4c6eea1c8dab54a8b8843a498b6fb883c006dd"
+dependencies = [
+ "libc",
 ]
 
 [[package]]
@@ -383,7 +392,7 @@ dependencies = [
  "noted",
  "primordial",
  "rcrt1",
- "sallyport",
+ "sallyport 0.1.0",
  "spinning",
  "x86_64",
  "xsave",
