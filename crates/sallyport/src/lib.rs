@@ -73,7 +73,6 @@
 //! 1. The shim examines the `Reply` in the `Message` header of the `Block` and propagates any mutated data back to
 //! the protected address space. It may then return control to its workload.
 
-#![cfg_attr(feature = "asm", feature(asm))]
 #![deny(missing_docs)]
 #![deny(clippy::all)]
 #![cfg_attr(not(test), no_std)]
@@ -85,6 +84,8 @@ pub mod syscall;
 mod tests;
 pub mod untrusted;
 
+#[cfg(feature = "asm")]
+use core::arch::asm;
 use core::mem::size_of;
 use core::mem::MaybeUninit;
 use core::ptr::NonNull;
