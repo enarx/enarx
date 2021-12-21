@@ -77,7 +77,7 @@ pub fn run<T: AsRef<str>, U: AsRef<str>>(
     bytes: impl AsRef<[u8]>,
     args: impl IntoIterator<Item = T>,
     envs: impl IntoIterator<Item = (U, U)>,
-) -> Result<Box<[wasmtime::Val]>> {
+) -> Result<Vec<wasmtime::Val>> {
     debug!("configuring wasmtime engine");
     let mut config = wasmtime::Config::new();
     // Support module-linking (https://github.com/webassembly/module-linking)
@@ -135,8 +135,12 @@ pub fn run<T: AsRef<str>, U: AsRef<str>>(
         .or(Err(Error::ExportNotFound))?;
 
     debug!("calling function");
-    func.call(store, Default::default())
-        .or(Err(Error::CallFailed))
+    let mut results = vec![wasmtime::Val::null(); func.ty(&store).results().len()];
+
+    func.call(store, Default::default(), &mut results)
+        .or(Err(Error::CallFailed))?;
+
+    Ok(results)
 }
 
 #[cfg(test)]
