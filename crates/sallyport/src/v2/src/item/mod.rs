@@ -31,6 +31,8 @@ impl TryFrom<usize> for Kind {
     }
 }
 
+pub(crate) const HEADER_USIZE_COUNT: usize = size_of::<Header>() / size_of::<usize>();
+
 /// `sallyport` item header.
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[repr(C, align(8))]
@@ -39,11 +41,11 @@ pub struct Header {
     pub kind: Kind,
 }
 
-impl TryFrom<[usize; 2]> for Header {
+impl TryFrom<[usize; HEADER_USIZE_COUNT]> for Header {
     type Error = Error;
 
     #[inline]
-    fn try_from(header: [usize; 2]) -> Result<Self, Self::Error> {
+    fn try_from(header: [usize; HEADER_USIZE_COUNT]) -> Result<Self, Self::Error> {
         let [size, kind] = header;
         let kind = kind.try_into()?;
         Ok(Self { size, kind })
@@ -156,7 +158,7 @@ mod tests {
 
     #[test]
     fn block() {
-        let mut block: [usize; 25] = [
+        let mut block: [usize; 3 * HEADER_USIZE_COUNT + 2 * SYSCALL_USIZE_COUNT + 1] = [
             (SYSCALL_USIZE_COUNT + 1) * size_of::<usize>(), // size
             Kind::Syscall as _,                             // kind
             libc::SYS_read as _,                            // num
