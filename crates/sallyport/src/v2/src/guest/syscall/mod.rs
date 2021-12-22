@@ -2,6 +2,9 @@
 
 //! Syscall-specific functionality.
 
+#[cfg(test)]
+mod tests;
+
 mod argv;
 mod result;
 
