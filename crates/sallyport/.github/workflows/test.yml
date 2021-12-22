@@ -19,8 +19,6 @@ jobs:
       matrix:
         toolchain:
           - nightly
-          - stable
-          - 1.57.0
         features:
           -
         profile:
