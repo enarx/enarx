@@ -56,3 +56,26 @@ where
         assert_eq!(collected, self.collected);
     }
 }
+
+#[test]
+fn exit() {
+    Call::new(
+        Exit { status: 2 },
+        [
+            SYSCALL_USIZE_COUNT * size_of::<usize>(),
+            item::Kind::Syscall as _,
+            libc::SYS_exit as _,
+            2,
+            0,
+            0,
+            0,
+            0,
+            0,
+            -libc::ENOSYS as _,
+            0,
+        ],
+        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        (),
+    )
+    .assert()
+}
