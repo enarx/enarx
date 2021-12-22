@@ -59,7 +59,7 @@ pub struct Syscall {
     pub ret: [usize; 2],
 }
 
-const SYSCALL_USIZE_COUNT: usize = size_of::<Syscall>() / size_of::<usize>();
+pub(crate) const SYSCALL_USIZE_COUNT: usize = size_of::<Syscall>() / size_of::<usize>();
 
 impl From<&mut [usize; SYSCALL_USIZE_COUNT]> for &mut Syscall {
     #[inline]
