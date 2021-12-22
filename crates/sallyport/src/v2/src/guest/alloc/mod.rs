@@ -2,6 +2,9 @@
 
 //! Allocation-specific functionality.
 
+#[cfg(test)]
+mod tests;
+
 mod inout;
 mod input;
 mod output;
