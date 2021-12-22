@@ -37,5 +37,7 @@
 //! [output references]: alloc::OutputRef
 
 #[allow(clippy::len_without_is_empty)]
+#[cfg(test)]
 pub mod alloc;
+#[cfg(test)]
 pub mod syscall;
