@@ -54,6 +54,8 @@
 //!
 //! The argument values may contain numeric values. However, all pointers MUST be translated to an offset from the beginning of the data section.
 
+#![feature(nonnull_slice_from_raw_parts)]
+#![feature(slice_ptr_len)]
 #![cfg_attr(not(test), no_std)]
 
 pub mod guest;
