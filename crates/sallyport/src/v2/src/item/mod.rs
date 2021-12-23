@@ -2,7 +2,7 @@
 
 //! Shared `sallyport` item definitions.
 
-use crate::iter::Iterator;
+use crate::iter::{IntoIterator, Iterator};
 use crate::Error;
 
 use core::convert::{TryFrom, TryInto};
@@ -141,6 +141,15 @@ impl<'a> Iterator for Block<'a> {
     #[inline]
     fn next(self) -> Option<(Self::Item, Block<'a>)> {
         self.into()
+    }
+}
+
+impl<'a> IntoIterator for Block<'a> {
+    type Item = <Self as Iterator>::Item;
+    type IntoIter = Self;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self
     }
 }
 
