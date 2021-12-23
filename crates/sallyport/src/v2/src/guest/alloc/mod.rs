@@ -51,6 +51,36 @@ pub trait Allocator {
     /// and returns corresponding [`InOutRef`] on success.
     fn allocate_inout_layout<'a>(&mut self, layout: Layout) -> Result<InOutRef<'a, [u8]>>;
 
+    /// Attempts to reserve an arbitrary input [`Layout`]
+    /// and returns corresponding [`InRef`] on success.
+    fn reserve_input_layout<'a, T, F>(
+        &mut self,
+        layout: Layout,
+        f: F,
+    ) -> Result<(T, InRef<'a, [u8]>)>
+    where
+        F: FnOnce(&mut Self) -> Result<T>;
+
+    /// Attempts to reserve an arbitrary output [`Layout`]
+    /// and returns corresponding [`OutRef`] on success.
+    fn reserve_output_layout<'a, T, F>(
+        &mut self,
+        layout: Layout,
+        f: F,
+    ) -> Result<(T, OutRef<'a, [u8]>)>
+    where
+        F: FnOnce(&mut Self) -> Result<T>;
+
+    /// Attempts to reserve an arbitrary inout [`Layout`]
+    /// and returns corresponding [`InOutRef`] on success.
+    fn reserve_inout_layout<'a, T, F>(
+        &mut self,
+        layout: Layout,
+        f: F,
+    ) -> Result<(T, InOutRef<'a, [u8]>)>
+    where
+        F: FnOnce(&mut Self) -> Result<T>;
+
     /// Attempts to allocate an input of type `T`
     /// and returns corresponding [`InRef`] on success.
     #[inline]
@@ -73,6 +103,39 @@ pub trait Allocator {
     fn allocate_inout<'a, T>(&mut self) -> Result<InOutRef<'a, T>> {
         self.allocate_inout_layout(Layout::new::<T>())
             .map(InOutRef::cast)
+    }
+
+    /// Attempts to reserve an input of type `T`
+    /// and returns corresponding [`InRef`] on success.
+    #[inline]
+    fn reserve_input<'a, T, U>(
+        &mut self,
+        f: impl FnOnce(&mut Self) -> Result<U>,
+    ) -> Result<(U, InRef<'a, T>)> {
+        self.reserve_input_layout(Layout::new::<T>(), f)
+            .map(|(data, reserved)| (data, reserved.cast()))
+    }
+
+    /// Attempts to reserve an output of type `T`
+    /// and returns corresponding [`OutRef`] on success.
+    #[inline]
+    fn reserve_output<'a, T, U>(
+        &mut self,
+        f: impl FnOnce(&mut Self) -> Result<U>,
+    ) -> Result<(U, OutRef<'a, T>)> {
+        self.reserve_output_layout(Layout::new::<T>(), f)
+            .map(|(data, reserved)| (data, reserved.cast()))
+    }
+
+    /// Attempts to reserve an inout of type `T`
+    /// and returns corresponding [`InOutRef`] on success.
+    #[inline]
+    fn reserve_inout<'a, T, U>(
+        &mut self,
+        f: impl FnOnce(&mut Self) -> Result<U>,
+    ) -> Result<(U, InOutRef<'a, T>)> {
+        self.reserve_inout_layout(Layout::new::<T>(), f)
+            .map(|(data, reserved)| (data, reserved.cast()))
     }
 
     /// Attempts to allocate a slice input of `len` elements of type `T`

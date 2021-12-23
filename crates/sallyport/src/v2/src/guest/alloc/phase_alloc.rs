@@ -96,6 +96,37 @@ impl<'a> Alloc<'a, phase::Stage> {
             offset,
         ))
     }
+
+    #[inline]
+    fn reserve_layout<T>(
+        &mut self,
+        layout: Layout,
+        f: impl FnOnce(&mut Self) -> Result<T>,
+    ) -> Result<(T, NonNull<[u8]>, usize)> {
+        let layout_size = layout.size();
+        let free = self.ptr.len().checked_sub(layout_size).ok_or(ENOMEM)?;
+
+        let align = layout.align();
+        // NOTE: `align_offset` computes offset to the next aligned address, but we need the offset to the previous aligned address.
+        let pad_size =
+            unsafe { self.ptr.cast::<u8>().as_ptr().add(free) }.align_offset(align) % align;
+        let free = free.checked_sub(pad_size).ok_or(ENOMEM)?;
+
+        let mut alloc = Self {
+            ptr: NonNull::slice_from_raw_parts(self.ptr.cast(), free),
+            offset: self.offset,
+
+            phase: PhantomData,
+        };
+        let data = f(&mut alloc)?;
+        alloc.ptr = NonNull::slice_from_raw_parts(
+            alloc.ptr.cast(),
+            alloc.ptr.len() + pad_size + layout_size,
+        );
+        let (ptr, offset) = alloc.allocate_layout(layout)?;
+        *self = alloc;
+        Ok((data, ptr, offset))
+    }
 }
 
 impl<'a> Allocator for Alloc<'a, phase::Stage> {
@@ -128,6 +159,45 @@ impl<'a> Allocator for Alloc<'a, phase::Stage> {
     fn allocate_output_layout<'b>(&mut self, layout: Layout) -> Result<OutRef<'b, [u8]>> {
         self.allocate_layout(layout)
             .map(|(ptr, offset)| OutRef::new(ptr, offset))
+    }
+
+    #[inline]
+    fn reserve_input_layout<'b, T, F>(
+        &mut self,
+        layout: Layout,
+        f: F,
+    ) -> Result<(T, InRef<'b, [u8]>)>
+    where
+        F: FnOnce(&mut Self) -> Result<T>,
+    {
+        self.reserve_layout(layout, f)
+            .map(|(data, ptr, offset)| (data, InRef::new(ptr, offset)))
+    }
+
+    #[inline]
+    fn reserve_output_layout<'b, T, F>(
+        &mut self,
+        layout: Layout,
+        f: F,
+    ) -> Result<(T, OutRef<'b, [u8]>)>
+    where
+        F: FnOnce(&mut Self) -> Result<T>,
+    {
+        self.reserve_layout(layout, f)
+            .map(|(data, ptr, offset)| (data, OutRef::new(ptr, offset)))
+    }
+
+    #[inline]
+    fn reserve_inout_layout<'b, T, F>(
+        &mut self,
+        layout: Layout,
+        f: F,
+    ) -> Result<(T, InOutRef<'b, [u8]>)>
+    where
+        F: FnOnce(&mut Self) -> Result<T>,
+    {
+        self.reserve_layout(layout, f)
+            .map(|(data, ptr, offset)| (data, InOutRef::new(ptr, offset)))
     }
 
     #[inline]
