@@ -34,15 +34,8 @@ jobs:
         toolchain:
           - nightly
         features:
-          -
+          - asm
         profile:
           - name: debug
           - name: release
             flag: --release
-        include:
-          - toolchain: nightly
-            features: asm
-            profile: {name: debug}
-          - toolchain: nightly
-            features: asm
-            profile: {name: release, flag: --release}
