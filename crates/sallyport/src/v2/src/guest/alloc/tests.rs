@@ -34,22 +34,31 @@ fn alloc() {
     assert_eq!(alloc.free::<usize>(), USIZE_COUNT);
     assert_eq!(alloc.free::<u8>(), free);
 
-    let in_u32 = Input::stage(&mut alloc, 0xdeadbeefu32).unwrap();
+    let in_u32 = Input::stage(&mut alloc, 0xdeadbeef_u32).unwrap();
     free -= size_of::<u32>();
     assert_eq!(alloc.free::<usize>(), USIZE_COUNT - 1);
     assert_eq!(alloc.free::<u8>(), free);
     assert_eq!(in_u32.offset(), offset);
     offset += size_of::<u32>();
 
-    let out_u16 = Output::stage(&mut alloc, 0x8888u16).unwrap();
+    let out_u16 = Output::stage(&mut alloc, 0x8888_u16).unwrap();
     free -= size_of::<u16>();
     assert_eq!(alloc.free::<usize>(), USIZE_COUNT - 1);
     assert_eq!(alloc.free::<u8>(), free);
     assert_eq!(out_u16.offset(), offset);
     offset += size_of::<u16>();
 
-    let in_slice_u32 =
-        Input::stage_slice(&mut alloc, [0xaaaaaaaau32, 0x00, 0x00, 0x00, 0x00]).unwrap();
+    let in_slice_u32 = Input::stage_slice(
+        &mut alloc,
+        [
+            0xaaaaaaaa_u32,
+            0x00000000,
+            0x00000000,
+            0x00000000,
+            0x00000000,
+        ],
+    )
+    .unwrap();
     assert_eq!(in_slice_u32.len(), 5);
     free -= size_of::<u16>() + 5 * size_of::<u32>();
     offset += size_of::<u16>();
@@ -58,7 +67,7 @@ fn alloc() {
     assert_eq!(in_slice_u32.offset(), offset);
     offset += 5 * size_of::<u32>();
 
-    let out_slice_u8 = Output::stage_slice(&mut alloc, [0x88u8, 0x88, 0x88, 0x88]).unwrap();
+    let out_slice_u8 = Output::stage_slice(&mut alloc, [0x88_u8, 0x88, 0x88, 0x88]).unwrap();
     assert_eq!(out_slice_u8.len(), 4);
     free -= 4;
     assert_eq!(alloc.free::<usize>(), USIZE_COUNT - 4);
@@ -126,7 +135,7 @@ fn alloc() {
 
     assert_eq!(out_u16.collect(&alloc), 0xfeed);
     assert_eq!(out_slice_u8.collect(&alloc), [0x11, 0x22, 0x33, 0x44]);
-    let mut out_slice_max_usize_got = [0usize; USIZE_COUNT];
+    let mut out_slice_max_usize_got = [0_usize; USIZE_COUNT];
     unsafe {
         out_slice_max_usize.copy_to_unchecked(
             &alloc,
