@@ -2,7 +2,24 @@
 
 use super::*;
 
+use core::fmt::LowerHex;
 use core::mem::size_of;
+
+fn assert_block_eq<const N: usize>(got: [usize; N], expected: [usize; N]) {
+    #[inline]
+    fn format(iter: impl IntoIterator<Item = impl LowerHex>) -> String {
+        iter.into_iter().fold(String::from("\n[\n"), |s, el| {
+            format!("{} {:#018x},\n", s, el)
+        }) + "]\n"
+    }
+    assert_eq!(
+        got,
+        expected,
+        "\ngot: {}\nexpected: {}",
+        format(got),
+        format(expected),
+    );
+}
 
 #[test]
 fn alloc() {
@@ -63,7 +80,7 @@ fn alloc() {
     unsafe { in_out_slice_max_usize.copy_from_unchecked(&alloc, [0x11, 0x22, 0x33]) };
     let out_slice_max_usize = in_out_slice_max_usize.commit(&alloc);
 
-    assert_eq!(
+    assert_block_eq(
         unsafe { buf_ptr.read() },
         [
             0xffffffffdeadbeef,
