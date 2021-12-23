@@ -26,3 +26,6 @@ asm = []
 
 [dependencies]
 libc = { version = "0.2", features = [] }
+
+[dev-dependencies]
+serial_test = "0.5"
