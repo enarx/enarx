@@ -4,7 +4,6 @@ use super::Execute;
 use crate::{item, Result};
 
 use core::arch::asm;
-use core::convert::TryInto;
 use libc::c_long;
 
 struct Syscall<'a, const ARGS: usize, const RETS: usize> {
@@ -17,7 +16,7 @@ struct Syscall<'a, const ARGS: usize, const RETS: usize> {
     argv: [usize; ARGS],
 
     /// Return values.
-    ret: &'a mut [usize; RETS],
+    ret: [&'a mut usize; RETS],
 }
 
 impl Execute for Syscall<'_, 0, 1> {
@@ -25,7 +24,7 @@ impl Execute for Syscall<'_, 0, 1> {
     unsafe fn execute(self) {
         asm!(
         "syscall",
-        inlateout("rax") self.num as usize => (*self.ret)[0],
+        inlateout("rax") self.num as usize => *self.ret[0],
         lateout("rcx") _, // clobbered
         lateout("r11") _, // clobbered
         )
@@ -37,7 +36,7 @@ impl Execute for Syscall<'_, 1, 1> {
     unsafe fn execute(self) {
         asm!(
         "syscall",
-        inlateout("rax") self.num as usize => (*self.ret)[0],
+        inlateout("rax") self.num as usize => *self.ret[0],
         in("rdi") self.argv[0],
         lateout("rcx") _, // clobbered
         lateout("r11") _, // clobbered
@@ -50,7 +49,7 @@ impl Execute for Syscall<'_, 2, 1> {
     unsafe fn execute(self) {
         asm!(
         "syscall",
-        inlateout("rax") self.num as usize => (*self.ret)[0],
+        inlateout("rax") self.num as usize => *self.ret[0],
         in("rdi") self.argv[0],
         in("rsi") self.argv[1],
         lateout("rcx") _, // clobbered
@@ -64,7 +63,7 @@ impl Execute for Syscall<'_, 3, 1> {
     unsafe fn execute(self) {
         asm!(
         "syscall",
-        inlateout("rax") self.num as usize => (*self.ret)[0],
+        inlateout("rax") self.num as usize => *self.ret[0],
         in("rdi") self.argv[0],
         in("rsi") self.argv[1],
         in("rdx") self.argv[2],
@@ -79,7 +78,7 @@ impl Execute for Syscall<'_, 4, 1> {
     unsafe fn execute(self) {
         asm!(
         "syscall",
-        inlateout("rax") self.num as usize => (*self.ret)[0],
+        inlateout("rax") self.num as usize => *self.ret[0],
         in("rdi") self.argv[0],
         in("rsi") self.argv[1],
         in("rdx") self.argv[2],
@@ -95,7 +94,7 @@ impl Execute for Syscall<'_, 5, 1> {
     unsafe fn execute(self) {
         asm!(
         "syscall",
-        inlateout("rax") self.num as usize => (*self.ret)[0],
+        inlateout("rax") self.num as usize => *self.ret[0],
         in("rdi") self.argv[0],
         in("rsi") self.argv[1],
         in("rdx") self.argv[2],
@@ -112,7 +111,7 @@ impl Execute for Syscall<'_, 6, 1> {
     unsafe fn execute(self) {
         asm!(
         "syscall",
-        inlateout("rax") self.num as usize => (*self.ret)[0],
+        inlateout("rax") self.num as usize => *self.ret[0],
         in("rdi") self.argv[0],
         in("rsi") self.argv[1],
         in("rdx") self.argv[2],
@@ -130,11 +129,11 @@ pub(super) unsafe fn execute_syscall(syscall: &mut item::Syscall, _data: &mut [u
         item::Syscall {
             num,
             argv: [status, ..],
-            ret,
+            ret: [ret, ..],
         } if *num == libc::SYS_exit as _ => Syscall {
             num: libc::SYS_exit,
             argv: [*status],
-            ret: &mut ret[..1].try_into().unwrap(),
+            ret: [ret],
         }
         .execute(),
         _ => return Err(libc::ENOSYS),
