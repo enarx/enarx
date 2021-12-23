@@ -33,8 +33,8 @@
 //! Entities that can be collected implement the [`Collect`](alloc::Collect) trait.
 //!
 //! [inout references]: alloc::InOutRef
-//! [input references]: alloc::InputRef
-//! [output references]: alloc::OutputRef
+//! [input references]: alloc::InRef
+//! [output references]: alloc::OutRef
 
 #[allow(clippy::len_without_is_empty)]
 #[cfg(test)]

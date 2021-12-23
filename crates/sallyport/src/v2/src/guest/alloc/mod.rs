@@ -38,11 +38,11 @@ pub trait Allocator {
     fn section<T>(&mut self, f: impl FnOnce(&mut Self) -> Result<T>) -> Result<(T, usize)>;
 
     /// Attempts to allocate an arbitrary input [`Layout`]
-    /// and returns corresponding [`InputRef`] on success.
+    /// and returns corresponding [`InRef`] on success.
     fn allocate_input_layout<'a>(&mut self, layout: Layout) -> Result<InRef<'a, [u8]>>;
 
     /// Attempts to allocate an arbitrary output [`Layout`]
-    /// and returns corresponding [`OutputRef`] on success.
+    /// and returns corresponding [`OutRef`] on success.
     fn allocate_output_layout<'a>(&mut self, layout: Layout) -> Result<OutRef<'a, [u8]>>;
 
     /// Attempts to allocate an arbitrary inout [`Layout`]
@@ -50,7 +50,7 @@ pub trait Allocator {
     fn allocate_inout_layout<'a>(&mut self, layout: Layout) -> Result<InOutRef<'a, [u8]>>;
 
     /// Attempts to allocate an input of type `T`
-    /// and returns corresponding [`InputRef`] on success.
+    /// and returns corresponding [`InRef`] on success.
     #[inline]
     fn allocate_input<'a, T>(&mut self) -> Result<InRef<'a, T>> {
         self.allocate_input_layout(Layout::new::<T>())
@@ -58,7 +58,7 @@ pub trait Allocator {
     }
 
     /// Attempts to allocate an output of type `T`
-    /// and returns corresponding [`OutputRef`] on success.
+    /// and returns corresponding [`OutRef`] on success.
     #[inline]
     fn allocate_output<'a, T>(&mut self) -> Result<OutRef<'a, T>> {
         self.allocate_output_layout(Layout::new::<T>())
@@ -74,7 +74,7 @@ pub trait Allocator {
     }
 
     /// Attempts to allocate a slice input of `len` elements of type `T`
-    /// and returns corresponding [`InputRef`] on success.
+    /// and returns corresponding [`InRef`] on success.
     #[inline]
     fn allocate_input_slice<'a, T>(&mut self, len: usize) -> Result<InRef<'a, [T]>> {
         self.allocate_input_layout(array_layout::<T>(len)?)
@@ -82,7 +82,7 @@ pub trait Allocator {
     }
 
     /// Attempts to allocate a slice input of at most `len` elements of type `T` depending on capacity
-    /// and returns corresponding [`InputRef`] on success.
+    /// and returns corresponding [`InRef`] on success.
     #[inline]
     fn allocate_input_slice_max<'a, T>(&mut self, len: usize) -> Result<InRef<'a, [T]>> {
         let len = len.min(self.free::<T>());
@@ -93,7 +93,7 @@ pub trait Allocator {
     }
 
     /// Attempts to allocate a slice output of `len` elements of type `T`
-    /// and returns corresponding [`OutputRef`] on success.
+    /// and returns corresponding [`OutRef`] on success.
     #[inline]
     fn allocate_output_slice<'a, T>(&mut self, len: usize) -> Result<OutRef<'a, [T]>> {
         self.allocate_output_layout(array_layout::<T>(len)?)
@@ -101,7 +101,7 @@ pub trait Allocator {
     }
 
     /// Attempts to allocate a slice output of at most `len` elements of type `T` depending on capacity
-    /// and returns corresponding [`OutputRef`] on success.
+    /// and returns corresponding [`OutRef`] on success.
     #[inline]
     fn allocate_output_slice_max<'a, T>(&mut self, len: usize) -> Result<OutRef<'a, [T]>> {
         let len = len.min(self.free::<T>());
