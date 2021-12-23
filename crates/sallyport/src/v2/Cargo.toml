@@ -21,7 +21,7 @@ is-it-maintained-issue-resolution = { repository = "enarx/sallyport" }
 is-it-maintained-open-issues = { repository = "enarx/sallyport" }
 
 [features]
-default = []
+default = [ "asm" ]
 asm = []
 
 [dependencies]
