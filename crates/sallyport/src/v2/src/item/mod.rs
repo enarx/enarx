@@ -136,11 +136,15 @@ impl<'a> From<Block<'a>> for Option<(Option<Item<'a>>, Block<'a>)> {
 }
 
 impl<'a> Iterator for Block<'a> {
-    type Item = Option<Item<'a>>;
+    type Item = Item<'a>;
 
     #[inline]
     fn next(self) -> Option<(Self::Item, Block<'a>)> {
-        self.into()
+        match self.into() {
+            Some((Some(item), tail)) => Some((item, tail)),
+            Some((None, tail)) => tail.next(),
+            None => None,
+        }
     }
 }
 
@@ -199,7 +203,7 @@ mod tests {
 
         let (item, tail) = Block::from(&mut block[..]).next().unwrap();
         assert!(
-            matches!(item, Some(Item::Syscall (Syscall{ num, argv, ret }, data)) if {
+            matches!(item, Item::Syscall (Syscall{ num, argv, ret }, data) if {
                 assert_eq!(*num, libc::SYS_read as _);
                 assert_eq!(*argv, [1, 0, 4, 0, 0, 0]);
                 assert_eq!(*ret, [-libc::ENOSYS as _, 0]);
@@ -210,7 +214,7 @@ mod tests {
 
         let (item, tail) = tail.next().unwrap();
         assert!(
-            matches!(item, Some(Item::Syscall (Syscall{ num, argv, ret }, data)) if {
+            matches!(item, Item::Syscall (Syscall{ num, argv, ret }, data) if {
                 assert_eq!(*num, libc::SYS_exit as _);
                 assert_eq!(*argv, [5, 0, 0, 0, 0, 0]);
                 assert_eq!(*ret, [-libc::ENOSYS as _, 0]);
