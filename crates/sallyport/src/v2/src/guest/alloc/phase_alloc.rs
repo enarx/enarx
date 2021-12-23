@@ -21,7 +21,7 @@ pub(crate) mod phase {
 }
 
 #[derive(Debug)]
-pub(crate) struct Alloc<'a, Phase> {
+pub struct Alloc<'a, Phase> {
     /// Write-only pointer to memory location, where next object will be allocated.
     ptr: NonNull<[u8]>,
     /// Byte offset of the next allocated ptr object within allocation buffer.
@@ -96,15 +96,11 @@ impl<'a> Alloc<'a, phase::Stage> {
             offset,
         ))
     }
-
-    /// Records the end of current phase and moves allocator into commit phase.
-    #[inline]
-    pub fn commit(self) -> Alloc<'a, phase::Commit> {
-        self.into_phase()
-    }
 }
 
 impl<'a> Allocator for Alloc<'a, phase::Stage> {
+    type Committer = Alloc<'a, phase::Commit>;
+
     #[inline]
     fn free<T>(&self) -> usize {
         let free_bytes = self.ptr.len();
@@ -152,14 +148,20 @@ impl<'a> Allocator for Alloc<'a, phase::Stage> {
             (s, alloc.offset)
         })
     }
-}
 
-impl<'a> Alloc<'a, phase::Commit> {
     #[inline]
-    pub fn collect(self) -> Alloc<'a, phase::Collect> {
+    fn commit(self) -> Self::Committer {
         self.into_phase()
     }
 }
 
-impl<'a> Committer for Alloc<'a, phase::Commit> {}
+impl<'a> Committer for Alloc<'a, phase::Commit> {
+    type Collector = Alloc<'a, phase::Collect>;
+
+    #[inline]
+    fn collect(self) -> Self::Collector {
+        self.into_phase()
+    }
+}
+
 impl<'a> Collector for Alloc<'a, phase::Collect> {}

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use super::*;
-use crate::guest::alloc::{Alloc, Collect, Commit, Stage};
+use crate::guest::alloc::{Alloc, Allocator, Collect, Commit, Committer, Stage};
 use crate::item::{self, SYSCALL_USIZE_COUNT};
 
 use core::marker::PhantomData;

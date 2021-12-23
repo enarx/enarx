@@ -31,6 +31,8 @@ fn array_layout<T>(len: usize) -> Result<Layout> {
 
 /// Allocator in stage phase.
 pub trait Allocator {
+    type Committer: Committer;
+
     /// Returns amount of elements of type `T` that can still be allocated.
     fn free<T>(&self) -> usize;
 
@@ -129,6 +131,9 @@ pub trait Allocator {
         }
         self.allocate_inout_slice(len)
     }
+
+    /// Records the end of stage phase and moves allocator into commit phase.
+    fn commit(self) -> Self::Committer;
 }
 
 /// Something that can be staged in stage phase.
@@ -148,7 +153,12 @@ impl Stage<'_> for () {
 }
 
 /// Allocator in commit phase.
-pub trait Committer: phase::Alloc {}
+pub trait Committer: phase::Alloc {
+    type Collector: Collector;
+
+    /// Records the end of commit phase and moves allocator into collect phase.
+    fn collect(self) -> Self::Collector;
+}
 
 /// Something that can be committed in commit phase.
 pub trait Commit {
