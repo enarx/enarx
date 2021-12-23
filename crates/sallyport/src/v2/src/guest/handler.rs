@@ -4,7 +4,7 @@ use super::alloc::{phase, Alloc, Allocator, Collect, Commit, Committer, Stage};
 use super::{syscall, Platform};
 use crate::{item, Result};
 
-use libc::{c_int, ENOSYS};
+use libc::{c_int, size_t, ENOSYS};
 
 pub trait Execute {
     type Platform: Platform;
@@ -16,6 +16,7 @@ pub trait Execute {
 
     /// Executes an arbitrary call.
     /// Examples of calls that this method can execute are:
+    /// - [`syscall::Read`]
     /// - [`syscall::Exit`]
     fn execute<'a, T>(
         &mut self,
@@ -53,9 +54,19 @@ pub trait Execute {
     unsafe fn syscall(&mut self, registers: [usize; 7]) -> Result<[usize; 2]> {
         let [num, argv @ ..] = registers;
         match (num as _, argv) {
+            (libc::SYS_read, [fd, buf, count, ..]) => {
+                let buf = self.platform().validate_slice_mut(buf, count)?;
+                self.read(fd as _, buf).map(|ret| [ret, 0])
+            }
             (libc::SYS_exit, [status, ..]) => self.exit(status as _).map(|_| self.attacked()),
             _ => Err(ENOSYS),
         }
+    }
+
+    /// Executes [`read`](https://man7.org/linux/man-pages/man2/read.2.html) syscall akin to [`libc::read`].
+    fn read(&mut self, fd: c_int, buf: &mut [u8]) -> Result<size_t> {
+        self.execute(syscall::Read { fd, buf })?
+            .unwrap_or_else(|| self.attacked())
     }
 
     /// Executes [`exit`](https://man7.org/linux/man-pages/man2/exit.2.html) syscall akin to [`libc::exit`].

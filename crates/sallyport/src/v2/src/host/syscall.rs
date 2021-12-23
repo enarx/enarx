@@ -124,8 +124,23 @@ impl Execute for Syscall<'_, 6, 1> {
     }
 }
 
-pub(super) unsafe fn execute_syscall(syscall: &mut item::Syscall, _data: &mut [u8]) -> Result<()> {
+pub(super) unsafe fn execute_syscall(syscall: &mut item::Syscall, data: &mut [u8]) -> Result<()> {
     match syscall {
+        item::Syscall {
+            num,
+            argv: [fd, buf_offset, count, ..],
+            ret: [ret, ..],
+        } if *num == libc::SYS_read as _ => {
+            if *count > data.len() || data.len() - *count < *buf_offset {
+                return Err(libc::EFAULT);
+            }
+            Syscall {
+                num: libc::SYS_read,
+                argv: [*fd, data[*buf_offset..].as_ptr() as _, *count],
+                ret: [ret],
+            }
+            .execute();
+        }
         item::Syscall {
             num,
             argv: [status, ..],

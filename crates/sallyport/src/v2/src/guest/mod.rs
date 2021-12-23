@@ -16,6 +16,7 @@
 //!
 //! - [`libc`]-like API for syscall execution using safe Rust abstractions where possible, for example:
 //!     - [`syscall`](Handler::syscall) corresponding to [`libc::syscall`].
+//!     - [`read`](Handler::read) corresponding to [`libc::read`].
 //!     - [`exit`](Handler::exit) corresponding to [`libc::exit`].
 //!
 //! # Call lifetime phases
