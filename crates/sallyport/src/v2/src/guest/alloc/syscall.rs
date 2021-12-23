@@ -5,9 +5,10 @@ use super::{
 };
 use crate::{item, Result};
 
+use core::alloc::Layout;
 use core::marker::PhantomData;
-use core::mem::size_of;
-use libc::c_long;
+use core::mem::{align_of, size_of};
+use libc::{c_long, ENOMEM};
 
 /// Trait implemented by allocatable syscalls.
 pub unsafe trait Syscall<'a> {
@@ -66,13 +67,18 @@ impl<'a, T: Syscall<'a>> Stage<'a> for T {
         let argv_ref = alloc.allocate_input()?;
         let ret_ref = alloc.allocate_inout()?;
         let ((argv, staged), staged_size) = alloc.section(|alloc| self.stage(alloc))?;
+        let pad_size = staged_size % align_of::<usize>();
+        if pad_size > 0 {
+            let pad_layout = Layout::from_size_align(pad_size, 1).map_err(|_| ENOMEM)?;
+            alloc.allocate_input_layout(pad_layout)?;
+        }
         Ok(Self::Item {
             header_ref,
             num_ref,
             argv: argv_ref.stage(argv.into()),
             ret_ref,
             staged,
-            staged_size,
+            staged_size: staged_size + pad_size,
 
             phantom: PhantomData,
         })
