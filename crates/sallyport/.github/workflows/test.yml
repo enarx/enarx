@@ -15,7 +15,7 @@ jobs:
         name: cargo test
         with:
           command: test
-          args: ${{ matrix.profile.flag }}
+          args: --manifest-path ${{ matrix.manifest-path }} ${{ matrix.profile.flag }}
       - uses: actions-rs/cargo@v1
         name: cargo miri setup
         with:
@@ -27,7 +27,7 @@ jobs:
           MIRIFLAGS: "-Zmiri-disable-isolation"
         with:
           command: miri
-          args: test
+          args: test --manifest-path ${{ matrix.manifest-path }}
     strategy:
       fail-fast: false
       matrix:
@@ -39,3 +39,6 @@ jobs:
           - name: debug
           - name: release
             flag: --release
+        manifest-path:
+          - Cargo.toml
+          - src/v2/Cargo.toml
