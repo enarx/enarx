@@ -39,6 +39,16 @@ impl<T> From<[usize; 2]> for Result<T> {
     }
 }
 
+impl From<Result<()>> for crate::Result<()> {
+    #[inline]
+    fn from(res: Result<()>) -> Self {
+        match res.0 {
+            [errno @ ERRNO_START..=usize::MAX, _] => Err(-(errno as c_int)),
+            _ => Ok(()),
+        }
+    }
+}
+
 impl From<Result<usize>> for crate::Result<usize> {
     #[inline]
     fn from(res: Result<usize>) -> Self {

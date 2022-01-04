@@ -54,6 +54,7 @@ pub trait Execute {
     unsafe fn syscall(&mut self, registers: [usize; 7]) -> Result<[usize; 2]> {
         let [num, argv @ ..] = registers;
         match (num as _, argv) {
+            (libc::SYS_close, [fd, ..]) => self.close(fd as _).map(|_| [0, 0]),
             (libc::SYS_exit, [status, ..]) => self.exit(status as _).map(|_| self.attacked()),
             (libc::SYS_read, [fd, buf, count, ..]) => {
                 let buf = self.platform().validate_slice_mut(buf, count)?;
@@ -65,6 +66,11 @@ pub trait Execute {
             }
             _ => Err(ENOSYS),
         }
+    }
+
+    /// Executes [`close`](https://man7.org/linux/man-pages/man2/close.2.html) syscall akin to [`libc::close`].
+    fn close(&mut self, fd: c_int) -> Result<()> {
+        self.execute(syscall::Close { fd })?
     }
 
     /// Executes [`exit`](https://man7.org/linux/man-pages/man2/exit.2.html) syscall akin to [`libc::exit`].

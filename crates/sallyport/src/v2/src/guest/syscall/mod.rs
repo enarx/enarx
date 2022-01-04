@@ -6,12 +6,14 @@
 mod tests;
 
 mod argv;
+mod close;
 mod exit;
 mod read;
 mod result;
 mod write;
 
 pub use argv::*;
+pub use close::*;
 pub use exit::*;
 pub use read::*;
 pub use result::*;

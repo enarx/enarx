@@ -2,6 +2,7 @@
 
 use libc::ENOSYS;
 use std::env::temp_dir;
+use std::ffi::CString;
 use std::fs::{File, OpenOptions};
 use std::io::{Read, Seek, Write};
 use std::os::unix::prelude::AsRawFd;
@@ -41,6 +42,27 @@ fn run_test<const N: usize>(
         f(&mut handler);
     }
     let _ = block;
+}
+
+#[test]
+#[serial]
+fn close() {
+    let path = temp_dir().join("sallyport-test-close");
+    let c_path = CString::new(path.as_os_str().to_str().unwrap()).unwrap();
+
+    run_test(3, [0xff; 16], move |handler| {
+        // NOTE: `miri` only supports mode 0o666 at the time of writing
+        // https://github.com/rust-lang/miri/blob/7a2f1cadcd5120c44eda3596053de767cd8173a2/src/shims/posix/fs.rs#L487-L493
+        let fd = unsafe { libc::open(c_path.as_ptr(), libc::O_RDWR | libc::O_CREAT, 0o666) };
+
+        if cfg!(feature = "asm") {
+            assert_eq!(handler.close(fd), Ok(()));
+            assert_eq!(unsafe { libc::close(fd) }, -1);
+            assert_eq!(unsafe { libc::__errno_location().read() }, libc::EBADF);
+        } else {
+            assert_eq!(handler.close(fd), Err(ENOSYS));
+        }
+    })
 }
 
 #[test]
