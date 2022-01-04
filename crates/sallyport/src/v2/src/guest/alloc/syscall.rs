@@ -66,19 +66,24 @@ impl<'a, T: Syscall<'a>> Stage<'a> for T {
         let num_ref = alloc.allocate_input()?;
         let argv_ref = alloc.allocate_input()?;
         let ret_ref = alloc.allocate_inout()?;
-        let ((argv, staged), staged_size) = alloc.section(|alloc| self.stage(alloc))?;
-        let pad_size = staged_size % align_of::<usize>();
-        if pad_size > 0 {
-            let pad_layout = Layout::from_size_align(pad_size, 1).map_err(|_| ENOMEM)?;
-            alloc.allocate_input_layout(pad_layout)?;
-        }
+        let ((argv, staged), mut staged_size) = alloc.section(|alloc| self.stage(alloc))?;
+        if staged_size > 0 {
+            let reminder = staged_size % align_of::<usize>();
+            if reminder > 0 {
+                let pad_size = align_of::<usize>() - reminder;
+                staged_size += pad_size;
+
+                let pad_layout = Layout::from_size_align(pad_size, 1).map_err(|_| ENOMEM)?;
+                alloc.allocate_input_layout(pad_layout)?;
+            }
+        };
         Ok(Self::Item {
             header_ref,
             num_ref,
             argv: argv_ref.stage(argv.into()),
             ret_ref,
             staged,
-            staged_size: staged_size + pad_size,
+            staged_size,
 
             phantom: PhantomData,
         })
