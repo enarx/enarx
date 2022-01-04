@@ -42,7 +42,6 @@ fn run_test<const N: usize>(
     let _ = block;
 }
 
-#[cfg(not(miri))]
 #[test]
 #[serial]
 fn read() {
