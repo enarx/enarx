@@ -47,9 +47,7 @@ mod tests {
     use super::*;
     use crate::item::Syscall;
 
-    use libc::{
-        SYS_close, SYS_fcntl, SYS_read, SYS_write, ENOSYS, F_GETFD, STDIN_FILENO, STDOUT_FILENO,
-    };
+    use libc::*;
 
     #[test]
     fn execute() {
