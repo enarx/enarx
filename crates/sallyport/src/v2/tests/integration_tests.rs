@@ -52,17 +52,13 @@ fn read() {
     run_test(3, [0xff; 16], move |handler| {
         let mut buf = [0u8; EXPECTED.len()];
 
-        #[cfg(feature = "asm")]
-        let expected_ret = Ok(EXPECTED.len());
-        #[cfg(not(feature = "asm"))]
-        let expected_ret = Err(libc::ENOSYS);
-
-        assert_eq!(
-            handler.read(File::open(&path).unwrap().as_raw_fd(), &mut buf),
-            expected_ret,
-        );
-        #[cfg(feature = "asm")]
-        assert_eq!(buf, EXPECTED.as_bytes());
+        let ret = handler.read(File::open(&path).unwrap().as_raw_fd(), &mut buf);
+        if cfg!(feature = "asm") {
+            assert_eq!(ret, Ok(EXPECTED.len()));
+            assert_eq!(buf, EXPECTED.as_bytes());
+        } else {
+            assert_eq!(ret, Err(libc::ENOSYS));
+        }
     });
 }
 
@@ -81,19 +77,15 @@ fn write() {
             .open(&path)
             .unwrap();
 
-        #[cfg(feature = "asm")]
-        let expected_ret = Ok(EXPECTED.len());
-        #[cfg(not(feature = "asm"))]
-        let expected_ret = Err(libc::ENOSYS);
-
-        assert_eq!(
-            handler.write(file.as_raw_fd(), EXPECTED.as_bytes()),
-            expected_ret,
-        );
-        let mut got = String::new();
-        file.rewind().unwrap();
-        file.read_to_string(&mut got).unwrap();
-        #[cfg(feature = "asm")]
-        assert_eq!(got, EXPECTED);
+        let ret = handler.write(file.as_raw_fd(), EXPECTED.as_bytes());
+        if cfg!(feature = "asm") {
+            assert_eq!(ret, Ok(EXPECTED.len()));
+            let mut got = String::new();
+            file.rewind().unwrap();
+            file.read_to_string(&mut got).unwrap();
+            assert_eq!(got, EXPECTED);
+        } else {
+            assert_eq!(ret, Err(libc::ENOSYS));
+        }
     })
 }
