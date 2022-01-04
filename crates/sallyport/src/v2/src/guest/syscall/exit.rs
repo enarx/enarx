@@ -12,7 +12,6 @@ pub struct Exit {
 
 unsafe impl<'a> Syscall<'a> for Exit {
     const NUM: c_long = libc::SYS_exit;
-    const DEFAULT_RET: Self::Ret = unsafe { super::Result::errno_unchecked(libc::ENOSYS) };
 
     type Argv = Argv<1>;
     type Ret = super::Result<()>;

@@ -25,7 +25,6 @@ impl<'a> Commit for StagedWrite<'a> {
 
 unsafe impl<'a> Syscall<'a> for Write<'a> {
     const NUM: c_long = libc::SYS_write;
-    const DEFAULT_RET: Self::Ret = unsafe { super::Result::errno_unchecked(libc::ENOSYS) };
 
     type Argv = Argv<3>;
     type Ret = super::Result<size_t>;

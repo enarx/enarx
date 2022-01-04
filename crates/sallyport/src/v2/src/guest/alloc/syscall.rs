@@ -15,14 +15,11 @@ pub unsafe trait Syscall<'a> {
     /// Syscall number.
     const NUM: c_long;
 
-    /// Default return value.
-    const DEFAULT_RET: Self::Ret;
-
     /// The syscall argument vector.
     type Argv: Into<[usize; 6]>;
 
     /// Syscall return value.
-    type Ret: From<[usize; 2]> + Into<[usize; 2]>;
+    type Ret: From<[usize; 2]>;
 
     /// Opaque [staged value](Stage::Item) value, which returns [`Self::Committed`] when committed via [`Commit::commit`].
     ///
@@ -112,7 +109,7 @@ impl<'a, T: Syscall<'a>> Commit for StagedSyscall<'a, T> {
         );
         self.num_ref.copy_from(com, T::NUM as usize);
         self.argv.commit(com);
-        self.ret_ref.copy_from(com, T::DEFAULT_RET.into());
+        self.ret_ref.copy_from(com, [-libc::ENOSYS as usize, 0]);
         Self::Item {
             ret_ref: self.ret_ref.commit(com),
             committed: self.staged.commit(com),

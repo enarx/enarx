@@ -10,21 +10,6 @@ pub const ERRNO_START: usize = usize::MAX - MAX_ERRNO as usize;
 #[repr(transparent)]
 pub struct Result<T>([usize; 2], PhantomData<T>);
 
-impl<T> Result<T> {
-    #[inline]
-    pub const unsafe fn errno_unchecked(errno: c_int) -> Self {
-        Self([-errno as usize, 0], PhantomData)
-    }
-
-    #[inline]
-    pub const fn errno(errno: c_int) -> Option<Self> {
-        match errno {
-            0..=MAX_ERRNO => Some(unsafe { Self::errno_unchecked(errno) }),
-            _ => None,
-        }
-    }
-}
-
 impl<T> From<Result<T>> for [usize; 2] {
     #[inline]
     fn from(res: Result<T>) -> Self {
@@ -74,7 +59,7 @@ mod tests {
     fn result() {
         const ERRNO: c_int = libc::EPERM;
 
-        let expected: Result<isize> = unsafe { super::Result::errno_unchecked(ERRNO) };
+        let expected: Result<isize> = [-ERRNO as usize, 0].into();
         assert_eq!(
             Result::from([unsafe { libc::fcntl(-1, libc::F_GETFD) } as usize, 0]),
             expected
