@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
+use libc::ENOSYS;
 use std::env::temp_dir;
 use std::fs::{File, OpenOptions};
 use std::io::{Read, Seek, Write};
@@ -57,7 +58,7 @@ fn read() {
             assert_eq!(ret, Ok(EXPECTED.len()));
             assert_eq!(buf, EXPECTED.as_bytes());
         } else {
-            assert_eq!(ret, Err(libc::ENOSYS));
+            assert_eq!(ret, Err(ENOSYS));
         }
     });
 }
@@ -85,7 +86,7 @@ fn write() {
             file.read_to_string(&mut got).unwrap();
             assert_eq!(got, EXPECTED);
         } else {
-            assert_eq!(ret, Err(libc::ENOSYS));
+            assert_eq!(ret, Err(ENOSYS));
         }
     })
 }
