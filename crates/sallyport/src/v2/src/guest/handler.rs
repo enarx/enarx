@@ -54,6 +54,7 @@ pub trait Execute {
     unsafe fn syscall(&mut self, registers: [usize; 7]) -> Result<[usize; 2]> {
         let [num, argv @ ..] = registers;
         match (num as _, argv) {
+            (libc::SYS_exit, [status, ..]) => self.exit(status as _).map(|_| self.attacked()),
             (libc::SYS_read, [fd, buf, count, ..]) => {
                 let buf = self.platform().validate_slice_mut(buf, count)?;
                 self.read(fd as _, buf).map(|ret| [ret, 0])
@@ -62,9 +63,14 @@ pub trait Execute {
                 let buf = self.platform().validate_slice(buf, count)?;
                 self.write(fd as _, buf).map(|ret| [ret, 0])
             }
-            (libc::SYS_exit, [status, ..]) => self.exit(status as _).map(|_| self.attacked()),
             _ => Err(ENOSYS),
         }
+    }
+
+    /// Executes [`exit`](https://man7.org/linux/man-pages/man2/exit.2.html) syscall akin to [`libc::exit`].
+    fn exit(&mut self, status: c_int) -> Result<()> {
+        self.execute(syscall::Exit { status })?;
+        self.attacked()
     }
 
     /// Executes [`read`](https://man7.org/linux/man-pages/man2/read.2.html) syscall akin to [`libc::read`].
@@ -77,12 +83,6 @@ pub trait Execute {
     fn write(&mut self, fd: c_int, buf: &[u8]) -> Result<size_t> {
         self.execute(syscall::Write { fd, buf })?
             .unwrap_or_else(|| self.attacked())
-    }
-
-    /// Executes [`exit`](https://man7.org/linux/man-pages/man2/exit.2.html) syscall akin to [`libc::exit`].
-    fn exit(&mut self, status: c_int) -> Result<()> {
-        self.execute(syscall::Exit { status })?;
-        self.attacked()
     }
 }
 

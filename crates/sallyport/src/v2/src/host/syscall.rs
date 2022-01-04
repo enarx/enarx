@@ -128,6 +128,16 @@ pub(super) unsafe fn execute_syscall(syscall: &mut item::Syscall, data: &mut [u8
     match syscall {
         item::Syscall {
             num,
+            argv: [status, ..],
+            ret: [ret, ..],
+        } if *num == libc::SYS_exit as _ => Syscall {
+            num: libc::SYS_exit,
+            argv: [*status],
+            ret: [ret],
+        }
+        .execute(),
+        item::Syscall {
+            num,
             argv: [fd, buf_offset, count, ..],
             ret: [ret, ..],
         } if *num == libc::SYS_read as _ => {
@@ -156,16 +166,6 @@ pub(super) unsafe fn execute_syscall(syscall: &mut item::Syscall, data: &mut [u8
             }
             .execute();
         }
-        item::Syscall {
-            num,
-            argv: [status, ..],
-            ret: [ret, ..],
-        } if *num == libc::SYS_exit as _ => Syscall {
-            num: libc::SYS_exit,
-            argv: [*status],
-            ret: [ret],
-        }
-        .execute(),
         _ => return Err(libc::ENOSYS),
     }
     Ok(())

@@ -54,6 +54,14 @@ mod tests {
         let mut syscalls = [
             (
                 Syscall {
+                    num: SYS_fcntl as _,
+                    argv: [STDIN_FILENO as _, F_GETFD as _, 0, 0, 0, 0],
+                    ret: [-ENOSYS as _, 0],
+                },
+                [],
+            ),
+            (
+                Syscall {
                     num: SYS_read as _,
                     argv: [STDIN_FILENO as _, 0, 0, 0, 0, 0],
                     ret: [-ENOSYS as _, 0],
@@ -68,26 +76,26 @@ mod tests {
                 },
                 [],
             ),
-            (
-                Syscall {
-                    num: SYS_fcntl as _,
-                    argv: [STDIN_FILENO as _, F_GETFD as _, 0, 0, 0, 0],
-                    ret: [-ENOSYS as _, 0],
-                },
-                [],
-            ),
         ];
-        let (read, tail) = syscalls.split_first_mut().unwrap();
-        let (write, tail) = tail.split_first_mut().unwrap();
-        let (fcntl, _) = tail.split_first_mut().unwrap();
+        let (fcntl, tail) = syscalls.split_first_mut().unwrap();
+        let (read, tail) = tail.split_first_mut().unwrap();
+        let (write, _) = tail.split_first_mut().unwrap();
         super::execute([
+            Item::Syscall(&mut fcntl.0, &mut fcntl.1),
             Item::Syscall(&mut read.0, &mut read.1),
             Item::Syscall(&mut write.0, &mut write.1),
-            Item::Syscall(&mut fcntl.0, &mut fcntl.1),
         ]);
         assert_eq!(
             syscalls,
             [
+                (
+                    Syscall {
+                        num: SYS_fcntl as _,
+                        argv: [STDIN_FILENO as _, F_GETFD as _, 0, 0, 0, 0],
+                        ret: [-ENOSYS as _, 0],
+                    },
+                    []
+                ),
                 (
                     Syscall {
                         num: SYS_read as _,
@@ -110,14 +118,6 @@ mod tests {
                     },
                     []
                 ),
-                (
-                    Syscall {
-                        num: SYS_fcntl as _,
-                        argv: [STDIN_FILENO as _, F_GETFD as _, 0, 0, 0, 0],
-                        ret: [-ENOSYS as _, 0],
-                    },
-                    []
-                )
             ]
         );
     }
