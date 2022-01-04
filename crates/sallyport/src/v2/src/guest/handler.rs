@@ -16,8 +16,9 @@ pub trait Execute {
 
     /// Executes an arbitrary call.
     /// Examples of calls that this method can execute are:
-    /// - [`syscall::Read`]
     /// - [`syscall::Exit`]
+    /// - [`syscall::Read`]
+    /// - [`syscall::Write`]
     fn execute<'a, T>(
         &mut self,
         req: impl Stage<'a, Item = impl Commit<Item = impl Collect<Item = T>>>,
