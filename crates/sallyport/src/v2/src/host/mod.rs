@@ -112,6 +112,9 @@ mod tests {
                     Syscall {
                         num: SYS_fcntl as _,
                         argv: [STDIN_FILENO as _, F_GETFD as _, 0, 0, 0, 0],
+                        #[cfg(feature = "asm")]
+                        ret: [0, 0],
+                        #[cfg(not(feature = "asm"))]
                         ret: [-ENOSYS as _, 0],
                     },
                     []

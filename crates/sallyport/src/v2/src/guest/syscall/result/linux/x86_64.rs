@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use core::marker::PhantomData;
-use libc::c_int;
+use libc::{c_int, EOVERFLOW};
 
 pub const MAX_ERRNO: c_int = 4096;
 pub const ERRNO_START: usize = usize::MAX - MAX_ERRNO as usize;
@@ -30,6 +30,17 @@ impl From<Result<()>> for crate::Result<()> {
         match res.0 {
             [errno @ ERRNO_START..=usize::MAX, _] => Err(-(errno as c_int)),
             _ => Ok(()),
+        }
+    }
+}
+
+impl From<Result<c_int>> for crate::Result<c_int> {
+    #[inline]
+    fn from(res: Result<c_int>) -> Self {
+        match res.0 {
+            [errno @ ERRNO_START..=usize::MAX, _] => Err(-(errno as c_int)),
+            [ret, _] if ret <= c_int::MAX as usize => Ok(ret as c_int),
+            _ => Err(EOVERFLOW),
         }
     }
 }

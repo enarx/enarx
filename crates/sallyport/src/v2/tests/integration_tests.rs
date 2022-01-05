@@ -68,6 +68,37 @@ fn close() {
 
 #[test]
 #[serial]
+fn fcntl() {
+    let file = File::create(temp_dir().join("sallyport-test-fcntl")).unwrap();
+    let fd = file.as_raw_fd();
+
+    run_test(3, [0xff; 16], move |handler| {
+        for cmd in [libc::F_GETFD] {
+            assert_eq!(
+                handler.fcntl(fd, cmd, 0),
+                if cfg!(feature = "asm") {
+                    Ok(unsafe { libc::fcntl(fd, cmd) })
+                } else {
+                    Err(ENOSYS)
+                }
+            );
+        }
+        for (cmd, arg) in [(libc::F_SETFD, 1), (libc::F_GETFL, 0), (libc::F_SETFL, 1)] {
+            assert_eq!(
+                handler.fcntl(fd, cmd, arg),
+                if cfg!(feature = "asm") {
+                    Ok(unsafe { libc::fcntl(fd, cmd, arg) })
+                } else {
+                    Err(ENOSYS)
+                }
+            );
+        }
+    });
+    let _ = file;
+}
+
+#[test]
+#[serial]
 fn fstat() {
     let file = File::create(temp_dir().join("sallyport-test-fstat")).unwrap();
     let fd = file.as_raw_fd();

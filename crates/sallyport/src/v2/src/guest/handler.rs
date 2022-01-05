@@ -57,6 +57,9 @@ pub trait Execute {
         match (num as _, argv) {
             (libc::SYS_close, [fd, ..]) => self.close(fd as _).map(|_| [0, 0]),
             (libc::SYS_exit, [status, ..]) => self.exit(status as _).map(|_| self.attacked()),
+            (libc::SYS_fcntl, [fd, cmd, arg, ..]) => self
+                .fcntl(fd as _, cmd as _, arg as _)
+                .map(|ret| [ret as _, 0]),
             (libc::SYS_fstat, [fd, statbuf, ..]) => {
                 let statbuf = self.platform().validate_mut(statbuf)?;
                 self.fstat(fd as _, statbuf).map(|_| [0, 0])
@@ -83,6 +86,11 @@ pub trait Execute {
     fn exit(&mut self, status: c_int) -> Result<()> {
         self.execute(syscall::Exit { status })?;
         self.attacked()
+    }
+
+    /// Executes [`fcntl`](https://man7.org/linux/man-pages/man2/fcntl.2.html) syscall akin to [`libc::fcntl`].
+    fn fcntl(&mut self, fd: c_int, cmd: c_int, arg: c_int) -> Result<c_int> {
+        self.execute(syscall::Fcntl { fd, cmd, arg })?
     }
 
     /// Executes [`fstat`](https://man7.org/linux/man-pages/man2/fstat.2.html) syscall akin to [`libc::fstat`].
