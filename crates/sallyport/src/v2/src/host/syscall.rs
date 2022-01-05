@@ -136,6 +136,7 @@ pub(super) unsafe fn execute_syscall(syscall: &mut item::Syscall, data: &mut [u8
             ret: [ret],
         }
         .execute(),
+
         item::Syscall {
             num,
             argv: [status, ..],
@@ -146,6 +147,7 @@ pub(super) unsafe fn execute_syscall(syscall: &mut item::Syscall, data: &mut [u8
             ret: [ret],
         }
         .execute(),
+
         item::Syscall {
             num,
             argv: [fd, buf_offset, count, ..],
@@ -161,6 +163,7 @@ pub(super) unsafe fn execute_syscall(syscall: &mut item::Syscall, data: &mut [u8
             }
             .execute();
         }
+
         item::Syscall {
             num,
             argv: [fd, buf_offset, count, ..],
@@ -176,6 +179,7 @@ pub(super) unsafe fn execute_syscall(syscall: &mut item::Syscall, data: &mut [u8
             }
             .execute();
         }
+
         _ => return Err(libc::ENOSYS),
     }
     Ok(())
