@@ -215,6 +215,48 @@ impl Stage<'_> for () {
     }
 }
 
+impl<'a, A: Stage<'a>> Stage<'a> for (A,) {
+    type Item = (A::Item,);
+
+    #[inline]
+    fn stage(self, alloc: &mut impl Allocator) -> Result<Self::Item> {
+        self.0.stage(alloc).map(|a| (a,))
+    }
+}
+
+impl<'a, A: Stage<'a>, B: Stage<'a>> Stage<'a> for (A, B) {
+    type Item = (A::Item, B::Item);
+
+    #[inline]
+    fn stage(self, alloc: &mut impl Allocator) -> Result<Self::Item> {
+        let a = self.0.stage(alloc)?;
+        let b = self.1.stage(alloc)?;
+        Ok((a, b))
+    }
+}
+
+impl<'a, A: Stage<'a>, B: Stage<'a>, C: Stage<'a>> Stage<'a> for (A, B, C) {
+    type Item = (A::Item, B::Item, C::Item);
+
+    #[inline]
+    fn stage(self, alloc: &mut impl Allocator) -> Result<Self::Item> {
+        ((self.0, self.1), self.2)
+            .stage(alloc)
+            .map(|((a, b), c)| (a, b, c))
+    }
+}
+
+impl<'a, A: Stage<'a>, B: Stage<'a>, C: Stage<'a>, D: Stage<'a>> Stage<'a> for (A, B, C, D) {
+    type Item = (A::Item, B::Item, C::Item, D::Item);
+
+    #[inline]
+    fn stage(self, alloc: &mut impl Allocator) -> Result<Self::Item> {
+        ((self.0, self.1), self.2, self.3)
+            .stage(alloc)
+            .map(|((a, b), c, d)| (a, b, c, d))
+    }
+}
+
 /// Allocator in commit phase.
 pub trait Committer: phase::Alloc {
     type Collector: Collector;
@@ -237,6 +279,47 @@ impl Commit for () {
     fn commit(self, _: &impl Committer) {}
 }
 
+impl<A: Commit> Commit for (A,) {
+    type Item = (A::Item,);
+
+    #[inline]
+    fn commit(self, com: &impl Committer) -> Self::Item {
+        (self.0.commit(com),)
+    }
+}
+
+impl<A: Commit, B: Commit> Commit for (A, B) {
+    type Item = (A::Item, B::Item);
+
+    #[inline]
+    fn commit(self, com: &impl Committer) -> Self::Item {
+        (self.0.commit(com), self.1.commit(com))
+    }
+}
+
+impl<A: Commit, B: Commit, C: Commit> Commit for (A, B, C) {
+    type Item = (A::Item, B::Item, C::Item);
+
+    #[inline]
+    fn commit(self, com: &impl Committer) -> Self::Item {
+        (self.0.commit(com), self.1.commit(com), self.2.commit(com))
+    }
+}
+
+impl<A: Commit, B: Commit, C: Commit, D: Commit> Commit for (A, B, C, D) {
+    type Item = (A::Item, B::Item, C::Item, D::Item);
+
+    #[inline]
+    fn commit(self, com: &impl Committer) -> Self::Item {
+        (
+            self.0.commit(com),
+            self.1.commit(com),
+            self.2.commit(com),
+            self.3.commit(com),
+        )
+    }
+}
+
 /// Allocator in collection phase.
 pub trait Collector: phase::Alloc {}
 
@@ -245,4 +328,49 @@ pub trait Collect {
     type Item;
 
     fn collect(self, col: &impl Collector) -> Self::Item;
+}
+
+impl<A: Collect> Collect for (A,) {
+    type Item = (A::Item,);
+
+    #[inline]
+    fn collect(self, col: &impl Collector) -> Self::Item {
+        (self.0.collect(col),)
+    }
+}
+
+impl<A: Collect, B: Collect> Collect for (A, B) {
+    type Item = (A::Item, B::Item);
+
+    #[inline]
+    fn collect(self, col: &impl Collector) -> Self::Item {
+        (self.0.collect(col), self.1.collect(col))
+    }
+}
+
+impl<A: Collect, B: Collect, C: Collect> Collect for (A, B, C) {
+    type Item = (A::Item, B::Item, C::Item);
+
+    #[inline]
+    fn collect(self, col: &impl Collector) -> Self::Item {
+        (
+            self.0.collect(col),
+            self.1.collect(col),
+            self.2.collect(col),
+        )
+    }
+}
+
+impl<A: Collect, B: Collect, C: Collect, D: Collect> Collect for (A, B, C, D) {
+    type Item = (A::Item, B::Item, C::Item, D::Item);
+
+    #[inline]
+    fn collect(self, col: &impl Collector) -> Self::Item {
+        (
+            self.0.collect(col),
+            self.1.collect(col),
+            self.2.collect(col),
+            self.3.collect(col),
+        )
+    }
 }
