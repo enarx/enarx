@@ -10,7 +10,7 @@ use std::os::unix::prelude::AsRawFd;
 use std::ptr::NonNull;
 use std::slice;
 
-use sallyport::guest::{Execute, Handler, Platform};
+use sallyport::guest::{syscall, Execute, Handler, Platform};
 use sallyport::item::Block;
 use sallyport::{host, Result};
 use serial_test::serial;
@@ -100,6 +100,35 @@ fn read() {
             assert_eq!(buf, EXPECTED.as_bytes());
         } else {
             assert_eq!(ret, Err(ENOSYS));
+        }
+    });
+}
+
+#[test]
+#[serial]
+fn sync_read_close() {
+    const EXPECTED: &str = "sync-read-close";
+    let path = temp_dir().join("sallyport-test-sync-read-close");
+    write!(&mut File::create(&path).unwrap(), "{}", EXPECTED).unwrap();
+
+    let c_path = CString::new(path.as_os_str().to_str().unwrap()).unwrap();
+    run_test(3, [0xff; 64], move |handler| {
+        let fd = unsafe { libc::open(c_path.as_ptr(), libc::O_RDONLY, 0o666) };
+
+        let mut buf = [0u8; EXPECTED.len()];
+        let ret = handler.execute((
+            syscall::Sync,
+            syscall::Read { fd, buf: &mut buf },
+            syscall::Close { fd },
+        ));
+
+        if cfg!(feature = "asm") {
+            assert_eq!(ret, Ok((Ok(()), Some(Ok(EXPECTED.len())), Ok(()))));
+            assert_eq!(buf, EXPECTED.as_bytes());
+            assert_eq!(unsafe { libc::close(fd) }, -1);
+            assert_eq!(unsafe { libc::__errno_location().read() }, libc::EBADF);
+        } else {
+            assert_eq!(ret, Ok((Err(ENOSYS), Some(Err(ENOSYS)), Err(ENOSYS))));
         }
     });
 }

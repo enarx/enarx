@@ -70,6 +70,14 @@ mod tests {
             ),
             (
                 Syscall {
+                    num: SYS_sync as _,
+                    argv: [0, 0, 0, 0, 0, 0],
+                    ret: [-ENOSYS as _, 0],
+                },
+                [],
+            ),
+            (
+                Syscall {
                     num: SYS_write as _,
                     argv: [STDOUT_FILENO as _, 0, 0, 0, 0, 0],
                     ret: [-ENOSYS as _, 0],
@@ -87,11 +95,13 @@ mod tests {
         ];
         let (fcntl, tail) = syscalls.split_first_mut().unwrap();
         let (read, tail) = tail.split_first_mut().unwrap();
+        let (sync, tail) = tail.split_first_mut().unwrap();
         let (write, tail) = tail.split_first_mut().unwrap();
         let (close, _) = tail.split_first_mut().unwrap();
         super::execute([
             Item::Syscall(&mut fcntl.0, &mut fcntl.1),
             Item::Syscall(&mut read.0, &mut read.1),
+            Item::Syscall(&mut sync.0, &mut sync.1),
             Item::Syscall(&mut write.0, &mut write.1),
             Item::Syscall(&mut close.0, &mut close.1),
         ]);
@@ -110,6 +120,17 @@ mod tests {
                     Syscall {
                         num: SYS_read as _,
                         argv: [STDIN_FILENO as _, 0, 0, 0, 0, 0],
+                        #[cfg(feature = "asm")]
+                        ret: [0, 0],
+                        #[cfg(not(feature = "asm"))]
+                        ret: [-ENOSYS as _, 0],
+                    },
+                    []
+                ),
+                (
+                    Syscall {
+                        num: SYS_sync as _,
+                        argv: [0, 0, 0, 0, 0, 0],
                         #[cfg(feature = "asm")]
                         ret: [0, 0],
                         #[cfg(not(feature = "asm"))]

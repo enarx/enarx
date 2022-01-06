@@ -65,6 +65,7 @@ pub trait Execute {
                 let buf = self.platform().validate_slice_mut(buf, count)?;
                 self.read(fd as _, buf).map(|ret| [ret, 0])
             }
+            (libc::SYS_sync, ..) => self.sync().map(|_| [0, 0]),
             (libc::SYS_write, [fd, buf, count, ..]) => {
                 let buf = self.platform().validate_slice(buf, count)?;
                 self.write(fd as _, buf).map(|ret| [ret, 0])
@@ -93,6 +94,11 @@ pub trait Execute {
     fn read(&mut self, fd: c_int, buf: &mut [u8]) -> Result<size_t> {
         self.execute(syscall::Read { fd, buf })?
             .unwrap_or_else(|| self.attacked())
+    }
+
+    /// Executes [`sync`](https://man7.org/linux/man-pages/man2/sync.2.html) syscall akin to [`libc::sync`].
+    fn sync(&mut self) -> Result<()> {
+        self.execute(syscall::Sync)?
     }
 
     /// Executes [`write`](https://man7.org/linux/man-pages/man2/write.2.html) syscall akin to [`libc::write`].

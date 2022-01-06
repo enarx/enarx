@@ -11,6 +11,7 @@ mod exit;
 mod fstat;
 mod read;
 mod result;
+mod sync;
 mod write;
 
 pub use argv::*;
@@ -19,4 +20,5 @@ pub use exit::*;
 pub use fstat::*;
 pub use read::*;
 pub use result::*;
+pub use sync::*;
 pub use write::*;

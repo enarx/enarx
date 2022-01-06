@@ -166,6 +166,17 @@ pub(super) unsafe fn execute_syscall(syscall: &mut item::Syscall, data: &mut [u8
 
         item::Syscall {
             num,
+            argv: _,
+            ret: [ret, ..],
+        } if *num == libc::SYS_sync as _ => Syscall {
+            num: libc::SYS_sync,
+            argv: [],
+            ret: [ret],
+        }
+        .execute(),
+
+        item::Syscall {
+            num,
             argv: [fd, buf_offset, count, ..],
             ret: [ret, ..],
         } if *num == libc::SYS_write as _ => {
