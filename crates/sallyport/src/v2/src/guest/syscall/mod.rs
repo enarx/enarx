@@ -21,6 +21,6 @@ pub use exit::*;
 pub use fcntl::Fcntl;
 pub use fstat::*;
 pub use read::*;
-pub use result::*;
+pub use result::Result;
 pub use sync::*;
 pub use write::Write;
