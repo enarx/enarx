@@ -26,15 +26,11 @@ unsafe impl<'a> Syscall<'a> for Read<'a> {
         Ok((Argv([self.fd as _, buf.offset(), buf.len()]), buf))
     }
 
-    fn collect(
-        committed: Self::Committed,
-        ret: Self::Ret,
-        col: &impl Collector,
-    ) -> Self::Collected {
+    fn collect(buf: Self::Committed, ret: Self::Ret, col: &impl Collector) -> Self::Collected {
         match ret.into() {
-            Ok(ret) if ret > committed.len() => None,
+            Ok(ret) if ret > buf.len() => None,
             res @ Ok(ret) => {
-                unsafe { committed.collect_range(col, 0..ret) };
+                unsafe { buf.collect_range(col, 0..ret) };
                 Some(res)
             }
             err => Some(err),

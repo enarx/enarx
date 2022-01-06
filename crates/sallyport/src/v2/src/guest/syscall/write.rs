@@ -41,9 +41,9 @@ unsafe impl<'a> Syscall<'a> for Write<'a> {
         ))
     }
 
-    fn collect(committed: Self::Committed, ret: Self::Ret, _: &impl Collector) -> Self::Collected {
+    fn collect(count: Self::Committed, ret: Self::Ret, _: &impl Collector) -> Self::Collected {
         match ret.into() {
-            Ok(ret) if ret > committed => None,
+            Ok(ret) if ret > count => None,
             res @ Ok(_) => Some(res),
             err => Some(err),
         }
