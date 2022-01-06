@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use libc::{
-    c_int, sockaddr, SYS_accept, SYS_accept4, SYS_bind, SYS_close, SYS_fcntl, SYS_fstat,
-    SYS_getrandom, SYS_getsockname, SYS_listen, SYS_read, SYS_recvfrom, SYS_setsockopt, SYS_socket,
-    SYS_write, AF_INET, EBADF, EBADFD, ENOSYS, F_GETFD, F_GETFL, F_SETFD, F_SETFL, GRND_RANDOM,
-    O_CREAT, O_RDONLY, O_RDWR, SOCK_CLOEXEC, SOCK_STREAM, SOL_SOCKET, SO_REUSEADDR, STDERR_FILENO,
-    STDIN_FILENO, STDOUT_FILENO,
+    c_int, iovec, sockaddr, SYS_accept, SYS_accept4, SYS_bind, SYS_close, SYS_fcntl, SYS_fstat,
+    SYS_getrandom, SYS_getsockname, SYS_listen, SYS_read, SYS_readv, SYS_recvfrom, SYS_setsockopt,
+    SYS_socket, SYS_write, AF_INET, EBADF, EBADFD, ENOSYS, F_GETFD, F_GETFL, F_SETFD, F_SETFL,
+    GRND_RANDOM, O_CREAT, O_RDONLY, O_RDWR, SOCK_CLOEXEC, SOCK_STREAM, SOL_SOCKET, SO_REUSEADDR,
+    STDERR_FILENO, STDIN_FILENO, STDOUT_FILENO,
 };
 use std::env::temp_dir;
 use std::ffi::{CStr, CString};
@@ -50,6 +50,18 @@ impl<const N: usize> Platform for TestPlatform<N> {
 
     fn validate_str<'b>(&self, ptr: usize) -> Result<&'b [u8]> {
         Ok(unsafe { CStr::from_ptr(ptr as _) }.to_bytes())
+    }
+
+    fn validate_iovec_slice_mut<'a>(
+        &self,
+        iov: usize,
+        iovcnt: usize,
+    ) -> Result<&'a mut [&'a mut [u8]]> {
+        Ok(unsafe { slice::from_raw_parts_mut(iov as _, iovcnt) })
+    }
+
+    fn validate_iovec_slice<'a>(&self, iov: usize, iovcnt: usize) -> Result<&'a [&'a [u8]]> {
+        Ok(unsafe { slice::from_raw_parts(iov as _, iovcnt) })
     }
 }
 
@@ -328,6 +340,96 @@ fn read() {
         }
         if cfg!(not(miri)) {
             assert_eq!(buf, EXPECTED.as_bytes());
+        }
+    });
+}
+
+#[test]
+#[serial]
+fn readv() {
+    run_test(2, [0xff; 14], move |i, handler| {
+        const EXPECTED: [&str; 3] = ["012", "345", "67"];
+        const CONTENTS: &str = "012345678012345678";
+        let path = temp_dir().join("sallyport-test-readv");
+        write!(&mut File::create(&path).unwrap(), "{}", CONTENTS).unwrap();
+
+        let mut one = [0u8; EXPECTED[0].len()];
+        let mut two = [0u8; EXPECTED[1].len()];
+        let mut three = [0u8; EXPECTED[2].len() + 2];
+
+        let mut four = [0u8; 0xffff]; // does not fit in the block
+
+        let file = File::open(&path).unwrap();
+        if i % 2 == 0 {
+            assert_eq!(
+                handler.readv(
+                    file.as_raw_fd() as _,
+                    &mut [
+                        &mut [],
+                        &mut one[..],
+                        &mut [],
+                        &mut two[..],
+                        &mut three[..],
+                        &mut four[..]
+                    ],
+                ),
+                if cfg!(not(miri)) {
+                    Ok(EXPECTED[0].len() + EXPECTED[1].len() + EXPECTED[2].len())
+                } else {
+                    Err(ENOSYS)
+                }
+            );
+        } else {
+            assert_eq!(
+                unsafe {
+                    handler.syscall([
+                        SYS_readv as _,
+                        file.as_raw_fd() as _,
+                        [
+                            iovec {
+                                iov_base: one.as_mut_ptr() as _,
+                                iov_len: 0,
+                            },
+                            iovec {
+                                iov_base: one.as_mut_ptr() as _,
+                                iov_len: one.len(),
+                            },
+                            iovec {
+                                iov_base: two.as_mut_ptr() as _,
+                                iov_len: 0,
+                            },
+                            iovec {
+                                iov_base: two.as_mut_ptr() as _,
+                                iov_len: two.len(),
+                            },
+                            iovec {
+                                iov_base: three.as_mut_ptr() as _,
+                                iov_len: three.len(),
+                            },
+                            iovec {
+                                iov_base: four.as_mut_ptr() as _,
+                                iov_len: four.len(),
+                            },
+                        ]
+                        .as_mut_ptr() as _,
+                        6,
+                        0,
+                        0,
+                        0,
+                    ])
+                },
+                if cfg!(not(miri)) {
+                    Ok([EXPECTED[0].len() + EXPECTED[1].len() + EXPECTED[2].len(), 0])
+                } else {
+                    Err(ENOSYS)
+                }
+            );
+        }
+        if cfg!(not(miri)) {
+            assert_eq!(one, EXPECTED[0].as_bytes());
+            assert_eq!(two, EXPECTED[1].as_bytes());
+            assert_eq!(&three[..EXPECTED[2].len()], EXPECTED[2].as_bytes());
+            assert_eq!(four, [0u8; 0xffff]);
         }
     });
 }

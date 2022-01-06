@@ -20,6 +20,7 @@ mod ioctl;
 mod passthrough;
 mod poll;
 mod read;
+mod readv;
 mod recv;
 mod recvfrom;
 mod result;
@@ -46,6 +47,7 @@ pub use ioctl::*;
 pub use passthrough::*;
 pub use poll::*;
 pub use read::*;
+pub use readv::Readv;
 pub use recv::*;
 pub use recvfrom::*;
 pub use result::Result;
@@ -54,3 +56,13 @@ pub use sendto::*;
 pub use setsockopt::*;
 pub use stub::*;
 pub use write::*;
+
+/// Computes the sum of length of all `iovec` elements in a `iov`.
+pub(super) fn iov_len<'a, T, U>(iter: &'a T) -> usize
+where
+    T: ?Sized,
+    &'a T: IntoIterator<Item = U>,
+    U: AsRef<[u8]>,
+{
+    iter.into_iter().map(|iov| iov.as_ref().len()).sum()
+}

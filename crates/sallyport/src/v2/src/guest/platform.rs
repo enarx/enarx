@@ -25,10 +25,26 @@ pub trait Platform {
     fn validate_slice_mut<'a, T>(&self, ptr: usize, len: usize) -> Result<&'a mut [T], c_int>;
 
     /// Validates that a region of memory is valid for read-only access for `len` elements of type `T`.
-    /// Returns a mutable borrow if valid, otherwise [`EINVAL`](libc::EINVAL).
+    /// Returns an immutable borrow if valid, otherwise [`EINVAL`](libc::EINVAL).
     fn validate_slice<'a, T>(&self, ptr: usize, len: usize) -> Result<&'a [T], c_int> {
         self.validate_slice_mut(ptr, len).map(|v| v as _)
     }
+
+    /// Validates that pointer `iov` points to represents a slice of `iovcnt` pointers to [`libc::iovec`] structures
+    /// valid for read-write access.
+    /// Returns a mutable borrow of the [`libc::iovec`] structs as a 2-dimensional slice
+    /// of mutable byte buffer borrows if valid, otherwise [`EINVAL`](libc::EINVAL).
+    fn validate_iovec_slice_mut<'a>(
+        &self,
+        iov: usize,
+        iovcnt: usize,
+    ) -> Result<&'a mut [&'a mut [u8]], c_int>;
+
+    /// Validates that pointer `iov` points to represents a slice of `iovcnt` pointers to [`libc::iovec`] structures
+    /// valid for read-only access.
+    /// Returns an immutable borrow of the [`libc::iovec`] structs as a 2-dimensional slice
+    /// of immutable byte buffer borrows if valid, otherwise [`EINVAL`](libc::EINVAL).
+    fn validate_iovec_slice<'a>(&self, iov: usize, iovcnt: usize) -> Result<&'a [&'a [u8]], c_int>;
 
     /// Validates that a region of memory represents a C string and is valid for read-only access.
     /// Returns an immutable borrow of bytes of the string without nul terminator byte if valid,

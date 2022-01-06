@@ -267,6 +267,19 @@ pub trait Execute {
             .unwrap_or_else(|| self.attacked())
     }
 
+    /// Executes [`readv`](https://man7.org/linux/man-pages/man2/readv.2.html) syscall by mapping
+    /// it onto a single [`read`](https://man7.org/linux/man-pages/man2/read.2.html).
+    fn readv<T: ?Sized, U, V>(&mut self, fd: c_int, iovs: &mut T) -> Result<size_t>
+    where
+        for<'a> &'a T: IntoIterator<Item = &'a U>,
+        for<'a> &'a mut T: IntoIterator<Item = &'a mut V>,
+        U: AsRef<[u8]>,
+        V: AsMut<[u8]>,
+    {
+        self.execute(syscall::Readv { fd, iovs })?
+            .unwrap_or_else(|| self.attacked())
+    }
+
     /// Executes [`recv`](https://man7.org/linux/man-pages/man2/recv.2.html) syscall akin to [`libc::recv`].
     fn recv(&mut self, sockfd: c_int, buf: &mut [u8], flags: c_int) -> Result<size_t> {
         self.execute(syscall::Recv { sockfd, buf, flags })?
@@ -577,6 +590,10 @@ impl<'a, P: Platform> Execute for Handler<'a, P> {
                 let pathname = self.platform.validate_str(pathname)?;
                 let buf = self.platform.validate_slice_mut(buf, bufsiz)?;
                 self.readlink(pathname, buf).map(|ret| [ret, 0])
+            }
+            (libc::SYS_readv, [fd, iov, iovcnt, ..]) => {
+                let iovs = self.platform.validate_iovec_slice_mut(iov, iovcnt)?;
+                self.readv(fd as _, iovs).map(|ret| [ret, 0])
             }
             (libc::SYS_recvfrom, [sockfd, buf, len, flags, src_addr, addrlen, ..]) => {
                 let buf = self.platform.validate_slice_mut(buf, len)?;
