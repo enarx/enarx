@@ -23,4 +23,4 @@ pub use fstat::*;
 pub use read::*;
 pub use result::*;
 pub use sync::*;
-pub use write::*;
+pub use write::Write;
