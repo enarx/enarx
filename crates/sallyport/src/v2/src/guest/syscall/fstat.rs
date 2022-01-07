@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::guest::alloc::{Allocator, Collect, Collector, Commit, Committer, Stage};
+use crate::guest::alloc::{Allocator, Collect, Collector, CommitPassthrough, Stage};
 use crate::Result;
 
 use core::mem;
@@ -24,13 +24,7 @@ impl<'a> Stage<'a> for Fstat<'a> {
     }
 }
 
-impl<'a> Commit for Fstat<'a> {
-    type Item = Self;
-
-    fn commit(self, _: &impl Committer) -> Self::Item {
-        self
-    }
-}
+impl<'a> CommitPassthrough for Fstat<'a> {}
 
 impl<'a> Collect for Fstat<'a> {
     type Item = Result<()>;

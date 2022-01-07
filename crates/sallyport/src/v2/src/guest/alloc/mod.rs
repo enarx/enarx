@@ -320,6 +320,17 @@ impl<A: Commit, B: Commit, C: Commit, D: Commit> Commit for (A, B, C, D) {
     }
 }
 
+/// Something, for which [`Commit::commit`] is an identity function.
+pub trait CommitPassthrough {}
+
+impl<T: CommitPassthrough> Commit for T {
+    type Item = Self;
+
+    fn commit(self, _: &impl Committer) -> Self::Item {
+        self
+    }
+}
+
 /// Allocator in collection phase.
 pub trait Collector: phase::Alloc {}
 
