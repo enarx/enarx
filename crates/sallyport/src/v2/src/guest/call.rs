@@ -3,21 +3,23 @@
 use super::alloc::{Allocator, Collect, Commit};
 use crate::Result;
 
-/// An executable call.
+/// An [executable](super::Execute::execute) call.
 pub trait Call<'a> {
-    /// Opaque [staged value](Stage::Item) value, which returns [`Self::Committed`] when committed via [`Commit::commit`].
+    /// Opaque staged value, which returns [`Self::Committed`] when committed via [`Commit::commit`].
     ///
-    /// This is primarily designed to serve as a container for dynamic data allocated within [`stage`][Self::stage].
+    /// This is designed to serve as a container for data allocated within [`stage`][Self::stage].
     type Staged: Commit<Item = Self::Committed>;
 
-    /// Opaque [committed value](Commit::Item) returned by [`Commit::commit`] called upon [`Self::Staged`], which is, in turn,
-    /// passed to [`Self::collect`] to yield a [`Self::Collected`].
+    /// Opaque [committed value](Commit::Item) returned by [`Commit::commit`] called upon [`Self::Staged`],
+    /// which is, in turn, passed to [`Collect::collect`] to yield a [`Self::Collected`].
     type Committed: Collect<Item = Self::Collected>;
 
-    /// Value call [collects](Collect::Item) as, which corresponds to its [return value](Self::Ret).
+    /// Value call [collects](Collect::Item) as.
+    ///
+    /// For example, a syscall return value.
     type Collected;
 
-    /// Allocate dynamic data, if necessary and return resulting opaque [staged value](Self::Staged) on success.
+    /// Allocate data, if necessary and return resulting opaque [staged value](Self::Staged) on success.
     fn stage(self, alloc: &mut impl Allocator) -> Result<Self::Staged>;
 }
 

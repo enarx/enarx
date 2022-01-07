@@ -7,24 +7,25 @@ use core::alloc::Layout;
 use core::mem::align_of;
 use libc::ENOMEM;
 
+/// A generic call, which can be allocated within the block.
 pub trait Call<'a> {
-    /// `[item::Kind]` this call is committed as.
+    /// [`item::Kind`] of this call.
     const KIND: item::Kind;
 
-    /// Opaque [staged value](Stage::Item) value, which returns [`Self::Committed`] when committed via [`Commit::commit`].
+    /// Opaque staged value, which returns [`Self::Committed`] when committed via [`Commit::commit`].
     ///
-    /// This is primarily designed to serve as a container for dynamic data allocated within [`stage`][Self::stage].
+    /// This is designed to serve as a container for data allocated within [`stage`][Self::stage].
     type Staged: Commit<Item = Self::Committed>;
 
-    /// Opaque [committed value](Commit::Item) returned by [`Commit::commit`] called upon [`Self::Staged`], which is, in turn,
-    /// passed to [`Self::collect`] to yield a [`Self::Collected`].
+    /// Opaque [committed value](Commit::Item) returned by [`Commit::commit`] called upon [`Self::Staged`],
+    /// which returns [`Self::Collected`] when collected via [`Collect::collect`].
     type Committed: Collect<Item = Self::Collected>;
 
-    /// Value call [collects](Collect::Item) as, which corresponds to its [return value](Self::Ret).
+    /// Value call [collects](Collect::Item) as.
+    /// For example, a syscall return value.
     type Collected;
 
-    /// Allocate dynamic data, if necessary and return resulting argument vector registers
-    /// and opaque [staged value](Self::Staged) on success.
+    /// Allocate data, if necessary, and return resulting opaque [staged value](Self::Staged) on success.
     fn stage(self, alloc: &mut impl Allocator) -> Result<Self::Staged>;
 }
 
@@ -55,7 +56,7 @@ impl<'a, T: Call<'a>> guest::Call<'a> for T {
     }
 }
 
-/// Staged call, which holds allocated reference to call header within the block and [opaque staged value](Call::Staged).
+/// Staged call, which holds allocated reference to item header within the block and [opaque staged value](Call::Staged).
 pub struct StagedCall<'a, T: Call<'a>> {
     header_ref: InRef<'a, item::Header>,
     staged: T::Staged,

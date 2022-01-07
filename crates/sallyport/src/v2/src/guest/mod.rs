@@ -11,7 +11,7 @@
 //! attempts to [`exit`](`Handler::exit`) immediately and does so in an infinite loop.
 //!
 //! [`Handler`] provides:
-//! - API for execution of an arbitrary call:
+//! - API for execution of an arbitrary [`Call`]:
 //!     - [`execute`](Handler::execute)
 //!
 //! - [`libc`]-like API for syscall execution using safe Rust abstractions where possible, for example:
@@ -27,8 +27,6 @@
 //! In this phase [input references], [output references] and [inout references] are sequentially allocated within the untrusted sallyport block.
 //!
 //! Once this phase is finished, no more allocations can be made within the untrusted sallyport block.
-//!
-//! Entities that can be staged implement the [`Stage`](alloc::Stage) trait.
 //!
 //! ## Commit
 //! In this phase data is written to [input references] and [inout references] allocated in the stage phase.

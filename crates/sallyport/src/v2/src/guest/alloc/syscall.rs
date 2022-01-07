@@ -8,34 +8,91 @@ use crate::{item, Result};
 
 use libc::c_long;
 
-/// Trait implemented by allocatable syscalls.
+/// A generic syscall, which can be allocated within the block.
+///
+/// # Examples
+///
+/// ```rust
+/// use sallyport::guest::syscall::Argv;
+/// # use sallyport::guest::alloc::{Allocator, Collector, Output, Syscall};
+/// # use sallyport::Result;
+/// #
+/// # use libc::{c_int, c_long, size_t};
+///
+/// pub struct Read<'a> {
+///    pub fd: c_int,
+///    pub buf: &'a mut [u8],
+/// }
+///
+/// unsafe impl<'a> Syscall<'a> for Read<'a> {
+///     const NUM: c_long = libc::SYS_read;
+///
+///     type Argv = Argv<3>;
+///     type Ret = size_t;
+///
+///     type Staged = Output<'a, [u8], &'a mut [u8]>;
+///     type Committed = Self::Staged;
+///     type Collected = Option<Result<size_t>>;
+///
+///     fn stage(self, alloc: &mut impl Allocator) -> Result<(Self::Argv, Self::Staged)> {
+///         let (buf, _) = Output::stage_slice_max(alloc, self.buf)?;
+///         Ok((Argv([self.fd as _, buf.offset(), buf.len()]), buf))
+///     }
+///
+///     fn collect(
+///         buf: Self::Committed,
+///         ret: Result<Self::Ret>,
+///         col: &impl Collector,
+///     ) -> Self::Collected {
+///         match ret {
+///             Ok(ret) if ret > buf.len() => None,
+///             res @ Ok(ret) => {
+///                 unsafe { buf.collect_range(col, 0..ret) };
+///                 Some(res)
+///             }
+///             err => Some(err),
+///         }
+///     }
+/// }
+/// ```
 pub unsafe trait Syscall<'a> {
     /// Syscall number.
+    ///
+    /// For example, [`libc::SYS_read`].
     const NUM: c_long;
 
     /// The syscall argument vector.
+    ///
+    /// For example, [`syscall::Argv<3>`].
     type Argv: Into<[usize; 6]>;
 
     /// Syscall return value.
+    ///
+    /// For example, [`libc::size_t`].
     type Ret;
 
-    /// Opaque [staged value](Stage::Item) value, which returns [`Self::Committed`] when committed via [`Commit::commit`].
+    /// Opaque staged value, which returns [`Self::Committed`] when committed via [`Commit::commit`].
     ///
-    /// This is primarily designed to serve as a container for dynamic data allocated within [`stage`][Self::stage].
+    /// This is designed to serve as a container for dynamic data allocated within [`stage`][Self::stage].
+    ///
+    /// For example, [`Output<'a, [u8], &'a mut [u8]>`](super::Output).
     type Staged: Commit<Item = Self::Committed>;
 
-    /// Opaque [committed value](Commit::Item) returned by [`Commit::commit`] called upon [`Self::Staged`], which is, in turn,
-    /// passed to [`Self::collect`] to yield a [`Self::Collected`].
+    /// Opaque [committed value](Commit::Item) returned by [`Commit::commit`] called upon [`Self::Staged`],
+    /// which returns [`Self::Collected`] when collected via [`Collect::collect`].
     type Committed;
 
     /// Value syscall [collects](Collect::Item) as, which corresponds to its [return value](Self::Ret).
+    ///
+    /// For example, [`Option<Result<libc::size_t>>`].
     type Collected;
 
     /// Allocate dynamic data, if necessary and return resulting argument vector registers
     /// and opaque [staged value](Self::Staged) on success.
     fn stage(self, alloc: &mut impl Allocator) -> Result<(Self::Argv, Self::Staged)>;
 
-    /// Collect the return registers and [opaque committed value](Self::Committed).
+    /// Collect the return registers, [opaque committed value](Self::Committed)
+    /// and return a [`Self::Collected`].
     fn collect(
         committed: Self::Committed,
         ret: Result<Self::Ret>,
@@ -113,15 +170,45 @@ where
 }
 
 /// Trait implemented by allocatable syscalls, which are passed through directly to the host and do
-/// not require custom data handling logic.
+/// not require custom handling logic.
+///
+/// # Example
+/// ```rust
+/// use sallyport::guest::syscall::Argv;
+/// # use sallyport::guest::alloc::{PassthroughSyscall};
+/// # use sallyport::Result;
+/// #
+/// # use libc::{c_int, c_long};
+///
+/// pub struct Exit {
+///     pub status: c_int,
+/// }
+///
+/// unsafe impl PassthroughSyscall for Exit {
+///     const NUM: c_long = libc::SYS_exit;
+///
+///     type Argv = Argv<1>;
+///     type Ret = ();
+///
+///     fn stage(self) -> Self::Argv {
+///         Argv([self.status as _])
+///     }
+/// }
+/// ```
 pub unsafe trait PassthroughSyscall {
     /// Syscall number.
+    ///
+    /// For example, [`libc::SYS_exit`].
     const NUM: c_long;
 
     /// The syscall argument vector.
+    ///
+    /// For example, [`syscall::Argv<1>`].
     type Argv: Into<[usize; 6]>;
 
     /// Syscall return value.
+    ///
+    /// For example, `()`.
     type Ret;
 
     /// Returns argument vector registers.
