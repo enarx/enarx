@@ -137,3 +137,38 @@ where
         T::collect(self.committed, res.into(), col)
     }
 }
+
+/// Trait implemented by allocatable syscalls, which are passed through directly to the host and do
+/// not require custom data handling logic.
+pub unsafe trait PassthroughSyscall {
+    /// Syscall number.
+    const NUM: c_long;
+
+    /// The syscall argument vector.
+    type Argv: Into<[usize; 6]>;
+
+    /// Syscall return value.
+    type Ret;
+
+    /// Returns argument vector registers.
+    fn stage(self) -> Self::Argv;
+}
+
+unsafe impl<'a, T: PassthroughSyscall> Syscall<'a> for T {
+    const NUM: c_long = T::NUM;
+
+    type Argv = T::Argv;
+    type Ret = T::Ret;
+
+    type Staged = ();
+    type Committed = ();
+    type Collected = Result<T::Ret>;
+
+    fn stage(self, _: &mut impl Allocator) -> Result<(Self::Argv, Self::Staged)> {
+        Ok((T::stage(self), ()))
+    }
+
+    fn collect(_: Self::Committed, ret: Result<Self::Ret>, _: &impl Collector) -> Self::Collected {
+        ret
+    }
+}

@@ -2,8 +2,8 @@
 
 use super::Argv;
 use crate::guest::alloc::{
-    Allocator, Collect, Collector, Commit, CommittedSyscall, Committer, Stage, StagedSyscall,
-    Syscall,
+    Allocator, Collect, Collector, Commit, CommittedSyscall, Committer, PassthroughSyscall, Stage,
+    StagedSyscall,
 };
 use crate::Result;
 
@@ -20,22 +20,14 @@ pub struct Fcntl {
 
 pub struct Alloc(Fcntl);
 
-unsafe impl<'a> Syscall<'a> for Alloc {
+unsafe impl PassthroughSyscall for Alloc {
     const NUM: c_long = libc::SYS_fcntl;
 
     type Argv = Argv<3>;
     type Ret = c_int;
 
-    type Staged = ();
-    type Committed = ();
-    type Collected = Result<c_int>;
-
-    fn stage(self, _: &mut impl Allocator) -> Result<(Self::Argv, Self::Staged)> {
-        Ok((Argv([self.0.fd as _, self.0.cmd as _, self.0.arg as _]), ()))
-    }
-
-    fn collect(_: Self::Committed, ret: Result<Self::Ret>, _: &impl Collector) -> Self::Collected {
-        ret
+    fn stage(self) -> Self::Argv {
+        Argv([self.0.fd as _, self.0.cmd as _, self.0.arg as _])
     }
 }
 

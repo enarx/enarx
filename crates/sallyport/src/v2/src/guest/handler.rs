@@ -84,7 +84,7 @@ pub trait Execute {
 
     /// Executes [`exit`](https://man7.org/linux/man-pages/man2/exit.2.html) syscall akin to [`libc::exit`].
     fn exit(&mut self, status: c_int) -> Result<()> {
-        self.execute(syscall::Exit { status })?;
+        self.execute(syscall::Exit { status })??;
         self.attacked()
     }
 
