@@ -2,8 +2,8 @@
 
 use super::Argv;
 use crate::guest::alloc::{
-    Allocator, Collect, Collector, Commit, CommittedSyscall, Committer, PassthroughSyscall, Stage,
-    StagedSyscall,
+    Allocator, Collect, Collector, Commit, CommittedCall, Committer, PassthroughSyscall, Stage,
+    StagedCall,
 };
 use crate::Result;
 
@@ -32,7 +32,7 @@ unsafe impl PassthroughSyscall for Alloc {
 }
 
 pub enum StagedFcntl<'a> {
-    Alloc(StagedSyscall<'a, Alloc>),
+    Alloc(StagedCall<'a, Alloc>),
     Stub(c_int),
 }
 
@@ -53,7 +53,7 @@ impl<'a> Stage<'a> for Fcntl {
 }
 
 pub enum CommittedFcntl<'a> {
-    Alloc(CommittedSyscall<'a, Alloc>),
+    Alloc(CommittedCall<'a, Alloc>),
     Stub(c_int),
 }
 
@@ -62,7 +62,7 @@ impl<'a> Commit for StagedFcntl<'a> {
 
     fn commit(self, com: &impl Committer) -> CommittedFcntl<'a> {
         match self {
-            StagedFcntl::Alloc(syscall) => CommittedFcntl::Alloc(syscall.commit(com)),
+            StagedFcntl::Alloc(call) => CommittedFcntl::Alloc(call.commit(com)),
             StagedFcntl::Stub(val) => CommittedFcntl::Stub(val),
         }
     }
@@ -73,7 +73,7 @@ impl<'a> Collect for CommittedFcntl<'a> {
 
     fn collect(self, col: &impl Collector) -> Self::Item {
         match self {
-            CommittedFcntl::Alloc(syscall) => Collect::collect(syscall, col),
+            CommittedFcntl::Alloc(call) => Collect::collect(call, col),
             CommittedFcntl::Stub(val) => Ok(val),
         }
     }
