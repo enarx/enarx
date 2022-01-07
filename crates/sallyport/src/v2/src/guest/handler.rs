@@ -4,7 +4,7 @@ use super::alloc::{phase, Alloc, Allocator, Collect, Commit, Committer};
 use super::{syscall, Call, Platform};
 use crate::{item, Result};
 
-use libc::{c_int, size_t, stat, ENOSYS};
+use libc::{c_int, gid_t, pid_t, size_t, stat, uid_t, ENOSYS};
 
 pub trait Execute {
     type Platform: Platform;
@@ -61,6 +61,11 @@ pub trait Execute {
                 let statbuf = self.platform().validate_mut(statbuf)?;
                 self.fstat(fd as _, statbuf).map(|_| [0, 0])
             }
+            (libc::SYS_getegid, ..) => self.getegid().map(|ret| [ret as _, 0]),
+            (libc::SYS_geteuid, ..) => self.geteuid().map(|ret| [ret as _, 0]),
+            (libc::SYS_getgid, ..) => self.getgid().map(|ret| [ret as _, 0]),
+            (libc::SYS_getpid, ..) => self.getpid().map(|ret| [ret as _, 0]),
+            (libc::SYS_getuid, ..) => self.getuid().map(|ret| [ret as _, 0]),
             (libc::SYS_read, [fd, buf, count, ..]) => {
                 let buf = self.platform().validate_slice_mut(buf, count)?;
                 self.read(fd as _, buf).map(|ret| [ret, 0])
@@ -77,6 +82,31 @@ pub trait Execute {
     /// Executes [`close`](https://man7.org/linux/man-pages/man2/close.2.html) syscall akin to [`libc::close`].
     fn close(&mut self, fd: c_int) -> Result<()> {
         self.execute(syscall::Close { fd })?
+    }
+
+    /// Executes [`getegid`](https://man7.org/linux/man-pages/man2/getegid.2.html) syscall akin to [`libc::getegid`].
+    fn getegid(&mut self) -> Result<gid_t> {
+        self.execute(syscall::Getegid)
+    }
+
+    /// Executes [`geteuid`](https://man7.org/linux/man-pages/man2/geteuid.2.html) syscall akin to [`libc::geteuid`].
+    fn geteuid(&mut self) -> Result<uid_t> {
+        self.execute(syscall::Geteuid)
+    }
+
+    /// Executes [`getgid`](https://man7.org/linux/man-pages/man2/getgid.2.html) syscall akin to [`libc::getgid`].
+    fn getgid(&mut self) -> Result<gid_t> {
+        self.execute(syscall::Getgid)
+    }
+
+    /// Executes [`getpid`](https://man7.org/linux/man-pages/man2/getpid.2.html) syscall akin to [`libc::getpid`].
+    fn getpid(&mut self) -> Result<pid_t> {
+        self.execute(syscall::Getpid)
+    }
+
+    /// Executes [`getuid`](https://man7.org/linux/man-pages/man2/getuid.2.html) syscall akin to [`libc::getuid`].
+    fn getuid(&mut self) -> Result<uid_t> {
+        self.execute(syscall::Getuid)
     }
 
     /// Executes [`exit`](https://man7.org/linux/man-pages/man2/exit.2.html) syscall akin to [`libc::exit`].

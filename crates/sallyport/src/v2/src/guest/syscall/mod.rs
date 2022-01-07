@@ -11,6 +11,7 @@ mod fstat;
 mod passthrough;
 mod read;
 mod result;
+mod stub;
 mod write;
 
 pub use argv::*;
@@ -19,4 +20,5 @@ pub use fstat::*;
 pub use passthrough::*;
 pub use read::*;
 pub use result::Result;
+pub use stub::*;
 pub use write::Write;
