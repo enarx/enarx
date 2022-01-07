@@ -14,7 +14,7 @@ unsafe impl<'a> Syscall<'a> for Close {
     const NUM: c_long = libc::SYS_close;
 
     type Argv = Argv<1>;
-    type Ret = super::Result<()>;
+    type Ret = ();
 
     type Staged = ();
     type Committed = ();
@@ -24,7 +24,7 @@ unsafe impl<'a> Syscall<'a> for Close {
         Ok((Argv([self.fd as _]), ()))
     }
 
-    fn collect(_: Self::Committed, ret: Self::Ret, _: &impl Collector) -> Result<()> {
+    fn collect(_: Self::Committed, ret: Result<Self::Ret>, _: &impl Collector) -> Result<()> {
         ret.into()
     }
 }

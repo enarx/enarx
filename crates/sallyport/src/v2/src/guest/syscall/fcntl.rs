@@ -24,7 +24,7 @@ unsafe impl<'a> Syscall<'a> for Alloc {
     const NUM: c_long = libc::SYS_fcntl;
 
     type Argv = Argv<3>;
-    type Ret = super::Result<c_int>;
+    type Ret = c_int;
 
     type Staged = ();
     type Committed = ();
@@ -34,8 +34,8 @@ unsafe impl<'a> Syscall<'a> for Alloc {
         Ok((Argv([self.0.fd as _, self.0.cmd as _, self.0.arg as _]), ()))
     }
 
-    fn collect(_: Self::Committed, ret: Self::Ret, _: &impl Collector) -> Self::Collected {
-        ret.into()
+    fn collect(_: Self::Committed, ret: Result<Self::Ret>, _: &impl Collector) -> Self::Collected {
+        ret
     }
 }
 

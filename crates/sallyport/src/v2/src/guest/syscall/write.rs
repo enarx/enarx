@@ -27,7 +27,7 @@ unsafe impl<'a> Syscall<'a> for Write<'a> {
     const NUM: c_long = libc::SYS_write;
 
     type Argv = Argv<3>;
-    type Ret = super::Result<size_t>;
+    type Ret = size_t;
 
     type Staged = StagedWrite<'a>;
     type Committed = size_t;
@@ -41,8 +41,12 @@ unsafe impl<'a> Syscall<'a> for Write<'a> {
         ))
     }
 
-    fn collect(count: Self::Committed, ret: Self::Ret, _: &impl Collector) -> Self::Collected {
-        match ret.into() {
+    fn collect(
+        count: Self::Committed,
+        ret: Result<Self::Ret>,
+        _: &impl Collector,
+    ) -> Self::Collected {
+        match ret {
             Ok(ret) if ret > count => None,
             res @ Ok(_) => Some(res),
             err => Some(err),

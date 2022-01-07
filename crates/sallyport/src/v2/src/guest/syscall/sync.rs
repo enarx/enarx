@@ -12,7 +12,7 @@ unsafe impl<'a> Syscall<'a> for Sync {
     const NUM: c_long = libc::SYS_sync;
 
     type Argv = Argv<0>;
-    type Ret = super::Result<()>;
+    type Ret = ();
 
     type Staged = ();
     type Committed = ();
@@ -22,7 +22,7 @@ unsafe impl<'a> Syscall<'a> for Sync {
         Ok((Argv([]), ()))
     }
 
-    fn collect(_: Self::Committed, ret: Self::Ret, _: &impl Collector) -> Result<()> {
-        ret.into()
+    fn collect(_: Self::Committed, ret: Result<Self::Ret>, _: &impl Collector) -> Result<()> {
+        ret
     }
 }

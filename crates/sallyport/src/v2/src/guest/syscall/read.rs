@@ -15,7 +15,7 @@ unsafe impl<'a> Syscall<'a> for Read<'a> {
     const NUM: c_long = libc::SYS_read;
 
     type Argv = Argv<3>;
-    type Ret = super::Result<size_t>;
+    type Ret = size_t;
 
     type Staged = Output<'a, [u8], &'a mut [u8]>;
     type Committed = Self::Staged;
@@ -26,8 +26,12 @@ unsafe impl<'a> Syscall<'a> for Read<'a> {
         Ok((Argv([self.fd as _, buf.offset(), buf.len()]), buf))
     }
 
-    fn collect(buf: Self::Committed, ret: Self::Ret, col: &impl Collector) -> Self::Collected {
-        match ret.into() {
+    fn collect(
+        buf: Self::Committed,
+        ret: Result<Self::Ret>,
+        col: &impl Collector,
+    ) -> Self::Collected {
+        match ret {
             Ok(ret) if ret > buf.len() => None,
             res @ Ok(ret) => {
                 unsafe { buf.collect_range(col, 0..ret) };

@@ -3,6 +3,7 @@
 use super::{
     Allocator, Collect, Collector, Commit, Committer, InOutRef, InRef, Input, OutRef, Stage,
 };
+use crate::guest::syscall;
 use crate::{item, Result};
 
 use core::alloc::Layout;
@@ -19,7 +20,7 @@ pub unsafe trait Syscall<'a> {
     type Argv: Into<[usize; 6]>;
 
     /// Syscall return value.
-    type Ret: From<[usize; 2]>;
+    type Ret;
 
     /// Opaque [staged value](Stage::Item) value, which returns [`Self::Committed`] when committed via [`Commit::commit`].
     ///
@@ -38,8 +39,11 @@ pub unsafe trait Syscall<'a> {
     fn stage(self, alloc: &mut impl Allocator) -> Result<(Self::Argv, Self::Staged)>;
 
     /// Collect the return registers and [opaque committed value](Self::Committed).
-    fn collect(committed: Self::Committed, ret: Self::Ret, col: &impl Collector)
-        -> Self::Collected;
+    fn collect(
+        committed: Self::Committed,
+        ret: Result<Self::Ret>,
+        col: &impl Collector,
+    ) -> Self::Collected;
 }
 
 /// Staged syscall, which holds allocated reference to syscall item within the block and [opaque staged value](Syscall::Staged).
@@ -119,13 +123,17 @@ impl<'a, T: Syscall<'a>> Commit for StagedSyscall<'a, T> {
     }
 }
 
-impl<'a, T: Syscall<'a>> Collect for CommittedSyscall<'a, T> {
+impl<'a, T: Syscall<'a>> Collect for CommittedSyscall<'a, T>
+where
+    syscall::Result<T::Ret>: Into<Result<T::Ret>>,
+{
     type Item = T::Collected;
 
     #[inline]
     fn collect(self, col: &impl Collector) -> Self::Item {
         let mut ret = [0usize; 2];
         self.ret_ref.copy_to(col, &mut ret);
-        T::collect(self.committed, ret.into(), col)
+        let res: syscall::Result<T::Ret> = ret.into();
+        T::collect(self.committed, res.into(), col)
     }
 }
