@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use super::{Allocator, Call, Collector, Commit, Committer, InOutRef, InRef, Input, OutRef};
+use super::{
+    Allocator, Call, Collect, Collector, Commit, Committer, InOutRef, InRef, Input, OutRef,
+};
 use crate::guest::syscall;
 use crate::{item, Result};
 
@@ -41,35 +43,6 @@ pub unsafe trait Syscall<'a> {
     ) -> Self::Collected;
 }
 
-/// Staged syscall, which holds allocated reference to syscall item within the block and [opaque staged value](Syscall::Staged).
-pub struct StagedSyscall<'a, T: Syscall<'a>> {
-    num_ref: InRef<'a, usize>,
-    argv: Input<'a, [usize; 6], [usize; 6]>,
-    ret_ref: InOutRef<'a, [usize; 2]>,
-    staged: T::Staged,
-}
-
-/// Committed syscall, which holds allocated reference to syscall return values within the block and [opaque committed value](Syscall::Committed).
-pub struct CommittedSyscall<'a, T: Syscall<'a>> {
-    ret_ref: OutRef<'a, [usize; 2]>,
-    committed: T::Committed,
-}
-
-impl<'a, T: Syscall<'a>> Commit for StagedSyscall<'a, T> {
-    type Item = CommittedSyscall<'a, T>;
-
-    #[inline]
-    fn commit(mut self, com: &impl Committer) -> Self::Item {
-        self.num_ref.copy_from(com, T::NUM as usize);
-        self.argv.commit(com);
-        self.ret_ref.copy_from(com, [-libc::ENOSYS as usize, 0]);
-        Self::Item {
-            ret_ref: self.ret_ref.commit(com),
-            committed: self.staged.commit(com),
-        }
-    }
-}
-
 impl<'a, T: Syscall<'a>> Call<'a> for T
 where
     syscall::Result<T::Ret>: Into<Result<T::Ret>>,
@@ -93,16 +66,49 @@ where
             staged,
         })
     }
+}
+
+/// Staged syscall, which holds allocated reference to syscall item within the block and [opaque staged value](Syscall::Staged).
+pub struct StagedSyscall<'a, T: Syscall<'a>> {
+    num_ref: InRef<'a, usize>,
+    argv: Input<'a, [usize; 6], [usize; 6]>,
+    ret_ref: InOutRef<'a, [usize; 2]>,
+    staged: T::Staged,
+}
+
+impl<'a, T: Syscall<'a>> Commit for StagedSyscall<'a, T> {
+    type Item = CommittedSyscall<'a, T>;
 
     #[inline]
-    fn collect(
-        Self::Committed { ret_ref, committed }: Self::Committed,
-        col: &impl Collector,
-    ) -> Self::Collected {
+    fn commit(mut self, com: &impl Committer) -> Self::Item {
+        self.num_ref.copy_from(com, T::NUM as usize);
+        self.argv.commit(com);
+        self.ret_ref.copy_from(com, [-libc::ENOSYS as usize, 0]);
+        Self::Item {
+            ret_ref: self.ret_ref.commit(com),
+            committed: self.staged.commit(com),
+        }
+    }
+}
+
+/// Committed syscall, which holds allocated reference to syscall return values within the block and [opaque committed value](Syscall::Committed).
+pub struct CommittedSyscall<'a, T: Syscall<'a>> {
+    ret_ref: OutRef<'a, [usize; 2]>,
+    committed: T::Committed,
+}
+
+impl<'a, T: Syscall<'a>> Collect for CommittedSyscall<'a, T>
+where
+    syscall::Result<T::Ret>: Into<Result<T::Ret>>,
+{
+    type Item = T::Collected;
+
+    #[inline]
+    fn collect(self, col: &impl Collector) -> Self::Item {
         let mut ret = [0usize; 2];
-        ret_ref.copy_to(col, &mut ret);
+        self.ret_ref.copy_to(col, &mut ret);
         let res: syscall::Result<T::Ret> = ret.into();
-        T::collect(committed, res.into(), col)
+        T::collect(self.committed, res.into(), col)
     }
 }
 

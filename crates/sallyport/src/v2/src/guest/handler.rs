@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use super::alloc::{phase, Alloc, Allocator, Collect, Commit, Committer, Stage};
-use super::{syscall, Platform};
+use super::alloc::{phase, Alloc, Allocator, Collect, Commit, Committer};
+use super::{syscall, Call, Platform};
 use crate::{item, Result};
 
 use libc::{c_int, size_t, stat, ENOSYS};
@@ -19,16 +19,13 @@ pub trait Execute {
     /// - [`syscall::Exit`]
     /// - [`syscall::Read`]
     /// - [`syscall::Write`]
-    fn execute<'a, T>(
-        &mut self,
-        req: impl Stage<'a, Item = impl Commit<Item = impl Collect<Item = T>>>,
-    ) -> Result<T> {
+    fn execute<'a, T: Call<'a>>(&mut self, call: T) -> Result<T::Collected> {
         let mut alloc = self.allocator();
-        let ((staged, len), mut end_ref) =
-            alloc.reserve_input(|alloc| alloc.section(|alloc| req.stage(alloc)))?;
+        let ((call, len), mut end_ref) =
+            alloc.reserve_input(|alloc| alloc.section(|alloc| call.stage(alloc)))?;
 
         let alloc = alloc.commit();
-        let committed = staged.commit(&alloc);
+        let call = call.commit(&alloc);
         if len > 0 {
             end_ref.copy_from(
                 &alloc,
@@ -41,7 +38,7 @@ pub trait Execute {
         }
 
         let alloc = alloc.collect();
-        Ok(committed.collect(&alloc))
+        Ok(call.collect(&alloc))
     }
 
     /// Loops infinitely trying to exit.

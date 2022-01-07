@@ -2,9 +2,9 @@
 
 use super::Argv;
 use crate::guest::alloc::{
-    Allocator, Collect, Collector, Commit, CommittedCall, Committer, PassthroughSyscall, Stage,
-    StagedCall,
+    Allocator, Collect, Collector, Commit, CommittedCall, Committer, PassthroughSyscall, StagedCall,
 };
+use crate::guest::Call;
 use crate::Result;
 
 use libc::{
@@ -36,16 +36,18 @@ pub enum StagedFcntl<'a> {
     Stub(c_int),
 }
 
-impl<'a> Stage<'a> for Fcntl {
-    type Item = StagedFcntl<'a>;
+impl<'a> Call<'a> for Fcntl {
+    type Staged = StagedFcntl<'a>;
+    type Committed = CommittedFcntl<'a>;
+    type Collected = Result<c_int>;
 
-    fn stage(self, alloc: &mut impl Allocator) -> Result<Self::Item> {
+    fn stage(self, alloc: &mut impl Allocator) -> Result<Self::Staged> {
         match (self.fd, self.cmd) {
             (STDIN_FILENO, F_GETFL) => Ok(StagedFcntl::Stub(O_RDWR | O_APPEND)),
             (STDOUT_FILENO | STDERR_FILENO, F_GETFL) => Ok(StagedFcntl::Stub(O_WRONLY)),
             (STDIN_FILENO | STDOUT_FILENO | STDERR_FILENO, _) => Err(EINVAL),
             (_, F_GETFD | F_SETFD | F_GETFL | F_SETFL) => {
-                Stage::stage(Alloc(self), alloc).map(StagedFcntl::Alloc)
+                Call::stage(Alloc(self), alloc).map(StagedFcntl::Alloc)
             }
             (_, _) => Err(EBADFD),
         }

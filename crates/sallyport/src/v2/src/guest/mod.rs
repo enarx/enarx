@@ -57,8 +57,10 @@
 pub mod alloc;
 pub mod syscall;
 
+mod call;
 mod handler;
 mod platform;
 
+pub use call::*;
 pub use handler::*;
 pub use platform::*;

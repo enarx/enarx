@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::guest::alloc::{Allocator, Collect, Collector, CommitPassthrough, Stage};
+use crate::guest::alloc::{Allocator, Collect, Collector, CommitPassthrough};
+use crate::guest::Call;
 use crate::Result;
 
 use core::mem;
@@ -11,10 +12,12 @@ pub struct Fstat<'a> {
     pub statbuf: &'a mut stat,
 }
 
-impl<'a> Stage<'a> for Fstat<'a> {
-    type Item = Self;
+impl<'a> Call<'a> for Fstat<'a> {
+    type Staged = Self;
+    type Committed = Self;
+    type Collected = Result<()>;
 
-    fn stage(self, _: &mut impl Allocator) -> Result<Self::Item> {
+    fn stage(self, _: &mut impl Allocator) -> Result<Self::Staged> {
         match self.fd {
             STDIN_FILENO | STDOUT_FILENO | STDERR_FILENO => Ok(self),
             // TODO: Support `fstat` on files.
