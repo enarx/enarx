@@ -32,11 +32,21 @@ fn rerun_src(path: impl AsRef<Path>) {
         if let Some(path) = entry.to_str() {
             println!("cargo:rerun-if-changed={}", path)
         }
+        if let Some(Some(path)) = entry.parent().map(Path::to_str) {
+            println!("cargo:rerun-if-changed={}", path)
+        }
     }
 }
 
 fn build_cc_tests(in_path: &Path, out_path: &Path) {
     for in_source in find_files_with_extensions(&["c", "s", "S"], &in_path) {
+        if let Some(path) = in_source.to_str() {
+            println!("cargo:rerun-if-changed={}", path)
+        }
+        if let Some(Some(path)) = in_source.parent().map(Path::to_str) {
+            println!("cargo:rerun-if-changed={}", path)
+        }
+
         let output = in_source.file_stem().unwrap();
 
         let mut cmd = cc::Build::new()
@@ -84,10 +94,13 @@ fn cargo_build_bin(
     let path = in_dir.as_os_str().to_str().unwrap();
 
     for p in [
+        "src",
+        "build.rs",
         "Cargo.tml",
         "Cargo.toml",
         "Cargo.lock",
         "layout.ld",
+        ".cargo",
         ".cargo/config",
     ] {
         let file = in_dir.join(p);
