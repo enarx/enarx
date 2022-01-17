@@ -149,7 +149,7 @@ fn no_export() {
 
 #[test]
 fn echo() {
-    let mut input: Vec<u8> = Vec::with_capacity(2 * 1024);
+    let mut input: Vec<u8> = Vec::with_capacity(2 * 1024 * 1024);
 
     for i in 0..input.capacity() {
         input.push(i as _);
