@@ -89,7 +89,7 @@ pub fn run<T: AsRef<str>, U: AsRef<str>>(
     config.static_memory_maximum_size(0);
     config.static_memory_guard_size(0);
     config.dynamic_memory_guard_size(0);
-    config.dynamic_memory_reserved_for_growth(0);
+    config.dynamic_memory_reserved_for_growth(16 * 1024 * 1024);
 
     let engine = wasmtime::Engine::new(&config).or(Err(Error::ConfigurationError))?;
 
