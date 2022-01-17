@@ -76,5 +76,5 @@ walkdir = "2"
 wat = { version = "1.0" }
 
 [workspace]
-members = [ "integration/sev_attestation", "integration/simple" ]
+members = [ "integration/sev_attestation", "integration/simple", "integration/wasm" ]
 exclude = [ "internal/shim-sev", "internal/shim-sgx", "internal/wasmldr" ]

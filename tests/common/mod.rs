@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use process_control::{ChildExt, Output, Timeout};
-use std::io::Write;
+use std::io::{stderr, Write};
 use std::path::Path;
 use std::process::{Command, Stdio};
 use std::time::Duration;
@@ -80,10 +80,10 @@ pub fn keepldr_exec<'a>(bin: &str, input: impl Into<Option<&'a [u8]>>) -> Output
 
 /// Returns a handle to a child process through which output (stdout, stderr) can
 /// be accessed.
-pub fn keepldr_exec_crate<'a>(
+pub fn keepldr_exec_crate(
     crate_name: &str,
     bin: &str,
-    input: impl Into<Option<&'a [u8]>>,
+    input: impl Into<Option<Vec<u8>>>,
 ) -> Output {
     let crate_path = Path::new(CRATE).join(crate_name);
 
@@ -100,16 +100,17 @@ pub fn keepldr_exec_crate<'a>(
         .spawn()
         .unwrap_or_else(|e| panic!("failed to run `{}`: {:#?}", bin, e));
 
-    if let Some(input) = input.into() {
-        child
-            .stdin
-            .as_mut()
-            .unwrap()
-            .write_all(input)
-            .expect("failed to write stdin to child");
-
-        drop(child.stdin.take());
-    }
+    let input_thread = if let Some(input) = input.into() {
+        let mut stdin = child.stdin.take().unwrap();
+        let input = input.clone();
+        Some(std::thread::spawn(move || {
+            stdin
+                .write_all(&input)
+                .expect("failed to write stdin to child");
+        }))
+    } else {
+        None
+    };
 
     let output = child
         .with_output_timeout(Duration::from_secs(TIMEOUT_SECS))
@@ -117,6 +118,13 @@ pub fn keepldr_exec_crate<'a>(
         .wait()
         .unwrap_or_else(|e| panic!("failed to run `{}`: {:#?}", bin, e))
         .unwrap_or_else(|| panic!("process `{}` timed out", bin));
+
+    if let Some(input_thread) = input_thread {
+        if let Err(_) = input_thread.join() {
+            let _unused = stderr().write_all(&output.stderr);
+            panic!("failed to provide input for process `{}`", bin)
+        }
+    }
 
     assert!(
         output.status.code().is_some(),
@@ -193,7 +201,7 @@ pub fn run_crate<'a>(
     crate_name: &str,
     bin: &str,
     status: i32,
-    input: impl Into<Option<&'a [u8]>>,
+    input: impl Into<Option<Vec<u8>>>,
     expected_stdout: impl Into<Option<&'a [u8]>>,
     expected_stderr: impl Into<Option<&'a [u8]>>,
 ) -> Output {
