@@ -10,7 +10,7 @@ use std::process::{Command, Stdio};
 use std::time::Duration;
 
 pub mod common;
-use common::{check_output, CRATE, KEEP_BIN, OUT_DIR, TEST_BINS_OUT, TIMEOUT_SECS};
+use common::{check_output, run_crate, CRATE, KEEP_BIN, OUT_DIR, TEST_BINS_OUT, TIMEOUT_SECS};
 
 fn create(path: &Path) {
     match std::fs::create_dir(&path) {
@@ -144,4 +144,55 @@ fn no_export() {
     // This module has no exported functions, so we get Error::ExportNotFound,
     // which wasmldr maps to EX_DATAERR (65) at process exit.
     run_wasm_test("no_export.wasm", 65, None, None, None);
+}
+
+#[test]
+fn echo() {
+    let mut input: Vec<u8> = Vec::with_capacity(2 * 1024);
+
+    for i in 0..input.capacity() {
+        input.push(i as _);
+    }
+
+    let expected_input = input.clone();
+
+    run_crate(
+        "integration/wasm",
+        "echo",
+        0,
+        input,
+        expected_input.as_slice(),
+        None,
+    );
+}
+
+#[test]
+fn memspike() {
+    run_crate("integration/wasm", "memspike", 0, None, None, None);
+}
+
+#[test]
+fn memory_stress_test() {
+    run_crate(
+        "integration/wasm",
+        "memory_stress_test",
+        0,
+        None,
+        None,
+        None,
+    );
+}
+
+#[test]
+fn zerooneone() {
+    let input = Vec::from("Good morning, that's a nice tnetennba.\n0118 999 881 999 119 725 3\n");
+
+    run_crate(
+        "integration/wasm",
+        "zerooneone",
+        0,
+        input,
+        &b"Tbbq zbeavat, gung'f n avpr gargraaon.\n0118 999 881 999 119 725 3\n"[..],
+        None,
+    );
 }

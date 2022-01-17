@@ -110,12 +110,15 @@ fn echo() {
     for i in 0..input.capacity() {
         input.push(i as _);
     }
+
+    let expected_input = input.clone();
+
     run_crate(
         "integration/simple",
         "echo",
         0,
-        input.as_slice(),
-        input.as_slice(),
+        input,
+        expected_input.as_slice(),
         None,
     );
 }
@@ -169,7 +172,7 @@ fn unix_echo() {
         "integration/simple",
         "unix_echo",
         0,
-        tmpdir.path().as_os_str().as_bytes(),
+        Vec::from(tmpdir.path().as_os_str().as_bytes()),
         None,
         None,
     );

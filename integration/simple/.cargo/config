@@ -6,4 +6,4 @@ rustflags = [
     "-C", "relocation-model=pic",
     "-C", "force-frame-pointers=yes",
 ]
-runner = "../../helper/test-enarx.sh"  # Searches `PATH` for `foo`.
+runner = "../../helper/test-enarx.sh"
