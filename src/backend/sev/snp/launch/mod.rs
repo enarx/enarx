@@ -92,7 +92,11 @@ impl<V: AsRawFd> Launcher<Started, V> {
         let launch_update_data = LaunchUpdate::from(update);
         let mut cmd = Command::from(&mut self.sev, &launch_update_data);
 
-        KvmEncRegion::new(update.uaddr).register(&mut self.vm_fd)?;
+        let memory_region = kvm_enc_region {
+            addr: update.uaddr.as_ptr() as _,
+            size: update.uaddr.len() as _,
+        };
+        self.vm_fd.register_enc_memory_region(&memory_region)?;
 
         SNP_LAUNCH_UPDATE
             .ioctl(&mut self.vm_fd, &mut cmd)
