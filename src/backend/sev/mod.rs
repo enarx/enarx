@@ -15,7 +15,7 @@ use data::{
     kvm_version, sev_enabled_in_kernel, CPUIDS,
 };
 use kvm_ioctls::VmFd;
-use snp::launch::linux::KvmEncRegion;
+use kvm_bindings::bindings::kvm_enc_region;
 
 mod builder;
 mod cpuid_page;
@@ -29,7 +29,11 @@ struct SnpKeepPersonality {
 
 impl KeepPersonality for SnpKeepPersonality {
     fn map(vm_fd: &mut VmFd, region: &Region) -> std::io::Result<()> {
-        KvmEncRegion::new(region.backing()).register(vm_fd)?;
+        let memory_region = kvm_enc_region {
+            addr: region.backing().as_ptr() as _,
+            size: region.backing().len() as _,
+        };
+        vm_fd.register_enc_memory_region(&memory_region).unwrap();
         Ok(())
     }
 }

@@ -18,6 +18,11 @@ use std::os::unix::io::AsRawFd;
 
 use bitflags::bitflags;
 
+use kvm_bindings::bindings::kvm_enc_region;
+use kvm_ioctls::Kvm;
+
+use libc;
+
 /// Launcher type-state that indicates a brand new launch.
 pub struct New;
 
@@ -90,7 +95,15 @@ impl<U: AsRawFd, V: AsRawFd> Launcher<Started, U, V> {
         let launch_update_data = LaunchUpdate::from(update);
         let mut cmd = Command::from(&mut self.sev, &launch_update_data);
 
-        KvmEncRegion::new(update.uaddr).register(&mut self.vm_fd)?;
+        let kvm = Kvm::new()?;
+        let vm_fd = unsafe { libc::dup(self.vm_fd.as_raw_fd()) };
+        let vm = unsafe { kvm.create_vmfd_from_rawfd(vm_fd)? };
+
+        let memory_region = kvm_enc_region {
+            addr: update.uaddr.as_ptr() as _,
+            size: update.uaddr.len() as _,
+        };
+        vm.register_enc_memory_region(&memory_region)?;
 
         SNP_LAUNCH_UPDATE
             .ioctl(&mut self.vm_fd, &mut cmd)
