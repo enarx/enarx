@@ -42,7 +42,7 @@ impl<'a> Binary<'a> {
             return Err(anyhow!("unsupported ELF header: e_machine"));
         }
 
-        if elf.header.e_version != EV_CURRENT.into() {
+        if elf.header.e_version != EV_CURRENT as u32 {
             return Err(anyhow!("unsupported ELF header: e_version"));
         }
 
