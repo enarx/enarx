@@ -13,7 +13,7 @@ use std::sync::{Arc, RwLock};
 
 use anyhow::Context;
 use anyhow::{Error, Result};
-use kvm_ioctls::{Kvm, VmFd};
+use kvm_ioctls::Kvm;
 use mmarinus::{perms, Map};
 use primordial::Page;
 use sallyport::elf::pf::snp::{CPUID, SECRETS};
@@ -21,7 +21,7 @@ use x86_64::VirtAddr;
 
 pub struct Builder {
     kvm_fd: Kvm,
-    launcher: Launcher<Started, VmFd, Firmware>,
+    launcher: Launcher<Started, Firmware>,
     regions: Vec<Region>,
     sallyports: Vec<Option<VirtAddr>>,
 }
