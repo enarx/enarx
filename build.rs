@@ -60,6 +60,7 @@ fn build_cc_tests(in_path: &Path, out_path: &Path) {
             .arg("-static-pie")
             .arg("-fPIC")
             .arg("-fno-omit-frame-pointer")
+            .arg("-fno-stack-protector")
             .arg("-g")
             .arg("-o")
             .arg(output)
