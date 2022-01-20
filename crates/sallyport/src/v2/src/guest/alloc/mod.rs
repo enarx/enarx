@@ -23,7 +23,6 @@ pub(super) use phase_alloc::*;
 use crate::Result;
 
 use core::alloc::Layout;
-use libc::ENOMEM;
 
 /// Returns a [`Layout`] corresponding to an array of `len` elements of type `T`.
 #[inline]
@@ -152,11 +151,7 @@ pub trait Allocator {
     /// and returns corresponding [`InRef`] on success.
     #[inline]
     fn allocate_input_slice_max<'a, T>(&mut self, len: usize) -> Result<InRef<'a, [T]>> {
-        let len = len.min(self.free::<T>());
-        if len == 0 {
-            return Err(ENOMEM);
-        }
-        self.allocate_input_slice(len)
+        self.allocate_input_slice(len.min(self.free::<T>()))
     }
 
     /// Attempts to allocate a slice output of `len` elements of type `T`
@@ -171,11 +166,7 @@ pub trait Allocator {
     /// and returns corresponding [`OutRef`] on success.
     #[inline]
     fn allocate_output_slice_max<'a, T>(&mut self, len: usize) -> Result<OutRef<'a, [T]>> {
-        let len = len.min(self.free::<T>());
-        if len == 0 {
-            return Err(ENOMEM);
-        }
-        self.allocate_output_slice(len)
+        self.allocate_output_slice(len.min(self.free::<T>()))
     }
 
     /// Attempts to allocate a slice inout of `len` elements of type `T`
@@ -190,11 +181,7 @@ pub trait Allocator {
     /// and returns corresponding [`InOutRef`] on success.
     #[inline]
     fn allocate_inout_slice_max<'a, T>(&mut self, len: usize) -> Result<InOutRef<'a, [T]>> {
-        let len = len.min(self.free::<T>());
-        if len == 0 {
-            return Err(ENOMEM);
-        }
-        self.allocate_inout_slice(len)
+        self.allocate_inout_slice(len.min(self.free::<T>()))
     }
 
     /// Records the end of stage phase and moves allocator into commit phase.

@@ -8,7 +8,6 @@ use core::iter::once;
 use core::marker::PhantomData;
 use core::ops::Range;
 use core::ptr::NonNull;
-use libc::ENOMEM;
 
 /// Reference to an allocated output segment.
 #[derive(Debug, PartialEq)]
@@ -163,9 +162,6 @@ impl<'a, T> Output<'a, [T], &'a mut [T]> {
         val: &'a mut [T],
     ) -> Result<(Self, &'a mut [T])> {
         let (head, tail) = val.split_at_mut(val.len().min(alloc.free::<T>()));
-        if head.is_empty() {
-            return Err(ENOMEM);
-        }
         Self::stage_slice(alloc, head).map(|output| (output, tail))
     }
 }

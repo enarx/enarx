@@ -7,7 +7,6 @@ use core::borrow::{Borrow, BorrowMut};
 use core::iter::once;
 use core::marker::PhantomData;
 use core::ptr::NonNull;
-use libc::ENOMEM;
 
 /// Reference to an allocated input segment.
 #[derive(Debug, PartialEq)]
@@ -181,9 +180,6 @@ impl<'a, T> Input<'a, [T], &'a [T]> {
     #[inline]
     pub fn stage_slice_max(alloc: &mut impl Allocator, val: &'a [T]) -> Result<(Self, &'a [T])> {
         let (head, tail) = val.split_at(val.len().min(alloc.free::<T>()));
-        if head.is_empty() {
-            return Err(ENOMEM);
-        }
         Self::stage_slice(alloc, head).map(|input| (input, tail))
     }
 }
