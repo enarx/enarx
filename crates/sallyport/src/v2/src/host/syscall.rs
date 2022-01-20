@@ -4,6 +4,7 @@ use super::Execute;
 use crate::{item, Result};
 
 use core::arch::asm;
+use core::mem::size_of;
 use libc::c_long;
 
 struct Syscall<'a, const ARGS: usize, const RETS: usize> {
@@ -124,6 +125,18 @@ impl Execute for Syscall<'_, 6, 1> {
     }
 }
 
+/// Validates that `data` contains `len` elements of type `T` at `offset`
+/// and returns a mutable pointer to the first element on success.
+/// NOTE: callers must ensure that pointer is correctly aligned before accessing it.
+fn deref<T>(data: &mut [u8], offset: usize, len: usize) -> Result<*mut T> {
+    let size = len * size_of::<T>();
+    if size > data.len() || data.len() - size < offset {
+        Err(libc::EFAULT)
+    } else {
+        Ok(data[offset..offset + size].as_mut_ptr() as _)
+    }
+}
+
 pub(super) unsafe fn execute_syscall(syscall: &mut item::Syscall, data: &mut [u8]) -> Result<()> {
     match syscall {
         item::Syscall {
@@ -219,12 +232,10 @@ pub(super) unsafe fn execute_syscall(syscall: &mut item::Syscall, data: &mut [u8
             argv: [fd, buf_offset, count, ..],
             ret: [ret, ..],
         } if *num == libc::SYS_read as _ => {
-            if *count > data.len() || data.len() - *count < *buf_offset {
-                return Err(libc::EFAULT);
-            }
+            let buf = deref::<u8>(data, *buf_offset, *count)?;
             Syscall {
                 num: libc::SYS_read,
-                argv: [*fd, data[*buf_offset..].as_ptr() as _, *count],
+                argv: [*fd, buf as _, *count],
                 ret: [ret],
             }
             .execute();
@@ -235,18 +246,10 @@ pub(super) unsafe fn execute_syscall(syscall: &mut item::Syscall, data: &mut [u8
             argv: [sockfd, level, optname, optval_offset, optlen, ..],
             ret: [ret, ..],
         } if *num == libc::SYS_setsockopt as _ => {
-            if *optlen > data.len() || data.len() - *optlen < *optval_offset {
-                return Err(libc::EFAULT);
-            }
+            let optval = deref::<u8>(data, *optval_offset, *optlen)?;
             Syscall {
                 num: libc::SYS_setsockopt,
-                argv: [
-                    *sockfd,
-                    *level,
-                    *optname,
-                    data[*optval_offset..].as_ptr() as _,
-                    *optlen,
-                ],
+                argv: [*sockfd, *level, *optname, optval as _, *optlen],
                 ret: [ret],
             }
             .execute();
@@ -279,12 +282,10 @@ pub(super) unsafe fn execute_syscall(syscall: &mut item::Syscall, data: &mut [u8
             argv: [fd, buf_offset, count, ..],
             ret: [ret, ..],
         } if *num == libc::SYS_write as _ => {
-            if *count > data.len() || data.len() - *count < *buf_offset {
-                return Err(libc::EFAULT);
-            }
+            let buf = deref::<u8>(data, *buf_offset, *count)?;
             Syscall {
                 num: libc::SYS_write,
-                argv: [*fd, data[*buf_offset..].as_ptr() as _, *count],
+                argv: [*fd, buf as _, *count],
                 ret: [ret],
             }
             .execute();
