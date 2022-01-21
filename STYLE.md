@@ -104,7 +104,7 @@ beneficial.
 
 ## Use Declarations
 
-When creating `use` statements, these statement should be divided into groups
+When creating `use` statements, these statements should be divided into groups
 separated by an empty line. Empty groups can be omitted altogether (i.e. no
 double empty lines). Formatting imports like this allows `cargo fmt` to
 sort within the groups, but the groups are always kept in the same relative
