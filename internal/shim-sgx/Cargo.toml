@@ -16,7 +16,7 @@ dbg = []
 [dependencies]
 compiler_builtins = { version = "0.1.65", default-features = false, features = [ "mem" ] }
 gdbstub_arch = { version = "0.1.1" , default-features = false, optional = true }
-gdbstub = { version = "0.5.0" , default-features = false, optional = true }
+gdbstub = { version = "0.6.0" , default-features = false, optional = true }
 goblin = { version = "0.4", default-features = false, features = [ "elf64" ] }
 primordial = { version = "^0.4.0", features = ["const-default"] }
 x86_64 = { version = "^0.14.7", default-features = false }
