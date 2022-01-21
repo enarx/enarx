@@ -17,7 +17,7 @@ dbg = []
 compiler_builtins = { version = "0.1.65", default-features = false, features = [ "mem" ] }
 x86_64 = { version = "0.14.7", default-features = false, features = ["instructions", "inline_asm"] }
 gdbstub_arch = { version = "0.1.1" , default-features = false, optional = true }
-gdbstub = { version = "0.5.0" , default-features = false, optional = true }
+gdbstub = { version = "0.6.0" , default-features = false, optional = true }
 goblin = { version = "0.4", default-features = false, features = [ "elf64" ] }
 crt0stack = { version = "0.1", default-features = false }
 spinning = { version = "0.1", default-features = false }
