@@ -142,13 +142,13 @@ impl<'a, T, U: BorrowMut<T>> Output<'a, T, U> {
     }
 }
 
-impl<'a, T, U: AsRef<[T]>> Output<'a, [T], U> {
+impl<'a, T, U: AsMut<[T]>> Output<'a, [T], U> {
     /// Attempts to allocate input segment to fit `val.len()` elements of `val` in the block
     /// and returns the resulting [`Output`] on success.
     #[inline]
-    pub fn stage_slice(alloc: &mut impl Allocator, val: U) -> Result<Self> {
+    pub fn stage_slice(alloc: &mut impl Allocator, mut val: U) -> Result<Self> {
         alloc
-            .allocate_output_slice(val.as_ref().len())
+            .allocate_output_slice(val.as_mut().len())
             .map(move |data_ref| Output { data_ref, val })
     }
 }
