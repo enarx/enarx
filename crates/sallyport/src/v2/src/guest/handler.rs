@@ -54,6 +54,9 @@ pub trait Execute {
         match (num as _, argv) {
             (libc::SYS_close, [fd, ..]) => self.close(fd as _).map(|_| [0, 0]),
             (libc::SYS_exit, [status, ..]) => self.exit(status as _).map(|_| self.attacked()),
+            (libc::SYS_exit_group, [status, ..]) => {
+                self.exit_group(status as _).map(|_| self.attacked())
+            }
             (libc::SYS_fcntl, [fd, cmd, arg, ..]) => self
                 .fcntl(fd as _, cmd as _, arg as _)
                 .map(|ret| [ret as _, 0]),
@@ -112,6 +115,12 @@ pub trait Execute {
     /// Executes [`exit`](https://man7.org/linux/man-pages/man2/exit.2.html) syscall akin to [`libc::exit`].
     fn exit(&mut self, status: c_int) -> Result<()> {
         self.execute(syscall::Exit { status })??;
+        self.attacked()
+    }
+
+    /// Executes [`exit_group`](https://man7.org/linux/man-pages/man2/exit_group.2.html) syscall akin to [`libc::exit_group`].
+    fn exit_group(&mut self, status: c_int) -> Result<()> {
+        self.execute(syscall::ExitGroup { status })??;
         self.attacked()
     }
 

@@ -150,6 +150,17 @@ pub(super) unsafe fn execute_syscall(syscall: &mut item::Syscall, data: &mut [u8
 
         item::Syscall {
             num,
+            argv: [status, ..],
+            ret: [ret, ..],
+        } if *num == libc::SYS_exit_group as _ => Syscall {
+            num: libc::SYS_exit_group,
+            argv: [*status],
+            ret: [ret],
+        }
+        .execute(),
+
+        item::Syscall {
+            num,
             argv: [fd, cmd, arg, ..],
             ret: [ret, ..],
         } if *num == libc::SYS_fcntl as _ => Syscall {

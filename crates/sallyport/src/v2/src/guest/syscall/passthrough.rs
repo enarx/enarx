@@ -35,6 +35,21 @@ unsafe impl PassthroughSyscall for Exit {
     }
 }
 
+pub struct ExitGroup {
+    pub status: c_int,
+}
+
+unsafe impl PassthroughSyscall for ExitGroup {
+    const NUM: c_long = libc::SYS_exit_group;
+
+    type Argv = Argv<1>;
+    type Ret = ();
+
+    fn stage(self) -> Self::Argv {
+        Argv([self.status as _])
+    }
+}
+
 pub struct Sync;
 
 unsafe impl PassthroughSyscall for Sync {
