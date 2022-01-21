@@ -1,14 +1,17 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use libc::ENOSYS;
+use libc::{sockaddr, ENOSYS};
+use sallyport::guest::syscall::types::SockaddrOutput;
 use std::env::temp_dir;
 use std::ffi::CString;
 use std::fs::{File, OpenOptions};
 use std::io::{Read, Seek, Write};
-use std::mem;
+use std::mem::size_of;
+use std::net::{TcpListener, TcpStream, UdpSocket};
 use std::os::unix::prelude::AsRawFd;
 use std::ptr::NonNull;
 use std::slice;
+use std::{mem, thread};
 
 use sallyport::guest::{syscall, Execute, Handler, Platform};
 use sallyport::item::Block;
@@ -142,6 +145,98 @@ fn read() {
         if cfg!(feature = "asm") {
             assert_eq!(ret, Ok(EXPECTED.len()));
             assert_eq!(buf, EXPECTED.as_bytes());
+        } else {
+            assert_eq!(ret, Err(ENOSYS));
+        }
+    });
+}
+
+#[test]
+#[cfg_attr(miri, ignore)]
+fn recv() {
+    const EXPECTED: &str = "recv";
+
+    run_test(3, [0xff; 32], move |handler| {
+        let listener = TcpListener::bind("127.0.0.1:0").expect("couldn't bind to address");
+        let addr = listener.local_addr().unwrap();
+
+        let client = thread::spawn(move || {
+            assert_eq!(
+                TcpStream::connect(addr)
+                    .expect("couldn't connect to address")
+                    .write(EXPECTED.as_bytes())
+                    .expect("couldn't write data"),
+                EXPECTED.len()
+            );
+        });
+
+        let mut buf = [0u8; EXPECTED.len()];
+        let ret = handler.recv(
+            listener
+                .accept()
+                .expect("couldn't accept connection")
+                .0
+                .as_raw_fd(),
+            &mut buf,
+            0,
+        );
+
+        client.join().expect("couldn't join client thread");
+        if cfg!(feature = "asm") {
+            assert_eq!(ret, Ok(EXPECTED.len()));
+            assert_eq!(buf, EXPECTED.as_bytes());
+        } else {
+            assert_eq!(ret, Err(ENOSYS));
+        }
+    });
+}
+
+#[test]
+#[serial]
+#[cfg_attr(miri, ignore)]
+fn recvfrom() {
+    const EXPECTED: &str = "recvfrom";
+    const SRC_ADDR: &str = "127.0.0.1:65534";
+
+    run_test(3, [0xff; 32], move |handler| {
+        let socket = UdpSocket::bind("127.0.0.1:0").expect("couldn't bind to address");
+        let addr = socket.local_addr().unwrap();
+
+        let client = thread::spawn(move || {
+            assert_eq!(
+                UdpSocket::bind(SRC_ADDR)
+                    .expect("couldn't bind to address")
+                    .send_to(EXPECTED.as_bytes(), addr)
+                    .expect("couldn't send data"),
+                EXPECTED.len()
+            );
+        });
+
+        let mut buf = [0u8; EXPECTED.len()];
+        let mut src_addr: sockaddr = unsafe { mem::zeroed() };
+        let mut src_addr_bytes = unsafe {
+            slice::from_raw_parts_mut(&mut src_addr as *mut _ as _, size_of::<sockaddr>())
+        };
+        let mut addrlen = src_addr_bytes.len() as _;
+        let ret = handler.recvfrom(
+            socket.as_raw_fd(),
+            &mut buf,
+            0,
+            SockaddrOutput::new(&mut src_addr_bytes, &mut addrlen),
+        );
+
+        client.join().expect("couldn't join client thread");
+        if cfg!(feature = "asm") {
+            assert_eq!(ret, Ok(EXPECTED.len()));
+            assert_eq!(buf, EXPECTED.as_bytes());
+            assert_eq!(
+                src_addr,
+                sockaddr {
+                    sa_family: libc::AF_INET as _,
+                    sa_data: [0xff as _, 0xfe as _, 127, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0]
+                },
+            );
+            assert_eq!(addrlen, size_of::<sockaddr>() as _);
         } else {
             assert_eq!(ret, Err(ENOSYS));
         }

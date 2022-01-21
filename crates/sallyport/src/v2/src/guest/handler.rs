@@ -139,6 +139,29 @@ pub trait Execute {
             .unwrap_or_else(|| self.attacked())
     }
 
+    /// Executes [`recv`](https://man7.org/linux/man-pages/man2/recv.2.html) syscall akin to [`libc::recv`].
+    fn recv(&mut self, sockfd: c_int, buf: &mut [u8], flags: c_int) -> Result<size_t> {
+        self.execute(syscall::Recv { sockfd, buf, flags })?
+            .unwrap_or_else(|| self.attacked())
+    }
+
+    /// Executes [`recvfrom`](https://man7.org/linux/man-pages/man2/recvfrom.2.html) syscall akin to [`libc::recvfrom`].
+    fn recvfrom(
+        &mut self,
+        sockfd: c_int,
+        buf: &mut [u8],
+        flags: c_int,
+        src_addr: SockaddrOutput,
+    ) -> Result<size_t> {
+        self.execute(syscall::Recvfrom {
+            sockfd,
+            buf,
+            flags,
+            src_addr,
+        })?
+        .unwrap_or_else(|| self.attacked())
+    }
+
     /// Executes [`setsockopt`](https://man7.org/linux/man-pages/man2/setsockopt.2.html) syscall akin to [`libc::setsockopt`].
     fn setsockopt(
         &mut self,
@@ -276,6 +299,16 @@ impl<'a, P: Platform> Execute for Handler<'a, P> {
             (libc::SYS_read, [fd, buf, count, ..]) => {
                 let buf = self.platform.validate_slice_mut(buf, count)?;
                 self.read(fd as _, buf).map(|ret| [ret, 0])
+            }
+            (libc::SYS_recvfrom, [sockfd, buf, len, flags, src_addr, addrlen, ..]) => {
+                let buf = self.platform.validate_slice_mut(buf, len)?;
+                if src_addr == 0 {
+                    self.recv(sockfd as _, buf, flags as _)
+                } else {
+                    let src_addr = self.platform.validate_sockaddr_output(src_addr, addrlen)?;
+                    self.recvfrom(sockfd as _, buf, flags as _, src_addr)
+                }
+                .map(|ret| [ret, 0])
             }
             (libc::SYS_setsockopt, [sockfd, level, optname, optval, optlen, ..]) => {
                 let optval = self.platform.validate_slice(optval, optlen)?;

@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use super::Execute;
-use crate::{item, Result};
+use crate::{item, Result, NULL};
 
 use core::arch::asm;
 use core::mem::{align_of, size_of};
+use core::ptr::null_mut;
 use libc::{c_long, sockaddr_storage, socklen_t, timespec, EFAULT};
 
 struct Syscall<'a, const ARGS: usize, const RETS: usize> {
@@ -328,6 +329,25 @@ pub(super) unsafe fn execute_syscall(syscall: &mut item::Syscall, data: &mut [u8
             Syscall {
                 num: libc::SYS_read,
                 argv: [*fd, buf as _, *count],
+                ret: [ret],
+            }
+            .execute();
+        }
+
+        item::Syscall {
+            num,
+            argv: [sockfd, buf_offset, len, flags, src_addr_offset, addrlen_offset],
+            ret: [ret, ..],
+        } if *num == libc::SYS_recvfrom as _ => {
+            let buf = deref::<u8>(data, *buf_offset, *len)?;
+            let (src_addr, addrlen) = if *src_addr_offset == NULL {
+                (null_mut(), null_mut())
+            } else {
+                deref_sockaddr_output(data, *src_addr_offset, *addrlen_offset)?
+            };
+            Syscall {
+                num: libc::SYS_recvfrom,
+                argv: [*sockfd, buf as _, *len, *flags, src_addr as _, addrlen as _],
                 ret: [ret],
             }
             .execute();
