@@ -4,6 +4,7 @@ use super::*;
 use crate::guest::alloc::{Alloc, Allocator, Collect, Commit, Committer};
 use crate::guest::Call;
 use crate::item::{self, SYSCALL_USIZE_COUNT};
+use crate::NULL;
 
 use core::mem::size_of;
 
@@ -39,15 +40,15 @@ fn exit() {
             item::Kind::Syscall as _,
             libc::SYS_exit as _,
             2,
-            0,
-            0,
-            0,
-            0,
-            0,
+            NULL,
+            NULL,
+            NULL,
+            NULL,
+            NULL,
             -libc::ENOSYS as _,
             0,
         ],
-        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        [0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0, 0],
         Ok(()),
     )
 }

@@ -68,3 +68,5 @@ pub type Error = libc::c_int;
 
 /// Result type returned by functionality exposed by this crate.
 pub type Result<T> = core::result::Result<T, Error>;
+
+pub(crate) const NULL: usize = usize::MAX;

@@ -45,7 +45,7 @@ pub fn execute<'a>(items: impl IntoIterator<Item = Item<'a>>) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::item::Syscall;
+    use crate::{item::Syscall, NULL};
 
     use libc::*;
 
@@ -56,7 +56,7 @@ mod tests {
             (
                 Syscall {
                     num: SYS_dup2 as _,
-                    argv: [STDIN_FILENO as _, fd, 0, 0, 0, 0],
+                    argv: [STDIN_FILENO as _, fd, NULL, NULL, NULL, NULL],
                     ret: [-ENOSYS as _, 0],
                 },
                 [],
@@ -64,7 +64,7 @@ mod tests {
             (
                 Syscall {
                     num: SYS_fcntl as _,
-                    argv: [fd, F_GETFD as _, 0, 0, 0, 0],
+                    argv: [fd, F_GETFD as _, NULL, NULL, NULL, NULL],
                     ret: [-ENOSYS as _, 0],
                 },
                 [],
@@ -72,7 +72,7 @@ mod tests {
             (
                 Syscall {
                     num: SYS_read as _,
-                    argv: [fd, 0, 0, 0, 0, 0],
+                    argv: [fd, 0, 0, NULL, NULL, NULL],
                     ret: [-ENOSYS as _, 0],
                 },
                 [],
@@ -80,7 +80,7 @@ mod tests {
             (
                 Syscall {
                     num: SYS_sync as _,
-                    argv: [0, 0, 0, 0, 0, 0],
+                    argv: [NULL, NULL, NULL, NULL, NULL, NULL],
                     ret: [-ENOSYS as _, 0],
                 },
                 [],
@@ -88,7 +88,7 @@ mod tests {
             (
                 Syscall {
                     num: SYS_write as _,
-                    argv: [STDOUT_FILENO as _, 0, 0, 0, 0, 0],
+                    argv: [STDOUT_FILENO as _, 0, 0, NULL, NULL, NULL],
                     ret: [-ENOSYS as _, 0],
                 },
                 [],
@@ -96,7 +96,7 @@ mod tests {
             (
                 Syscall {
                     num: SYS_close as _,
-                    argv: [fd, 0, 0, 0, 0, 0],
+                    argv: [fd, NULL, NULL, NULL, NULL, NULL],
                     ret: [-ENOSYS as _, 0],
                 },
                 [],
@@ -122,7 +122,7 @@ mod tests {
                 (
                     Syscall {
                         num: SYS_dup2 as _,
-                        argv: [STDIN_FILENO as _, fd, 0, 0, 0, 0],
+                        argv: [STDIN_FILENO as _, fd, NULL, NULL, NULL, NULL],
                         #[cfg(feature = "asm")]
                         ret: [fd, 0],
                         #[cfg(not(feature = "asm"))]
@@ -133,7 +133,7 @@ mod tests {
                 (
                     Syscall {
                         num: SYS_fcntl as _,
-                        argv: [fd as _, F_GETFD as _, 0, 0, 0, 0],
+                        argv: [fd as _, F_GETFD as _, NULL, NULL, NULL, NULL],
                         #[cfg(feature = "asm")]
                         ret: [0, 0],
                         #[cfg(not(feature = "asm"))]
@@ -144,7 +144,7 @@ mod tests {
                 (
                     Syscall {
                         num: SYS_read as _,
-                        argv: [fd as _, 0, 0, 0, 0, 0],
+                        argv: [fd as _, 0, 0, NULL, NULL, NULL],
                         #[cfg(feature = "asm")]
                         ret: [0, 0],
                         #[cfg(not(feature = "asm"))]
@@ -155,7 +155,7 @@ mod tests {
                 (
                     Syscall {
                         num: SYS_sync as _,
-                        argv: [0, 0, 0, 0, 0, 0],
+                        argv: [NULL, NULL, NULL, NULL, NULL, NULL],
                         #[cfg(feature = "asm")]
                         ret: [0, 0],
                         #[cfg(not(feature = "asm"))]
@@ -166,7 +166,7 @@ mod tests {
                 (
                     Syscall {
                         num: SYS_write as _,
-                        argv: [STDOUT_FILENO as _, 0, 0, 0, 0, 0],
+                        argv: [STDOUT_FILENO as _, 0, 0, NULL, NULL, NULL],
                         #[cfg(feature = "asm")]
                         ret: [0, 0],
                         #[cfg(not(feature = "asm"))]
@@ -177,7 +177,7 @@ mod tests {
                 (
                     Syscall {
                         num: SYS_close as _,
-                        argv: [fd as _, 0, 0, 0, 0, 0],
+                        argv: [fd as _, NULL, NULL, NULL, NULL, NULL],
                         #[cfg(feature = "asm")]
                         ret: [0, 0],
                         #[cfg(not(feature = "asm"))]
