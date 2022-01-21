@@ -108,7 +108,7 @@ When creating `use` statements, these statements should be divided into groups
 separated by an empty line. Empty groups can be omitted altogether (i.e. no
 double empty lines). Formatting imports like this allows `cargo fmt` to
 sort within the groups, but the groups are always kept in the same relative
-order betwen them. The groups are, in order:
+order between them. The groups are, in order:
 
 1. Reexports from the same crate.
 2. Reexports from the `core`, `alloc` or `std`.
