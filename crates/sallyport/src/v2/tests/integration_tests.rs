@@ -117,6 +117,19 @@ fn fstat() {
 
 #[test]
 #[serial]
+#[cfg_attr(miri, ignore)]
+fn getrandom() {
+    run_test(3, [0xff; 16], move |handler| {
+        let mut buf = [0u8; 16];
+
+        let ret = handler.getrandom(&mut buf, libc::GRND_RANDOM);
+        assert_eq!(ret, Ok(buf.len()));
+        assert_ne!(buf, [0u8; 16]);
+    });
+}
+
+#[test]
+#[serial]
 fn read() {
     const EXPECTED: &str = "read";
     let path = temp_dir().join("sallyport-test-read");

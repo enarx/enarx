@@ -4,7 +4,7 @@ use super::alloc::{phase, Alloc, Allocator, Collect, Commit, Committer};
 use super::{syscall, Call, Platform};
 use crate::{item, Result};
 
-use libc::{c_int, gid_t, pid_t, size_t, stat, uid_t, utsname, ENOSYS};
+use libc::{c_int, c_uint, gid_t, pid_t, size_t, stat, uid_t, utsname, ENOSYS};
 
 pub trait Execute {
     type Platform: Platform;
@@ -68,6 +68,10 @@ pub trait Execute {
             (libc::SYS_geteuid, ..) => self.geteuid().map(|ret| [ret as _, 0]),
             (libc::SYS_getgid, ..) => self.getgid().map(|ret| [ret as _, 0]),
             (libc::SYS_getpid, ..) => self.getpid().map(|ret| [ret as _, 0]),
+            (libc::SYS_getrandom, [buf, buflen, flags, ..]) => {
+                let buf = self.platform().validate_slice_mut(buf, buflen)?;
+                self.getrandom(buf, flags as _).map(|ret| [ret as _, 0])
+            }
             (libc::SYS_getuid, ..) => self.getuid().map(|ret| [ret as _, 0]),
             (libc::SYS_read, [fd, buf, count, ..]) => {
                 let buf = self.platform().validate_slice_mut(buf, count)?;
@@ -109,6 +113,11 @@ pub trait Execute {
     /// Executes [`getpid`](https://man7.org/linux/man-pages/man2/getpid.2.html) syscall akin to [`libc::getpid`].
     fn getpid(&mut self) -> Result<pid_t> {
         self.execute(syscall::Getpid)
+    }
+
+    /// Executes [`getrandom`](https://man7.org/linux/man-pages/man2/getrandom.2.html) syscall akin to [`libc::getrandom`].
+    fn getrandom(&mut self, buf: &mut [u8], flags: c_uint) -> Result<size_t> {
+        self.execute(syscall::Getrandom { buf, flags })?
     }
 
     /// Executes [`getuid`](https://man7.org/linux/man-pages/man2/getuid.2.html) syscall akin to [`libc::getuid`].

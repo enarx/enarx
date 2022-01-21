@@ -4,7 +4,7 @@ use crate::guest::alloc::{Allocator, Collect, Collector, CommitPassthrough};
 use crate::guest::Call;
 use crate::Result;
 
-use libc::{c_char, gid_t, pid_t, uid_t, utsname};
+use libc::{c_char, c_uint, gid_t, pid_t, size_t, uid_t, utsname};
 
 // TODO: Introduce a macro for trait implementations.
 // https://github.com/enarx/sallyport/issues/53
@@ -95,6 +95,50 @@ impl Collect for Getpid {
 
     fn collect(self, _: &impl Collector) -> Self::Item {
         FAKE_PID
+    }
+}
+
+pub struct Getrandom<'a> {
+    pub buf: &'a mut [u8],
+    pub flags: c_uint,
+}
+
+impl Call<'_> for Getrandom<'_> {
+    type Staged = Self;
+    type Committed = Self;
+    type Collected = Result<size_t>;
+
+    fn stage(self, _: &mut impl Allocator) -> Result<Self::Staged> {
+        Ok(self)
+    }
+}
+impl CommitPassthrough for Getrandom<'_> {}
+impl Collect for Getrandom<'_> {
+    type Item = Result<size_t>;
+
+    fn collect(self, _: &impl Collector) -> Self::Item {
+        let flags = self.flags & !(libc::GRND_NONBLOCK | libc::GRND_RANDOM);
+        if flags != 0 {
+            return Err(libc::EINVAL);
+        }
+
+        for (i, chunk) in self.buf.chunks_mut(8).enumerate() {
+            let mut el = 0u64;
+            loop {
+                if unsafe { core::arch::x86_64::_rdrand64_step(&mut el) } == 1 {
+                    chunk.copy_from_slice(&el.to_ne_bytes()[..chunk.len()]);
+                    break;
+                } else {
+                    if (self.flags & libc::GRND_NONBLOCK) != 0 {
+                        return Err(libc::EAGAIN);
+                    }
+                    if (self.flags & libc::GRND_RANDOM) != 0 {
+                        return Ok(i.checked_mul(8).unwrap());
+                    }
+                }
+            }
+        }
+        Ok(self.buf.len())
     }
 }
 
