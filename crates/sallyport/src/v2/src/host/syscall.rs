@@ -139,6 +139,39 @@ pub(super) unsafe fn execute_syscall(syscall: &mut item::Syscall, data: &mut [u8
 
         item::Syscall {
             num,
+            argv: [oldfd, ..],
+            ret: [ret, ..],
+        } if *num == libc::SYS_dup as _ => Syscall {
+            num: libc::SYS_dup,
+            argv: [*oldfd],
+            ret: [ret],
+        }
+        .execute(),
+
+        item::Syscall {
+            num,
+            argv: [oldfd, newfd, ..],
+            ret: [ret, ..],
+        } if *num == libc::SYS_dup2 as _ => Syscall {
+            num: libc::SYS_dup2,
+            argv: [*oldfd, *newfd],
+            ret: [ret],
+        }
+        .execute(),
+
+        item::Syscall {
+            num,
+            argv: [oldfd, newfd, flags, ..],
+            ret: [ret, ..],
+        } if *num == libc::SYS_dup3 as _ => Syscall {
+            num: libc::SYS_dup3,
+            argv: [*oldfd, *newfd, *flags],
+            ret: [ret],
+        }
+        .execute(),
+
+        item::Syscall {
+            num,
             argv: [status, ..],
             ret: [ret, ..],
         } if *num == libc::SYS_exit as _ => Syscall {

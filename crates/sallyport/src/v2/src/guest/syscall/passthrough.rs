@@ -20,6 +20,54 @@ unsafe impl PassthroughSyscall for Close {
     }
 }
 
+pub struct Dup {
+    pub oldfd: c_int,
+}
+
+unsafe impl PassthroughSyscall for Dup {
+    const NUM: c_long = libc::SYS_dup;
+
+    type Argv = Argv<1>;
+    type Ret = ();
+
+    fn stage(self) -> Self::Argv {
+        Argv([self.oldfd as _])
+    }
+}
+
+pub struct Dup2 {
+    pub oldfd: c_int,
+    pub newfd: c_int,
+}
+
+unsafe impl PassthroughSyscall for Dup2 {
+    const NUM: c_long = libc::SYS_dup2;
+
+    type Argv = Argv<2>;
+    type Ret = ();
+
+    fn stage(self) -> Self::Argv {
+        Argv([self.oldfd as _, self.newfd as _])
+    }
+}
+
+pub struct Dup3 {
+    pub oldfd: c_int,
+    pub newfd: c_int,
+    pub flags: c_int,
+}
+
+unsafe impl PassthroughSyscall for Dup3 {
+    const NUM: c_long = libc::SYS_dup3;
+
+    type Argv = Argv<3>;
+    type Ret = ();
+
+    fn stage(self) -> Self::Argv {
+        Argv([self.oldfd as _, self.newfd as _, self.flags as _])
+    }
+}
+
 pub struct Exit {
     pub status: c_int,
 }

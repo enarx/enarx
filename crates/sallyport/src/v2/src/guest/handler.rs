@@ -53,6 +53,13 @@ pub trait Execute {
         let [num, argv @ ..] = registers;
         match (num as _, argv) {
             (libc::SYS_close, [fd, ..]) => self.close(fd as _).map(|_| [0, 0]),
+            (libc::SYS_dup, [oldfd, ..]) => self.dup(oldfd as _).map(|_| [0, 0]),
+            (libc::SYS_dup2, [oldfd, newfd, ..]) => {
+                self.dup2(oldfd as _, newfd as _).map(|_| [0, 0])
+            }
+            (libc::SYS_dup3, [oldfd, newfd, flags, ..]) => self
+                .dup3(oldfd as _, newfd as _, flags as _)
+                .map(|_| [0, 0]),
             (libc::SYS_exit, [status, ..]) => self.exit(status as _).map(|_| self.attacked()),
             (libc::SYS_exit_group, [status, ..]) => {
                 self.exit_group(status as _).map(|_| self.attacked())
@@ -93,6 +100,25 @@ pub trait Execute {
     /// Executes [`close`](https://man7.org/linux/man-pages/man2/close.2.html) syscall akin to [`libc::close`].
     fn close(&mut self, fd: c_int) -> Result<()> {
         self.execute(syscall::Close { fd })?
+    }
+
+    /// Executes [`dup`](https://man7.org/linux/man-pages/man2/dup.2.html) syscall akin to [`libc::dup`].
+    fn dup(&mut self, oldfd: c_int) -> Result<()> {
+        self.execute(syscall::Dup { oldfd })?
+    }
+
+    /// Executes [`dup2`](https://man7.org/linux/man-pages/man2/dup2.2.html) syscall akin to [`libc::dup2`].
+    fn dup2(&mut self, oldfd: c_int, newfd: c_int) -> Result<()> {
+        self.execute(syscall::Dup2 { oldfd, newfd })?
+    }
+
+    /// Executes [`dup3`](https://man7.org/linux/man-pages/man2/dup3.2.html) syscall akin to [`libc::dup3`].
+    fn dup3(&mut self, oldfd: c_int, newfd: c_int, flags: c_int) -> Result<()> {
+        self.execute(syscall::Dup3 {
+            oldfd,
+            newfd,
+            flags,
+        })?
     }
 
     /// Executes [`getegid`](https://man7.org/linux/man-pages/man2/getegid.2.html) syscall akin to [`libc::getegid`].
