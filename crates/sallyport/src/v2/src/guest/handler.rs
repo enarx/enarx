@@ -4,7 +4,7 @@ use super::alloc::{phase, Alloc, Allocator, Collect, Commit, Committer};
 use super::{syscall, Call, Platform};
 use crate::{item, Result};
 
-use libc::{c_int, gid_t, pid_t, size_t, stat, uid_t, ENOSYS};
+use libc::{c_int, gid_t, pid_t, size_t, stat, uid_t, utsname, ENOSYS};
 
 pub trait Execute {
     type Platform: Platform;
@@ -74,6 +74,10 @@ pub trait Execute {
                 self.read(fd as _, buf).map(|ret| [ret, 0])
             }
             (libc::SYS_sync, ..) => self.sync().map(|_| [0, 0]),
+            (libc::SYS_uname, [buf, ..]) => {
+                let buf = self.platform().validate_mut(buf)?;
+                self.uname(buf).map(|_| [0, 0])
+            }
             (libc::SYS_write, [fd, buf, count, ..]) => {
                 let buf = self.platform().validate_slice(buf, count)?;
                 self.write(fd as _, buf).map(|ret| [ret, 0])
@@ -143,6 +147,11 @@ pub trait Execute {
     /// Executes [`sync`](https://man7.org/linux/man-pages/man2/sync.2.html) syscall akin to [`libc::sync`].
     fn sync(&mut self) -> Result<()> {
         self.execute(syscall::Sync)?
+    }
+
+    /// Executes [`uname`](https://man7.org/linux/man-pages/man2/uname.2.html) syscall akin to [`libc::uname`].
+    fn uname(&mut self, buf: &mut utsname) -> Result<()> {
+        self.execute(syscall::Uname { buf })?
     }
 
     /// Executes [`write`](https://man7.org/linux/man-pages/man2/write.2.html) syscall akin to [`libc::write`].

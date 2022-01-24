@@ -4,7 +4,7 @@ use crate::guest::alloc::{Allocator, Collect, Collector, CommitPassthrough};
 use crate::guest::Call;
 use crate::Result;
 
-use libc::{gid_t, pid_t, uid_t};
+use libc::{c_char, gid_t, pid_t, uid_t, utsname};
 
 // TODO: Introduce a macro for trait implementations.
 // https://github.com/enarx/sallyport/issues/53
@@ -115,5 +115,38 @@ impl Collect for Getuid {
 
     fn collect(self, _: &impl Collector) -> Self::Item {
         FAKE_UID
+    }
+}
+
+pub struct Uname<'a> {
+    pub buf: &'a mut utsname,
+}
+
+impl Call<'_> for Uname<'_> {
+    type Staged = Self;
+    type Committed = Self;
+    type Collected = Result<()>;
+
+    fn stage(self, _: &mut impl Allocator) -> Result<Self::Staged> {
+        Ok(self)
+    }
+}
+impl CommitPassthrough for Uname<'_> {}
+impl Collect for Uname<'_> {
+    type Item = Result<()>;
+
+    fn collect(self, _: &impl Collector) -> Self::Item {
+        fn fill(buf: &mut [c_char; 65], with: &str) {
+            let src = with.as_bytes();
+            for (i, b) in buf.iter_mut().enumerate() {
+                *b = *src.get(i).unwrap_or(&0) as _;
+            }
+        }
+        fill(&mut self.buf.sysname, "Linux");
+        fill(&mut self.buf.nodename, "localhost.localdomain");
+        fill(&mut self.buf.release, "5.6.0");
+        fill(&mut self.buf.version, "#1");
+        fill(&mut self.buf.machine, "x86_64");
+        Ok(())
     }
 }
