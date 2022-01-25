@@ -6,6 +6,7 @@
 mod tests;
 
 mod argv;
+mod connect;
 mod fcntl;
 mod fstat;
 mod passthrough;
@@ -16,6 +17,7 @@ mod stub;
 mod write;
 
 pub use argv::*;
+pub use connect::*;
 pub use fcntl::Fcntl;
 pub use fstat::*;
 pub use passthrough::*;

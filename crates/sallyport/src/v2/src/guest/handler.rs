@@ -53,6 +53,10 @@ pub trait Execute {
         let [num, argv @ ..] = registers;
         match (num as _, argv) {
             (libc::SYS_close, [fd, ..]) => self.close(fd as _).map(|_| [0, 0]),
+            (libc::SYS_connect, [sockfd, addr, addrlen, ..]) => {
+                let addr = self.platform().validate_slice(addr, addrlen)?;
+                self.connect(sockfd as _, addr).map(|_| [0, 0])
+            }
             (libc::SYS_dup, [oldfd, ..]) => self.dup(oldfd as _).map(|_| [0, 0]),
             (libc::SYS_dup2, [oldfd, newfd, ..]) => {
                 self.dup2(oldfd as _, newfd as _).map(|_| [0, 0])
@@ -111,6 +115,11 @@ pub trait Execute {
     /// Executes [`close`](https://man7.org/linux/man-pages/man2/close.2.html) syscall akin to [`libc::close`].
     fn close(&mut self, fd: c_int) -> Result<()> {
         self.execute(syscall::Close { fd })?
+    }
+
+    /// Executes [`connect`](https://man7.org/linux/man-pages/man2/connect.2.html) syscall akin to [`libc::connect`].
+    fn connect(&mut self, sockfd: c_int, addr: &[u8]) -> Result<()> {
+        self.execute(syscall::Connect { sockfd, addr })?
     }
 
     /// Executes [`dup`](https://man7.org/linux/man-pages/man2/dup.2.html) syscall akin to [`libc::dup`].
