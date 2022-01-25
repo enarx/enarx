@@ -7,6 +7,7 @@ mod tests;
 
 mod argv;
 mod bind;
+mod clock_gettime;
 mod connect;
 mod fcntl;
 mod fstat;
@@ -19,6 +20,7 @@ mod write;
 
 pub use argv::*;
 pub use bind::*;
+pub use clock_gettime::*;
 pub use connect::*;
 pub use fcntl::Fcntl;
 pub use fstat::*;

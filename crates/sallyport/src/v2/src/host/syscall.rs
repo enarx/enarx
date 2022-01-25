@@ -5,7 +5,7 @@ use crate::{item, Result};
 
 use core::arch::asm;
 use core::mem::size_of;
-use libc::c_long;
+use libc::{c_long, timespec};
 
 struct Syscall<'a, const ARGS: usize, const RETS: usize> {
     /// The syscall number for the request.
@@ -148,6 +148,20 @@ pub(super) unsafe fn execute_syscall(syscall: &mut item::Syscall, data: &mut [u8
             Syscall {
                 num: libc::SYS_bind,
                 argv: [*sockfd, addr as _, *addrlen],
+                ret: [ret],
+            }
+            .execute()
+        }
+
+        item::Syscall {
+            num,
+            argv: [clockid, tp_offset, ..],
+            ret: [ret, ..],
+        } if *num == libc::SYS_clock_gettime as _ => {
+            let tp = deref::<timespec>(data, *tp_offset, 1)?;
+            Syscall {
+                num: libc::SYS_clock_gettime,
+                argv: [*clockid, tp as _],
                 ret: [ret],
             }
             .execute()

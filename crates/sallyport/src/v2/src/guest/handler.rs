@@ -4,7 +4,9 @@ use super::alloc::{phase, Alloc, Allocator, Collect, Commit, Committer};
 use super::{syscall, Call, Platform};
 use crate::{item, Result};
 
-use libc::{c_int, c_uint, gid_t, pid_t, size_t, stat, uid_t, utsname, ENOSYS};
+use libc::{
+    c_int, c_uint, clockid_t, gid_t, pid_t, size_t, stat, timespec, uid_t, utsname, ENOSYS,
+};
 
 pub trait Execute {
     type Platform: Platform;
@@ -55,6 +57,10 @@ pub trait Execute {
             (libc::SYS_bind, [sockfd, addr, addrlen, ..]) => {
                 let addr = self.platform().validate_slice(addr, addrlen)?;
                 self.bind(sockfd as _, addr).map(|_| [0, 0])
+            }
+            (libc::SYS_clock_gettime, [clockid, tp, ..]) => {
+                let tp = self.platform().validate_mut(tp)?;
+                self.clock_gettime(clockid as _, tp).map(|_| [0, 0])
             }
             (libc::SYS_close, [fd, ..]) => self.close(fd as _).map(|_| [0, 0]),
             (libc::SYS_connect, [sockfd, addr, addrlen, ..]) => {
@@ -122,6 +128,11 @@ pub trait Execute {
     /// Executes [`bind`](https://man7.org/linux/man-pages/man2/bind.2.html) syscall akin to [`libc::bind`].
     fn bind(&mut self, sockfd: c_int, addr: &[u8]) -> Result<()> {
         self.execute(syscall::Bind { sockfd, addr })?
+    }
+
+    /// Executes [`clock_gettime`](https://man7.org/linux/man-pages/man2/clock_gettime.2.html) syscall akin to [`libc::clock_gettime`].
+    fn clock_gettime(&mut self, clockid: clockid_t, tp: &mut timespec) -> Result<()> {
+        self.execute(syscall::ClockGettime { clockid, tp })?
     }
 
     /// Executes [`close`](https://man7.org/linux/man-pages/man2/close.2.html) syscall akin to [`libc::close`].
