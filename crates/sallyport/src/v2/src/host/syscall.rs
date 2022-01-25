@@ -213,6 +213,17 @@ pub(super) unsafe fn execute_syscall(syscall: &mut item::Syscall, data: &mut [u8
 
         item::Syscall {
             num,
+            argv: [initval, flags, ..],
+            ret: [ret, ..],
+        } if *num == libc::SYS_eventfd2 as _ => Syscall {
+            num: libc::SYS_eventfd2,
+            argv: [*initval, *flags],
+            ret: [ret],
+        }
+        .execute(),
+
+        item::Syscall {
+            num,
             argv: [status, ..],
             ret: [ret, ..],
         } if *num == libc::SYS_exit as _ => Syscall {

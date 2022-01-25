@@ -68,6 +68,9 @@ pub trait Execute {
             (libc::SYS_dup3, [oldfd, newfd, flags, ..]) => self
                 .dup3(oldfd as _, newfd as _, flags as _)
                 .map(|_| [0, 0]),
+            (libc::SYS_eventfd2, [initval, flags, ..]) => self
+                .eventfd2(initval as _, flags as _)
+                .map(|ret| [ret as _, 0]),
             (libc::SYS_exit, [status, ..]) => self.exit(status as _).map(|_| self.attacked()),
             (libc::SYS_exit_group, [status, ..]) => {
                 self.exit_group(status as _).map(|_| self.attacked())
@@ -148,6 +151,11 @@ pub trait Execute {
             newfd,
             flags,
         })?
+    }
+
+    /// Executes [`eventfd2`](https://man7.org/linux/man-pages/man2/eventfd2.2.html) syscall akin to [`libc::eventfd2`].
+    fn eventfd2(&mut self, initval: c_int, flags: c_int) -> Result<c_int> {
+        self.execute(syscall::Eventfd2 { initval, flags })?
     }
 
     /// Executes [`getegid`](https://man7.org/linux/man-pages/man2/getegid.2.html) syscall akin to [`libc::getegid`].
