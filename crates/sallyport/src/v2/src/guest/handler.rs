@@ -52,6 +52,10 @@ pub trait Execute {
     unsafe fn syscall(&mut self, registers: [usize; 7]) -> Result<[usize; 2]> {
         let [num, argv @ ..] = registers;
         match (num as _, argv) {
+            (libc::SYS_bind, [sockfd, addr, addrlen, ..]) => {
+                let addr = self.platform().validate_slice(addr, addrlen)?;
+                self.bind(sockfd as _, addr).map(|_| [0, 0])
+            }
             (libc::SYS_close, [fd, ..]) => self.close(fd as _).map(|_| [0, 0]),
             (libc::SYS_connect, [sockfd, addr, addrlen, ..]) => {
                 let addr = self.platform().validate_slice(addr, addrlen)?;
@@ -110,6 +114,11 @@ pub trait Execute {
             }
             _ => Err(ENOSYS),
         }
+    }
+
+    /// Executes [`bind`](https://man7.org/linux/man-pages/man2/bind.2.html) syscall akin to [`libc::bind`].
+    fn bind(&mut self, sockfd: c_int, addr: &[u8]) -> Result<()> {
+        self.execute(syscall::Bind { sockfd, addr })?
     }
 
     /// Executes [`close`](https://man7.org/linux/man-pages/man2/close.2.html) syscall akin to [`libc::close`].
