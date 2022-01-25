@@ -98,6 +98,22 @@ unsafe impl PassthroughSyscall for ExitGroup {
     }
 }
 
+pub struct Listen {
+    pub sockfd: c_int,
+    pub backlog: c_int,
+}
+
+unsafe impl PassthroughSyscall for Listen {
+    const NUM: c_long = libc::SYS_listen;
+
+    type Argv = Argv<2>;
+    type Ret = ();
+
+    fn stage(self) -> Self::Argv {
+        Argv([self.sockfd as _, self.backlog as _])
+    }
+}
+
 pub struct Socket {
     pub domain: c_int,
     pub typ: c_int,

@@ -80,6 +80,9 @@ pub trait Execute {
                 self.getrandom(buf, flags as _).map(|ret| [ret as _, 0])
             }
             (libc::SYS_getuid, ..) => self.getuid().map(|ret| [ret as _, 0]),
+            (libc::SYS_listen, [sockfd, backlog, ..]) => {
+                self.listen(sockfd as _, backlog as _).map(|_| [0, 0])
+            }
             (libc::SYS_read, [fd, buf, count, ..]) => {
                 let buf = self.platform().validate_slice_mut(buf, count)?;
                 self.read(fd as _, buf).map(|ret| [ret, 0])
@@ -174,6 +177,11 @@ pub trait Execute {
     /// Executes [`fstat`](https://man7.org/linux/man-pages/man2/fstat.2.html) syscall akin to [`libc::fstat`].
     fn fstat(&mut self, fd: c_int, statbuf: &mut stat) -> Result<()> {
         self.execute(syscall::Fstat { fd, statbuf })?
+    }
+
+    /// Executes [`listen`](https://man7.org/linux/man-pages/man2/listen.2.html) syscall akin to [`libc::listen`].
+    fn listen(&mut self, sockfd: c_int, backlog: c_int) -> Result<()> {
+        self.execute(syscall::Listen { sockfd, backlog })?
     }
 
     /// Executes [`read`](https://man7.org/linux/man-pages/man2/read.2.html) syscall akin to [`libc::read`].
