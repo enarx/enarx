@@ -87,6 +87,11 @@ pub trait Execute {
                 let buf = self.platform().validate_slice_mut(buf, count)?;
                 self.read(fd as _, buf).map(|ret| [ret, 0])
             }
+            (libc::SYS_setsockopt, [sockfd, level, optname, optval, optlen, ..]) => {
+                let optval = self.platform().validate_slice(optval, optlen)?;
+                self.setsockopt(sockfd as _, level as _, optname as _, optval)
+                    .map(|ret| [ret as _, 0])
+            }
             (libc::SYS_socket, [domain, typ, protocol, ..]) => self
                 .socket(domain as _, typ as _, protocol as _)
                 .map(|ret| [ret as _, 0]),
@@ -188,6 +193,22 @@ pub trait Execute {
     fn read(&mut self, fd: c_int, buf: &mut [u8]) -> Result<size_t> {
         self.execute(syscall::Read { fd, buf })?
             .unwrap_or_else(|| self.attacked())
+    }
+
+    /// Executes [`setsockopt`](https://man7.org/linux/man-pages/man2/setsockopt.2.html) syscall akin to [`libc::setsockopt`].
+    fn setsockopt(
+        &mut self,
+        sockfd: c_int,
+        level: c_int,
+        optname: c_int,
+        optval: &[u8],
+    ) -> Result<c_int> {
+        self.execute(syscall::Setsockopt {
+            sockfd,
+            level,
+            optname,
+            optval,
+        })?
     }
 
     /// Executes [`socket`](https://man7.org/linux/man-pages/man2/socket.2.html) syscall akin to [`libc::socket`].

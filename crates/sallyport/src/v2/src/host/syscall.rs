@@ -232,6 +232,28 @@ pub(super) unsafe fn execute_syscall(syscall: &mut item::Syscall, data: &mut [u8
 
         item::Syscall {
             num,
+            argv: [sockfd, level, optname, optval_offset, optlen, ..],
+            ret: [ret, ..],
+        } if *num == libc::SYS_setsockopt as _ => {
+            if *optlen > data.len() || data.len() - *optlen < *optval_offset {
+                return Err(libc::EFAULT);
+            }
+            Syscall {
+                num: libc::SYS_setsockopt,
+                argv: [
+                    *sockfd,
+                    *level,
+                    *optname,
+                    data[*optval_offset..].as_ptr() as _,
+                    *optlen,
+                ],
+                ret: [ret],
+            }
+            .execute();
+        }
+
+        item::Syscall {
+            num,
             argv: [domain, typ, protocol, ..],
             ret: [ret, ..],
         } if *num == libc::SYS_socket as _ => Syscall {
