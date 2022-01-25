@@ -84,6 +84,9 @@ pub trait Execute {
                 let buf = self.platform().validate_slice_mut(buf, count)?;
                 self.read(fd as _, buf).map(|ret| [ret, 0])
             }
+            (libc::SYS_socket, [domain, typ, protocol, ..]) => self
+                .socket(domain as _, typ as _, protocol as _)
+                .map(|ret| [ret as _, 0]),
             (libc::SYS_sync, ..) => self.sync().map(|_| [0, 0]),
             (libc::SYS_uname, [buf, ..]) => {
                 let buf = self.platform().validate_mut(buf)?;
@@ -177,6 +180,15 @@ pub trait Execute {
     fn read(&mut self, fd: c_int, buf: &mut [u8]) -> Result<size_t> {
         self.execute(syscall::Read { fd, buf })?
             .unwrap_or_else(|| self.attacked())
+    }
+
+    /// Executes [`socket`](https://man7.org/linux/man-pages/man2/socket.2.html) syscall akin to [`libc::socket`].
+    fn socket(&mut self, domain: c_int, typ: c_int, protocol: c_int) -> Result<c_int> {
+        self.execute(syscall::Socket {
+            domain,
+            typ,
+            protocol,
+        })?
     }
 
     /// Executes [`sync`](https://man7.org/linux/man-pages/man2/sync.2.html) syscall akin to [`libc::sync`].

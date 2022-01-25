@@ -98,6 +98,23 @@ unsafe impl PassthroughSyscall for ExitGroup {
     }
 }
 
+pub struct Socket {
+    pub domain: c_int,
+    pub typ: c_int,
+    pub protocol: c_int,
+}
+
+unsafe impl PassthroughSyscall for Socket {
+    const NUM: c_long = libc::SYS_socket;
+
+    type Argv = Argv<3>;
+    type Ret = c_int;
+
+    fn stage(self) -> Self::Argv {
+        Argv([self.domain as _, self.typ as _, self.protocol as _])
+    }
+}
+
 pub struct Sync;
 
 unsafe impl PassthroughSyscall for Sync {
