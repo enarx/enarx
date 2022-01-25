@@ -4,9 +4,11 @@ use super::alloc::{phase, Alloc, Allocator, Collect, Commit, Committer};
 use super::syscall::types::{SockaddrInput, SockaddrOutput};
 use super::{syscall, Call, Platform};
 use crate::{item, Result};
+use core::ptr::NonNull;
 
 use libc::{
-    c_int, c_uint, clockid_t, gid_t, pid_t, size_t, stat, timespec, uid_t, utsname, ENOSYS,
+    c_int, c_uint, c_void, clockid_t, gid_t, off_t, pid_t, size_t, stat, timespec, uid_t, utsname,
+    EFAULT, ENOSYS,
 };
 
 pub trait Execute {
@@ -59,6 +61,9 @@ pub trait Execute {
     fn clock_gettime(&mut self, clockid: clockid_t, tp: &mut timespec) -> Result<()> {
         self.execute(syscall::ClockGettime { clockid, tp })?
     }
+
+    /// Executes [`brk`](https://man7.org/linux/man-pages/man2/brk.2.html) syscall akin to [`libc::brk`].
+    fn brk(&mut self, addr: NonNull<c_void>) -> Result<()>;
 
     /// Executes [`close`](https://man7.org/linux/man-pages/man2/close.2.html) syscall akin to [`libc::close`].
     fn close(&mut self, fd: c_int) -> Result<()> {
@@ -155,6 +160,26 @@ pub trait Execute {
     fn listen(&mut self, sockfd: c_int, backlog: c_int) -> Result<()> {
         self.execute(syscall::Listen { sockfd, backlog })?
     }
+
+    /// Executes [`madvise`](https://man7.org/linux/man-pages/man2/madvise.2.html) syscall akin to [`libc::madvise`].
+    fn madvise(&mut self, addr: NonNull<c_void>, length: size_t, advice: c_int) -> Result<()>;
+
+    /// Executes [`mmap`](https://man7.org/linux/man-pages/man2/mmap.2.html) syscall akin to [`libc::mmap`].
+    fn mmap(
+        &mut self,
+        addr: Option<NonNull<c_void>>,
+        length: size_t,
+        prot: c_int,
+        flags: c_int,
+        fd: c_int,
+        offset: off_t,
+    ) -> Result<NonNull<c_void>>;
+
+    /// Executes [`mprotect`](https://man7.org/linux/man-pages/man2/mprotect.2.html) syscall akin to [`libc::mprotect`].
+    fn mprotect(&mut self, addr: NonNull<c_void>, len: size_t, prot: c_int) -> Result<()>;
+
+    /// Executes [`munmap`](https://man7.org/linux/man-pages/man2/munmap.2.html) syscall akin to [`libc::munmap`].
+    fn munmap(&mut self, addr: NonNull<c_void>, length: size_t) -> Result<()>;
 
     /// Executes [`read`](https://man7.org/linux/man-pages/man2/read.2.html) syscall akin to [`libc::read`].
     fn read(&mut self, fd: c_int, buf: &mut [u8]) -> Result<size_t> {
@@ -294,6 +319,10 @@ impl<'a, P: Platform> Execute for Handler<'a, P> {
                 let addr = self.platform.validate_slice(addr, addrlen)?;
                 self.bind(sockfd as _, addr).map(|_| [0, 0])
             }
+            (libc::SYS_brk, [addr, ..]) => {
+                let addr = NonNull::new(addr as _).ok_or(EFAULT)?;
+                self.brk(addr).map(|_| [0, 0])
+            }
             (libc::SYS_clock_gettime, [clockid, tp, ..]) => {
                 let tp = self.platform.validate_mut(tp)?;
                 self.clock_gettime(clockid as _, tp).map(|_| [0, 0])
@@ -340,6 +369,28 @@ impl<'a, P: Platform> Execute for Handler<'a, P> {
             (libc::SYS_listen, [sockfd, backlog, ..]) => {
                 self.listen(sockfd as _, backlog as _).map(|_| [0, 0])
             }
+            (libc::SYS_madvise, [addr, length, advice, ..]) => {
+                let addr = NonNull::new(addr as _).ok_or(EFAULT)?;
+                self.madvise(addr, length, advice as _).map(|_| [0, 0])
+            }
+            (libc::SYS_mmap, [addr, length, prot, flags, fd, offset, ..]) => self
+                .mmap(
+                    NonNull::new(addr as _),
+                    length,
+                    prot as _,
+                    flags as _,
+                    fd as _,
+                    offset as _,
+                )
+                .map(|ret| [ret.as_ptr() as _, 0]),
+            (libc::SYS_mprotect, [addr, len, prot, ..]) => {
+                let addr = NonNull::new(addr as _).ok_or(EFAULT)?;
+                self.mprotect(addr, len, prot as _).map(|_| [0, 0])
+            }
+            (libc::SYS_munmap, [addr, length, ..]) => {
+                let addr = NonNull::new(addr as _).ok_or(EFAULT)?;
+                self.munmap(addr, length).map(|_| [0, 0])
+            }
             (libc::SYS_read, [fd, buf, count, ..]) => {
                 let buf = self.platform.validate_slice_mut(buf, count)?;
                 self.read(fd as _, buf).map(|ret| [ret, 0])
@@ -373,5 +424,33 @@ impl<'a, P: Platform> Execute for Handler<'a, P> {
             }
             _ => Err(ENOSYS),
         }
+    }
+
+    fn brk(&mut self, _: NonNull<c_void>) -> Result<()> {
+        Err(ENOSYS)
+    }
+
+    fn madvise(&mut self, _: NonNull<c_void>, _: size_t, _: c_int) -> Result<()> {
+        Err(ENOSYS)
+    }
+
+    fn mmap(
+        &mut self,
+        _: Option<NonNull<c_void>>,
+        _: size_t,
+        _: c_int,
+        _: c_int,
+        _: c_int,
+        _: off_t,
+    ) -> Result<NonNull<c_void>> {
+        Err(ENOSYS)
+    }
+
+    fn mprotect(&mut self, _: NonNull<c_void>, _: size_t, _: c_int) -> Result<()> {
+        Err(ENOSYS)
+    }
+
+    fn munmap(&mut self, _: NonNull<c_void>, _: size_t) -> Result<()> {
+        Err(ENOSYS)
     }
 }
