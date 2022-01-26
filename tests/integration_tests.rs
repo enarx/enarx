@@ -129,6 +129,8 @@ fn uname() {
 }
 
 #[test]
+// FIXME: this tests causes frequent failure on SEV
+#[ignore]
 fn unix_echo() {
     let tmpdir = Arc::new(Builder::new().prefix("unix_echo").tempdir().unwrap());
     const FILENAME_IN: &str = "enarx_unix_echo_to_bin";
