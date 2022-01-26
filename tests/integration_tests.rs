@@ -52,7 +52,7 @@ fn clock_gettime() {
 
     // Validate that the difference in time is minor...
     const NSEC_PER_SEC: libc::c_long = 1_000_000_000;
-    const MAX_SEC: libc::c_long = 2;
+    const MAX_SEC: libc::c_long = 60;
 
     let sec = ours.tv_sec - theirs.tv_sec;
     assert!(sec >= 0);
