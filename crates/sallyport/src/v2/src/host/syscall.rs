@@ -5,7 +5,7 @@ use crate::{item, Result};
 
 use core::arch::asm;
 use core::mem::{align_of, size_of};
-use libc::{c_long, socklen_t, timespec, EFAULT};
+use libc::{c_long, sockaddr_storage, socklen_t, timespec, EFAULT};
 
 struct Syscall<'a, const ARGS: usize, const RETS: usize> {
     /// The syscall number for the request.
@@ -132,6 +132,7 @@ impl Execute for Syscall<'_, 6, 1> {
 ///
 /// Callers must ensure that pointer is correctly aligned before accessing it.
 ///
+#[inline]
 fn deref<T>(data: &mut [u8], offset: usize, len: usize) -> Result<*mut T> {
     let size = len * size_of::<T>();
     if size > data.len() || data.len() - size < offset {
@@ -139,6 +140,23 @@ fn deref<T>(data: &mut [u8], offset: usize, len: usize) -> Result<*mut T> {
     } else {
         Ok(data[offset..offset + size].as_mut_ptr() as _)
     }
+}
+
+#[inline]
+fn deref_sockaddr_output(
+    data: &mut [u8],
+    addr_offset: usize,
+    addrlen_offset: usize,
+) -> Result<(*mut u8, *mut socklen_t)> {
+    let addrlen = deref::<socklen_t>(data, addrlen_offset, 1)?;
+    if addrlen.align_offset(align_of::<socklen_t>()) != 0 {
+        return Err(EFAULT);
+    }
+    let addr = deref::<u8>(data, addr_offset, unsafe { *addrlen } as _)?;
+    if addr.align_offset(align_of::<sockaddr_storage>()) != 0 {
+        return Err(EFAULT);
+    }
+    Ok((addr, addrlen))
 }
 
 pub(super) unsafe fn execute_syscall(syscall: &mut item::Syscall, data: &mut [u8]) -> Result<()> {
@@ -281,8 +299,7 @@ pub(super) unsafe fn execute_syscall(syscall: &mut item::Syscall, data: &mut [u8
             argv: [sockfd, addr_offset, addrlen_offset, ..],
             ret: [ret, ..],
         } if *num == libc::SYS_getsockname as _ => {
-            let addrlen = deref::<socklen_t>(data, *addrlen_offset, 1)?;
-            let addr = deref::<u8>(data, *addr_offset, *addrlen as _)?;
+            let (addr, addrlen) = deref_sockaddr_output(data, *addr_offset, *addrlen_offset)?;
             Syscall {
                 num: libc::SYS_getsockname,
                 argv: [*sockfd, addr as _, addrlen as _],
