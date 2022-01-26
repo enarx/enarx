@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use process_control::{ChildExt, Output, Timeout};
+use process_control::{ChildExt, Control, Output};
 use std::io::{stderr, Write};
 use std::path::Path;
 use std::process::{Command, Stdio};
@@ -62,8 +62,9 @@ pub fn keepldr_exec<'a>(bin: &str, input: impl Into<Option<&'a [u8]>>) -> Output
     }
 
     let output = child
-        .with_output_timeout(Duration::from_secs(TIMEOUT_SECS))
-        .terminating()
+        .controlled_with_output()
+        .time_limit(Duration::from_secs(TIMEOUT_SECS))
+        .terminate_for_timeout()
         .wait()
         .unwrap_or_else(|e| panic!("failed to run `{}`: {:#?}", bin, e))
         .unwrap_or_else(|| panic!("process `{}` timed out", bin));
@@ -113,8 +114,9 @@ pub fn keepldr_exec_crate(
     };
 
     let output = child
-        .with_output_timeout(Duration::from_secs(TIMEOUT_SECS))
-        .terminating()
+        .controlled_with_output()
+        .time_limit(Duration::from_secs(TIMEOUT_SECS))
+        .terminate_for_timeout()
         .wait()
         .unwrap_or_else(|e| panic!("failed to run `{}`: {:#?}", bin, e))
         .unwrap_or_else(|| panic!("process `{}` timed out", bin));
