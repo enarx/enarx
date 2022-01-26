@@ -23,14 +23,10 @@ unsafe impl<'a> Syscall<'a> for Getsockname<'a> {
 
     #[inline]
     fn stage(self, alloc: &mut impl Allocator) -> Result<(Self::Argv, Self::Staged)> {
-        let staged = self.addr.stage(alloc)?;
+        let addr = self.addr.stage(alloc)?;
         Ok((
-            Argv([
-                self.sockfd as _,
-                staged.addr.offset(),
-                staged.addrlen.offset(),
-            ]),
-            staged,
+            Argv([self.sockfd as _, addr.addr.offset(), addr.addrlen.offset()]),
+            addr,
         ))
     }
 
