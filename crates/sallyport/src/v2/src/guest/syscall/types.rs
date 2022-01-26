@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
+//! Syscall-specific types.
+
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Argv<const N: usize>(pub [usize; N]);
 

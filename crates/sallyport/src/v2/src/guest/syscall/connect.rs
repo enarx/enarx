@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use super::Argv;
+use super::types::Argv;
 use crate::guest::alloc::{Allocator, Collector, Input, Syscall};
 use crate::Result;
 

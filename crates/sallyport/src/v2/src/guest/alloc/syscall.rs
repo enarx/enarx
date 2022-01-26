@@ -13,7 +13,7 @@ use libc::c_long;
 /// # Examples
 ///
 /// ```rust
-/// use sallyport::guest::syscall::Argv;
+/// use sallyport::guest::syscall::types::Argv;
 /// # use sallyport::guest::alloc::{Allocator, Collector, Output, Syscall};
 /// # use sallyport::Result;
 /// #
@@ -63,7 +63,7 @@ pub unsafe trait Syscall<'a> {
 
     /// The syscall argument vector.
     ///
-    /// For example, [`syscall::Argv<3>`].
+    /// For example, [`syscall::types::Argv<3>`].
     type Argv: Into<[usize; 6]>;
 
     /// Syscall return value.
@@ -174,7 +174,7 @@ where
 ///
 /// # Example
 /// ```rust
-/// use sallyport::guest::syscall::Argv;
+/// use sallyport::guest::syscall::types::Argv;
 /// # use sallyport::guest::alloc::{PassthroughSyscall};
 /// # use sallyport::Result;
 /// #

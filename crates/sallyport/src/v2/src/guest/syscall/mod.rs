@@ -5,7 +5,6 @@
 #[cfg(test)]
 mod tests;
 
-mod argv;
 mod bind;
 mod clock_gettime;
 mod connect;
@@ -18,7 +17,8 @@ mod setsockopt;
 mod stub;
 mod write;
 
-pub use argv::*;
+pub mod types;
+
 pub use bind::*;
 pub use clock_gettime::*;
 pub use connect::*;
