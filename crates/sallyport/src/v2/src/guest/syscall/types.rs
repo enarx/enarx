@@ -2,6 +2,11 @@
 
 //! Syscall-specific types.
 
+use crate::guest::alloc::{Allocator, Collect, Commit, InOut, Output, Stage};
+use crate::Result;
+
+use libc::socklen_t;
+
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Argv<const N: usize>(pub [usize; N]);
 
@@ -51,5 +56,58 @@ impl From<Argv<6>> for [usize; 6] {
     #[inline]
     fn from(argv: Argv<6>) -> Self {
         argv.0
+    }
+}
+
+pub struct SockaddrOutput<'a> {
+    pub addr: &'a mut [u8],
+    pub addrlen: &'a mut socklen_t,
+}
+
+impl<'a> SockaddrOutput<'a> {
+    pub fn new(addr: &'a mut [u8], addrlen: &'a mut socklen_t) -> Self {
+        Self { addr, addrlen }
+    }
+}
+
+pub struct StagedSockaddrOutput<'a> {
+    pub addr: Output<'a, [u8], &'a mut [u8]>,
+    pub addrlen: InOut<'a, socklen_t, &'a mut socklen_t>,
+}
+
+pub struct CommittedSockaddrOutput<'a> {
+    pub addr: Output<'a, [u8], &'a mut [u8]>,
+    pub addrlen: Output<'a, socklen_t, &'a mut socklen_t>,
+}
+
+impl<'a> Stage<'a> for SockaddrOutput<'a> {
+    type Item = StagedSockaddrOutput<'a>;
+
+    #[inline]
+    fn stage(self, alloc: &mut impl Allocator) -> Result<Self::Item> {
+        let addr = Output::stage_slice(alloc, self.addr)?;
+        let addrlen = InOut::stage(alloc, self.addrlen)?;
+        Ok(Self::Item { addr, addrlen })
+    }
+}
+
+impl<'a> Commit for StagedSockaddrOutput<'a> {
+    type Item = CommittedSockaddrOutput<'a>;
+
+    fn commit(self, com: &impl crate::guest::alloc::Committer) -> Self::Item {
+        Self::Item {
+            addr: self.addr,
+            addrlen: self.addrlen.commit(com),
+        }
+    }
+}
+
+impl<'a> Collect for CommittedSockaddrOutput<'a> {
+    type Item = ();
+
+    fn collect(self, col: &impl crate::guest::alloc::Collector) {
+        let addrlen = *self.addrlen.collect(col);
+        let len = self.addr.len().min(addrlen as _);
+        unsafe { self.addr.collect_range(col, 0..len) };
     }
 }

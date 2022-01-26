@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use super::alloc::{phase, Alloc, Allocator, Collect, Commit, Committer};
+use super::syscall::types::SockaddrOutput;
 use super::{syscall, Call, Platform};
 use crate::{item, Result};
 
@@ -115,6 +116,11 @@ pub trait Execute {
     /// Executes [`getrandom`](https://man7.org/linux/man-pages/man2/getrandom.2.html) syscall akin to [`libc::getrandom`].
     fn getrandom(&mut self, buf: &mut [u8], flags: c_uint) -> Result<size_t> {
         self.execute(syscall::Getrandom { buf, flags })?
+    }
+
+    /// Executes [`getsockname`](https://man7.org/linux/man-pages/man2/getsockname.2.html) syscall akin to [`libc::getsockname`].
+    fn getsockname(&mut self, sockfd: c_int, addr: SockaddrOutput) -> Result<()> {
+        self.execute(syscall::Getsockname { sockfd, addr })?
     }
 
     /// Executes [`getuid`](https://man7.org/linux/man-pages/man2/getuid.2.html) syscall akin to [`libc::getuid`].
@@ -258,6 +264,12 @@ impl<'a, P: Platform> Execute for Handler<'a, P> {
             (libc::SYS_getrandom, [buf, buflen, flags, ..]) => {
                 let buf = self.platform.validate_slice_mut(buf, buflen)?;
                 self.getrandom(buf, flags as _).map(|ret| [ret as _, 0])
+            }
+            (libc::SYS_getsockname, [sockfd, addr, addrlen, ..]) => {
+                let addrlen = self.platform.validate_mut(addrlen)?;
+                let addr = self.platform.validate_slice_mut(addr, *addrlen as _)?;
+                self.getsockname(sockfd as _, SockaddrOutput::new(addr, addrlen))
+                    .map(|_| [0, 0])
             }
             (libc::SYS_getuid, ..) => self.getuid().map(|ret| [ret as _, 0]),
             (libc::SYS_listen, [sockfd, backlog, ..]) => {

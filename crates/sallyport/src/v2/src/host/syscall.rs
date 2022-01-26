@@ -5,7 +5,7 @@ use crate::{item, Result};
 
 use core::arch::asm;
 use core::mem::size_of;
-use libc::{c_long, timespec};
+use libc::{c_long, socklen_t, timespec};
 
 struct Syscall<'a, const ARGS: usize, const RETS: usize> {
     /// The syscall number for the request.
@@ -268,6 +268,21 @@ pub(super) unsafe fn execute_syscall(syscall: &mut item::Syscall, data: &mut [u8
             ret: [ret],
         }
         .execute(),
+
+        item::Syscall {
+            num,
+            argv: [sockfd, addr_offset, addrlen_offset, ..],
+            ret: [ret, ..],
+        } if *num == libc::SYS_getsockname as _ => {
+            let addrlen = deref::<socklen_t>(data, *addrlen_offset, 1)?;
+            let addr = deref::<u8>(data, *addr_offset, *addrlen as _)?;
+            Syscall {
+                num: libc::SYS_getsockname,
+                argv: [*sockfd, addr as _, addrlen as _],
+                ret: [ret],
+            }
+            .execute();
+        }
 
         item::Syscall {
             num,
