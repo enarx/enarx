@@ -51,11 +51,20 @@ mod tests {
 
     #[test]
     fn execute() {
+        let fd = 42;
         let mut syscalls = [
             (
                 Syscall {
+                    num: SYS_dup2 as _,
+                    argv: [STDIN_FILENO as _, fd, 0, 0, 0, 0],
+                    ret: [-ENOSYS as _, 0],
+                },
+                [],
+            ),
+            (
+                Syscall {
                     num: SYS_fcntl as _,
-                    argv: [STDIN_FILENO as _, F_GETFD as _, 0, 0, 0, 0],
+                    argv: [fd, F_GETFD as _, 0, 0, 0, 0],
                     ret: [-ENOSYS as _, 0],
                 },
                 [],
@@ -63,7 +72,7 @@ mod tests {
             (
                 Syscall {
                     num: SYS_read as _,
-                    argv: [STDIN_FILENO as _, 0, 0, 0, 0, 0],
+                    argv: [fd, 0, 0, 0, 0, 0],
                     ret: [-ENOSYS as _, 0],
                 },
                 [],
@@ -87,18 +96,20 @@ mod tests {
             (
                 Syscall {
                     num: SYS_close as _,
-                    argv: [STDIN_FILENO as _, 0, 0, 0, 0, 0],
+                    argv: [fd, 0, 0, 0, 0, 0],
                     ret: [-ENOSYS as _, 0],
                 },
                 [],
             ),
         ];
-        let (fcntl, tail) = syscalls.split_first_mut().unwrap();
+        let (dup2, tail) = syscalls.split_first_mut().unwrap();
+        let (fcntl, tail) = tail.split_first_mut().unwrap();
         let (read, tail) = tail.split_first_mut().unwrap();
         let (sync, tail) = tail.split_first_mut().unwrap();
         let (write, tail) = tail.split_first_mut().unwrap();
         let (close, _) = tail.split_first_mut().unwrap();
         super::execute([
+            Item::Syscall(&mut dup2.0, &mut dup2.1),
             Item::Syscall(&mut fcntl.0, &mut fcntl.1),
             Item::Syscall(&mut read.0, &mut read.1),
             Item::Syscall(&mut sync.0, &mut sync.1),
@@ -110,8 +121,19 @@ mod tests {
             [
                 (
                     Syscall {
+                        num: SYS_dup2 as _,
+                        argv: [STDIN_FILENO as _, fd, 0, 0, 0, 0],
+                        #[cfg(feature = "asm")]
+                        ret: [fd, 0],
+                        #[cfg(not(feature = "asm"))]
+                        ret: [-ENOSYS as _, 0],
+                    },
+                    []
+                ),
+                (
+                    Syscall {
                         num: SYS_fcntl as _,
-                        argv: [STDIN_FILENO as _, F_GETFD as _, 0, 0, 0, 0],
+                        argv: [fd as _, F_GETFD as _, 0, 0, 0, 0],
                         #[cfg(feature = "asm")]
                         ret: [0, 0],
                         #[cfg(not(feature = "asm"))]
@@ -122,7 +144,7 @@ mod tests {
                 (
                     Syscall {
                         num: SYS_read as _,
-                        argv: [STDIN_FILENO as _, 0, 0, 0, 0, 0],
+                        argv: [fd as _, 0, 0, 0, 0, 0],
                         #[cfg(feature = "asm")]
                         ret: [0, 0],
                         #[cfg(not(feature = "asm"))]
@@ -155,7 +177,7 @@ mod tests {
                 (
                     Syscall {
                         num: SYS_close as _,
-                        argv: [STDIN_FILENO as _, 0, 0, 0, 0, 0],
+                        argv: [fd as _, 0, 0, 0, 0, 0],
                         #[cfg(feature = "asm")]
                         ret: [0, 0],
                         #[cfg(not(feature = "asm"))]
