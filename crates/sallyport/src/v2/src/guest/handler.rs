@@ -65,7 +65,7 @@ pub trait Execute {
         })?
     }
 
-    /// Executes [`eventfd2`](https://man7.org/linux/man-pages/man2/eventfd2.2.html) syscall akin to [`libc::eventfd2`].
+    /// Executes [`eventfd2`](https://man7.org/linux/man-pages/man2/eventfd2.2.html).
     fn eventfd2(&mut self, initval: c_int, flags: c_int) -> Result<c_int> {
         self.execute(syscall::Eventfd2 { initval, flags })?
     }
@@ -76,7 +76,7 @@ pub trait Execute {
         self.attacked()
     }
 
-    /// Executes [`exit_group`](https://man7.org/linux/man-pages/man2/exit_group.2.html) syscall akin to [`libc::exit_group`].
+    /// Executes [`exit_group`](https://man7.org/linux/man-pages/man2/exit_group.2.html).
     fn exit_group(&mut self, status: c_int) -> Result<()> {
         self.execute(syscall::ExitGroup { status })??;
         self.attacked()
