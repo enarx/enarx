@@ -5,6 +5,8 @@
 #[cfg(test)]
 mod tests;
 
+mod accept;
+mod accept4;
 mod bind;
 mod clock_gettime;
 mod connect;
@@ -22,6 +24,8 @@ mod write;
 
 pub mod types;
 
+pub use accept::*;
+pub use accept4::*;
 pub use bind::*;
 pub use clock_gettime::*;
 pub use connect::*;

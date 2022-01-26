@@ -27,6 +27,29 @@ pub trait Execute {
         }
     }
 
+    /// Executes [`accept`](https://man7.org/linux/man-pages/man2/accept.2.html) syscall akin to [`libc::accept`].
+    fn accept<'a>(
+        &mut self,
+        sockfd: c_int,
+        addr: Option<impl Into<SockaddrOutput<'a>>>,
+    ) -> Result<c_int> {
+        self.execute(syscall::Accept { sockfd, addr })?
+    }
+
+    /// Executes [`accept4`](https://man7.org/linux/man-pages/man2/accept4.2.html) syscall akin to [`libc::accept4`].
+    fn accept4<'a>(
+        &mut self,
+        sockfd: c_int,
+        addr: Option<impl Into<SockaddrOutput<'a>>>,
+        flags: c_int,
+    ) -> Result<c_int> {
+        self.execute(syscall::Accept4 {
+            sockfd,
+            addr,
+            flags,
+        })?
+    }
+
     /// Executes [`bind`](https://man7.org/linux/man-pages/man2/bind.2.html) syscall akin to [`libc::bind`].
     fn bind(&mut self, sockfd: c_int, addr: &[u8]) -> Result<()> {
         self.execute(syscall::Bind { sockfd, addr })?
@@ -246,6 +269,27 @@ impl<'a, P: Platform> Execute for Handler<'a, P> {
     unsafe fn syscall(&mut self, registers: [usize; 7]) -> Result<[usize; 2]> {
         let [num, argv @ ..] = registers;
         match (num as _, argv) {
+            (libc::SYS_accept, [sockfd, addr, addrlen, ..]) => {
+                let addr = if addr == 0 {
+                    None
+                } else {
+                    self.platform
+                        .validate_sockaddr_output(addr, addrlen)
+                        .map(Some)?
+                };
+                self.accept(sockfd as _, addr).map(|ret| [ret as _, 0])
+            }
+            (libc::SYS_accept4, [sockfd, addr, addrlen, flags, ..]) => {
+                let addr = if addr == 0 {
+                    None
+                } else {
+                    self.platform
+                        .validate_sockaddr_output(addr, addrlen)
+                        .map(Some)?
+                };
+                self.accept4(sockfd as _, addr, flags as _)
+                    .map(|ret| [ret as _, 0])
+            }
             (libc::SYS_bind, [sockfd, addr, addrlen, ..]) => {
                 let addr = self.platform.validate_slice(addr, addrlen)?;
                 self.bind(sockfd as _, addr).map(|_| [0, 0])

@@ -164,6 +164,42 @@ pub(super) unsafe fn execute_syscall(syscall: &mut item::Syscall, data: &mut [u8
     match syscall {
         item::Syscall {
             num,
+            argv: [sockfd, addr_offset, addrlen_offset, ..],
+            ret: [ret, ..],
+        } if *num == libc::SYS_accept as _ => {
+            let (addr, addrlen) = if *addr_offset == NULL {
+                (null_mut(), null_mut())
+            } else {
+                deref_sockaddr_output(data, *addr_offset, *addrlen_offset)?
+            };
+            Syscall {
+                num: libc::SYS_accept,
+                argv: [*sockfd, addr as _, addrlen as _],
+                ret: [ret],
+            }
+            .execute();
+        }
+
+        item::Syscall {
+            num,
+            argv: [sockfd, addr_offset, addrlen_offset, flags, ..],
+            ret: [ret, ..],
+        } if *num == libc::SYS_accept4 as _ => {
+            let (addr, addrlen) = if *addr_offset == NULL {
+                (null_mut(), null_mut())
+            } else {
+                deref_sockaddr_output(data, *addr_offset, *addrlen_offset)?
+            };
+            Syscall {
+                num: libc::SYS_accept4,
+                argv: [*sockfd, addr as _, addrlen as _, *flags],
+                ret: [ret],
+            }
+            .execute();
+        }
+
+        item::Syscall {
+            num,
             argv: [sockfd, addr_offset, addrlen, ..],
             ret: [ret, ..],
         } if *num == libc::SYS_bind as _ => {
