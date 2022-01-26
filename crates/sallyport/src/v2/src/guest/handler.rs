@@ -9,119 +9,20 @@ use libc::{
 };
 
 pub trait Execute {
-    type Platform: Platform;
-    type Allocator: Allocator;
-
-    fn platform(&mut self) -> &mut Self::Platform;
-
-    fn allocator(&mut self) -> Self::Allocator;
-
     /// Executes an arbitrary call.
     /// Examples of calls that this method can execute are:
     /// - [`syscall::Exit`]
     /// - [`syscall::Read`]
     /// - [`syscall::Write`]
-    fn execute<'a, T: Call<'a>>(&mut self, call: T) -> Result<T::Collected> {
-        let mut alloc = self.allocator();
-        let ((call, len), mut end_ref) =
-            alloc.reserve_input(|alloc| alloc.section(|alloc| call.stage(alloc)))?;
+    fn execute<'a, T: Call<'a>>(&mut self, call: T) -> Result<T::Collected>;
 
-        let alloc = alloc.commit();
-        let call = call.commit(&alloc);
-        if len > 0 {
-            end_ref.copy_from(
-                &alloc,
-                item::Header {
-                    kind: item::Kind::End,
-                    size: 0,
-                },
-            );
-            self.platform().sally()?;
-        }
-
-        let alloc = alloc.collect();
-        Ok(call.collect(&alloc))
-    }
+    /// Executes a supported syscall expressed as an opaque 7-word array akin to [`libc::syscall`].
+    unsafe fn syscall(&mut self, registers: [usize; 7]) -> Result<[usize; 2]>;
 
     /// Loops infinitely trying to exit.
     fn attacked(&mut self) -> ! {
         loop {
             let _ = self.exit(1);
-        }
-    }
-
-    /// Executes a supported syscall expressed as an opaque 7-word array akin to [`libc::syscall`].
-    unsafe fn syscall(&mut self, registers: [usize; 7]) -> Result<[usize; 2]> {
-        let [num, argv @ ..] = registers;
-        match (num as _, argv) {
-            (libc::SYS_bind, [sockfd, addr, addrlen, ..]) => {
-                let addr = self.platform().validate_slice(addr, addrlen)?;
-                self.bind(sockfd as _, addr).map(|_| [0, 0])
-            }
-            (libc::SYS_clock_gettime, [clockid, tp, ..]) => {
-                let tp = self.platform().validate_mut(tp)?;
-                self.clock_gettime(clockid as _, tp).map(|_| [0, 0])
-            }
-            (libc::SYS_close, [fd, ..]) => self.close(fd as _).map(|_| [0, 0]),
-            (libc::SYS_connect, [sockfd, addr, addrlen, ..]) => {
-                let addr = self.platform().validate_slice(addr, addrlen)?;
-                self.connect(sockfd as _, addr).map(|_| [0, 0])
-            }
-            (libc::SYS_dup, [oldfd, ..]) => self.dup(oldfd as _).map(|_| [0, 0]),
-            (libc::SYS_dup2, [oldfd, newfd, ..]) => {
-                self.dup2(oldfd as _, newfd as _).map(|_| [0, 0])
-            }
-            (libc::SYS_dup3, [oldfd, newfd, flags, ..]) => self
-                .dup3(oldfd as _, newfd as _, flags as _)
-                .map(|_| [0, 0]),
-            (libc::SYS_eventfd2, [initval, flags, ..]) => self
-                .eventfd2(initval as _, flags as _)
-                .map(|ret| [ret as _, 0]),
-            (libc::SYS_exit, [status, ..]) => self.exit(status as _).map(|_| self.attacked()),
-            (libc::SYS_exit_group, [status, ..]) => {
-                self.exit_group(status as _).map(|_| self.attacked())
-            }
-            (libc::SYS_fcntl, [fd, cmd, arg, ..]) => self
-                .fcntl(fd as _, cmd as _, arg as _)
-                .map(|ret| [ret as _, 0]),
-            (libc::SYS_fstat, [fd, statbuf, ..]) => {
-                let statbuf = self.platform().validate_mut(statbuf)?;
-                self.fstat(fd as _, statbuf).map(|_| [0, 0])
-            }
-            (libc::SYS_getegid, ..) => self.getegid().map(|ret| [ret as _, 0]),
-            (libc::SYS_geteuid, ..) => self.geteuid().map(|ret| [ret as _, 0]),
-            (libc::SYS_getgid, ..) => self.getgid().map(|ret| [ret as _, 0]),
-            (libc::SYS_getpid, ..) => self.getpid().map(|ret| [ret as _, 0]),
-            (libc::SYS_getrandom, [buf, buflen, flags, ..]) => {
-                let buf = self.platform().validate_slice_mut(buf, buflen)?;
-                self.getrandom(buf, flags as _).map(|ret| [ret as _, 0])
-            }
-            (libc::SYS_getuid, ..) => self.getuid().map(|ret| [ret as _, 0]),
-            (libc::SYS_listen, [sockfd, backlog, ..]) => {
-                self.listen(sockfd as _, backlog as _).map(|_| [0, 0])
-            }
-            (libc::SYS_read, [fd, buf, count, ..]) => {
-                let buf = self.platform().validate_slice_mut(buf, count)?;
-                self.read(fd as _, buf).map(|ret| [ret, 0])
-            }
-            (libc::SYS_setsockopt, [sockfd, level, optname, optval, optlen, ..]) => {
-                let optval = self.platform().validate_slice(optval, optlen)?;
-                self.setsockopt(sockfd as _, level as _, optname as _, optval)
-                    .map(|ret| [ret as _, 0])
-            }
-            (libc::SYS_socket, [domain, typ, protocol, ..]) => self
-                .socket(domain as _, typ as _, protocol as _)
-                .map(|ret| [ret as _, 0]),
-            (libc::SYS_sync, ..) => self.sync().map(|_| [0, 0]),
-            (libc::SYS_uname, [buf, ..]) => {
-                let buf = self.platform().validate_mut(buf)?;
-                self.uname(buf).map(|_| [0, 0])
-            }
-            (libc::SYS_write, [fd, buf, count, ..]) => {
-                let buf = self.platform().validate_slice(buf, count)?;
-                self.write(fd as _, buf).map(|ret| [ret, 0])
-            }
-            _ => Err(ENOSYS),
         }
     }
 
@@ -291,14 +192,99 @@ impl<'a, P: Platform> Handler<'a, P> {
 }
 
 impl<'a, P: Platform> Execute for Handler<'a, P> {
-    type Platform = P;
-    type Allocator = Alloc<'a, phase::Stage>;
+    fn execute<'b, T: Call<'b>>(&mut self, call: T) -> Result<T::Collected> {
+        let mut alloc = self.alloc.stage();
+        let ((call, len), mut end_ref) =
+            alloc.reserve_input(|alloc| alloc.section(|alloc| call.stage(alloc)))?;
 
-    fn platform(&mut self) -> &mut Self::Platform {
-        &mut self.platform
+        let alloc = alloc.commit();
+        let call = call.commit(&alloc);
+        if len > 0 {
+            end_ref.copy_from(
+                &alloc,
+                item::Header {
+                    kind: item::Kind::End,
+                    size: 0,
+                },
+            );
+            self.platform.sally()?;
+        }
+
+        let alloc = alloc.collect();
+        Ok(call.collect(&alloc))
     }
 
-    fn allocator(&mut self) -> Self::Allocator {
-        self.alloc.stage()
+    unsafe fn syscall(&mut self, registers: [usize; 7]) -> Result<[usize; 2]> {
+        let [num, argv @ ..] = registers;
+        match (num as _, argv) {
+            (libc::SYS_bind, [sockfd, addr, addrlen, ..]) => {
+                let addr = self.platform.validate_slice(addr, addrlen)?;
+                self.bind(sockfd as _, addr).map(|_| [0, 0])
+            }
+            (libc::SYS_clock_gettime, [clockid, tp, ..]) => {
+                let tp = self.platform.validate_mut(tp)?;
+                self.clock_gettime(clockid as _, tp).map(|_| [0, 0])
+            }
+            (libc::SYS_close, [fd, ..]) => self.close(fd as _).map(|_| [0, 0]),
+            (libc::SYS_connect, [sockfd, addr, addrlen, ..]) => {
+                let addr = self.platform.validate_slice(addr, addrlen)?;
+                self.connect(sockfd as _, addr).map(|_| [0, 0])
+            }
+            (libc::SYS_dup, [oldfd, ..]) => self.dup(oldfd as _).map(|_| [0, 0]),
+            (libc::SYS_dup2, [oldfd, newfd, ..]) => {
+                self.dup2(oldfd as _, newfd as _).map(|_| [0, 0])
+            }
+            (libc::SYS_dup3, [oldfd, newfd, flags, ..]) => self
+                .dup3(oldfd as _, newfd as _, flags as _)
+                .map(|_| [0, 0]),
+            (libc::SYS_eventfd2, [initval, flags, ..]) => self
+                .eventfd2(initval as _, flags as _)
+                .map(|ret| [ret as _, 0]),
+            (libc::SYS_exit, [status, ..]) => self.exit(status as _).map(|_| self.attacked()),
+            (libc::SYS_exit_group, [status, ..]) => {
+                self.exit_group(status as _).map(|_| self.attacked())
+            }
+            (libc::SYS_fcntl, [fd, cmd, arg, ..]) => self
+                .fcntl(fd as _, cmd as _, arg as _)
+                .map(|ret| [ret as _, 0]),
+            (libc::SYS_fstat, [fd, statbuf, ..]) => {
+                let statbuf = self.platform.validate_mut(statbuf)?;
+                self.fstat(fd as _, statbuf).map(|_| [0, 0])
+            }
+            (libc::SYS_getegid, ..) => self.getegid().map(|ret| [ret as _, 0]),
+            (libc::SYS_geteuid, ..) => self.geteuid().map(|ret| [ret as _, 0]),
+            (libc::SYS_getgid, ..) => self.getgid().map(|ret| [ret as _, 0]),
+            (libc::SYS_getpid, ..) => self.getpid().map(|ret| [ret as _, 0]),
+            (libc::SYS_getrandom, [buf, buflen, flags, ..]) => {
+                let buf = self.platform.validate_slice_mut(buf, buflen)?;
+                self.getrandom(buf, flags as _).map(|ret| [ret as _, 0])
+            }
+            (libc::SYS_getuid, ..) => self.getuid().map(|ret| [ret as _, 0]),
+            (libc::SYS_listen, [sockfd, backlog, ..]) => {
+                self.listen(sockfd as _, backlog as _).map(|_| [0, 0])
+            }
+            (libc::SYS_read, [fd, buf, count, ..]) => {
+                let buf = self.platform.validate_slice_mut(buf, count)?;
+                self.read(fd as _, buf).map(|ret| [ret, 0])
+            }
+            (libc::SYS_setsockopt, [sockfd, level, optname, optval, optlen, ..]) => {
+                let optval = self.platform.validate_slice(optval, optlen)?;
+                self.setsockopt(sockfd as _, level as _, optname as _, optval)
+                    .map(|ret| [ret as _, 0])
+            }
+            (libc::SYS_socket, [domain, typ, protocol, ..]) => self
+                .socket(domain as _, typ as _, protocol as _)
+                .map(|ret| [ret as _, 0]),
+            (libc::SYS_sync, ..) => self.sync().map(|_| [0, 0]),
+            (libc::SYS_uname, [buf, ..]) => {
+                let buf = self.platform.validate_mut(buf)?;
+                self.uname(buf).map(|_| [0, 0])
+            }
+            (libc::SYS_write, [fd, buf, count, ..]) => {
+                let buf = self.platform.validate_slice(buf, count)?;
+                self.write(fd as _, buf).map(|ret| [ret, 0])
+            }
+            _ => Err(ENOSYS),
+        }
     }
 }
