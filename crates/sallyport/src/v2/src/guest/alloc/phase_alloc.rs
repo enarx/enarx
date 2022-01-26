@@ -64,7 +64,7 @@ impl<'a> Alloc<'a, phase::Init> {
     pub fn stage(&mut self) -> Alloc<'a, phase::Stage> {
         Alloc {
             ptr: self.ptr,
-            offset: 0,
+            offset: self.offset,
 
             phase: PhantomData,
         }
