@@ -266,10 +266,8 @@ impl<'a, P: Platform> Execute for Handler<'a, P> {
                 self.getrandom(buf, flags as _).map(|ret| [ret as _, 0])
             }
             (libc::SYS_getsockname, [sockfd, addr, addrlen, ..]) => {
-                let addrlen = self.platform.validate_mut(addrlen)?;
-                let addr = self.platform.validate_slice_mut(addr, *addrlen as _)?;
-                self.getsockname(sockfd as _, SockaddrOutput::new(addr, addrlen))
-                    .map(|_| [0, 0])
+                let addr = self.platform.validate_sockaddr_output(addr, addrlen)?;
+                self.getsockname(sockfd as _, addr).map(|_| [0, 0])
             }
             (libc::SYS_getuid, ..) => self.getuid().map(|ret| [ret as _, 0]),
             (libc::SYS_listen, [sockfd, backlog, ..]) => {
