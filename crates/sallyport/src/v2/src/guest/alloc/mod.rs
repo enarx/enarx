@@ -188,6 +188,64 @@ pub trait Allocator {
     fn commit(self) -> Self::Committer;
 }
 
+/// Something that can be staged in stage phase.
+pub trait Stage<'a> {
+    type Item;
+
+    fn stage(self, alloc: &mut impl Allocator) -> Result<Self::Item>;
+}
+
+impl Stage<'_> for () {
+    type Item = ();
+
+    #[inline]
+    fn stage(self, _: &mut impl Allocator) -> Result<()> {
+        Ok(())
+    }
+}
+
+impl<'a, A: Stage<'a>> Stage<'a> for (A,) {
+    type Item = (A::Item,);
+
+    #[inline]
+    fn stage(self, alloc: &mut impl Allocator) -> Result<Self::Item> {
+        self.0.stage(alloc).map(|a| (a,))
+    }
+}
+
+impl<'a, A: Stage<'a>, B: Stage<'a>> Stage<'a> for (A, B) {
+    type Item = (A::Item, B::Item);
+
+    #[inline]
+    fn stage(self, alloc: &mut impl Allocator) -> Result<Self::Item> {
+        let a = self.0.stage(alloc)?;
+        let b = self.1.stage(alloc)?;
+        Ok((a, b))
+    }
+}
+
+impl<'a, A: Stage<'a>, B: Stage<'a>, C: Stage<'a>> Stage<'a> for (A, B, C) {
+    type Item = (A::Item, B::Item, C::Item);
+
+    #[inline]
+    fn stage(self, alloc: &mut impl Allocator) -> Result<Self::Item> {
+        ((self.0, self.1), self.2)
+            .stage(alloc)
+            .map(|((a, b), c)| (a, b, c))
+    }
+}
+
+impl<'a, A: Stage<'a>, B: Stage<'a>, C: Stage<'a>, D: Stage<'a>> Stage<'a> for (A, B, C, D) {
+    type Item = (A::Item, B::Item, C::Item, D::Item);
+
+    #[inline]
+    fn stage(self, alloc: &mut impl Allocator) -> Result<Self::Item> {
+        ((self.0, self.1), self.2, self.3)
+            .stage(alloc)
+            .map(|((a, b), c, d)| (a, b, c, d))
+    }
+}
+
 /// Allocator in commit phase.
 pub trait Committer: phase::Alloc {
     type Collector: Collector;
