@@ -70,6 +70,28 @@ pub trait Execute {
         self.execute(syscall::Eventfd2 { initval, flags })?
     }
 
+    /// Executes [`exit`](https://man7.org/linux/man-pages/man2/exit.2.html) syscall akin to [`libc::exit`].
+    fn exit(&mut self, status: c_int) -> Result<()> {
+        self.execute(syscall::Exit { status })??;
+        self.attacked()
+    }
+
+    /// Executes [`exit_group`](https://man7.org/linux/man-pages/man2/exit_group.2.html) syscall akin to [`libc::exit_group`].
+    fn exit_group(&mut self, status: c_int) -> Result<()> {
+        self.execute(syscall::ExitGroup { status })??;
+        self.attacked()
+    }
+
+    /// Executes [`fcntl`](https://man7.org/linux/man-pages/man2/fcntl.2.html) syscall akin to [`libc::fcntl`].
+    fn fcntl(&mut self, fd: c_int, cmd: c_int, arg: c_int) -> Result<c_int> {
+        self.execute(syscall::Fcntl { fd, cmd, arg })?
+    }
+
+    /// Executes [`fstat`](https://man7.org/linux/man-pages/man2/fstat.2.html) syscall akin to [`libc::fstat`].
+    fn fstat(&mut self, fd: c_int, statbuf: &mut stat) -> Result<()> {
+        self.execute(syscall::Fstat { fd, statbuf })?
+    }
+
     /// Executes [`getegid`](https://man7.org/linux/man-pages/man2/getegid.2.html) syscall akin to [`libc::getegid`].
     fn getegid(&mut self) -> Result<gid_t> {
         self.execute(syscall::Getegid)
@@ -98,28 +120,6 @@ pub trait Execute {
     /// Executes [`getuid`](https://man7.org/linux/man-pages/man2/getuid.2.html) syscall akin to [`libc::getuid`].
     fn getuid(&mut self) -> Result<uid_t> {
         self.execute(syscall::Getuid)
-    }
-
-    /// Executes [`exit`](https://man7.org/linux/man-pages/man2/exit.2.html) syscall akin to [`libc::exit`].
-    fn exit(&mut self, status: c_int) -> Result<()> {
-        self.execute(syscall::Exit { status })??;
-        self.attacked()
-    }
-
-    /// Executes [`exit_group`](https://man7.org/linux/man-pages/man2/exit_group.2.html) syscall akin to [`libc::exit_group`].
-    fn exit_group(&mut self, status: c_int) -> Result<()> {
-        self.execute(syscall::ExitGroup { status })??;
-        self.attacked()
-    }
-
-    /// Executes [`fcntl`](https://man7.org/linux/man-pages/man2/fcntl.2.html) syscall akin to [`libc::fcntl`].
-    fn fcntl(&mut self, fd: c_int, cmd: c_int, arg: c_int) -> Result<c_int> {
-        self.execute(syscall::Fcntl { fd, cmd, arg })?
-    }
-
-    /// Executes [`fstat`](https://man7.org/linux/man-pages/man2/fstat.2.html) syscall akin to [`libc::fstat`].
-    fn fstat(&mut self, fd: c_int, statbuf: &mut stat) -> Result<()> {
-        self.execute(syscall::Fstat { fd, statbuf })?
     }
 
     /// Executes [`listen`](https://man7.org/linux/man-pages/man2/listen.2.html) syscall akin to [`libc::listen`].
