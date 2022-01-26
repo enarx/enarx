@@ -195,6 +195,15 @@ pub trait Stage<'a> {
     fn stage(self, alloc: &mut impl Allocator) -> Result<Self::Item>;
 }
 
+impl<'a, T: Stage<'a>> Stage<'a> for Option<T> {
+    type Item = Option<T::Item>;
+
+    #[inline]
+    fn stage(self, alloc: &mut impl Allocator) -> Result<Self::Item> {
+        self.map(|v| v.stage(alloc)).transpose()
+    }
+}
+
 impl Stage<'_> for () {
     type Item = ();
 
@@ -259,6 +268,15 @@ pub trait Commit {
     type Item;
 
     fn commit(self, com: &impl Committer) -> Self::Item;
+}
+
+impl<T: Commit> Commit for Option<T> {
+    type Item = Option<T::Item>;
+
+    #[inline]
+    fn commit(self, com: &impl Committer) -> Self::Item {
+        self.map(|v| v.commit(com))
+    }
 }
 
 impl Commit for () {
@@ -328,6 +346,15 @@ pub trait Collect {
     type Item;
 
     fn collect(self, col: &impl Collector) -> Self::Item;
+}
+
+impl<T: Collect> Collect for Option<T> {
+    type Item = Option<T::Item>;
+
+    #[inline]
+    fn collect(self, col: &impl Collector) -> Self::Item {
+        self.map(|v| v.collect(col))
+    }
 }
 
 impl<A: Collect> Collect for (A,) {
