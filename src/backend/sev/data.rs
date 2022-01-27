@@ -7,8 +7,7 @@ use crate::backend::Datum;
 
 use std::arch::x86_64::__cpuid_count;
 use std::fs::OpenOptions;
-use std::mem::{transmute, MaybeUninit};
-use std::str::from_utf8;
+use std::mem::MaybeUninit;
 
 pub fn has_reasonable_memlock_rlimit() -> Datum {
     let mut rlimits = MaybeUninit::uninit();
@@ -108,14 +107,10 @@ pub fn dev_sev_writable() -> Datum {
 
 pub const CPUIDS: &[CpuId] = &[
     CpuId {
-        name: "CPU Manufacturer",
-        leaf: 0x00000000,
+        name: "CPU",
+        leaf: 0x80000000,
         subl: 0x00000000,
-        func: |res| {
-            let name: [u8; 12] = unsafe { transmute([res.ebx, res.edx, res.ecx]) };
-            let name = from_utf8(&name[..]).unwrap();
-            (name == "AuthenticAMD", Some(name.into()))
-        },
+        func: |res| CpuId::cpu_identifier(res, Some(Vendor::Amd)),
         vend: None,
     },
     CpuId {
