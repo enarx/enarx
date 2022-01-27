@@ -28,7 +28,14 @@ pub const ENCL_SIZE_BITS: u8 = 31;
 /// FIXME: doc
 pub const ENCL_SIZE: usize = 1 << ENCL_SIZE_BITS;
 
-const XFRM: Xfrm = Xfrm::from_bits_truncate(Xfrm::X87.bits() | Xfrm::SSE.bits());
+const XFRM: Xfrm = Xfrm::from_bits_truncate(
+    Xfrm::X87.bits()
+        | Xfrm::SSE.bits()
+        | Xfrm::AVX.bits()
+        | Xfrm::OPMASK.bits()
+        | Xfrm::ZMM_HI256.bits()
+        | Xfrm::HI16_ZMM.bits(),
+);
 
 /// Default enclave CPU attributes
 pub const ATTR: Attributes = Attributes::new(Features::MODE64BIT, XFRM);
