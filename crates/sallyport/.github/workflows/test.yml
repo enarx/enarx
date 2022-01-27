@@ -27,7 +27,7 @@ jobs:
           MIRIFLAGS: "-Zmiri-disable-isolation"
         with:
           command: miri
-          args: test --no-default-features --manifest-path ${{ matrix.manifest-path }}
+          args: test --manifest-path ${{ matrix.manifest-path }}
     strategy:
       fail-fast: false
       matrix:
