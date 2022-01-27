@@ -31,7 +31,7 @@ unsafe impl<'a> Syscall<'a> for ClockGettime<'a> {
         ret: Result<Self::Ret>,
         col: &impl Collector,
     ) -> Self::Collected {
-        if let Ok(_) = ret {
+        if ret.is_ok() {
             tp.collect(col);
         };
         ret
