@@ -6,12 +6,12 @@ use crate::Result;
 
 use libc::{c_int, c_long};
 
-pub struct Getsockname<'a> {
+pub struct Getsockname<T> {
     pub sockfd: c_int,
-    pub addr: SockaddrOutput<'a>,
+    pub addr: T,
 }
 
-unsafe impl<'a> Syscall<'a> for Getsockname<'a> {
+unsafe impl<'a, T: Into<SockaddrOutput<'a>>> Syscall<'a> for Getsockname<T> {
     const NUM: c_long = libc::SYS_getsockname;
 
     type Argv = Argv<3>;
@@ -23,7 +23,7 @@ unsafe impl<'a> Syscall<'a> for Getsockname<'a> {
 
     #[inline]
     fn stage(self, alloc: &mut impl Allocator) -> Result<(Self::Argv, Self::Staged)> {
-        let addr = self.addr.stage(alloc)?;
+        let addr = self.addr.into().stage(alloc)?;
         Ok((
             Argv([self.sockfd as _, addr.addr.offset(), addr.addrlen.offset()]),
             addr,

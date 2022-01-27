@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use super::alloc::{phase, Alloc, Allocator, Collect, Commit, Committer};
-use super::syscall::types::{SockaddrInput, SockaddrOutput};
+use super::syscall::types::{SockaddrInput, SockaddrOutput, SockoptInput};
 use super::{syscall, Call, Platform};
 use crate::{item, Result};
 use core::ptr::NonNull;
@@ -147,7 +147,11 @@ pub trait Execute {
     }
 
     /// Executes [`getsockname`](https://man7.org/linux/man-pages/man2/getsockname.2.html) syscall akin to [`libc::getsockname`].
-    fn getsockname(&mut self, sockfd: c_int, addr: SockaddrOutput) -> Result<()> {
+    fn getsockname<'a>(
+        &mut self,
+        sockfd: c_int,
+        addr: impl Into<SockaddrOutput<'a>>,
+    ) -> Result<()> {
         self.execute(syscall::Getsockname { sockfd, addr })?
     }
 
