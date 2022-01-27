@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use libc::{sockaddr, ENOSYS};
-use sallyport::guest::syscall::types::SockaddrOutput;
+use libc::{
+    AF_INET, EBADF, EBADFD, ENOSYS, F_GETFD, F_GETFL, F_SETFD, F_SETFL, GRND_RANDOM, O_CREAT,
+    O_RDONLY, O_RDWR, STDERR_FILENO, STDIN_FILENO, STDOUT_FILENO,
+};
 use std::env::temp_dir;
 use std::ffi::CString;
 use std::fs::{File, OpenOptions};
@@ -13,6 +15,7 @@ use std::ptr::NonNull;
 use std::slice;
 use std::{mem, thread};
 
+use sallyport::guest::syscall::types::SockaddrOutput;
 use sallyport::guest::{syscall, Execute, Handler, Platform};
 use sallyport::item::Block;
 use sallyport::{host, Result};
@@ -38,12 +41,12 @@ impl<const N: usize> Platform for TestPlatform<N> {
 fn run_test<const N: usize>(
     n: usize,
     mut block: [usize; N],
-    f: impl Fn(&mut Handler<TestPlatform<N>>),
+    f: impl Fn(usize, &mut Handler<TestPlatform<N>>),
 ) {
     let platform = TestPlatform(NonNull::from(&mut block));
     let mut handler = Handler::new(&mut block, platform);
-    for _ in 0..n {
-        f(&mut handler);
+    for i in 0..n {
+        f(i, &mut handler);
     }
     let _ = block;
 }
@@ -54,17 +57,31 @@ fn close() {
     let path = temp_dir().join("sallyport-test-close");
     let c_path = CString::new(path.as_os_str().to_str().unwrap()).unwrap();
 
-    run_test(3, [0xff; 16], move |handler| {
+    run_test(2, [0xff; 16], move |i, handler| {
         // NOTE: `miri` only supports mode 0o666 at the time of writing
         // https://github.com/rust-lang/miri/blob/7a2f1cadcd5120c44eda3596053de767cd8173a2/src/shims/posix/fs.rs#L487-L493
-        let fd = unsafe { libc::open(c_path.as_ptr(), libc::O_RDWR | libc::O_CREAT, 0o666) };
+        let fd = unsafe { libc::open(c_path.as_ptr(), O_RDWR | O_CREAT, 0o666) };
 
         if cfg!(feature = "asm") {
-            assert_eq!(handler.close(fd), Ok(()));
+            if i % 2 == 0 {
+                assert_eq!(handler.close(fd), Ok(()));
+            } else {
+                assert_eq!(
+                    unsafe { handler.syscall([libc::SYS_close as _, fd as _, 0, 0, 0, 0, 0]) },
+                    Ok([0, 0])
+                );
+            }
             assert_eq!(unsafe { libc::close(fd) }, -1);
-            assert_eq!(unsafe { libc::__errno_location().read() }, libc::EBADF);
+            assert_eq!(unsafe { libc::__errno_location().read() }, EBADF);
         } else {
-            assert_eq!(handler.close(fd), Err(ENOSYS));
+            if i % 2 == 0 {
+                assert_eq!(handler.close(fd), Err(ENOSYS));
+            } else {
+                assert_eq!(
+                    unsafe { handler.syscall([libc::SYS_close as _, fd as _, 0, 0, 0, 0, 0]) },
+                    Err(ENOSYS)
+                );
+            }
         }
     })
 }
@@ -75,26 +92,60 @@ fn fcntl() {
     let file = File::create(temp_dir().join("sallyport-test-fcntl")).unwrap();
     let fd = file.as_raw_fd();
 
-    run_test(3, [0xff; 16], move |handler| {
-        for cmd in [libc::F_GETFD] {
-            assert_eq!(
-                handler.fcntl(fd, cmd, 0),
-                if cfg!(feature = "asm") {
-                    Ok(unsafe { libc::fcntl(fd, cmd) })
-                } else {
-                    Err(ENOSYS)
-                }
-            );
+    run_test(2, [0xff; 16], move |i, handler| {
+        for cmd in [F_GETFD] {
+            if i % 2 == 0 {
+                assert_eq!(
+                    handler.fcntl(fd, cmd, 0),
+                    if cfg!(feature = "asm") {
+                        Ok(unsafe { libc::fcntl(fd, cmd) })
+                    } else {
+                        Err(ENOSYS)
+                    }
+                );
+            } else {
+                assert_eq!(
+                    unsafe {
+                        handler.syscall([libc::SYS_fcntl as _, fd as _, cmd as _, 0, 0, 0, 0])
+                    },
+                    if cfg!(feature = "asm") {
+                        Ok([unsafe { libc::fcntl(fd, cmd) } as _, 0])
+                    } else {
+                        Err(ENOSYS)
+                    }
+                );
+            }
         }
-        for (cmd, arg) in [(libc::F_SETFD, 1), (libc::F_GETFL, 0), (libc::F_SETFL, 1)] {
-            assert_eq!(
-                handler.fcntl(fd, cmd, arg),
-                if cfg!(feature = "asm") {
-                    Ok(unsafe { libc::fcntl(fd, cmd, arg) })
-                } else {
-                    Err(ENOSYS)
-                }
-            );
+        for (cmd, arg) in [(F_SETFD, 1), (F_GETFL, 0), (F_SETFL, 1)] {
+            if i % 2 == 0 {
+                assert_eq!(
+                    handler.fcntl(fd, cmd, arg),
+                    if cfg!(feature = "asm") {
+                        Ok(unsafe { libc::fcntl(fd, cmd, arg) })
+                    } else {
+                        Err(ENOSYS)
+                    }
+                );
+            } else {
+                assert_eq!(
+                    unsafe {
+                        handler.syscall([
+                            libc::SYS_fcntl as _,
+                            fd as _,
+                            cmd as _,
+                            arg as _,
+                            0,
+                            0,
+                            0,
+                        ])
+                    },
+                    if cfg!(feature = "asm") {
+                        Ok([unsafe { libc::fcntl(fd, cmd, arg) } as _, 0])
+                    } else {
+                        Err(ENOSYS)
+                    }
+                );
+            }
         }
     });
     let _ = file;
@@ -106,13 +157,41 @@ fn fstat() {
     let file = File::create(temp_dir().join("sallyport-test-fstat")).unwrap();
     let fd = file.as_raw_fd();
 
-    run_test(3, [0xff; 16], move |handler| {
-        let mut fd_stat: libc::stat = unsafe { mem::zeroed() };
-        assert_eq!(handler.fstat(fd, &mut fd_stat), Err(libc::EBADFD));
+    run_test(2, [0xff; 16], move |_, handler| {
+        let mut fd_stat = unsafe { mem::zeroed() };
+        assert_eq!(handler.fstat(fd, &mut fd_stat), Err(EBADFD));
+        assert_eq!(
+            unsafe {
+                handler.syscall([
+                    libc::SYS_fstat as _,
+                    fd as _,
+                    &mut fd_stat as *mut _ as _,
+                    0,
+                    0,
+                    0,
+                    0,
+                ])
+            },
+            Err(EBADFD)
+        );
 
-        for fd in [libc::STDIN_FILENO, libc::STDOUT_FILENO, libc::STDERR_FILENO] {
-            let mut stat: libc::stat = unsafe { mem::zeroed() };
+        for fd in [STDIN_FILENO, STDOUT_FILENO, STDERR_FILENO] {
+            let mut stat = unsafe { mem::zeroed() };
             assert_eq!(handler.fstat(fd, &mut stat), Ok(()));
+            assert_eq!(
+                unsafe {
+                    handler.syscall([
+                        libc::SYS_fstat as _,
+                        fd as _,
+                        &mut stat as *mut _ as _,
+                        0,
+                        0,
+                        0,
+                        0,
+                    ])
+                },
+                Ok([0, 0])
+            );
         }
     });
     let _ = file;
@@ -122,12 +201,30 @@ fn fstat() {
 #[serial]
 #[cfg_attr(miri, ignore)]
 fn getrandom() {
-    run_test(3, [0xff; 16], move |handler| {
-        let mut buf = [0u8; 16];
+    run_test(1, [0xff; 16], move |_, handler| {
+        const LEN: usize = 64;
 
-        let ret = handler.getrandom(&mut buf, libc::GRND_RANDOM);
-        assert_eq!(ret, Ok(buf.len()));
-        assert_ne!(buf, [0u8; 16]);
+        let mut buf = [0u8; LEN];
+        assert_eq!(handler.getrandom(&mut buf, GRND_RANDOM), Ok(LEN));
+        assert_ne!(buf, [0u8; LEN]);
+
+        let mut buf_2 = buf.clone();
+        assert_eq!(
+            unsafe {
+                handler.syscall([
+                    libc::SYS_getrandom as _,
+                    buf_2.as_mut_ptr() as _,
+                    LEN,
+                    GRND_RANDOM as _,
+                    0,
+                    0,
+                    0,
+                ])
+            },
+            Ok([LEN, 0])
+        );
+        assert_ne!(buf_2, [0u8; LEN]);
+        assert_ne!(buf_2, buf);
     });
 }
 
@@ -138,15 +235,41 @@ fn read() {
     let path = temp_dir().join("sallyport-test-read");
     write!(&mut File::create(&path).unwrap(), "{}", EXPECTED).unwrap();
 
-    run_test(3, [0xff; 16], move |handler| {
+    run_test(2, [0xff; 16], move |i, handler| {
         let mut buf = [0u8; EXPECTED.len()];
 
-        let ret = handler.read(File::open(&path).unwrap().as_raw_fd(), &mut buf);
-        if cfg!(feature = "asm") {
-            assert_eq!(ret, Ok(EXPECTED.len()));
-            assert_eq!(buf, EXPECTED.as_bytes());
+        let file = File::open(&path).unwrap();
+        if i % 2 == 0 {
+            assert_eq!(
+                handler.read(file.as_raw_fd(), &mut buf),
+                if cfg!(feature = "asm") {
+                    Ok(EXPECTED.len())
+                } else {
+                    Err(ENOSYS)
+                }
+            );
         } else {
-            assert_eq!(ret, Err(ENOSYS));
+            assert_eq!(
+                unsafe {
+                    handler.syscall([
+                        libc::SYS_read as _,
+                        file.as_raw_fd() as _,
+                        buf.as_mut_ptr() as _,
+                        EXPECTED.len(),
+                        0,
+                        0,
+                        0,
+                    ])
+                },
+                if cfg!(feature = "asm") {
+                    Ok([EXPECTED.len(), 0])
+                } else {
+                    Err(ENOSYS)
+                }
+            );
+        }
+        if cfg!(feature = "asm") {
+            assert_eq!(buf, EXPECTED.as_bytes());
         }
     });
 }
@@ -156,7 +279,7 @@ fn read() {
 fn recv() {
     const EXPECTED: &str = "recv";
 
-    run_test(3, [0xff; 32], move |handler| {
+    run_test(2, [0xff; 32], move |i, handler| {
         let listener = TcpListener::bind("127.0.0.1:0").expect("couldn't bind to address");
         let addr = listener.local_addr().unwrap();
 
@@ -169,25 +292,42 @@ fn recv() {
                 EXPECTED.len()
             );
         });
+        let stream = listener.accept().expect("couldn't accept connection").0;
 
         let mut buf = [0u8; EXPECTED.len()];
-        let ret = handler.recv(
-            listener
-                .accept()
-                .expect("couldn't accept connection")
-                .0
-                .as_raw_fd(),
-            &mut buf,
-            0,
-        );
-
-        client.join().expect("couldn't join client thread");
-        if cfg!(feature = "asm") {
-            assert_eq!(ret, Ok(EXPECTED.len()));
-            assert_eq!(buf, EXPECTED.as_bytes());
+        if i % 2 == 0 {
+            assert_eq!(
+                handler.recv(stream.as_raw_fd(), &mut buf, 0,),
+                if cfg!(feature = "asm") {
+                    Ok(EXPECTED.len())
+                } else {
+                    Err(ENOSYS)
+                }
+            );
         } else {
-            assert_eq!(ret, Err(ENOSYS));
+            assert_eq!(
+                unsafe {
+                    handler.syscall([
+                        libc::SYS_recvfrom as _,
+                        stream.as_raw_fd() as _,
+                        buf.as_mut_ptr() as _,
+                        EXPECTED.len(),
+                        0,
+                        0,
+                        0,
+                    ])
+                },
+                if cfg!(feature = "asm") {
+                    Ok([EXPECTED.len(), 0])
+                } else {
+                    Err(ENOSYS)
+                }
+            );
         }
+        if cfg!(feature = "asm") {
+            assert_eq!(buf, EXPECTED.as_bytes());
+        }
+        client.join().expect("couldn't join client thread");
     });
 }
 
@@ -198,7 +338,7 @@ fn recvfrom() {
     const EXPECTED: &str = "recvfrom";
     const SRC_ADDR: &str = "127.0.0.1:65534";
 
-    run_test(3, [0xff; 32], move |handler| {
+    run_test(2, [0xff; 32], move |i, handler| {
         let socket = UdpSocket::bind("127.0.0.1:0").expect("couldn't bind to address");
         let addr = socket.local_addr().unwrap();
 
@@ -213,33 +353,57 @@ fn recvfrom() {
         });
 
         let mut buf = [0u8; EXPECTED.len()];
-        let mut src_addr: sockaddr = unsafe { mem::zeroed() };
+        let mut src_addr: libc::sockaddr = unsafe { mem::zeroed() };
         let mut src_addr_bytes = unsafe {
-            slice::from_raw_parts_mut(&mut src_addr as *mut _ as _, size_of::<sockaddr>())
+            slice::from_raw_parts_mut(&mut src_addr as *mut _ as _, size_of::<libc::sockaddr>())
         };
         let mut addrlen = src_addr_bytes.len() as _;
-        let ret = handler.recvfrom(
-            socket.as_raw_fd(),
-            &mut buf,
-            0,
-            SockaddrOutput::new(&mut src_addr_bytes, &mut addrlen),
-        );
-
-        client.join().expect("couldn't join client thread");
+        if i % 2 == 0 {
+            assert_eq!(
+                handler.recvfrom(
+                    socket.as_raw_fd(),
+                    &mut buf,
+                    0,
+                    SockaddrOutput::new(&mut src_addr_bytes, &mut addrlen),
+                ),
+                if cfg!(feature = "asm") {
+                    Ok(EXPECTED.len())
+                } else {
+                    Err(ENOSYS)
+                }
+            );
+        } else {
+            assert_eq!(
+                unsafe {
+                    handler.syscall([
+                        libc::SYS_recvfrom as _,
+                        socket.as_raw_fd() as _,
+                        buf.as_mut_ptr() as _,
+                        EXPECTED.len(),
+                        0,
+                        src_addr_bytes.as_mut_ptr() as _,
+                        &mut addrlen as *mut _ as _,
+                    ])
+                },
+                if cfg!(feature = "asm") {
+                    Ok([EXPECTED.len(), 0])
+                } else {
+                    Err(ENOSYS)
+                }
+            );
+        }
         if cfg!(feature = "asm") {
-            assert_eq!(ret, Ok(EXPECTED.len()));
             assert_eq!(buf, EXPECTED.as_bytes());
             assert_eq!(
                 src_addr,
-                sockaddr {
-                    sa_family: libc::AF_INET as _,
+                libc::sockaddr {
+                    sa_family: AF_INET as _,
                     sa_data: [0xff as _, 0xfe as _, 127, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0]
                 },
             );
-            assert_eq!(addrlen, size_of::<sockaddr>() as _);
-        } else {
-            assert_eq!(ret, Err(ENOSYS));
+            assert_eq!(addrlen, size_of::<libc::sockaddr>() as _);
         }
+        client.join().expect("couldn't join client thread");
     });
 }
 
@@ -251,8 +415,8 @@ fn sync_read_close() {
     write!(&mut File::create(&path).unwrap(), "{}", EXPECTED).unwrap();
 
     let c_path = CString::new(path.as_os_str().to_str().unwrap()).unwrap();
-    run_test(3, [0xff; 64], move |handler| {
-        let fd = unsafe { libc::open(c_path.as_ptr(), libc::O_RDONLY, 0o666) };
+    run_test(1, [0xff; 64], move |_, handler| {
+        let fd = unsafe { libc::open(c_path.as_ptr(), O_RDONLY, 0o666) };
 
         let mut buf = [0u8; EXPECTED.len()];
         let ret = handler.execute((
@@ -265,7 +429,7 @@ fn sync_read_close() {
             assert_eq!(ret, Ok((Ok(()), Some(Ok(EXPECTED.len())), Ok(()))));
             assert_eq!(buf, EXPECTED.as_bytes());
             assert_eq!(unsafe { libc::close(fd) }, -1);
-            assert_eq!(unsafe { libc::__errno_location().read() }, libc::EBADF);
+            assert_eq!(unsafe { libc::__errno_location().read() }, EBADF);
         } else {
             assert_eq!(ret, Ok((Err(ENOSYS), Some(Err(ENOSYS)), Err(ENOSYS))));
         }
@@ -278,7 +442,7 @@ fn write() {
     const EXPECTED: &str = "write";
     let path = temp_dir().join("sallyport-test-write");
 
-    run_test(3, [0xff; 16], move |handler| {
+    run_test(2, [0xff; 16], move |i, handler| {
         let mut file = OpenOptions::new()
             .read(true)
             .write(true)
@@ -287,15 +451,40 @@ fn write() {
             .open(&path)
             .unwrap();
 
-        let ret = handler.write(file.as_raw_fd(), EXPECTED.as_bytes());
+        if i % 2 == 0 {
+            assert_eq!(
+                handler.write(file.as_raw_fd(), EXPECTED.as_bytes()),
+                if cfg!(feature = "asm") {
+                    Ok(EXPECTED.len())
+                } else {
+                    Err(ENOSYS)
+                }
+            );
+        } else {
+            assert_eq!(
+                unsafe {
+                    handler.syscall([
+                        libc::SYS_write as _,
+                        file.as_raw_fd() as _,
+                        EXPECTED.as_ptr() as _,
+                        EXPECTED.len(),
+                        0,
+                        0,
+                        0,
+                    ])
+                },
+                if cfg!(feature = "asm") {
+                    Ok([EXPECTED.len(), 0])
+                } else {
+                    Err(ENOSYS)
+                }
+            );
+        }
         if cfg!(feature = "asm") {
-            assert_eq!(ret, Ok(EXPECTED.len()));
             let mut got = String::new();
             file.rewind().unwrap();
             file.read_to_string(&mut got).unwrap();
             assert_eq!(got, EXPECTED);
-        } else {
-            assert_eq!(ret, Err(ENOSYS));
         }
     })
 }
