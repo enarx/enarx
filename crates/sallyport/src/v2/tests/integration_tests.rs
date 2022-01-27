@@ -1,16 +1,18 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use libc::{
-    sockaddr, SYS_close, SYS_fcntl, SYS_fstat, SYS_getrandom, SYS_read, SYS_recvfrom, SYS_write,
-    AF_INET, EBADF, EBADFD, ENOSYS, F_GETFD, F_GETFL, F_SETFD, F_SETFL, GRND_RANDOM, O_CREAT,
-    O_RDONLY, O_RDWR, STDERR_FILENO, STDIN_FILENO, STDOUT_FILENO,
+    c_int, sockaddr, SYS_accept, SYS_accept4, SYS_bind, SYS_close, SYS_fcntl, SYS_fstat,
+    SYS_getrandom, SYS_getsockname, SYS_listen, SYS_read, SYS_recvfrom, SYS_setsockopt, SYS_socket,
+    SYS_write, AF_INET, EBADF, EBADFD, ENOSYS, F_GETFD, F_GETFL, F_SETFD, F_SETFL, GRND_RANDOM,
+    O_CREAT, O_RDONLY, O_RDWR, SOCK_CLOEXEC, SOCK_STREAM, SOL_SOCKET, SO_REUSEADDR, STDERR_FILENO,
+    STDIN_FILENO, STDOUT_FILENO,
 };
 use std::env::temp_dir;
 use std::ffi::CString;
 use std::fs::{File, OpenOptions};
 use std::io::{Read, Seek, Write};
 use std::mem::size_of;
-use std::net::{TcpListener, TcpStream, UdpSocket};
+use std::net::{TcpListener, TcpStream, ToSocketAddrs, UdpSocket};
 use std::os::unix::prelude::AsRawFd;
 use std::ptr::NonNull;
 use std::slice;
@@ -65,6 +67,53 @@ fn run_test<const N: usize>(
             .join()
             .expect(&format!("couldn't join test iteration {} thread", i))
     }
+}
+
+fn syscall_socket(opaque: bool, exec: &mut impl Execute) -> c_int {
+    let fd = if !opaque {
+        exec.socket(AF_INET, SOCK_STREAM, 0)
+            .expect("couldn't execute 'socket' syscall")
+    } else {
+        let [fd, ret1] =
+            unsafe { exec.syscall([SYS_socket as _, AF_INET as _, SOCK_STREAM as _, 0, 0, 0, 0]) }
+                .expect("couldn't execute 'socket' syscall");
+        assert_eq!(ret1, 0);
+        fd as _
+    };
+    assert!(fd >= 0);
+    fd
+}
+
+fn syscall_recv(opaque: bool, exec: &mut impl Execute, fd: c_int, buf: &mut [u8]) {
+    let expected_len = buf.len();
+    if !opaque {
+        assert_eq!(exec.recv(fd, buf, 0), Ok(expected_len));
+    } else {
+        assert_eq!(
+            unsafe {
+                exec.syscall([
+                    SYS_recvfrom as _,
+                    fd as _,
+                    buf.as_mut_ptr() as _,
+                    expected_len,
+                    0,
+                    0,
+                    0,
+                ])
+            },
+            Ok([expected_len, 0])
+        );
+    }
+}
+
+fn write_tcp(addr: impl ToSocketAddrs, buf: &[u8]) {
+    assert_eq!(
+        TcpStream::connect(addr)
+            .expect("couldn't connect to address")
+            .write(buf)
+            .expect("couldn't write data"),
+        buf.len()
+    );
 }
 
 #[test]
@@ -161,7 +210,7 @@ fn fstat() {
     let file = File::create(temp_dir().join("sallyport-test-fstat")).unwrap();
     let fd = file.as_raw_fd();
 
-    run_test(2, [0xff; 16], move |_, handler| {
+    run_test(1, [0xff; 16], move |_, handler| {
         let mut fd_stat = unsafe { mem::zeroed() };
         assert_eq!(handler.fstat(fd, &mut fd_stat), Err(EBADFD));
         assert_eq!(
@@ -280,6 +329,179 @@ fn read() {
 
 #[test]
 #[cfg_attr(miri, ignore)]
+fn tcp_server() {
+    run_test(4, [0xff; 32], move |i, handler| {
+        let sockfd = syscall_socket(i % 2 != 0, handler);
+        let optval = 1 as c_int;
+        if i % 2 == 0 {
+            assert_eq!(
+                handler.setsockopt(sockfd, SOL_SOCKET as _, SO_REUSEADDR as _, Some(&optval)),
+                Ok(0)
+            );
+        } else {
+            assert_eq!(
+                unsafe {
+                    handler.syscall([
+                        SYS_setsockopt as _,
+                        sockfd as _,
+                        SOL_SOCKET as _,
+                        SO_REUSEADDR as _,
+                        &optval as *const _ as _,
+                        size_of::<c_int>(),
+                        0,
+                    ])
+                },
+                Ok([0, 0])
+            );
+        }
+
+        let bind_addr = sockaddr {
+            sa_family: AF_INET as _,
+            sa_data: [0, 0, 127, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0],
+        };
+        if i % 2 == 0 {
+            assert_eq!(handler.bind(sockfd, &bind_addr), Ok(()));
+        } else {
+            assert_eq!(
+                unsafe {
+                    handler.syscall([
+                        SYS_bind as _,
+                        sockfd as _,
+                        &bind_addr as *const _ as _,
+                        size_of::<sockaddr>(),
+                        0,
+                        0,
+                        0,
+                    ])
+                },
+                Ok([0, 0])
+            );
+        }
+        assert_eq!(
+            bind_addr,
+            sockaddr {
+                sa_family: AF_INET as _,
+                sa_data: [0, 0, 127, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0],
+            }
+        );
+
+        if i % 2 == 0 {
+            assert_eq!(handler.listen(sockfd, 128), Ok(()));
+        } else {
+            assert_eq!(
+                unsafe { handler.syscall([SYS_listen as _, sockfd as _, 128, 0, 0, 0, 0,]) },
+                Ok([0, 0])
+            );
+        }
+
+        let mut addr: sockaddr = unsafe { mem::zeroed() };
+        let mut addrlen = size_of::<sockaddr>() as _;
+        if i % 2 == 0 {
+            assert_eq!(
+                handler.getsockname(sockfd, (&mut addr, &mut addrlen)),
+                Ok(())
+            );
+        } else {
+            assert_eq!(
+                unsafe {
+                    handler.syscall([
+                        SYS_getsockname as _,
+                        sockfd as _,
+                        &mut addr as *mut _ as _,
+                        &mut addrlen as *mut _ as _,
+                        0,
+                        0,
+                        0,
+                    ])
+                },
+                Ok([0, 0])
+            );
+        }
+        assert_eq!(addrlen, size_of::<sockaddr>() as _);
+        assert_ne!(
+            addr,
+            sockaddr {
+                sa_family: AF_INET as _,
+                sa_data: [0, 0, 127, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0],
+            }
+        );
+        let addr = addr;
+
+        const EXPECTED: &str = "tcp";
+        let client = thread::Builder::new()
+            .name(String::from("client"))
+            .spawn(move || {
+                write_tcp(
+                    (
+                        "127.0.0.1",
+                        u16::from_be_bytes([addr.sa_data[0] as _, addr.sa_data[1] as _]),
+                    ),
+                    EXPECTED.as_bytes(),
+                );
+            })
+            .expect("couldn't spawn client thread");
+
+        let mut accept_addr: sockaddr = unsafe { mem::zeroed() };
+        let mut accept_addrlen = size_of::<sockaddr>() as _;
+
+        // NOTE: libstd sets `SOCK_CLOEXEC`.
+        let accept_sockfd = match i % 4 {
+            0 => handler
+                .accept4(
+                    sockfd,
+                    Some((&mut accept_addr, &mut accept_addrlen)),
+                    SOCK_CLOEXEC,
+                )
+                .expect("couldn't `accept4` client connection"),
+            1 => {
+                let [sockfd, ret1] = unsafe {
+                    handler
+                        .syscall([
+                            SYS_accept4 as _,
+                            sockfd as _,
+                            &mut accept_addr as *mut _ as _,
+                            &mut accept_addrlen as *mut _ as _,
+                            SOCK_CLOEXEC as _,
+                            0,
+                            0,
+                        ])
+                        .expect("couldn't `accept4` client connection")
+                };
+                assert_eq!(ret1, 0);
+                sockfd as _
+            }
+            2 => handler
+                .accept(sockfd, Some((&mut accept_addr, &mut accept_addrlen)))
+                .expect("couldn't `accept` client connection"),
+            _ => {
+                let [sockfd, ret1] = unsafe {
+                    handler
+                        .syscall([
+                            SYS_accept as _,
+                            sockfd as _,
+                            &mut accept_addr as *mut _ as _,
+                            &mut accept_addrlen as *mut _ as _,
+                            0,
+                            0,
+                            0,
+                        ])
+                        .expect("couldn't `accept` client connection")
+                };
+                assert_eq!(ret1, 0);
+                sockfd as _
+            }
+        };
+        assert!(accept_sockfd >= 0);
+
+        let mut buf = [0u8; EXPECTED.len()];
+        syscall_recv(i % 2 != 0, handler, accept_sockfd, &mut buf);
+        assert_eq!(buf, EXPECTED.as_bytes());
+        client.join().expect("couldn't join client thread");
+    });
+}
+
+#[test]
+#[cfg_attr(miri, ignore)]
 fn recv() {
     const EXPECTED: &str = "recv";
 
@@ -288,41 +510,13 @@ fn recv() {
         let addr = listener.local_addr().unwrap();
 
         let client = thread::spawn(move || {
-            assert_eq!(
-                TcpStream::connect(addr)
-                    .expect("couldn't connect to address")
-                    .write(EXPECTED.as_bytes())
-                    .expect("couldn't write data"),
-                EXPECTED.len()
-            );
+            write_tcp(addr, EXPECTED.as_bytes());
         });
         let stream = listener.accept().expect("couldn't accept connection").0;
 
         let mut buf = [0u8; EXPECTED.len()];
-        if i % 2 == 0 {
-            assert_eq!(
-                handler.recv(stream.as_raw_fd(), &mut buf, 0),
-                Ok(EXPECTED.len())
-            );
-        } else {
-            assert_eq!(
-                unsafe {
-                    handler.syscall([
-                        SYS_recvfrom as _,
-                        stream.as_raw_fd() as _,
-                        buf.as_mut_ptr() as _,
-                        EXPECTED.len(),
-                        0,
-                        0,
-                        0,
-                    ])
-                },
-                Ok([EXPECTED.len(), 0])
-            );
-        }
-        if cfg!(not(miri)) {
-            assert_eq!(buf, EXPECTED.as_bytes());
-        }
+        syscall_recv(i % 2 != 0, handler, stream.as_raw_fd(), &mut buf);
+        assert_eq!(buf, EXPECTED.as_bytes());
         client.join().expect("couldn't join client thread");
     });
 }
