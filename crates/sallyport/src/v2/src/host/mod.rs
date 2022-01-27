@@ -2,10 +2,10 @@
 
 //! Host-specific functionality.
 
-#[cfg(feature = "asm")]
+#[cfg(not(miri))]
 mod syscall;
 
-#[cfg(feature = "asm")]
+#[cfg(not(miri))]
 use syscall::*;
 
 use crate::item::Item;
@@ -19,11 +19,11 @@ impl<'a> Execute for Item<'a> {
     #[inline]
     unsafe fn execute(self) {
         match self {
-            #[cfg(feature = "asm")]
+            #[cfg(not(miri))]
             Item::Syscall(syscall, data) => {
                 let _ = execute_syscall(syscall, data);
             }
-            #[cfg(not(feature = "asm"))]
+            #[cfg(miri)]
             Item::Syscall { .. } => {}
         }
     }
@@ -123,9 +123,9 @@ mod tests {
                     Syscall {
                         num: SYS_dup2 as _,
                         argv: [STDIN_FILENO as _, fd, NULL, NULL, NULL, NULL],
-                        #[cfg(feature = "asm")]
+                        #[cfg(not(miri))]
                         ret: [fd, 0],
-                        #[cfg(not(feature = "asm"))]
+                        #[cfg(miri)]
                         ret: [-ENOSYS as _, 0],
                     },
                     []
@@ -134,9 +134,9 @@ mod tests {
                     Syscall {
                         num: SYS_fcntl as _,
                         argv: [fd as _, F_GETFD as _, NULL, NULL, NULL, NULL],
-                        #[cfg(feature = "asm")]
+                        #[cfg(not(miri))]
                         ret: [0, 0],
-                        #[cfg(not(feature = "asm"))]
+                        #[cfg(miri)]
                         ret: [-ENOSYS as _, 0],
                     },
                     []
@@ -145,9 +145,9 @@ mod tests {
                     Syscall {
                         num: SYS_read as _,
                         argv: [fd as _, 0, 0, NULL, NULL, NULL],
-                        #[cfg(feature = "asm")]
+                        #[cfg(not(miri))]
                         ret: [0, 0],
-                        #[cfg(not(feature = "asm"))]
+                        #[cfg(miri)]
                         ret: [-ENOSYS as _, 0],
                     },
                     []
@@ -156,9 +156,9 @@ mod tests {
                     Syscall {
                         num: SYS_sync as _,
                         argv: [NULL, NULL, NULL, NULL, NULL, NULL],
-                        #[cfg(feature = "asm")]
+                        #[cfg(not(miri))]
                         ret: [0, 0],
-                        #[cfg(not(feature = "asm"))]
+                        #[cfg(miri)]
                         ret: [-ENOSYS as _, 0],
                     },
                     []
@@ -167,9 +167,9 @@ mod tests {
                     Syscall {
                         num: SYS_write as _,
                         argv: [STDOUT_FILENO as _, 0, 0, NULL, NULL, NULL],
-                        #[cfg(feature = "asm")]
+                        #[cfg(not(miri))]
                         ret: [0, 0],
-                        #[cfg(not(feature = "asm"))]
+                        #[cfg(miri)]
                         ret: [-ENOSYS as _, 0],
                     },
                     []
@@ -178,9 +178,9 @@ mod tests {
                     Syscall {
                         num: SYS_close as _,
                         argv: [fd as _, NULL, NULL, NULL, NULL, NULL],
-                        #[cfg(feature = "asm")]
+                        #[cfg(not(miri))]
                         ret: [0, 0],
-                        #[cfg(not(feature = "asm"))]
+                        #[cfg(miri)]
                         ret: [-ENOSYS as _, 0],
                     },
                     []

@@ -61,8 +61,7 @@ fn close() {
         // NOTE: `miri` only supports mode 0o666 at the time of writing
         // https://github.com/rust-lang/miri/blob/7a2f1cadcd5120c44eda3596053de767cd8173a2/src/shims/posix/fs.rs#L487-L493
         let fd = unsafe { libc::open(c_path.as_ptr(), O_RDWR | O_CREAT, 0o666) };
-
-        if cfg!(feature = "asm") {
+        if cfg!(not(miri)) {
             if i % 2 == 0 {
                 assert_eq!(handler.close(fd), Ok(()));
             } else {
@@ -97,7 +96,7 @@ fn fcntl() {
             if i % 2 == 0 {
                 assert_eq!(
                     handler.fcntl(fd, cmd, 0),
-                    if cfg!(feature = "asm") {
+                    if cfg!(not(miri)) {
                         Ok(unsafe { libc::fcntl(fd, cmd) })
                     } else {
                         Err(ENOSYS)
@@ -108,7 +107,7 @@ fn fcntl() {
                     unsafe {
                         handler.syscall([libc::SYS_fcntl as _, fd as _, cmd as _, 0, 0, 0, 0])
                     },
-                    if cfg!(feature = "asm") {
+                    if cfg!(not(miri)) {
                         Ok([unsafe { libc::fcntl(fd, cmd) } as _, 0])
                     } else {
                         Err(ENOSYS)
@@ -120,7 +119,7 @@ fn fcntl() {
             if i % 2 == 0 {
                 assert_eq!(
                     handler.fcntl(fd, cmd, arg),
-                    if cfg!(feature = "asm") {
+                    if cfg!(not(miri)) {
                         Ok(unsafe { libc::fcntl(fd, cmd, arg) })
                     } else {
                         Err(ENOSYS)
@@ -139,7 +138,7 @@ fn fcntl() {
                             0,
                         ])
                     },
-                    if cfg!(feature = "asm") {
+                    if cfg!(not(miri)) {
                         Ok([unsafe { libc::fcntl(fd, cmd, arg) } as _, 0])
                     } else {
                         Err(ENOSYS)
@@ -242,7 +241,7 @@ fn read() {
         if i % 2 == 0 {
             assert_eq!(
                 handler.read(file.as_raw_fd(), &mut buf),
-                if cfg!(feature = "asm") {
+                if cfg!(not(miri)) {
                     Ok(EXPECTED.len())
                 } else {
                     Err(ENOSYS)
@@ -261,14 +260,14 @@ fn read() {
                         0,
                     ])
                 },
-                if cfg!(feature = "asm") {
+                if cfg!(not(miri)) {
                     Ok([EXPECTED.len(), 0])
                 } else {
                     Err(ENOSYS)
                 }
             );
         }
-        if cfg!(feature = "asm") {
+        if cfg!(not(miri)) {
             assert_eq!(buf, EXPECTED.as_bytes());
         }
     });
@@ -297,12 +296,8 @@ fn recv() {
         let mut buf = [0u8; EXPECTED.len()];
         if i % 2 == 0 {
             assert_eq!(
-                handler.recv(stream.as_raw_fd(), &mut buf, 0,),
-                if cfg!(feature = "asm") {
-                    Ok(EXPECTED.len())
-                } else {
-                    Err(ENOSYS)
-                }
+                handler.recv(stream.as_raw_fd(), &mut buf, 0),
+                Ok(EXPECTED.len())
             );
         } else {
             assert_eq!(
@@ -317,14 +312,10 @@ fn recv() {
                         0,
                     ])
                 },
-                if cfg!(feature = "asm") {
-                    Ok([EXPECTED.len(), 0])
-                } else {
-                    Err(ENOSYS)
-                }
+                Ok([EXPECTED.len(), 0])
             );
         }
-        if cfg!(feature = "asm") {
+        if cfg!(not(miri)) {
             assert_eq!(buf, EXPECTED.as_bytes());
         }
         client.join().expect("couldn't join client thread");
@@ -366,11 +357,7 @@ fn recvfrom() {
                     0,
                     SockaddrOutput::new(&mut src_addr_bytes, &mut addrlen),
                 ),
-                if cfg!(feature = "asm") {
-                    Ok(EXPECTED.len())
-                } else {
-                    Err(ENOSYS)
-                }
+                Ok(EXPECTED.len())
             );
         } else {
             assert_eq!(
@@ -385,24 +372,18 @@ fn recvfrom() {
                         &mut addrlen as *mut _ as _,
                     ])
                 },
-                if cfg!(feature = "asm") {
-                    Ok([EXPECTED.len(), 0])
-                } else {
-                    Err(ENOSYS)
-                }
+                Ok([EXPECTED.len(), 0])
             );
         }
-        if cfg!(feature = "asm") {
-            assert_eq!(buf, EXPECTED.as_bytes());
-            assert_eq!(
-                src_addr,
-                libc::sockaddr {
-                    sa_family: AF_INET as _,
-                    sa_data: [0xff as _, 0xfe as _, 127, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0]
-                },
-            );
-            assert_eq!(addrlen, size_of::<libc::sockaddr>() as _);
-        }
+        assert_eq!(buf, EXPECTED.as_bytes());
+        assert_eq!(
+            src_addr,
+            libc::sockaddr {
+                sa_family: AF_INET as _,
+                sa_data: [0xff as _, 0xfe as _, 127, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0]
+            },
+        );
+        assert_eq!(addrlen, size_of::<libc::sockaddr>() as _);
         client.join().expect("couldn't join client thread");
     });
 }
@@ -425,7 +406,7 @@ fn sync_read_close() {
             syscall::Close { fd },
         ));
 
-        if cfg!(feature = "asm") {
+        if cfg!(not(miri)) {
             assert_eq!(ret, Ok((Ok(()), Some(Ok(EXPECTED.len())), Ok(()))));
             assert_eq!(buf, EXPECTED.as_bytes());
             assert_eq!(unsafe { libc::close(fd) }, -1);
@@ -454,7 +435,7 @@ fn write() {
         if i % 2 == 0 {
             assert_eq!(
                 handler.write(file.as_raw_fd(), EXPECTED.as_bytes()),
-                if cfg!(feature = "asm") {
+                if cfg!(not(miri)) {
                     Ok(EXPECTED.len())
                 } else {
                     Err(ENOSYS)
@@ -473,14 +454,14 @@ fn write() {
                         0,
                     ])
                 },
-                if cfg!(feature = "asm") {
+                if cfg!(not(miri)) {
                     Ok([EXPECTED.len(), 0])
                 } else {
                     Err(ENOSYS)
                 }
             );
         }
-        if cfg!(feature = "asm") {
+        if cfg!(not(miri)) {
             let mut got = String::new();
             file.rewind().unwrap();
             file.read_to_string(&mut got).unwrap();
