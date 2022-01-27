@@ -111,8 +111,21 @@ impl<'a, T: ?Sized + Copy> OutRef<'a, [T]> {
 
 /// Allocated output.
 pub struct Output<'a, T: ?Sized, U> {
-    pub(super) data_ref: OutRef<'a, T>,
-    pub(super) val: U,
+    data_ref: OutRef<'a, T>,
+    val: U,
+}
+
+impl<'a, T: ?Sized, U> Output<'a, T, U> {
+    /// Contructs a new [Output].
+    ///
+    /// # Safety
+    ///
+    /// Callers must ensure that the passed reference and value have the same size.
+    ///
+    #[inline]
+    pub unsafe fn new_unchecked(data_ref: OutRef<'a, T>, val: U) -> Self {
+        Self { data_ref, val }
+    }
 }
 
 impl<T: ?Sized, U> Output<'_, T, U> {

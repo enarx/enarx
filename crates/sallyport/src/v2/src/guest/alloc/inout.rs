@@ -67,6 +67,19 @@ pub struct InOut<'a, T: ?Sized, U> {
     val: U,
 }
 
+impl<'a, T: ?Sized, U> InOut<'a, T, U> {
+    /// Contructs a new [InOut].
+    ///
+    /// # Safety
+    ///
+    /// Callers must ensure that the passed reference and value have the same size.
+    ///
+    #[inline]
+    pub unsafe fn new_unchecked(data_ref: InOutRef<'a, T>, val: U) -> Self {
+        Self { data_ref, val }
+    }
+}
+
 impl<T: ?Sized, U> InOut<'_, T, U> {
     /// Returns the byte offset within block.
     #[inline]
@@ -86,10 +99,7 @@ impl<T, U> InOut<'_, [T], U> {
 impl<'a, T: ?Sized, U> From<InOut<'a, T, U>> for Output<'a, T, U> {
     #[inline]
     fn from(r: InOut<'a, T, U>) -> Self {
-        Self {
-            data_ref: r.data_ref.into(),
-            val: r.val,
-        }
+        unsafe { Self::new_unchecked(r.data_ref.into(), r.val) }
     }
 }
 

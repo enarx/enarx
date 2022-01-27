@@ -116,6 +116,19 @@ pub struct Input<'a, T: ?Sized, U> {
     val: U,
 }
 
+impl<'a, T: ?Sized, U> Input<'a, T, U> {
+    /// Contructs a new [Input].
+    ///
+    /// # Safety
+    ///
+    /// Callers must ensure that the passed reference and value have the same size.
+    ///
+    #[inline]
+    pub unsafe fn new_unchecked(data_ref: InRef<'a, T>, val: U) -> Self {
+        Self { data_ref, val }
+    }
+}
+
 impl<T: ?Sized, U> Input<'_, T, U> {
     /// Returns the byte offset within block.
     #[inline]
