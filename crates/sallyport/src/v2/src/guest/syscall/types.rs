@@ -68,6 +68,7 @@ pub struct SockaddrInput<'a>(pub &'a [u8]);
 pub type StagedSockaddrInput<'a> = Input<'a, [u8], &'a [u8]>;
 
 impl<'a> From<&'a [u8]> for SockaddrInput<'a> {
+    #[inline]
     fn from(addr: &'a [u8]) -> Self {
         Self(addr)
     }
@@ -91,12 +92,14 @@ pub struct SockaddrOutput<'a> {
 }
 
 impl<'a> From<(&'a mut [u8], &'a mut socklen_t)> for SockaddrOutput<'a> {
+    #[inline]
     fn from((addr, addrlen): (&'a mut [u8], &'a mut socklen_t)) -> Self {
         Self::new(addr, addrlen)
     }
 }
 
 impl<'a> SockaddrOutput<'a> {
+    #[inline]
     pub fn new(addr: &'a mut [u8], addrlen: &'a mut socklen_t) -> Self {
         Self { addr, addrlen }
     }
@@ -131,6 +134,7 @@ impl<'a> Stage<'a> for SockaddrOutput<'a> {
 impl<'a> Commit for StagedSockaddrOutput<'a> {
     type Item = CommittedSockaddrOutput<'a>;
 
+    #[inline]
     fn commit(self, com: &impl Committer) -> Self::Item {
         Self::Item {
             addr: self.addr,
@@ -142,6 +146,7 @@ impl<'a> Commit for StagedSockaddrOutput<'a> {
 impl<'a> Collect for CommittedSockaddrOutput<'a> {
     type Item = ();
 
+    #[inline]
     fn collect(self, col: &impl Collector) {
         let addrlen = *self.addrlen.collect(col);
         let len = self.addr.len().min(addrlen as _);
