@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use libc::{
+    sockaddr, SYS_close, SYS_fcntl, SYS_fstat, SYS_getrandom, SYS_read, SYS_recvfrom, SYS_write,
     AF_INET, EBADF, EBADFD, ENOSYS, F_GETFD, F_GETFL, F_SETFD, F_SETFL, GRND_RANDOM, O_CREAT,
     O_RDONLY, O_RDWR, STDERR_FILENO, STDIN_FILENO, STDOUT_FILENO,
 };
@@ -81,7 +82,7 @@ fn close() {
                 assert_eq!(handler.close(fd), Ok(()));
             } else {
                 assert_eq!(
-                    unsafe { handler.syscall([libc::SYS_close as _, fd as _, 0, 0, 0, 0, 0]) },
+                    unsafe { handler.syscall([SYS_close as _, fd as _, 0, 0, 0, 0, 0]) },
                     Ok([0, 0])
                 );
             }
@@ -92,7 +93,7 @@ fn close() {
                 assert_eq!(handler.close(fd), Err(ENOSYS));
             } else {
                 assert_eq!(
-                    unsafe { handler.syscall([libc::SYS_close as _, fd as _, 0, 0, 0, 0, 0]) },
+                    unsafe { handler.syscall([SYS_close as _, fd as _, 0, 0, 0, 0, 0]) },
                     Err(ENOSYS)
                 );
             }
@@ -119,9 +120,7 @@ fn fcntl() {
                 );
             } else {
                 assert_eq!(
-                    unsafe {
-                        handler.syscall([libc::SYS_fcntl as _, fd as _, cmd as _, 0, 0, 0, 0])
-                    },
+                    unsafe { handler.syscall([SYS_fcntl as _, fd as _, cmd as _, 0, 0, 0, 0]) },
                     if cfg!(not(miri)) {
                         Ok([unsafe { libc::fcntl(fd, cmd) } as _, 0])
                     } else {
@@ -143,15 +142,7 @@ fn fcntl() {
             } else {
                 assert_eq!(
                     unsafe {
-                        handler.syscall([
-                            libc::SYS_fcntl as _,
-                            fd as _,
-                            cmd as _,
-                            arg as _,
-                            0,
-                            0,
-                            0,
-                        ])
+                        handler.syscall([SYS_fcntl as _, fd as _, cmd as _, arg as _, 0, 0, 0])
                     },
                     if cfg!(not(miri)) {
                         Ok([unsafe { libc::fcntl(fd, cmd, arg) } as _, 0])
@@ -176,7 +167,7 @@ fn fstat() {
         assert_eq!(
             unsafe {
                 handler.syscall([
-                    libc::SYS_fstat as _,
+                    SYS_fstat as _,
                     fd as _,
                     &mut fd_stat as *mut _ as _,
                     0,
@@ -194,7 +185,7 @@ fn fstat() {
             assert_eq!(
                 unsafe {
                     handler.syscall([
-                        libc::SYS_fstat as _,
+                        SYS_fstat as _,
                         fd as _,
                         &mut stat as *mut _ as _,
                         0,
@@ -225,7 +216,7 @@ fn getrandom() {
         assert_eq!(
             unsafe {
                 handler.syscall([
-                    libc::SYS_getrandom as _,
+                    SYS_getrandom as _,
                     buf_2.as_mut_ptr() as _,
                     LEN,
                     GRND_RANDOM as _,
@@ -265,7 +256,7 @@ fn read() {
             assert_eq!(
                 unsafe {
                     handler.syscall([
-                        libc::SYS_read as _,
+                        SYS_read as _,
                         file.as_raw_fd() as _,
                         buf.as_mut_ptr() as _,
                         EXPECTED.len(),
@@ -317,7 +308,7 @@ fn recv() {
             assert_eq!(
                 unsafe {
                     handler.syscall([
-                        libc::SYS_recvfrom as _,
+                        SYS_recvfrom as _,
                         stream.as_raw_fd() as _,
                         buf.as_mut_ptr() as _,
                         EXPECTED.len(),
@@ -358,9 +349,9 @@ fn recvfrom() {
         });
 
         let mut buf = [0u8; EXPECTED.len()];
-        let mut src_addr: libc::sockaddr = unsafe { mem::zeroed() };
+        let mut src_addr: sockaddr = unsafe { mem::zeroed() };
         let mut src_addr_bytes = unsafe {
-            slice::from_raw_parts_mut(&mut src_addr as *mut _ as _, size_of::<libc::sockaddr>())
+            slice::from_raw_parts_mut(&mut src_addr as *mut _ as _, size_of::<sockaddr>())
         };
         let mut addrlen = src_addr_bytes.len() as _;
         if i % 2 == 0 {
@@ -377,7 +368,7 @@ fn recvfrom() {
             assert_eq!(
                 unsafe {
                     handler.syscall([
-                        libc::SYS_recvfrom as _,
+                        SYS_recvfrom as _,
                         socket.as_raw_fd() as _,
                         buf.as_mut_ptr() as _,
                         EXPECTED.len(),
@@ -392,12 +383,12 @@ fn recvfrom() {
         assert_eq!(buf, EXPECTED.as_bytes());
         assert_eq!(
             src_addr,
-            libc::sockaddr {
+            sockaddr {
                 sa_family: AF_INET as _,
                 sa_data: [0xff as _, 0xfe as _, 127, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0]
             },
         );
-        assert_eq!(addrlen, size_of::<libc::sockaddr>() as _);
+        assert_eq!(addrlen, size_of::<sockaddr>() as _);
         client.join().expect("couldn't join client thread");
     });
 }
@@ -459,7 +450,7 @@ fn write() {
             assert_eq!(
                 unsafe {
                     handler.syscall([
-                        libc::SYS_write as _,
+                        SYS_write as _,
                         file.as_raw_fd() as _,
                         EXPECTED.as_ptr() as _,
                         EXPECTED.len(),
