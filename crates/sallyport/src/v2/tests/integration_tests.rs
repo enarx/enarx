@@ -29,8 +29,16 @@ impl<const N: usize> Platform for TestPlatform<N> {
         Ok(())
     }
 
+    fn validate<'b, T>(&self, ptr: usize) -> Result<&'b T> {
+        Ok(unsafe { &*(ptr as *const _) })
+    }
+
     fn validate_mut<'b, T>(&self, ptr: usize) -> Result<&'b mut T> {
         Ok(unsafe { &mut *(ptr as *mut _) })
+    }
+
+    fn validate_slice<'b, T>(&self, ptr: usize, len: usize) -> Result<&'b [T]> {
+        Ok(unsafe { slice::from_raw_parts(ptr as _, len) })
     }
 
     fn validate_slice_mut<'b, T>(&self, ptr: usize, len: usize) -> Result<&'b mut [T]> {
