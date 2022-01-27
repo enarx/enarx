@@ -203,7 +203,7 @@ pub unsafe trait PassthroughSyscall {
 
     /// The syscall argument vector.
     ///
-    /// For example, [`syscall::Argv<1>`].
+    /// For example, [`syscall::types::Argv<1>`].
     type Argv: Into<[usize; 6]>;
 
     /// Syscall return value.
