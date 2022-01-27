@@ -2,7 +2,9 @@
 
 //! Syscall-specific types.
 
-use crate::guest::alloc::{Allocator, Collect, Commit, InOut, Output, Stage};
+use crate::guest::alloc::{
+    Allocator, Collect, Collector, Commit, Committer, InOut, Input, Output, Stage,
+};
 use crate::{Result, NULL};
 use core::alloc::Layout;
 use core::mem::align_of;
@@ -61,9 +63,37 @@ impl From<Argv<6>> for [usize; 6] {
     }
 }
 
+pub struct SockaddrInput<'a>(pub &'a [u8]);
+
+pub type StagedSockaddrInput<'a> = Input<'a, [u8], &'a [u8]>;
+
+impl<'a> From<&'a [u8]> for SockaddrInput<'a> {
+    fn from(addr: &'a [u8]) -> Self {
+        Self(addr)
+    }
+}
+
+impl<'a> Stage<'a> for SockaddrInput<'a> {
+    type Item = StagedSockaddrInput<'a>;
+
+    #[inline]
+    fn stage(self, alloc: &mut impl Allocator) -> Result<Self::Item> {
+        let layout = Layout::from_size_align(self.0.len(), align_of::<sockaddr_storage>())
+            .map_err(|_| EOVERFLOW)?;
+        let addr = alloc.allocate_input_layout(layout)?;
+        Ok(unsafe { Input::new_unchecked(addr, self.0) })
+    }
+}
+
 pub struct SockaddrOutput<'a> {
     pub addr: &'a mut [u8],
     pub addrlen: &'a mut socklen_t,
+}
+
+impl<'a> From<(&'a mut [u8], &'a mut socklen_t)> for SockaddrOutput<'a> {
+    fn from((addr, addrlen): (&'a mut [u8], &'a mut socklen_t)) -> Self {
+        Self::new(addr, addrlen)
+    }
 }
 
 impl<'a> SockaddrOutput<'a> {
@@ -101,7 +131,7 @@ impl<'a> Stage<'a> for SockaddrOutput<'a> {
 impl<'a> Commit for StagedSockaddrOutput<'a> {
     type Item = CommittedSockaddrOutput<'a>;
 
-    fn commit(self, com: &impl crate::guest::alloc::Committer) -> Self::Item {
+    fn commit(self, com: &impl Committer) -> Self::Item {
         Self::Item {
             addr: self.addr,
             addrlen: self.addrlen.commit(com),
@@ -112,7 +142,7 @@ impl<'a> Commit for StagedSockaddrOutput<'a> {
 impl<'a> Collect for CommittedSockaddrOutput<'a> {
     type Item = ();
 
-    fn collect(self, col: &impl crate::guest::alloc::Collector) {
+    fn collect(self, col: &impl Collector) {
         let addrlen = *self.addrlen.collect(col);
         let len = self.addr.len().min(addrlen as _);
         unsafe { self.addr.collect_range(col, 0..len) };

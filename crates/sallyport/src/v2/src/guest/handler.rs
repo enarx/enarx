@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use super::alloc::{phase, Alloc, Allocator, Collect, Commit, Committer};
-use super::syscall::types::SockaddrOutput;
+use super::syscall::types::{SockaddrInput, SockaddrOutput};
 use super::{syscall, Call, Platform};
 use crate::{item, Result};
 
@@ -51,7 +51,7 @@ pub trait Execute {
     }
 
     /// Executes [`bind`](https://man7.org/linux/man-pages/man2/bind.2.html) syscall akin to [`libc::bind`].
-    fn bind(&mut self, sockfd: c_int, addr: &[u8]) -> Result<()> {
+    fn bind<'a>(&mut self, sockfd: c_int, addr: impl Into<SockaddrInput<'a>>) -> Result<()> {
         self.execute(syscall::Bind { sockfd, addr })?
     }
 
@@ -66,7 +66,7 @@ pub trait Execute {
     }
 
     /// Executes [`connect`](https://man7.org/linux/man-pages/man2/connect.2.html) syscall akin to [`libc::connect`].
-    fn connect(&mut self, sockfd: c_int, addr: &[u8]) -> Result<()> {
+    fn connect<'a>(&mut self, sockfd: c_int, addr: impl Into<SockaddrInput<'a>>) -> Result<()> {
         self.execute(syscall::Connect { sockfd, addr })?
     }
 

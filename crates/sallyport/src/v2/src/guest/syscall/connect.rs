@@ -1,17 +1,17 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use super::types::Argv;
-use crate::guest::alloc::{Allocator, Collector, Input, Syscall};
+use super::types::{Argv, SockaddrInput};
+use crate::guest::alloc::{Allocator, Collector, Input, Stage, Syscall};
 use crate::Result;
 
 use libc::{c_int, c_long};
 
-pub struct Connect<'a> {
+pub struct Connect<T> {
     pub sockfd: c_int,
-    pub addr: &'a [u8],
+    pub addr: T,
 }
 
-unsafe impl<'a> Syscall<'a> for Connect<'a> {
+unsafe impl<'a, T: Into<SockaddrInput<'a>>> Syscall<'a> for Connect<T> {
     const NUM: c_long = libc::SYS_connect;
 
     type Argv = Argv<3>;
@@ -22,7 +22,7 @@ unsafe impl<'a> Syscall<'a> for Connect<'a> {
     type Collected = Result<()>;
 
     fn stage(self, alloc: &mut impl Allocator) -> Result<(Self::Argv, Self::Staged)> {
-        let addr = Input::stage_slice(alloc, self.addr)?;
+        let addr = self.addr.into().stage(alloc)?;
         Ok((Argv([self.sockfd as _, addr.offset(), addr.len()]), addr))
     }
 
