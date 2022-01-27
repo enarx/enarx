@@ -1,19 +1,19 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use super::types::Argv;
-use crate::guest::alloc::{Allocator, Collector, Input, Syscall};
-use crate::Result;
+use super::types::{Argv, SockoptInput};
+use crate::guest::alloc::{Allocator, Collector, Stage, Syscall};
+use crate::{Result, NULL};
 
 use libc::{c_int, c_long};
 
-pub struct Setsockopt<'a> {
+pub struct Setsockopt<T> {
     pub sockfd: c_int,
     pub level: c_int,
     pub optname: c_int,
-    pub optval: &'a [u8],
+    pub optval: Option<T>,
 }
 
-unsafe impl<'a> Syscall<'a> for Setsockopt<'a> {
+unsafe impl<'a, T: Into<SockoptInput<'a>>> Syscall<'a> for Setsockopt<T> {
     const NUM: c_long = libc::SYS_setsockopt;
 
     type Argv = Argv<5>;
@@ -24,14 +24,22 @@ unsafe impl<'a> Syscall<'a> for Setsockopt<'a> {
     type Collected = Result<c_int>;
 
     fn stage(self, alloc: &mut impl Allocator) -> Result<(Self::Argv, Self::Staged)> {
-        let optval = Input::stage_slice(alloc, self.optval)?;
+        let optval = self
+            .optval
+            .map(Into::into)
+            .map(|optval| optval.stage(alloc))
+            .transpose()?;
+        let (optval_offset, optlen) = optval
+            .as_ref()
+            .map_or((NULL, 0), |optval| (optval.offset(), optval.len()));
+
         Ok((
             Argv([
                 self.sockfd as _,
                 self.level as _,
                 self.optname as _,
-                optval.offset(),
-                optval.len(),
+                optval_offset,
+                optlen,
             ]),
             (),
         ))

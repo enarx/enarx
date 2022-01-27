@@ -215,12 +215,12 @@ pub trait Execute {
     }
 
     /// Executes [`setsockopt`](https://man7.org/linux/man-pages/man2/setsockopt.2.html) syscall akin to [`libc::setsockopt`].
-    fn setsockopt(
+    fn setsockopt<'a>(
         &mut self,
         sockfd: c_int,
         level: c_int,
         optname: c_int,
-        optval: &[u8],
+        optval: Option<impl Into<SockoptInput<'a>>>,
     ) -> Result<c_int> {
         self.execute(syscall::Setsockopt {
             sockfd,
@@ -410,7 +410,13 @@ impl<'a, P: Platform> Execute for Handler<'a, P> {
                 .map(|ret| [ret, 0])
             }
             (libc::SYS_setsockopt, [sockfd, level, optname, optval, optlen, ..]) => {
-                let optval = self.platform.validate_slice(optval, optlen)?;
+                let optval = if optval == 0 {
+                    None
+                } else {
+                    self.platform
+                        .validate_slice::<u8>(optval, optlen)
+                        .map(Some)?
+                };
                 self.setsockopt(sockfd as _, level as _, optname as _, optval)
                     .map(|ret| [ret as _, 0])
             }

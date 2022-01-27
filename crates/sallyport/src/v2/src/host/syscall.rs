@@ -394,10 +394,21 @@ pub(super) unsafe fn execute_syscall(syscall: &mut item::Syscall, data: &mut [u8
             argv: [sockfd, level, optname, optval_offset, optlen, ..],
             ret: [ret, ..],
         } if *num == libc::SYS_setsockopt as _ => {
-            let optval = deref::<u8>(data, *optval_offset, *optlen)?;
+            let (optval, optlen) = if *optval_offset == NULL {
+                (null_mut(), 0)
+            } else {
+                let optval = deref::<u8>(data, *optval_offset, *optlen)?;
+                // We have no means to determine the actual alignment of type optval points to,
+                // therefore ensure alignment of align_of::<usize>() is maintained and hope for the
+                // best.
+                if optval.align_offset(align_of::<usize>()) != 0 {
+                    return Err(EFAULT);
+                }
+                (optval, *optlen)
+            };
             Syscall {
                 num: libc::SYS_setsockopt,
-                argv: [*sockfd, *level, *optname, optval as _, *optlen],
+                argv: [*sockfd, *level, *optname, optval as _, optlen],
                 ret: [ret],
             }
             .execute();
