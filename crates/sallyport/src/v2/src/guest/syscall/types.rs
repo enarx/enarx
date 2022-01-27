@@ -4,8 +4,10 @@
 
 use crate::guest::alloc::{Allocator, Collect, Commit, InOut, Output, Stage};
 use crate::{Result, NULL};
+use core::alloc::Layout;
+use core::mem::align_of;
 
-use libc::socklen_t;
+use libc::{sockaddr_storage, socklen_t, EOVERFLOW};
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Argv<const N: usize>(pub [usize; N]);
@@ -85,9 +87,14 @@ impl<'a> Stage<'a> for SockaddrOutput<'a> {
 
     #[inline]
     fn stage(self, alloc: &mut impl Allocator) -> Result<Self::Item> {
-        let addr = Output::stage_slice(alloc, self.addr)?;
+        let layout = Layout::from_size_align(self.addr.len(), align_of::<sockaddr_storage>())
+            .map_err(|_| EOVERFLOW)?;
+        let addr = alloc.allocate_output_layout(layout)?;
         let addrlen = InOut::stage(alloc, self.addrlen)?;
-        Ok(Self::Item { addr, addrlen })
+        Ok(Self::Item {
+            addr: unsafe { Output::new_unchecked(addr, self.addr) },
+            addrlen,
+        })
     }
 }
 
