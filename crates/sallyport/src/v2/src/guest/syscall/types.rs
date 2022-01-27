@@ -7,7 +7,8 @@ use crate::guest::alloc::{
 };
 use crate::{Result, NULL};
 use core::alloc::Layout;
-use core::mem::align_of;
+use core::mem::{align_of, size_of};
+use core::slice;
 
 use libc::{sockaddr_storage, socklen_t, EOVERFLOW};
 
@@ -74,6 +75,14 @@ impl<'a> From<&'a [u8]> for SockaddrInput<'a> {
     }
 }
 
+impl<'a, T> From<&'a T> for SockaddrInput<'a> {
+    #[inline]
+    fn from(addr: &'a T) -> Self {
+        debug_assert!(align_of::<T>() <= align_of::<sockaddr_storage>());
+        Self(unsafe { slice::from_raw_parts(addr as *const _ as _, size_of::<T>()) })
+    }
+}
+
 impl<'a> Stage<'a> for SockaddrInput<'a> {
     type Item = StagedSockaddrInput<'a>;
 
@@ -94,7 +103,20 @@ pub struct SockaddrOutput<'a> {
 impl<'a> From<(&'a mut [u8], &'a mut socklen_t)> for SockaddrOutput<'a> {
     #[inline]
     fn from((addr, addrlen): (&'a mut [u8], &'a mut socklen_t)) -> Self {
+        debug_assert_eq!(addr.len(), *addrlen as _);
         Self::new(addr, addrlen)
+    }
+}
+
+impl<'a, T> From<(&'a mut T, &'a mut socklen_t)> for SockaddrOutput<'a> {
+    #[inline]
+    fn from((addr, addrlen): (&'a mut T, &'a mut socklen_t)) -> Self {
+        debug_assert!(align_of::<T>() <= align_of::<sockaddr_storage>());
+        debug_assert_eq!(size_of::<T>(), *addrlen as _);
+        Self::new(
+            unsafe { slice::from_raw_parts_mut(addr as *const _ as _, size_of::<T>()) },
+            addrlen,
+        )
     }
 }
 
