@@ -40,24 +40,31 @@ impl<const N: usize> Platform for TestPlatform<N> {
 
 fn run_test<const N: usize>(
     n: usize,
-    mut block: [usize; N],
-    f: impl Fn(usize, &mut Handler<TestPlatform<N>>),
+    block: [usize; N],
+    f: impl FnOnce(usize, &mut Handler<TestPlatform<N>>) + Sync + Send + Copy + 'static,
 ) {
-    let platform = TestPlatform(NonNull::from(&mut block));
-    let mut handler = Handler::new(&mut block, platform);
     for i in 0..n {
-        f(i, &mut handler);
+        thread::Builder::new()
+            .name(format!("iteration {}", i))
+            .spawn(move || {
+                let mut block = block;
+                let platform = TestPlatform(NonNull::from(&mut block));
+                let mut handler = Handler::new(&mut block, platform);
+                f(i, &mut handler);
+            })
+            .expect(&format!("couldn't spawn test iteration {} thread", i))
+            .join()
+            .expect(&format!("couldn't join test iteration {} thread", i))
     }
-    let _ = block;
 }
 
 #[test]
 #[serial]
 fn close() {
-    let path = temp_dir().join("sallyport-test-close");
-    let c_path = CString::new(path.as_os_str().to_str().unwrap()).unwrap();
-
     run_test(2, [0xff; 16], move |i, handler| {
+        let path = temp_dir().join(format!("sallyport-test-close-{}", i));
+        let c_path = CString::new(path.as_os_str().to_str().unwrap()).unwrap();
+
         // NOTE: `miri` only supports mode 0o666 at the time of writing
         // https://github.com/rust-lang/miri/blob/7a2f1cadcd5120c44eda3596053de767cd8173a2/src/shims/posix/fs.rs#L487-L493
         let fd = unsafe { libc::open(c_path.as_ptr(), O_RDWR | O_CREAT, 0o666) };
@@ -88,10 +95,10 @@ fn close() {
 #[test]
 #[serial]
 fn fcntl() {
-    let file = File::create(temp_dir().join("sallyport-test-fcntl")).unwrap();
-    let fd = file.as_raw_fd();
-
     run_test(2, [0xff; 16], move |i, handler| {
+        let file = File::create(temp_dir().join(format!("sallyport-test-fcntl-{}", i))).unwrap();
+        let fd = file.as_raw_fd();
+
         for cmd in [F_GETFD] {
             if i % 2 == 0 {
                 assert_eq!(
@@ -147,7 +154,6 @@ fn fcntl() {
             }
         }
     });
-    let _ = file;
 }
 
 #[test]
@@ -230,11 +236,11 @@ fn getrandom() {
 #[test]
 #[serial]
 fn read() {
-    const EXPECTED: &str = "read";
-    let path = temp_dir().join("sallyport-test-read");
-    write!(&mut File::create(&path).unwrap(), "{}", EXPECTED).unwrap();
-
     run_test(2, [0xff; 16], move |i, handler| {
+        const EXPECTED: &str = "read";
+        let path = temp_dir().join(format!("sallyport-test-read-{}", i));
+        write!(&mut File::create(&path).unwrap(), "{}", EXPECTED).unwrap();
+
         let mut buf = [0u8; EXPECTED.len()];
 
         let file = File::open(&path).unwrap();
@@ -391,12 +397,12 @@ fn recvfrom() {
 #[test]
 #[serial]
 fn sync_read_close() {
-    const EXPECTED: &str = "sync-read-close";
-    let path = temp_dir().join("sallyport-test-sync-read-close");
-    write!(&mut File::create(&path).unwrap(), "{}", EXPECTED).unwrap();
-
-    let c_path = CString::new(path.as_os_str().to_str().unwrap()).unwrap();
     run_test(1, [0xff; 64], move |_, handler| {
+        const EXPECTED: &str = "sync-read-close";
+        let path = temp_dir().join("sallyport-test-sync-read-close");
+        write!(&mut File::create(&path).unwrap(), "{}", EXPECTED).unwrap();
+
+        let c_path = CString::new(path.as_os_str().to_str().unwrap()).unwrap();
         let fd = unsafe { libc::open(c_path.as_ptr(), O_RDONLY, 0o666) };
 
         let mut buf = [0u8; EXPECTED.len()];
@@ -420,10 +426,10 @@ fn sync_read_close() {
 #[test]
 #[serial]
 fn write() {
-    const EXPECTED: &str = "write";
-    let path = temp_dir().join("sallyport-test-write");
-
     run_test(2, [0xff; 16], move |i, handler| {
+        const EXPECTED: &str = "write";
+        let path = temp_dir().join("sallyport-test-write");
+
         let mut file = OpenOptions::new()
             .read(true)
             .write(true)
