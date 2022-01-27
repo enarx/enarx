@@ -4,8 +4,8 @@ use super::Execute;
 use crate::{item, Result};
 
 use core::arch::asm;
-use core::mem::size_of;
-use libc::{c_long, socklen_t, timespec};
+use core::mem::{align_of, size_of};
+use libc::{c_long, socklen_t, timespec, EFAULT};
 
 struct Syscall<'a, const ARGS: usize, const RETS: usize> {
     /// The syscall number for the request.
@@ -127,7 +127,11 @@ impl Execute for Syscall<'_, 6, 1> {
 
 /// Validates that `data` contains `len` elements of type `T` at `offset`
 /// and returns a mutable pointer to the first element on success.
-/// NOTE: callers must ensure that pointer is correctly aligned before accessing it.
+///
+/// # Safety
+///
+/// Callers must ensure that pointer is correctly aligned before accessing it.
+///
 fn deref<T>(data: &mut [u8], offset: usize, len: usize) -> Result<*mut T> {
     let size = len * size_of::<T>();
     if size > data.len() || data.len() - size < offset {
@@ -159,6 +163,9 @@ pub(super) unsafe fn execute_syscall(syscall: &mut item::Syscall, data: &mut [u8
             ret: [ret, ..],
         } if *num == libc::SYS_clock_gettime as _ => {
             let tp = deref::<timespec>(data, *tp_offset, 1)?;
+            if tp.align_offset(align_of::<timespec>()) != 0 {
+                return Err(EFAULT);
+            }
             Syscall {
                 num: libc::SYS_clock_gettime,
                 argv: [*clockid, tp as _],
