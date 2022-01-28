@@ -27,7 +27,7 @@ pub mod types;
 pub use accept::*;
 pub use accept4::*;
 pub use bind::*;
-pub use clock_gettime::*;
+pub(crate) use clock_gettime::*;
 pub use connect::*;
 pub use fcntl::Fcntl;
 pub use fstat::*;
