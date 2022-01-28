@@ -165,6 +165,38 @@ impl Collect for Getuid {
     }
 }
 
+pub struct Readlink<'a> {
+    pub pathname: &'a [u8],
+    pub buf: &'a mut [u8],
+}
+
+impl Call<'_> for Readlink<'_> {
+    type Staged = Self;
+    type Committed = Self;
+    type Collected = Option<Result<size_t>>;
+
+    fn stage(self, _: &mut impl Allocator) -> Result<Self::Staged> {
+        Ok(self)
+    }
+}
+impl CommitPassthrough for Readlink<'_> {}
+impl Collect for Readlink<'_> {
+    type Item = Option<Result<size_t>>;
+
+    fn collect(self, _: &impl Collector) -> Self::Item {
+        if !self.pathname.eq("/proc/self/exe".as_bytes()) {
+            return Some(Err(libc::ENOENT));
+        }
+
+        const DEST: &[u8; 6] = b"/init\0";
+        if self.buf.len() < DEST.len() {
+            return Some(Err(libc::EINVAL));
+        }
+        self.buf[..DEST.len()].copy_from_slice(DEST);
+        Some(Ok(DEST.len()))
+    }
+}
+
 pub struct RtSigprocmask<'a> {
     pub how: c_int,
     pub set: Option<&'a sigset_t>,

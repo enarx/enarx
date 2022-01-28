@@ -194,6 +194,12 @@ pub trait Execute {
             .unwrap_or_else(|| self.attacked())
     }
 
+    /// Executes [`readlink`](https://man7.org/linux/man-pages/man2/readlink.2.html) syscall akin to [`libc::readlink`].
+    fn readlink(&mut self, pathname: &[u8], buf: &mut [u8]) -> Result<size_t> {
+        self.execute(syscall::Readlink { pathname, buf })?
+            .unwrap_or_else(|| self.attacked())
+    }
+
     /// Executes [`recv`](https://man7.org/linux/man-pages/man2/recv.2.html) syscall akin to [`libc::recv`].
     fn recv(&mut self, sockfd: c_int, buf: &mut [u8], flags: c_int) -> Result<size_t> {
         self.execute(syscall::Recv { sockfd, buf, flags })?
@@ -444,6 +450,11 @@ impl<'a, P: Platform> Execute for Handler<'a, P> {
             (libc::SYS_read, [fd, buf, count, ..]) => {
                 let buf = self.platform.validate_slice_mut(buf, count)?;
                 self.read(fd as _, buf).map(|ret| [ret, 0])
+            }
+            (libc::SYS_readlink, [pathname, buf, bufsiz, ..]) => {
+                let pathname = self.platform.validate_str(pathname)?;
+                let buf = self.platform.validate_slice_mut(buf, bufsiz)?;
+                self.readlink(pathname, buf).map(|ret| [ret, 0])
             }
             (libc::SYS_recvfrom, [sockfd, buf, len, flags, src_addr, addrlen, ..]) => {
                 let buf = self.platform.validate_slice_mut(buf, len)?;
