@@ -6,7 +6,7 @@ use crate::{item, Result, NULL};
 use core::arch::asm;
 use core::mem::{align_of, size_of};
 use core::ptr::null_mut;
-use libc::{c_long, epoll_event, sigset_t, sockaddr_storage, socklen_t, timespec, EFAULT};
+use libc::{c_long, epoll_event, pollfd, sigset_t, sockaddr_storage, socklen_t, timespec, EFAULT};
 
 struct Syscall<'a, const ARGS: usize, const RETS: usize> {
     /// The syscall number for the request.
@@ -421,6 +421,23 @@ pub(super) unsafe fn execute_syscall(syscall: &mut item::Syscall, data: &mut [u8
             ret: [ret],
         }
         .execute(),
+
+        item::Syscall {
+            num,
+            argv: [fds_offset, nfds, timeout, ..],
+            ret: [ret, ..],
+        } if *num == libc::SYS_poll as _ => {
+            let fds = deref::<pollfd>(data, *fds_offset, *nfds)?;
+            if fds.align_offset(align_of::<pollfd>()) != 0 {
+                return Err(EFAULT);
+            }
+            Syscall {
+                num: libc::SYS_poll,
+                argv: [fds as _, *nfds, *timeout],
+                ret: [ret],
+            }
+            .execute()
+        }
 
         item::Syscall {
             num,

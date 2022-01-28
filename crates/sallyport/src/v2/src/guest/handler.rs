@@ -7,7 +7,7 @@ use crate::{item, Result};
 use core::ptr::NonNull;
 
 use libc::{
-    c_int, c_uint, c_ulong, c_void, clockid_t, epoll_event, gid_t, off_t, pid_t, sigaction,
+    c_int, c_uint, c_ulong, c_void, clockid_t, epoll_event, gid_t, off_t, pid_t, pollfd, sigaction,
     sigset_t, size_t, stack_t, stat, timespec, uid_t, utsname, EFAULT, ENOSYS,
 };
 
@@ -234,6 +234,12 @@ pub trait Execute {
 
     /// Executes [`munmap`](https://man7.org/linux/man-pages/man2/munmap.2.html) syscall akin to [`libc::munmap`].
     fn munmap(&mut self, addr: NonNull<c_void>, length: size_t) -> Result<()>;
+
+    /// Executes [`poll`](https://man7.org/linux/man-pages/man2/poll.2.html) syscall akin to [`libc::poll`].
+    fn poll(&mut self, fds: &mut [pollfd], timeout: c_int) -> Result<c_int> {
+        self.execute(syscall::Poll { fds, timeout })?
+            .unwrap_or_else(|| self.attacked())
+    }
 
     /// Executes [`read`](https://man7.org/linux/man-pages/man2/read.2.html) syscall akin to [`libc::read`].
     fn read(&mut self, fd: c_int, buf: &mut [u8]) -> Result<size_t> {
@@ -514,6 +520,10 @@ impl<'a, P: Platform> Execute for Handler<'a, P> {
             (libc::SYS_munmap, [addr, length, ..]) => {
                 let addr = NonNull::new(addr as _).ok_or(EFAULT)?;
                 self.munmap(addr, length).map(|_| [0, 0])
+            }
+            (libc::SYS_poll, [fds, nfds, timeout, ..]) => {
+                let fds = self.platform.validate_slice_mut(fds, nfds)?;
+                self.poll(fds, timeout as _).map(|ret| [ret as _, 0])
             }
             (libc::SYS_read, [fd, buf, count, ..]) => {
                 let buf = self.platform.validate_slice_mut(buf, count)?;
