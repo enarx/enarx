@@ -3,7 +3,7 @@
 use super::{Allocator, Commit, Committer};
 use crate::Result;
 
-use core::borrow::{Borrow, BorrowMut};
+use core::borrow::Borrow;
 use core::iter::once;
 use core::marker::PhantomData;
 use core::ptr::NonNull;
@@ -165,7 +165,7 @@ impl<'a, T> InRef<'a, [T]> {
     }
 }
 
-impl<'a, T, U: BorrowMut<T>> Input<'a, T, U> {
+impl<'a, T, U: Borrow<T>> Input<'a, T, U> {
     /// Attempts to allocate input segment to fit `val` in the block
     /// and returns the resulting [`Input`] on success.
     #[inline]
