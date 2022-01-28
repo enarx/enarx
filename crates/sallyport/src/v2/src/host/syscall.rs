@@ -134,7 +134,7 @@ impl Execute for Syscall<'_, 6, 1> {
 /// Callers must ensure that pointer is correctly aligned before accessing it.
 ///
 #[inline]
-fn deref<T>(data: &mut [u8], offset: usize, len: usize) -> Result<*mut T> {
+unsafe fn deref<T>(data: &mut [u8], offset: usize, len: usize) -> Result<*mut T> {
     let size = len * size_of::<T>();
     if size > data.len() || data.len() - size < offset {
         Err(libc::EFAULT)
@@ -143,21 +143,45 @@ fn deref<T>(data: &mut [u8], offset: usize, len: usize) -> Result<*mut T> {
     }
 }
 
+/// Validates that `data` contains `len` elements of type `T` at `offset`
+/// aligned to `align_of::<T>()` and returns a mutable pointer to the first element on success.
+#[inline]
+fn deref_aligned<T>(data: &mut [u8], offset: usize, len: usize) -> Result<*mut T> {
+    let ptr = unsafe { deref::<T>(data, offset, len) }?;
+    if ptr.align_offset(align_of::<T>()) != 0 {
+        Err(EFAULT)
+    } else {
+        Ok(ptr)
+    }
+}
+
+/// Validates that `data` contains aligned sockaddr input at `addr_offset` of `addrlen` size
+/// and returns an immutable pointer to address buffer on success.
+#[inline]
+fn deref_sockaddr_input(data: &mut [u8], addr_offset: usize, addrlen: usize) -> Result<*const u8> {
+    let addr = unsafe { deref::<u8>(data, addr_offset, addrlen) }?;
+    if addr.align_offset(align_of::<sockaddr_storage>()) != 0 {
+        Err(EFAULT)
+    } else {
+        Ok(addr)
+    }
+}
+
+/// Validates that `data` contains aligned sockaddr output at `addr_offset` and `addrlen_offset`
+/// and returns mutable pointers to the address buffer and length on success.
 #[inline]
 fn deref_sockaddr_output(
     data: &mut [u8],
     addr_offset: usize,
     addrlen_offset: usize,
 ) -> Result<(*mut u8, *mut socklen_t)> {
-    let addrlen = deref::<socklen_t>(data, addrlen_offset, 1)?;
-    if addrlen.align_offset(align_of::<socklen_t>()) != 0 {
-        return Err(EFAULT);
-    }
-    let addr = deref::<u8>(data, addr_offset, unsafe { *addrlen } as _)?;
+    let addrlen = deref_aligned::<socklen_t>(data, addrlen_offset, 1)?;
+    let addr = unsafe { deref::<u8>(data, addr_offset, *addrlen as _) }?;
     if addr.align_offset(align_of::<sockaddr_storage>()) != 0 {
-        return Err(EFAULT);
+        Err(EFAULT)
+    } else {
+        Ok((addr, addrlen))
     }
-    Ok((addr, addrlen))
 }
 
 pub(super) unsafe fn execute_syscall(syscall: &mut item::Syscall, data: &mut [u8]) -> Result<()> {
@@ -203,7 +227,7 @@ pub(super) unsafe fn execute_syscall(syscall: &mut item::Syscall, data: &mut [u8
             argv: [sockfd, addr_offset, addrlen, ..],
             ret: [ret, ..],
         } if *num == libc::SYS_bind as _ => {
-            let addr = deref::<u8>(data, *addr_offset, *addrlen)?;
+            let addr = deref_sockaddr_input(data, *addr_offset, *addrlen)?;
             Syscall {
                 num: libc::SYS_bind,
                 argv: [*sockfd, addr as _, *addrlen],
@@ -217,10 +241,7 @@ pub(super) unsafe fn execute_syscall(syscall: &mut item::Syscall, data: &mut [u8
             argv: [clockid, tp_offset, ..],
             ret: [ret, ..],
         } if *num == libc::SYS_clock_gettime as _ => {
-            let tp = deref::<timespec>(data, *tp_offset, 1)?;
-            if tp.align_offset(align_of::<timespec>()) != 0 {
-                return Err(EFAULT);
-            }
+            let tp = deref_aligned::<timespec>(data, *tp_offset, 1)?;
             Syscall {
                 num: libc::SYS_clock_gettime,
                 argv: [*clockid, tp as _],
@@ -245,7 +266,7 @@ pub(super) unsafe fn execute_syscall(syscall: &mut item::Syscall, data: &mut [u8
             argv: [sockfd, addr_offset, addrlen, ..],
             ret: [ret, ..],
         } if *num == libc::SYS_connect as _ => {
-            let addr = deref::<u8>(data, *addr_offset, *addrlen)?;
+            let addr = deref_sockaddr_input(data, *addr_offset, *addrlen)?;
             Syscall {
                 num: libc::SYS_connect,
                 argv: [*sockfd, addr as _, *addrlen],
@@ -303,10 +324,7 @@ pub(super) unsafe fn execute_syscall(syscall: &mut item::Syscall, data: &mut [u8
             argv: [epfd, op, fd, event_offset, ..],
             ret: [ret, ..],
         } if *num == libc::SYS_epoll_ctl as _ => {
-            let event = deref::<epoll_event>(data, *event_offset, 1)?;
-            if event.align_offset(align_of::<epoll_event>()) != 0 {
-                return Err(EFAULT);
-            }
+            let event = deref_aligned::<epoll_event>(data, *event_offset, 1)?;
             Syscall {
                 num: libc::SYS_epoll_ctl,
                 argv: [*epfd, *op, *fd, event as _],
@@ -320,14 +338,8 @@ pub(super) unsafe fn execute_syscall(syscall: &mut item::Syscall, data: &mut [u8
             argv: [epfd, events_offset, maxevents, timeout, sigmask_offset, ..],
             ret: [ret, ..],
         } if *num == libc::SYS_epoll_pwait as _ => {
-            let events = deref::<epoll_event>(data, *events_offset, *maxevents)?;
-            if events.align_offset(align_of::<epoll_event>()) != 0 {
-                return Err(EFAULT);
-            }
-            let sigmask = deref::<sigset_t>(data, *sigmask_offset, 1)?;
-            if sigmask.align_offset(align_of::<sigset_t>()) != 0 {
-                return Err(EFAULT);
-            }
+            let events = deref_aligned::<epoll_event>(data, *events_offset, *maxevents)?;
+            let sigmask = deref_aligned::<sigset_t>(data, *sigmask_offset, 1)?;
             Syscall {
                 num: libc::SYS_epoll_pwait,
                 argv: [*epfd, events as _, *maxevents, *timeout, sigmask as _],
@@ -341,10 +353,7 @@ pub(super) unsafe fn execute_syscall(syscall: &mut item::Syscall, data: &mut [u8
             argv: [epfd, events_offset, maxevents, timeout, ..],
             ret: [ret, ..],
         } if *num == libc::SYS_epoll_wait as _ => {
-            let events = deref::<epoll_event>(data, *events_offset, *maxevents)?;
-            if events.align_offset(align_of::<epoll_event>()) != 0 {
-                return Err(EFAULT);
-            }
+            let events = deref_aligned::<epoll_event>(data, *events_offset, *maxevents)?;
             Syscall {
                 num: libc::SYS_epoll_wait,
                 argv: [*epfd, events as _, *maxevents, *timeout],
@@ -427,10 +436,7 @@ pub(super) unsafe fn execute_syscall(syscall: &mut item::Syscall, data: &mut [u8
             argv: [fds_offset, nfds, timeout, ..],
             ret: [ret, ..],
         } if *num == libc::SYS_poll as _ => {
-            let fds = deref::<pollfd>(data, *fds_offset, *nfds)?;
-            if fds.align_offset(align_of::<pollfd>()) != 0 {
-                return Err(EFAULT);
-            }
+            let fds = deref_aligned::<pollfd>(data, *fds_offset, *nfds)?;
             Syscall {
                 num: libc::SYS_poll,
                 argv: [fds as _, *nfds, *timeout],
