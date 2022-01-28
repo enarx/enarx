@@ -112,6 +112,38 @@ pub trait Execute {
         })?
     }
 
+    /// Executes [`epoll_wait`](https://man7.org/linux/man-pages/man2/epoll_wait.2.html) syscall akin to [`libc::epoll_wait`].
+    fn epoll_wait(
+        &mut self,
+        epfd: c_int,
+        events: &mut [epoll_event],
+        timeout: c_int,
+    ) -> Result<c_int> {
+        self.execute(syscall::EpollWait {
+            epfd,
+            events,
+            timeout,
+        })?
+        .unwrap_or_else(|| self.attacked())
+    }
+
+    /// Executes [`epoll_pwait`](https://man7.org/linux/man-pages/man2/epoll_pwait.2.html) syscall akin to [`libc::epoll_pwait`].
+    fn epoll_pwait(
+        &mut self,
+        epfd: c_int,
+        events: &mut [epoll_event],
+        timeout: c_int,
+        sigmask: &sigset_t,
+    ) -> Result<c_int> {
+        self.execute(syscall::EpollPwait {
+            epfd,
+            events,
+            timeout,
+            sigmask,
+        })?
+        .unwrap_or_else(|| self.attacked())
+    }
+
     /// Executes [`eventfd2`](https://man7.org/linux/man-pages/man2/eventfd2.2.html).
     fn eventfd2(&mut self, initval: c_int, flags: c_int) -> Result<c_int> {
         self.execute(syscall::Eventfd2 { initval, flags })?
@@ -415,6 +447,21 @@ impl<'a, P: Platform> Execute for Handler<'a, P> {
                 let event = self.platform.validate(event)?;
                 self.epoll_ctl(epfd as _, op as _, fd as _, event)
                     .map(|_| [0, 0])
+            }
+            (libc::SYS_epoll_pwait, [epfd, events, maxevents, timeout, sigmask, ..]) => {
+                let events = self.platform.validate_slice_mut(events, maxevents)?;
+                if sigmask == 0 {
+                    self.epoll_wait(epfd as _, events, timeout as _)
+                } else {
+                    let sigmask = self.platform.validate(sigmask)?;
+                    self.epoll_pwait(epfd as _, events, timeout as _, sigmask)
+                }
+                .map(|ret| [ret as _, 0])
+            }
+            (libc::SYS_epoll_wait, [epfd, events, maxevents, timeout, ..]) => {
+                let events = self.platform.validate_slice_mut(events, maxevents)?;
+                self.epoll_wait(epfd as _, events, timeout as _)
+                    .map(|ret| [ret as _, 0])
             }
             (libc::SYS_eventfd2, [initval, flags, ..]) => self
                 .eventfd2(initval as _, flags as _)

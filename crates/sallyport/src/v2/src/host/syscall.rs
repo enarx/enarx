@@ -6,7 +6,7 @@ use crate::{item, Result, NULL};
 use core::arch::asm;
 use core::mem::{align_of, size_of};
 use core::ptr::null_mut;
-use libc::{c_long, epoll_event, sockaddr_storage, socklen_t, timespec, EFAULT};
+use libc::{c_long, epoll_event, sigset_t, sockaddr_storage, socklen_t, timespec, EFAULT};
 
 struct Syscall<'a, const ARGS: usize, const RETS: usize> {
     /// The syscall number for the request.
@@ -310,6 +310,44 @@ pub(super) unsafe fn execute_syscall(syscall: &mut item::Syscall, data: &mut [u8
             Syscall {
                 num: libc::SYS_epoll_ctl,
                 argv: [*epfd, *op, *fd, event as _],
+                ret: [ret],
+            }
+            .execute()
+        }
+
+        item::Syscall {
+            num,
+            argv: [epfd, events_offset, maxevents, timeout, sigmask_offset, ..],
+            ret: [ret, ..],
+        } if *num == libc::SYS_epoll_pwait as _ => {
+            let events = deref::<epoll_event>(data, *events_offset, *maxevents)?;
+            if events.align_offset(align_of::<epoll_event>()) != 0 {
+                return Err(EFAULT);
+            }
+            let sigmask = deref::<sigset_t>(data, *sigmask_offset, 1)?;
+            if sigmask.align_offset(align_of::<sigset_t>()) != 0 {
+                return Err(EFAULT);
+            }
+            Syscall {
+                num: libc::SYS_epoll_pwait,
+                argv: [*epfd, events as _, *maxevents, *timeout, sigmask as _],
+                ret: [ret],
+            }
+            .execute()
+        }
+
+        item::Syscall {
+            num,
+            argv: [epfd, events_offset, maxevents, timeout, ..],
+            ret: [ret, ..],
+        } if *num == libc::SYS_epoll_wait as _ => {
+            let events = deref::<epoll_event>(data, *events_offset, *maxevents)?;
+            if events.align_offset(align_of::<epoll_event>()) != 0 {
+                return Err(EFAULT);
+            }
+            Syscall {
+                num: libc::SYS_epoll_wait,
+                argv: [*epfd, events as _, *maxevents, *timeout],
                 ret: [ret],
             }
             .execute()
