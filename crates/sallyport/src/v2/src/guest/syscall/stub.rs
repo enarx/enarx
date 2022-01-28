@@ -4,7 +4,7 @@ use crate::guest::alloc::{Allocator, Collect, Collector, CommitPassthrough};
 use crate::guest::Call;
 use crate::Result;
 
-use libc::{c_char, c_uint, gid_t, pid_t, size_t, uid_t, utsname};
+use libc::{c_char, c_int, c_uint, gid_t, pid_t, size_t, uid_t, utsname};
 
 // TODO: Introduce a macro for trait implementations.
 // https://github.com/enarx/sallyport/issues/53
@@ -14,6 +14,9 @@ pub const FAKE_GID: gid_t = 1000;
 
 /// Fake PID returned by enarx.
 pub const FAKE_PID: pid_t = 1000;
+
+/// Fake TID returned by enarx.
+pub const FAKE_TID: pid_t = 1;
 
 /// Fake UID returned by enarx.
 pub const FAKE_UID: uid_t = 1000;
@@ -159,6 +162,28 @@ impl Collect for Getuid {
 
     fn collect(self, _: &impl Collector) -> Self::Item {
         FAKE_UID
+    }
+}
+
+pub struct SetTidAddress<'a> {
+    pub tidptr: &'a mut c_int,
+}
+
+impl Call<'_> for SetTidAddress<'_> {
+    type Staged = Self;
+    type Committed = Self;
+    type Collected = pid_t;
+
+    fn stage(self, _: &mut impl Allocator) -> Result<Self::Staged> {
+        Ok(self)
+    }
+}
+impl CommitPassthrough for SetTidAddress<'_> {}
+impl Collect for SetTidAddress<'_> {
+    type Item = pid_t;
+
+    fn collect(self, _: &impl Collector) -> Self::Item {
+        FAKE_TID
     }
 }
 

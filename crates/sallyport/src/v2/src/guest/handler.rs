@@ -7,8 +7,8 @@ use crate::{item, Result};
 use core::ptr::NonNull;
 
 use libc::{
-    c_int, c_uint, c_void, clockid_t, gid_t, off_t, pid_t, size_t, stat, timespec, uid_t, utsname,
-    EFAULT, ENOSYS, c_ulong,
+    c_int, c_uint, c_ulong, c_void, clockid_t, gid_t, off_t, pid_t, size_t, stat, timespec, uid_t,
+    utsname, EFAULT, ENOSYS,
 };
 
 pub trait Execute {
@@ -233,6 +233,11 @@ pub trait Execute {
         })?
     }
 
+    /// Executes [`set_tid_address`](https://man7.org/linux/man-pages/man2/set_tid_address.2.html).
+    fn set_tid_address(&mut self, tidptr: &mut c_int) -> Result<pid_t> {
+        self.execute(syscall::SetTidAddress { tidptr })
+    }
+
     /// Executes [`socket`](https://man7.org/linux/man-pages/man2/socket.2.html) syscall akin to [`libc::socket`].
     fn socket(&mut self, domain: c_int, typ: c_int, protocol: c_int) -> Result<c_int> {
         self.execute(syscall::Socket {
@@ -425,6 +430,10 @@ impl<'a, P: Platform> Execute for Handler<'a, P> {
                 };
                 self.setsockopt(sockfd as _, level as _, optname as _, optval)
                     .map(|ret| [ret as _, 0])
+            }
+            (libc::SYS_set_tid_address, [tidptr, ..]) => {
+                let tidptr = self.platform.validate_mut(tidptr)?;
+                self.set_tid_address(tidptr).map(|ret| [ret as _, 0])
             }
             (libc::SYS_socket, [domain, typ, protocol, ..]) => self
                 .socket(domain as _, typ as _, protocol as _)
