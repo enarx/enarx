@@ -64,7 +64,8 @@ fn run_test<const N: usize>(
             .spawn(move || {
                 let mut block = block;
                 let platform = TestPlatform(NonNull::from(&mut block));
-                let mut handler = Handler::new(&mut block, platform);
+                let mut tls = Default::default();
+                let mut handler = Handler::new(&mut block, platform, &mut tls);
                 f(i, &mut handler);
             })
             .expect(&format!("couldn't spawn test iteration {} thread", i))

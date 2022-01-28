@@ -2,7 +2,7 @@
 
 use super::alloc::{phase, Alloc, Allocator, Collect, Commit, Committer};
 use super::syscall::types::{SockaddrInput, SockaddrOutput, SockoptInput};
-use super::{syscall, Call, Platform};
+use super::{syscall, Call, Platform, ThreadLocalStorage, SIGRTMAX};
 use crate::{item, Result};
 use core::ptr::NonNull;
 
@@ -315,23 +315,21 @@ pub trait Execute {
     }
 }
 
-const SIGRTMAX: c_int = 64;
-
 /// Guest request handler.
 pub struct Handler<'a, P: Platform> {
     alloc: Alloc<'a, phase::Init>,
     platform: P,
-
-    actions: [Option<sigaction>; SIGRTMAX as _],
+    tls: &'a mut ThreadLocalStorage,
 }
 
 impl<'a, P: Platform> Handler<'a, P> {
-    /// Creates a new [`Handler`] given a mutable borrow of the sallyport block and a [`Platform`].
-    pub fn new(block: &'a mut [usize], platform: P) -> Self {
+    /// Creates a new [`Handler`] given a mutable borrow of the sallyport block,
+    /// [`Platform`] and [`ThreadLocalStorage`].
+    pub fn new(block: &'a mut [usize], platform: P, tls: &'a mut ThreadLocalStorage) -> Self {
         Self {
             alloc: Alloc::new(block),
             platform,
-            actions: [None; SIGRTMAX as _],
+            tls,
         }
     }
 }
@@ -589,6 +587,7 @@ impl<'a, P: Platform> Execute for Handler<'a, P> {
         Err(ENOSYS)
     }
 
+    #[inline]
     fn rt_sigaction(
         &mut self,
         signum: c_int,
@@ -600,10 +599,10 @@ impl<'a, P: Platform> Execute for Handler<'a, P> {
             return Err(libc::EINVAL);
         }
         if let Some(oldact) = oldact {
-            *oldact = self.actions[signum as usize];
+            *oldact = self.tls.actions[signum as usize];
         }
         if let Some(act) = act {
-            self.actions[signum as usize] = Some(*act);
+            self.tls.actions[signum as usize] = Some(*act);
         }
         Ok(())
     }

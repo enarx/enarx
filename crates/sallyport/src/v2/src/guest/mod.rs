@@ -58,7 +58,9 @@ pub mod syscall;
 mod call;
 mod handler;
 mod platform;
+mod tls;
 
 pub use call::*;
 pub use handler::*;
 pub use platform::*;
+pub use tls::*;
