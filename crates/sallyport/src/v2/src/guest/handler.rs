@@ -7,8 +7,8 @@ use crate::{item, Result};
 use core::ptr::NonNull;
 
 use libc::{
-    c_int, c_uint, c_ulong, c_void, clockid_t, gid_t, off_t, pid_t, size_t, stat, timespec, uid_t,
-    utsname, EFAULT, ENOSYS,
+    c_int, c_uint, c_ulong, c_void, clockid_t, gid_t, off_t, pid_t, sigaction, sigset_t, size_t,
+    stack_t, stat, timespec, uid_t, utsname, EFAULT, ENOSYS,
 };
 
 pub trait Execute {
@@ -217,6 +217,36 @@ pub trait Execute {
         .unwrap_or_else(|| self.attacked())
     }
 
+    /// Executes [`rt_sigaction`](https://man7.org/linux/man-pages/man2/rt_sigaction.2.html).
+    fn rt_sigaction(
+        &mut self,
+        signum: c_int,
+        act: Option<&sigaction>,
+        oldact: Option<&mut Option<sigaction>>,
+        sigsetsize: size_t,
+    ) -> Result<()>;
+
+    /// Executes [`rt_sigprocmask`](https://man7.org/linux/man-pages/man2/rt_sigprocmask.2.html).
+    fn rt_sigprocmask(
+        &mut self,
+        how: c_int,
+        set: Option<&sigset_t>,
+        oldset: Option<&mut sigset_t>,
+        sigsetsize: size_t,
+    ) -> Result<()> {
+        self.execute(syscall::RtSigprocmask {
+            how,
+            set,
+            oldset,
+            sigsetsize,
+        })?
+    }
+
+    /// Executes [`sigaltstack`](https://man7.org/linux/man-pages/man2/sigaltstack.2.html) syscall akin to [`libc::sigaltstack`].
+    fn sigaltstack(&mut self, ss: &stack_t, old_ss: Option<&mut stack_t>) -> Result<()> {
+        self.execute(syscall::Sigaltstack { ss, old_ss })?
+    }
+
     /// Executes [`setsockopt`](https://man7.org/linux/man-pages/man2/setsockopt.2.html) syscall akin to [`libc::setsockopt`].
     fn setsockopt<'a>(
         &mut self,
@@ -264,10 +294,14 @@ pub trait Execute {
     }
 }
 
+const SIGRTMAX: c_int = 64;
+
 /// Guest request handler.
 pub struct Handler<'a, P: Platform> {
     alloc: Alloc<'a, phase::Init>,
     platform: P,
+
+    actions: [Option<sigaction>; SIGRTMAX as _],
 }
 
 impl<'a, P: Platform> Handler<'a, P> {
@@ -276,6 +310,7 @@ impl<'a, P: Platform> Handler<'a, P> {
         Self {
             alloc: Alloc::new(block),
             platform,
+            actions: [None; SIGRTMAX as _],
         }
     }
 }
@@ -420,6 +455,34 @@ impl<'a, P: Platform> Execute for Handler<'a, P> {
                 }
                 .map(|ret| [ret, 0])
             }
+            (libc::SYS_rt_sigaction, [signum, act, oldact, sigsetsize, ..]) => {
+                let act = if act == 0 {
+                    None
+                } else {
+                    self.platform.validate(act).map(Some)?
+                };
+                let oldact = if oldact == 0 {
+                    None
+                } else {
+                    self.platform.validate_mut(oldact).map(Some)?
+                };
+                self.rt_sigaction(signum as _, act, oldact, sigsetsize as _)
+                    .map(|_| [0, 0])
+            }
+            (libc::SYS_rt_sigprocmask, [how, set, oldset, sigsetsize, ..]) => {
+                let set = if set == 0 {
+                    None
+                } else {
+                    self.platform.validate(set).map(Some)?
+                };
+                let oldset = if oldset == 0 {
+                    None
+                } else {
+                    self.platform.validate_mut(oldset).map(Some)?
+                };
+                self.rt_sigprocmask(how as _, set, oldset, sigsetsize as _)
+                    .map(|_| [0, 0])
+            }
             (libc::SYS_setsockopt, [sockfd, level, optname, optval, optlen, ..]) => {
                 let optval = if optval == 0 {
                     None
@@ -434,6 +497,15 @@ impl<'a, P: Platform> Execute for Handler<'a, P> {
             (libc::SYS_set_tid_address, [tidptr, ..]) => {
                 let tidptr = self.platform.validate_mut(tidptr)?;
                 self.set_tid_address(tidptr).map(|ret| [ret as _, 0])
+            }
+            (libc::SYS_sigaltstack, [ss, old_ss, ..]) => {
+                let ss = self.platform.validate(ss)?;
+                let old_ss = if old_ss == 0 {
+                    None
+                } else {
+                    self.platform.validate_mut(old_ss).map(Some)?
+                };
+                self.sigaltstack(ss, old_ss).map(|_| [0, 0])
             }
             (libc::SYS_socket, [domain, typ, protocol, ..]) => self
                 .socket(domain as _, typ as _, protocol as _)
@@ -481,5 +553,24 @@ impl<'a, P: Platform> Execute for Handler<'a, P> {
 
     fn munmap(&mut self, _: NonNull<c_void>, _: size_t) -> Result<()> {
         Err(ENOSYS)
+    }
+
+    fn rt_sigaction(
+        &mut self,
+        signum: c_int,
+        act: Option<&sigaction>,
+        oldact: Option<&mut Option<sigaction>>,
+        sigsetsize: size_t,
+    ) -> Result<()> {
+        if signum >= SIGRTMAX || sigsetsize != 8 {
+            return Err(libc::EINVAL);
+        }
+        if let Some(oldact) = oldact {
+            *oldact = self.actions[signum as usize];
+        }
+        if let Some(act) = act {
+            self.actions[signum as usize] = Some(*act);
+        }
+        Ok(())
     }
 }

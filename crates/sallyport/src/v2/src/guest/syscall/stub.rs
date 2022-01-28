@@ -4,7 +4,7 @@ use crate::guest::alloc::{Allocator, Collect, Collector, CommitPassthrough};
 use crate::guest::Call;
 use crate::Result;
 
-use libc::{c_char, c_int, c_uint, gid_t, pid_t, size_t, uid_t, utsname};
+use libc::{c_char, c_int, c_uint, gid_t, pid_t, sigset_t, size_t, stack_t, uid_t, utsname};
 
 // TODO: Introduce a macro for trait implementations.
 // https://github.com/enarx/sallyport/issues/53
@@ -162,6 +162,54 @@ impl Collect for Getuid {
 
     fn collect(self, _: &impl Collector) -> Self::Item {
         FAKE_UID
+    }
+}
+
+pub struct RtSigprocmask<'a> {
+    pub how: c_int,
+    pub set: Option<&'a sigset_t>,
+    pub oldset: Option<&'a mut sigset_t>,
+    pub sigsetsize: size_t,
+}
+
+impl Call<'_> for RtSigprocmask<'_> {
+    type Staged = Self;
+    type Committed = Self;
+    type Collected = Result<()>;
+
+    fn stage(self, _: &mut impl Allocator) -> Result<Self::Staged> {
+        Ok(self)
+    }
+}
+impl CommitPassthrough for RtSigprocmask<'_> {}
+impl Collect for RtSigprocmask<'_> {
+    type Item = Result<()>;
+
+    fn collect(self, _: &impl Collector) -> Self::Item {
+        Ok(())
+    }
+}
+
+pub struct Sigaltstack<'a> {
+    pub ss: &'a stack_t,
+    pub old_ss: Option<&'a mut stack_t>,
+}
+
+impl Call<'_> for Sigaltstack<'_> {
+    type Staged = Self;
+    type Committed = Self;
+    type Collected = Result<()>;
+
+    fn stage(self, _: &mut impl Allocator) -> Result<Self::Staged> {
+        Ok(self)
+    }
+}
+impl CommitPassthrough for Sigaltstack<'_> {}
+impl Collect for Sigaltstack<'_> {
+    type Item = Result<()>;
+
+    fn collect(self, _: &impl Collector) -> Self::Item {
+        Ok(())
     }
 }
 
