@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use super::types::Argv;
-use crate::guest::alloc::{Allocator, Collector, Commit, Input, Syscall};
+use super::types::{Argv, StagedBytesInput};
+use crate::guest::alloc::{Allocator, Collector, Input, Syscall};
 use crate::Result;
 
 use libc::{c_int, c_long, size_t};
@@ -11,25 +11,13 @@ pub struct Write<'a> {
     pub buf: &'a [u8],
 }
 
-pub struct StagedWrite<'a>(Input<'a, [u8], &'a [u8]>);
-
-impl<'a> Commit for StagedWrite<'a> {
-    type Item = size_t;
-
-    fn commit(self, com: &impl crate::guest::alloc::Committer) -> Self::Item {
-        let len = self.0.len();
-        self.0.commit(com);
-        len
-    }
-}
-
 unsafe impl<'a> Syscall<'a> for Write<'a> {
     const NUM: c_long = libc::SYS_write;
 
     type Argv = Argv<3>;
     type Ret = size_t;
 
-    type Staged = StagedWrite<'a>;
+    type Staged = StagedBytesInput<'a>;
     type Committed = size_t;
     type Collected = Option<Result<size_t>>;
 
@@ -37,7 +25,7 @@ unsafe impl<'a> Syscall<'a> for Write<'a> {
         let (buf, _) = Input::stage_slice_max(alloc, self.buf)?;
         Ok((
             Argv([self.fd as _, buf.offset(), buf.len()]),
-            StagedWrite(buf),
+            StagedBytesInput(buf),
         ))
     }
 

@@ -47,4 +47,4 @@ pub use recvfrom::*;
 pub use result::Result;
 pub use setsockopt::*;
 pub use stub::*;
-pub use write::Write;
+pub use write::*;

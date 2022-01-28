@@ -10,7 +10,7 @@ use core::alloc::Layout;
 use core::mem::{align_of, size_of};
 use core::slice;
 
-use libc::{sockaddr_storage, socklen_t, EOVERFLOW};
+use libc::{size_t, sockaddr_storage, socklen_t, EOVERFLOW};
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Argv<const N: usize>(pub [usize; N]);
@@ -61,6 +61,19 @@ impl From<Argv<6>> for [usize; 6] {
     #[inline]
     fn from(argv: Argv<6>) -> Self {
         argv.0
+    }
+}
+
+pub struct StagedBytesInput<'a>(pub Input<'a, [u8], &'a [u8]>);
+
+impl<'a> Commit for StagedBytesInput<'a> {
+    type Item = size_t;
+
+    #[inline]
+    fn commit(self, com: &impl Committer) -> Self::Item {
+        let len = self.0.len();
+        self.0.commit(com);
+        len
     }
 }
 
