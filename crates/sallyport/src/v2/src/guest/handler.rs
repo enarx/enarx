@@ -260,12 +260,12 @@ pub trait Execute {
     }
 
     /// Executes [`recvfrom`](https://man7.org/linux/man-pages/man2/recvfrom.2.html) syscall akin to [`libc::recvfrom`].
-    fn recvfrom(
+    fn recvfrom<'a>(
         &mut self,
         sockfd: c_int,
-        buf: &mut [u8],
+        buf: &'a mut [u8],
         flags: c_int,
-        src_addr: SockaddrOutput,
+        src_addr: impl Into<SockaddrOutput<'a>>,
     ) -> Result<size_t> {
         self.execute(syscall::Recvfrom {
             sockfd,

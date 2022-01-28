@@ -6,14 +6,14 @@ use crate::Result;
 
 use libc::{c_int, c_long, size_t};
 
-pub struct Recvfrom<'a> {
+pub struct Recvfrom<'a, T> {
     pub sockfd: c_int,
     pub buf: &'a mut [u8],
     pub flags: c_int,
-    pub src_addr: SockaddrOutput<'a>,
+    pub src_addr: T,
 }
 
-unsafe impl<'a> Syscall<'a> for Recvfrom<'a> {
+unsafe impl<'a, T: Into<SockaddrOutput<'a>>> Syscall<'a> for Recvfrom<'a, T> {
     const NUM: c_long = libc::SYS_recvfrom;
 
     type Argv = Argv<6>;
@@ -30,7 +30,7 @@ unsafe impl<'a> Syscall<'a> for Recvfrom<'a> {
     type Collected = Option<Result<size_t>>;
 
     fn stage(self, alloc: &mut impl Allocator) -> Result<(Self::Argv, Self::Staged)> {
-        let src_addr = self.src_addr.stage(alloc)?;
+        let src_addr = self.src_addr.into().stage(alloc)?;
         let (buf, _) = Output::stage_slice_max(alloc, self.buf)?;
         Ok((
             Argv([
