@@ -5,7 +5,7 @@ use crate::{item, Result, NULL};
 
 use core::arch::asm;
 use core::mem::{align_of, size_of};
-use core::ptr::null_mut;
+use core::ptr::{null, null_mut};
 use libc::{c_long, epoll_event, pollfd, sigset_t, sockaddr_storage, socklen_t, timespec, EFAULT};
 
 struct Syscall<'a, const ARGS: usize, const RETS: usize> {
@@ -473,6 +473,25 @@ pub(super) unsafe fn execute_syscall(syscall: &mut item::Syscall, data: &mut [u8
             Syscall {
                 num: libc::SYS_recvfrom,
                 argv: [*sockfd, buf as _, *len, *flags, src_addr as _, addrlen as _],
+                ret: [ret],
+            }
+            .execute();
+        }
+
+        item::Syscall {
+            num,
+            argv: [sockfd, buf_offset, len, flags, dest_addr_offset, addrlen],
+            ret: [ret, ..],
+        } if *num == libc::SYS_sendto as _ => {
+            let buf = deref::<u8>(data, *buf_offset, *len)?;
+            let dest_addr = if *dest_addr_offset == NULL {
+                null()
+            } else {
+                deref_sockaddr_input(data, *dest_addr_offset, *addrlen)?
+            };
+            Syscall {
+                num: libc::SYS_sendto,
+                argv: [*sockfd, buf as _, *len, *flags, dest_addr as _, *addrlen],
                 ret: [ret],
             }
             .execute();

@@ -306,6 +306,29 @@ pub trait Execute {
         self.execute(syscall::Sigaltstack { ss, old_ss })?
     }
 
+    /// Executes [`send`](https://man7.org/linux/man-pages/man2/send.2.html) syscall akin to [`libc::send`].
+    fn send(&mut self, sockfd: c_int, buf: &[u8], flags: c_int) -> Result<size_t> {
+        self.execute(syscall::Send { sockfd, buf, flags })?
+            .unwrap_or_else(|| self.attacked())
+    }
+
+    /// Executes [`sendto`](https://man7.org/linux/man-pages/man2/sendto.2.html) syscall akin to [`libc::sendto`].
+    fn sendto<'a>(
+        &mut self,
+        sockfd: c_int,
+        buf: &'a [u8],
+        flags: c_int,
+        dest_addr: impl Into<SockaddrInput<'a>>,
+    ) -> Result<size_t> {
+        self.execute(syscall::Sendto {
+            sockfd,
+            buf,
+            flags,
+            dest_addr,
+        })?
+        .unwrap_or_else(|| self.attacked())
+    }
+
     /// Executes [`setsockopt`](https://man7.org/linux/man-pages/man2/setsockopt.2.html) syscall akin to [`libc::setsockopt`].
     fn setsockopt<'a>(
         &mut self,
@@ -571,6 +594,16 @@ impl<'a, P: Platform> Execute for Handler<'a, P> {
                 };
                 self.rt_sigprocmask(how as _, set, oldset, sigsetsize as _)
                     .map(|_| [0, 0])
+            }
+            (libc::SYS_sendto, [sockfd, buf, len, flags, dest_addr, addrlen]) => {
+                let buf = self.platform.validate_slice(buf, len)?;
+                if dest_addr == 0 {
+                    self.send(sockfd as _, buf, flags as _)
+                } else {
+                    let dest_addr = self.platform.validate_slice(dest_addr, addrlen)?;
+                    self.sendto(sockfd as _, buf, flags as _, dest_addr)
+                }
+                .map(|ret| [ret, 0])
             }
             (libc::SYS_setsockopt, [sockfd, level, optname, optval, optlen, ..]) => {
                 let optval = if optval == 0 {
