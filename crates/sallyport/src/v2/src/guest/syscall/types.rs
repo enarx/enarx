@@ -95,37 +95,6 @@ impl<'a> Stage<'a> for SockaddrInput<'a> {
     }
 }
 
-pub struct SockoptInput<'a>(pub &'a [u8]);
-
-pub type StagedSockoptInput<'a> = Input<'a, [u8], &'a [u8]>;
-
-impl<'a> From<&'a [u8]> for SockoptInput<'a> {
-    #[inline]
-    fn from(opt: &'a [u8]) -> Self {
-        Self(opt)
-    }
-}
-
-impl<'a, T> From<&'a T> for SockoptInput<'a> {
-    #[inline]
-    fn from(opt: &'a T) -> Self {
-        debug_assert!(align_of::<T>() <= align_of::<usize>());
-        Self(unsafe { slice::from_raw_parts(opt as *const _ as _, size_of::<T>()) })
-    }
-}
-
-impl<'a> Stage<'a> for SockoptInput<'a> {
-    type Item = StagedSockoptInput<'a>;
-
-    #[inline]
-    fn stage(self, alloc: &mut impl Allocator) -> Result<Self::Item> {
-        let layout =
-            Layout::from_size_align(self.0.len(), align_of::<usize>()).map_err(|_| EOVERFLOW)?;
-        let opt = alloc.allocate_input_layout(layout)?;
-        Ok(unsafe { Input::new_unchecked(opt, self.0) })
-    }
-}
-
 pub struct SockaddrOutput<'a> {
     pub addr: &'a mut [u8],
     pub addrlen: &'a mut socklen_t,
@@ -204,5 +173,36 @@ impl<'a> Collect for CommittedSockaddrOutput<'a> {
         let addrlen = *self.addrlen.collect(col);
         let len = self.addr.len().min(addrlen as _);
         unsafe { self.addr.collect_range(col, 0..len) };
+    }
+}
+
+pub struct SockoptInput<'a>(pub &'a [u8]);
+
+pub type StagedSockoptInput<'a> = Input<'a, [u8], &'a [u8]>;
+
+impl<'a> From<&'a [u8]> for SockoptInput<'a> {
+    #[inline]
+    fn from(opt: &'a [u8]) -> Self {
+        Self(opt)
+    }
+}
+
+impl<'a, T> From<&'a T> for SockoptInput<'a> {
+    #[inline]
+    fn from(opt: &'a T) -> Self {
+        debug_assert!(align_of::<T>() <= align_of::<usize>());
+        Self(unsafe { slice::from_raw_parts(opt as *const _ as _, size_of::<T>()) })
+    }
+}
+
+impl<'a> Stage<'a> for SockoptInput<'a> {
+    type Item = StagedSockoptInput<'a>;
+
+    #[inline]
+    fn stage(self, alloc: &mut impl Allocator) -> Result<Self::Item> {
+        let layout =
+            Layout::from_size_align(self.0.len(), align_of::<usize>()).map_err(|_| EOVERFLOW)?;
+        let opt = alloc.allocate_input_layout(layout)?;
+        Ok(unsafe { Input::new_unchecked(opt, self.0) })
     }
 }
