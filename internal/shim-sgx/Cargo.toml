@@ -23,7 +23,7 @@ x86_64 = { version = "^0.14.7", default-features = false }
 crt0stack = { version = "0.1", default-features = false }
 sallyport = { version = "0.1.0", git = "https://github.com/enarx/sallyport", rev = "fa4c6eea1c8dab54a8b8843a498b6fb883c006dd" }
 spinning = { version = "0.1", default-features = false }
-libc = { version = "0.2.114", default-features = false }
+libc = { version = "0.2.115", default-features = false }
 const-default = "1.0"
 noted = "^1.0.0"
 xsave = { git = "https://github.com/enarx/xsave", rev = "4819a862953c114a69f1ff7153b41bb558f96365" }
