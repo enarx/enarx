@@ -8,7 +8,7 @@ use core::ptr::NonNull;
 
 use libc::{
     c_int, c_uint, c_void, clockid_t, gid_t, off_t, pid_t, size_t, stat, timespec, uid_t, utsname,
-    EFAULT, ENOSYS,
+    EFAULT, ENOSYS, c_ulong,
 };
 
 pub trait Execute {
@@ -51,6 +51,9 @@ pub trait Execute {
             flags,
         })?
     }
+
+    /// Executes [`arch_prctl`](https://man7.org/linux/man-pages/man2/arch_prctl.2.html).
+    fn arch_prctl(&mut self, code: c_int, addr: c_ulong) -> Result<()>;
 
     /// Executes [`bind`](https://man7.org/linux/man-pages/man2/bind.2.html) syscall akin to [`libc::bind`].
     fn bind<'a>(&mut self, sockfd: c_int, addr: impl Into<SockaddrInput<'a>>) -> Result<()> {
@@ -319,6 +322,9 @@ impl<'a, P: Platform> Execute for Handler<'a, P> {
                 self.accept4(sockfd as _, addr, flags as _)
                     .map(|ret| [ret as _, 0])
             }
+            (libc::SYS_arch_prctl, [code, addr, ..]) => {
+                self.arch_prctl(code as _, addr as _).map(|_| [0, 0])
+            }
             (libc::SYS_bind, [sockfd, addr, addrlen, ..]) => {
                 let addr = self.platform.validate_slice(addr, addrlen)?;
                 self.bind(sockfd as _, addr).map(|_| [0, 0])
@@ -434,6 +440,10 @@ impl<'a, P: Platform> Execute for Handler<'a, P> {
             }
             _ => Err(ENOSYS),
         }
+    }
+
+    fn arch_prctl(&mut self, _: c_int, _: c_ulong) -> Result<()> {
+        Err(ENOSYS)
     }
 
     fn brk(&mut self, _: NonNull<c_void>) -> Result<()> {
