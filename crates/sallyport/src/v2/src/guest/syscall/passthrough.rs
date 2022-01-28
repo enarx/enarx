@@ -68,6 +68,21 @@ unsafe impl PassthroughSyscall for Dup3 {
     }
 }
 
+pub struct EpollCreate1 {
+    pub flags: c_int,
+}
+
+unsafe impl PassthroughSyscall for EpollCreate1 {
+    const NUM: c_long = libc::SYS_epoll_create1;
+
+    type Argv = Argv<1>;
+    type Ret = c_int;
+
+    fn stage(self) -> Self::Argv {
+        Argv([self.flags as _])
+    }
+}
+
 pub struct Eventfd2 {
     pub initval: c_int,
     pub flags: c_int,

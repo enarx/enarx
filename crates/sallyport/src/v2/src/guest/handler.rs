@@ -97,6 +97,11 @@ pub trait Execute {
         })?
     }
 
+    /// Executes [`epoll_create1`](https://man7.org/linux/man-pages/man2/epoll_create1.2.html) syscall akin to [`libc::epoll_create1`].
+    fn epoll_create1(&mut self, flags: c_int) -> Result<c_int> {
+        self.execute(syscall::EpollCreate1 { flags })?
+    }
+
     /// Executes [`eventfd2`](https://man7.org/linux/man-pages/man2/eventfd2.2.html).
     fn eventfd2(&mut self, initval: c_int, flags: c_int) -> Result<c_int> {
         self.execute(syscall::Eventfd2 { initval, flags })?
@@ -395,6 +400,9 @@ impl<'a, P: Platform> Execute for Handler<'a, P> {
             (libc::SYS_dup3, [oldfd, newfd, flags, ..]) => self
                 .dup3(oldfd as _, newfd as _, flags as _)
                 .map(|_| [0, 0]),
+            (libc::SYS_epoll_create1, [flags, ..]) => {
+                self.epoll_create1(flags as _).map(|ret| [ret as _, 0])
+            }
             (libc::SYS_eventfd2, [initval, flags, ..]) => self
                 .eventfd2(initval as _, flags as _)
                 .map(|ret| [ret as _, 0]),
