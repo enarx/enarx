@@ -7,8 +7,8 @@ use crate::{item, Result};
 use core::ptr::NonNull;
 
 use libc::{
-    c_int, c_uint, c_ulong, c_void, clockid_t, gid_t, off_t, pid_t, sigaction, sigset_t, size_t,
-    stack_t, stat, timespec, uid_t, utsname, EFAULT, ENOSYS,
+    c_int, c_uint, c_ulong, c_void, clockid_t, epoll_event, gid_t, off_t, pid_t, sigaction,
+    sigset_t, size_t, stack_t, stat, timespec, uid_t, utsname, EFAULT, ENOSYS,
 };
 
 pub trait Execute {
@@ -100,6 +100,16 @@ pub trait Execute {
     /// Executes [`epoll_create1`](https://man7.org/linux/man-pages/man2/epoll_create1.2.html) syscall akin to [`libc::epoll_create1`].
     fn epoll_create1(&mut self, flags: c_int) -> Result<c_int> {
         self.execute(syscall::EpollCreate1 { flags })?
+    }
+
+    /// Executes [`epoll_ctl`](https://man7.org/linux/man-pages/man2/epoll_ctl.2.html) syscall akin to [`libc::epoll_ctl`].
+    fn epoll_ctl(&mut self, epfd: c_int, op: c_int, fd: c_int, event: &epoll_event) -> Result<()> {
+        self.execute(syscall::EpollCtl {
+            epfd,
+            op,
+            fd,
+            event,
+        })?
     }
 
     /// Executes [`eventfd2`](https://man7.org/linux/man-pages/man2/eventfd2.2.html).
@@ -402,6 +412,11 @@ impl<'a, P: Platform> Execute for Handler<'a, P> {
                 .map(|_| [0, 0]),
             (libc::SYS_epoll_create1, [flags, ..]) => {
                 self.epoll_create1(flags as _).map(|ret| [ret as _, 0])
+            }
+            (libc::SYS_epoll_ctl, [epfd, op, fd, event, ..]) => {
+                let event = self.platform.validate(event)?;
+                self.epoll_ctl(epfd as _, op as _, fd as _, event)
+                    .map(|_| [0, 0])
             }
             (libc::SYS_eventfd2, [initval, flags, ..]) => self
                 .eventfd2(initval as _, flags as _)
