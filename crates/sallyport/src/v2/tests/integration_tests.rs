@@ -332,6 +332,7 @@ fn read() {
 }
 
 #[test]
+#[serial]
 #[cfg_attr(miri, ignore)]
 fn tcp_server() {
     run_test(4, [0xff; 32], move |i, handler| {
@@ -505,6 +506,7 @@ fn tcp_server() {
 }
 
 #[test]
+#[serial]
 #[cfg_attr(miri, ignore)]
 fn recv() {
     const EXPECTED: &str = "recv";
