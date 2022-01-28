@@ -30,6 +30,11 @@ pub trait Platform {
         self.validate_slice_mut(ptr, len).map(|v| v as _)
     }
 
+    /// Validates that a region of memory represents a C string and is valid for read-only access.
+    /// Returns an immutable borrow of bytes of the string without nul terminator byte if valid,
+    /// otherwise [`EINVAL`](libc::EINVAL).
+    fn validate_str<'a>(&self, ptr: usize) -> Result<&'a [u8], c_int>;
+
     #[inline]
     fn validate_sockaddr_output<'a, 'b: 'a>(
         &'a self,

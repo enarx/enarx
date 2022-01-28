@@ -8,7 +8,7 @@ use libc::{
     STDIN_FILENO, STDOUT_FILENO,
 };
 use std::env::temp_dir;
-use std::ffi::CString;
+use std::ffi::{CStr, CString};
 use std::fs::{File, OpenOptions};
 use std::io::{Read, Seek, Write};
 use std::mem::size_of;
@@ -46,6 +46,10 @@ impl<const N: usize> Platform for TestPlatform<N> {
 
     fn validate_slice_mut<'b, T>(&self, ptr: usize, len: usize) -> Result<&'b mut [T]> {
         Ok(unsafe { slice::from_raw_parts_mut(ptr as _, len) })
+    }
+
+    fn validate_str<'b>(&self, ptr: usize) -> Result<&'b [u8]> {
+        Ok(unsafe { CStr::from_ptr(ptr as _) }.to_bytes())
     }
 }
 
