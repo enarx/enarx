@@ -317,6 +317,11 @@ pub trait Handler: Platform {
     /// Executes [`munmap`](https://man7.org/linux/man-pages/man2/munmap.2.html) syscall akin to [`libc::munmap`].
     fn munmap(&mut self, addr: NonNull<c_void>, length: size_t) -> Result<()>;
 
+    /// Executes [`nanosleep`](https://man7.org/linux/man-pages/man2/nanosleep.2.html) syscall akin to [`libc::nanosleep`].
+    fn nanosleep(&mut self, req: &timespec, rem: Option<&mut timespec>) -> Result<()> {
+        self.execute(syscall::Nanosleep { req, rem })?
+    }
+
     /// Executes [`poll`](https://man7.org/linux/man-pages/man2/poll.2.html) syscall akin to [`libc::poll`].
     #[inline]
     fn poll(&mut self, fds: &mut [pollfd], timeout: c_int) -> Result<c_int> {
@@ -655,6 +660,15 @@ pub trait Handler: Platform {
             (libc::SYS_munmap, [addr, length, ..]) => {
                 let addr = NonNull::new(addr as _).ok_or(EFAULT)?;
                 self.munmap(addr, length).map(|_| [0, 0])
+            }
+            (libc::SYS_nanosleep, [req, rem, ..]) => {
+                let req = self.validate(req)?;
+                let rem = if rem == 0 {
+                    None
+                } else {
+                    self.validate_mut(rem).map(Some)?
+                };
+                self.nanosleep(req, rem).map(|_| [0, 0])
             }
             (libc::SYS_poll, [fds, nfds, timeout, ..]) => {
                 let fds = self.validate_slice_mut(fds, nfds)?;

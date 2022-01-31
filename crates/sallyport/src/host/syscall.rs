@@ -426,6 +426,25 @@ pub(super) unsafe fn execute(call: &mut item::Syscall, data: &mut [u8]) -> Resul
 
         item::Syscall {
             num,
+            argv: [req_offset, rem_offset, ..],
+            ret: [ret, ..],
+        } if *num == libc::SYS_nanosleep as _ => {
+            let req = deref_aligned::<timespec>(data, *req_offset, 1)?;
+            let rem = if *rem_offset == NULL {
+                null_mut()
+            } else {
+                deref_aligned::<timespec>(data, *rem_offset, 1)?
+            };
+            Syscall {
+                num: libc::SYS_nanosleep,
+                argv: [req as _, rem as _],
+                ret: [ret],
+            }
+            .execute()
+        }
+
+        item::Syscall {
+            num,
             argv: [fds_offset, nfds, timeout, ..],
             ret: [ret, ..],
         } if *num == libc::SYS_poll as _ => {

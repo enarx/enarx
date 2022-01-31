@@ -3,11 +3,12 @@
 use super::{run_test, write_tcp};
 
 use libc::{
-    c_int, iovec, sockaddr, SYS_accept, SYS_accept4, SYS_bind, SYS_close, SYS_fcntl, SYS_fstat,
-    SYS_getrandom, SYS_getsockname, SYS_listen, SYS_read, SYS_readv, SYS_recvfrom, SYS_setsockopt,
-    SYS_socket, SYS_write, SYS_writev, AF_INET, EBADF, EBADFD, ENOSYS, F_GETFD, F_GETFL, F_SETFD,
-    F_SETFL, GRND_RANDOM, O_CREAT, O_RDONLY, O_RDWR, SOCK_CLOEXEC, SOCK_STREAM, SOL_SOCKET,
-    SO_REUSEADDR, STDERR_FILENO, STDIN_FILENO, STDOUT_FILENO,
+    c_int, iovec, sockaddr, timespec, SYS_accept, SYS_accept4, SYS_bind, SYS_close, SYS_fcntl,
+    SYS_fstat, SYS_getrandom, SYS_getsockname, SYS_listen, SYS_nanosleep, SYS_read, SYS_readv,
+    SYS_recvfrom, SYS_setsockopt, SYS_socket, SYS_write, SYS_writev, AF_INET, EBADF, EBADFD,
+    ENOSYS, F_GETFD, F_GETFL, F_SETFD, F_SETFL, GRND_RANDOM, O_CREAT, O_RDONLY, O_RDWR,
+    SOCK_CLOEXEC, SOCK_STREAM, SOL_SOCKET, SO_REUSEADDR, STDERR_FILENO, STDIN_FILENO,
+    STDOUT_FILENO,
 };
 use std::env::temp_dir;
 use std::ffi::CString;
@@ -16,6 +17,7 @@ use std::io::{Read, Seek, Write};
 use std::mem::size_of;
 use std::net::{TcpListener, UdpSocket};
 use std::os::unix::prelude::AsRawFd;
+use std::ptr::null_mut;
 use std::slice;
 use std::{mem, thread};
 
@@ -222,6 +224,79 @@ fn getrandom() {
         );
         assert_ne!(buf_2, [0u8; LEN]);
         assert_ne!(buf_2, buf);
+    });
+}
+
+#[test]
+#[serial]
+fn nanosleep() {
+    run_test(2, [0xff; 32], move |i, handler| {
+        let req = timespec {
+            tv_sec: 0,
+            tv_nsec: 1,
+        };
+        if i % 2 == 0 {
+            assert_eq!(
+                handler.nanosleep(&req, None),
+                if cfg!(not(miri)) { Ok(()) } else { Err(ENOSYS) }
+            );
+        } else {
+            assert_eq!(
+                unsafe {
+                    handler.syscall([
+                        SYS_nanosleep as _,
+                        &req as *const _ as _,
+                        null_mut() as *mut timespec as _,
+                        0,
+                        0,
+                        0,
+                        0,
+                    ])
+                },
+                if cfg!(not(miri)) {
+                    Ok([0, 0])
+                } else {
+                    Err(ENOSYS)
+                }
+            );
+        }
+
+        let mut rem = timespec {
+            tv_sec: 0,
+            tv_nsec: 0,
+        };
+        if i % 2 == 0 {
+            assert_eq!(
+                handler.nanosleep(&req, Some(&mut rem)),
+                if cfg!(not(miri)) { Ok(()) } else { Err(ENOSYS) }
+            );
+        } else {
+            assert_eq!(
+                unsafe {
+                    handler.syscall([
+                        SYS_nanosleep as _,
+                        &req as *const _ as _,
+                        &mut rem as *mut _ as _,
+                        0,
+                        0,
+                        0,
+                        0,
+                    ])
+                },
+                if cfg!(not(miri)) {
+                    Ok([0, 0])
+                } else {
+                    Err(ENOSYS)
+                }
+            );
+        }
+        assert_eq!(
+            rem,
+            timespec {
+                tv_sec: 0,
+                tv_nsec: 0,
+            }
+        )
     });
 }
 
