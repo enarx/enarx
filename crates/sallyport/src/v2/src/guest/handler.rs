@@ -8,7 +8,8 @@ use core::ptr::NonNull;
 
 use libc::{
     c_int, c_uint, c_ulong, c_void, clockid_t, epoll_event, gid_t, off_t, pid_t, pollfd, sigaction,
-    sigset_t, size_t, stack_t, stat, timespec, uid_t, utsname, EFAULT, ENOSYS,
+    sigset_t, size_t, stack_t, stat, timespec, uid_t, utsname, EBADFD, EFAULT, EINVAL, ENOSYS,
+    ENOTSUP, ENOTTY, FIONBIO, STDERR_FILENO, STDIN_FILENO, STDOUT_FILENO, TIOCGWINSZ,
 };
 
 pub trait Execute {
@@ -208,6 +209,19 @@ pub trait Execute {
     /// Executes [`getuid`](https://man7.org/linux/man-pages/man2/getuid.2.html) syscall akin to [`libc::getuid`].
     fn getuid(&mut self) -> Result<uid_t> {
         self.execute(syscall::Getuid)
+    }
+
+    /// Executes [`ioctl`](https://man7.org/linux/man-pages/man2/ioctl.2.html) syscall akin to [`libc::ioctl`].
+    fn ioctl(&mut self, fd: c_int, request: c_ulong, argp: Option<&mut [u8]>) -> Result<c_int> {
+        match (fd, request) {
+            (STDIN_FILENO | STDOUT_FILENO | STDERR_FILENO, TIOCGWINSZ) => {
+                // the keep has no tty
+                Err(ENOTTY)
+            }
+            (STDIN_FILENO | STDOUT_FILENO | STDERR_FILENO, _) => Err(EINVAL),
+            (_, FIONBIO) => self.execute(syscall::Ioctl { fd, request, argp })?,
+            _ => Err(EBADFD),
+        }
     }
 
     /// Executes [`listen`](https://man7.org/linux/man-pages/man2/listen.2.html) syscall akin to [`libc::listen`].
@@ -519,6 +533,13 @@ impl<'a, P: Platform> Execute for Handler<'a, P> {
                 self.getsockname(sockfd as _, addr).map(|_| [0, 0])
             }
             (libc::SYS_getuid, ..) => self.getuid().map(|ret| [ret as _, 0]),
+            (libc::SYS_ioctl, [fd, request, argp, ..]) => {
+                // TODO: Support opaque `ioctl` request argument value.
+                // https://github.com/enarx/sallyport/issues/78
+                let argp = if argp == 0 { None } else { return Err(ENOTSUP) };
+                self.ioctl(fd as _, request as _, argp)
+                    .map(|ret| [ret as _, 0])
+            }
             (libc::SYS_listen, [sockfd, backlog, ..]) => {
                 self.listen(sockfd as _, backlog as _).map(|_| [0, 0])
             }

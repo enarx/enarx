@@ -422,6 +422,24 @@ pub(super) unsafe fn execute_syscall(syscall: &mut item::Syscall, data: &mut [u8
 
         item::Syscall {
             num,
+            argv: [fd, request, argp_offset, argp_len, ..],
+            ret: [ret, ..],
+        } if *num == libc::SYS_ioctl as _ => {
+            let argp = if *argp_offset == NULL {
+                null_mut()
+            } else {
+                deref::<u8>(data, *argp_offset, *argp_len)?
+            };
+            Syscall {
+                num: libc::SYS_ioctl,
+                argv: [*fd, *request, argp as _],
+                ret: [ret],
+            }
+            .execute();
+        }
+
+        item::Syscall {
+            num,
             argv: [sockfd, backlog, ..],
             ret: [ret, ..],
         } if *num == libc::SYS_listen as _ => Syscall {
