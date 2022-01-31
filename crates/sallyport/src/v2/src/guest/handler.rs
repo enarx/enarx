@@ -401,6 +401,17 @@ pub trait Execute {
         self.execute(syscall::Write { fd, buf })?
             .unwrap_or_else(|| self.attacked())
     }
+
+    /// Executes [`writev`](https://man7.org/linux/man-pages/man2/writev.2.html) syscall by mapping
+    /// it onto a single [`write`](https://man7.org/linux/man-pages/man2/write.2.html).
+    fn writev<T: ?Sized, U>(&mut self, fd: c_int, iovs: &T) -> Result<size_t>
+    where
+        for<'a> &'a T: IntoIterator<Item = &'a U>,
+        U: AsRef<[u8]>,
+    {
+        self.execute(syscall::Writev { fd, iovs })?
+            .unwrap_or_else(|| self.attacked())
+    }
 }
 
 /// Guest request handler.
@@ -678,6 +689,10 @@ impl<'a, P: Platform> Execute for Handler<'a, P> {
             (libc::SYS_write, [fd, buf, count, ..]) => {
                 let buf = self.platform.validate_slice(buf, count)?;
                 self.write(fd as _, buf).map(|ret| [ret, 0])
+            }
+            (libc::SYS_writev, [fd, iov, iovcnt, ..]) => {
+                let iovs = self.platform.validate_iovec_slice(iov, iovcnt)?;
+                self.writev(fd as _, iovs).map(|ret| [ret, 0])
             }
             _ => Err(ENOSYS),
         }

@@ -29,6 +29,7 @@ mod sendto;
 mod setsockopt;
 mod stub;
 mod write;
+mod writev;
 
 pub mod types;
 
@@ -56,6 +57,7 @@ pub use sendto::*;
 pub use setsockopt::*;
 pub use stub::*;
 pub use write::*;
+pub use writev::Writev;
 
 /// Computes the sum of length of all `iovec` elements in a `iov`.
 pub(super) fn iov_len<'a, T, U>(iter: &'a T) -> usize

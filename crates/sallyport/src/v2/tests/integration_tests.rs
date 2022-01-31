@@ -3,9 +3,9 @@
 use libc::{
     c_int, iovec, sockaddr, SYS_accept, SYS_accept4, SYS_bind, SYS_close, SYS_fcntl, SYS_fstat,
     SYS_getrandom, SYS_getsockname, SYS_listen, SYS_read, SYS_readv, SYS_recvfrom, SYS_setsockopt,
-    SYS_socket, SYS_write, AF_INET, EBADF, EBADFD, ENOSYS, F_GETFD, F_GETFL, F_SETFD, F_SETFL,
-    GRND_RANDOM, O_CREAT, O_RDONLY, O_RDWR, SOCK_CLOEXEC, SOCK_STREAM, SOL_SOCKET, SO_REUSEADDR,
-    STDERR_FILENO, STDIN_FILENO, STDOUT_FILENO,
+    SYS_socket, SYS_write, SYS_writev, AF_INET, EBADF, EBADFD, ENOSYS, F_GETFD, F_GETFL, F_SETFD,
+    F_SETFL, GRND_RANDOM, O_CREAT, O_RDONLY, O_RDWR, SOCK_CLOEXEC, SOCK_STREAM, SOL_SOCKET,
+    SO_REUSEADDR, STDERR_FILENO, STDIN_FILENO, STDOUT_FILENO,
 };
 use std::env::temp_dir;
 use std::ffi::{CStr, CString};
@@ -776,4 +776,83 @@ fn write() {
             assert_eq!(got, EXPECTED);
         }
     })
+}
+
+#[test]
+#[serial]
+fn writev() {
+    run_test(2, [0xff; 14], move |i, handler| {
+        const EXPECTED: &str = "01234567";
+        const INPUT: &str = "012345678012345678";
+        let path = temp_dir().join("sallyport-test-writev");
+
+        let mut file = OpenOptions::new()
+            .read(true)
+            .write(true)
+            .truncate(true)
+            .create(true)
+            .open(&path)
+            .unwrap();
+
+        if i % 2 == 0 {
+            assert_eq!(
+                handler.writev(
+                    file.as_raw_fd() as _,
+                    &[&"", &INPUT[0..3], &"", &INPUT[3..4], &INPUT[4..]]
+                ),
+                if cfg!(not(miri)) {
+                    Ok(EXPECTED.len())
+                } else {
+                    Err(ENOSYS)
+                }
+            );
+        } else {
+            assert_eq!(
+                unsafe {
+                    handler.syscall([
+                        SYS_writev as _,
+                        file.as_raw_fd() as _,
+                        [
+                            iovec {
+                                iov_base: INPUT.as_ptr() as _,
+                                iov_len: 0,
+                            },
+                            iovec {
+                                iov_base: INPUT[0..3].as_ptr() as _,
+                                iov_len: INPUT[0..3].len(),
+                            },
+                            iovec {
+                                iov_base: INPUT[3..].as_ptr() as _,
+                                iov_len: 0,
+                            },
+                            iovec {
+                                iov_base: INPUT[3..4].as_ptr() as _,
+                                iov_len: INPUT[3..4].len(),
+                            },
+                            iovec {
+                                iov_base: INPUT[4..].as_ptr() as _,
+                                iov_len: INPUT[4..].len(),
+                            },
+                        ]
+                        .as_ptr() as _,
+                        5,
+                        0,
+                        0,
+                        0,
+                    ])
+                },
+                if cfg!(not(miri)) {
+                    Ok([EXPECTED.len(), 0])
+                } else {
+                    Err(ENOSYS)
+                }
+            );
+        }
+        if cfg!(not(miri)) {
+            let mut got = String::new();
+            file.rewind().unwrap();
+            file.read_to_string(&mut got).unwrap();
+            assert_eq!(got, EXPECTED);
+        }
+    });
 }
