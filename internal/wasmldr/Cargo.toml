@@ -15,9 +15,9 @@ gdb = []
 dbg = []
 
 [dependencies]
-wasmtime = { version = "0.32", default-features = false, features = ["cranelift"] }
-wasmtime-wasi = { version = "0.32", default-features = false, features = ["sync"] }
-wasi-common = { version = "0.32", default-features = false }
+wasmtime = { git = "https://github.com/bytecodealliance/wasmtime.git", rev="853a025613e012c6c29002ddcccfced67073a8d0", default-features = false, features = ["cranelift", "pooling-allocator"] }
+wasmtime-wasi = { git = "https://github.com/bytecodealliance/wasmtime.git", rev="853a025613e012c6c29002ddcccfced67073a8d0", default-features = false, features = ["sync"] }
+wasi-common = { git = "https://github.com/bytecodealliance/wasmtime.git", rev="853a025613e012c6c29002ddcccfced67073a8d0", default-features = false }
 wasmparser = "0.81.0"
 structopt = { version = "0.3", default-features = false }
 anyhow = "1.0"
@@ -34,6 +34,3 @@ panic = "abort"
 lto = true
 debug = 1
 opt-level = "s"
-
-[patch.crates-io]
-rustix = { git = "https://github.com/haraldh/rustix", branch = "v0.26.2_asm_stable" }
