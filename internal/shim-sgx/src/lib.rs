@@ -18,6 +18,7 @@
 pub mod entry;
 pub mod handler;
 pub mod heap;
+pub mod uarch;
 
 use sgx::parameters::{Attributes, Features, MiscSelect, Xfrm};
 
