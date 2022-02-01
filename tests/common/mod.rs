@@ -10,7 +10,7 @@ pub const CRATE: &str = env!("CARGO_MANIFEST_DIR");
 pub const KEEP_BIN: &str = env!("CARGO_BIN_EXE_enarx");
 pub const OUT_DIR: &str = env!("OUT_DIR");
 pub const TEST_BINS_OUT: &str = "bin";
-pub const TIMEOUT_SECS: u64 = 30;
+pub const TIMEOUT_SECS: u64 = 60 * 60;
 pub const MAX_ASSERT_ELEMENTS: usize = 100;
 
 pub fn assert_eq_slices(expected_output: &[u8], output: &[u8], what: &str) {
