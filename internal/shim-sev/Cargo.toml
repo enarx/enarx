@@ -14,7 +14,7 @@ gdb = [ "gdbstub", "gdbstub_arch", "dbg" ]
 dbg = []
 
 [dependencies]
-compiler_builtins = { version = "0.1.65", default-features = false, features = [ "mem" ] }
+compiler_builtins = { version = "0.1.67", default-features = false, features = [ "mem" ] }
 x86_64 = { version = "0.14.7", default-features = false, features = ["instructions", "inline_asm"] }
 gdbstub_arch = { version = "0.1.1" , default-features = false, optional = true }
 gdbstub = { version = "0.5.0" , default-features = false, optional = true }
