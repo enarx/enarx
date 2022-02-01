@@ -79,12 +79,26 @@ dependencies = [
 ]
 
 [[package]]
-name = "gdbstub_arch"
-version = "0.1.1"
+name = "gdbstub"
+version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e358b9c0e1468eae66099062e47bb502849308b987b74b5e72f1936397c33c16"
+checksum = "686fd5c0d799433870f0ba2ec2bf97697b1369aa8ce71559e2eaafb186a9c5f2"
 dependencies = [
- "gdbstub",
+ "bitflags",
+ "cfg-if 1.0.0",
+ "log",
+ "managed",
+ "num-traits",
+ "paste",
+]
+
+[[package]]
+name = "gdbstub_arch"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "76c5a510987e0a2d2ee994f0e478e025bddf6e8a1a0aca0fc23c93927aeb2ae0"
+dependencies = [
+ "gdbstub 0.6.0",
  "num-traits",
 ]
 
@@ -263,7 +277,7 @@ dependencies = [
  "compiler_builtins",
  "const-default",
  "crt0stack",
- "gdbstub",
+ "gdbstub 0.5.0",
  "gdbstub_arch",
  "goblin",
  "libc",
