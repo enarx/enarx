@@ -8,7 +8,7 @@ use std::path::PathBuf;
 ///
 /// The binary must be a statically linked position-independent executable,
 /// compiled with flags like `-nostdlib -static-pie -fPIC`. No commandline
-/// arguments are passed, the program's argv[0] will be `/init`, and the
+/// arguments are passed, the program's `argv[0]` will be `/init`, and the
 /// environment is empty except for `LANG=C`.
 ///
 /// This subcommand is hidden from the main help because it's unlikely to be

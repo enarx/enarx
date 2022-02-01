@@ -2,7 +2,7 @@
 
 //! This module implements Intel SGX-related IOCTLs using the iocuddle crate.
 //! All references to Section or Tables are from
-//! https://www.intel.com/content/dam/www/public/us/en/documents/manuals/64-ia-32-architectures-software-developer-vol-3d-part-4-manual.pdf
+//! [Intel® 64 and IA-32 Architectures Software Developer’s Manual Volume 3D: System Programming Guide, Part 4](https://www.intel.com/content/dam/www/public/us/en/documents/manuals/64-ia-32-architectures-software-developer-vol-3d-part-4-manual.pdf)
 
 #![allow(dead_code)]
 

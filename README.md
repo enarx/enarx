@@ -34,21 +34,27 @@ for instructions.
 
 Install the Webassembly rust toolchain:
 
-    $ rustup target install wasm32-wasi
+```sh
+$ rustup target install wasm32-wasi
+```
 
 Create simple rust program:
 
-    $ cargo init --bin hello-world
-    $ cd hello-world
-    $ echo 'fn main() { println!("Hello, Enarx!"); }' > src/main.rs
-    $ cargo build --release --target=wasm32-wasi
+```sh
+$ cargo init --bin hello-world
+$ cd hello-world
+$ echo 'fn main() { println!("Hello, Enarx!"); }' > src/main.rs
+$ cargo build --release --target=wasm32-wasi
+```
 
 Assuming you did install the `enarx` binary and have it in your `$PATH`, you can
 now run the Webassembly program in an Enarx keep.
 
-    $ enarx run target/wasm32-wasi/release/hello-world.wasm
-    […]
-    Hello, Enarx!
+```sh
+$ enarx run target/wasm32-wasi/release/hello-world.wasm
+[…]
+Hello, Enarx!
+```
 
 If you want to suppress the debug output, add `2>/dev/null`.
 
@@ -58,12 +64,16 @@ If you want to suppress the debug output, add `2>/dev/null`.
 appropriate deployment backend. To see what backends are supported on your
 system, run:
 
-    $ enarx info
+```sh
+$ enarx info
+```
 
 You can manually select a backend with the `--backend` option, or by
 setting the `ENARX_BACKEND` environment variable:
 
-    $ enarx run --backend=sgx target/wasm32-wasi/release/hello-world.wasm
-    $ ENARX_BACKEND=sgx enarx run target/wasm32-wasi/release/hello-world.wasm
+```sh
+$ enarx run --backend=sgx target/wasm32-wasi/release/hello-world.wasm
+$ ENARX_BACKEND=sgx enarx run target/wasm32-wasi/release/hello-world.wasm
+```
 
 License: Apache-2.0
