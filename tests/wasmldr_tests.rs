@@ -153,6 +153,7 @@ fn no_export() {
 }
 
 #[test]
+#[serial]
 fn echo() {
     let mut input: Vec<u8> = Vec::with_capacity(2 * 1024 * 1024);
 
@@ -173,11 +174,13 @@ fn echo() {
 }
 
 #[test]
+#[serial]
 fn memspike() {
     run_crate("integration/wasm", "memspike", 0, None, None, None);
 }
 
 #[test]
+#[serial]
 fn memory_stress_test() {
     run_crate(
         "integration/wasm",
@@ -190,6 +193,7 @@ fn memory_stress_test() {
 }
 
 #[test]
+#[serial]
 fn zerooneone() {
     let input = Vec::from("Good morning, that's a nice tnetennba.\n0118 999 881 999 119 725 3\n");
 
