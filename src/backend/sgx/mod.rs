@@ -7,6 +7,7 @@ mod hasher;
 mod ioctls;
 mod thread;
 
+use super::probe::common::system_info;
 use super::Loader;
 
 use anyhow::Result;
@@ -41,7 +42,7 @@ impl crate::backend::Backend for Backend {
     }
 
     fn data(&self) -> Vec<super::Datum> {
-        let mut data = vec![data::dev_sgx_enclave()];
+        let mut data = vec![system_info(), data::dev_sgx_enclave()];
 
         data.extend(data::CPUIDS.iter().map(|c| c.into()));
 
