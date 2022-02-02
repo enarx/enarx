@@ -11,11 +11,15 @@ use core::ptr::NonNull;
 use libc::{ENOMEM, EOVERFLOW};
 
 pub(crate) mod phase {
-    pub struct Init(());
+    #[repr(transparent)]
+    pub struct Init;
 
-    pub struct Stage(());
-    pub struct Commit(());
-    pub struct Collect(());
+    #[repr(transparent)]
+    pub struct Stage;
+    #[repr(transparent)]
+    pub struct Commit;
+    #[repr(transparent)]
+    pub struct Collect;
 
     pub trait Alloc {}
 }
