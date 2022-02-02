@@ -4,11 +4,15 @@
 
 use process_control::{ChildExt, Control, Output};
 use serial_test::serial;
+use std::fs::File;
+use tempfile::tempdir;
 
 use std::io::Write;
+use std::net;
 use std::path::Path;
 use std::process::{Command, Stdio};
-use std::time::Duration;
+use std::thread;
+use std::time;
 
 pub mod common;
 use common::{check_output, run_crate, CRATE, KEEP_BIN, OUT_DIR, TEST_BINS_OUT, TIMEOUT_SECS};
@@ -53,7 +57,7 @@ pub fn enarx_run<'a>(wasm: &str, input: impl Into<Option<&'a [u8]>>) -> Output {
 
     let output = child
         .controlled_with_output()
-        .time_limit(Duration::from_secs(TIMEOUT_SECS))
+        .time_limit(time::Duration::from_secs(TIMEOUT_SECS))
         .terminate_for_timeout()
         .wait()
         .unwrap_or_else(|e| panic!("failed to run `{}`: {:#?}", wasm, e))
@@ -216,4 +220,79 @@ fn zerooneone() {
         &b"Tbbq zbeavat, gung'f n avpr gargraaon.\n0118 999 881 999 119 725 3\n"[..],
         None,
     );
+}
+
+#[test]
+#[serial]
+fn check_listen_fd() {
+    let listener = net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let port = listener.local_addr().unwrap().port();
+    drop(listener);
+
+    let tmpdir = tempdir().unwrap();
+    let configfile_path = tmpdir.path().join("config.toml");
+    let mut configfile = File::create(&configfile_path).unwrap();
+    let configfile_path = configfile_path.to_str().unwrap();
+
+    let client_handle = thread::spawn(move || {
+        use std::io::Read;
+        for i in (0..600).rev() {
+            thread::sleep(time::Duration::from_secs(1));
+            let addr =
+                net::SocketAddr::new(net::IpAddr::V4(net::Ipv4Addr::new(127, 0, 0, 1)), port);
+            let res = net::TcpStream::connect(addr);
+            if res.is_err() && i > 0 {
+                continue;
+            }
+
+            let mut stream = res.unwrap();
+            let mut buf = String::new();
+            stream.read_to_string(&mut buf).unwrap();
+            assert_eq!(buf, "Hello World!");
+            break;
+        }
+    });
+
+    write!(
+        configfile,
+        r#"
+[[files]]
+type = "stdio"
+name = "stdin"
+
+[[files]]
+type = "stdio"
+name = "stdout"
+
+[[files]]
+type = "stdio"
+name = "stderr"
+
+[[files]]
+type = "tcp_listen"
+port = {}
+name = "TEST_TCP_LISTEN"
+    "#,
+        port
+    )
+    .unwrap();
+    drop(configfile);
+
+    let server_handle = thread::spawn({
+        let configfile_path = configfile_path.to_owned();
+        move || {
+            run_crate(
+                "tests/wasm/rust-tests",
+                "check_listen_fd",
+                &["--wasmcfgfile", &configfile_path][..],
+                0,
+                None,
+                None,
+                None,
+            );
+        }
+    });
+
+    client_handle.join().unwrap();
+    server_handle.join().unwrap();
 }
