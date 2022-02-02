@@ -166,6 +166,7 @@ fn echo() {
     run_crate(
         "tests/wasm/rust-tests",
         "echo",
+        None,
         0,
         input,
         expected_input.as_slice(),
@@ -176,7 +177,15 @@ fn echo() {
 #[test]
 #[serial]
 fn memspike() {
-    run_crate("tests/wasm/rust-tests", "memspike", 0, None, None, None);
+    run_crate(
+        "tests/wasm/rust-tests",
+        "memspike",
+        None,
+        0,
+        None,
+        None,
+        None,
+    );
 }
 
 #[test]
@@ -185,6 +194,7 @@ fn memory_stress_test() {
     run_crate(
         "tests/wasm/rust-tests",
         "memory_stress_test",
+        None,
         0,
         None,
         None,
@@ -200,6 +210,7 @@ fn zerooneone() {
     run_crate(
         "tests/wasm/rust-tests",
         "zerooneone",
+        None,
         0,
         input,
         &b"Tbbq zbeavat, gung'f n avpr gargraaon.\n0118 999 881 999 119 725 3\n"[..],

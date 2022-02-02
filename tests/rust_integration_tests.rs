@@ -30,6 +30,7 @@ fn echo() {
     run_crate(
         "tests/rust-exec",
         "echo",
+        None,
         0,
         input,
         expected_input.as_slice(),
@@ -83,6 +84,7 @@ fn unix_echo() {
     run_crate(
         "tests/rust-exec",
         "unix_echo",
+        None,
         0,
         Vec::from(tmpdir.path().as_os_str().as_bytes()),
         None,
@@ -99,6 +101,7 @@ fn rust_sev_attestation() {
     run_crate(
         "tests/sev_attestation",
         "sev_attestation",
+        None,
         0,
         None,
         None,
@@ -109,17 +112,25 @@ fn rust_sev_attestation() {
 #[test]
 #[serial]
 fn memspike() {
-    run_crate("tests/rust-exec", "memspike", 0, None, None, None);
+    run_crate("tests/rust-exec", "memspike", None, 0, None, None, None);
 }
 
 #[test]
 #[serial]
 fn memory_stress_test() {
-    run_crate("tests/rust-exec", "memory_stress_test", 0, None, None, None);
+    run_crate(
+        "tests/rust-exec",
+        "memory_stress_test",
+        None,
+        0,
+        None,
+        None,
+        None,
+    );
 }
 
 #[test]
 #[serial]
 fn cpuid() {
-    run_crate("tests/rust-exec", "cpuid", 0, None, None, None);
+    run_crate("tests/rust-exec", "cpuid", None, 0, None, None, None);
 }
