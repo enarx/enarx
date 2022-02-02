@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
+#![allow(dead_code)]
+
 use process_control::{ChildExt, Control, Output};
 use std::io::{stderr, Write};
 use std::path::Path;

@@ -1,5 +1,5 @@
 [package]
-name = "wasmsimple"
+name = "simple"
 version = "0.1.0"
 edition = "2021"
 license = "Apache-2.0"
@@ -8,18 +8,22 @@ license = "Apache-2.0"
 
 [[bin]]
 name="echo"
-path="src/echo.rs"
+path= "src/echo.rs"
 
 [[bin]]
 name="memspike"
-path="src/memspike.rs"
+path= "src/memspike.rs"
+
+[[bin]]
+name="unix_echo"
+path= "src/unix_echo.rs"
 
 [[bin]]
 name="memory_stress_test"
-path="src/memory_stress_test.rs"
+path= "src/memory_stress_test.rs"
 
 [[bin]]
-name="zerooneone"
-path="src/zerooneone.rs"
+name="cpuid"
+path= "src/cpuid.rs"
 
 [dependencies]
