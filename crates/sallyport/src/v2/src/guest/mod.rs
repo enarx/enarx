@@ -53,14 +53,13 @@
 
 #[allow(clippy::len_without_is_empty)]
 pub mod alloc;
-pub mod syscall;
+pub mod call;
 
-mod call;
 mod handler;
 mod platform;
 mod tls;
 
-pub use call::*;
+pub use call::{syscall, Call};
 pub use handler::*;
 pub use platform::*;
 pub use tls::*;
