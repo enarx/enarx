@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use super::types::{Argv, SockaddrInput, StagedBytesInput};
+use super::super::types::Argv;
+use super::types::{SockaddrInput, StagedBytesInput};
 use super::Alloc;
 use crate::guest::alloc::{Allocator, Collector, Input, Stage};
 use crate::Result;

@@ -2,6 +2,7 @@
 
 pub mod alloc;
 pub mod syscall;
+pub mod types;
 
 mod maybe_alloc;
 mod stub;

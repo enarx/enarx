@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use super::types::Argv;
+use super::super::types::Argv;
 use super::Alloc;
 use crate::guest::alloc::{Allocator, Collector};
 use crate::Result;
@@ -12,7 +12,7 @@ use libc::{c_int, c_long};
 ///
 /// # Example
 /// ```rust
-/// use sallyport::guest::syscall::types::Argv;
+/// use sallyport::guest::call::types::Argv;
 /// # use sallyport::guest::syscall::PassthroughAlloc;
 /// # use sallyport::Result;
 /// #
