@@ -67,13 +67,13 @@ pub fn dev_sev() -> Datum {
 
 pub fn sev_enabled_in_kernel() -> Datum {
     let mut datum = Datum {
-        name: " SEV is enabled in host kernel".into(),
+        name: " SEV-SNP is enabled in host kernel".into(),
         pass: false,
         info: None,
         mesg: None,
     };
 
-    let mod_param = "/sys/module/kvm_amd/parameters/sev";
+    let mod_param = "/sys/module/kvm_amd/parameters/sev_snp";
     if std::path::Path::new(mod_param).exists() {
         if let Ok(val) = std::fs::read_to_string(mod_param) {
             datum.pass = val.trim() == "1" || val.trim() == "Y";
@@ -184,10 +184,10 @@ pub const CPUIDS: &[CpuId] = &[
         vend: Some(Vendor::Amd),
     },
     CpuId {
-        name: " Secure Encrypted Virtualization Encrypted State (SEV-ES)",
+        name: " Secure Encrypted Virtualization Secure Nested Paging (SEV-SNP)",
         leaf: 0x8000001f,
         subl: 0x00000000,
-        func: |res| (res.eax & (1 << 3) != 0, None),
+        func: |res| (res.eax & (1 << 4) != 0, None),
         vend: Some(Vendor::Amd),
     },
     CpuId {
