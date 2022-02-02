@@ -65,6 +65,8 @@ use crate::workldr::{Workldr, WORKLDRS};
 
 #[derive(StructOpt, Debug)]
 pub struct WorkldrOptions {
+    #[structopt(long, env = "ENARX_WASMCFGFILE")]
+    pub wasmcfgfile: Option<String>,
     // FUTURE: Path to an external workldr binary
 }
 

@@ -136,6 +136,18 @@ fn main() -> Result<()> {
             // then things will break mysteriously later on. So this assert
             // is just here to make them break earlier, and with less mystery.
             assert!(open_fd == 3, "module got unexpected fd {}", open_fd);
+
+            let configfile = match run.workldr.wasmcfgfile.as_ref() {
+                Some(name) => {
+                    let file = File::open(name)?;
+                    let fd = file.as_raw_fd();
+                    assert!(fd == 4, "config got unexpected fd {}", fd);
+
+                    Some(file)
+                }
+                None => None,
+            };
+
             // TODO: pass open_fd (or its contents) into the keep.
             let backend = run.backend.pick()?;
             let workldr = run.workldr.pick()?;
@@ -145,7 +157,10 @@ fn main() -> Result<()> {
             #[cfg(feature = "gdb")]
             let gdblisten = Some(run.gdblisten);
 
-            keep_exec(backend, backend.shim(), workldr.exec(), gdblisten)
+            let res = keep_exec(backend, backend.shim(), workldr.exec(), gdblisten);
+            drop(configfile);
+            drop(modfile);
+            res
         }
         #[cfg(feature = "backend-sev")]
         cli::Command::Sev(cmd) => cli::sev::run(cmd),
