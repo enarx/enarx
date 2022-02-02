@@ -1,10 +1,32 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use super::alloc::{Allocator, Collect, Commit};
+use super::alloc::{Allocator, Collect, Collector, Commit, CommitPassthrough, Committer};
 use crate::Result;
 
+pub(crate) mod kind {
+    use super::super::alloc;
+
+    use core::marker::PhantomData;
+
+    pub trait Kind {}
+
+    #[repr(transparent)]
+    pub struct Alloc<K>(PhantomData<K>)
+    where
+        K: alloc::kind::Kind;
+    impl<K> Kind for Alloc<K> where K: alloc::kind::Kind {}
+
+    impl<K> Kind for (K,) {}
+    impl<AK, BK> Kind for (AK, BK) {}
+    impl<AK, BK, CK> Kind for (AK, BK, CK) {}
+    impl<AK, BK, CK, DK> Kind for (AK, BK, CK, DK) {}
+}
+
 /// An [executable](super::Execute::execute) call.
-pub trait Call<'a> {
+pub trait Call<'a, K>
+where
+    K: kind::Kind,
+{
     /// Opaque staged value, which returns [`Self::Committed`] when committed via [`Commit::commit`].
     ///
     /// This is designed to serve as a container for data allocated within [`stage`][Self::stage].
@@ -23,7 +45,11 @@ pub trait Call<'a> {
     fn stage(self, alloc: &mut impl Allocator) -> Result<Self::Staged>;
 }
 
-impl<'a, A: Call<'a>> Call<'a> for (A,) {
+impl<'a, AK, A> Call<'a, (AK,)> for (A,)
+where
+    AK: kind::Kind,
+    A: Call<'a, AK>,
+{
     type Staged = (A::Staged,);
     type Committed = (A::Committed,);
     type Collected = (A::Collected,);
@@ -34,7 +60,13 @@ impl<'a, A: Call<'a>> Call<'a> for (A,) {
     }
 }
 
-impl<'a, A: Call<'a>, B: Call<'a>> Call<'a> for (A, B) {
+impl<'a, AK, BK, A, B> Call<'a, (AK, BK)> for (A, B)
+where
+    AK: kind::Kind,
+    BK: kind::Kind,
+    A: Call<'a, AK>,
+    B: Call<'a, BK>,
+{
     type Staged = (A::Staged, B::Staged);
     type Committed = (A::Committed, B::Committed);
     type Collected = (A::Collected, B::Collected);
@@ -47,7 +79,15 @@ impl<'a, A: Call<'a>, B: Call<'a>> Call<'a> for (A, B) {
     }
 }
 
-impl<'a, A: Call<'a>, B: Call<'a>, C: Call<'a>> Call<'a> for (A, B, C) {
+impl<'a, AK, BK, CK, A, B, C> Call<'a, (AK, BK, CK)> for (A, B, C)
+where
+    AK: kind::Kind,
+    BK: kind::Kind,
+    CK: kind::Kind,
+    A: Call<'a, AK>,
+    B: Call<'a, BK>,
+    C: Call<'a, CK>,
+{
     type Staged = (A::Staged, B::Staged, C::Staged);
     type Committed = (A::Committed, B::Committed, C::Committed);
     type Collected = (A::Collected, B::Collected, C::Collected);
@@ -60,7 +100,17 @@ impl<'a, A: Call<'a>, B: Call<'a>, C: Call<'a>> Call<'a> for (A, B, C) {
     }
 }
 
-impl<'a, A: Call<'a>, B: Call<'a>, C: Call<'a>, D: Call<'a>> Call<'a> for (A, B, C, D) {
+impl<'a, AK, BK, CK, DK, A, B, C, D> Call<'a, (AK, BK, CK, DK)> for (A, B, C, D)
+where
+    AK: kind::Kind,
+    BK: kind::Kind,
+    CK: kind::Kind,
+    DK: kind::Kind,
+    A: Call<'a, AK>,
+    B: Call<'a, BK>,
+    C: Call<'a, CK>,
+    D: Call<'a, DK>,
+{
     type Staged = (A::Staged, B::Staged, C::Staged, D::Staged);
     type Committed = (A::Committed, B::Committed, C::Committed, D::Committed);
     type Collected = (A::Collected, B::Collected, C::Collected, D::Collected);

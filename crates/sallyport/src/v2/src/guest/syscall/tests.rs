@@ -2,6 +2,7 @@
 
 use super::*;
 use crate::guest::alloc::{Alloc, Allocator, Collect, Commit, Committer};
+use crate::guest::call::kind;
 use crate::guest::syscall::types::SockaddrOutput;
 use crate::guest::Call;
 use crate::item::{self, SYSCALL_USIZE_COUNT};
@@ -10,7 +11,7 @@ use crate::NULL;
 use core::mem::size_of;
 use libc::{socklen_t, AF_INET};
 
-fn assert_call<'a, T: Call<'a>, const N: usize>(
+fn assert_call<'a, K: kind::Kind, T: Call<'a, K>, const N: usize>(
     call: T,
     committed: [usize; N],
     collect: [usize; N],

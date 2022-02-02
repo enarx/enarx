@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use super::alloc::{phase, Alloc, Allocator, Collect, Commit, Committer};
+use super::call::kind;
 use super::syscall::types::{SockaddrInput, SockaddrOutput, SockoptInput};
 use super::{syscall, Call, Platform, ThreadLocalStorage, SIGRTMAX};
 use crate::{item, Result};
@@ -18,7 +19,7 @@ pub trait Execute {
     /// - [`syscall::Exit`]
     /// - [`syscall::Read`]
     /// - [`syscall::Write`]
-    fn execute<'a, T: Call<'a>>(&mut self, call: T) -> Result<T::Collected>;
+    fn execute<'a, K: kind::Kind, T: Call<'a, K>>(&mut self, call: T) -> Result<T::Collected>;
 
     /// Executes a supported syscall expressed as an opaque 7-word array akin to [`libc::syscall`].
     unsafe fn syscall(&mut self, registers: [usize; 7]) -> Result<[usize; 2]>;
@@ -434,7 +435,7 @@ impl<'a, P: Platform> Handler<'a, P> {
 }
 
 impl<'a, P: Platform> Execute for Handler<'a, P> {
-    fn execute<'b, T: Call<'b>>(&mut self, call: T) -> Result<T::Collected> {
+    fn execute<'b, K: kind::Kind, T: Call<'b, K>>(&mut self, call: T) -> Result<T::Collected> {
         let mut alloc = self.alloc.stage();
         let ((call, len), mut end_ref) =
             alloc.reserve_input(|alloc| alloc.section(|alloc| call.stage(alloc)))?;

@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use super::{
-    Allocator, Call, Collect, Collector, Commit, Committer, InOutRef, InRef, Input, OutRef,
+    kind, Allocator, Call, Collect, Collector, Commit, Committer, InOutRef, InRef, Input, OutRef,
 };
 use crate::guest::syscall;
-use crate::{item, Result};
+use crate::Result;
 
 use libc::c_long;
 
@@ -100,12 +100,10 @@ pub unsafe trait Syscall<'a> {
     ) -> Self::Collected;
 }
 
-impl<'a, T: Syscall<'a>> Call<'a> for T
+impl<'a, T: Syscall<'a>> Call<'a, kind::Syscall> for T
 where
     syscall::Result<T::Ret>: Into<Result<T::Ret>>,
 {
-    const KIND: item::Kind = item::Kind::Syscall;
-
     type Staged = StagedSyscall<'a, T>;
     type Committed = CommittedSyscall<'a, T>;
     type Collected = T::Collected;
