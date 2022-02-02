@@ -11,6 +11,10 @@ pub(crate) mod kind {
     pub trait Kind {}
 
     #[repr(transparent)]
+    pub struct Stub<T>(PhantomData<T>);
+    impl<T> Kind for Stub<T> {}
+
+    #[repr(transparent)]
     pub struct Alloc<K>(PhantomData<K>)
     where
         K: alloc::kind::Kind;
@@ -120,5 +124,32 @@ where
         ((self.0, self.1), self.2, self.3)
             .stage(alloc)
             .map(|((a, b), c, d)| (a, b, c, d))
+    }
+}
+
+pub trait Stub {
+    /// Call return value.
+    ///
+    /// For example, [`libc::size_t`].
+    type Ret;
+
+    fn collect(self, _: &impl Collector) -> Self::Ret;
+}
+
+impl<T: Stub> Call<'_, kind::Stub<T>> for T {
+    type Staged = Self;
+    type Committed = Self;
+    type Collected = T::Ret;
+
+    fn stage(self, _: &mut impl Allocator) -> Result<Self::Staged> {
+        Ok(self)
+    }
+}
+impl<T: Stub> CommitPassthrough for T {}
+impl<T: Stub> Collect for T {
+    type Item = T::Ret;
+
+    fn collect(self, col: &impl Collector) -> Self::Item {
+        self.collect(col)
     }
 }

@@ -1,13 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::guest::alloc::{Allocator, Collect, Collector, CommitPassthrough};
-use crate::guest::Call;
+use crate::guest::alloc::Collector;
+use crate::guest::Stub;
 use crate::Result;
 
-use libc::{c_char, c_int, c_uint, gid_t, pid_t, sigset_t, size_t, stack_t, uid_t, utsname};
-
-// TODO: Introduce a macro for trait implementations.
-// https://github.com/enarx/sallyport/issues/53
+use core::mem;
+use libc::{
+    c_char, c_int, c_uint, gid_t, pid_t, sigset_t, size_t, stack_t, stat, uid_t, utsname, EBADFD,
+    STDERR_FILENO, STDIN_FILENO, STDOUT_FILENO, S_IFIFO,
+};
 
 /// Fake GID returned by enarx.
 pub const FAKE_GID: gid_t = 1000;
@@ -21,82 +22,97 @@ pub const FAKE_TID: pid_t = 1;
 /// Fake UID returned by enarx.
 pub const FAKE_UID: uid_t = 1000;
 
-pub struct Getegid;
+pub struct Fstat<'a> {
+    pub fd: c_int,
+    pub statbuf: &'a mut stat,
+}
 
-impl Call<'_> for Getegid {
-    type Staged = Self;
-    type Committed = Self;
-    type Collected = gid_t;
+impl<'a> Stub for Fstat<'a> {
+    type Ret = Result<()>;
 
-    fn stage(self, _: &mut impl Allocator) -> Result<Self::Staged> {
-        Ok(self)
+    fn collect(self, _: &impl Collector) -> Self::Ret {
+        match self.fd {
+            STDIN_FILENO | STDOUT_FILENO | STDERR_FILENO => {
+                #[allow(clippy::integer_arithmetic)]
+                const fn makedev(x: u64, y: u64) -> u64 {
+                    (((x) & 0xffff_f000u64) << 32)
+                        | (((x) & 0x0000_0fffu64) << 8)
+                        | (((y) & 0xffff_ff00u64) << 12)
+                        | ((y) & 0x0000_00ffu64)
+                }
+
+                let mut p: stat = unsafe { mem::zeroed() };
+
+                p.st_dev = makedev(
+                    0,
+                    match self.fd {
+                        0 => 0x19,
+                        _ => 0xc,
+                    },
+                );
+                p.st_ino = 3;
+                p.st_mode = S_IFIFO | 0o600;
+                p.st_nlink = 1;
+                p.st_uid = 1000;
+                p.st_gid = 5;
+                p.st_blksize = 4096;
+                p.st_blocks = 0;
+                p.st_rdev = makedev(0x88, 0);
+                p.st_size = 0;
+
+                p.st_atime = 1_579_507_218 /* 2020-01-21T11:45:08.467721685+0100 */;
+                p.st_atime_nsec = 0;
+                p.st_mtime = 1_579_507_218 /* 2020-01-21T11:45:07.467721685+0100 */;
+                p.st_mtime_nsec = 0;
+                p.st_ctime = 1_579_507_218 /* 2020-01-20T09:00:18.467721685+0100 */;
+                p.st_ctime_nsec = 0;
+
+                *self.statbuf = p;
+                Ok(())
+            }
+            // TODO: Support `fstat` on files.
+            // https://github.com/enarx/sallyport/issues/45
+            _ => Err(EBADFD),
+        }
     }
 }
-impl CommitPassthrough for Getegid {}
-impl Collect for Getegid {
-    type Item = gid_t;
 
-    fn collect(self, _: &impl Collector) -> Self::Item {
+pub struct Getegid;
+
+impl Stub for Getegid {
+    type Ret = gid_t;
+
+    fn collect(self, _: &impl Collector) -> Self::Ret {
         FAKE_GID
     }
 }
 
 pub struct Geteuid;
 
-impl Call<'_> for Geteuid {
-    type Staged = Self;
-    type Committed = Self;
-    type Collected = uid_t;
+impl Stub for Geteuid {
+    type Ret = uid_t;
 
-    fn stage(self, _: &mut impl Allocator) -> Result<Self::Staged> {
-        Ok(self)
-    }
-}
-impl CommitPassthrough for Geteuid {}
-impl Collect for Geteuid {
-    type Item = uid_t;
-
-    fn collect(self, _: &impl Collector) -> Self::Item {
+    fn collect(self, _: &impl Collector) -> Self::Ret {
         FAKE_UID
     }
 }
 
 pub struct Getgid;
 
-impl Call<'_> for Getgid {
-    type Staged = Self;
-    type Committed = Self;
-    type Collected = gid_t;
+impl Stub for Getgid {
+    type Ret = gid_t;
 
-    fn stage(self, _: &mut impl Allocator) -> Result<Self::Staged> {
-        Ok(self)
-    }
-}
-impl CommitPassthrough for Getgid {}
-impl Collect for Getgid {
-    type Item = gid_t;
-
-    fn collect(self, _: &impl Collector) -> Self::Item {
+    fn collect(self, _: &impl Collector) -> Self::Ret {
         FAKE_GID
     }
 }
 
 pub struct Getpid;
 
-impl Call<'_> for Getpid {
-    type Staged = Self;
-    type Committed = Self;
-    type Collected = pid_t;
+impl Stub for Getpid {
+    type Ret = pid_t;
 
-    fn stage(self, _: &mut impl Allocator) -> Result<Self::Staged> {
-        Ok(self)
-    }
-}
-impl CommitPassthrough for Getpid {}
-impl Collect for Getpid {
-    type Item = pid_t;
-
-    fn collect(self, _: &impl Collector) -> Self::Item {
+    fn collect(self, _: &impl Collector) -> Self::Ret {
         FAKE_PID
     }
 }
@@ -106,20 +122,10 @@ pub struct Getrandom<'a> {
     pub flags: c_uint,
 }
 
-impl Call<'_> for Getrandom<'_> {
-    type Staged = Self;
-    type Committed = Self;
-    type Collected = Result<size_t>;
+impl Stub for Getrandom<'_> {
+    type Ret = Result<size_t>;
 
-    fn stage(self, _: &mut impl Allocator) -> Result<Self::Staged> {
-        Ok(self)
-    }
-}
-impl CommitPassthrough for Getrandom<'_> {}
-impl Collect for Getrandom<'_> {
-    type Item = Result<size_t>;
-
-    fn collect(self, _: &impl Collector) -> Self::Item {
+    fn collect(self, _: &impl Collector) -> Self::Ret {
         let flags = self.flags & !(libc::GRND_NONBLOCK | libc::GRND_RANDOM);
         if flags != 0 {
             return Err(libc::EINVAL);
@@ -147,20 +153,10 @@ impl Collect for Getrandom<'_> {
 
 pub struct Getuid;
 
-impl Call<'_> for Getuid {
-    type Staged = Self;
-    type Committed = Self;
-    type Collected = uid_t;
+impl Stub for Getuid {
+    type Ret = uid_t;
 
-    fn stage(self, _: &mut impl Allocator) -> Result<Self::Staged> {
-        Ok(self)
-    }
-}
-impl CommitPassthrough for Getuid {}
-impl Collect for Getuid {
-    type Item = uid_t;
-
-    fn collect(self, _: &impl Collector) -> Self::Item {
+    fn collect(self, _: &impl Collector) -> Self::Ret {
         FAKE_UID
     }
 }
@@ -170,20 +166,10 @@ pub struct Readlink<'a> {
     pub buf: &'a mut [u8],
 }
 
-impl Call<'_> for Readlink<'_> {
-    type Staged = Self;
-    type Committed = Self;
-    type Collected = Option<Result<size_t>>;
+impl Stub for Readlink<'_> {
+    type Ret = Option<Result<size_t>>;
 
-    fn stage(self, _: &mut impl Allocator) -> Result<Self::Staged> {
-        Ok(self)
-    }
-}
-impl CommitPassthrough for Readlink<'_> {}
-impl Collect for Readlink<'_> {
-    type Item = Option<Result<size_t>>;
-
-    fn collect(self, _: &impl Collector) -> Self::Item {
+    fn collect(self, _: &impl Collector) -> Self::Ret {
         if !self.pathname.eq("/proc/self/exe".as_bytes()) {
             return Some(Err(libc::ENOENT));
         }
@@ -204,20 +190,10 @@ pub struct RtSigprocmask<'a> {
     pub sigsetsize: size_t,
 }
 
-impl Call<'_> for RtSigprocmask<'_> {
-    type Staged = Self;
-    type Committed = Self;
-    type Collected = Result<()>;
+impl Stub for RtSigprocmask<'_> {
+    type Ret = Result<()>;
 
-    fn stage(self, _: &mut impl Allocator) -> Result<Self::Staged> {
-        Ok(self)
-    }
-}
-impl CommitPassthrough for RtSigprocmask<'_> {}
-impl Collect for RtSigprocmask<'_> {
-    type Item = Result<()>;
-
-    fn collect(self, _: &impl Collector) -> Self::Item {
+    fn collect(self, _: &impl Collector) -> Self::Ret {
         Ok(())
     }
 }
@@ -227,20 +203,10 @@ pub struct Sigaltstack<'a> {
     pub old_ss: Option<&'a mut stack_t>,
 }
 
-impl Call<'_> for Sigaltstack<'_> {
-    type Staged = Self;
-    type Committed = Self;
-    type Collected = Result<()>;
+impl Stub for Sigaltstack<'_> {
+    type Ret = Result<()>;
 
-    fn stage(self, _: &mut impl Allocator) -> Result<Self::Staged> {
-        Ok(self)
-    }
-}
-impl CommitPassthrough for Sigaltstack<'_> {}
-impl Collect for Sigaltstack<'_> {
-    type Item = Result<()>;
-
-    fn collect(self, _: &impl Collector) -> Self::Item {
+    fn collect(self, _: &impl Collector) -> Self::Ret {
         Ok(())
     }
 }
@@ -249,20 +215,10 @@ pub struct SetTidAddress<'a> {
     pub tidptr: &'a mut c_int,
 }
 
-impl Call<'_> for SetTidAddress<'_> {
-    type Staged = Self;
-    type Committed = Self;
-    type Collected = pid_t;
+impl Stub for SetTidAddress<'_> {
+    type Ret = pid_t;
 
-    fn stage(self, _: &mut impl Allocator) -> Result<Self::Staged> {
-        Ok(self)
-    }
-}
-impl CommitPassthrough for SetTidAddress<'_> {}
-impl Collect for SetTidAddress<'_> {
-    type Item = pid_t;
-
-    fn collect(self, _: &impl Collector) -> Self::Item {
+    fn collect(self, _: &impl Collector) -> Self::Ret {
         FAKE_TID
     }
 }
@@ -271,20 +227,10 @@ pub struct Uname<'a> {
     pub buf: &'a mut utsname,
 }
 
-impl Call<'_> for Uname<'_> {
-    type Staged = Self;
-    type Committed = Self;
-    type Collected = Result<()>;
+impl Stub for Uname<'_> {
+    type Ret = Result<()>;
 
-    fn stage(self, _: &mut impl Allocator) -> Result<Self::Staged> {
-        Ok(self)
-    }
-}
-impl CommitPassthrough for Uname<'_> {}
-impl Collect for Uname<'_> {
-    type Item = Result<()>;
-
-    fn collect(self, _: &impl Collector) -> Self::Item {
+    fn collect(self, _: &impl Collector) -> Self::Ret {
         fn fill(buf: &mut [c_char; 65], with: &str) {
             let src = with.as_bytes();
             for (i, b) in buf.iter_mut().enumerate() {
