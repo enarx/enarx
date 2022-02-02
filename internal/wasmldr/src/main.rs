@@ -72,7 +72,7 @@ fn main() {
     // (safely, securely) send logs. Might need our own logger for that..
     env_logger::Builder::from_default_env().init();
 
-    info!("version {} starting up", env!("CARGO_PKG_VERSION"));
+    
 
     warn!("🌭DEV-ONLY BUILD, NOT FOR PRODUCTION USE🌭");
 
