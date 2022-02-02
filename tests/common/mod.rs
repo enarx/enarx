@@ -83,14 +83,18 @@ pub fn keepldr_exec<'a>(bin: &str, input: impl Into<Option<&'a [u8]>>) -> Output
 
 /// Returns a handle to a child process through which output (stdout, stderr) can
 /// be accessed.
-pub fn keepldr_exec_crate(
+pub fn keepldr_exec_crate<'a>(
     crate_name: &str,
     bin: &str,
+    bin_args: impl Into<Option<&'a [&'a str]>>,
     input: impl Into<Option<Vec<u8>>>,
 ) -> Output {
     let crate_path = Path::new(CRATE).join(crate_name);
+    let bin_args = bin_args.into();
 
-    let mut child = Command::new("cargo")
+    let mut child = Command::new("cargo");
+
+    let mut child = child
         .current_dir(crate_path)
         .arg("run")
         .arg("--quiet")
@@ -99,7 +103,13 @@ pub fn keepldr_exec_crate(
         .env("ENARX_BIN", KEEP_BIN)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
+        .stderr(Stdio::piped());
+
+    if let Some(args) = bin_args {
+        child = child.arg("--").args(args);
+    }
+
+    let mut child = child
         .spawn()
         .unwrap_or_else(|e| panic!("failed to run `{}`: {:#?}", bin, e));
 
@@ -204,12 +214,13 @@ pub fn run_test<'a>(
 pub fn run_crate<'a>(
     crate_name: &str,
     bin: &str,
+    bin_args: impl Into<Option<&'a [&'a str]>>,
     status: i32,
     input: impl Into<Option<Vec<u8>>>,
     expected_stdout: impl Into<Option<&'a [u8]>>,
     expected_stderr: impl Into<Option<&'a [u8]>>,
 ) -> Output {
-    let output = keepldr_exec_crate(crate_name, bin, input);
+    let output = keepldr_exec_crate(crate_name, bin, bin_args, input);
     check_output(&output, status, expected_stdout, expected_stderr);
     output
 }
