@@ -8,7 +8,7 @@ use std::process::{Command, Stdio};
 use walkdir::WalkDir;
 
 const CRATE: &str = env!("CARGO_MANIFEST_DIR");
-const TEST_BINS_IN: &str = "tests/bin";
+const TEST_BINS_IN: &str = "tests/c-tests";
 
 fn find_files_with_extensions<'a>(
     exts: &'a [&'a str],
@@ -96,6 +96,7 @@ fn cargo_build_bin(
 
     for p in [
         "src",
+        "tests",
         "build.rs",
         "Cargo.tml",
         "Cargo.toml",

@@ -164,7 +164,7 @@ fn echo() {
     let expected_input = input.clone();
 
     run_crate(
-        "integration/wasm",
+        "tests/wasm/rust-tests",
         "echo",
         0,
         input,
@@ -176,14 +176,14 @@ fn echo() {
 #[test]
 #[serial]
 fn memspike() {
-    run_crate("integration/wasm", "memspike", 0, None, None, None);
+    run_crate("tests/wasm/rust-tests", "memspike", 0, None, None, None);
 }
 
 #[test]
 #[serial]
 fn memory_stress_test() {
     run_crate(
-        "integration/wasm",
+        "tests/wasm/rust-tests",
         "memory_stress_test",
         0,
         None,
@@ -198,7 +198,7 @@ fn zerooneone() {
     let input = Vec::from("Good morning, that's a nice tnetennba.\n0118 999 881 999 119 725 3\n");
 
     run_crate(
-        "integration/wasm",
+        "tests/wasm/rust-tests",
         "zerooneone",
         0,
         input,
