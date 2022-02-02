@@ -22,4 +22,8 @@ path= "src/memory_stress_test.rs"
 name="zerooneone"
 path= "src/zerooneone.rs"
 
+[[bin]]
+name="check_listen_fd"
+path="src/check_listen_fd.rs"
+
 [dependencies]
