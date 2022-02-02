@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 pub mod alloc;
+pub mod gdbcall;
 pub mod syscall;
 pub mod types;
 

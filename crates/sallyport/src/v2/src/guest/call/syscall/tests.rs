@@ -5,7 +5,7 @@ use crate::guest::alloc::{Alloc, Allocator, Collect, Commit, Committer};
 use crate::guest::call::kind;
 use crate::guest::syscall::types::SockaddrOutput;
 use crate::guest::Call;
-use crate::item::{self, SYSCALL_USIZE_COUNT};
+use crate::item::{self, syscall};
 use crate::NULL;
 
 use core::mem::size_of;
@@ -39,7 +39,7 @@ fn exit() {
     assert_call(
         Exit { status: 2 },
         [
-            SYSCALL_USIZE_COUNT * size_of::<usize>(),
+            syscall::USIZE_COUNT * size_of::<usize>(),
             item::Kind::Syscall as _,
             libc::SYS_exit as _,
             2,
@@ -69,7 +69,7 @@ fn recv() {
             flags,
         },
         [
-            SYSCALL_USIZE_COUNT * size_of::<usize>() + size_of::<usize>(),
+            syscall::USIZE_COUNT * size_of::<usize>() + size_of::<usize>(),
             item::Kind::Syscall as _,
             libc::SYS_recvfrom as _,
             sockfd as _,
@@ -106,7 +106,7 @@ fn recvfrom() {
             src_addr: SockaddrOutput::new(&mut src_addr, &mut addrlen),
         },
         [
-            SYSCALL_USIZE_COUNT * size_of::<usize>() + 2 * size_of::<usize>(),
+            syscall::USIZE_COUNT * size_of::<usize>() + 2 * size_of::<usize>(),
             item::Kind::Syscall as _,
             libc::SYS_recvfrom as _,
             sockfd as _,

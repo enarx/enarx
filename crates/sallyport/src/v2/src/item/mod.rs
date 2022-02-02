@@ -2,6 +2,12 @@
 
 //! Shared `sallyport` item definitions.
 
+pub mod gdbcall;
+pub mod syscall;
+
+pub use gdbcall::Payload as Gdbcall;
+pub use syscall::Payload as Syscall;
+
 use crate::iter::{IntoIterator, Iterator};
 use crate::Error;
 
@@ -16,6 +22,7 @@ pub enum Kind {
     End = 0x00,
 
     Syscall = 0x01,
+    Gdbcall = 0x02,
 }
 
 impl TryFrom<usize> for Kind {
@@ -26,6 +33,7 @@ impl TryFrom<usize> for Kind {
         match kind {
             kind if kind == Kind::End as _ => Ok(Kind::End),
             kind if kind == Kind::Syscall as _ => Ok(Kind::Syscall),
+            kind if kind == Kind::Gdbcall as _ => Ok(Kind::Gdbcall),
             _ => Err(EINVAL),
         }
     }
@@ -52,32 +60,11 @@ impl TryFrom<[usize; HEADER_USIZE_COUNT]> for Header {
     }
 }
 
-/// Payload of an [Item] of [Kind::Syscall].
-#[derive(Clone, Copy, Debug, PartialEq)]
-#[repr(C, align(8))]
-pub struct Syscall {
-    pub num: usize,
-    pub argv: [usize; 6],
-    pub ret: [usize; 2],
-}
-
-pub(crate) const SYSCALL_USIZE_COUNT: usize = size_of::<Syscall>() / size_of::<usize>();
-
-impl From<&mut [usize; SYSCALL_USIZE_COUNT]> for &mut Syscall {
-    #[inline]
-    fn from(buf: &mut [usize; SYSCALL_USIZE_COUNT]) -> Self {
-        debug_assert_eq!(
-            size_of::<Syscall>(),
-            SYSCALL_USIZE_COUNT * size_of::<usize>()
-        );
-        unsafe { &mut *(buf as *mut _ as *mut _) }
-    }
-}
-
 /// `sallyport` item.
 #[derive(Debug, PartialEq)]
 pub enum Item<'a> {
     Syscall(&'a mut Syscall, &'a mut [u8]),
+    Gdbcall(&'a mut Gdbcall, &'a mut [u8]),
 }
 
 /// Untrusted `sallyport` block.
@@ -97,37 +84,54 @@ impl<'a> From<Block<'a>> for Option<(Option<Item<'a>>, Block<'a>)> {
     fn from(block: Block<'a>) -> Self {
         match block.0 {
             [size, kind, tail @ ..] => {
+                #[inline]
+                fn decode_item<'a, const USIZE_COUNT: usize, T>(
+                    size: usize,
+                    tail: &'a mut [usize],
+                ) -> Option<((&'a mut T, &'a mut [u8]), Block<'a>)>
+                where
+                    &'a mut T: From<&'a mut [usize; USIZE_COUNT]>,
+                {
+                    let (payload, tail) = tail.split_at_mut(size / size_of::<usize>());
+
+                    debug_assert!(size >= size_of::<T>());
+                    let data_size = size.checked_sub(size_of::<T>())?;
+
+                    debug_assert_eq!(size_of::<T>(), USIZE_COUNT * size_of::<usize>());
+                    let (item_payload, data) = payload.split_at_mut(USIZE_COUNT);
+
+                    let item_payload: &mut [usize; USIZE_COUNT] = item_payload.try_into().ok()?;
+                    let (prefix, data, suffix) = unsafe { data.align_to_mut::<u8>() };
+                    if !prefix.is_empty() || !suffix.is_empty() || data.len() != data_size {
+                        debug_assert!(prefix.is_empty());
+                        debug_assert!(suffix.is_empty());
+                        debug_assert_eq!(data.len(), data_size);
+                        return None;
+                    }
+                    Some(((item_payload.into(), data), tail.into()))
+                }
+
                 if *size % align_of::<usize>() != 0 {
                     debug_assert_eq!(*size % align_of::<usize>(), 0);
                     return None;
                 }
-                let (payload, tail) = tail.split_at_mut(*size / size_of::<usize>());
                 match (*kind).try_into() {
                     Ok(Kind::End) => {
                         debug_assert_eq!(*size, 0);
                         None
                     }
+
                     Ok(Kind::Syscall) => {
-                        debug_assert!(*size >= size_of::<Syscall>());
-                        let data_size = size.checked_sub(size_of::<Syscall>())?;
-
-                        debug_assert_eq!(
-                            size_of::<Syscall>(),
-                            SYSCALL_USIZE_COUNT * size_of::<usize>()
-                        );
-                        let (syscall, data) = payload.split_at_mut(SYSCALL_USIZE_COUNT);
-
-                        let syscall: &mut [usize; SYSCALL_USIZE_COUNT] = syscall.try_into().ok()?;
-                        let (prefix, data, suffix) = unsafe { data.align_to_mut::<u8>() };
-                        if !prefix.is_empty() || !suffix.is_empty() || data.len() != data_size {
-                            debug_assert!(prefix.is_empty());
-                            debug_assert!(suffix.is_empty());
-                            debug_assert_eq!(data.len(), data_size);
-                            return None;
-                        }
-                        Some((Some(Item::Syscall(syscall.into(), data)), tail.into()))
+                        decode_item::<{ syscall::USIZE_COUNT }, Syscall>(*size, tail)
+                            .map(|((call, data), tail)| (Some(Item::Syscall(call, data)), tail))
                     }
-                    Err(_) => Some((None, tail.into())),
+
+                    Ok(Kind::Gdbcall) => {
+                        decode_item::<{ gdbcall::USIZE_COUNT }, Gdbcall>(*size, tail)
+                            .map(|((call, data), tail)| (Some(Item::Gdbcall(call, data)), tail))
+                    }
+
+                    Err(_) => Some((None, tail.split_at_mut(*size / size_of::<usize>()).1.into())),
                 }
             }
             _ => None,
@@ -165,37 +169,37 @@ mod tests {
     fn syscall_size() {
         assert_eq!(
             size_of::<Syscall>(),
-            SYSCALL_USIZE_COUNT * size_of::<usize>()
+            syscall::USIZE_COUNT * size_of::<usize>()
         )
     }
 
     #[test]
     fn block() {
-        let mut block: [usize; 3 * HEADER_USIZE_COUNT + 2 * SYSCALL_USIZE_COUNT + 1] = [
-            (SYSCALL_USIZE_COUNT + 1) * size_of::<usize>(), // size
-            Kind::Syscall as _,                             // kind
-            libc::SYS_read as _,                            // num
-            1,                                              // fd
-            0,                                              // buf
-            4,                                              // count
-            0,                                              // -
-            0,                                              // -
-            0,                                              // -
-            -libc::ENOSYS as _,                             // ret
-            0,                                              // -
-            0xdeadbeef,                                     // data
+        let mut block: [usize; 3 * HEADER_USIZE_COUNT + 2 * syscall::USIZE_COUNT + 1] = [
+            (syscall::USIZE_COUNT + 1) * size_of::<usize>(), // size
+            Kind::Syscall as _,                              // kind
+            libc::SYS_read as _,                             // num
+            1,                                               // fd
+            0,                                               // buf
+            4,                                               // count
+            0,                                               // -
+            0,                                               // -
+            0,                                               // -
+            -libc::ENOSYS as _,                              // ret
+            0,                                               // -
+            0xdeadbeef,                                      // data
             /* --------------------- */
-            SYSCALL_USIZE_COUNT * size_of::<usize>(), // size
-            Kind::Syscall as _,                       // kind
-            libc::SYS_exit as _,                      // num
-            5,                                        // status
-            0,                                        // -
-            0,                                        // -
-            0,                                        // -
-            0,                                        // -
-            0,                                        // -
-            -libc::ENOSYS as _,                       // ret
-            0,                                        // -
+            syscall::USIZE_COUNT * size_of::<usize>(), // size
+            Kind::Syscall as _,                        // kind
+            libc::SYS_exit as _,                       // num
+            5,                                         // status
+            0,                                         // -
+            0,                                         // -
+            0,                                         // -
+            0,                                         // -
+            0,                                         // -
+            -libc::ENOSYS as _,                        // ret
+            0,                                         // -
             /* --------------------- */
             0,              // size
             Kind::End as _, // kind
