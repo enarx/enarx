@@ -8,6 +8,7 @@ mod tests;
 mod call;
 mod inout;
 mod input;
+mod maybe_alloc;
 mod output;
 mod phase_alloc;
 mod syscall;
@@ -15,6 +16,7 @@ mod syscall;
 pub use call::*;
 pub use inout::*;
 pub use input::*;
+pub use maybe_alloc::*;
 pub use output::*;
 pub use syscall::*;
 

@@ -8,7 +8,10 @@ use core::mem::align_of;
 use libc::ENOMEM;
 
 pub(crate) mod kind {
+    use super::Call;
     use crate::item;
+
+    use core::marker::PhantomData;
 
     pub trait Kind {
         /// [`item::Kind`] of this call.
@@ -20,6 +23,11 @@ pub(crate) mod kind {
     impl Kind for Syscall {
         const ITEM: item::Kind = item::Kind::Syscall;
     }
+
+    #[repr(transparent)]
+    pub struct MaybeAlloc<'a, K: Kind, T: Call<'a, K>>(&'a PhantomData<(K, T)>);
+    impl<'a, K: Kind, T: Call<'a, K>> Kind for MaybeAlloc<'a, K, T> {
+        const ITEM: item::Kind = K::ITEM;
     }
 }
 

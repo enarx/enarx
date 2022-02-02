@@ -2,9 +2,8 @@
 
 use super::types::Argv;
 use crate::guest::alloc::{
-    Allocator, Collect, Collector, Commit, CommittedCall, Committer, PassthroughSyscall, StagedCall,
+    kind, Allocator, Call, MaybeAlloc, PassthroughSyscall, StagedMaybeAlloc,
 };
-use crate::guest::Call;
 use crate::Result;
 
 use libc::{
@@ -26,57 +25,26 @@ unsafe impl PassthroughSyscall for Alloc {
     type Argv = Argv<3>;
     type Ret = c_int;
 
+    #[inline]
     fn stage(self) -> Self::Argv {
         Argv([self.0.fd as _, self.0.cmd as _, self.0.arg as _])
     }
 }
 
-pub enum StagedFcntl<'a> {
-    Alloc(StagedCall<'a, Alloc>),
-    Stub(c_int),
-}
-
-impl<'a> Call<'a> for Fcntl {
-    type Staged = StagedFcntl<'a>;
-    type Committed = CommittedFcntl<'a>;
-    type Collected = Result<c_int>;
-
-    fn stage(self, alloc: &mut impl Allocator) -> Result<Self::Staged> {
+impl<'a> MaybeAlloc<'a, kind::Syscall, Alloc> for Fcntl {
+    #[inline]
+    fn stage(
+        self,
+        alloc: &mut impl Allocator,
+    ) -> Result<StagedMaybeAlloc<'a, kind::Syscall, Alloc>> {
         match (self.fd, self.cmd) {
-            (STDIN_FILENO, F_GETFL) => Ok(StagedFcntl::Stub(O_RDWR | O_APPEND)),
-            (STDOUT_FILENO | STDERR_FILENO, F_GETFL) => Ok(StagedFcntl::Stub(O_WRONLY)),
+            (STDIN_FILENO, F_GETFL) => Ok(StagedMaybeAlloc::Stub(Ok(O_RDWR | O_APPEND))),
+            (STDOUT_FILENO | STDERR_FILENO, F_GETFL) => Ok(StagedMaybeAlloc::Stub(Ok(O_WRONLY))),
             (STDIN_FILENO | STDOUT_FILENO | STDERR_FILENO, _) => Err(EINVAL),
             (_, F_GETFD | F_SETFD | F_GETFL | F_SETFL) => {
-                Call::stage(Alloc(self), alloc).map(StagedFcntl::Alloc)
+                Call::stage(Alloc(self), alloc).map(StagedMaybeAlloc::Alloc)
             }
             (_, _) => Err(EBADFD),
-        }
-    }
-}
-
-pub enum CommittedFcntl<'a> {
-    Alloc(CommittedCall<'a, Alloc>),
-    Stub(c_int),
-}
-
-impl<'a> Commit for StagedFcntl<'a> {
-    type Item = CommittedFcntl<'a>;
-
-    fn commit(self, com: &impl Committer) -> CommittedFcntl<'a> {
-        match self {
-            StagedFcntl::Alloc(call) => CommittedFcntl::Alloc(call.commit(com)),
-            StagedFcntl::Stub(val) => CommittedFcntl::Stub(val),
-        }
-    }
-}
-
-impl<'a> Collect for CommittedFcntl<'a> {
-    type Item = Result<c_int>;
-
-    fn collect(self, col: &impl Collector) -> Self::Item {
-        match self {
-            CommittedFcntl::Alloc(call) => Collect::collect(call, col),
-            CommittedFcntl::Stub(val) => Ok(val),
         }
     }
 }
