@@ -7,7 +7,7 @@ use std::convert::TryFrom;
 use std::mem::size_of;
 use std::sync::{Arc, RwLock};
 
-use anyhow::{Error, Result};
+use anyhow::{Context, Error, Result};
 use kvm_bindings::bindings::kvm_userspace_memory_region;
 use kvm_bindings::fam_wrappers::KVM_MAX_CPUID_ENTRIES;
 use kvm_ioctls::{Kvm, VcpuFd, VmFd};
@@ -27,8 +27,10 @@ impl TryFrom<super::config::Config> for Builder {
     type Error = Error;
 
     fn try_from(_config: super::config::Config) -> Result<Self> {
-        let kvm_fd = Kvm::new()?;
-        let vm_fd = kvm_fd.create_vm()?;
+        let kvm_fd = Kvm::new().context("Failed to open '/dev/kvm'")?;
+        let vm_fd = kvm_fd
+            .create_vm()
+            .context("Failed to create a virtual machine")?;
 
         Ok(Builder {
             kvm_fd,
@@ -94,7 +96,11 @@ pub fn kvm_builder_map(
         userspace_addr: pages.addr() as _,
     };
 
-    unsafe { vm_fd.set_user_memory_region(mem_region)? };
+    unsafe {
+        vm_fd
+            .set_user_memory_region(mem_region)
+            .context("Failed to set user memory region")?
+    };
     Ok(mem_region)
 }
 
@@ -127,10 +133,16 @@ pub fn kvm_try_from_builder(
         anyhow::bail!("No sallyport blocks defined!");
     }
 
-    let cpuids = kvm_fd.get_supported_cpuid(KVM_MAX_CPUID_ENTRIES)?;
+    let cpuids = kvm_fd
+        .get_supported_cpuid(KVM_MAX_CPUID_ENTRIES)
+        .context("Failed to get supported CPUID entries from kvm")?;
 
-    let vcpu_fd = vm_fd.create_vcpu(0)?;
-    vcpu_fd.set_cpuid2(&cpuids)?;
+    let vcpu_fd = vm_fd
+        .create_vcpu(0)
+        .context("Failed to create a virtual CPU")?;
+    vcpu_fd
+        .set_cpuid2(&cpuids)
+        .context("Failed to set the supported CPUID entries")?;
 
     // FIXME: this will be removed with relative addresses in sallyport
     // unwrap, because we have at least one block
