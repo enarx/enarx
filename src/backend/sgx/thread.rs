@@ -14,6 +14,8 @@ use sgx::enclu::{EENTER, EEXIT, ERESUME};
 use sgx::ssa::Vector;
 use vdso::Symbol;
 
+use crate::backend::sgx::attestation::get_attestation;
+
 pub struct Thread {
     enclave: Arc<super::Keep>,
     vdso: &'static Symbol,
@@ -137,6 +139,19 @@ impl super::super::Thread for Thread {
                     | sallyport::syscall::SYS_ENARX_GDB_READ
                     | sallyport::syscall::SYS_ENARX_GDB_WRITE => {
                         return Ok(Command::Gdb(&mut self.block, &mut self.gdb_fd))
+                    }
+
+                    sallyport::syscall::SYS_ENARX_GETATT => {
+                        let _result = unsafe {
+                            get_attestation(
+                                self.block.msg.req.arg[0].into(),
+                                self.block.msg.req.arg[1].into(),
+                                self.block.msg.req.arg[2].into(),
+                                self.block.msg.req.arg[3].into(),
+                            )?
+                        };
+
+                        return Ok(Command::SysCall(&mut self.block));
                     }
 
                     _ => return Ok(Command::SysCall(&mut self.block)),
