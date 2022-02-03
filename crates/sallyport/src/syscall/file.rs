@@ -153,6 +153,16 @@ pub trait FileSyscallHandler: BaseSyscallHandler + AddressValidator + Sized {
 
                 self.proxy(request!(libc::SYS_ioctl => fd, request, host_virt))
             },
+            (_, libc::FIONREAD) => unsafe {
+                let val = UntrustedRef::from(arg as *const libc::c_int)
+                    .validate(self)
+                    .ok_or(libc::EFAULT)?;
+                let c = self.new_cursor();
+                let (_, buf) = c.write(val).or(Err(libc::EMSGSIZE))?;
+                let host_virt = Self::translate_shim_to_host_addr(buf);
+
+                self.proxy(request!(libc::SYS_ioctl => fd, request, host_virt))
+            },
             _ => {
                 //eprintln!("SC> ioctl({}, {}), … = -EBADFD", fd, request);
                 Err(libc::EBADFD)
