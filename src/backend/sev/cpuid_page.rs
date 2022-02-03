@@ -8,6 +8,7 @@ use core::fmt::{Debug, Formatter};
 use core::mem::size_of;
 use std::fmt::Display;
 
+use anyhow::Context;
 use kvm_bindings::bindings::KVM_CPUID_FLAG_SIGNIFCANT_INDEX;
 use kvm_bindings::fam_wrappers::KVM_MAX_CPUID_ENTRIES;
 use kvm_ioctls::Kvm;
@@ -120,7 +121,9 @@ impl CpuidPage {
 
     /// Import all cpuid entry from a KVM vCPU
     pub fn import_from_kvm(&mut self, kvm_fd: &mut Kvm) -> anyhow::Result<()> {
-        let kvm_cpuid_entries = kvm_fd.get_supported_cpuid(KVM_MAX_CPUID_ENTRIES)?;
+        let kvm_cpuid_entries = kvm_fd
+            .get_supported_cpuid(KVM_MAX_CPUID_ENTRIES)
+            .context("Failed to get CPUID entries")?;
 
         for kvm_entry in kvm_cpuid_entries.as_slice() {
             // GET_CPUID2 returns bogus entries at the end with all zero set
@@ -170,7 +173,8 @@ impl CpuidPage {
                 snp_cpuid_entry.ebx = 0x240;
             }
 
-            self.add_entry(&snp_cpuid_entry)?;
+            self.add_entry(&snp_cpuid_entry)
+                .context("Failed to add CPUID entry to the CPUID page")?;
         }
         Ok(())
     }

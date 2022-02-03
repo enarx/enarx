@@ -11,8 +11,7 @@ use crate::backend::kvm::mem::Region;
 use std::convert::TryFrom;
 use std::sync::{Arc, RwLock};
 
-use anyhow::Context;
-use anyhow::{Error, Result};
+use anyhow::{Context, Error, Result};
 use kvm_ioctls::Kvm;
 use mmarinus::{perms, Map};
 use primordial::Page;
@@ -30,12 +29,14 @@ impl TryFrom<super::super::kvm::config::Config> for Builder {
     type Error = Error;
 
     fn try_from(_config: super::super::kvm::config::Config) -> Result<Self> {
-        let kvm_fd = Kvm::new()?;
-        let vm_fd = kvm_fd.create_vm()?;
+        let kvm_fd = Kvm::new().context("Failed to open '/dev/kvm'")?;
+        let vm_fd = kvm_fd
+            .create_vm()
+            .context("Failed to create a virtual machine")?;
 
-        let sev = Firmware::open()?;
+        let sev = Firmware::open().context("Failed to open '/dev/sev'")?;
 
-        let launcher = Launcher::new(vm_fd, sev)?;
+        let launcher = Launcher::new(vm_fd, sev).context("SNP Launcher init failed")?;
 
         let start = Start {
             policy: Policy {
@@ -46,7 +47,7 @@ impl TryFrom<super::super::kvm::config::Config> for Builder {
             ..Default::default()
         };
 
-        let launcher = launcher.start(start)?;
+        let launcher = launcher.start(start).context("SNP Launcher start failed")?;
 
         Ok(Builder {
             kvm_fd,
@@ -86,7 +87,9 @@ impl super::super::Mapper for Builder {
         if with & CPUID != 0 {
             assert_eq!(pages.len(), Page::SIZE);
             let mut cpuid_page = CpuidPage::default();
-            cpuid_page.import_from_kvm(&mut self.kvm_fd)?;
+            cpuid_page
+                .import_from_kvm(&mut self.kvm_fd)
+                .context("Failed to create CPUID page")?;
 
             let guest_cpuid_page = pages.as_mut_ptr() as *mut CpuidPage;
             unsafe {
@@ -120,7 +123,7 @@ impl super::super::Mapper for Builder {
 
             self.launcher
                 .update_data(update)
-                .context("SNP Launcher update_data")?;
+                .context("SNP Launcher update_data failed")?;
         } else {
             let update = Update::new(
                 to as u64 >> 12,
@@ -132,7 +135,7 @@ impl super::super::Mapper for Builder {
 
             self.launcher
                 .update_data(update)
-                .context("SNP Launcher update_data")?;
+                .context("SNP Launcher update_data failed")?;
         };
 
         self.regions.push(Region::new(mem_region, pages));
@@ -153,7 +156,10 @@ impl TryFrom<Builder> for Arc<dyn super::super::Keep> {
 
         let finish = Finish::new(None, None, [0u8; 32]);
 
-        let (vm_fd, sev_fd) = builder.launcher.finish(finish)?;
+        let (vm_fd, sev_fd) = builder
+            .launcher
+            .finish(finish)
+            .context("SNP Launcher finish failed")?;
 
         Ok(Arc::new(RwLock::new(super::Keep::<SnpKeepPersonality> {
             kvm_fd: builder.kvm_fd,
