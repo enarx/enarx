@@ -1,0 +1,11 @@
+[package]
+name = "tcp_server"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+mio = { git = "https://github.com/haraldh/mio.git", branch = "wasi", features=[ "os-poll", "net" ] }
+env_logger = { version = "0.8", default-features = false }

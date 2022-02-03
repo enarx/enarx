@@ -165,7 +165,7 @@ dependencies = [
  "cc",
  "colorful",
  "const-default",
- "env_logger",
+ "env_logger 0.9.0",
  "gdbstub",
  "goblin",
  "iocuddle",
@@ -205,6 +205,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7896dc8abb250ffdda33912550faa54c88ec8b998dec0b2c55ab224921ce11df"
 dependencies = [
  "cfg-if 1.0.0",
+]
+
+[[package]]
+name = "env_logger"
+version = "0.8.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a19187fea3ac7e84da7dacf48de0c45d63c6a76f9490dae389aead16c243fce3"
+dependencies = [
+ "log",
 ]
 
 [[package]]
@@ -620,6 +629,19 @@ dependencies = [
  "log",
  "miow",
  "ntapi",
+ "winapi",
+]
+
+[[package]]
+name = "mio"
+version = "0.8.0"
+source = "git+https://github.com/haraldh/mio.git?branch=wasi#7ffd4fa8cbdfece83d1a41ad3ceb69fddf7ee7d7"
+dependencies = [
+ "libc",
+ "log",
+ "miow",
+ "ntapi",
+ "wasi",
  "winapi",
 ]
 
@@ -1240,6 +1262,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "tcp_server"
+version = "0.1.0"
+dependencies = [
+ "env_logger 0.8.4",
+ "mio 0.8.0",
+]
+
+[[package]]
 name = "tempfile"
 version = "3.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1326,7 +1356,7 @@ dependencies = [
  "bytes",
  "libc",
  "memchr",
- "mio",
+ "mio 0.7.14",
  "num_cpus",
  "pin-project-lite",
  "winapi",
@@ -1506,6 +1536,12 @@ dependencies = [
  "log",
  "try-lock",
 ]
+
+[[package]]
+name = "wasi"
+version = "0.11.0+wasi-snapshot-preview1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9c8d87e72b64a3b4db28d11ce29237c246188f4f51057d65a7eab63b7987e423"
 
 [[package]]
 name = "wasm-bindgen"

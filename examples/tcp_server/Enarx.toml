@@ -1,0 +1,17 @@
+[[files]]
+type = "stdio"
+name = "stdin"
+
+[[files]]
+type = "stdio"
+name = "stdout"
+
+[[files]]
+type = "stdio"
+name = "stderr"
+
+[[files]]
+type = "tcp_listen"
+addr = "127.0.0.1"
+port = 9000
+name = "TEST_TCP_LISTEN"
