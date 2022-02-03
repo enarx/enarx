@@ -3,7 +3,7 @@
 use super::alloc::{phase, Alloc, Allocator, Collect, Commit, Committer};
 use super::call::kind;
 use super::syscall::types::{SockaddrInput, SockaddrOutput, SockoptInput};
-use super::{syscall, Call, Platform, ThreadLocalStorage, SIGRTMAX};
+use super::{gdbcall, syscall, Call, Platform, ThreadLocalStorage, SIGRTMAX};
 use crate::{item, Result};
 use core::ptr::NonNull;
 
@@ -19,6 +19,8 @@ pub trait Execute {
     /// - [`syscall::Exit`]
     /// - [`syscall::Read`]
     /// - [`syscall::Write`]
+    /// - [`gdbcall::Read`]
+    /// - [`gdbcall::Write`]
     fn execute<'a, K: kind::Kind, T: Call<'a, K>>(&mut self, call: T) -> Result<T::Collected>;
 
     /// Executes a supported syscall expressed as an opaque 7-word array akin to [`libc::syscall`].
@@ -30,6 +32,8 @@ pub trait Execute {
             let _ = self.exit(1);
         }
     }
+
+    // Syscalls, sorted alphabetically.
 
     /// Executes [`accept`](https://man7.org/linux/man-pages/man2/accept.2.html) syscall akin to [`libc::accept`].
     fn accept<'a>(
@@ -411,6 +415,45 @@ pub trait Execute {
         U: AsRef<[u8]>,
     {
         self.execute(syscall::Writev { fd, iovs })?
+            .unwrap_or_else(|| self.attacked())
+    }
+
+    // GDB calls, sorted alphabetically.
+
+    #[cfg_attr(feature = "doc", doc = "Executes [gdbstub::conn::Connection::flush]")]
+    fn gdb_flush(&mut self) -> Result<()> {
+        self.execute(gdbcall::Flush)?
+    }
+
+    #[cfg_attr(
+        feature = "doc",
+        doc = "Executes [gdbstub::conn::Connection::on_session_start]"
+    )]
+    fn gdb_on_session_start(&mut self) -> Result<()> {
+        self.execute(gdbcall::OnSessionStart)?
+    }
+
+    #[cfg_attr(feature = "doc", doc = "Executes [gdbstub::conn::ConnectionExt::peek]")]
+    fn gdb_peek(&mut self) -> Result<Option<u8>> {
+        self.execute(gdbcall::Peek)?
+    }
+
+    #[cfg_attr(feature = "doc", doc = "Executes [gdbstub::conn::ConnectionExt::read]")]
+    fn gdb_read(&mut self) -> Result<u8> {
+        self.execute(gdbcall::Read)?
+    }
+
+    #[cfg_attr(feature = "doc", doc = "Executes [gdbstub::conn::Connection::write]")]
+    fn gdb_write(&mut self, byte: u8) -> Result<()> {
+        self.execute(gdbcall::Write { byte })?
+    }
+
+    #[cfg_attr(
+        feature = "doc",
+        doc = "Executes [gdbstub::conn::Connection::write_all] and returns the amount of bytes written"
+    )]
+    fn gdb_write_all(&mut self, buf: &[u8]) -> Result<usize> {
+        self.execute(gdbcall::WriteAll { buf })?
             .unwrap_or_else(|| self.attacked())
     }
 }
