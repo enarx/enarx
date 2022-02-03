@@ -13,8 +13,8 @@ use libc::{c_int, c_long};
 /// # Example
 /// ```rust
 /// use sallyport::guest::call::types::Argv;
-/// # use sallyport::guest::syscall::PassthroughAlloc;
-/// # use sallyport::Result;
+/// use sallyport::guest::syscall::PassthroughAlloc;
+/// use sallyport::Result;
 /// #
 /// # use libc::{c_int, c_long};
 ///
@@ -41,7 +41,7 @@ pub unsafe trait PassthroughAlloc {
 
     /// The syscall argument vector.
     ///
-    /// For example, [`super::types::Argv<1>`].
+    /// For example, [`call::types::Argv<1>`](crate::guest::call::types::Argv<1>).
     type Argv: Into<[usize; 6]>;
 
     /// Syscall return value.

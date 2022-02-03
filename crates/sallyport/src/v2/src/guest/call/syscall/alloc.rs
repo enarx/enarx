@@ -12,10 +12,10 @@ use libc::c_long;
 /// # Examples
 ///
 /// ```rust
+/// use sallyport::guest::alloc::{Allocator, Collector, Output};
 /// use sallyport::guest::call::types::Argv;
-/// # use sallyport::guest::alloc::{Allocator, Collector, Output};
-/// # use sallyport::guest::syscall::Alloc;
-/// # use sallyport::Result;
+/// use sallyport::guest::syscall::Alloc;
+/// use sallyport::Result;
 /// #
 /// # use libc::{c_int, c_long, size_t};
 ///
@@ -63,7 +63,7 @@ pub unsafe trait Alloc<'a> {
 
     /// The syscall argument vector.
     ///
-    /// For example, [`crate::guest::call::types::Argv<3>`].
+    /// For example, [`guest::call::types::Argv<3>`](super::super::types::Argv<3>).
     type Argv: Into<[usize; 6]>;
 
     /// Syscall return value.
@@ -78,8 +78,10 @@ pub unsafe trait Alloc<'a> {
     /// For example, [`Output<'a, [u8], &'a mut [u8]>`](crate::guest::alloc::Output).
     type Staged: Commit<Item = Self::Committed>;
 
-    /// Opaque [committed value](crate::guest::alloc::Commit::Item) returned by [`crate::guest::alloc::Commit::commit`] called upon [`Self::Staged`],
-    /// which returns [`Self::Collected`] when collected via [`crate::guest::alloc::Collect::collect`].
+    /// Opaque [committed value](crate::guest::alloc::Commit::Item)
+    /// returned by [`guest::alloc::Commit::commit`](crate::guest::alloc::Commit::commit)
+    /// called upon [`Self::Staged`], which returns [`Self::Collected`] when
+    /// collected via [`guest::alloc::Collect::collect`](crate::guest::alloc::Collect::collect).
     type Committed;
 
     /// Value syscall [collects](crate::guest::alloc::Collect::Item) as, which corresponds to its [return value](Self::Ret).
