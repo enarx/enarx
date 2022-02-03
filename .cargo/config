@@ -1,0 +1,2 @@
+[target.wasm32-wasi]
+runner = "helper/test-enarx-wasm.sh"
