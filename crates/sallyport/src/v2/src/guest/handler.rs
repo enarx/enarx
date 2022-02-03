@@ -5,7 +5,9 @@ use super::call::kind;
 use super::syscall::types::{SockaddrInput, SockaddrOutput, SockoptInput};
 use super::{gdbcall, syscall, Call, Platform, ThreadLocalStorage, SIGRTMAX};
 use crate::{item, Result};
+use core::mem::size_of;
 use core::ptr::NonNull;
+use core::slice;
 
 use libc::{
     c_int, c_uint, c_ulong, c_void, clockid_t, epoll_event, gid_t, off_t, pid_t, pollfd, sigaction,
@@ -602,9 +604,19 @@ impl<'a, P: Platform> Execute for Handler<'a, P> {
             }
             (libc::SYS_getuid, ..) => self.getuid().map(|ret| [ret as _, 0]),
             (libc::SYS_ioctl, [fd, request, argp, ..]) => {
-                // TODO: Support opaque `ioctl` request argument value.
-                // https://github.com/enarx/sallyport/issues/78
-                let argp = if argp == 0 { None } else { return Err(ENOTSUP) };
+                let argp = if argp == 0 {
+                    None
+                } else {
+                    match request as _ {
+                        FIONBIO => self.platform.validate_mut::<c_int>(argp).map(|argp| {
+                            Some(slice::from_raw_parts_mut(
+                                argp as *mut _ as _,
+                                size_of::<c_int>(),
+                            ))
+                        })?,
+                        _ => return Err(ENOTSUP),
+                    }
+                };
                 self.ioctl(fd as _, request as _, argp)
                     .map(|ret| [ret as _, 0])
             }
