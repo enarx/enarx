@@ -96,3 +96,13 @@ pub struct MemInfo {
     /// Knowing this number helps the shim allocator to decide how much memory to allocate for each slot.
     pub mem_slots: usize,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn payload_size() {
+        assert_eq!(size_of::<Payload>(), USIZE_COUNT * size_of::<usize>())
+    }
+}

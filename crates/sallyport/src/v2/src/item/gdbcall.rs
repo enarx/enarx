@@ -57,3 +57,13 @@ pub enum Number {
     )]
     Peek = 0x05,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn payload_size() {
+        assert_eq!(size_of::<Payload>(), USIZE_COUNT * size_of::<usize>())
+    }
+}
