@@ -135,4 +135,4 @@ jobs:
         uses: actions/checkout@v2
       - uses: enarx/spdx@master
         with:
-          licenses: Apache-2.0 BSD-3-Clause
+          licenses: Apache-2.0 BSD-3-Clause MIT
