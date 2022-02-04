@@ -19,7 +19,7 @@ gdbstub_arch = { version = "0.1.1" , default-features = false, optional = true }
 gdbstub = { version = "0.5.0" , default-features = false, optional = true }
 goblin = { version = "0.4", default-features = false, features = [ "elf64" ] }
 primordial = { version = "^0.4.0", features = ["const-default"] }
-x86_64 = { version = "^0.14.7", default-features = false }
+x86_64 = { version = "^0.14.8", default-features = false }
 crt0stack = { version = "0.1", default-features = false }
 sallyport = { version = "0.1.0", git = "https://github.com/enarx/sallyport", rev = "fa4c6eea1c8dab54a8b8843a498b6fb883c006dd" }
 spinning = { version = "0.1", default-features = false }
