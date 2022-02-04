@@ -32,7 +32,7 @@ gdb = ["gdbstub"]
 dbg = []
 
 [dependencies]
-x86_64 = { version = "^0.14.7", default-features = false, optional = true }
+x86_64 = { version = "^0.14.8", default-features = false, optional = true }
 sgx = { version = "0.3.0", features = ["openssl"], optional = true }
 const-default = { version = "1.0", features = [ "derive" ] }
 primordial = { version = "0.4", features = ["alloc"] }
