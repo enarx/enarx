@@ -5,11 +5,11 @@ use super::Alloc;
 use crate::guest::alloc::{Allocator, Collect, Collector, InOut, Output};
 use crate::{Result, NULL};
 
-use libc::{c_int, c_long, c_ulong};
+use libc::{c_int, c_long};
 
 pub struct Ioctl<'a> {
     pub fd: c_int,
-    pub request: c_ulong,
+    pub request: libc::Ioctl,
     pub argp: Option<&'a mut [u8]>,
 }
 

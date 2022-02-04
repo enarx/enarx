@@ -129,7 +129,7 @@ pub trait FileSyscallHandler: BaseSyscallHandler + AddressValidator + Sized {
     }
 
     /// syscall
-    fn ioctl(&mut self, fd: libc::c_int, request: libc::c_ulong, arg: usize) -> Result {
+    fn ioctl(&mut self, fd: libc::c_int, request: libc::Ioctl, arg: usize) -> Result {
         self.trace("ioctl", 3);
         match (fd as _, request as _) {
             (libc::STDIN_FILENO, libc::TIOCGWINSZ)

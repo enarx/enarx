@@ -216,7 +216,7 @@ pub trait SyscallHandler:
             libc::SYS_readv => self.readv(usize::from(a) as _, b.into(), usize::from(c) as _),
             libc::SYS_write => self.write(usize::from(a) as _, b.into(), c.into()),
             libc::SYS_writev => self.writev(usize::from(a) as _, b.into(), usize::from(c) as _),
-            libc::SYS_ioctl => self.ioctl(usize::from(a) as _, b.into(), c.into()),
+            libc::SYS_ioctl => self.ioctl(usize::from(a) as _, usize::from(b) as _, c.into()),
             libc::SYS_readlink => self.readlink(a.into(), b.into(), c.into()),
             libc::SYS_fstat => self.fstat(usize::from(a) as _, b.into()),
             libc::SYS_fcntl => self.fcntl(

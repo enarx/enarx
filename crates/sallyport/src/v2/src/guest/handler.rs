@@ -11,8 +11,9 @@ use core::slice;
 
 use libc::{
     c_int, c_uint, c_ulong, c_void, clockid_t, epoll_event, gid_t, off_t, pid_t, pollfd, sigaction,
-    sigset_t, size_t, stack_t, stat, timespec, uid_t, utsname, EBADFD, EFAULT, EINVAL, ENOSYS,
-    ENOTSUP, ENOTTY, FIONBIO, FIONREAD, STDERR_FILENO, STDIN_FILENO, STDOUT_FILENO, TIOCGWINSZ,
+    sigset_t, size_t, stack_t, stat, timespec, uid_t, utsname, Ioctl, EBADFD, EFAULT, EINVAL,
+    ENOSYS, ENOTSUP, ENOTTY, FIONBIO, FIONREAD, STDERR_FILENO, STDIN_FILENO, STDOUT_FILENO,
+    TIOCGWINSZ,
 };
 
 pub trait Execute {
@@ -219,7 +220,7 @@ pub trait Execute {
     }
 
     /// Executes [`ioctl`](https://man7.org/linux/man-pages/man2/ioctl.2.html) syscall akin to [`libc::ioctl`].
-    fn ioctl(&mut self, fd: c_int, request: c_ulong, argp: Option<&mut [u8]>) -> Result<c_int> {
+    fn ioctl(&mut self, fd: c_int, request: Ioctl, argp: Option<&mut [u8]>) -> Result<c_int> {
         match (fd, request) {
             (STDIN_FILENO | STDOUT_FILENO | STDERR_FILENO, TIOCGWINSZ) => {
                 // the keep has no tty
