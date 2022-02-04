@@ -4,6 +4,7 @@
 
 #[cfg(feature = "dbg")]
 use crate::debug::{interrupt_trace, print_stack_trace};
+#[cfg(any(debug_assertions, feature = "dbg"))]
 use crate::eprintln;
 #[cfg(feature = "dbg")]
 use crate::hostcall::shim_exit;
