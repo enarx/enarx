@@ -1,0 +1,16 @@
+#!/bin/sh
+set -xe
+
+# Run linting checks (not completely exhaustive)
+cargo clippy --all-features --manifest-path=Cargo.toml -- -D warnings
+cargo clippy --target=x86_64-unknown-linux-musl --all-features --manifest-path=internal/shim-sgx/Cargo.toml -- -D warnings
+cargo clippy --target=x86_64-unknown-linux-musl --all-features --manifest-path=internal/shim-sev/Cargo.toml -- -D warnings
+cargo clippy --target=x86_64-unknown-linux-musl --all-features --manifest-path=internal/wasmldr/Cargo.toml -- -D warnings
+
+# Run formatting tests
+cargo fmt -- --check
+cargo fmt --manifest-path=internal/shim-sgx/Cargo.toml -- --check
+cargo fmt --manifest-path=internal/shim-sev/Cargo.toml -- --check
+cargo fmt --manifest-path=internal/wasmldr/Cargo.toml -- --check
+
+exit 0
