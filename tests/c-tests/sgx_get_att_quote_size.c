@@ -16,6 +16,9 @@ int main(void) {
 
     ssize_t size = get_att(nonce, sizeof(nonce), buf, sizeof(buf), &technology);
 
+    if (size < 0)
+        return !(errno == ENOSYS);
+    
     /* this test is SGX-specific, so just return success if not running on SGX */
     if (technology != TEE_SGX)
         return 0;
