@@ -5,7 +5,7 @@ updates:
   schedule:
     interval: "daily"
 - package-ecosystem: "cargo"
-  directory: "internal/sallyport"
+  directory: "internal/wasmldr"
   schedule:
     interval: "daily"
 - package-ecosystem: "cargo"
