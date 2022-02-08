@@ -113,7 +113,7 @@ pub fn run(bytes: impl AsRef<[u8]>, ldr_config: &config::Config) -> Result<Vec<w
     debug!("Processing loader config {:#?}", &ldr_config);
 
     if let Some(ref files) = ldr_config.files {
-        for file in files.iter() {
+        for file in files {
             match (file.type_.as_ref(), file.name.as_ref()) {
                 ("stdio", "stdin") => wasi = wasi.inherit_stdin(),
                 ("stdio", "stdout") => wasi = wasi.inherit_stdout(),
