@@ -2,8 +2,6 @@
 
 use crate::config;
 
-use std::net::SocketAddr;
-
 use log::debug;
 use wasmtime_wasi::sync::{TcpListener, WasiCtxBuilder};
 
@@ -129,20 +127,26 @@ pub fn run(bytes: impl AsRef<[u8]>, ldr_config: &config::Config) -> Result<Vec<w
     if let Some(ref files) = ldr_config.files {
         for file in files {
             match file.type_.as_ref() {
-                "tcp_listen" if file.port.is_some() => {
-                    let port = file.port.unwrap();
-
-                    let stdlistener =
-                        std::net::TcpListener::bind(SocketAddr::from(([127, 0, 0, 1], port)))
-                            .unwrap();
-                    let _ = stdlistener.set_nonblocking(true).unwrap();
+                "tcp_listen" => {
+                    let port = file
+                        .port
+                        .expect("Config file `tcp_listen` has no `port` field set");
+                    let addr = file.addr.clone().unwrap_or_else(|| ":::".to_string());
+                    let stdlistener = std::net::TcpListener::bind((addr.as_str(), port))
+                        .unwrap_or_else(|e| panic!("Could not bind to {addr}:{port}: {e}"));
+                    stdlistener
+                        .set_nonblocking(true)
+                        .expect("Could not set nonblocking on TcpListener");
 
                     wasi = wasi.preopened_socket(num_fd, TcpListener::from_std(stdlistener))?;
                     num_fd += 1;
                     wasi = wasi.env("LISTEN_FDS", &(num_fd - 3).to_string())?;
                     fd_names.push(file.name.clone())
                 }
-                _ => {}
+                "stdio" => {}
+                field => {
+                    panic!("Unknown field '{field}' in config file");
+                }
             }
         }
         if !fd_names.is_empty() {

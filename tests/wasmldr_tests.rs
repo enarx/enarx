@@ -292,6 +292,7 @@ name = "stderr"
 
 [[files]]
 type = "tcp_listen"
+addr = "127.0.0.1"
 port = {}
 name = "TEST_TCP_LISTEN"
     "#,
