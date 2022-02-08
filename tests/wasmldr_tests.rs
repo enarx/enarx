@@ -225,6 +225,13 @@ fn zerooneone() {
 #[test]
 #[serial]
 fn check_listen_fd() {
+    use std::sync::mpsc::channel;
+
+    enum ThreadFinished {
+        Client,
+        Server,
+    }
+
     let listener = net::TcpListener::bind("127.0.0.1:0").unwrap();
     let port = listener.local_addr().unwrap().port();
     drop(listener);
@@ -234,22 +241,37 @@ fn check_listen_fd() {
     let mut configfile = File::create(&configfile_path).unwrap();
     let configfile_path = configfile_path.to_str().unwrap();
 
-    let client_handle = thread::spawn(move || {
-        use std::io::Read;
-        for i in (0..600).rev() {
-            thread::sleep(time::Duration::from_secs(1));
-            let addr =
-                net::SocketAddr::new(net::IpAddr::V4(net::Ipv4Addr::new(127, 0, 0, 1)), port);
-            let res = net::TcpStream::connect(addr);
-            if res.is_err() && i > 0 {
-                continue;
-            }
+    let (tx, rx) = channel::<ThreadFinished>();
 
-            let mut stream = res.unwrap();
-            let mut buf = String::new();
-            stream.read_to_string(&mut buf).unwrap();
-            assert_eq!(buf, "Hello World!");
-            break;
+    let client_handle = thread::spawn({
+        let tx = tx.clone();
+        move || {
+            let result = std::panic::catch_unwind(|| {
+                use std::io::Read;
+                // Retry connecting until the server started hopefully
+                for i in (0..600).rev() {
+                    thread::sleep(time::Duration::from_secs(1));
+                    let res = net::TcpStream::connect(("127.0.0.1", port));
+                    if res.is_err() {
+                        if i > 0 {
+                            continue;
+                        } else {
+                            panic!("Failed to connect to 127.0.0.1:{port}");
+                        }
+                    }
+
+                    let mut stream = res.unwrap();
+                    let mut buf = String::new();
+                    stream.read_to_string(&mut buf).unwrap();
+                    assert_eq!(buf, "Hello World!");
+                    break;
+                }
+            });
+
+            tx.send(ThreadFinished::Client).unwrap();
+            if result.is_err() {
+                panic!("client thread panicked");
+            }
         }
     });
 
@@ -281,18 +303,33 @@ name = "TEST_TCP_LISTEN"
     let server_handle = thread::spawn({
         let configfile_path = configfile_path.to_owned();
         move || {
-            run_crate(
-                "tests/wasm/rust-tests",
-                "check_listen_fd",
-                &["--wasmcfgfile", &configfile_path][..],
-                0,
-                None,
-                None,
-                None,
-            );
+            let result = std::panic::catch_unwind(|| {
+                run_crate(
+                    "tests/wasm/rust-tests",
+                    "check_listen_fd",
+                    &["--wasmcfgfile", &configfile_path][..],
+                    0,
+                    None,
+                    None,
+                    None,
+                );
+            });
+
+            tx.send(ThreadFinished::Server).unwrap();
+            if result.is_err() {
+                panic!("server thread panicked");
+            }
         }
     });
 
-    client_handle.join().unwrap();
-    server_handle.join().unwrap();
+    match rx.recv().unwrap() {
+        ThreadFinished::Client => {
+            client_handle.join().unwrap();
+            server_handle.join().unwrap();
+        }
+        ThreadFinished::Server => {
+            server_handle.join().unwrap();
+            client_handle.join().unwrap();
+        }
+    }
 }
