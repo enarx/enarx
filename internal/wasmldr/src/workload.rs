@@ -221,7 +221,7 @@ pub(crate) mod test {
         let results: Vec<i32> = workload::run(&bytes, &config::Config::default())
             .unwrap()
             .iter()
-            .map(|v| v.unwrap_i32())
+            .map(wasmtime::Val::unwrap_i32)
             .collect();
 
         assert_eq!(results, vec![1]);
