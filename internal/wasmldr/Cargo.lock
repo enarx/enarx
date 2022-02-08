@@ -270,7 +270,7 @@ dependencies = [
  "itertools",
  "log",
  "smallvec",
- "wasmparser 0.82.0",
+ "wasmparser",
  "wasmtime-types",
 ]
 
@@ -1002,17 +1002,11 @@ dependencies = [
  "structopt",
  "toml",
  "wasi-common",
- "wasmparser 0.81.0",
+ "wasmparser",
  "wasmtime",
  "wasmtime-wasi",
  "wat",
 ]
-
-[[package]]
-name = "wasmparser"
-version = "0.81.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "98930446519f63d00a836efdc22f67766ceae8dbcc1571379f2bcabc6b2b9abc"
 
 [[package]]
 name = "wasmparser"
@@ -1041,7 +1035,7 @@ dependencies = [
  "region",
  "serde",
  "target-lexicon",
- "wasmparser 0.82.0",
+ "wasmparser",
  "wasmtime-cranelift",
  "wasmtime-environ",
  "wasmtime-jit",
@@ -1067,7 +1061,7 @@ dependencies = [
  "object",
  "target-lexicon",
  "thiserror",
- "wasmparser 0.82.0",
+ "wasmparser",
  "wasmtime-environ",
 ]
 
@@ -1087,7 +1081,7 @@ dependencies = [
  "serde",
  "target-lexicon",
  "thiserror",
- "wasmparser 0.82.0",
+ "wasmparser",
  "wasmtime-types",
 ]
 
@@ -1150,7 +1144,7 @@ dependencies = [
  "cranelift-entity",
  "serde",
  "thiserror",
- "wasmparser 0.82.0",
+ "wasmparser",
 ]
 
 [[package]]
