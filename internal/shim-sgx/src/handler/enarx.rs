@@ -1,14 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use sallyport::request;
-use sallyport::syscall::SGX_DUMMY_QUOTE;
-use sallyport::syscall::SGX_DUMMY_TI;
 use sallyport::syscall::SYS_ENARX_GETATT;
 use sallyport::syscall::{BaseSyscallHandler, EnarxSyscallHandler, SGX_QUOTE_SIZE, SGX_TECH};
 use sallyport::untrusted::{UntrustedRef, UntrustedRefMut, ValidateSlice};
 
-use crate::uarch::REPORT;
 use crate::uarch::TARGETINFO;
+use crate::uarch::{ReportData, REPORT};
 
 impl<'a> EnarxSyscallHandler for super::Handler<'a> {
     // NOTE: The 'nonce' field is called 'hash' here, as it is used to pass in
@@ -63,13 +61,6 @@ impl<'a> EnarxSyscallHandler for super::Handler<'a> {
                 .or(Err(libc::EFAULT))?;
         }
 
-        // Cannot generate a Report from dummy values
-        if ti_buf.eq(&SGX_DUMMY_TI) {
-            buf.copy_from_slice(&SGX_DUMMY_QUOTE);
-            let rep: sallyport::Reply = Ok([SGX_QUOTE_SIZE.into(), SGX_TECH.into()]).into();
-            return sallyport::Result::from(rep);
-        }
-
         // Generate Report
         let mut target_info: TARGETINFO = Default::default();
         let mut f = [0u8; 8];
@@ -80,7 +71,8 @@ impl<'a> EnarxSyscallHandler for super::Handler<'a> {
         let x = u64::from_le_bytes(x);
         target_info.mrenclave.copy_from_slice(&ti_buf[0..32]);
         target_info.attributes = [f, x];
-        let report: REPORT = target_info.enclu_ereport(&hash);
+
+        let report: REPORT = target_info.enclu_ereport(&ReportData(hash));
 
         // Request Quote from host
         let report_slice = &[report];

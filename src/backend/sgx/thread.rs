@@ -142,16 +142,19 @@ impl super::super::Thread for Thread {
                     }
 
                     sallyport::syscall::SYS_ENARX_GETATT => {
-                        let _result = unsafe {
+                        self.block.msg.rep = unsafe {
                             get_attestation(
                                 self.block.msg.req.arg[0].into(),
                                 self.block.msg.req.arg[1].into(),
                                 self.block.msg.req.arg[2].into(),
                                 self.block.msg.req.arg[3].into(),
-                            )?
+                            )
+                            .map(|v| [v.into(), 0usize.into()])
+                            .map_err(|e| e.raw_os_error().unwrap_or(libc::EINVAL))
+                            .into()
                         };
 
-                        return Ok(Command::SysCall(&mut self.block));
+                        return Ok(Command::Continue);
                     }
 
                     _ => return Ok(Command::SysCall(&mut self.block)),
