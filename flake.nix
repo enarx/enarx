@@ -5,19 +5,22 @@
   inputs.flake-compat.url = github:edolstra/flake-compat;
   inputs.flake-utils.url = github:numtide/flake-utils;
   inputs.nixpkgs.url = github:NixOS/nixpkgs/nixos-unstable;
-  inputs.rust-overlay.inputs.flake-utils.follows = "flake-utils";
-  inputs.rust-overlay.inputs.nixpkgs.follows = "nixpkgs";
-  inputs.rust-overlay.url = github:oxalica/rust-overlay;
+  inputs.fenix.inputs.nixpkgs.follows = "nixpkgs";
+  inputs.fenix.url = github:nix-community/fenix;
 
-  outputs = { self, nixpkgs, rust-overlay, flake-utils, ... }:
-    flake-utils.lib.eachDefaultSystem (system:
+  outputs = { self, nixpkgs, fenix, flake-utils, ... }:
+    # NOTE: musl is only supported on Linux.
+    with flake-utils.lib; eachSystem [ system.x86_64-linux ] (system:
       let
         pkgs = import nixpkgs {
           inherit system;
-          overlays = [ (import rust-overlay) ];
+          overlays = [ ];
         };
 
-        rust = pkgs.rust-bin.fromRustupToolchainFile ./rust-toolchain.toml;
+        rust = fenix.packages."${system}".fromToolchainFile {
+          file = ./rust-toolchain.toml;
+          sha256 = "0939qjwhpk366pnf3lbsbnmlj0h5x8nskbcz2lyjwhz4f2hna7w5";
+        };
 
         buildInputs = (with pkgs; [
           gcc11
