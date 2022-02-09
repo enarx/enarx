@@ -177,12 +177,12 @@ dependencies = [
  "mmarinus",
  "nbytes",
  "openssl",
- "primordial 0.4.0",
+ "primordial",
  "process_control",
  "protobuf",
  "protobuf-codegen-pure",
  "reqwest",
- "sallyport 0.1.0 (git+https://github.com/enarx/sallyport?rev=0b1921361567f2697bd3b31d218a701dc5a14d01)",
+ "sallyport",
  "semver",
  "serde",
  "serde_json",
@@ -817,12 +817,6 @@ checksum = "b4596b6d070b27117e987119b4dac604f3c58cfb0b191112e24771b2faeac1a6"
 
 [[package]]
 name = "primordial"
-version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "55d6312462222758b3fb6c7e84d819ce87c315c446e0e2c11b0b9258dedd3f25"
-
-[[package]]
-name = "primordial"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b3146f8670eff948342703c5e866cdb6d092032207a7fc2dd53c4c3fef480cfe"
@@ -993,31 +987,13 @@ checksum = "73b4b750c782965c211b42f022f59af1fbceabdd026623714f104152f1ec149f"
 
 [[package]]
 name = "sallyport"
-version = "0.1.0"
-source = "git+https://github.com/enarx/sallyport?rev=0b1921361567f2697bd3b31d218a701dc5a14d01#0b1921361567f2697bd3b31d218a701dc5a14d01"
-dependencies = [
- "goblin",
- "libc",
- "primordial 0.4.0",
- "sallyport 0.2.0",
-]
-
-[[package]]
-name = "sallyport"
-version = "0.1.0"
-source = "git+https://github.com/enarx/sallyport?rev=dd42c91cc9e5cbc74f342eede3bc072f60ba11bd#dd42c91cc9e5cbc74f342eede3bc072f60ba11bd"
-dependencies = [
- "goblin",
- "libc",
- "primordial 0.3.0",
-]
-
-[[package]]
-name = "sallyport"
 version = "0.2.0"
-source = "git+https://github.com/enarx/sallyport?rev=0b1921361567f2697bd3b31d218a701dc5a14d01#0b1921361567f2697bd3b31d218a701dc5a14d01"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "eab61195772feb0221de35deddc39ca51e04a3c9522af0ec47962415e8624987"
 dependencies = [
+ "goblin",
  "libc",
+ "primordial",
 ]
 
 [[package]]
@@ -1164,7 +1140,7 @@ name = "sev_attestation"
 version = "0.1.0"
 dependencies = [
  "memoffset",
- "sallyport 0.1.0 (git+https://github.com/enarx/sallyport?rev=dd42c91cc9e5cbc74f342eede3bc072f60ba11bd)",
+ "sallyport",
 ]
 
 [[package]]

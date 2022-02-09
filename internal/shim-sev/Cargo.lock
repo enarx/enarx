@@ -334,21 +334,13 @@ dependencies = [
 
 [[package]]
 name = "sallyport"
-version = "0.1.0"
-source = "git+https://github.com/enarx/sallyport?rev=0b1921361567f2697bd3b31d218a701dc5a14d01#0b1921361567f2697bd3b31d218a701dc5a14d01"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "eab61195772feb0221de35deddc39ca51e04a3c9522af0ec47962415e8624987"
 dependencies = [
  "goblin",
  "libc",
  "primordial",
- "sallyport 0.2.0",
-]
-
-[[package]]
-name = "sallyport"
-version = "0.2.0"
-source = "git+https://github.com/enarx/sallyport?rev=0b1921361567f2697bd3b31d218a701dc5a14d01#0b1921361567f2697bd3b31d218a701dc5a14d01"
-dependencies = [
- "libc",
 ]
 
 [[package]]
@@ -392,7 +384,7 @@ dependencies = [
  "noted",
  "primordial",
  "rcrt1",
- "sallyport 0.1.0",
+ "sallyport",
  "spinning",
  "x86_64",
  "xsave",
