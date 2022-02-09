@@ -41,4 +41,4 @@ jobs:
             flag: --release
         manifest-path:
           - Cargo.toml
-          - src/v2/Cargo.toml
+          - src/v0.3/Cargo.toml
