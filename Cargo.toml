@@ -36,7 +36,7 @@ x86_64 = { version = "^0.14.8", default-features = false, optional = true }
 sgx = { version = "0.3.0", features = ["openssl"], optional = true }
 const-default = { version = "1.0", features = [ "derive" ] }
 primordial = { version = "0.4", features = ["alloc"] }
-sallyport = { version = "0.1.0", git = "https://github.com/enarx/sallyport", rev = "0b1921361567f2697bd3b31d218a701dc5a14d01", features = [ "asm" ] }
+sallyport = { version = "0.2.0", features = [ "asm" ] }
 kvm-bindings = { version = "0.5", optional = true }
 kvm-ioctls = { version = "0.11", optional = true }
 gdbstub = { version = "0.5.0", optional = true }
