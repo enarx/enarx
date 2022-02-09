@@ -4,11 +4,12 @@
 // for examples of AESM Requests.
 
 use crate::protobuf::aesm_proto::{
-    Request, Request_GetQuoteExRequest, Request_InitQuoteExRequest, Request_SelectAttKeyIDRequest,
-    Response, Response_GetQuoteExResponse, Response_InitQuoteExResponse,
-    Response_SelectAttKeyIDResponse,
+    Request, Request_GetQuoteExRequest, Request_GetSupportedAttKeyIDNumRequest,
+    Request_GetSupportedAttKeyIDsRequest, Request_InitQuoteExRequest, Response,
+    Response_GetQuoteExResponse, Response_InitQuoteExResponse,
 };
-use sallyport::syscall::{SGX_DUMMY_QUOTE, SGX_DUMMY_TI, SGX_QUOTE_SIZE, SGX_TI_SIZE};
+
+use sallyport::syscall::{SGX_QUOTE_SIZE, SGX_TI_SIZE};
 
 use std::io::{Error, ErrorKind, Read, Write};
 use std::mem::size_of;
@@ -19,10 +20,12 @@ use protobuf::Message;
 
 const AESM_SOCKET: &str = "/var/run/aesmd/aesm.socket";
 const TIMEOUT: u32 = 1_000_000;
+const SGX_KEY_ID_SIZE: u32 = 256;
 
 // Specifies the protobuf Request type to communicate with AESMD.
 #[derive(Debug)]
 enum ReqType {
+    AkIdNum,
     AkId,
     TInfo,
     KeySize,
@@ -39,11 +42,13 @@ impl ReqType {
         let mut req = Request::new();
 
         match self {
+            ReqType::AkIdNum => {
+                // removed
+                unimplemented!()
+            }
             ReqType::AkId => {
-                let mut msg = Request_SelectAttKeyIDRequest::new();
-                msg.set_timeout(TIMEOUT);
-                req.set_selectAttKeyIDReq(msg);
-                Ok(req)
+                // removed
+                unimplemented!()
             }
             ReqType::TInfo => {
                 let akid = match akid {
@@ -119,9 +124,10 @@ impl ReqType {
         }
     }
 
-    fn send_request(&self, req: Request, mut stream: UnixStream) -> Result<Response, Error> {
+    fn send_request(&self, req: Request, stream: &mut UnixStream) -> Result<Response, Error> {
         // Set up writer
         let mut buf_wrtr = vec![0u8; size_of::<u32>()];
+
         match req.write_to_writer(&mut buf_wrtr) {
             Ok(_) => {}
             Err(e) => {
@@ -133,7 +139,7 @@ impl ReqType {
         }
 
         let req_len = (buf_wrtr.len() - size_of::<u32>()) as u32;
-        (&mut buf_wrtr[0..size_of::<u32>()]).copy_from_slice(&req_len.to_le_bytes());
+        buf_wrtr[0..size_of::<u32>()].copy_from_slice(&req_len.to_le_bytes());
 
         // Send Request to AESM daemon
         stream.write_all(&buf_wrtr)?;
@@ -153,25 +159,59 @@ impl ReqType {
 
 /// Gets Att Key ID
 fn get_ak_id() -> Result<Vec<u8>, Error> {
-    let stream = UnixStream::connect(AESM_SOCKET)?;
+    let mut stream = UnixStream::connect(AESM_SOCKET)?;
 
-    let r = ReqType::AkId;
-    let pb_req = r.set_request(None, None, None)?;
-    let mut pb_msg: Response = r.send_request(pb_req, stream)?;
+    let r = ReqType::AkIdNum;
+    let mut req = Request::new();
+    let mut msg = Request_GetSupportedAttKeyIDNumRequest::new();
+    msg.set_timeout(TIMEOUT);
+    req.set_getSupportedAttKeyIDNumReq(msg);
+    let pb_msg: Response = r.send_request(req, &mut stream)?;
 
-    let mut res: Response_SelectAttKeyIDResponse = pb_msg.take_selectAttKeyIDRes();
+    let res = pb_msg.get_getSupportedAttKeyIDNumRes();
 
     if res.get_errorCode() != 0 {
         panic!(
-            "Received error code {:?} in Select Att Key ID Response",
+            "Received error code {:?} in GetSupportedAttKeyIDNum",
             res.get_errorCode()
         );
     }
 
-    let attkeyid = res.take_selected_att_key_id();
-    assert!(!attkeyid.is_empty());
+    let num_key_ids = res.get_att_key_id_num();
 
-    Ok(attkeyid)
+    let expected_buffer_size: u32 = num_key_ids * SGX_KEY_ID_SIZE;
+    dbg!(num_key_ids);
+    assert_eq!(1, num_key_ids);
+
+    let mut stream = UnixStream::connect(AESM_SOCKET)?;
+
+    let r = ReqType::AkId;
+    let mut req = Request::new();
+    let mut msg = Request_GetSupportedAttKeyIDsRequest::new();
+    msg.set_timeout(TIMEOUT);
+    msg.set_buf_size(expected_buffer_size);
+    req.set_getSupportedAttKeyIDsReq(msg);
+
+    let pb_msg: Response = r.send_request(req, &mut stream)?;
+
+    let res = pb_msg.get_getSupportedAttKeyIDsRes();
+
+    if res.get_errorCode() != 0 {
+        panic!(
+            "Received error code {:?} in GetSupportedAttKeyIDs",
+            res.get_errorCode()
+        );
+    }
+
+    let key_ids_blob = res.get_att_key_ids();
+    let key_ids: Vec<Vec<u8>> = key_ids_blob
+        .chunks_exact(SGX_KEY_ID_SIZE as usize)
+        .map(Vec::from)
+        .collect();
+
+    assert!(!key_ids.is_empty());
+
+    Ok(key_ids.get(0).unwrap().clone())
 }
 
 /// Fills the Target Info of the QE into the output buffer specified and
@@ -179,11 +219,11 @@ fn get_ak_id() -> Result<Vec<u8>, Error> {
 fn get_ti(akid: Vec<u8>, size: usize, out_buf: &mut [u8]) -> Result<usize, Error> {
     assert_eq!(out_buf.len(), SGX_TI_SIZE, "Invalid size of output buffer");
 
-    let stream = UnixStream::connect(AESM_SOCKET)?;
+    let mut stream = UnixStream::connect(AESM_SOCKET)?;
 
     let r = ReqType::TInfo;
     let pb_req = r.set_request(None, Some(akid), Some(size))?;
-    let mut pb_msg: Response = r.send_request(pb_req, stream)?;
+    let mut pb_msg: Response = r.send_request(pb_req, &mut stream)?;
 
     let res: Response_InitQuoteExResponse = pb_msg.take_initQuoteExRes();
     let ti = res.get_target_info();
@@ -201,11 +241,11 @@ fn get_ti(akid: Vec<u8>, size: usize, out_buf: &mut [u8]) -> Result<usize, Error
 
 /// Gets key size
 fn get_key_size(akid: Vec<u8>) -> Result<usize, Error> {
-    let stream = UnixStream::connect(AESM_SOCKET)?;
+    let mut stream = UnixStream::connect(AESM_SOCKET)?;
 
     let r = ReqType::KeySize;
     let pb_req = r.set_request(None, Some(akid), None)?;
-    let mut pb_msg: Response = r.send_request(pb_req, stream)?;
+    let mut pb_msg: Response = r.send_request(pb_req, &mut stream)?;
 
     let res: Response_InitQuoteExResponse = pb_msg.take_initQuoteExRes();
 
@@ -228,13 +268,13 @@ fn get_quote(report: &[u8], akid: Vec<u8>, out_buf: &mut [u8]) -> Result<usize, 
         "Invalid size of output buffer"
     );
 
-    let stream = UnixStream::connect(AESM_SOCKET)?;
+    let mut stream = UnixStream::connect(AESM_SOCKET)?;
 
     let r = ReqType::Quote;
     let mut report_array = [0u8; 432];
     report_array.copy_from_slice(&report[0..432]);
     let req = r.set_request(Some(&report_array), Some(akid), None)?;
-    let mut pb_msg = r.send_request(req, stream)?;
+    let mut pb_msg = r.send_request(req, &mut stream)?;
 
     let res: Response_GetQuoteExResponse = pb_msg.take_getQuoteExRes();
     if res.get_errorCode() != 0 {
@@ -256,7 +296,7 @@ fn get_quote(report: &[u8], akid: Vec<u8>, out_buf: &mut [u8]) -> Result<usize, 
 
     assert_eq!(quote.len(), out_buf.len(), "Unable to copy Quote to buffer");
     out_buf.copy_from_slice(quote);
-
+    dbg!(quote);
     Ok(quote.len())
 }
 
@@ -271,35 +311,21 @@ pub fn get_attestation(
 ) -> Result<usize, Error> {
     let out_buf: &mut [u8] = unsafe { from_raw_parts_mut(buf as *mut u8, buf_len) };
 
-    // If unable to connect to the AESM daemon, return expected dummy value specified
-    // by nonce.
-    // TODO: This should be changed to indicate no connection could be made, but to
-    // also still run the tests. See https://github.com/enarx/enarx-keepldr/issues/228.
-    if UnixStream::connect(AESM_SOCKET).is_err() {
-        match nonce {
-            // Returns dummy TargetInfo
-            0 => {
-                out_buf.copy_from_slice(&SGX_DUMMY_TI);
-                return Ok(SGX_TI_SIZE);
-            }
-            // Returns dummy Quote
-            _ => {
-                out_buf.copy_from_slice(&SGX_DUMMY_QUOTE);
-                return Ok(SGX_QUOTE_SIZE);
-            }
-        }
-    };
-
     // Returns TargetInfo
     if nonce == 0 {
         let akid = get_ak_id().expect("error obtaining att key id");
         let pkeysize = get_key_size(akid.clone()).expect("error obtaining key size");
-        get_ti(akid, pkeysize, out_buf)
+        let res = get_ti(akid, pkeysize, out_buf);
+        dbg!(&res);
+        res
     // Returns Quote
     } else {
+        dbg!("HELLO");
         let akid = get_ak_id().unwrap();
         let report: &[u8] = unsafe { from_raw_parts(nonce as *const u8, nonce_len) };
-        get_quote(report, akid, out_buf)
+        let res = get_quote(report, akid, out_buf);
+        dbg!(&res);
+        res
     }
 }
 
@@ -344,7 +370,7 @@ mod tests {
             get_attestation(0, 0, output.as_ptr() as usize, output.len()).unwrap(),
             SGX_TI_SIZE
         );
-        assert!(output[0..32].eq(&EXPECTED_MRENCLAVE) || output.eq(&SGX_DUMMY_TI));
+        assert!(output[0..32].eq(&EXPECTED_MRENCLAVE));
     }
 
     #[test]

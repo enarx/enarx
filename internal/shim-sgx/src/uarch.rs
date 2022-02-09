@@ -91,7 +91,7 @@ impl Default for REPORT {
 /// Description of the target enclave used for the report key derivation in
 /// EREPORT.
 #[derive(Clone, Copy)]
-#[repr(C)]
+#[repr(C, align(512))]
 pub struct TARGETINFO {
     pub mrenclave: [u8; 32],
     pub attributes: [u64; 2],
@@ -120,8 +120,19 @@ impl Default for TARGETINFO {
     }
 }
 
+#[derive(Clone, Copy)]
+#[repr(C, align(128))]
+/// Pass information from the source enclave to the target enclave
+pub struct ReportData(pub [u8; 64]);
+
+impl Default for ReportData {
+    fn default() -> Self {
+        ReportData([0u8; 64])
+    }
+}
+
 impl TARGETINFO {
-    pub fn enclu_ereport(&self, reportdata: &[u8; 64]) -> REPORT {
+    pub fn enclu_ereport(&self, reportdata: &ReportData) -> REPORT {
         const EREPORT: usize = 0;
 
         // Purposely make an uninitialized memory block for the struct, as it
@@ -136,7 +147,7 @@ impl TARGETINFO {
 
                 RBX = inout(reg) self => _,
                 in("rax") EREPORT,
-                in("rcx") reportdata.as_ptr(),
+                in("rcx") reportdata.0.as_ptr(),
                 in("rdx") report.as_mut_ptr(),
             );
         }
