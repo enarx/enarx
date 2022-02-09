@@ -9,7 +9,7 @@
  * the returned Quote in buf match expected values. */
 
 int main(void) {
-    int* nonce[64]; /* empty pseudo-hash value to embed in SGX Quote */
+    unsigned char nonce[64]; /* empty pseudo-hash value to embed in SGX Quote */
     unsigned char buf[4598];
     size_t technology;
     int i;
