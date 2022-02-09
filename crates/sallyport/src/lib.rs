@@ -77,8 +77,6 @@
 #![deny(clippy::all)]
 #![cfg_attr(not(test), no_std)]
 
-pub use v2;
-
 pub mod elf;
 pub mod syscall;
 mod tests;
