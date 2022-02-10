@@ -15,6 +15,9 @@
 #![deny(missing_docs)]
 #![warn(rust_2018_idioms)]
 
+#[macro_use]
+pub mod testaso;
+
 pub mod entry;
 pub mod handler;
 pub mod heap;

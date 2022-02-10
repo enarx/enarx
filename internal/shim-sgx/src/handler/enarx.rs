@@ -5,8 +5,8 @@ use sallyport::syscall::SYS_ENARX_GETATT;
 use sallyport::syscall::{BaseSyscallHandler, EnarxSyscallHandler, SGX_QUOTE_SIZE, SGX_TECH};
 use sallyport::untrusted::{UntrustedRef, UntrustedRefMut, ValidateSlice};
 
-use crate::uarch::TARGETINFO;
-use crate::uarch::{ReportData, REPORT};
+use crate::uarch::TargetInfo;
+use crate::uarch::{Report, ReportData};
 
 impl<'a> EnarxSyscallHandler for super::Handler<'a> {
     // NOTE: The 'nonce' field is called 'hash' here, as it is used to pass in
@@ -62,7 +62,7 @@ impl<'a> EnarxSyscallHandler for super::Handler<'a> {
         }
 
         // Generate Report
-        let mut target_info: TARGETINFO = Default::default();
+        let mut target_info: TargetInfo = Default::default();
         let mut f = [0u8; 8];
         let mut x = [0u8; 8];
         f.copy_from_slice(&ti_buf[32..40]);
@@ -72,14 +72,14 @@ impl<'a> EnarxSyscallHandler for super::Handler<'a> {
         target_info.mrenclave.copy_from_slice(&ti_buf[0..32]);
         target_info.attributes = [f, x];
 
-        let report: REPORT = target_info.enclu_ereport(&ReportData(hash));
+        let report: Report = target_info.enclu_ereport(&ReportData(hash));
 
         // Request Quote from host
         let report_slice = &[report];
         let report_bytes = unsafe {
             core::slice::from_raw_parts(
                 report_slice.as_ptr() as *const _ as *const u8,
-                core::mem::size_of::<REPORT>(),
+                core::mem::size_of::<Report>(),
             )
         };
 
