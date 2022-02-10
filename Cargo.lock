@@ -1715,9 +1715,9 @@ dependencies = [
 
 [[package]]
 name = "xsave"
-version = "2.0.0"
+version = "2.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b2ca938c3691f10126371ffacaf0efb7ee1d82b45b32f9ca8dbd9a085c30a230"
+checksum = "f81c5c54e5c79ff6e6e230383faf8a014df74751fbb9d60503b0f71e1dbaff4d"
 dependencies = [
  "bitflags",
  "const-default",

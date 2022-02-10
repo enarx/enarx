@@ -24,7 +24,7 @@ spinning = { version = "0.1", default-features = false }
 libc = { version = "0.2.117", default-features = false }
 primordial = "0.4"
 sallyport = { version = "0.2.0" }
-xsave = { git = "https://github.com/enarx/xsave", rev = "4819a862953c114a69f1ff7153b41bb558f96365" }
+xsave = { version = "2.0.2" }
 noted = "1.0.0"
 nbytes = "0.1"
 rcrt1 = "1.0.0"
