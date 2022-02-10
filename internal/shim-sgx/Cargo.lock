@@ -245,7 +245,7 @@ checksum = "630f9b3f39cc5fbcdbcf881cccbfe6c574084fa04b45b38eaa5f433e91208a6c"
 dependencies = [
  "bitflags",
  "x86_64",
- "xsave 2.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "xsave",
 ]
 
 [[package]]
@@ -267,7 +267,7 @@ dependencies = [
  "sgx",
  "spinning",
  "x86_64",
- "xsave 2.0.0 (git+https://github.com/enarx/xsave?rev=4819a862953c114a69f1ff7153b41bb558f96365)",
+ "xsave",
 ]
 
 [[package]]
@@ -344,18 +344,9 @@ dependencies = [
 
 [[package]]
 name = "xsave"
-version = "2.0.0"
+version = "2.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b2ca938c3691f10126371ffacaf0efb7ee1d82b45b32f9ca8dbd9a085c30a230"
-dependencies = [
- "bitflags",
- "const-default",
-]
-
-[[package]]
-name = "xsave"
-version = "2.0.0"
-source = "git+https://github.com/enarx/xsave?rev=4819a862953c114a69f1ff7153b41bb558f96365#4819a862953c114a69f1ff7153b41bb558f96365"
+checksum = "f81c5c54e5c79ff6e6e230383faf8a014df74751fbb9d60503b0f71e1dbaff4d"
 dependencies = [
  "bitflags",
  "const-default",
