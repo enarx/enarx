@@ -363,7 +363,7 @@ checksum = "ce31e24b01e1e524df96f1c2fdd054405f8d7376249a5110886fb4b658484789"
 
 [[package]]
 name = "shim-sev"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "aes-gcm",
  "array-const-fn-init",
