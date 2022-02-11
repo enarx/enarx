@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use sallyport::request;
-use sallyport::syscall::SYS_ENARX_GETATT;
-use sallyport::syscall::{BaseSyscallHandler, EnarxSyscallHandler, SGX_QUOTE_SIZE, SGX_TECH};
-use sallyport::untrusted::{UntrustedRef, UntrustedRefMut, ValidateSlice};
+use crate::uarch::{Report, ReportData, TargetInfo};
 
-use crate::uarch::TargetInfo;
-use crate::uarch::{Report, ReportData};
+use sallyport::request;
+use sallyport::syscall::{
+    BaseSyscallHandler, EnarxSyscallHandler, SGX_QUOTE_SIZE, SGX_TECH, SYS_ENARX_GETATT,
+};
+use sallyport::untrusted::{UntrustedRef, UntrustedRefMut, ValidateSlice};
 
 impl<'a> EnarxSyscallHandler for super::Handler<'a> {
     // NOTE: The 'nonce' field is called 'hash' here, as it is used to pass in
