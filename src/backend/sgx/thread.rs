@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use super::super::Command;
+use crate::backend::sgx::attestation::get_attestation;
 
 use std::arch::asm;
 use std::mem::MaybeUninit;
@@ -13,8 +14,6 @@ use sallyport::{syscall::SYS_ENARX_CPUID, Block};
 use sgx::enclu::{EENTER, EEXIT, ERESUME};
 use sgx::ssa::Vector;
 use vdso::Symbol;
-
-use crate::backend::sgx::attestation::get_attestation;
 
 pub struct Thread {
     enclave: Arc<super::Keep>,

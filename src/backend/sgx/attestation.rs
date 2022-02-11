@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
-
-// Credit to: https://github.com/fortanix/rust-sgx/tree/master/aesm-client
-// for examples of AESM Requests.
+//
+// CREDITS
+// * https://github.com/fortanix/rust-sgx for examples of AESM requests.
 
 use crate::protobuf::aesm_proto::{
     Request, Request_GetQuoteExRequest, Request_GetSupportedAttKeyIDNumRequest,
@@ -9,17 +9,16 @@ use crate::protobuf::aesm_proto::{
     Response_GetQuoteExResponse, Response_InitQuoteExResponse,
 };
 
-use sallyport::syscall::{SGX_QUOTE_SIZE, SGX_TI_SIZE};
-
 use std::io::{Error, ErrorKind, Read, Write};
 use std::mem::size_of;
 use std::os::unix::net::UnixStream;
 use std::slice::{from_raw_parts, from_raw_parts_mut};
 
 use protobuf::Message;
+use sallyport::syscall::{SGX_QUOTE_SIZE, SGX_TI_SIZE};
 
 const AESM_SOCKET: &str = "/var/run/aesmd/aesm.socket";
-const TIMEOUT: u32 = 1_000_000;
+const AESM_REQUEST_TIMEOUT: u32 = 1_000_000;
 const SGX_KEY_ID_SIZE: u32 = 256;
 
 // Specifies the protobuf Request type to communicate with AESMD.
@@ -51,26 +50,17 @@ impl ReqType {
                 unimplemented!()
             }
             ReqType::TInfo => {
-                let akid = match akid {
-                    Some(a) => a,
-                    None => {
-                        return Err(Error::new(
-                            ErrorKind::Other,
-                            "no attestation key ID provided for setting Init Quote Ex request",
-                        ));
-                    }
-                };
-                let size = match size {
-                    Some(s) => s,
-                    None => {
-                        return Err(Error::new(
-                            ErrorKind::Other,
-                            "no key size provided for setting Init Quote Ex request",
-                        ));
-                    }
-                };
+                let akid = akid.ok_or_else(|| {
+                    Error::new(
+                        ErrorKind::Other,
+                        "Missing attestation key ID from InitQuoteExRequest",
+                    )
+                })?;
+                let size = size.ok_or_else(|| {
+                    Error::new(ErrorKind::Other, "Missing key size from InitQuoteExRequest")
+                })?;
                 let mut msg = Request_InitQuoteExRequest::new();
-                msg.set_timeout(TIMEOUT);
+                msg.set_timeout(AESM_REQUEST_TIMEOUT);
                 msg.set_b_pub_key_id(true);
                 msg.set_att_key_id(akid);
                 msg.set_buf_size(size as u64);
@@ -78,43 +68,34 @@ impl ReqType {
                 Ok(req)
             }
             ReqType::KeySize => {
-                let akid = match akid {
-                    Some(a) => a,
-                    None => {
-                        return Err(Error::new(
-                            ErrorKind::Other,
-                            "no attestation key ID provided for setting Init Quote Ex request to get key size",
-                        ));
-                    }
-                };
+                let akid = akid.ok_or_else(|| {
+                    Error::new(
+                        ErrorKind::Other,
+                        "Missing attestation key ID from InitQuoteExRequest",
+                    )
+                })?;
                 let mut msg = Request_InitQuoteExRequest::new();
-                msg.set_timeout(TIMEOUT);
+                msg.set_timeout(AESM_REQUEST_TIMEOUT);
                 msg.set_b_pub_key_id(false);
                 msg.set_att_key_id(akid);
                 req.set_initQuoteExReq(msg);
                 Ok(req)
             }
             ReqType::Quote => {
-                let report = match report {
-                    Some(r) => r,
-                    None => {
-                        return Err(Error::new(
-                            ErrorKind::Other,
-                            "no Report provided for setting Get Quote Ex request",
-                        ));
-                    }
-                };
-                let akid = match akid {
-                    Some(a) => a,
-                    None => {
-                        return Err(Error::new(
-                            ErrorKind::Other,
-                            "no attestation key ID provided for setting Get Quote Ex request",
-                        ));
-                    }
-                };
+                let akid = akid.ok_or_else(|| {
+                    Error::new(
+                        ErrorKind::Other,
+                        "Missing attestation key ID from InitQuoteExRequest",
+                    )
+                })?;
+                let report = report.ok_or_else(|| {
+                    Error::new(
+                        ErrorKind::Other,
+                        "Missing REPORT structure from GetQuoteExRequest",
+                    )
+                })?;
                 let mut msg = Request_GetQuoteExRequest::new();
-                msg.set_timeout(TIMEOUT);
+                msg.set_timeout(AESM_REQUEST_TIMEOUT);
                 msg.set_report(report.to_vec());
                 msg.set_att_key_id(akid);
                 msg.set_buf_size(SGX_QUOTE_SIZE as u32);
@@ -164,7 +145,7 @@ fn get_ak_id() -> Result<Vec<u8>, Error> {
     let r = ReqType::AkIdNum;
     let mut req = Request::new();
     let mut msg = Request_GetSupportedAttKeyIDNumRequest::new();
-    msg.set_timeout(TIMEOUT);
+    msg.set_timeout(AESM_REQUEST_TIMEOUT);
     req.set_getSupportedAttKeyIDNumReq(msg);
     let pb_msg: Response = r.send_request(req, &mut stream)?;
 
@@ -187,7 +168,7 @@ fn get_ak_id() -> Result<Vec<u8>, Error> {
     let r = ReqType::AkId;
     let mut req = Request::new();
     let mut msg = Request_GetSupportedAttKeyIDsRequest::new();
-    msg.set_timeout(TIMEOUT);
+    msg.set_timeout(AESM_REQUEST_TIMEOUT);
     msg.set_buf_size(expected_buffer_size);
     req.set_getSupportedAttKeyIDsReq(msg);
 
