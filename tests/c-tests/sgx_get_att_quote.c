@@ -13,19 +13,12 @@ int main(void) {
     unsigned char buf[4598];
     size_t technology;
     int i;
-    unsigned char expected[32] = {
-        3, 0, 2, 0, 0, 0, 0, 0, 5, 0,
-        10, 0, 147, 154, 114, 51, 247, 156, 76, 169,
-        148, 10, 13, 179, 149, 127, 6, 7, 14, 153,
-        112, 145
+    unsigned char expected[28] = {
+            3, 0, 2, 0, 0, 0, 0, 0, 7,
+            0, 12, 0, 147, 154, 114, 51, 247,
+            156, 76, 169, 148, 10, 13, 179, 149,
+            127, 6, 7
     };
-    unsigned char dummy[32] = {
-        44, 44, 44, 44, 44, 44, 44, 44, 44, 44,
-        44, 44, 44, 44, 44, 44, 44, 44, 44, 44,
-        44, 44, 44, 44, 44, 44, 44, 44, 44, 44,
-        44, 44
-    };
-
 
     ssize_t size = get_att(nonce, sizeof(nonce), buf, sizeof(buf), &technology);
 
@@ -37,10 +30,8 @@ int main(void) {
         return 0;
 
     /* check beginning of quote matches expected value */
-    for (i = 0; i < 32; i++)
-    {
-        if (buf[i] != expected[i] && buf[i]!= dummy[i])
-        {
+    for (i = 0; i < 28; i++) {
+        if (buf[i] != expected[i]) {
             return 1;
         }
     }
