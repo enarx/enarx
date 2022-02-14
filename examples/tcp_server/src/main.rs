@@ -161,6 +161,9 @@ fn handle_connection_event(
                     break;
                 }
                 Ok(n) => {
+                    // echo back what we received and ignore any errors while doing so
+                    let _ = connection.write_all(&received_data[bytes_read..(bytes_read + n)]);
+
                     bytes_read += n;
                     if bytes_read == received_data.len() {
                         received_data.resize(received_data.len() + 1024, 0);
@@ -182,8 +185,6 @@ fn handle_connection_event(
             } else {
                 println!("Received (none UTF-8) data: {:?}", received_data);
             }
-
-            let _ = connection.write_all(received_data)?;
         }
 
         if connection_closed {

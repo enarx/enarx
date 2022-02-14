@@ -90,7 +90,14 @@ You'll see our welcome message and anything you type will be printed here.
 
 Then from another shell:
 ```
-$ echo ECHO | nc 127.0.0.1 9000
+$ echo ECHO | ncat 127.0.0.1 9000
+Hello world!
+ECHO
+```
+
+or, if you don't have `ncat`:
+```
+$ echo ECHO | netcat -q 1 127.0.0.1 9000
 Hello world!
 ECHO
 ```
