@@ -167,7 +167,7 @@ dependencies = [
  "const-default",
  "env_logger 0.9.0",
  "gdbstub",
- "goblin",
+ "goblin 0.5.1",
  "iocuddle",
  "kvm-bindings",
  "kvm-ioctls",
@@ -338,7 +338,18 @@ checksum = "32401e89c6446dcd28185931a01b1093726d0356820ac744023e6850689bf926"
 dependencies = [
  "log",
  "plain",
- "scroll",
+ "scroll 0.10.2",
+]
+
+[[package]]
+name = "goblin"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c955ab4e0ad8c843ea653a3d143048b87490d9be56bd7132a435c2407846ac8f"
+dependencies = [
+ "log",
+ "plain",
+ "scroll 0.11.0",
 ]
 
 [[package]]
@@ -991,7 +1002,7 @@ version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "eab61195772feb0221de35deddc39ca51e04a3c9522af0ec47962415e8624987"
 dependencies = [
- "goblin",
+ "goblin 0.4.3",
  "libc",
  "primordial",
 ]
@@ -1027,7 +1038,16 @@ version = "0.10.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fda28d4b4830b807a8b43f7b0e6b5df875311b3e7621d84577188c175b6ec1ec"
 dependencies = [
- "scroll_derive",
+ "scroll_derive 0.10.5",
+]
+
+[[package]]
+name = "scroll"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "04c565b551bafbef4157586fa379538366e4385d42082f255bfd96e4fe8519da"
+dependencies = [
+ "scroll_derive 0.11.0",
 ]
 
 [[package]]
@@ -1035,6 +1055,17 @@ name = "scroll_derive"
 version = "0.10.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "aaaae8f38bb311444cfb7f1979af0bc9240d95795f75f9ceddf6a59b79ceffa0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
+name = "scroll_derive"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bdbda6ac5cd1321e724fa9cee216f3a61885889b896f073b8f82322789c5250e"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1461,7 +1492,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8cb399b214a541520e6f674fc7483b13193724d8d09151e0b9e150b617ee61a4"
 dependencies = [
  "crt0stack",
- "goblin",
+ "goblin 0.4.3",
 ]
 
 [[package]]
