@@ -1,0 +1,14 @@
+[package]
+name = "sgx_attestation"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+sallyport = { git = "https://github.com/enarx/sallyport", rev = "dd42c91cc9e5cbc74f342eede3bc072f60ba11bd" }
+bitflags = "1.2"
+
+[dev-dependencies]
+memoffset = "0.6.4"

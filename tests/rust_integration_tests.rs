@@ -109,6 +109,21 @@ fn rust_sev_attestation() {
     );
 }
 
+#[cfg(feature = "backend-sgx")]
+#[test]
+#[serial]
+fn rust_sgx_attestation() {
+    run_crate(
+        "tests/sgx_attestation",
+        "sgx_attestation",
+        None,
+        0,
+        None,
+        None,
+        None,
+    );
+}
+
 #[test]
 #[serial]
 fn memspike() {
