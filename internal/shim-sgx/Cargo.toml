@@ -31,6 +31,9 @@ rcrt1 = "1.0.0"
 lset = "0.2"
 sgx = "0.3"
 
+[dev-dependencies]
+memoffset = "0.6.1"
+
 [profile.dev.package.rcrt1]
 opt-level = 3
 
