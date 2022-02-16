@@ -93,9 +93,11 @@ extern "sysv64" fn clearx() {
             "xor    r10,    r10",
             "xor    r11,    r11",
 
-            // Clear CPU flags
-            "add    r11,    r11",
-            "cld",
+            // Clear CPU state bits and DF/AC flags
+            // Note: we can simply popfq an all-zero value, as system flags and
+            // reserved bits are not writable from the user-space enclave
+            "push    QWORD PTR 0",
+            "popfq",
 
             // Clear the extended CPU state
             "push    rax            ",  // Save rax
@@ -204,6 +206,7 @@ pub unsafe extern "sysv64" fn _start() -> ! {
     use core::mem::size_of;
 
     asm!(
+        "cld                                ",  // Clear Direction Flag
         "xchg   rbx,    rcx                 ",  // rbx = exit address, rcx = TCS page
 
         // Find stack pointer for CSSA == 0
