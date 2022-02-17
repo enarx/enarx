@@ -95,7 +95,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32401e89c6446dcd28185931a01b1093726d0356820ac744023e6850689bf926"
 dependencies = [
  "plain",
- "scroll",
+ "scroll 0.10.2",
+]
+
+[[package]]
+name = "goblin"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c955ab4e0ad8c843ea653a3d143048b87490d9be56bd7132a435c2407846ac8f"
+dependencies = [
+ "plain",
+ "scroll 0.11.0",
 ]
 
 [[package]]
@@ -213,7 +223,7 @@ version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "600700255f80d582e1e37170d7a5b458cdc9c88a17d90b0ced5ed2d3f3ec4cab"
 dependencies = [
- "goblin",
+ "goblin 0.4.3",
  "libc",
 ]
 
@@ -223,7 +233,7 @@ version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "eab61195772feb0221de35deddc39ca51e04a3c9522af0ec47962415e8624987"
 dependencies = [
- "goblin",
+ "goblin 0.4.3",
  "libc",
  "primordial",
 ]
@@ -239,6 +249,12 @@ name = "scroll"
 version = "0.10.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fda28d4b4830b807a8b43f7b0e6b5df875311b3e7621d84577188c175b6ec1ec"
+
+[[package]]
+name = "scroll"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "04c565b551bafbef4157586fa379538366e4385d42082f255bfd96e4fe8519da"
 
 [[package]]
 name = "serde"
@@ -266,7 +282,7 @@ dependencies = [
  "crt0stack",
  "gdbstub",
  "gdbstub_arch",
- "goblin",
+ "goblin 0.5.1",
  "libc",
  "lset",
  "memoffset",
