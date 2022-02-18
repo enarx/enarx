@@ -18,7 +18,7 @@ dbg = []
 wasmtime = { version = "0.34.0", default-features = false, features = ["cranelift", "pooling-allocator"] }
 wasmtime-wasi = { version = "0.34.0", default-features = false, features = ["sync"] }
 wasi-common = { version = "0.34.0", default-features = false }
-wasmparser = "0.82.0"
+wasmparser = "0.83.0"
 structopt = { version = "0.3", default-features = false }
 anyhow = "1.0"
 env_logger = { version = "0.9", default-features = false }
