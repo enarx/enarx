@@ -302,12 +302,14 @@ pub fn get_attestation(
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, has_sgx))]
 mod tests {
     use super::*;
 
     #[test]
     fn request_target_info() {
+        assert_eq!(std::path::Path::new(AESM_SOCKET).exists(), true);
+
         let output = [1u8; SGX_TI_SIZE];
         assert_eq!(
             get_attestation(0, 0, output.as_ptr() as usize, output.len()).unwrap(),

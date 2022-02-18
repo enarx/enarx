@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
-
 use std::collections::HashMap;
 use std::ffi::OsStr;
-use std::fs::OpenOptions;
+use std::fs;
+use std::os::unix::fs::FileTypeExt;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use walkdir::WalkDir;
@@ -115,13 +115,13 @@ fn cargo_build_bin(
 
     let target_dir = out_dir.join(path);
 
-    let stdout: Stdio = OpenOptions::new()
+    let stdout: Stdio = fs::OpenOptions::new()
         .write(true)
         .open("/dev/tty")
         .map(Stdio::from)
         .unwrap_or_else(|_| Stdio::inherit());
 
-    let stderr: Stdio = OpenOptions::new()
+    let stderr: Stdio = fs::OpenOptions::new()
         .write(true)
         .open("/dev/tty")
         .map(Stdio::from)
@@ -250,6 +250,16 @@ fn main() {
 
         if cargo_tml.exists() {
             std::fs::remove_file(&cargo_toml).unwrap()
+        }
+    }
+
+    if std::path::Path::new("/dev/sgx_enclave").exists() {
+        // Not expected to fail, as the file exists.
+        let metadata = fs::metadata("/dev/sgx_enclave").unwrap();
+        let file_type = metadata.file_type();
+
+        if file_type.is_char_device() {
+            println!("cargo:rustc-cfg=has_sgx");
         }
     }
 }
