@@ -53,6 +53,34 @@
 //! * `data`: `...` - data that can be referenced (optional)
 //!
 //! The argument values may contain numeric values. However, all pointers MUST be translated to an offset from the beginning of the data section.
+//!
+//! ## Example
+//!
+//! Here's an example of how the `sallyport` protocol might be used to proxy a syscall between
+//! the host and a protected virtual machine:
+//!
+//! 1. The workload within the Keep makes a `write` syscall.
+//! 1. The shim traps all syscalls, and notices this is a `write` syscall.
+//! 1. The shim allocates space for an [item header](item::Header), syscall number, six arguments, two return values, as many bytes that the workload wants to write as fits in the block and an [`END`](item::Kind::End) [item header](item::Header).
+//! 1. The shim writes the [item header](item::Header), argument values and copies the bytes that the workload wants to write onto the data region of the block. It is now accessible to the host.
+//! 1. The shim writes to the allocated section. In the case of the `write` syscall, the shim:
+//!     1. Writes the [item header](item::Header) with item `kind` set to [`Syscall`](item::Kind::Syscall) and size equal to 9 + count of allocated bytes to write (syscall number + arguments + return values + data length).
+//!     1. Writes the request `nmbr` equal to the Linux integral value for [`SYS_write`](libc::SYS_write).
+//!     1. Writes the syscall arguments and return values:
+//!         1. `arg0` = The file descriptor to write to.
+//!         1. `arg1` = The offset starting after the last return value where the bytes have been copied to.
+//!         1. `arg2` = The number of bytes that the `write` syscall should emit from the bytes pointed to in the second parameter.
+//!         1. `arg3` = [`NULL`]
+//!         1. `arg4` = [`NULL`]
+//!         1. `arg5` = [`NULL`]
+//!         1. `ret0` = [`-ENOSYS`](libc::ENOSYS)
+//!         1. `ret1` = `0`
+//!     1. Copies the bytes to write into the allocated section.
+//! 1. The shim yields control to the untrusted host, in which host-side Enarx code realizes it must proxy a syscall.
+//! 1. The host-side Enarx code can invoke the syscall immediately using the values in the block.
+//! 1. Once the syscall is complete, the host-side Enarx code can update the syscall return value section write the syscall return code to it.
+//! 1. The host-side Enarx code returns control to the shim.
+//! 1. The shim examines the block and propagates any mutated data back to the protected address space. It may then return control to its workload.
 
 #![cfg_attr(not(test), no_std)]
 #![deny(clippy::all)]

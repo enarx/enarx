@@ -11,47 +11,53 @@ API for the hypervisor-microkernel boundary
 to the host. A [sally port](https://en.wikipedia.org/wiki/Sally_port) is a secure gateway through
 which a defending army might "sally forth" from the protection of their fortification.
 
-An astute reader may notice that `sallyport` is a thin layer around the Linux syscall ABI as it is
-predicated on the conveyance of a service request number (such as `rax` for x86_64) as well as the
-maximum number (6) of syscall parameter registers:
-
-| Architecture | arg 1 | arg 2 | arg 3 | arg 4 | arg 5 | arg 6 |
-| ------------ | ----- | ----- | ----- | ----- | ----- | ----- |
-| x86_64       | rdi   | rsi   | rdx   | r10   | r8    | r9    |
-
-_The above table was taken from the syscall(2) man page_
-
-Note that `sallyport` is meant to generalize over all architectures that Enarx anticipates proxying
-syscalls to, not just x86_64 which was listed in the above table for illustration purposes.
-
-### Usage
+## Mechanism of action
 
 `sallyport` works by providing the host with the most minimal register context it requires to
 perform the syscall on the Keep's behalf. In doing so, the host can immediately call the desired
-syscall without any additional logic required. This "register context" is known as a `Message` in
-`sallyport` parlance.
+syscall without any additional logic required.
 
-The `Message` union has two representations:
+Guest and host side communicate via a mutually-distrusted shared block of memory.
 
-1. `Request`: The register context needed to perform a request or syscall. This includes an identifier
-and up to the 6 maximum syscall parameter registers expected by the Linux syscall ABI.
-2. `Reply`: A response from the host. This representation exists to cater to how each architecture
-indicates a return value.
+This crate provides functionality for the guest to execute arbitary requests by proxying requests to the host via
+the untrusted block and corresponding functionality for the host to execute the requests contained within the untrusted block.
 
-The `Message` union serves as the header for a `Block` struct, which will be examined next.
+## Block format
 
-The `Block` struct is a page-sized buffer which must be written to a page that is accessible
-to both the host and the Keep to facilitate request proxying. The region of memory that is
-left over after storing the `Message` header on the block should be used for storing additional
-parameters that must be shared with the host so it can complete the service request. In the
-context of a syscall, this would be the sequence bytes to be written with a `write` syscall.
+The sallyport [block](item::Block) is a region of memory containing zero or more [items](item::Item).
+All items contain the following [header](item::Header):
 
-If the Keep forms a request that requires additional parameter data to be written to the `Block`,
-the register context _must_ reflect this. For example, the second parameter to the `write` syscall
-is a pointer to the string of bytes to be written. In this case, the `Keep` must ensure the
-second register parameter points to the location where the bytes have been written _within the `Block`,
-**NOT** a pointer to its protected address space_. Furthermore, once the request has been proxied, it is
-the Keep's responsibility to propagate any potentially modified data back to its protected pages.
+* size: `usize`
+* kind: `usize`
+
+The size parameter includes the full length of the item except the header value. The contents of the item are defined by the value of the [`kind`](item::Kind) parameter. An item with an unknown [`kind`](item::Kind) can be skipped since the length of the item is known from the `size` field. The recipient of an item with an unknown [`kind`](item::Kind) MUST NOT try to interpret or modify the contents of the item in any way.
+
+### Kinds
+
+* `END`: `0`
+* `SYSCALL`: `1`
+* ...
+
+#### End
+
+An [`END`](item::Kind::End) item MUST have a `size` of `0`. It has no contents and simply marks the end of items in the block. This communicates the end of the items list to the host. However, the guest MUST NOT rely on the presence of a terminator upon return to the guest.
+
+#### Syscall
+
+A `SYSCALL` item has the following contents:
+
+* `nmbr`: `usize` - the syscall number
+* `arg0`: `usize` - the first argument
+* `arg1`: `usize` - the second argument
+* `arg2`: `usize` - the third argument
+* `arg3`: `usize` - the fourth argument
+* `arg4`: `usize` - the fifth argument
+* `arg5`: `usize` - the sixth argument
+* `ret0`: `usize` - the first return value
+* `ret1`: `usize` - the second return value
+* `data`: `...` - data that can be referenced (optional)
+
+The argument values may contain numeric values. However, all pointers MUST be translated to an offset from the beginning of the data section.
 
 ### Example
 
@@ -60,22 +66,25 @@ the host and a protected virtual machine:
 
 1. The workload within the Keep makes a `write` syscall.
 1. The shim traps all syscalls, and notices this is a `write` syscall.
-1. The shim writes an empty `Block` onto the page it shares with the untrusted host.
-1. The shim copies the bytes that the workload wants to write onto the data region of the `Block`. It is now
-accessible to the host.
-1. The shim modifies the `Message` header to be a `Request` variant. In the case of the `write` syscall, the shim:
-    1. Sets the request `num` to the Linux integral value for `SYS_write`.
-    1. Furnishes the register context's syscall arguments:
-        1. `arg[0]` = The file descriptor to write to.
-        1. `arg[1]` = The address _within the `Block`_ where the bytes have been copied to.
-        1. `arg[2]` = The number of bytes that the `write` syscall should emit from the bytes pointed to
-        in the second parameter.
+1. The shim allocates space for an [item header](item::Header), syscall number, six arguments, two return values, as many bytes that the workload wants to write as fits in the block and an [`END`](item::Kind::End) [item header](item::Header).
+1. The shim writes the [item header](item::Header), argument values and copies the bytes that the workload wants to write onto the data region of the block. It is now accessible to the host.
+1. The shim writes to the allocated section. In the case of the `write` syscall, the shim:
+    1. Writes the [item header](item::Header) with item `kind` set to [`Syscall`](item::Kind::Syscall) and size equal to 9 + count of allocated bytes to write (syscall number + arguments + return values + data length).
+    1. Writes the request `nmbr` equal to the Linux integral value for [`SYS_write`](libc::SYS_write).
+    1. Writes the syscall arguments and return values:
+        1. `arg0` = The file descriptor to write to.
+        1. `arg1` = The offset starting after the last return value where the bytes have been copied to.
+        1. `arg2` = The number of bytes that the `write` syscall should emit from the bytes pointed to in the second parameter.
+        1. `arg3` = [`NULL`]
+        1. `arg4` = [`NULL`]
+        1. `arg5` = [`NULL`]
+        1. `ret0` = [`-ENOSYS`](libc::ENOSYS)
+        1. `ret1` = `0`
+    1. Copies the bytes to write into the allocated section.
 1. The shim yields control to the untrusted host, in which host-side Enarx code realizes it must proxy a syscall.
-1. The host-side Enarx code can invoke the syscall immediately using the values in the `Block`'s `Message` header.
-1. Once the syscall is complete, the host-side Enarx code can update the `Block`'s header and set it to a
-`Reply` variant of the `Message` union and write the syscall return code to it.
+1. The host-side Enarx code can invoke the syscall immediately using the values in the block.
+1. Once the syscall is complete, the host-side Enarx code can update the syscall return value section write the syscall return code to it.
 1. The host-side Enarx code returns control to the shim.
-1. The shim examines the `Reply` in the `Message` header of the `Block` and propagates any mutated data back to
-the protected address space. It may then return control to its workload.
+1. The shim examines the block and propagates any mutated data back to the protected address space. It may then return control to its workload.
 
 License: Apache-2.0
