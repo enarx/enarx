@@ -24,9 +24,6 @@ pub const ENCLAVE_ADD_PAGES: Ioctl<WriteRead, &AddPages<'_>> = unsafe { SGX.writ
 pub const ENCLAVE_INIT: Ioctl<Write, &Init<'_>> = unsafe { SGX.write(0x02) };
 
 pub const ENCLAVE_SET_ATTRIBUTE: Ioctl<Write, &SetAttribute<'_>> = unsafe { SGX.write(0x03) };
-pub const PAGE_MODP: Ioctl<Write, &PageModPerms> = unsafe { SGX.write(0x05) };
-pub const PAGE_MODT: Ioctl<Write, &PageModType> = unsafe { SGX.write(0x06) };
-pub const PAGE_REMOVE: Ioctl<Write, &PageRemove> = unsafe { SGX.write(0x07) };
 
 #[repr(C)]
 #[derive(Debug)]
@@ -104,32 +101,4 @@ impl<'a> SetAttribute<'a> {
     pub fn new(fd: &'a impl std::os::unix::io::AsRawFd) -> Self {
         SetAttribute(fd.as_raw_fd() as _, PhantomData)
     }
-}
-
-#[repr(C)]
-#[derive(Debug)]
-pub struct PageModPerms {
-    pub offset: u64,
-    pub length: u64,
-    pub prot: u64,
-    pub result: u64,
-    pub count: u64,
-}
-
-#[repr(C)]
-#[derive(Debug)]
-pub struct PageModType {
-    pub offset: u64,
-    pub length: u64,
-    pub kind: u64,
-    pub result: u64,
-    pub count: u64,
-}
-
-#[repr(C)]
-#[derive(Debug)]
-pub struct PageRemove {
-    pub offset: u64,
-    pub length: u64,
-    pub count: u64,
 }
