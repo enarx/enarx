@@ -13,12 +13,9 @@
 #![warn(rust_2018_idioms)]
 
 use crate::snp::cpuid_page::CpuidPage;
-use crate::snp::ghcb::Ghcb;
-use crate::snp::secrets_page::SnpSecretsPage;
 
 use goblin::elf::header::header64::Header;
 use primordial::Page as Page4KiB;
-use sallyport::Block;
 
 #[macro_use]
 pub mod testaso;
@@ -47,10 +44,6 @@ pub mod usermode;
 
 extern "C" {
     /// Extern
-    pub static mut _ENARX_SALLYPORT_START: Block;
-    /// Extern
-    pub static _ENARX_SALLYPORT_END: Page4KiB;
-    /// Extern
     pub static _ENARX_MEM_START: Page4KiB;
     /// Extern
     pub static _ENARX_SHIM_START: Page4KiB;
@@ -60,8 +53,4 @@ extern "C" {
     pub static _ENARX_EXEC_END: Page4KiB;
     /// Extern
     pub static _ENARX_CPUID: CpuidPage;
-    /// Extern
-    pub static mut _ENARX_GHCB: Ghcb;
-    /// Extern
-    pub static mut _ENARX_SECRETS: SnpSecretsPage;
 }
