@@ -25,6 +25,16 @@ pub const ENCLAVE_INIT: Ioctl<Write, &Init<'_>> = unsafe { SGX.write(0x02) };
 
 pub const ENCLAVE_SET_ATTRIBUTE: Ioctl<Write, &SetAttribute<'_>> = unsafe { SGX.write(0x03) };
 
+/// SGX_IOC_VEPC_REMOVE_ALL (0x04) is not used by Enarx.
+
+/// SGX_IOC_ENCLAVE_RELAX_PERMISSIONS
+pub const ENCLAVE_RELAX_PERMISSIONS: Ioctl<WriteRead, &RelaxPermissions<'_>> =
+    unsafe { SGX.write_read(0x05) };
+
+/// SGX_IOC_ENCLAVE_RESTRICT_PERMISSIONS
+pub const ENCLAVE_RESTRICT_PERMISSIONS: Ioctl<WriteRead, &RestrictPermissions<'_>> =
+    unsafe { SGX.write_read(0x06) };
+
 #[repr(C)]
 #[derive(Debug)]
 /// Struct for creating a new enclave from SECS
@@ -100,5 +110,128 @@ impl<'a> SetAttribute<'a> {
     /// A new SetAttribute struct must wrap a file descriptor.
     pub fn new(fd: &'a impl std::os::unix::io::AsRawFd) -> Self {
         SetAttribute(fd.as_raw_fd() as _, PhantomData)
+    }
+}
+
+#[repr(C)]
+#[derive(Debug)]
+/// SGX_IOC_ENCLAVE_RELAX_PERMISSIONS parameter structure
+pub struct RelaxPermissions<'a> {
+    /// In: starting page offset
+    offset: u64,
+    /// In: length of the address range (multiple of the page size)
+    length: u64,
+    /// In: SECINFO containing the relaxed permissions
+    secinfo: u64,
+    /// Out: length of the address range successfully changed
+    count: u64,
+    phantom: PhantomData<&'a ()>,
+}
+
+impl<'a> RelaxPermissions<'a> {
+    /// Create a new RelaxPermissions instance.
+    pub fn new(offset: usize, length: usize, secinfo: &'a SecInfo) -> Self {
+        Self {
+            offset: offset as _,
+            length: length as _,
+            secinfo: secinfo as *const _ as _,
+            count: 0,
+            phantom: PhantomData,
+        }
+    }
+
+    /// Read count attribute.
+    pub fn count(&self) -> u64 {
+        self.count
+    }
+}
+
+#[repr(C)]
+#[derive(Debug)]
+/// SGX_IOC_ENCLAVE_RELAX_PERMISSIONS parameter structure
+pub struct RestrictPermissions<'a> {
+    /// In: starting page offset
+    offset: u64,
+    /// In: length of the address range (multiple of the page size)
+    length: u64,
+    /// In: SECINFO containing the relaxed permissions
+    secinfo: u64,
+    /// Out: ENCLU[EMODPR] return value
+    result: u64,
+    /// Out: length of the address range successfully changed
+    count: u64,
+    phantom: PhantomData<&'a ()>,
+}
+
+impl<'a> RestrictPermissions<'a> {
+    /// Create a new RestrictPermissions instance.
+    pub fn new(offset: usize, length: usize, secinfo: &'a SecInfo) -> Self {
+        Self {
+            offset: offset as _,
+            length: length as _,
+            secinfo: secinfo as *const _ as _,
+            result: 0,
+            count: 0,
+            phantom: PhantomData,
+        }
+    }
+
+    /// Read result attribute.
+    pub fn result(&self) -> u64 {
+        self.count
+    }
+
+    /// Read count attribute.
+    pub fn count(&self) -> u64 {
+        self.count
+    }
+}
+
+#[cfg(all(test, host_can_test_sgx))]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn relax_permissions() {
+        use sgx::page::{Flags, SecInfo};
+        use std::fs::OpenOptions;
+
+        let mut device_file = OpenOptions::new()
+            .read(true)
+            .write(true)
+            .open("/dev/sgx_enclave")
+            .unwrap();
+
+        let secinfo = SecInfo::reg(Flags::empty());
+        let mut parameters = RelaxPermissions::new(0, 0, &secinfo);
+
+        let ret = match ENCLAVE_RELAX_PERMISSIONS.ioctl(&mut device_file, &mut parameters) {
+            Ok(_) => 0,
+            Err(err) => err.raw_os_error().unwrap(),
+        };
+
+        assert_eq!(ret, libc::EINVAL);
+    }
+
+    #[test]
+    fn restrict_permissions() {
+        use sgx::page::{Flags, SecInfo};
+        use std::fs::OpenOptions;
+
+        let mut device_file = OpenOptions::new()
+            .read(true)
+            .write(true)
+            .open("/dev/sgx_enclave")
+            .unwrap();
+
+        let secinfo = SecInfo::reg(Flags::empty());
+        let mut parameters = RestrictPermissions::new(0, 0, &secinfo);
+
+        let ret = match ENCLAVE_RESTRICT_PERMISSIONS.ioctl(&mut device_file, &mut parameters) {
+            Ok(_) => 0,
+            Err(err) => err.raw_os_error().unwrap(),
+        };
+
+        assert_eq!(ret, libc::EINVAL);
     }
 }
