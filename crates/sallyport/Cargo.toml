@@ -1,9 +1,9 @@
 [package]
 name = "sallyport"
-version = "0.2.0"
+version = "0.3.0"
 authors = ["The Enarx Project Developers"]
 license = "Apache-2.0"
-edition = "2018"
+edition = "2021"
 homepage = "https://github.com/enarx/sallyport"
 repository = "https://github.com/enarx/sallyport"
 description = "API for the Enarx hypervisor-microkernel boundary"
@@ -20,11 +20,14 @@ maintenance = { status = "actively-developed" }
 is-it-maintained-issue-resolution = { repository = "enarx/sallyport" }
 is-it-maintained-open-issues = { repository = "enarx/sallyport" }
 
-[features]
-default = []
-asm = []
-
 [dependencies]
+gdbstub = { version = "0.6.0", default-features = false, optional = true }
+goblin = { version = "0.4", default-features = false, features = [ "elf64" ] }
 libc = { version = "0.2", features = [] }
-primordial = "^0.4.0"
-goblin = { version = "0.5", default-features = false, features = [ "elf64" ] }
+
+[dev-dependencies]
+libc = { version = "0.2", features = [ "extra_traits" ] }
+serial_test = "0.5"
+
+[features]
+doc = [ "gdbstub" ]
