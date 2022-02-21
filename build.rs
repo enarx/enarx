@@ -262,4 +262,14 @@ fn main() {
             println!("cargo:rustc-cfg=host_can_test_sgx");
         }
     }
+
+    if std::path::Path::new("/dev/sev").exists() {
+        // Not expected to fail, as the file exists.
+        let metadata = fs::metadata("/dev/sev").unwrap();
+        let file_type = metadata.file_type();
+
+        if file_type.is_char_device() {
+            println!("cargo:rustc-cfg=host_can_test_sev");
+        }
+    }
 }

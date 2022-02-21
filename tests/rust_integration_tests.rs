@@ -96,6 +96,7 @@ fn unix_echo() {
 
 #[cfg(feature = "backend-sev")]
 #[test]
+#[cfg_attr(not(host_can_test_sev), ignore)]
 #[serial]
 fn rust_sev_attestation() {
     run_crate(
