@@ -9,6 +9,11 @@ use libc::c_long;
 
 /// A generic syscall, which can be allocated within the block.
 ///
+/// # Safety
+///
+/// This trait is unsafe, because it allows execution arbitrary syscalls on the host, which is
+/// intrinsically unsafe.
+///
 /// # Examples
 ///
 /// ```rust

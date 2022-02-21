@@ -54,9 +54,12 @@
 //!
 //! The argument values may contain numeric values. However, all pointers MUST be translated to an offset from the beginning of the data section.
 
+#![cfg_attr(not(test), no_std)]
+#![deny(clippy::all)]
+// TODO: Enable https://github.com/enarx/sallyport/issues/32
+//#![deny(missing_docs)]
 #![feature(nonnull_slice_from_raw_parts)]
 #![feature(slice_ptr_len)]
-#![cfg_attr(not(test), no_std)]
 
 pub mod elf;
 pub mod guest;

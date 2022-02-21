@@ -27,6 +27,11 @@ pub trait Execute {
     fn execute<'a, K: kind::Kind, T: Call<'a, K>>(&mut self, call: T) -> Result<T::Collected>;
 
     /// Executes a supported syscall expressed as an opaque 7-word array akin to [`libc::syscall`].
+    ///
+    /// # Safety
+    ///
+    /// This method is unsafe, because it allows execution arbitrary syscalls on the host, which is
+    /// intrinsically unsafe.
     unsafe fn syscall(&mut self, registers: [usize; 7]) -> Result<[usize; 2]>;
 
     /// Loops infinitely trying to exit.

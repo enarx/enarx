@@ -16,6 +16,7 @@ impl<'a> Block<'a> {
     /// `item_count` items of biggest size and `data_size` bytes of allocated data.
     /// Note, that this function does not account for alignment of the allocated data,
     /// and therefore this is merely a hint and not a precise calculation.
+    #[allow(clippy::question_mark)] // `?` is not supported in `const` functions.
     pub const fn size_hint(item_count: usize, data_size: usize) -> Option<usize> {
         let item_size = if let Some(item_size) = item_count.checked_mul(LARGEST_ITEM_SIZE) {
             item_size

@@ -10,6 +10,11 @@ use libc::{c_int, c_long};
 /// Trait implemented by allocatable syscalls, which are passed through directly to the host and do
 /// not require custom handling logic.
 ///
+/// # Safety
+///
+/// This trait is unsafe, because it allows execution arbitrary syscalls on the host, which is
+/// intrinsically unsafe.
+///
 /// # Example
 /// ```rust
 /// use sallyport::guest::call::types::Argv;
