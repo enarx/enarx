@@ -302,11 +302,12 @@ pub fn get_attestation(
     }
 }
 
-#[cfg(all(test, has_sgx))]
+#[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
+    #[cfg_attr(not(host_can_test_sgx), ignore)]
     fn request_target_info() {
         assert_eq!(std::path::Path::new(AESM_SOCKET).exists(), true);
 
