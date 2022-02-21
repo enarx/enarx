@@ -259,7 +259,7 @@ fn main() {
         let file_type = metadata.file_type();
 
         if file_type.is_char_device() {
-            println!("cargo:rustc-cfg=has_sgx");
+            println!("cargo:rustc-cfg=host_can_test_sgx");
         }
     }
 }
