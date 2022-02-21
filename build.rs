@@ -81,6 +81,20 @@ fn cargo_build_bin(
     target_name: &str,
     bin_name: &str,
 ) -> std::io::Result<()> {
+    // And here's where we'd like to place the final (stripped) binary
+    let out_bin = out_dir.join("bin").join(bin_name);
+
+    // Don't run the build if ENARX_PREBUILT_${bin_name} is set
+    let prebuilt_env_name = format!("ENARX_PREBUILT_{}", bin_name);
+    if let Ok(prebuilt_path) = std::env::var(&prebuilt_env_name) {
+        println!(
+            "cargo:warning=Using prebuilt {} binary from {}: {}",
+            bin_name, prebuilt_env_name, &prebuilt_path
+        );
+        std::fs::copy(prebuilt_path, out_bin)?;
+        return Ok(());
+    }
+
     let profile: &[&str] = match std::env::var("PROFILE").unwrap().as_str() {
         "release" => &["--release"],
         _ => &[],
@@ -162,9 +176,6 @@ fn cargo_build_bin(
         .join(target_name)
         .join(std::env::var("PROFILE").unwrap())
         .join(bin_name);
-
-    // And here's where we'd like to place the final (stripped) binary
-    let out_bin = out_dir.join("bin").join(bin_name);
 
     // Strip the binary
     let status = Command::new("strip")
