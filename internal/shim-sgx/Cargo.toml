@@ -23,7 +23,7 @@ x86_64 = { version = "^0.14.8", default-features = false }
 crt0stack = { version = "0.1", default-features = false }
 sallyport = { version = "0.2.0" }
 spinning = { version = "0.1", default-features = false }
-libc = { version = "0.2.117", default-features = false }
+libc = { version = "0.2.119", default-features = false }
 const-default = "1.0"
 noted = "^1.0.0"
 xsave = { version = "2.0.2" }
