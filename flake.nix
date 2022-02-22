@@ -17,36 +17,28 @@
         pkgs = nixpkgs.legacyPackages.${system};
 
         rust = fenix.packages."${system}".fromToolchainFile {
-          file = ./rust-toolchain.toml;
+          file = "${self}/rust-toolchain.toml";
           sha256 = "sha256-tBwy9v6pwct/riRxF9mSt6VmdL3KzmKHtBNTyFgbfqk=";
         };
-
-        buildInputs = (with pkgs; [
-          gcc11
-          openssl.dev
-          musl.dev
-        ]) ++ [
-          rust
-        ];
-
-        nativeBuildInputs = with pkgs; [
-          pkg-config
-        ];
-
-        unsetEnv = pkgs.lib.concatMapStringsSep "\n" (var: "unset ${var}") [
-          "NIX_LDFLAGS_FOR_TARGET"
-          "NIX_CFLAGS_COMPILE_FOR_TARGET"
-        ];
-
-        stdenv = pkgs.stdenvNoCC;
-
-        stdenvOverride = { inherit stdenv; };
       in
       {
-        devShell = pkgs.mkShell.override stdenvOverride {
-          inherit buildInputs nativeBuildInputs;
+        devShell = pkgs.mkShell.override { stdenv = pkgs.stdenvNoCC; } {
+          buildInputs = (with pkgs; [
+            gcc11
+            openssl
+            musl
+          ]) ++ [
+            rust
+          ];
 
-          shellHook = unsetEnv;
+          nativeBuildInputs = with pkgs; [
+            pkg-config
+          ];
+
+          shellHook = ''
+            unset NIX_LDFLAGS_FOR_TARGET
+            unset NIX_CFLAGS_COMPILE_FOR_TARGET
+          '';
         };
 
         packages.enarx =
