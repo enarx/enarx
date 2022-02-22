@@ -137,6 +137,11 @@ impl TargetInfo {
         // will be initialized by the CPU as the next step.
         let mut report = core::mem::MaybeUninit::<Report>::uninit();
 
+        // In Rust inline assembly rbx is not preserved by the compiler, even
+        // when part of the input list. It is one of the callee saved registers
+        // dictated by:
+        //
+        // https://github.com/hjl-tools/x86-psABI/wiki/x86-64-psABI-1.0.pdf
         unsafe {
             asm!(
                 "xchg       {RBX}, rbx",
