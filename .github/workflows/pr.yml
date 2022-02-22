@@ -7,18 +7,8 @@ jobs:
     steps:
     - name: auto-merge
       id: auto-merge
-      run: |
-        gh api graphql --silent -F id=$NODE_ID -f query='
-          mutation ($id: ID!) {
-            enablePullRequestAutoMerge(input: {
-              pullRequestId: $id,
-              mergeMethod: REBASE
-            }) {
-              __typename
-            }
-          }
-        '
+      run: gh pr merge --auto --rebase $PR_URL
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        NODE_ID: ${{ github.event.pull_request.node_id }}
+        PR_URL: ${{ github.event.pull_request.html_url }}
 
