@@ -6,7 +6,7 @@
   inputs.flake-utils.url = github:numtide/flake-utils;
   inputs.nixpkgs.url = github:NixOS/nixpkgs/nixos-unstable;
   inputs.fenix.inputs.nixpkgs.follows = "nixpkgs";
-  inputs.fenix.url = github:nix-community/fenix;
+  inputs.fenix.url = github:rvolosatovs/fenix?ref=fix/rustc-patch;
 
   outputs = { self, nixpkgs, fenix, flake-utils, ... }:
     # NOTE: musl is only supported on Linux.
