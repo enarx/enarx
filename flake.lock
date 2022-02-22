@@ -8,15 +8,16 @@
         "rust-analyzer-src": "rust-analyzer-src"
       },
       "locked": {
-        "lastModified": 1645511046,
-        "narHash": "sha256-c9dl1gLtgrIPieaviW1EpQk5LkXgP+2gHpEp7vX8/nY=",
-        "owner": "nix-community",
+        "lastModified": 1645538813,
+        "narHash": "sha256-NSWEv+Zh4z1AjSHN8zKvndWRiT79FVG9JGMkpoiedus=",
+        "owner": "rvolosatovs",
         "repo": "fenix",
-        "rev": "972ccdaa28b811150391e21397f4bf93ded601cd",
+        "rev": "088f90901c7d6930065905e191859d0319982f5a",
         "type": "github"
       },
       "original": {
-        "owner": "nix-community",
+        "owner": "rvolosatovs",
+        "ref": "fix/rustc-patch",
         "repo": "fenix",
         "type": "github"
       }
