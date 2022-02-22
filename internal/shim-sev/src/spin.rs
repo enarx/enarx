@@ -36,7 +36,7 @@ impl<T> RacyCell<T> {
     }
 }
 
-unsafe impl<T> Sync for RacyCell<T> {}
+unsafe impl<T: Sync> Sync for RacyCell<T> {}
 
 /// A wrapper around spinning::Mutex to permit trait implementations.
 pub struct Locked<A> {
