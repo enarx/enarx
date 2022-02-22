@@ -12,14 +12,11 @@
     # NOTE: musl is only supported on Linux.
     with flake-utils.lib; eachSystem [ system.x86_64-linux ] (system:
       let
-        pkgs = import nixpkgs {
-          inherit system;
-          overlays = [ ];
-        };
+        pkgs = import nixpkgs { inherit system; };
 
         rust = fenix.packages."${system}".fromToolchainFile {
           file = ./rust-toolchain.toml;
-          sha256 = "0939qjwhpk366pnf3lbsbnmlj0h5x8nskbcz2lyjwhz4f2hna7w5";
+          sha256 = "sha256-Pj2xMSZ/rG2+oene4ym6h7qnWrPNLMsKobywbadwl9A=";
         };
 
         buildInputs = (with pkgs; [
