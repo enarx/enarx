@@ -83,3 +83,11 @@ jobs:
           - name: debug
           - name: release
             flag: --release
+
+  nix:
+    runs-on: ubuntu-20.04
+    steps:
+    - uses: actions/checkout@v2.4.0
+    - uses: cachix/install-nix-action@v16
+    - run: nix flake check
+    - run: nix develop --ignore-environment -c cargo build
