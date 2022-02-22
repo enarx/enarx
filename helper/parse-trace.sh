@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 SHIM="$1"
 PAYLOAD="$2"
