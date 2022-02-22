@@ -1,0 +1,24 @@
+name: pr
+on: pull_request_target
+
+jobs:
+  auto-merge:
+    runs-on: ubuntu-latest
+    steps:
+    - name: auto-merge
+      id: auto-merge
+      run: |
+        gh api graphql --silent -F id=$NODE_ID -f query='
+          mutation ($id: ID!) {
+            enablePullRequestAutoMerge(input: {
+              pullRequestId: $id,
+              mergeMethod: REBASE
+            }) {
+              __typename
+            }
+          }
+        '
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        NODE_ID: ${{ github.event.pull_request.node_id }}
+
