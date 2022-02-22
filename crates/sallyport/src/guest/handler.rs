@@ -31,6 +31,7 @@ pub trait Handler: Platform {
     /// - [`syscall::Write`]
     /// - [`gdbcall::Read`]
     /// - [`gdbcall::Write`]
+    #[inline]
     fn execute<'a, K: kind::Kind, T: Call<'a, K>>(&mut self, call: T) -> Result<T::Collected> {
         let mut alloc = Alloc::new(self.block_mut()).stage();
         let ((call, len), mut end_ref) =
@@ -54,6 +55,7 @@ pub trait Handler: Platform {
     }
 
     /// Loops infinitely trying to exit.
+    #[inline]
     fn attacked(&mut self) -> ! {
         loop {
             let _ = self.exit(1);
@@ -63,6 +65,7 @@ pub trait Handler: Platform {
     // Syscalls, sorted alphabetically.
 
     /// Executes [`accept`](https://man7.org/linux/man-pages/man2/accept.2.html) syscall akin to [`libc::accept`].
+    #[inline]
     fn accept<'a>(
         &mut self,
         sockfd: c_int,
@@ -72,6 +75,7 @@ pub trait Handler: Platform {
     }
 
     /// Executes [`accept4`](https://man7.org/linux/man-pages/man2/accept4.2.html) syscall akin to [`libc::accept4`].
+    #[inline]
     fn accept4<'a>(
         &mut self,
         sockfd: c_int,
@@ -89,11 +93,13 @@ pub trait Handler: Platform {
     fn arch_prctl(&mut self, code: c_int, addr: c_ulong) -> Result<()>;
 
     /// Executes [`bind`](https://man7.org/linux/man-pages/man2/bind.2.html) syscall akin to [`libc::bind`].
+    #[inline]
     fn bind<'a>(&mut self, sockfd: c_int, addr: impl Into<SockaddrInput<'a>>) -> Result<()> {
         self.execute(syscall::Bind { sockfd, addr })?
     }
 
     /// Executes [`clock_gettime`](https://man7.org/linux/man-pages/man2/clock_gettime.2.html) syscall akin to [`libc::clock_gettime`].
+    #[inline]
     fn clock_gettime(&mut self, clockid: clockid_t, tp: &mut timespec) -> Result<()> {
         self.execute(syscall::ClockGettime { clockid, tp })?
     }
@@ -102,26 +108,31 @@ pub trait Handler: Platform {
     fn brk(&mut self, addr: Option<NonNull<c_void>>) -> Result<NonNull<c_void>>;
 
     /// Executes [`close`](https://man7.org/linux/man-pages/man2/close.2.html) syscall akin to [`libc::close`].
+    #[inline]
     fn close(&mut self, fd: c_int) -> Result<()> {
         self.execute(syscall::Close { fd })?
     }
 
     /// Executes [`connect`](https://man7.org/linux/man-pages/man2/connect.2.html) syscall akin to [`libc::connect`].
+    #[inline]
     fn connect<'a>(&mut self, sockfd: c_int, addr: impl Into<SockaddrInput<'a>>) -> Result<()> {
         self.execute(syscall::Connect { sockfd, addr })?
     }
 
     /// Executes [`dup`](https://man7.org/linux/man-pages/man2/dup.2.html) syscall akin to [`libc::dup`].
+    #[inline]
     fn dup(&mut self, oldfd: c_int) -> Result<()> {
         self.execute(syscall::Dup { oldfd })?
     }
 
     /// Executes [`dup2`](https://man7.org/linux/man-pages/man2/dup2.2.html) syscall akin to [`libc::dup2`].
+    #[inline]
     fn dup2(&mut self, oldfd: c_int, newfd: c_int) -> Result<()> {
         self.execute(syscall::Dup2 { oldfd, newfd })?
     }
 
     /// Executes [`dup3`](https://man7.org/linux/man-pages/man2/dup3.2.html) syscall akin to [`libc::dup3`].
+    #[inline]
     fn dup3(&mut self, oldfd: c_int, newfd: c_int, flags: c_int) -> Result<()> {
         self.execute(syscall::Dup3 {
             oldfd,
@@ -131,11 +142,13 @@ pub trait Handler: Platform {
     }
 
     /// Executes [`epoll_create1`](https://man7.org/linux/man-pages/man2/epoll_create1.2.html) syscall akin to [`libc::epoll_create1`].
+    #[inline]
     fn epoll_create1(&mut self, flags: c_int) -> Result<c_int> {
         self.execute(syscall::EpollCreate1 { flags })?
     }
 
     /// Executes [`epoll_ctl`](https://man7.org/linux/man-pages/man2/epoll_ctl.2.html) syscall akin to [`libc::epoll_ctl`].
+    #[inline]
     fn epoll_ctl(&mut self, epfd: c_int, op: c_int, fd: c_int, event: &epoll_event) -> Result<()> {
         self.execute(syscall::EpollCtl {
             epfd,
@@ -146,6 +159,7 @@ pub trait Handler: Platform {
     }
 
     /// Executes [`epoll_wait`](https://man7.org/linux/man-pages/man2/epoll_wait.2.html) syscall akin to [`libc::epoll_wait`].
+    #[inline]
     fn epoll_wait(
         &mut self,
         epfd: c_int,
@@ -161,6 +175,7 @@ pub trait Handler: Platform {
     }
 
     /// Executes [`epoll_pwait`](https://man7.org/linux/man-pages/man2/epoll_pwait.2.html) syscall akin to [`libc::epoll_pwait`].
+    #[inline]
     fn epoll_pwait(
         &mut self,
         epfd: c_int,
@@ -178,58 +193,69 @@ pub trait Handler: Platform {
     }
 
     /// Executes [`eventfd2`](https://man7.org/linux/man-pages/man2/eventfd2.2.html).
+    #[inline]
     fn eventfd2(&mut self, initval: c_int, flags: c_int) -> Result<c_int> {
         self.execute(syscall::Eventfd2 { initval, flags })?
     }
 
     /// Executes [`exit`](https://man7.org/linux/man-pages/man2/exit.2.html) syscall akin to [`libc::exit`].
+    #[inline]
     fn exit(&mut self, status: c_int) -> Result<()> {
         self.execute(syscall::Exit { status })??;
         self.attacked()
     }
 
     /// Executes [`exit_group`](https://man7.org/linux/man-pages/man2/exit_group.2.html).
+    #[inline]
     fn exit_group(&mut self, status: c_int) -> Result<()> {
         self.execute(syscall::ExitGroup { status })??;
         self.attacked()
     }
 
     /// Executes [`fcntl`](https://man7.org/linux/man-pages/man2/fcntl.2.html) syscall akin to [`libc::fcntl`].
+    #[inline]
     fn fcntl(&mut self, fd: c_int, cmd: c_int, arg: c_int) -> Result<c_int> {
         self.execute(syscall::Fcntl { fd, cmd, arg })?
     }
 
     /// Executes [`fstat`](https://man7.org/linux/man-pages/man2/fstat.2.html) syscall akin to [`libc::fstat`].
+    #[inline]
     fn fstat(&mut self, fd: c_int, statbuf: &mut stat) -> Result<()> {
         self.execute(syscall::Fstat { fd, statbuf })?
     }
 
     /// Executes [`getegid`](https://man7.org/linux/man-pages/man2/getegid.2.html) syscall akin to [`libc::getegid`].
+    #[inline]
     fn getegid(&mut self) -> Result<gid_t> {
         self.execute(syscall::Getegid)
     }
 
     /// Executes [`geteuid`](https://man7.org/linux/man-pages/man2/geteuid.2.html) syscall akin to [`libc::geteuid`].
+    #[inline]
     fn geteuid(&mut self) -> Result<uid_t> {
         self.execute(syscall::Geteuid)
     }
 
     /// Executes [`getgid`](https://man7.org/linux/man-pages/man2/getgid.2.html) syscall akin to [`libc::getgid`].
+    #[inline]
     fn getgid(&mut self) -> Result<gid_t> {
         self.execute(syscall::Getgid)
     }
 
     /// Executes [`getpid`](https://man7.org/linux/man-pages/man2/getpid.2.html) syscall akin to [`libc::getpid`].
+    #[inline]
     fn getpid(&mut self) -> Result<pid_t> {
         self.execute(syscall::Getpid)
     }
 
     /// Executes [`getrandom`](https://man7.org/linux/man-pages/man2/getrandom.2.html) syscall akin to [`libc::getrandom`].
+    #[inline]
     fn getrandom(&mut self, buf: &mut [u8], flags: c_uint) -> Result<size_t> {
         self.execute(syscall::Getrandom { buf, flags })?
     }
 
     /// Executes [`getsockname`](https://man7.org/linux/man-pages/man2/getsockname.2.html) syscall akin to [`libc::getsockname`].
+    #[inline]
     fn getsockname<'a>(
         &mut self,
         sockfd: c_int,
@@ -239,11 +265,13 @@ pub trait Handler: Platform {
     }
 
     /// Executes [`getuid`](https://man7.org/linux/man-pages/man2/getuid.2.html) syscall akin to [`libc::getuid`].
+    #[inline]
     fn getuid(&mut self) -> Result<uid_t> {
         self.execute(syscall::Getuid)
     }
 
     /// Executes [`ioctl`](https://man7.org/linux/man-pages/man2/ioctl.2.html) syscall akin to [`libc::ioctl`].
+    #[inline]
     fn ioctl(&mut self, fd: c_int, request: Ioctl, argp: Option<&mut [u8]>) -> Result<c_int> {
         match (fd, request) {
             (STDIN_FILENO | STDOUT_FILENO | STDERR_FILENO, TIOCGWINSZ) => {
@@ -257,6 +285,7 @@ pub trait Handler: Platform {
     }
 
     /// Executes [`listen`](https://man7.org/linux/man-pages/man2/listen.2.html) syscall akin to [`libc::listen`].
+    #[inline]
     fn listen(&mut self, sockfd: c_int, backlog: c_int) -> Result<()> {
         self.execute(syscall::Listen { sockfd, backlog })?
     }
@@ -282,18 +311,21 @@ pub trait Handler: Platform {
     fn munmap(&mut self, addr: NonNull<c_void>, length: size_t) -> Result<()>;
 
     /// Executes [`poll`](https://man7.org/linux/man-pages/man2/poll.2.html) syscall akin to [`libc::poll`].
+    #[inline]
     fn poll(&mut self, fds: &mut [pollfd], timeout: c_int) -> Result<c_int> {
         self.execute(syscall::Poll { fds, timeout })?
             .unwrap_or_else(|| self.attacked())
     }
 
     /// Executes [`read`](https://man7.org/linux/man-pages/man2/read.2.html) syscall akin to [`libc::read`].
+    #[inline]
     fn read(&mut self, fd: c_int, buf: &mut [u8]) -> Result<size_t> {
         self.execute(syscall::Read { fd, buf })?
             .unwrap_or_else(|| self.attacked())
     }
 
     /// Executes [`readlink`](https://man7.org/linux/man-pages/man2/readlink.2.html) syscall akin to [`libc::readlink`].
+    #[inline]
     fn readlink(&mut self, pathname: &[u8], buf: &mut [u8]) -> Result<size_t> {
         self.execute(syscall::Readlink { pathname, buf })?
             .unwrap_or_else(|| self.attacked())
@@ -301,6 +333,7 @@ pub trait Handler: Platform {
 
     /// Executes [`readv`](https://man7.org/linux/man-pages/man2/readv.2.html) syscall by mapping
     /// it onto a single [`read`](https://man7.org/linux/man-pages/man2/read.2.html).
+    #[inline]
     fn readv<T: ?Sized, U, V>(&mut self, fd: c_int, iovs: &mut T) -> Result<size_t>
     where
         for<'a> &'a T: IntoIterator<Item = &'a U>,
@@ -313,12 +346,14 @@ pub trait Handler: Platform {
     }
 
     /// Executes [`recv`](https://man7.org/linux/man-pages/man2/recv.2.html) syscall akin to [`libc::recv`].
+    #[inline]
     fn recv(&mut self, sockfd: c_int, buf: &mut [u8], flags: c_int) -> Result<size_t> {
         self.execute(syscall::Recv { sockfd, buf, flags })?
             .unwrap_or_else(|| self.attacked())
     }
 
     /// Executes [`recvfrom`](https://man7.org/linux/man-pages/man2/recvfrom.2.html) syscall akin to [`libc::recvfrom`].
+    #[inline]
     fn recvfrom<'a>(
         &mut self,
         sockfd: c_int,
@@ -358,6 +393,7 @@ pub trait Handler: Platform {
     }
 
     /// Executes [`rt_sigprocmask`](https://man7.org/linux/man-pages/man2/rt_sigprocmask.2.html).
+    #[inline]
     fn rt_sigprocmask(
         &mut self,
         how: c_int,
@@ -374,17 +410,20 @@ pub trait Handler: Platform {
     }
 
     /// Executes [`sigaltstack`](https://man7.org/linux/man-pages/man2/sigaltstack.2.html) syscall akin to [`libc::sigaltstack`].
+    #[inline]
     fn sigaltstack(&mut self, ss: &stack_t, old_ss: Option<&mut stack_t>) -> Result<()> {
         self.execute(syscall::Sigaltstack { ss, old_ss })?
     }
 
     /// Executes [`send`](https://man7.org/linux/man-pages/man2/send.2.html) syscall akin to [`libc::send`].
+    #[inline]
     fn send(&mut self, sockfd: c_int, buf: &[u8], flags: c_int) -> Result<size_t> {
         self.execute(syscall::Send { sockfd, buf, flags })?
             .unwrap_or_else(|| self.attacked())
     }
 
     /// Executes [`sendto`](https://man7.org/linux/man-pages/man2/sendto.2.html) syscall akin to [`libc::sendto`].
+    #[inline]
     fn sendto<'a>(
         &mut self,
         sockfd: c_int,
@@ -402,6 +441,7 @@ pub trait Handler: Platform {
     }
 
     /// Executes [`setsockopt`](https://man7.org/linux/man-pages/man2/setsockopt.2.html) syscall akin to [`libc::setsockopt`].
+    #[inline]
     fn setsockopt<'a>(
         &mut self,
         sockfd: c_int,
@@ -418,11 +458,13 @@ pub trait Handler: Platform {
     }
 
     /// Executes [`set_tid_address`](https://man7.org/linux/man-pages/man2/set_tid_address.2.html).
+    #[inline]
     fn set_tid_address(&mut self, tidptr: &mut c_int) -> Result<pid_t> {
         self.execute(syscall::SetTidAddress { tidptr })
     }
 
     /// Executes [`socket`](https://man7.org/linux/man-pages/man2/socket.2.html) syscall akin to [`libc::socket`].
+    #[inline]
     fn socket(&mut self, domain: c_int, typ: c_int, protocol: c_int) -> Result<c_int> {
         self.execute(syscall::Socket {
             domain,
@@ -432,16 +474,19 @@ pub trait Handler: Platform {
     }
 
     /// Executes [`sync`](https://man7.org/linux/man-pages/man2/sync.2.html) syscall akin to [`libc::sync`].
+    #[inline]
     fn sync(&mut self) -> Result<()> {
         self.execute(syscall::Sync)?
     }
 
     /// Executes [`uname`](https://man7.org/linux/man-pages/man2/uname.2.html) syscall akin to [`libc::uname`].
+    #[inline]
     fn uname(&mut self, buf: &mut utsname) -> Result<()> {
         self.execute(syscall::Uname { buf })?
     }
 
     /// Executes [`write`](https://man7.org/linux/man-pages/man2/write.2.html) syscall akin to [`libc::write`].
+    #[inline]
     fn write(&mut self, fd: c_int, buf: &[u8]) -> Result<size_t> {
         self.execute(syscall::Write { fd, buf })?
             .unwrap_or_else(|| self.attacked())
@@ -449,6 +494,7 @@ pub trait Handler: Platform {
 
     /// Executes [`writev`](https://man7.org/linux/man-pages/man2/writev.2.html) syscall by mapping
     /// it onto a single [`write`](https://man7.org/linux/man-pages/man2/write.2.html).
+    #[inline]
     fn writev<T: ?Sized, U>(&mut self, fd: c_int, iovs: &T) -> Result<size_t>
     where
         for<'a> &'a T: IntoIterator<Item = &'a U>,
@@ -461,6 +507,7 @@ pub trait Handler: Platform {
     // GDB calls, sorted alphabetically.
 
     #[cfg_attr(feature = "doc", doc = "Executes [gdbstub::conn::Connection::flush]")]
+    #[inline]
     fn gdb_flush(&mut self) -> Result<()> {
         self.execute(gdbcall::Flush)?
     }
@@ -469,21 +516,25 @@ pub trait Handler: Platform {
         feature = "doc",
         doc = "Executes [gdbstub::conn::Connection::on_session_start]"
     )]
+    #[inline]
     fn gdb_on_session_start(&mut self) -> Result<()> {
         self.execute(gdbcall::OnSessionStart)?
     }
 
     #[cfg_attr(feature = "doc", doc = "Executes [gdbstub::conn::ConnectionExt::peek]")]
+    #[inline]
     fn gdb_peek(&mut self) -> Result<Option<u8>> {
         self.execute(gdbcall::Peek)?
     }
 
     #[cfg_attr(feature = "doc", doc = "Executes [gdbstub::conn::ConnectionExt::read]")]
+    #[inline]
     fn gdb_read(&mut self) -> Result<u8> {
         self.execute(gdbcall::Read)?
     }
 
     #[cfg_attr(feature = "doc", doc = "Executes [gdbstub::conn::Connection::write]")]
+    #[inline]
     fn gdb_write(&mut self, byte: u8) -> Result<()> {
         self.execute(gdbcall::Write { byte })?
     }
@@ -492,6 +543,7 @@ pub trait Handler: Platform {
         feature = "doc",
         doc = "Executes [gdbstub::conn::Connection::write_all] and returns the amount of bytes written"
     )]
+    #[inline]
     fn gdb_write_all(&mut self, buf: &[u8]) -> Result<usize> {
         self.execute(gdbcall::WriteAll { buf })?
             .unwrap_or_else(|| self.attacked())
@@ -503,6 +555,7 @@ pub trait Handler: Platform {
     ///
     /// This method is unsafe, because it allows execution of arbitrary syscalls on the host, which is
     /// intrinsically unsafe.
+    #[inline]
     unsafe fn syscall(&mut self, registers: [usize; 7]) -> Result<[usize; 2]> {
         let [num, argv @ ..] = registers;
         match (num as _, argv) {

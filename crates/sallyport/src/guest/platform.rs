@@ -16,6 +16,7 @@ pub trait Platform {
 
     /// Validates that a region of memory is valid for read-only access.
     /// Returns an immutable borrow if valid, otherwise [`EINVAL`](libc::EINVAL).
+    #[inline]
     fn validate<'a, T>(&self, ptr: usize) -> Result<&'a T, c_int> {
         self.validate_mut(ptr).map(|v| v as _)
     }
@@ -26,6 +27,7 @@ pub trait Platform {
 
     /// Validates that a region of memory is valid for read-only access for `len` elements of type `T`.
     /// Returns an immutable borrow if valid, otherwise [`EINVAL`](libc::EINVAL).
+    #[inline]
     fn validate_slice<'a, T>(&self, ptr: usize, len: usize) -> Result<&'a [T], c_int> {
         self.validate_slice_mut(ptr, len).map(|v| v as _)
     }
