@@ -80,7 +80,7 @@ pub trait Execute {
     }
 
     /// Executes [`brk`](https://man7.org/linux/man-pages/man2/brk.2.html) syscall akin to [`libc::brk`].
-    fn brk(&mut self, addr: NonNull<c_void>) -> Result<()>;
+    fn brk(&mut self, addr: Option<NonNull<c_void>>) -> Result<NonNull<c_void>>;
 
     /// Executes [`close`](https://man7.org/linux/man-pages/man2/close.2.html) syscall akin to [`libc::close`].
     fn close(&mut self, fd: c_int) -> Result<()> {
@@ -539,10 +539,9 @@ impl<'a, P: Platform> Execute for Handler<'a, P> {
                 let addr = self.platform.validate_slice(addr, addrlen)?;
                 self.bind(sockfd as _, addr).map(|_| [0, 0])
             }
-            (libc::SYS_brk, [addr, ..]) => {
-                let addr = NonNull::new(addr as _).ok_or(EFAULT)?;
-                self.brk(addr).map(|_| [0, 0])
-            }
+            (libc::SYS_brk, [addr, ..]) => self
+                .brk(NonNull::new(addr as _))
+                .map(|ret| [ret.as_ptr() as _, 0]),
             (libc::SYS_clock_gettime, [clockid, tp, ..]) => {
                 let tp = self.platform.validate_mut(tp)?;
                 self.clock_gettime(clockid as _, tp).map(|_| [0, 0])
@@ -766,7 +765,7 @@ impl<'a, P: Platform> Execute for Handler<'a, P> {
         Err(ENOSYS)
     }
 
-    fn brk(&mut self, _: NonNull<c_void>) -> Result<()> {
+    fn brk(&mut self, _: Option<NonNull<c_void>>) -> Result<NonNull<c_void>> {
         Err(ENOSYS)
     }
 
