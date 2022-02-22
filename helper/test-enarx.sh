@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/bin/env sh
 
 if ! [ -x "$ENARX_BIN" ]; then
   (cd ..; cargo build -q)

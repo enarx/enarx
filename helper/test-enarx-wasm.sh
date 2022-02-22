@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 if ! command -v "${ENARX_BIN[0]}" &> /dev/null; then
   if [ -x $(dirname $0)/../target/release/enarx ]; then
