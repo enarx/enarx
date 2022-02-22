@@ -7,8 +7,10 @@
   inputs.nixpkgs.url = github:NixOS/nixpkgs/nixos-unstable;
   inputs.fenix.inputs.nixpkgs.follows = "nixpkgs";
   inputs.fenix.url = github:rvolosatovs/fenix?ref=fix/rustc-patch;
+  inputs.naersk.url = github:nix-community/naersk;
+  inputs.naersk.inputs.nixpkgs.follows = "nixpkgs";
 
-  outputs = { self, nixpkgs, fenix, flake-utils, ... }:
+  outputs = { self, nixpkgs, fenix, flake-utils, naersk, ... }:
     # NOTE: musl is only supported on Linux.
     with flake-utils.lib; eachSystem [ system.x86_64-linux ] (system:
       let
@@ -46,6 +48,47 @@
 
           shellHook = unsetEnv;
         };
+
+        packages.enarx =
+          let
+            src = nixpkgs.lib.cleanSource self;
+
+            # Common base derivation to build Enarx crates
+            buildEnarxPackage = { src, ... }@extraAttrs:
+              let
+                cargoToml = with builtins; fromTOML (readFile "${src}/Cargo.toml");
+                buildPackage = (naersk.lib.${system}.override {
+                  cargo = rust;
+                  rustc = rust;
+                }).buildPackage;
+              in
+              buildPackage ({
+                inherit src;
+                inherit (cargoToml.package) name version;
+
+                CARGO_BUILD_TARGET = "x86_64-unknown-linux-musl";
+
+                stripAllFlags = [ "--strip-unneeded" ];
+                stripAllList = [ "bin" ];
+              } // extraAttrs);
+
+            # Enarx internal dependencies
+            shimSev = buildEnarxPackage { src = ./internal/shim-sev; };
+            shimSgx = buildEnarxPackage { src = ./internal/shim-sgx; };
+            wasmldr = buildEnarxPackage { src = ./internal/wasmldr; };
+          in
+          buildEnarxPackage {
+            inherit src;
+
+            ENARX_PREBUILT_shim-sev = "${shimSev}/bin/shim-sev";
+            ENARX_PREBUILT_shim-sgx = "${shimSgx}/bin/shim-sgx";
+            ENARX_PREBUILT_wasmldr = "${wasmldr}/bin/wasmldr";
+
+            nativeBuildInputs = [ pkgs.pkg-config ];
+            buildInputs = with pkgs.pkgsCross.musl64; [ openssl ];
+          };
+
+        defaultPackage = self.packages.${system}.enarx;
       }
     );
 }
