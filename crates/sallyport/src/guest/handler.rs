@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use super::alloc::{phase, Alloc, Allocator, Collect, Commit, Committer};
+use super::alloc::{Alloc, Allocator, Collect, Commit, Committer};
 use super::call::kind;
 use super::syscall::types::{SockaddrInput, SockaddrOutput, SockoptInput};
 use super::{gdbcall, syscall, Call, Platform, ThreadLocalStorage, SIGRTMAX};
@@ -16,7 +16,14 @@ use libc::{
     TIOCGWINSZ,
 };
 
-pub trait Execute {
+/// Guest request handler.
+pub trait Handler: Platform {
+    /// Returns a mutable borrow of the sallyport block.
+    fn block_mut<'a, 'b: 'a>(&'a mut self) -> &'b mut [usize];
+
+    /// Returns a mutable borrow of shared [ThreadLocalStorage].
+    fn thread_local_storage<'a: 'b, 'b>(&'a mut self) -> &'b mut ThreadLocalStorage;
+
     /// Executes an arbitrary call.
     /// Examples of calls that this method can execute are:
     /// - [`syscall::Exit`]
@@ -24,15 +31,27 @@ pub trait Execute {
     /// - [`syscall::Write`]
     /// - [`gdbcall::Read`]
     /// - [`gdbcall::Write`]
-    fn execute<'a, K: kind::Kind, T: Call<'a, K>>(&mut self, call: T) -> Result<T::Collected>;
+    fn execute<'a, K: kind::Kind, T: Call<'a, K>>(&mut self, call: T) -> Result<T::Collected> {
+        let mut alloc = Alloc::new(self.block_mut()).stage();
+        let ((call, len), mut end_ref) =
+            alloc.reserve_input(|alloc| alloc.section(|alloc| call.stage(alloc)))?;
 
-    /// Executes a supported syscall expressed as an opaque 7-word array akin to [`libc::syscall`].
-    ///
-    /// # Safety
-    ///
-    /// This method is unsafe, because it allows execution arbitrary syscalls on the host, which is
-    /// intrinsically unsafe.
-    unsafe fn syscall(&mut self, registers: [usize; 7]) -> Result<[usize; 2]>;
+        let alloc = alloc.commit();
+        let call = call.commit(&alloc);
+        if len > 0 {
+            end_ref.copy_from(
+                &alloc,
+                item::Header {
+                    kind: item::Kind::End,
+                    size: 0,
+                },
+            );
+            self.sally()?;
+        }
+
+        let alloc = alloc.collect();
+        Ok(call.collect(&alloc))
+    }
 
     /// Loops infinitely trying to exit.
     fn attacked(&mut self) -> ! {
@@ -317,13 +336,26 @@ pub trait Execute {
     }
 
     /// Executes [`rt_sigaction`](https://man7.org/linux/man-pages/man2/rt_sigaction.2.html).
+    #[inline]
     fn rt_sigaction(
         &mut self,
         signum: c_int,
         act: Option<&sigaction>,
         oldact: Option<&mut Option<sigaction>>,
         sigsetsize: size_t,
-    ) -> Result<()>;
+    ) -> Result<()> {
+        if signum >= SIGRTMAX || sigsetsize != 8 {
+            return Err(libc::EINVAL);
+        }
+        let tls = self.thread_local_storage();
+        if let Some(oldact) = oldact {
+            *oldact = tls.actions[signum as usize];
+        }
+        if let Some(act) = act {
+            tls.actions[signum as usize] = Some(*act);
+        }
+        Ok(())
+    }
 
     /// Executes [`rt_sigprocmask`](https://man7.org/linux/man-pages/man2/rt_sigprocmask.2.html).
     fn rt_sigprocmask(
@@ -464,50 +496,13 @@ pub trait Execute {
         self.execute(gdbcall::WriteAll { buf })?
             .unwrap_or_else(|| self.attacked())
     }
-}
 
-/// Guest request handler.
-pub struct Handler<'a, P: Platform> {
-    alloc: Alloc<'a, phase::Init>,
-    platform: P,
-    tls: &'a mut ThreadLocalStorage,
-}
-
-impl<'a, P: Platform> Handler<'a, P> {
-    /// Creates a new [`Handler`] given a mutable borrow of the sallyport block,
-    /// [`Platform`] and [`ThreadLocalStorage`].
-    pub fn new(block: &'a mut [usize], platform: P, tls: &'a mut ThreadLocalStorage) -> Self {
-        Self {
-            alloc: Alloc::new(block),
-            platform,
-            tls,
-        }
-    }
-}
-
-impl<'a, P: Platform> Execute for Handler<'a, P> {
-    fn execute<'b, K: kind::Kind, T: Call<'b, K>>(&mut self, call: T) -> Result<T::Collected> {
-        let mut alloc = self.alloc.stage();
-        let ((call, len), mut end_ref) =
-            alloc.reserve_input(|alloc| alloc.section(|alloc| call.stage(alloc)))?;
-
-        let alloc = alloc.commit();
-        let call = call.commit(&alloc);
-        if len > 0 {
-            end_ref.copy_from(
-                &alloc,
-                item::Header {
-                    kind: item::Kind::End,
-                    size: 0,
-                },
-            );
-            self.platform.sally()?;
-        }
-
-        let alloc = alloc.collect();
-        Ok(call.collect(&alloc))
-    }
-
+    /// Executes a supported syscall expressed as an opaque 7-word array akin to [`libc::syscall`].
+    ///
+    /// # Safety
+    ///
+    /// This method is unsafe, because it allows execution of arbitrary syscalls on the host, which is
+    /// intrinsically unsafe.
     unsafe fn syscall(&mut self, registers: [usize; 7]) -> Result<[usize; 2]> {
         let [num, argv @ ..] = registers;
         match (num as _, argv) {
@@ -515,9 +510,7 @@ impl<'a, P: Platform> Execute for Handler<'a, P> {
                 let addr = if addr == 0 {
                     None
                 } else {
-                    self.platform
-                        .validate_sockaddr_output(addr, addrlen)
-                        .map(Some)?
+                    self.validate_sockaddr_output(addr, addrlen).map(Some)?
                 };
                 self.accept(sockfd as _, addr).map(|ret| [ret as _, 0])
             }
@@ -525,9 +518,7 @@ impl<'a, P: Platform> Execute for Handler<'a, P> {
                 let addr = if addr == 0 {
                     None
                 } else {
-                    self.platform
-                        .validate_sockaddr_output(addr, addrlen)
-                        .map(Some)?
+                    self.validate_sockaddr_output(addr, addrlen).map(Some)?
                 };
                 self.accept4(sockfd as _, addr, flags as _)
                     .map(|ret| [ret as _, 0])
@@ -536,19 +527,19 @@ impl<'a, P: Platform> Execute for Handler<'a, P> {
                 self.arch_prctl(code as _, addr as _).map(|_| [0, 0])
             }
             (libc::SYS_bind, [sockfd, addr, addrlen, ..]) => {
-                let addr = self.platform.validate_slice(addr, addrlen)?;
+                let addr = self.validate_slice(addr, addrlen)?;
                 self.bind(sockfd as _, addr).map(|_| [0, 0])
             }
             (libc::SYS_brk, [addr, ..]) => self
                 .brk(NonNull::new(addr as _))
                 .map(|ret| [ret.as_ptr() as _, 0]),
             (libc::SYS_clock_gettime, [clockid, tp, ..]) => {
-                let tp = self.platform.validate_mut(tp)?;
+                let tp = self.validate_mut(tp)?;
                 self.clock_gettime(clockid as _, tp).map(|_| [0, 0])
             }
             (libc::SYS_close, [fd, ..]) => self.close(fd as _).map(|_| [0, 0]),
             (libc::SYS_connect, [sockfd, addr, addrlen, ..]) => {
-                let addr = self.platform.validate_slice(addr, addrlen)?;
+                let addr = self.validate_slice(addr, addrlen)?;
                 self.connect(sockfd as _, addr).map(|_| [0, 0])
             }
             (libc::SYS_dup, [oldfd, ..]) => self.dup(oldfd as _).map(|_| [0, 0]),
@@ -562,22 +553,22 @@ impl<'a, P: Platform> Execute for Handler<'a, P> {
                 self.epoll_create1(flags as _).map(|ret| [ret as _, 0])
             }
             (libc::SYS_epoll_ctl, [epfd, op, fd, event, ..]) => {
-                let event = self.platform.validate(event)?;
+                let event = self.validate(event)?;
                 self.epoll_ctl(epfd as _, op as _, fd as _, event)
                     .map(|_| [0, 0])
             }
             (libc::SYS_epoll_pwait, [epfd, events, maxevents, timeout, sigmask, ..]) => {
-                let events = self.platform.validate_slice_mut(events, maxevents)?;
+                let events = self.validate_slice_mut(events, maxevents)?;
                 if sigmask == 0 {
                     self.epoll_wait(epfd as _, events, timeout as _)
                 } else {
-                    let sigmask = self.platform.validate(sigmask)?;
+                    let sigmask = self.validate(sigmask)?;
                     self.epoll_pwait(epfd as _, events, timeout as _, sigmask)
                 }
                 .map(|ret| [ret as _, 0])
             }
             (libc::SYS_epoll_wait, [epfd, events, maxevents, timeout, ..]) => {
-                let events = self.platform.validate_slice_mut(events, maxevents)?;
+                let events = self.validate_slice_mut(events, maxevents)?;
                 self.epoll_wait(epfd as _, events, timeout as _)
                     .map(|ret| [ret as _, 0])
             }
@@ -592,7 +583,7 @@ impl<'a, P: Platform> Execute for Handler<'a, P> {
                 .fcntl(fd as _, cmd as _, arg as _)
                 .map(|ret| [ret as _, 0]),
             (libc::SYS_fstat, [fd, statbuf, ..]) => {
-                let statbuf = self.platform.validate_mut(statbuf)?;
+                let statbuf = self.validate_mut(statbuf)?;
                 self.fstat(fd as _, statbuf).map(|_| [0, 0])
             }
             (libc::SYS_getegid, ..) => self.getegid().map(|ret| [ret as _, 0]),
@@ -600,11 +591,11 @@ impl<'a, P: Platform> Execute for Handler<'a, P> {
             (libc::SYS_getgid, ..) => self.getgid().map(|ret| [ret as _, 0]),
             (libc::SYS_getpid, ..) => self.getpid().map(|ret| [ret as _, 0]),
             (libc::SYS_getrandom, [buf, buflen, flags, ..]) => {
-                let buf = self.platform.validate_slice_mut(buf, buflen)?;
+                let buf = self.validate_slice_mut(buf, buflen)?;
                 self.getrandom(buf, flags as _).map(|ret| [ret as _, 0])
             }
             (libc::SYS_getsockname, [sockfd, addr, addrlen, ..]) => {
-                let addr = self.platform.validate_sockaddr_output(addr, addrlen)?;
+                let addr = self.validate_sockaddr_output(addr, addrlen)?;
                 self.getsockname(sockfd as _, addr).map(|_| [0, 0])
             }
             (libc::SYS_getuid, ..) => self.getuid().map(|ret| [ret as _, 0]),
@@ -613,14 +604,12 @@ impl<'a, P: Platform> Execute for Handler<'a, P> {
                     None
                 } else {
                     match request as _ {
-                        FIONBIO | FIONREAD => {
-                            self.platform.validate_mut::<c_int>(argp).map(|argp| {
-                                Some(slice::from_raw_parts_mut(
-                                    argp as *mut _ as _,
-                                    size_of::<c_int>(),
-                                ))
-                            })?
-                        }
+                        FIONBIO | FIONREAD => self.validate_mut::<c_int>(argp).map(|argp| {
+                            Some(slice::from_raw_parts_mut(
+                                argp as *mut _ as _,
+                                size_of::<c_int>(),
+                            ))
+                        })?,
                         _ => return Err(ENOTSUP),
                     }
                 };
@@ -653,28 +642,28 @@ impl<'a, P: Platform> Execute for Handler<'a, P> {
                 self.munmap(addr, length).map(|_| [0, 0])
             }
             (libc::SYS_poll, [fds, nfds, timeout, ..]) => {
-                let fds = self.platform.validate_slice_mut(fds, nfds)?;
+                let fds = self.validate_slice_mut(fds, nfds)?;
                 self.poll(fds, timeout as _).map(|ret| [ret as _, 0])
             }
             (libc::SYS_read, [fd, buf, count, ..]) => {
-                let buf = self.platform.validate_slice_mut(buf, count)?;
+                let buf = self.validate_slice_mut(buf, count)?;
                 self.read(fd as _, buf).map(|ret| [ret, 0])
             }
             (libc::SYS_readlink, [pathname, buf, bufsiz, ..]) => {
-                let pathname = self.platform.validate_str(pathname)?;
-                let buf = self.platform.validate_slice_mut(buf, bufsiz)?;
+                let pathname = self.validate_str(pathname)?;
+                let buf = self.validate_slice_mut(buf, bufsiz)?;
                 self.readlink(pathname, buf).map(|ret| [ret, 0])
             }
             (libc::SYS_readv, [fd, iov, iovcnt, ..]) => {
-                let iovs = self.platform.validate_iovec_slice_mut(iov, iovcnt)?;
+                let iovs = self.validate_iovec_slice_mut(iov, iovcnt)?;
                 self.readv(fd as _, iovs).map(|ret| [ret, 0])
             }
             (libc::SYS_recvfrom, [sockfd, buf, len, flags, src_addr, addrlen, ..]) => {
-                let buf = self.platform.validate_slice_mut(buf, len)?;
+                let buf = self.validate_slice_mut(buf, len)?;
                 if src_addr == 0 {
                     self.recv(sockfd as _, buf, flags as _)
                 } else {
-                    let src_addr = self.platform.validate_sockaddr_output(src_addr, addrlen)?;
+                    let src_addr = self.validate_sockaddr_output(src_addr, addrlen)?;
                     self.recvfrom(sockfd as _, buf, flags as _, src_addr)
                 }
                 .map(|ret| [ret, 0])
@@ -683,12 +672,12 @@ impl<'a, P: Platform> Execute for Handler<'a, P> {
                 let act = if act == 0 {
                     None
                 } else {
-                    self.platform.validate(act).map(Some)?
+                    self.validate(act).map(Some)?
                 };
                 let oldact = if oldact == 0 {
                     None
                 } else {
-                    self.platform.validate_mut(oldact).map(Some)?
+                    self.validate_mut(oldact).map(Some)?
                 };
                 self.rt_sigaction(signum as _, act, oldact, sigsetsize as _)
                     .map(|_| [0, 0])
@@ -697,22 +686,22 @@ impl<'a, P: Platform> Execute for Handler<'a, P> {
                 let set = if set == 0 {
                     None
                 } else {
-                    self.platform.validate(set).map(Some)?
+                    self.validate(set).map(Some)?
                 };
                 let oldset = if oldset == 0 {
                     None
                 } else {
-                    self.platform.validate_mut(oldset).map(Some)?
+                    self.validate_mut(oldset).map(Some)?
                 };
                 self.rt_sigprocmask(how as _, set, oldset, sigsetsize as _)
                     .map(|_| [0, 0])
             }
             (libc::SYS_sendto, [sockfd, buf, len, flags, dest_addr, addrlen]) => {
-                let buf = self.platform.validate_slice(buf, len)?;
+                let buf = self.validate_slice(buf, len)?;
                 if dest_addr == 0 {
                     self.send(sockfd as _, buf, flags as _)
                 } else {
-                    let dest_addr = self.platform.validate_slice(dest_addr, addrlen)?;
+                    let dest_addr = self.validate_slice(dest_addr, addrlen)?;
                     self.sendto(sockfd as _, buf, flags as _, dest_addr)
                 }
                 .map(|ret| [ret, 0])
@@ -721,23 +710,21 @@ impl<'a, P: Platform> Execute for Handler<'a, P> {
                 let optval = if optval == 0 {
                     None
                 } else {
-                    self.platform
-                        .validate_slice::<u8>(optval, optlen)
-                        .map(Some)?
+                    self.validate_slice::<u8>(optval, optlen).map(Some)?
                 };
                 self.setsockopt(sockfd as _, level as _, optname as _, optval)
                     .map(|ret| [ret as _, 0])
             }
             (libc::SYS_set_tid_address, [tidptr, ..]) => {
-                let tidptr = self.platform.validate_mut(tidptr)?;
+                let tidptr = self.validate_mut(tidptr)?;
                 self.set_tid_address(tidptr).map(|ret| [ret as _, 0])
             }
             (libc::SYS_sigaltstack, [ss, old_ss, ..]) => {
-                let ss = self.platform.validate(ss)?;
+                let ss = self.validate(ss)?;
                 let old_ss = if old_ss == 0 {
                     None
                 } else {
-                    self.platform.validate_mut(old_ss).map(Some)?
+                    self.validate_mut(old_ss).map(Some)?
                 };
                 self.sigaltstack(ss, old_ss).map(|_| [0, 0])
             }
@@ -746,70 +733,18 @@ impl<'a, P: Platform> Execute for Handler<'a, P> {
                 .map(|ret| [ret as _, 0]),
             (libc::SYS_sync, ..) => self.sync().map(|_| [0, 0]),
             (libc::SYS_uname, [buf, ..]) => {
-                let buf = self.platform.validate_mut(buf)?;
+                let buf = self.validate_mut(buf)?;
                 self.uname(buf).map(|_| [0, 0])
             }
             (libc::SYS_write, [fd, buf, count, ..]) => {
-                let buf = self.platform.validate_slice(buf, count)?;
+                let buf = self.validate_slice(buf, count)?;
                 self.write(fd as _, buf).map(|ret| [ret, 0])
             }
             (libc::SYS_writev, [fd, iov, iovcnt, ..]) => {
-                let iovs = self.platform.validate_iovec_slice(iov, iovcnt)?;
+                let iovs = self.validate_iovec_slice(iov, iovcnt)?;
                 self.writev(fd as _, iovs).map(|ret| [ret, 0])
             }
             _ => Err(ENOSYS),
         }
-    }
-
-    fn arch_prctl(&mut self, _: c_int, _: c_ulong) -> Result<()> {
-        Err(ENOSYS)
-    }
-
-    fn brk(&mut self, _: Option<NonNull<c_void>>) -> Result<NonNull<c_void>> {
-        Err(ENOSYS)
-    }
-
-    fn madvise(&mut self, _: NonNull<c_void>, _: size_t, _: c_int) -> Result<()> {
-        Err(ENOSYS)
-    }
-
-    fn mmap(
-        &mut self,
-        _: Option<NonNull<c_void>>,
-        _: size_t,
-        _: c_int,
-        _: c_int,
-        _: c_int,
-        _: off_t,
-    ) -> Result<NonNull<c_void>> {
-        Err(ENOSYS)
-    }
-
-    fn mprotect(&mut self, _: NonNull<c_void>, _: size_t, _: c_int) -> Result<()> {
-        Err(ENOSYS)
-    }
-
-    fn munmap(&mut self, _: NonNull<c_void>, _: size_t) -> Result<()> {
-        Err(ENOSYS)
-    }
-
-    #[inline]
-    fn rt_sigaction(
-        &mut self,
-        signum: c_int,
-        act: Option<&sigaction>,
-        oldact: Option<&mut Option<sigaction>>,
-        sigsetsize: size_t,
-    ) -> Result<()> {
-        if signum >= SIGRTMAX || sigsetsize != 8 {
-            return Err(libc::EINVAL);
-        }
-        if let Some(oldact) = oldact {
-            *oldact = self.tls.actions[signum as usize];
-        }
-        if let Some(act) = act {
-            self.tls.actions[signum as usize] = Some(*act);
-        }
-        Ok(())
     }
 }

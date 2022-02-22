@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use libc::{
-    c_int, iovec, sockaddr, SYS_accept, SYS_accept4, SYS_bind, SYS_close, SYS_fcntl, SYS_fstat,
-    SYS_getrandom, SYS_getsockname, SYS_listen, SYS_read, SYS_readv, SYS_recvfrom, SYS_setsockopt,
-    SYS_socket, SYS_write, SYS_writev, AF_INET, EBADF, EBADFD, ENOSYS, F_GETFD, F_GETFL, F_SETFD,
-    F_SETFL, GRND_RANDOM, O_CREAT, O_RDONLY, O_RDWR, SOCK_CLOEXEC, SOCK_STREAM, SOL_SOCKET,
-    SO_REUSEADDR, STDERR_FILENO, STDIN_FILENO, STDOUT_FILENO,
+    c_int, c_ulong, c_void, iovec, off_t, size_t, sockaddr, SYS_accept, SYS_accept4, SYS_bind,
+    SYS_close, SYS_fcntl, SYS_fstat, SYS_getrandom, SYS_getsockname, SYS_listen, SYS_read,
+    SYS_readv, SYS_recvfrom, SYS_setsockopt, SYS_socket, SYS_write, SYS_writev, AF_INET, EBADF,
+    EBADFD, ENOSYS, F_GETFD, F_GETFL, F_SETFD, F_SETFL, GRND_RANDOM, O_CREAT, O_RDONLY, O_RDWR,
+    SOCK_CLOEXEC, SOCK_STREAM, SOL_SOCKET, SO_REUSEADDR, STDERR_FILENO, STDIN_FILENO,
+    STDOUT_FILENO,
 };
 use std::env::temp_dir;
 use std::ffi::{CStr, CString};
@@ -19,16 +20,16 @@ use std::slice;
 use std::{mem, thread};
 
 use sallyport::guest::syscall::types::SockaddrOutput;
-use sallyport::guest::{syscall, Execute, Handler, Platform};
+use sallyport::guest::{syscall, Handler, Platform, ThreadLocalStorage};
 use sallyport::item::Block;
 use sallyport::{host, Result};
 use serial_test::serial;
 
-struct TestPlatform<const N: usize>(NonNull<[usize; N]>);
+struct TestHandler<const N: usize>(NonNull<[usize; N]>, ThreadLocalStorage);
 
-impl<const N: usize> Platform for TestPlatform<N> {
+impl<const N: usize> Platform for TestHandler<N> {
     fn sally(&mut self) -> Result<()> {
-        host::execute(Block::from(unsafe { &mut self.0.as_mut()[..] }));
+        host::execute(Block::from(self.block_mut()));
         Ok(())
     }
 
@@ -65,20 +66,62 @@ impl<const N: usize> Platform for TestPlatform<N> {
     }
 }
 
+impl<const N: usize> Handler for TestHandler<N> {
+    fn block_mut<'a, 'b: 'a>(&'a mut self) -> &'b mut [usize] {
+        unsafe { &mut self.0.as_mut()[..] }
+    }
+
+    fn thread_local_storage<'a: 'b, 'b>(&'a mut self) -> &'b mut ThreadLocalStorage {
+        &mut self.1
+    }
+
+    fn arch_prctl(&mut self, _code: c_int, _addr: c_ulong) -> Result<()> {
+        Err(ENOSYS)
+    }
+
+    fn brk(&mut self, _addr: Option<NonNull<c_void>>) -> Result<NonNull<c_void>> {
+        Err(ENOSYS)
+    }
+
+    fn madvise(&mut self, _addr: NonNull<c_void>, _length: size_t, _advice: c_int) -> Result<()> {
+        Err(ENOSYS)
+    }
+
+    fn mmap(
+        &mut self,
+        _addr: Option<NonNull<c_void>>,
+        _length: size_t,
+        _prot: c_int,
+        _flags: c_int,
+        _fd: c_int,
+        _offset: off_t,
+    ) -> Result<NonNull<c_void>> {
+        Err(ENOSYS)
+    }
+
+    fn mprotect(&mut self, _addr: NonNull<c_void>, _len: size_t, _prot: c_int) -> Result<()> {
+        Err(ENOSYS)
+    }
+
+    fn munmap(&mut self, _addr: NonNull<c_void>, _length: size_t) -> Result<()> {
+        Err(ENOSYS)
+    }
+}
+
 fn run_test<const N: usize>(
     n: usize,
     block: [usize; N],
-    f: impl FnOnce(usize, &mut Handler<TestPlatform<N>>) + Sync + Send + Copy + 'static,
+    f: impl FnOnce(usize, &mut TestHandler<N>) + Sync + Send + Copy + 'static,
 ) {
     for i in 0..n {
         thread::Builder::new()
             .name(format!("iteration {}", i))
             .spawn(move || {
                 let mut block = block;
-                let platform = TestPlatform(NonNull::from(&mut block));
-                let mut tls = Default::default();
-                let mut handler = Handler::new(&mut block, platform, &mut tls);
-                f(i, &mut handler);
+                f(
+                    i,
+                    &mut TestHandler(NonNull::from(&mut block), Default::default()),
+                );
             })
             .expect(&format!("couldn't spawn test iteration {} thread", i))
             .join()
@@ -86,7 +129,7 @@ fn run_test<const N: usize>(
     }
 }
 
-fn syscall_socket(opaque: bool, exec: &mut impl Execute) -> c_int {
+fn syscall_socket(opaque: bool, exec: &mut impl Handler) -> c_int {
     let fd = if !opaque {
         exec.socket(AF_INET, SOCK_STREAM, 0)
             .expect("couldn't execute 'socket' syscall")
@@ -101,7 +144,7 @@ fn syscall_socket(opaque: bool, exec: &mut impl Execute) -> c_int {
     fd
 }
 
-fn syscall_recv(opaque: bool, exec: &mut impl Execute, fd: c_int, buf: &mut [u8]) {
+fn syscall_recv(opaque: bool, exec: &mut impl Handler, fd: c_int, buf: &mut [u8]) {
     let expected_len = buf.len();
     if !opaque {
         assert_eq!(exec.recv(fd, buf, 0), Ok(expected_len));

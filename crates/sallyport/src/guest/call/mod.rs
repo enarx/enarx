@@ -38,7 +38,7 @@ pub mod kind {
     impl<AK, BK, CK, DK> Kind for (AK, BK, CK, DK) {}
 }
 
-/// An [executable](super::Execute::execute) call.
+/// An [executable](super::Handler::execute) call.
 pub trait Call<'a, K>
 where
     K: kind::Kind,
