@@ -27,7 +27,7 @@ libc = { version = "0.2", features = [] }
 
 [dev-dependencies]
 libc = { version = "0.2", features = [ "extra_traits" ] }
-serial_test = "0.5"
+serial_test = "0.6"
 
 [features]
 doc = [ "gdbstub" ]
