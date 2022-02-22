@@ -15,7 +15,7 @@ pub use stub::*;
 use crate::guest::alloc::{Allocator, Collect, Commit};
 use crate::Result;
 
-pub(crate) mod kind {
+pub mod kind {
     use super::alloc;
 
     use core::marker::PhantomData;
