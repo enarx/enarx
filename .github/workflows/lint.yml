@@ -29,8 +29,8 @@ jobs:
     name: cargo clippy (${{ matrix.crate.name }})
     runs-on: ubuntu-20.04
     steps:
-      - run: sudo apt update
-      - run: sudo apt install -y musl-tools
+      - run: sudo apt -o Acquire::Retries=3 update
+      - run: sudo apt -o Acquire::Retries=3 install -y musl-tools
       - uses: actions/checkout@v2
       - uses: actions-rs/toolchain@v1
         with:
@@ -62,8 +62,8 @@ jobs:
     name: cargo clippy (enarx ${{ matrix.backend.name }} ${{ matrix.profile.name }})
     runs-on: ubuntu-20.04
     steps:
-      - run: sudo apt update
-      - run: sudo apt install -y musl-tools
+      - run: sudo apt -o Acquire::Retries=3 update
+      - run: sudo apt -o Acquire::Retries=3 install -y musl-tools
       - uses: actions/checkout@v2
       - uses: actions-rs/toolchain@v1
         with:
