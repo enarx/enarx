@@ -12,7 +12,7 @@
     # NOTE: musl is only supported on Linux.
     with flake-utils.lib; eachSystem [ system.x86_64-linux ] (system:
       let
-        pkgs = import nixpkgs { inherit system; };
+        pkgs = nixpkgs.legacyPackages.${system};
 
         rust = fenix.packages."${system}".fromToolchainFile {
           file = ./rust-toolchain.toml;
