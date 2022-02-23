@@ -3,25 +3,19 @@
 #![cfg(feature = "gdb")]
 
 use core::arch::asm;
-use core::convert::TryFrom;
 use core::mem::size_of;
 use core::ops::Range;
 
 use crate::heap::HEAP;
-use crate::{ENARX_EXEC_START, ENCL_SIZE};
+use crate::{BLOCK_SIZE, ENARX_EXEC_START, ENCL_SIZE};
 use gdbstub::arch::Arch;
 use gdbstub::target::ext::base::singlethread::SingleThreadOps;
 use gdbstub::target::ext::base::singlethread::{GdbInterrupt, ResumeAction, StopReason};
 use gdbstub::target::ext::base::BaseOps;
-use gdbstub::target::{Target, TargetResult};
+use gdbstub::target::{Target, TargetError, TargetResult};
 use gdbstub::Connection;
 use gdbstub_arch::x86::reg::X86_64CoreRegs;
-use primordial::Register;
-use sallyport::syscall::{
-    ProcessSyscallHandler, SyscallHandler, SYS_ENARX_GDB_PEEK, SYS_ENARX_GDB_READ,
-    SYS_ENARX_GDB_START, SYS_ENARX_GDB_WRITE,
-};
-use sallyport::Block;
+use sallyport::guest::Handler;
 use sgx::ssa::StateSaveArea;
 use x86_64::registers::rflags::RFlags;
 
@@ -68,10 +62,10 @@ impl<'a> super::Handler<'a> {
 
         debugln!(self, "rip = {:#x}", regs.rip);
 
-        let block_ptr = self.block as *const _ as *const u8;
-        let block_range = block_ptr..unsafe { block_ptr.add(size_of::<Block>()) };
-        let ssa_ptr = self.ssa as *const _ as *const u8;
-        let ssa_range = ssa_ptr..unsafe { ssa_ptr.add(size_of::<StateSaveArea>()) };
+        let block_start = self.block.as_ptr() as usize;
+        let block_range = block_start..block_start + BLOCK_SIZE;
+        let ssa_start = self.ssa as *const _ as usize;
+        let ssa_range = ssa_start..ssa_start + size_of::<StateSaveArea>();
 
         let mut target = GdbTarget::new(regs, block_range, ssa_range);
 
@@ -97,7 +91,8 @@ impl<'a> super::Handler<'a> {
                         DisconnectReason::TargetTerminated(_) => debugln!(self, "Target halted"),
                         DisconnectReason::Kill => {
                             debugln!(self, "GDB sent a kill command");
-                            self.exit(255);
+                            self.exit_group(255).unwrap();
+                            unreachable!()
                         }
                     }
                     break;
@@ -154,37 +149,12 @@ impl<'a> gdbstub::Connection for super::Handler<'a> {
     type Error = libc::c_int;
 
     fn read(&mut self) -> Result<u8, Self::Error> {
-        let mut buf = [0u8];
-        match self.read_exact(&mut buf) {
-            Ok(_) => Ok(buf[0]),
-            Err(e) => Err(e),
-        }
+        self.gdb_read()
     }
 
     fn read_exact(&mut self, buf: &mut [u8]) -> Result<(), Self::Error> {
-        let bytes_len = buf.len();
-        let mut to_read = bytes_len;
-
-        loop {
-            let next = bytes_len.checked_sub(to_read).ok_or(libc::EFAULT)?;
-
-            let [read, _] = SyscallHandler::syscall(
-                self,
-                Register::<usize>::from(buf[next..].as_mut_ptr()),
-                Register::<usize>::from(to_read),
-                0usize.into(),
-                0usize.into(),
-                0usize.into(),
-                0usize.into(),
-                SYS_ENARX_GDB_READ as _,
-            )?;
-
-            // be careful with `read` as it is untrusted
-            to_read = to_read.checked_sub(read.into()).ok_or(libc::EIO)?;
-
-            if to_read == 0 {
-                break;
-            }
+        for byte in buf.iter_mut() {
+            *byte = self.gdb_read()?;
         }
 
         Ok(())
@@ -195,44 +165,12 @@ impl<'a> gdbstub::Connection for super::Handler<'a> {
     }
 
     fn write_all(&mut self, buf: &[u8]) -> Result<(), Self::Error> {
-        let bytes_len = buf.len();
-        let mut to_write = bytes_len;
-
-        loop {
-            let next = bytes_len.checked_sub(to_write).ok_or(libc::EFAULT)?;
-
-            let [written, _] = self.syscall(
-                Register::<usize>::from(buf[next..].as_ptr()),
-                Register::<usize>::from(to_write),
-                0usize.into(),
-                0usize.into(),
-                0usize.into(),
-                0usize.into(),
-                SYS_ENARX_GDB_WRITE as _,
-            )?;
-
-            // be careful with `written` as it is untrusted
-            to_write = to_write.checked_sub(written.into()).ok_or(libc::EIO)?;
-            if to_write == 0 {
-                break;
-            }
-        }
-
+        self.gdb_write_all(buf)?;
         Ok(())
     }
 
     fn peek(&mut self) -> Result<Option<u8>, Self::Error> {
-        let [val, _] = self.syscall(
-            0usize.into(),
-            0usize.into(),
-            0usize.into(),
-            0usize.into(),
-            0usize.into(),
-            0usize.into(),
-            SYS_ENARX_GDB_PEEK as _,
-        )?;
-
-        Ok(u8::try_from(usize::from(val)).ok())
+        self.gdb_peek()
     }
 
     fn flush(&mut self) -> Result<(), Self::Error> {
@@ -240,36 +178,22 @@ impl<'a> gdbstub::Connection for super::Handler<'a> {
     }
 
     fn on_session_start(&mut self) -> Result<(), Self::Error> {
-        let [_, _] = self.syscall(
-            0usize.into(),
-            0usize.into(),
-            0usize.into(),
-            0usize.into(),
-            0usize.into(),
-            0usize.into(),
-            SYS_ENARX_GDB_START as _,
-        )?;
-
-        Ok(())
+        self.gdb_on_session_start()
     }
 }
 
 #[derive(Debug)]
 pub(crate) struct GdbTarget {
     regs: X86_64CoreRegs,
-    shim_range: Range<*const u8>,
-    block_range: Range<*const u8>,
-    ssa_range: Range<*const u8>,
+    shim_range: Range<usize>,
+    block_range: Range<usize>,
+    ssa_range: Range<usize>,
 }
 
 impl GdbTarget {
-    pub fn new(
-        regs: X86_64CoreRegs,
-        block_range: Range<*const u8>,
-        ssa_range: Range<*const u8>,
-    ) -> Self {
-        let start = shim_base_offset() as *const u8;
-        let end = HEAP.read().range().end;
+    pub fn new(regs: X86_64CoreRegs, block_range: Range<usize>, ssa_range: Range<usize>) -> Self {
+        let start = shim_base_offset() as usize;
+        let end = HEAP.read().range().end as usize;
         let shim_range = start..end;
 
         Self {
@@ -287,7 +211,6 @@ pub enum GdbTargetError {
     ResumeStep,
     ResumeContinueWithSignal,
     ResumeStepWithSignal,
-    // ReadMemoryOutOfRange(u64),
     WriteMemoryOutOfRange(u64),
 }
 
@@ -347,17 +270,19 @@ impl SingleThreadOps for GdbTarget {
         start_addr: <Self::Arch as Arch>::Usize,
         data: &mut [u8],
     ) -> TargetResult<(), Self> {
-        let ptr = start_addr as *const u8;
-        let ptr_end = unsafe { ptr.add(data.len()) };
+        let start_addr = start_addr as usize;
+        let end_addr = start_addr
+            .checked_add(data.len())
+            .ok_or(TargetError::NonFatal)?;
 
-        if !((self.shim_range.contains(&ptr) && self.shim_range.contains(&ptr_end))
-            || (self.block_range.contains(&ptr) && self.block_range.contains(&ptr_end))
-            || (self.ssa_range.contains(&ptr) && self.ssa_range.contains(&ptr_end)))
+        if !((self.shim_range.contains(&start_addr) && self.shim_range.contains(&end_addr))
+            || (self.block_range.contains(&start_addr) && self.block_range.contains(&end_addr))
+            || (self.ssa_range.contains(&start_addr) && self.ssa_range.contains(&end_addr)))
         {
-            return Err(gdbstub::target::TargetError::NonFatal);
+            return Err(TargetError::NonFatal);
         }
 
-        let src = unsafe { core::slice::from_raw_parts(ptr, data.len()) };
+        let src = unsafe { core::slice::from_raw_parts(start_addr as *const u8, data.len()) };
         data.copy_from_slice(src);
         Ok(())
     }
@@ -367,16 +292,20 @@ impl SingleThreadOps for GdbTarget {
         start_addr: <Self::Arch as Arch>::Usize,
         data: &[u8],
     ) -> TargetResult<(), Self> {
-        let ptr = start_addr as *const u8;
-        let ptr_end = unsafe { ptr.add(data.len()) };
+        let start_addr = start_addr as usize;
+        let end_addr = start_addr
+            .checked_add(data.len())
+            .ok_or(TargetError::Fatal(GdbTargetError::WriteMemoryOutOfRange(
+                start_addr as _,
+            )))?;
 
-        if !((self.shim_range.contains(&ptr) && self.shim_range.contains(&ptr_end))
-            || (self.block_range.contains(&ptr) && self.block_range.contains(&ptr_end))
-            || (self.ssa_range.contains(&ptr) && self.ssa_range.contains(&ptr_end)))
+        if !((self.shim_range.contains(&start_addr) && self.shim_range.contains(&end_addr))
+            || (self.block_range.contains(&start_addr) && self.block_range.contains(&end_addr))
+            || (self.ssa_range.contains(&start_addr) && self.ssa_range.contains(&end_addr)))
         {
-            return Err(gdbstub::target::TargetError::Fatal(
-                GdbTargetError::WriteMemoryOutOfRange(start_addr as _),
-            ));
+            return Err(TargetError::Fatal(GdbTargetError::WriteMemoryOutOfRange(
+                start_addr as _,
+            )));
         }
 
         let ptr = start_addr as *mut u8;

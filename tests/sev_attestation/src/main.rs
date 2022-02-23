@@ -3,6 +3,8 @@
 use std::arch::asm;
 use std::convert::TryFrom;
 
+use sallyport::item::enarxcall::SYS_GETATT;
+
 pub const MAX_AUTHTAG_LEN: usize = 32;
 
 #[repr(C)]
@@ -122,7 +124,7 @@ pub fn get_att_syscall(
     unsafe {
         asm!(
             "syscall",
-            inlateout("rax") sallyport::syscall::SYS_ENARX_GETATT => rax,
+            inlateout("rax") SYS_GETATT => rax,
             in("rdi") arg0,
             in("rsi") arg1,
             inlateout("rdx") arg2 => rdx,

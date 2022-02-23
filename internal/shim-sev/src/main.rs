@@ -20,6 +20,7 @@ extern crate rcrt1;
 use shim_sev::addr::SHIM_VIRT_OFFSET;
 use shim_sev::exec;
 use shim_sev::gdt;
+use shim_sev::hostcall::BLOCK_SIZE;
 use shim_sev::interrupts;
 use shim_sev::pagetables::{unmap_identity, PDPT, PDT_C000_0000, PML4T, PT_FFE0_0000};
 use shim_sev::print::enable_printing;
@@ -38,6 +39,8 @@ use x86_64::registers::control::{Cr0Flags, Cr4Flags, EferFlags};
 
 noted! {
     static NOTE_ENARX_SALLYPORT<note::NAME, note::REQUIRES, [u8; REQUIRES.len()]> = REQUIRES;
+
+    static NOTE_BLOCK_SIZE<note::NAME, note::BLOCK_SIZE, u64> = BLOCK_SIZE as u64;
 }
 
 #[cfg(not(target_feature = "crt-static"))]
@@ -100,7 +103,6 @@ extern "sysv64" fn main() -> ! {
     unsafe { gdt::init() };
     sse::init_sse();
     interrupts::init();
-
     exec::execute_exec()
 }
 
@@ -291,7 +293,7 @@ pub unsafe extern "sysv64" fn _start() -> ! {
         "mov    ss,     ax",
 
         // Load CPUID_PAGE
-        "mov    eax,    DWORD PTR {CPUID_PAGE}",
+        "mov    eax,    DWORD PTR {_ENARX_CPUID}",
         "mov    ecx,    DWORD PTR [eax]",
 
         // If no entries in CPUID_PAGE, assume no C-Bit
@@ -333,13 +335,13 @@ pub unsafe extern "sysv64" fn _start() -> ! {
         "34:",
         // Correct initial PML3
         // ebx contains C-Bit >> 32
-        "mov    eax,    {INITIAL_PML3}",
+        "mov    eax,    {_ENARX_PML3}",
         "or     [eax + 4 + 3*8], ebx",
         "or     [eax + 4 + 4*8], ebx",
         "or     [eax + 4 + 5*8], ebx",
 
         // Correct initial PML4
-        "mov    eax,    {INITIAL_PML4}",
+        "mov    eax,    {_ENARX_PML4}",
         // Set C-Bit in PML4 - pre 64bit
         "or     [eax + 4], ebx",
 
@@ -483,9 +485,9 @@ pub unsafe extern "sysv64" fn _start() -> ! {
         PDT_C000_0000 = sym PDT_C000_0000,
         PT_FFE0_0000 = sym PT_FFE0_0000,
         INITIAL_SHIM_STACK = sym INITIAL_SHIM_STACK,
-        CPUID_PAGE = const 0xFFFF_C000u32,
-        INITIAL_PML3 = const 0xFFFF_D000u32,
-        INITIAL_PML4 = const 0xFFFF_E000u32,
+        _ENARX_PML3 = const 0xFFE0_0000u32, // Can't use `sym` because linker does not recognize absolute addresses
+        _ENARX_PML4 = const 0xFFE0_1000u32, // Can't use `sym` because linker does not recognize absolute addresses
+        _ENARX_CPUID = const 0xFFE0_2000u32, // Can't use `sym` because linker does not recognize absolute addresses
         SEV_GHCB_MSR = const 0xC001_0130u32,
         CR4_FLAGS = const (Cr4Flags::FSGSBASE.bits() | Cr4Flags::PHYSICAL_ADDRESS_EXTENSION.bits() | Cr4Flags::OSFXSR.bits() | Cr4Flags::OSXMMEXCPT_ENABLE.bits() | Cr4Flags::OSXSAVE.bits()),
         PROTECTED_MODE_ENABLE = const Cr0Flags::PROTECTED_MODE_ENABLE.bits(),
