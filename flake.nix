@@ -83,6 +83,9 @@
 
             nativeBuildInputs = [ pkgs.pkg-config ];
             buildInputs = [ pkgs.openssl ];
+
+            cargoTestOptions = x: x ++ [ "-- --skip check_listen_fd" ];
+            doCheck = true;
           };
 
         defaultPackage = self.packages.${system}.enarx;
