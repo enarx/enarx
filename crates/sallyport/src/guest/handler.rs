@@ -18,11 +18,14 @@ use libc::{
 
 /// Guest request handler.
 pub trait Handler: Platform {
+    /// Returns an immutable borrow of the sallyport block.
+    fn block(&self) -> &[usize];
+
     /// Returns a mutable borrow of the sallyport block.
-    fn block_mut<'a, 'b: 'a>(&'a mut self) -> &'b mut [usize];
+    fn block_mut(&mut self) -> &mut [usize];
 
     /// Returns a mutable borrow of shared [ThreadLocalStorage].
-    fn thread_local_storage<'a: 'b, 'b>(&'a mut self) -> &'b mut ThreadLocalStorage;
+    fn thread_local_storage(&mut self) -> &mut ThreadLocalStorage;
 
     /// Executes an arbitrary call.
     /// Examples of calls that this method can execute are:
@@ -39,7 +42,7 @@ pub trait Handler: Platform {
 
         let alloc = alloc.commit();
         let call = call.commit(&alloc);
-        if len > 0 {
+        let alloc = if len > 0 {
             end_ref.copy_from(
                 &alloc,
                 item::Header {
@@ -47,10 +50,12 @@ pub trait Handler: Platform {
                     size: 0,
                 },
             );
+            let collect = alloc.sally();
             self.sally()?;
-        }
-
-        let alloc = alloc.collect();
+            collect(self.block())?
+        } else {
+            alloc.collect()
+        };
         Ok(call.collect(&alloc))
     }
 

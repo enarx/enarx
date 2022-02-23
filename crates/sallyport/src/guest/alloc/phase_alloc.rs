@@ -8,7 +8,7 @@ use core::marker::PhantomData;
 use core::mem::{align_of, size_of};
 use core::ptr::addr_of_mut;
 use core::ptr::NonNull;
-use libc::{ENOMEM, EOVERFLOW};
+use libc::{EFAULT, ENOMEM, EOVERFLOW};
 
 pub(crate) mod phase {
     #[repr(transparent)]
@@ -53,8 +53,8 @@ impl<'a> Alloc<'a, phase::Init> {
     #[inline]
     pub fn new(buffer: &'a mut [usize]) -> Self {
         let (prefix, buffer, suffix) = unsafe { buffer.align_to_mut::<u8>() };
-        assert!(prefix.is_empty());
-        assert!(suffix.is_empty());
+        debug_assert!(prefix.is_empty());
+        debug_assert!(suffix.is_empty());
         Self {
             ptr: NonNull::from(buffer),
             offset: 0,
@@ -226,6 +226,39 @@ impl<'a> Allocator for Alloc<'a, phase::Stage> {
     #[inline]
     fn commit(self) -> Self::Committer {
         self.into_phase()
+    }
+}
+
+impl<'a> Alloc<'a, phase::Commit> {
+    /// Releases the ownership of the underlying sallyport block and returns a closure, which can
+    /// be used to transition the allocator into collection phase given an immutable borrow of a
+    /// block after successful execution of its' contents by the host.
+    /// The returned closure fails if the passed slice does not refer to the same memory region as
+    /// the underlying sallyport block used in previous phases.
+    #[inline]
+    pub fn sally<'b: 'a>(self) -> impl FnOnce(&'b [usize]) -> Result<Alloc<'b, phase::Collect>> {
+        let ptr = self.ptr;
+        let offset = self.offset;
+        move |block| {
+            debug_assert_eq!(
+                block.as_ptr(),
+                unsafe { ptr.cast::<u8>().as_ptr().sub(offset) } as _
+            );
+            debug_assert!(block.len() * size_of::<usize>() >= offset);
+
+            if block.as_ptr() != unsafe { ptr.cast::<u8>().as_ptr().sub(offset) } as _
+                || block.len() * size_of::<usize>() < offset
+            {
+                Err(EFAULT)
+            } else {
+                Ok(Alloc {
+                    ptr,
+                    offset,
+
+                    phase: PhantomData,
+                })
+            }
+        }
     }
 }
 

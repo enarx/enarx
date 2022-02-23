@@ -67,11 +67,15 @@ impl<const N: usize> Platform for TestHandler<N> {
 }
 
 impl<const N: usize> Handler for TestHandler<N> {
-    fn block_mut<'a, 'b: 'a>(&'a mut self) -> &'b mut [usize] {
+    fn block(&self) -> &[usize] {
+        unsafe { &self.0.as_ref()[..] }
+    }
+
+    fn block_mut(&mut self) -> &mut [usize] {
         unsafe { &mut self.0.as_mut()[..] }
     }
 
-    fn thread_local_storage<'a: 'b, 'b>(&'a mut self) -> &'b mut ThreadLocalStorage {
+    fn thread_local_storage(&mut self) -> &mut ThreadLocalStorage {
         &mut self.1
     }
 
