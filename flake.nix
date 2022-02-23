@@ -57,17 +57,20 @@
               buildPackage ({
                 inherit src;
                 inherit (cargoToml.package) name version;
-
-                CARGO_BUILD_TARGET = "x86_64-unknown-linux-musl";
-
-                stripAllFlags = [ "--strip-unneeded" ];
-                stripAllList = [ "bin" ];
               } // extraAttrs);
 
-            # Enarx internal dependencies
-            shimSev = buildEnarxPackage { src = ./internal/shim-sev; };
-            shimSgx = buildEnarxPackage { src = ./internal/shim-sgx; };
-            wasmldr = buildEnarxPackage { src = ./internal/wasmldr; };
+            # Enarx internal static dependencies
+            buildEnarxInternalPackage = src: buildEnarxPackage {
+              inherit src;
+
+              CARGO_BUILD_TARGET = "x86_64-unknown-linux-musl";
+
+              stripAllFlags = [ "--strip-unneeded" ];
+              stripAllList = [ "bin" ];
+            };
+            shimSev = buildEnarxInternalPackage ./internal/shim-sev;
+            shimSgx = buildEnarxInternalPackage ./internal/shim-sgx;
+            wasmldr = buildEnarxInternalPackage ./internal/wasmldr;
           in
           buildEnarxPackage {
             inherit src;
@@ -76,8 +79,10 @@
             ENARX_PREBUILT_shim-sgx = "${shimSgx}/bin/shim-sgx";
             ENARX_PREBUILT_wasmldr = "${wasmldr}/bin/wasmldr";
 
+            CARGO_BUILD_TARGET = "x86_64-unknown-linux-gnu";
+
             nativeBuildInputs = [ pkgs.pkg-config ];
-            buildInputs = with pkgs.pkgsCross.musl64; [ openssl ];
+            buildInputs = [ pkgs.openssl ];
           };
 
         defaultPackage = self.packages.${system}.enarx;
