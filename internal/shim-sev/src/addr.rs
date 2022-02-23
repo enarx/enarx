@@ -2,14 +2,13 @@
 
 //! Some basic address operations
 
-use crate::hostmap::HOSTMAP;
 use crate::paging::SHIM_PAGETABLE;
 use crate::snp::get_cbit_mask;
 
 use core::convert::{TryFrom, TryInto};
 
 use nbytes::bytes;
-use primordial::{Address, Register};
+use primordial::Address;
 use x86_64::structures::paging::Translate;
 use x86_64::{PhysAddr, VirtAddr};
 
@@ -27,43 +26,6 @@ pub const BYTES_2_MIB: u64 = bytes![2; MiB];
 /// 1 GiB
 #[allow(clippy::integer_arithmetic)]
 pub const BYTES_1_GIB: u64 = bytes![1; GiB];
-
-/// Address in the host virtual address space
-pub struct HostVirtAddr<U>(Address<u64, U>);
-
-impl<U> HostVirtAddr<U> {
-    /// Create a new HostVirtAddr
-    ///
-    /// # Safety
-    /// The caller has to ensure, that the address is in the hosts virtual address space
-    pub unsafe fn new(val: Address<u64, U>) -> Self {
-        Self(val)
-    }
-}
-
-impl<U> From<ShimPhysUnencryptedAddr<U>> for HostVirtAddr<U> {
-    #[inline(always)]
-    fn from(val: ShimPhysUnencryptedAddr<U>) -> Self {
-        HOSTMAP.shim_phys_to_host_virt(PhysAddr::new(val.0.raw()))
-    }
-}
-
-impl<T, U> From<HostVirtAddr<U>> for Register<T>
-where
-    Register<T>: From<Register<u64>>,
-{
-    #[inline(always)]
-    fn from(val: HostVirtAddr<U>) -> Self {
-        Register::<u64>::from(val.0).into()
-    }
-}
-
-impl<T: Sized> From<HostVirtAddr<T>> for Address<usize, T> {
-    #[inline(always)]
-    fn from(val: HostVirtAddr<T>) -> Self {
-        val.0.into()
-    }
-}
 
 /// Address in the shim physical address space
 pub struct ShimPhysAddr<U>(Address<u64, U>);

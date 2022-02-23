@@ -30,7 +30,6 @@ pub mod exec;
 pub mod gdb;
 pub mod gdt;
 pub mod hostcall;
-pub mod hostmap;
 pub mod interrupts;
 pub mod pagetables;
 pub mod paging;
