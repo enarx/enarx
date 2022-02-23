@@ -25,7 +25,7 @@ use sallyport::item::Block;
 use sallyport::{host, Result};
 use serial_test::serial;
 
-struct TestHandler<const N: usize>(NonNull<[usize; N]>, ThreadLocalStorage);
+struct TestHandler<const N: usize>([usize; N], ThreadLocalStorage);
 
 impl<const N: usize> Platform for TestHandler<N> {
     fn sally(&mut self) -> Result<()> {
@@ -68,11 +68,11 @@ impl<const N: usize> Platform for TestHandler<N> {
 
 impl<const N: usize> Handler for TestHandler<N> {
     fn block(&self) -> &[usize] {
-        unsafe { &self.0.as_ref()[..] }
+        self.0.as_slice()
     }
 
     fn block_mut(&mut self) -> &mut [usize] {
-        unsafe { &mut self.0.as_mut()[..] }
+        self.0.as_mut_slice()
     }
 
     fn thread_local_storage(&mut self) -> &mut ThreadLocalStorage {
@@ -121,11 +121,7 @@ fn run_test<const N: usize>(
         thread::Builder::new()
             .name(format!("iteration {}", i))
             .spawn(move || {
-                let mut block = block;
-                f(
-                    i,
-                    &mut TestHandler(NonNull::from(&mut block), Default::default()),
-                );
+                f(i, &mut TestHandler(block.clone(), Default::default()));
             })
             .expect(&format!("couldn't spawn test iteration {} thread", i))
             .join()
