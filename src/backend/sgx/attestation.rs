@@ -3,6 +3,8 @@
 // CREDITS
 // * https://github.com/fortanix/rust-sgx for examples of AESM requests.
 
+use super::AESM_SOCKET;
+
 use crate::protobuf::aesm_proto::{
     Request, Request_GetQuoteExRequest, Request_GetQuoteSizeExRequest,
     Request_GetSupportedAttKeyIDNumRequest, Request_GetSupportedAttKeyIDsRequest,
@@ -16,9 +18,9 @@ use std::os::unix::net::UnixStream;
 
 use protobuf::Message;
 use sallyport::item::enarxcall::sgx::TargetInfo;
+
 const SGX_TI_SIZE: usize = size_of::<TargetInfo>();
 
-const AESM_SOCKET: &str = "/var/run/aesmd/aesm.socket";
 const AESM_REQUEST_TIMEOUT: u32 = 1_000_000;
 const SGX_KEY_ID_SIZE: u32 = 256;
 const SGX_REPORT_SIZE: usize = 432;
