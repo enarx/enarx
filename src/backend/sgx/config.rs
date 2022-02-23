@@ -13,6 +13,7 @@ pub struct Config {
     pub parameters: Parameters,
     pub ssap: NonZeroU32,
     pub size: usize,
+    pub sallyport_block_size: u64,
 }
 
 impl super::super::Config for Config {
@@ -81,10 +82,15 @@ impl super::super::Config for Config {
                 .note(elf::note::NAME, elf::note::sgx::BITS)
                 .ok_or_else(|| anyhow!("SGX shim is missing BITS"))?;
 
+            let sallyport_block_size: u64 = shim
+                .note(elf::note::NAME, elf::note::BLOCK_SIZE)
+                .ok_or_else(|| anyhow!("SGX shim is missing BLOCK_SIZE"))?;
+
             Ok(Self {
                 parameters: params,
                 size: 1 << bits,
                 ssap,
+                sallyport_block_size,
             })
         }
     }

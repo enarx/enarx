@@ -5,12 +5,10 @@
 #![cfg(feature = "gdb")]
 
 use crate::exec::EXEC_READY;
-use crate::hostcall::HOST_CALL_ALLOC;
+use crate::hostcall::{HostCall, SHIM_LOCAL_STORAGE};
 use crate::interrupts::ExtendedInterruptStackFrameValue;
-use crate::syscall::ProxySyscall;
 
 use core::arch::asm;
-use core::convert::TryFrom;
 use core::sync::atomic::Ordering;
 
 use crate::addr::SHIM_VIRT_OFFSET;
@@ -23,11 +21,7 @@ use gdbstub::target::ext::base::BaseOps;
 use gdbstub::target::{Target, TargetError, TargetResult};
 use gdbstub::{DisconnectReason, GdbStubBuilder, GdbStubError};
 use gdbstub_arch::x86::reg::X86_64CoreRegs;
-use primordial::Register;
-use sallyport::request;
-use sallyport::syscall::{
-    SYS_ENARX_GDB_PEEK, SYS_ENARX_GDB_READ, SYS_ENARX_GDB_START, SYS_ENARX_GDB_WRITE,
-};
+use sallyport::guest::Handler;
 use x86_64::registers::rflags::RFlags;
 use x86_64::structures::paging::Translate;
 use x86_64::VirtAddr;
@@ -44,33 +38,18 @@ impl gdbstub::Connection for GdbConnection {
     type Error = libc::c_int;
 
     fn read(&mut self) -> Result<u8, Self::Error> {
-        let mut buf = [0u8];
-        match self.read_exact(&mut buf) {
-            Ok(_) => Ok(buf[0]),
-            Err(e) => Err(e),
-        }
+        let mut tls = SHIM_LOCAL_STORAGE.write();
+        let mut host_call = HostCall::try_new(&mut tls).ok_or(libc::EIO)?;
+
+        host_call.gdb_read()
     }
 
     fn read_exact(&mut self, buf: &mut [u8]) -> Result<(), Self::Error> {
-        let bytes_len = buf.len();
-        let mut to_read = bytes_len;
+        let mut tls = SHIM_LOCAL_STORAGE.write();
+        let mut host_call = HostCall::try_new(&mut tls).ok_or(libc::EIO)?;
 
-        let mut host_call = HOST_CALL_ALLOC.try_alloc().ok_or(libc::EIO)?;
-
-        loop {
-            let next = bytes_len.checked_sub(to_read).ok_or(libc::EFAULT)?;
-
-            let buf_ptr = buf[next..].as_mut_ptr();
-            let ret = request!(SYS_ENARX_GDB_READ => buf_ptr, to_read).proxy(host_call)?;
-
-            host_call = ret.0;
-            let read = usize::from(ret.1[0]);
-
-            // be careful with `written` as it is untrusted
-            to_read = to_read.checked_sub(read).ok_or(libc::EIO)?;
-            if to_read == 0 {
-                break;
-            }
+        for byte in buf.iter_mut() {
+            *byte = host_call.gdb_read()?;
         }
 
         Ok(())
@@ -81,35 +60,17 @@ impl gdbstub::Connection for GdbConnection {
     }
 
     fn write_all(&mut self, buf: &[u8]) -> Result<(), Self::Error> {
-        let bytes_len = buf.len();
-        let mut to_write = bytes_len;
+        let mut tls = SHIM_LOCAL_STORAGE.write();
+        let mut host_call = HostCall::try_new(&mut tls).ok_or(libc::EIO)?;
 
-        let mut host_call = HOST_CALL_ALLOC.try_alloc().ok_or(libc::EIO)?;
-
-        loop {
-            let next = bytes_len.checked_sub(to_write).ok_or(libc::EFAULT)?;
-
-            let buf_ptr = buf[next..].as_ptr();
-            let ret = request!(SYS_ENARX_GDB_WRITE => buf_ptr, to_write).proxy(host_call)?;
-
-            host_call = ret.0;
-            let written = usize::from(ret.1[0]);
-
-            // be careful with `written` as it is untrusted
-            to_write = to_write.checked_sub(written).ok_or(libc::EIO)?;
-            if to_write == 0 {
-                break;
-            }
-        }
-
+        host_call.gdb_write_all(buf)?;
         Ok(())
     }
 
     fn peek(&mut self) -> Result<Option<u8>, Self::Error> {
-        let host_call = HOST_CALL_ALLOC.try_alloc().ok_or(libc::EIO)?;
-        let ret = request!(SYS_ENARX_GDB_PEEK).proxy(host_call)?;
-        let val = usize::from(ret.1[0]);
-        Ok(u8::try_from(val).ok())
+        let mut tls = SHIM_LOCAL_STORAGE.write();
+        let mut host_call = HostCall::try_new(&mut tls).ok_or(libc::EIO)?;
+        host_call.gdb_peek()
     }
 
     fn flush(&mut self) -> Result<(), Self::Error> {
@@ -117,9 +78,9 @@ impl gdbstub::Connection for GdbConnection {
     }
 
     fn on_session_start(&mut self) -> Result<(), Self::Error> {
-        let host_call = HOST_CALL_ALLOC.try_alloc().ok_or(libc::EIO)?;
-        let _ret = request!(SYS_ENARX_GDB_START).proxy(host_call)?;
-        Ok(())
+        let mut tls = SHIM_LOCAL_STORAGE.write();
+        let mut host_call = HostCall::try_new(&mut tls).ok_or(libc::EIO)?;
+        host_call.gdb_on_session_start()
     }
 }
 

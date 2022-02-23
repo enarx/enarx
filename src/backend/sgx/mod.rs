@@ -20,6 +20,7 @@ use std::sync::{Arc, RwLock};
 struct Tcs;
 
 struct Keep {
+    sallyport_block_size: u64,
     _mem: Map<perms::Unknown>,
     tcs: RwLock<Vec<*const Tcs>>,
 }

@@ -19,7 +19,6 @@ use std::sync::Arc;
 
 use anyhow::{Error, Result};
 use mmarinus::{perms, Map};
-use sallyport::Block;
 use serde::ser::{Serialize, SerializeStruct, Serializer};
 use spinning::Lazy;
 
@@ -99,20 +98,10 @@ pub trait Keep {
 
 pub trait Thread {
     /// Enters the keep.
-    fn enter(&mut self) -> Result<Command<'_>>;
+    fn enter(&mut self, gdblisten: &Option<String>) -> Result<Command>;
 }
 
-pub enum Command<'a> {
-    #[allow(dead_code)]
-    SysCall(&'a mut Block),
-
-    #[allow(dead_code)]
-    CpuId(&'a mut Block),
-
-    #[cfg(feature = "gdb")]
-    #[allow(dead_code)]
-    Gdb(&'a mut Block, &'a mut Option<std::net::TcpStream>),
-
+pub enum Command {
     #[allow(dead_code)]
     Continue,
 }
@@ -144,67 +133,133 @@ pub fn wait_for_gdb_connection(sockaddr: &str) -> std::io::Result<std::net::TcpS
 }
 
 #[cfg(feature = "gdb")]
-pub fn handle_gdb(block: &mut Block, gdb_fd: &mut Option<std::net::TcpStream>, sockaddr: &str) {
+pub(super) unsafe fn execute_gdb(
+    gdbcall: &mut sallyport::item::Gdbcall,
+    data: &mut [u8],
+    gdb_fd: &mut Option<std::net::TcpStream>,
+    sockaddr: &str,
+) -> Result<(), libc::c_int> {
     use gdbstub::Connection;
+    use sallyport::host::deref_slice;
+    use sallyport::item;
+    use sallyport::item::gdbcall::Number;
 
-    let req = unsafe { block.msg.req };
-    match req.num.into() {
-        sallyport::syscall::SYS_ENARX_GDB_START => {
+    match gdbcall {
+        item::Gdbcall {
+            num: Number::OnSessionStart,
+            ret,
+            ..
+        } => {
             if gdb_fd.is_none() {
                 let mut stream = wait_for_gdb_connection(sockaddr).unwrap();
+
                 let res = stream
                     .on_session_start()
-                    .map(|_| [0usize.into(), 0usize.into()])
+                    .map(|_| 0usize)
                     .map_err(|e| e.raw_os_error().unwrap_or(libc::EINVAL));
+
                 if res.is_ok() {
                     gdb_fd.replace(stream);
                 }
-                block.msg.rep = res.into();
+
+                *ret = match res {
+                    Ok(n) => n as usize,
+                    Err(e) => -e as usize,
+                };
             } else {
-                block.msg.rep = Ok([0usize.into(), 0usize.into()]).into();
+                *ret = 0;
             }
+            Ok(())
         }
 
-        sallyport::syscall::SYS_ENARX_GDB_PEEK => {
+        item::Gdbcall {
+            num: Number::Flush,
+            ret,
+            ..
+        } => {
             let stream = gdb_fd.as_mut().unwrap();
 
-            let ret = Connection::peek(stream)
-                .map(|v| {
-                    let v = v.map(|v| v as usize).unwrap_or(u8::MAX as usize + 1);
-                    [v.into(), 0usize.into()]
-                })
+            let res = Connection::flush(stream)
+                .map(|_| 0)
                 .map_err(|e| e.raw_os_error().unwrap_or(libc::EINVAL));
-            block.msg.rep = ret.into();
+
+            *ret = match res {
+                Ok(n) => n as usize,
+                Err(e) => -e as usize,
+            };
+            Ok(())
         }
 
-        sallyport::syscall::SYS_ENARX_GDB_READ => {
+        item::Gdbcall {
+            num: Number::Peek,
+            ret,
+            ..
+        } => {
             let stream = gdb_fd.as_mut().unwrap();
 
-            let buf_ptr: *mut u8 = req.arg[0].into();
-            let buf_len: usize = req.arg[1].into();
-            let buf = unsafe { core::slice::from_raw_parts_mut(buf_ptr, buf_len) };
-
-            let ret = stream
-                .read_exact(buf)
-                .map(|_| [buf_len.into(), 0usize.into()])
+            let res = Connection::peek(stream)
+                .map(|v| v.map(|v| v as usize).unwrap_or(u8::MAX as usize + 1))
                 .map_err(|e| e.raw_os_error().unwrap_or(libc::EINVAL));
-
-            block.msg.rep = ret.into();
+            *ret = match res {
+                Ok(n) => n,
+                Err(e) => -e as usize,
+            };
+            Ok(())
         }
 
-        sallyport::syscall::SYS_ENARX_GDB_WRITE => {
+        item::Gdbcall {
+            num: Number::Read,
+            ret,
+            ..
+        } => {
             let stream = gdb_fd.as_mut().unwrap();
 
-            let buf_ptr: *mut u8 = req.arg[0].into();
-            let buf_len: usize = req.arg[1].into();
-            let buf = unsafe { core::slice::from_raw_parts(buf_ptr, buf_len) };
-
-            let ret = Connection::write_all(stream, buf)
-                .map(|_| [buf_len.into(), 0usize.into()])
+            let res = stream
+                .read()
                 .map_err(|e| e.raw_os_error().unwrap_or(libc::EINVAL));
-            block.msg.rep = ret.into();
+
+            *ret = match res {
+                Ok(n) => n as usize,
+                Err(e) => -e as usize,
+            };
+            Ok(())
         }
 
-        _ => {}
+        item::Gdbcall {
+            num: Number::Write,
+            argv: [byte, ..],
+            ret,
+        } => {
+            let stream = gdb_fd.as_mut().unwrap();
+
+            let res = Connection::write(stream, *byte as _)
+                .map(|_| 0usize)
+                .map_err(|e| e.raw_os_error().unwrap_or(libc::EINVAL));
+            *ret = match res {
+                Ok(n) => n as usize,
+                Err(e) => -e as usize,
+            };
+            Ok(())
+        }
+
+        item::Gdbcall {
+            num: Number::WriteAll,
+            argv: [buf_offset, count, ..],
+            ret,
+        } => {
+            let stream = gdb_fd.as_mut().unwrap();
+
+            let buf = &*deref_slice::<u8>(data, *buf_offset, *count).unwrap();
+
+            let res = Connection::write_all(stream, buf)
+                .map(|_| buf.len())
+                .map_err(|e| e.raw_os_error().unwrap_or(libc::EINVAL));
+
+            *ret = match res {
+                Ok(n) => n as usize,
+                Err(e) => -e as usize,
+            };
+            Ok(())
+        }
     }
 }

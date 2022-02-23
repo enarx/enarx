@@ -36,8 +36,7 @@ pub struct Keep<P: KeepPersonality> {
     pub kvm_fd: Kvm,
     pub vm_fd: VmFd,
     pub cpu_fds: Vec<VcpuFd>,
-    // FIXME: This will be removed in the near future
-    pub sallyport_start: VirtAddr,
+    pub sallyport_block_size: usize,
     pub sallyports: Vec<Option<VirtAddr>>,
     pub regions: Vec<Region>,
     pub personality: P,

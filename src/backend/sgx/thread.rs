@@ -1,16 +1,25 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use super::super::Command;
-use crate::backend::sgx::attestation::get_attestation;
+use super::attestation::{get_attestation_key_id, get_key_size, get_quote, get_target_info};
+#[cfg(feature = "gdb")]
+use crate::backend::execute_gdb;
+use crate::backend::Command;
 
 use std::arch::asm;
-use std::mem::MaybeUninit;
+use std::arch::x86_64::CpuidResult;
+use std::io;
+use std::iter;
+use std::mem::{size_of, MaybeUninit};
 #[cfg(feature = "gdb")]
 use std::net::TcpStream;
 use std::sync::Arc;
 
-use anyhow::Result;
-use sallyport::{syscall::SYS_ENARX_CPUID, Block};
+use anyhow::{Context, Result};
+use sallyport::host::{deref_aligned, deref_slice};
+use sallyport::item;
+use sallyport::item::enarxcall::sgx::{Report, TargetInfo};
+use sallyport::item::enarxcall::Payload;
+use sallyport::item::{Block, Item};
 use sgx::enclu::{EENTER, EEXIT, ERESUME};
 use sgx::ssa::Vector;
 use vdso::Symbol;
@@ -19,7 +28,7 @@ pub struct Thread {
     enclave: Arc<super::Keep>,
     vdso: &'static Symbol,
     tcs: *const super::Tcs,
-    block: Block,
+    block: Vec<usize>,
     cssa: usize,
     how: usize,
     #[cfg(feature = "gdb")]
@@ -44,11 +53,13 @@ impl super::super::Keep for super::Keep {
             None => return Ok(None),
         };
 
+        let block = vec![0; self.sallyport_block_size as usize / size_of::<usize>()];
+
         Ok(Some(Box::new(Thread {
             enclave: self,
             vdso,
             tcs,
-            block: Block::default(),
+            block,
             cssa: usize::default(),
             how: EENTER,
             #[cfg(feature = "gdb")]
@@ -57,8 +68,86 @@ impl super::super::Keep for super::Keep {
     }
 }
 
+fn sgx_enarxcall<'a>(enarxcall: &'a mut Payload, data: &'a mut [u8]) -> Result<Option<Item<'a>>> {
+    match enarxcall {
+        item::Enarxcall {
+            num: item::enarxcall::Number::Cpuid,
+            argv: [leaf, subleaf, cpuid_offset, ..],
+            ret,
+        } => {
+            let cpuid_buf = unsafe {
+                // Safety: `deref_aligned` gives us a pointer to an aligned `CpuidResult` struct.
+                // We also know, that the resulting pointer is inside the allocated sallyport block, where `data`
+                // is a subslice of.
+                &mut *deref_aligned::<MaybeUninit<CpuidResult>>(data, *cpuid_offset, 1)
+                    .map_err(io::Error::from_raw_os_error)
+                    .context("sgx_enarxcall deref")?
+            };
+
+            // Safety: we know we are on an SGX machine, which can do cpuid
+            let cpuid_ret = unsafe { core::arch::x86_64::__cpuid_count(*leaf as _, *subleaf as _) };
+
+            cpuid_buf.write(cpuid_ret);
+            *ret = 0;
+            Ok(None)
+        }
+
+        item::Enarxcall {
+            num: item::enarxcall::Number::GetSgxTargetInfo,
+            argv: [target_info_offset, ..],
+            ret,
+        } => {
+            let out_buf = unsafe {
+                // Safety: `deref_slice` gives us a pointer to a byte slice, which does not have to be aligned.
+                // We also know, that the resulting pointer is inside the allocated sallyport block, where `data`
+                // is a subslice of.
+                &mut *deref_slice::<u8>(data, *target_info_offset, size_of::<TargetInfo>())
+                    .map_err(io::Error::from_raw_os_error)
+                    .context("sgx_enarxcall deref")?
+            };
+
+            let akid = get_attestation_key_id().context("error obtaining attestation key id")?;
+            let pkeysize = get_key_size(akid.clone()).context("error obtaining key size")?;
+            *ret = get_target_info(akid, pkeysize, out_buf).context("error getting target info")?;
+
+            Ok(None)
+        }
+
+        item::Enarxcall {
+            num: item::enarxcall::Number::GetSgxQuote,
+            argv: [report_offset, quote_offset, quote_len, ..],
+            ret,
+        } => {
+            let report_buf = unsafe {
+                // Safety: `deref_slice` gives us a pointer to a byte slice, which does not have to be aligned.
+                // We also know, that the resulting pointer is inside the allocated sallyport block, where `data`
+                // is a subslice of.
+                &mut *deref_slice::<u8>(data, *report_offset, size_of::<Report>())
+                    .map_err(io::Error::from_raw_os_error)
+                    .context("sgx_enarxcall deref")?
+            };
+
+            let quote_buf = unsafe {
+                // Safety: `deref_slice` gives us a pointer to a byte slice, which does not have to be aligned.
+                // We also know, that the resulting pointer is inside the allocated sallyport block, where `data`
+                // is a subslice of.
+                &mut *deref_slice::<u8>(data, *quote_offset, *quote_len)
+                    .map_err(io::Error::from_raw_os_error)
+                    .context("sgx_enarxcall deref")?
+            };
+
+            let akid = get_attestation_key_id().context("error obtaining attestation key id")?;
+            *ret = get_quote(report_buf, akid, quote_buf).context("error getting quote")?;
+
+            Ok(None)
+        }
+
+        _ => return Ok(Some(Item::Enarxcall(enarxcall, data))),
+    }
+}
+
 impl super::super::Thread for Thread {
-    fn enter(&mut self) -> Result<Command<'_>> {
+    fn enter(&mut self, _gdblisten: &Option<String>) -> Result<Command> {
         let mut run: Run = unsafe { MaybeUninit::zeroed().assume_init() };
         run.tcs = self.tcs as u64;
         let how = self.how;
@@ -82,7 +171,7 @@ impl super::super::Thread for Thread {
                 "pop  rbp",       // restore rbp
                 "pop  rbx",       // restore rbx
 
-                inout("rdi") &self.block => _,
+                inout("rdi") self.block.as_mut_ptr() => _,
                 lateout("rsi") _,
                 lateout("rdx") _,
                 inout("rcx") how => _,
@@ -129,34 +218,49 @@ impl super::super::Thread for Thread {
         // remove this logic.
         if self.cssa > 0 {
             if let (EENTER, ERESUME) = (how, self.how) {
-                match unsafe { self.block.msg.req }.num.into() {
-                    SYS_ENARX_CPUID => return Ok(Command::CpuId(&mut self.block)),
+                let block: Block = self.block.as_mut_slice().into();
+                for item in block {
+                    match item {
+                        Item::Gdbcall(_gdbcall, _data) => {
+                            #[cfg(feature = "gdb")]
+                            unsafe {
+                                execute_gdb(
+                                    _gdbcall,
+                                    _data,
+                                    &mut self.gdb_fd,
+                                    _gdblisten.as_ref().unwrap(),
+                                )
+                                .map_err(io::Error::from_raw_os_error)
+                                .context("execute_gdb")?;
+                            }
+                        }
 
-                    #[cfg(feature = "gdb")]
-                    sallyport::syscall::SYS_ENARX_GDB_START
-                    | sallyport::syscall::SYS_ENARX_GDB_PEEK
-                    | sallyport::syscall::SYS_ENARX_GDB_READ
-                    | sallyport::syscall::SYS_ENARX_GDB_WRITE => {
-                        return Ok(Command::Gdb(&mut self.block, &mut self.gdb_fd))
+                        Item::Enarxcall(enarxcall, data) => {
+                            sallyport::host::execute(sgx_enarxcall(enarxcall, data)?.into_iter())
+                                .map_err(io::Error::from_raw_os_error)
+                                .context("sallyport::host::execute")?;
+                        }
+
+                        Item::Syscall(ref _syscall, ..) => {
+                            #[cfg(feature = "dbg")]
+                            match (
+                                _syscall.num as libc::c_long,
+                                _syscall.argv[1] as libc::c_int,
+                            ) {
+                                (
+                                    libc::SYS_write | libc::SYS_read,
+                                    libc::STDIN_FILENO | libc::STDOUT_FILENO | libc::STDERR_FILENO,
+                                ) => {}
+                                _ => {
+                                    dbg!(&_syscall);
+                                }
+                            }
+
+                            sallyport::host::execute(iter::once(item))
+                                .map_err(io::Error::from_raw_os_error)
+                                .context("sallyport::host::execute")?;
+                        }
                     }
-
-                    sallyport::syscall::SYS_ENARX_GETATT => {
-                        self.block.msg.rep = unsafe {
-                            get_attestation(
-                                self.block.msg.req.arg[0].into(),
-                                self.block.msg.req.arg[1].into(),
-                                self.block.msg.req.arg[2].into(),
-                                self.block.msg.req.arg[3].into(),
-                            )
-                            .map(|v| [v.into(), 0usize.into()])
-                            .map_err(|e| e.raw_os_error().unwrap_or(libc::EINVAL))
-                            .into()
-                        };
-
-                        return Ok(Command::Continue);
-                    }
-
-                    _ => return Ok(Command::SysCall(&mut self.block)),
                 }
             }
         }

@@ -271,23 +271,14 @@ pub struct GhcbHandle<'a> {
     ghcb: &'a mut Ghcb,
 }
 
-/// The global Enarx GHCB
-///
-/// # Safety
-///
-/// `GHCB` is the only way to get an instance of the static `_ENARX_GHCB` struct.
-/// It is guarded by `RwLocked`.
+/// The global Enarx guest hypervisor communication block - GHCB
 pub static GHCB: Lazy<RwLocked<GhcbHandle<'_>>> = Lazy::new(|| {
-    extern "C" {
-        /// Extern
-        pub static _ENARX_GHCB: RacyCell<Ghcb>;
-    }
+    #[link_section = ".ghcb"]
+    static GHCB: RacyCell<Ghcb> = RacyCell::new(<Ghcb as ConstDefault>::DEFAULT);
 
-    unsafe {
-        let ghcb_uninit = _ENARX_GHCB.get();
-        ghcb_uninit.write(Ghcb::DEFAULT);
-        RwLocked::<GhcbHandle<'_>>::new(GhcbHandle::new(&mut *ghcb_uninit))
-    }
+    // Safety: The above static `RacyCell` can only be accessed via the `RwLocked handle.
+    let ghcb_mut_ref = unsafe { &mut *GHCB.get() };
+    RwLocked::<GhcbHandle<'_>>::new(GhcbHandle::new(ghcb_mut_ref))
 });
 
 impl<'a> GhcbHandle<'a> {

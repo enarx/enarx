@@ -344,13 +344,11 @@ dependencies = [
 
 [[package]]
 name = "sallyport"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eab61195772feb0221de35deddc39ca51e04a3c9522af0ec47962415e8624987"
+version = "0.3.0"
+source = "git+https://github.com/enarx/sallyport?rev=d28863940e463ee32cb1e29d400db2d2300e3264#d28863940e463ee32cb1e29d400db2d2300e3264"
 dependencies = [
- "goblin 0.4.3",
+ "goblin 0.5.1",
  "libc",
- "primordial",
 ]
 
 [[package]]

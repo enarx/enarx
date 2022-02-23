@@ -19,7 +19,9 @@ extern crate rcrt1;
 
 use core::arch::asm;
 
-use shim_sgx::{entry, handler, ATTR, ENARX_EXEC_START, ENCL_SIZE, ENCL_SIZE_BITS, MISC};
+use shim_sgx::{
+    entry, handler, ATTR, BLOCK_SIZE, ENARX_EXEC_START, ENCL_SIZE, ENCL_SIZE_BITS, MISC,
+};
 
 #[panic_handler]
 #[cfg(not(test))]
@@ -61,6 +63,8 @@ use sgx::ssa::{GenPurposeRegs, StateSaveArea};
 
 noted! {
     static NOTE_REQUIRES<note::NAME, note::REQUIRES, [u8; REQUIRES.len()]> = REQUIRES;
+
+    static NOTE_BLOCK_SIZE<note::NAME, note::BLOCK_SIZE, u64> = BLOCK_SIZE as u64;
 
     static NOTE_BITS<note::NAME, note::sgx::BITS, u8> = ENCL_SIZE_BITS;
     static NOTE_SSAP<note::NAME, note::sgx::SSAP, u8> = 1;
@@ -271,12 +275,16 @@ pub unsafe extern "sysv64" fn _start() -> ! {
     )
 }
 
-unsafe extern "C" fn main(port: &mut sallyport::Block, ssas: &mut [StateSaveArea; 3], cssa: usize) {
+unsafe extern "C" fn main(
+    port: &mut [usize; BLOCK_SIZE / core::mem::size_of::<usize>()],
+    ssas: &mut [StateSaveArea; 3],
+    cssa: usize,
+) {
     ssas[cssa].extra[0] = 1; // Enable exceptions
 
     match cssa {
         0 => entry::entry(&ENARX_EXEC_START as *const u8 as _),
-        1 => handler::Handler::handle(&mut ssas[0], port),
+        1 => handler::Handler::handle(&mut ssas[0], port.as_mut_slice()),
         n => handler::Handler::finish(&mut ssas[n - 1]),
     }
 

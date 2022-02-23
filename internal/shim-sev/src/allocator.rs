@@ -4,8 +4,7 @@
 
 use crate::addr::{ShimPhysAddr, ShimVirtAddr, SHIM_VIRT_OFFSET};
 use crate::exec::NEXT_MMAP_RWLOCK;
-use crate::hostcall::HOST_CALL_ALLOC;
-use crate::hostmap::HOSTMAP;
+use crate::hostcall::{HostCall, SHIM_LOCAL_STORAGE};
 use crate::paging::SHIM_PAGETABLE;
 use crate::snp::{get_cbit_mask, pvalidate, snp_active, PvalidateSize};
 use crate::spin::RwLocked;
@@ -23,6 +22,7 @@ use linked_list_allocator::Heap;
 use lset::{Line, Span};
 use nbytes::bytes;
 use primordial::{Address, Page as Page4KiB};
+use sallyport::guest::Handler;
 use spinning::Lazy;
 use x86_64::instructions::tlb::flush_all;
 use x86_64::structures::paging::mapper::{MapToError, UnmapError};
@@ -56,7 +56,7 @@ pub static ALLOCATOR: Lazy<RwLocked<EnarxAllocator>> =
 pub struct EnarxAllocator {
     last_alloc: usize,
     max_alloc: usize,
-    mem_slots: usize,
+    end_of_mem: PhysAddr,
     allocator: Heap,
 }
 
@@ -105,10 +105,12 @@ pub enum AllocateError {
 
 impl EnarxAllocator {
     unsafe fn new() -> Self {
+        let mut tls = SHIM_LOCAL_STORAGE.write();
         let meminfo = {
-            let mut host_call = HOST_CALL_ALLOC.try_alloc().unwrap();
+            let mut host_call = HostCall::try_new(&mut tls).unwrap();
             host_call.mem_info().unwrap()
         };
+        drop(tls);
 
         const MIN_EXP: u32 = 24; // start with 2^24 = 16 MiB
         let c_bit_mask = get_cbit_mask();
@@ -119,12 +121,11 @@ impl EnarxAllocator {
         };
 
         debug_assert!(
-            meminfo.mem_slots > (target_exp.checked_sub(MIN_EXP).unwrap()) as _,
+            meminfo > (target_exp.checked_sub(MIN_EXP).unwrap()) as _,
             "Not enough memory slots available"
         );
 
         let log_rest = msb(meminfo
-            .mem_slots
             .checked_sub(target_exp.checked_sub(MIN_EXP).unwrap() as usize)
             .unwrap());
         // cap, so that max_exp >= MIN_EXP
@@ -203,11 +204,7 @@ impl EnarxAllocator {
             Page4KiB::SIZE as u64,
         ) as usize;
 
-        HOSTMAP.first_entry(
-            mem_start,
-            VirtAddr::new(meminfo.virt_start.raw() as _),
-            mem_size,
-        );
+        let end_of_mem = mem_start + mem_size;
 
         *NEXT_MMAP_RWLOCK.write() =
             (*NEXT_MMAP_RWLOCK.read() + code_size).align_up(Page::<Size4KiB>::SIZE);
@@ -217,7 +214,7 @@ impl EnarxAllocator {
         EnarxAllocator {
             last_alloc: next_alloc.checked_div(2).unwrap(),
             max_alloc,
-            mem_slots: meminfo.mem_slots,
+            end_of_mem,
             allocator,
         }
     }
@@ -233,57 +230,56 @@ impl EnarxAllocator {
             let new_size = new_size.min(self.max_alloc);
             let num_pages = new_size.checked_div(Page4KiB::SIZE as _).unwrap();
 
-            let end_phys = HOSTMAP.end_of_mem();
+            let mut tls = SHIM_LOCAL_STORAGE.write();
+            let ret = HostCall::try_new(&mut tls).unwrap().balloon_memory(
+                12, // 1 << 12 == 4096 == page size
+                num_pages,
+                self.end_of_mem.as_u64() as _,
+            );
+            drop(tls);
 
-            let ret = HOST_CALL_ALLOC
-                .try_alloc()
-                .unwrap()
-                .balloon(num_pages, end_phys);
+            match ret {
+                Ok(_) => {
+                    // convert to shim virtual address
+                    let shim_phys_page = ShimPhysAddr::<u8>::try_from(self.end_of_mem).unwrap();
+                    let free_start: *mut u8 = ShimVirtAddr::from(shim_phys_page).into();
 
-            if let Ok(virt_start) = ret {
-                match HOSTMAP.new_entry(end_phys, VirtAddr::new(virt_start as _), new_size) {
-                    None => return false,
-                    Some(line) => {
-                        // convert to shim virtual address
-                        let shim_phys_page = ShimPhysAddr::<u8>::try_from(line.start).unwrap();
-                        let free_start: *mut u8 = ShimVirtAddr::from(shim_phys_page).into();
+                    // increase end of memory
+                    self.end_of_mem += new_size;
 
-                        if snp_active() {
-                            // pvalidate the newly assigned memory region
-                            let virt_region = Span::new(free_start as usize, line.count);
-                            let virt_line = Line::from(virt_region);
+                    if snp_active() {
+                        // pvalidate the newly assigned memory region
+                        let virt_region = Span::new(free_start as usize, new_size);
+                        let virt_line = Line::from(virt_region);
 
-                            for addr in (virt_line.start..virt_line.end)
-                                .step_by(Page::<Size4KiB>::SIZE as _)
-                            {
-                                let va = VirtAddr::new(addr as _);
-                                unsafe { pvalidate(va, PvalidateSize::Size4K, true).unwrap() };
-                            }
+                        for addr in
+                            (virt_line.start..virt_line.end).step_by(Page::<Size4KiB>::SIZE as _)
+                        {
+                            let va = VirtAddr::new(addr as _);
+                            unsafe { pvalidate(va, PvalidateSize::Size4K, true).unwrap() };
                         }
+                    }
 
-                        unsafe {
-                            if self.allocator.size() > 0 {
-                                self.allocator.extend(line.count);
-                            } else {
-                                self.allocator.init(free_start as _, line.count);
-                            }
+                    unsafe {
+                        if self.allocator.size() > 0 {
+                            self.allocator.extend(new_size);
+                        } else {
+                            self.allocator.init(free_start as _, new_size);
                         }
-                        self.last_alloc = new_size;
+                    }
+                    self.last_alloc = new_size;
 
-                        // After every ballooning, the hostmap could need some extension
-                        HOSTMAP.extend_slots(self.mem_slots, &mut self.allocator);
-
-                        return true;
+                    return true;
+                }
+                Err(_) => {
+                    // Failed to get more memory.
+                    // Try again with half of the memory.
+                    last_size = last_size.checked_div(2).unwrap();
+                    if last_size < Page4KiB::SIZE {
+                        // Host does not have even a page of memory
+                        return false;
                     }
                 }
-            }
-
-            // Failed to get more memory.
-            // Try again with half of the memory.
-            last_size = last_size.checked_div(2).unwrap();
-            if last_size < Page4KiB::SIZE {
-                // Host does not have even a page of memory
-                return false;
             }
         }
     }

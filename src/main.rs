@@ -82,7 +82,6 @@ mod workldr;
 
 use backend::{Backend, Command};
 
-use std::convert::TryInto;
 use std::fs::File;
 use std::os::unix::io::AsRawFd;
 
@@ -176,28 +175,7 @@ fn keep_exec(
     let keep = backend.keep(shim.as_ref(), exec.as_ref())?;
     let mut thread = keep.clone().spawn()?.unwrap();
     loop {
-        match thread.enter()? {
-            Command::SysCall(block) => unsafe {
-                block.msg.rep = block.msg.req.syscall();
-            },
-
-            Command::CpuId(block) => unsafe {
-                let cpuid = core::arch::x86_64::__cpuid_count(
-                    block.msg.req.arg[0].try_into().unwrap(),
-                    block.msg.req.arg[1].try_into().unwrap(),
-                );
-
-                block.msg.req.arg[0] = cpuid.eax.into();
-                block.msg.req.arg[1] = cpuid.ebx.into();
-                block.msg.req.arg[2] = cpuid.ecx.into();
-                block.msg.req.arg[3] = cpuid.edx.into();
-            },
-
-            #[cfg(feature = "gdb")]
-            Command::Gdb(block, gdb_fd) => {
-                backend::handle_gdb(block, gdb_fd, _gdblisten.as_ref().unwrap());
-            }
-
+        match thread.enter(&_gdblisten)? {
             Command::Continue => (),
         }
     }
