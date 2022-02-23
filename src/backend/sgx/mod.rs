@@ -17,6 +17,8 @@ use mmarinus::{perms, Map};
 use std::arch::x86_64::__cpuid_count;
 use std::sync::{Arc, RwLock};
 
+pub const AESM_SOCKET: &str = "/var/run/aesmd/aesm.socket";
+
 struct Tcs;
 
 struct Keep {
@@ -44,7 +46,7 @@ impl crate::backend::Backend for Backend {
     }
 
     fn data(&self) -> Vec<super::Datum> {
-        let mut data = vec![system_info(), data::dev_sgx_enclave()];
+        let mut data = vec![system_info(), data::dev_sgx_enclave(), data::aesm_socket()];
 
         data.extend(data::CPUIDS.iter().map(|c| c.into()));
 
