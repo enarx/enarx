@@ -61,7 +61,7 @@ pub fn execute<'a>(items: impl IntoIterator<Item = Item<'a>>) {
 /// Callers must ensure that pointer is correctly aligned before accessing it.
 ///
 #[inline]
-unsafe fn deref<T>(data: &mut [u8], offset: usize, len: usize) -> Result<*mut T> {
+pub unsafe fn deref<T>(data: &mut [u8], offset: usize, len: usize) -> Result<*mut T> {
     let size = len * size_of::<T>();
     if size > data.len() || data.len() - size < offset {
         Err(libc::EFAULT)
@@ -73,7 +73,7 @@ unsafe fn deref<T>(data: &mut [u8], offset: usize, len: usize) -> Result<*mut T>
 /// Validates that `data` contains `len` elements of type `T` at `offset`
 /// aligned to `align_of::<T>()` and returns a mutable pointer to the first element on success.
 #[inline]
-fn deref_aligned<T>(data: &mut [u8], offset: usize, len: usize) -> Result<*mut T> {
+pub fn deref_aligned<T>(data: &mut [u8], offset: usize, len: usize) -> Result<*mut T> {
     let ptr = unsafe { deref::<T>(data, offset, len) }?;
     if ptr.align_offset(align_of::<T>()) != 0 {
         Err(EFAULT)
