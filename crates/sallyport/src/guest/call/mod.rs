@@ -1,5 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
+//! Calls executable by [`Handler::execute`](super::Handler::execute) and utilities to operate upon
+//! them.
+
 pub mod alloc;
 pub mod enarxcall;
 pub mod gdbcall;
@@ -16,6 +19,7 @@ pub use stub::*;
 use crate::guest::alloc::{Allocator, Collect, Commit};
 use crate::Result;
 
+/// Call kinds.
 pub mod kind {
     use super::alloc;
 

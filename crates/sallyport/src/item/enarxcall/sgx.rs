@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
-//! Contains microarchitecture structures of SGX. Keep the functionality
-//! minimal and stdlib free. Use the Intel SDM struct naming conventions,
-//! instead of Rust naming conventions.
+//! SGX microarchitecture-specific structures and constants.
+//!
+//! Only minimal functionality is provided by this module.
 //!
 //! Chapter 34 of the Intel SDM contains detailed documentation for these
 //! structs.

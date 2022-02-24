@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
+//! Enarx call item definitions
+
 #[macro_use]
 pub mod testaso;
 

@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
+//! GDB call item definitions
+
 use core::mem::size_of;
 
 /// Payload of an [`Item`](super::Item) of [`Kind::Gdbcall`](super::Kind::Gdbcall).

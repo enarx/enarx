@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
+//! Generic allocatable call-specific functionality.
+
 use super::Call;
 use crate::guest::alloc::{Allocator, Collect, Collector, Commit, Committer, InRef};
 use crate::{item, Result};
@@ -8,6 +10,7 @@ use core::alloc::Layout;
 use core::mem::align_of;
 use libc::ENOMEM;
 
+/// Allocatable call kinds.
 pub(crate) mod kind {
     use super::Alloc;
     use crate::item;

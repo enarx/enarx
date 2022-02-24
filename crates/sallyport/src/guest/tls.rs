@@ -4,6 +4,7 @@ use libc::{c_int, sigaction};
 
 pub(super) const SIGRTMAX: c_int = 64;
 
+/// Thread-local storage shared between [`Handler`](super::Handler) instances.
 pub struct ThreadLocalStorage {
     pub(super) actions: [Option<sigaction>; SIGRTMAX as _],
 }

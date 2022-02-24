@@ -5,6 +5,7 @@ use crate::Result;
 
 use super::{kind, Call};
 
+/// A call, which does not result in an allocation within the block.
 pub trait Stub {
     /// Call return value.
     ///

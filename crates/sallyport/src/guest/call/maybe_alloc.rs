@@ -5,6 +5,7 @@ use super::Alloc;
 use crate::guest::alloc::{Allocator, Collect, Collector, Commit, Committer};
 use crate::Result;
 
+/// A call, which *may* result in allocation within the block.
 pub trait MaybeAlloc<'a, K, T>
 where
     K: kind::Kind,
