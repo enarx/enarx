@@ -12,13 +12,12 @@
 //! * Only use u8 arrays for reserved fields and padding.
 //! * Document the structs at top-level but never the fields.
 
-#![allow(non_camel_case_types)]
 #![allow(missing_docs)]
 
 use core::arch::asm;
 
 /// Description of the local attestation source enclave contents.
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 #[repr(C)]
 pub struct ReportPayload {
     pub cpusvn: [u64; 2],
@@ -41,6 +40,7 @@ pub struct ReportPayload {
 }
 
 impl Default for ReportPayload {
+    #[inline]
     fn default() -> Self {
         Self {
             cpusvn: [0, 0],
@@ -67,6 +67,7 @@ impl Default for ReportPayload {
 /// Description of the local attestation source enclave contents with the CMAC
 /// signed with the report key. Used by the target enclave to verify the source
 /// enclave by grabbing the report key with EGETKEY and calculating CMAC.
+#[derive(Debug, Clone, Copy)]
 #[repr(C, align(512))]
 pub struct Report {
     pub payload: ReportPayload,
@@ -76,6 +77,7 @@ pub struct Report {
 }
 
 impl Default for Report {
+    #[inline]
     fn default() -> Self {
         Self {
             payload: ReportPayload::default(),
@@ -88,7 +90,7 @@ impl Default for Report {
 
 /// Description of the target enclave used for the report key derivation in
 /// EREPORT.
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 #[repr(C, align(512))]
 pub struct TargetInfo {
     pub mrenclave: [u8; 32],
@@ -103,6 +105,7 @@ pub struct TargetInfo {
 }
 
 impl Default for TargetInfo {
+    #[inline]
     fn default() -> Self {
         Self {
             mrenclave: [0; 32],
@@ -118,24 +121,26 @@ impl Default for TargetInfo {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 #[repr(C, align(128))]
 /// Pass information from the source enclave to the target enclave
 pub struct ReportData(pub [u8; 64]);
 
 impl Default for ReportData {
+    #[inline]
     fn default() -> Self {
         Self([0u8; 64])
     }
 }
 
 impl TargetInfo {
+    #[inline]
     pub fn enclu_ereport(&self, reportdata: &ReportData) -> Report {
         const EREPORT: usize = 0;
 
         // Purposely make an uninitialized memory block for the struct, as it
         // will be initialized by the CPU as the next step.
-        let mut report = core::mem::MaybeUninit::<Report>::uninit();
+        let mut report = MaybeUninit::<Report>::uninit();
 
         // In Rust inline assembly rbx is not preserved by the compiler, even
         // when part of the input list. It is one of the callee saved registers
@@ -160,43 +165,47 @@ impl TargetInfo {
 }
 
 #[cfg(test)]
-testaso! {
-    struct ReportPayload: 8, 384 => {
-        cpusvn: 0,
-        miscselect: 16,
-        cet_attributes: 20,
-        reserved1: 21,
-        isvextnprodid: 32,
-        attributes: 48,
-        mrenclave: 64,
-        reserved2: 96,
-        mrsigner: 128,
-        reserved3: 160,
-        configid: 192,
-        isvprodid: 256,
-        isvsvn: 258,
-        configsvn: 260,
-        reserved4: 262,
-        isvfamilyid: 304,
-        reportdata: 320
-    }
+mod tests {
+    use super::*;
 
-    struct Report: 512, 512 => {
-        payload: 0,
-        keyid: 384,
-        mac: 416,
-        padding: 432
-    }
+    testaso! {
+        struct ReportPayload: 8, 384 => {
+            cpusvn: 0,
+            miscselect: 16,
+            cet_attributes: 20,
+            reserved1: 21,
+            isvextnprodid: 32,
+            attributes: 48,
+            mrenclave: 64,
+            reserved2: 96,
+            mrsigner: 128,
+            reserved3: 160,
+            configid: 192,
+            isvprodid: 256,
+            isvsvn: 258,
+            configsvn: 260,
+            reserved4: 262,
+            isvfamilyid: 304,
+            reportdata: 320
+        }
 
-    struct TargetInfo: 512, 512 => {
-        mrenclave: 0,
-        attributes: 32,
-        cet_attributes: 48,
-        reserved1: 49,
-        configsvn: 50,
-        miscselect: 52,
-        reserved2: 56,
-        configid: 64,
-        reserved3: 128
+        struct Report: 512, 512 => {
+            payload: 0,
+            keyid: 384,
+            mac: 416,
+            padding: 432
+        }
+
+        struct TargetInfo: 512, 512 => {
+            mrenclave: 0,
+            attributes: 32,
+            cet_attributes: 48,
+            reserved1: 49,
+            configsvn: 50,
+            miscselect: 52,
+            reserved2: 56,
+            configid: 64,
+            reserved3: 128
+        }
     }
 }
