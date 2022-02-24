@@ -1,5 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
+#[macro_use]
+pub mod testaso;
+
+pub mod sgx;
+
 use core::mem::size_of;
 
 /// `get_attestation` syscall number used by the shim.
