@@ -3,8 +3,9 @@
 use super::alloc::{Alloc, Allocator, Collect, Commit, Committer};
 use super::call::kind;
 use super::syscall::types::{SockaddrInput, SockaddrOutput, SockoptInput};
-use super::{gdbcall, syscall, Call, Platform, ThreadLocalStorage, SIGRTMAX};
+use super::{enarxcall, gdbcall, syscall, Call, Platform, ThreadLocalStorage, SIGRTMAX};
 use crate::{item, Result};
+use core::arch::x86_64::CpuidResult;
 use core::mem::size_of;
 use core::ptr::NonNull;
 use core::slice;
@@ -804,5 +805,47 @@ pub trait Handler: Platform {
     fn gdb_write_all(&mut self, buf: &[u8]) -> Result<usize> {
         self.execute(gdbcall::WriteAll { buf })?
             .unwrap_or_else(|| self.attacked())
+    }
+
+    // Enarx calls, sorted alphabetically.
+
+    /// Request an additional memory region and return the virtual address of allocated region.
+    ///
+    /// # Arguments
+    ///
+    /// - `size_exponent`: Page size expressed as an exponent of 2
+    /// - `pages`: Number of pages to allocate
+    /// - `addr`: Guest physical address where the memory should be allocated
+    #[inline]
+    fn balloon_memory(
+        &mut self,
+        size_exponent: usize,
+        pages: usize,
+        addr: *mut c_void,
+    ) -> Result<usize> {
+        self.execute(enarxcall::BalloonMemory {
+            size_exponent,
+            pages,
+            addr,
+        })?
+    }
+
+    /// Execute `cpuid` instruction storing the result in `result`.
+    #[inline]
+    fn cpuid(&mut self, leaf: u32, sub_leaf: u32, result: &mut CpuidResult) -> Result<()> {
+        self.execute(enarxcall::Cpuid {
+            leaf,
+            sub_leaf,
+            result,
+        })?
+    }
+
+    /// Gets number of memory slots available for ballooning from the host.
+    ///
+    /// KVM only has a limited number of memory ballooning slots, which varies by technology and kernel version.
+    /// Knowing this number helps the shim allocator to decide how much memory to allocate for each slot.
+    #[inline]
+    fn mem_info(&mut self) -> Result<usize> {
+        self.execute(enarxcall::MemInfo)?
     }
 }

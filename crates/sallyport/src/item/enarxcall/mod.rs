@@ -37,6 +37,14 @@ impl From<&mut [usize; USIZE_COUNT]> for &mut Payload {
 #[repr(usize)]
 /// Number of an [`Item`](super::Item) of [`Kind::Enarxcall`](super::Kind::Enarxcall).
 pub enum Number {
+    /// MemInfo request call number.
+    MemInfo = 0x00,
+
+    /// Memory ballooning request call number.
+    BalloonMemory = 0x01,
+
+    /// Cpuid instruction call number.
+    Cpuid = 0x02,
 }
 
 #[cfg(test)]

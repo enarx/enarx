@@ -9,6 +9,8 @@ use crate::Result;
 /// A generic Enarx call, which can be allocated within the block.
 pub trait Alloc<'a> {
     /// Enarx call number.
+    ///
+    /// For example, [`item::enarxcall::Number::Cpuid`](Number::Cpuid).
     const NUM: Number;
 
     /// The Enarx call argument vector.

@@ -3,6 +3,8 @@
 //! Host-specific functionality.
 
 #[cfg(not(miri))]
+mod enarxcall;
+#[cfg(not(miri))]
 mod syscall;
 
 use crate::item::Item;
@@ -28,6 +30,11 @@ impl<'a> Execute for Item<'a> {
 
             Item::Gdbcall { .. } => {}
 
+            #[cfg(not(miri))]
+            Item::Enarxcall(call, data) => {
+                let _ = enarxcall::execute(call, data);
+            }
+            #[cfg(miri)]
             Item::Enarxcall { .. } => {}
         }
     }

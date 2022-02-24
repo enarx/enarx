@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
+pub mod enarxcall;
 pub mod syscall;
 
 use std::ffi::CStr;
