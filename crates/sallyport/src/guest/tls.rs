@@ -10,7 +10,7 @@ pub struct ThreadLocalStorage {
 
 impl ThreadLocalStorage {
     #[inline]
-    fn new() -> Self {
+    pub const fn new() -> Self {
         Self {
             actions: [None; SIGRTMAX as _],
         }
