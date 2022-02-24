@@ -5,10 +5,11 @@
 #[cfg(not(miri))]
 mod syscall;
 
-#[cfg(not(miri))]
-use syscall::*;
-
 use crate::item::Item;
+use crate::Result;
+
+use core::mem::{align_of, size_of};
+use libc::EFAULT;
 
 pub(super) trait Execute {
     unsafe fn execute(self);
@@ -19,8 +20,8 @@ impl<'a> Execute for Item<'a> {
     unsafe fn execute(self) {
         match self {
             #[cfg(not(miri))]
-            Item::Syscall(syscall, data) => {
-                let _ = execute_syscall(syscall, data);
+            Item::Syscall(call, data) => {
+                let _ = syscall::execute(call, data);
             }
             #[cfg(miri)]
             Item::Syscall { .. } => {}
@@ -43,6 +44,35 @@ impl<'a, T: IntoIterator<Item = Item<'a>>> Execute for T {
 #[inline]
 pub fn execute<'a>(items: impl IntoIterator<Item = Item<'a>>) {
     unsafe { items.execute() }
+}
+
+/// Validates that `data` contains `len` elements of type `T` at `offset`
+/// and returns a mutable pointer to the first element on success.
+///
+/// # Safety
+///
+/// Callers must ensure that pointer is correctly aligned before accessing it.
+///
+#[inline]
+unsafe fn deref<T>(data: &mut [u8], offset: usize, len: usize) -> Result<*mut T> {
+    let size = len * size_of::<T>();
+    if size > data.len() || data.len() - size < offset {
+        Err(libc::EFAULT)
+    } else {
+        Ok(data[offset..offset + size].as_mut_ptr() as _)
+    }
+}
+
+/// Validates that `data` contains `len` elements of type `T` at `offset`
+/// aligned to `align_of::<T>()` and returns a mutable pointer to the first element on success.
+#[inline]
+fn deref_aligned<T>(data: &mut [u8], offset: usize, len: usize) -> Result<*mut T> {
+    let ptr = unsafe { deref::<T>(data, offset, len) }?;
+    if ptr.align_offset(align_of::<T>()) != 0 {
+        Err(EFAULT)
+    } else {
+        Ok(ptr)
+    }
 }
 
 #[cfg(test)]

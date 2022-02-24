@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use super::Execute;
+use super::{deref, deref_aligned, Execute};
 use crate::{item, Result, NULL};
 
 use core::arch::asm;
-use core::mem::{align_of, size_of};
+use core::mem::align_of;
 use core::ptr::{null, null_mut};
 use libc::{c_long, epoll_event, pollfd, sigset_t, sockaddr_storage, socklen_t, timespec, EFAULT};
 
@@ -126,35 +126,6 @@ impl Execute for Syscall<'_, 6, 1> {
     }
 }
 
-/// Validates that `data` contains `len` elements of type `T` at `offset`
-/// and returns a mutable pointer to the first element on success.
-///
-/// # Safety
-///
-/// Callers must ensure that pointer is correctly aligned before accessing it.
-///
-#[inline]
-unsafe fn deref<T>(data: &mut [u8], offset: usize, len: usize) -> Result<*mut T> {
-    let size = len * size_of::<T>();
-    if size > data.len() || data.len() - size < offset {
-        Err(libc::EFAULT)
-    } else {
-        Ok(data[offset..offset + size].as_mut_ptr() as _)
-    }
-}
-
-/// Validates that `data` contains `len` elements of type `T` at `offset`
-/// aligned to `align_of::<T>()` and returns a mutable pointer to the first element on success.
-#[inline]
-fn deref_aligned<T>(data: &mut [u8], offset: usize, len: usize) -> Result<*mut T> {
-    let ptr = unsafe { deref::<T>(data, offset, len) }?;
-    if ptr.align_offset(align_of::<T>()) != 0 {
-        Err(EFAULT)
-    } else {
-        Ok(ptr)
-    }
-}
-
 /// Validates that `data` contains aligned sockaddr input at `addr_offset` of `addrlen` size
 /// and returns an immutable pointer to address buffer on success.
 #[inline]
@@ -184,8 +155,8 @@ fn deref_sockaddr_output(
     }
 }
 
-pub(super) unsafe fn execute_syscall(syscall: &mut item::Syscall, data: &mut [u8]) -> Result<()> {
-    match syscall {
+pub(super) unsafe fn execute(call: &mut item::Syscall, data: &mut [u8]) -> Result<()> {
+    match call {
         item::Syscall {
             num,
             argv: [sockfd, addr_offset, addrlen_offset, ..],
