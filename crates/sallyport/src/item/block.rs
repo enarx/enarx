@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use super::{gdbcall, syscall, Item, Kind, LARGEST_ITEM_SIZE};
-use crate::iter::{IntoIterator, Iterator};
 
 use core::convert::TryInto;
 use core::mem::{align_of, size_of};
@@ -106,25 +105,37 @@ impl<'a> From<Block<'a>> for Option<(Option<Item<'a>>, Block<'a>)> {
     }
 }
 
-impl<'a> Iterator for Block<'a> {
+impl<'a> IntoIterator for Block<'a> {
     type Item = Item<'a>;
+    type IntoIter = BlockIterator<'a>;
 
-    #[inline]
-    fn next(self) -> Option<(Self::Item, Block<'a>)> {
-        match self.into() {
-            Some((Some(item), tail)) => Some((item, tail)),
-            Some((None, tail)) => tail.next(),
-            None => None,
-        }
+    fn into_iter(self) -> Self::IntoIter {
+        BlockIterator(Some(self))
     }
 }
 
-impl<'a> IntoIterator for Block<'a> {
-    type Item = <Self as Iterator>::Item;
-    type IntoIter = Self;
+/// An iterator for `Item` over a `Block`
+pub struct BlockIterator<'a>(Option<Block<'a>>);
 
-    fn into_iter(self) -> Self::IntoIter {
-        self
+impl<'a> Iterator for BlockIterator<'a> {
+    type Item = Item<'a>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self.0.take() {
+            Some(mut block) => loop {
+                match block.into() {
+                    Some((Some(item), tail)) => {
+                        self.0 = Some(tail);
+                        return Some(item);
+                    }
+                    Some((None, tail)) => {
+                        block = tail;
+                    }
+                    None => return None,
+                }
+            },
+            None => None,
+        }
     }
 }
 
@@ -178,7 +189,10 @@ mod tests {
             Kind::End as _, // kind
         ];
 
-        let (item, tail) = Block::from(&mut block[..]).next().unwrap();
+        let block = Block::from(&mut block[..]);
+        let mut block_iter = block.into_iter();
+
+        let item = block_iter.next().unwrap();
         assert!(
             matches!(item, Item::Syscall (syscall::Payload{ num, argv, ret }, data) if {
                 assert_eq!(*num, libc::SYS_read as _);
@@ -189,7 +203,7 @@ mod tests {
             })
         );
 
-        let (item, tail) = tail.next().unwrap();
+        let item = block_iter.next().unwrap();
         assert!(
             matches!(item, Item::Syscall (syscall::Payload{ num, argv, ret }, data) if {
                 assert_eq!(*num, libc::SYS_exit as _);
@@ -199,6 +213,6 @@ mod tests {
                 true
             })
         );
-        assert!(tail.next().is_none());
+        assert!(block_iter.next().is_none());
     }
 }

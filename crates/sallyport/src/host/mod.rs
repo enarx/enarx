@@ -9,7 +9,6 @@ mod syscall;
 use syscall::*;
 
 use crate::item::Item;
-use crate::iter::{IntoIterator, Iterator};
 
 pub(super) trait Execute {
     unsafe fn execute(self);
@@ -113,7 +112,7 @@ mod tests {
         let (close, _) = tail.split_first_mut().unwrap();
 
         super::execute(
-            IntoIterator::into_iter([
+            [
                 Item::Gdbcall(
                     &mut Gdbcall {
                         num: gdbcall::Number::Read,
@@ -128,7 +127,8 @@ mod tests {
                 Item::Syscall(&mut sync.0, &mut sync.1),
                 Item::Syscall(&mut write.0, &mut write.1),
                 Item::Syscall(&mut close.0, &mut close.1),
-            ])
+            ]
+            .into_iter()
             .filter_map(|item| match item {
                 Item::Gdbcall(call, data) => {
                     assert_eq!(
