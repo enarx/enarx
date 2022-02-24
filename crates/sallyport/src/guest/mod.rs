@@ -59,7 +59,7 @@ mod handler;
 mod platform;
 mod tls;
 
-pub use call::{gdbcall, syscall, Call};
+pub use call::{enarxcall, gdbcall, syscall, Call};
 pub use handler::*;
 pub use platform::*;
 pub use tls::*;

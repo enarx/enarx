@@ -26,6 +26,8 @@ impl<'a> Execute for Item<'a> {
             Item::Syscall { .. } => {}
 
             Item::Gdbcall { .. } => {}
+
+            Item::Enarxcall { .. } => {}
         }
     }
 }

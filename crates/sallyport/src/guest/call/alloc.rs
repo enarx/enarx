@@ -32,6 +32,12 @@ pub(crate) mod kind {
     }
 
     #[repr(transparent)]
+    pub struct Enarxcall;
+    impl Kind for Enarxcall {
+        const ITEM: item::Kind = item::Kind::Enarxcall;
+    }
+
+    #[repr(transparent)]
     pub struct MaybeAlloc<'a, K: Kind, T: Alloc<'a, K>>(&'a PhantomData<(K, T)>);
     impl<'a, K: Kind, T: Alloc<'a, K>> Kind for MaybeAlloc<'a, K, T> {
         const ITEM: item::Kind = K::ITEM;

@@ -3,10 +3,12 @@
 //! Shared `sallyport` item definitions.
 
 mod block;
+pub mod enarxcall;
 pub mod gdbcall;
 pub mod syscall;
 
 pub use block::*;
+pub use enarxcall::Payload as Enarxcall;
 pub use gdbcall::Payload as Gdbcall;
 pub use syscall::Payload as Syscall;
 
@@ -22,10 +24,15 @@ use libc::EINVAL;
 /// 0xffff - (sizeof(minimal IP Header) + sizeof(UDP Header)) = 65535-(20+8) = 65507
 pub const MAX_UDP_PACKET_SIZE: usize = 65507;
 
-pub(super) const LARGEST_PAYLOAD_SIZE: usize = if size_of::<Gdbcall>() > size_of::<Syscall>() {
-    size_of::<Gdbcall>()
-} else {
-    size_of::<Syscall>()
+pub(super) const LARGEST_PAYLOAD_SIZE: usize = {
+    let mut max = size_of::<Gdbcall>();
+    if size_of::<Syscall>() > max {
+        max = size_of::<Syscall>();
+    }
+    if size_of::<Enarxcall>() > max {
+        max = size_of::<Enarxcall>();
+    }
+    max
 };
 
 pub(super) const LARGEST_ITEM_SIZE: usize = size_of::<Header>() + LARGEST_PAYLOAD_SIZE;
@@ -38,6 +45,7 @@ pub enum Kind {
 
     Syscall = 0x01,
     Gdbcall = 0x02,
+    Enarxcall = 0x03,
 }
 
 impl TryFrom<usize> for Kind {
@@ -49,6 +57,7 @@ impl TryFrom<usize> for Kind {
             kind if kind == Kind::End as _ => Ok(Kind::End),
             kind if kind == Kind::Syscall as _ => Ok(Kind::Syscall),
             kind if kind == Kind::Gdbcall as _ => Ok(Kind::Gdbcall),
+            kind if kind == Kind::Enarxcall as _ => Ok(Kind::Enarxcall),
             _ => Err(EINVAL),
         }
     }
@@ -80,4 +89,5 @@ impl TryFrom<[usize; HEADER_USIZE_COUNT]> for Header {
 pub enum Item<'a> {
     Syscall(&'a mut Syscall, &'a mut [u8]),
     Gdbcall(&'a mut Gdbcall, &'a mut [u8]),
+    Enarxcall(&'a mut Enarxcall, &'a mut [u8]),
 }

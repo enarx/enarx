@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use super::{gdbcall, syscall, Item, Kind, LARGEST_ITEM_SIZE};
+use super::{enarxcall, gdbcall, syscall, Item, Kind, LARGEST_ITEM_SIZE};
 
 use core::convert::TryInto;
 use core::mem::{align_of, size_of};
@@ -95,6 +95,11 @@ impl<'a> From<Block<'a>> for Option<(Option<Item<'a>>, Block<'a>)> {
                     Ok(Kind::Gdbcall) => {
                         decode_item::<{ gdbcall::USIZE_COUNT }, gdbcall::Payload>(*size, tail)
                             .map(|((call, data), tail)| (Some(Item::Gdbcall(call, data)), tail))
+                    }
+
+                    Ok(Kind::Enarxcall) => {
+                        decode_item::<{ enarxcall::USIZE_COUNT }, enarxcall::Payload>(*size, tail)
+                            .map(|((call, data), tail)| (Some(Item::Enarxcall(call, data)), tail))
                     }
 
                     Err(_) => Some((None, tail.split_at_mut(*size / size_of::<usize>()).1.into())),
