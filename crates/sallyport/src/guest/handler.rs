@@ -509,51 +509,6 @@ pub trait Handler: Platform {
             .unwrap_or_else(|| self.attacked())
     }
 
-    // GDB calls, sorted alphabetically.
-
-    #[cfg_attr(feature = "doc", doc = "Executes [gdbstub::conn::Connection::flush]")]
-    #[inline]
-    fn gdb_flush(&mut self) -> Result<()> {
-        self.execute(gdbcall::Flush)?
-    }
-
-    #[cfg_attr(
-        feature = "doc",
-        doc = "Executes [gdbstub::conn::Connection::on_session_start]"
-    )]
-    #[inline]
-    fn gdb_on_session_start(&mut self) -> Result<()> {
-        self.execute(gdbcall::OnSessionStart)?
-    }
-
-    #[cfg_attr(feature = "doc", doc = "Executes [gdbstub::conn::ConnectionExt::peek]")]
-    #[inline]
-    fn gdb_peek(&mut self) -> Result<Option<u8>> {
-        self.execute(gdbcall::Peek)?
-    }
-
-    #[cfg_attr(feature = "doc", doc = "Executes [gdbstub::conn::ConnectionExt::read]")]
-    #[inline]
-    fn gdb_read(&mut self) -> Result<u8> {
-        self.execute(gdbcall::Read)?
-    }
-
-    #[cfg_attr(feature = "doc", doc = "Executes [gdbstub::conn::Connection::write]")]
-    #[inline]
-    fn gdb_write(&mut self, byte: u8) -> Result<()> {
-        self.execute(gdbcall::Write { byte })?
-    }
-
-    #[cfg_attr(
-        feature = "doc",
-        doc = "Executes [gdbstub::conn::Connection::write_all] and returns the amount of bytes written"
-    )]
-    #[inline]
-    fn gdb_write_all(&mut self, buf: &[u8]) -> Result<usize> {
-        self.execute(gdbcall::WriteAll { buf })?
-            .unwrap_or_else(|| self.attacked())
-    }
-
     /// Executes a supported syscall expressed as an opaque 7-word array akin to [`libc::syscall`].
     ///
     /// # Safety
@@ -804,5 +759,50 @@ pub trait Handler: Platform {
             }
             _ => Err(ENOSYS),
         }
+    }
+
+    // GDB calls, sorted alphabetically.
+
+    #[cfg_attr(feature = "doc", doc = "Executes [gdbstub::conn::Connection::flush]")]
+    #[inline]
+    fn gdb_flush(&mut self) -> Result<()> {
+        self.execute(gdbcall::Flush)?
+    }
+
+    #[cfg_attr(
+        feature = "doc",
+        doc = "Executes [gdbstub::conn::Connection::on_session_start]"
+    )]
+    #[inline]
+    fn gdb_on_session_start(&mut self) -> Result<()> {
+        self.execute(gdbcall::OnSessionStart)?
+    }
+
+    #[cfg_attr(feature = "doc", doc = "Executes [gdbstub::conn::ConnectionExt::peek]")]
+    #[inline]
+    fn gdb_peek(&mut self) -> Result<Option<u8>> {
+        self.execute(gdbcall::Peek)?
+    }
+
+    #[cfg_attr(feature = "doc", doc = "Executes [gdbstub::conn::ConnectionExt::read]")]
+    #[inline]
+    fn gdb_read(&mut self) -> Result<u8> {
+        self.execute(gdbcall::Read)?
+    }
+
+    #[cfg_attr(feature = "doc", doc = "Executes [gdbstub::conn::Connection::write]")]
+    #[inline]
+    fn gdb_write(&mut self, byte: u8) -> Result<()> {
+        self.execute(gdbcall::Write { byte })?
+    }
+
+    #[cfg_attr(
+        feature = "doc",
+        doc = "Executes [gdbstub::conn::Connection::write_all] and returns the amount of bytes written"
+    )]
+    #[inline]
+    fn gdb_write_all(&mut self, buf: &[u8]) -> Result<usize> {
+        self.execute(gdbcall::WriteAll { buf })?
+            .unwrap_or_else(|| self.attacked())
     }
 }
