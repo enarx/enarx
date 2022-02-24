@@ -14,7 +14,10 @@ use sallyport::guest::{Handler, Platform, ThreadLocalStorage};
 use sallyport::item::Block;
 use sallyport::{host, Result};
 
-pub struct TestHandler<const N: usize>([usize; N], ThreadLocalStorage);
+pub struct TestHandler<const N: usize> {
+    block: [usize; N],
+    tls: ThreadLocalStorage,
+}
 
 impl<const N: usize> Platform for TestHandler<N> {
     fn sally(&mut self) -> Result<()> {
@@ -22,23 +25,23 @@ impl<const N: usize> Platform for TestHandler<N> {
         Ok(())
     }
 
-    fn validate<'b, T>(&self, ptr: usize) -> Result<&'b T> {
+    fn validate<'a, T>(&self, ptr: usize) -> Result<&'a T> {
         Ok(unsafe { &*(ptr as *const _) })
     }
 
-    fn validate_mut<'b, T>(&self, ptr: usize) -> Result<&'b mut T> {
+    fn validate_mut<'a, T>(&self, ptr: usize) -> Result<&'a mut T> {
         Ok(unsafe { &mut *(ptr as *mut _) })
     }
 
-    fn validate_slice<'b, T>(&self, ptr: usize, len: usize) -> Result<&'b [T]> {
+    fn validate_slice<'a, T>(&self, ptr: usize, len: usize) -> Result<&'a [T]> {
         Ok(unsafe { slice::from_raw_parts(ptr as _, len) })
     }
 
-    fn validate_slice_mut<'b, T>(&self, ptr: usize, len: usize) -> Result<&'b mut [T]> {
+    fn validate_slice_mut<'a, T>(&self, ptr: usize, len: usize) -> Result<&'a mut [T]> {
         Ok(unsafe { slice::from_raw_parts_mut(ptr as _, len) })
     }
 
-    fn validate_str<'b>(&self, ptr: usize) -> Result<&'b [u8]> {
+    fn validate_str<'a>(&self, ptr: usize) -> Result<&'a [u8]> {
         Ok(unsafe { CStr::from_ptr(ptr as _) }.to_bytes())
     }
 
@@ -57,15 +60,15 @@ impl<const N: usize> Platform for TestHandler<N> {
 
 impl<const N: usize> Handler for TestHandler<N> {
     fn block(&self) -> &[usize] {
-        self.0.as_slice()
+        self.block.as_slice()
     }
 
     fn block_mut(&mut self) -> &mut [usize] {
-        self.0.as_mut_slice()
+        self.block.as_mut_slice()
     }
 
     fn thread_local_storage(&mut self) -> &mut ThreadLocalStorage {
-        &mut self.1
+        &mut self.tls
     }
 
     fn arch_prctl(&mut self, _code: c_int, _addr: c_ulong) -> Result<()> {
@@ -102,15 +105,21 @@ impl<const N: usize> Handler for TestHandler<N> {
 }
 
 pub fn run_test<const N: usize>(
-    n: usize,
+    iterations: usize,
     block: [usize; N],
     f: impl FnOnce(usize, &mut TestHandler<N>) + Sync + Send + Copy + 'static,
 ) {
-    for i in 0..n {
+    for i in 0..iterations {
         thread::Builder::new()
             .name(format!("iteration {}", i))
             .spawn(move || {
-                f(i, &mut TestHandler(block.clone(), Default::default()));
+                f(
+                    i,
+                    &mut TestHandler {
+                        block: block.clone(),
+                        tls: Default::default(),
+                    },
+                );
             })
             .expect(&format!("couldn't spawn test iteration {} thread", i))
             .join()
