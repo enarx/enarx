@@ -84,8 +84,15 @@
             nativeBuildInputs = [ pkgs.pkg-config ];
             buildInputs = [ pkgs.openssl ];
 
-            cargoTestOptions = x: x ++ [ "-- --skip check_listen_fd" ];
             doCheck = true;
+            preCheck = ''
+              if [[ -e /dev/kvm ]]; then
+                export cargo_test_options="$cargo_test_options -- --skip check_listen_fd"
+              else
+                header "No KVM support, running only unit tests"
+                export cargo_test_options="$cargo_test_options --bins"
+              fi
+            '';
           };
 
         defaultPackage = self.packages.${system}.enarx;
