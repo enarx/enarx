@@ -9,6 +9,6 @@ jobs:
       id: auto-merge
       run: gh pr merge --auto --rebase $PR_URL
       env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITHUB_TOKEN: ${{ secrets.BOT_TOKEN }}
         PR_URL: ${{ github.event.pull_request.html_url }}
 
