@@ -4,6 +4,7 @@ use super::alloc::{Alloc, Allocator, Collect, Commit, Committer};
 use super::call::kind;
 use super::syscall::types::{SockaddrInput, SockaddrOutput, SockoptInput};
 use super::{enarxcall, gdbcall, syscall, Call, Platform, ThreadLocalStorage, SIGRTMAX};
+use crate::item::enarxcall::sgx;
 use crate::{item, Result};
 use core::arch::x86_64::CpuidResult;
 use core::mem::size_of;
@@ -838,6 +839,19 @@ pub trait Handler: Platform {
             sub_leaf,
             result,
         })?
+    }
+
+    /// Requests SGX quote from the host given a report and returns the length of the quote on success.
+    #[inline]
+    fn get_sgx_quote(&mut self, report: &sgx::Report, quote: &mut [u8]) -> Result<usize> {
+        self.execute(enarxcall::GetSgxQuote { report, quote })?
+            .unwrap_or_else(|| self.attacked())
+    }
+
+    /// Requests [SGX `TargetInfo`](sgx::TargetInfo) from the host.
+    #[inline]
+    fn get_sgx_target_info(&mut self, info: &mut sgx::TargetInfo) -> Result<()> {
+        self.execute(enarxcall::GetSgxTargetInfo { info })?
     }
 
     /// Gets number of memory slots available for ballooning from the host.

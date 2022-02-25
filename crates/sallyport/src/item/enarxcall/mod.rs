@@ -47,6 +47,12 @@ pub enum Number {
 
     /// Cpuid instruction call number.
     Cpuid = 0x02,
+
+    /// SGX quote request call number.
+    GetSgxQuote = 0x03,
+
+    /// [SGX `TargetInfo`](sgx::TargetInfo) request call number.
+    GetSgxTargetInfo = 0x04,
 }
 
 #[cfg(test)]

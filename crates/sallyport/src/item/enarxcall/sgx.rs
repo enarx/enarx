@@ -106,6 +106,13 @@ impl Default for Report {
     }
 }
 
+impl AsRef<[u8; size_of::<Report>()]> for Report {
+    #[inline]
+    fn as_ref(&self) -> &[u8; size_of::<Report>()] {
+        unsafe { &*(self as *const _ as *const _) }
+    }
+}
+
 /// Description of the target enclave used for the report key derivation in
 /// EREPORT.
 #[derive(Debug, Clone, Copy)]
@@ -136,6 +143,13 @@ impl Default for TargetInfo {
             configid: [0; 64],
             reserved3: [0; 384],
         }
+    }
+}
+
+impl AsMut<[u8; size_of::<TargetInfo>()]> for TargetInfo {
+    #[inline]
+    fn as_mut(&mut self) -> &mut [u8; size_of::<TargetInfo>()] {
+        unsafe { &mut *(self as *mut _ as *mut _) }
     }
 }
 

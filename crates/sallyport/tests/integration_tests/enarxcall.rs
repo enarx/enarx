@@ -6,6 +6,7 @@ use libc::ENOSYS;
 use std::arch::x86_64::{CpuidResult, __cpuid_count};
 
 use sallyport::guest::Handler;
+use sallyport::item::enarxcall::sgx;
 
 #[test]
 fn balloon_memory() {
@@ -26,6 +27,23 @@ fn cpuid() {
         };
         assert_eq!(handler.cpuid(0, 0, &mut result), Ok(()));
         assert_eq!(result, unsafe { __cpuid_count(0, 0) })
+    })
+}
+
+#[test]
+fn get_sgx_quote() {
+    run_test(1, [0xff; 1024], move |_, handler| {
+        let report = Default::default();
+        let mut quote = [0u8; sgx::QUOTE_SIZE];
+        assert_eq!(handler.get_sgx_quote(&report, &mut quote), Err(ENOSYS));
+    })
+}
+
+#[test]
+fn get_sgx_target_info() {
+    run_test(1, [0xff; 512], move |_, handler| {
+        let mut info = Default::default();
+        assert_eq!(handler.get_sgx_target_info(&mut info), Err(ENOSYS));
     })
 }
 
