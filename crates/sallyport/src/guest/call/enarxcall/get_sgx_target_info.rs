@@ -7,8 +7,6 @@ use crate::item::enarxcall::sgx::TargetInfo;
 use crate::item::enarxcall::Number;
 use crate::Result;
 
-use core::mem::size_of;
-
 // GetSgxTargetInfo call, which writes the [SGX `TargetInfo`](TargetInfo) in `info` field.
 pub struct GetSgxTargetInfo<'a> {
     pub info: &'a mut TargetInfo,
@@ -20,7 +18,7 @@ impl<'a> Alloc<'a> for GetSgxTargetInfo<'a> {
     type Argv = Argv<1>;
     type Ret = ();
 
-    type Staged = Output<'a, [u8; size_of::<TargetInfo>()], &'a mut [u8; size_of::<TargetInfo>()]>;
+    type Staged = Output<'a, [u8; 512], &'a mut [u8; 512]>;
     type Committed = Self::Staged;
     type Collected = Result<()>;
 
@@ -38,5 +36,15 @@ impl<'a> Alloc<'a> for GetSgxTargetInfo<'a> {
             info.collect(col);
         }
         ret
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn target_info_size() {
+        assert_eq!(core::mem::size_of::<TargetInfo>(), 512);
     }
 }
