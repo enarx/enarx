@@ -1,12 +1,16 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use super::{deref, deref_aligned, Execute};
+use super::{deref, deref_aligned};
 use crate::{item, Result, NULL};
 
 use core::arch::asm;
 use core::mem::align_of;
 use core::ptr::{null, null_mut};
 use libc::{c_long, epoll_event, pollfd, sigset_t, sockaddr_storage, socklen_t, timespec, EFAULT};
+
+trait Execute {
+    unsafe fn execute(self);
+}
 
 struct Syscall<'a, const ARGS: usize, const RETS: usize> {
     /// The syscall number for the request.
@@ -547,7 +551,8 @@ pub(super) unsafe fn execute(call: &mut item::Syscall, data: &mut [u8]) -> Resul
             .execute();
         }
 
-        _ => return Err(libc::ENOSYS),
+        // Silently skip unsupported items
+        _ => {}
     }
     Ok(())
 }

@@ -34,7 +34,8 @@ pub(super) unsafe fn execute(call: &mut item::Enarxcall, data: &mut [u8]) -> Res
             *ret = 0; // Indicate success
         }
 
-        _ => return Err(libc::ENOSYS),
+        // Silently skip unsupported items
+        _ => {}
     }
     Ok(())
 }

@@ -21,8 +21,7 @@ pub struct TestHandler<const N: usize> {
 
 impl<const N: usize> Platform for TestHandler<N> {
     fn sally(&mut self) -> Result<()> {
-        host::execute(Block::from(self.block_mut()));
-        Ok(())
+        host::execute(Block::from(self.block_mut()))
     }
 
     fn validate<'a, T>(&self, ptr: usize) -> Result<&'a T> {

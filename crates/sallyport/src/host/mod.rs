@@ -15,42 +15,38 @@ use core::ptr::slice_from_raw_parts_mut;
 use libc::{EFAULT, EOVERFLOW};
 
 pub(super) trait Execute {
-    unsafe fn execute(self);
+    unsafe fn execute(self) -> Result<()>;
 }
 
 impl<'a> Execute for Item<'a> {
     #[inline]
-    unsafe fn execute(self) {
+    unsafe fn execute(self) -> Result<()> {
         match self {
             #[cfg(not(miri))]
-            Item::Syscall(call, data) => {
-                let _ = syscall::execute(call, data);
-            }
+            Item::Syscall(call, data) => syscall::execute(call, data),
             #[cfg(miri)]
-            Item::Syscall { .. } => {}
+            Item::Syscall { .. } => Ok(()),
 
-            Item::Gdbcall { .. } => {}
+            Item::Gdbcall { .. } => Ok(()),
 
             #[cfg(not(miri))]
-            Item::Enarxcall(call, data) => {
-                let _ = enarxcall::execute(call, data);
-            }
+            Item::Enarxcall(call, data) => enarxcall::execute(call, data),
             #[cfg(miri)]
-            Item::Enarxcall { .. } => {}
+            Item::Enarxcall { .. } => Ok(()),
         }
     }
 }
 
 impl<'a, T: IntoIterator<Item = Item<'a>>> Execute for T {
     #[inline]
-    unsafe fn execute(self) {
-        self.into_iter().for_each(|item| item.execute())
+    unsafe fn execute(self) -> Result<()> {
+        self.into_iter().try_for_each(|item| item.execute())
     }
 }
 
 /// Executes the passed `items`.
 #[inline]
-pub fn execute<'a>(items: impl IntoIterator<Item = Item<'a>>) {
+pub fn execute<'a>(items: impl IntoIterator<Item = Item<'a>>) -> Result<()> {
     unsafe { items.execute() }
 }
 
@@ -372,40 +368,43 @@ mod tests {
         let (write, tail) = tail.split_first_mut().unwrap();
         let (close, _) = tail.split_first_mut().unwrap();
 
-        super::execute(
-            [
-                Item::Gdbcall(
-                    &mut Gdbcall {
-                        num: gdbcall::Number::Read,
-                        argv: [NULL, NULL, NULL, NULL],
-                        ret: -ENOSYS as _,
-                    },
-                    &mut [],
-                ),
-                Item::Syscall(&mut dup2.0, &mut dup2.1),
-                Item::Syscall(&mut fcntl.0, &mut fcntl.1),
-                Item::Syscall(&mut read.0, &mut read.1),
-                Item::Syscall(&mut sync.0, &mut sync.1),
-                Item::Syscall(&mut write.0, &mut write.1),
-                Item::Syscall(&mut close.0, &mut close.1),
-            ]
-            .into_iter()
-            .filter_map(|item| match item {
-                Item::Gdbcall(call, data) => {
-                    assert_eq!(
-                        *call,
-                        Gdbcall {
+        assert_eq!(
+            super::execute(
+                [
+                    Item::Gdbcall(
+                        &mut Gdbcall {
                             num: gdbcall::Number::Read,
                             argv: [NULL, NULL, NULL, NULL],
                             ret: -ENOSYS as _,
-                        }
-                    );
-                    assert_eq!(*data, []);
-                    call.ret = 42;
-                    None
-                }
-                _ => Some(item),
-            }),
+                        },
+                        &mut [],
+                    ),
+                    Item::Syscall(&mut dup2.0, &mut dup2.1),
+                    Item::Syscall(&mut fcntl.0, &mut fcntl.1),
+                    Item::Syscall(&mut read.0, &mut read.1),
+                    Item::Syscall(&mut sync.0, &mut sync.1),
+                    Item::Syscall(&mut write.0, &mut write.1),
+                    Item::Syscall(&mut close.0, &mut close.1),
+                ]
+                .into_iter()
+                .filter_map(|item| match item {
+                    Item::Gdbcall(call, data) => {
+                        assert_eq!(
+                            *call,
+                            Gdbcall {
+                                num: gdbcall::Number::Read,
+                                argv: [NULL, NULL, NULL, NULL],
+                                ret: -ENOSYS as _,
+                            }
+                        );
+                        assert_eq!(*data, []);
+                        call.ret = 42;
+                        None
+                    }
+                    _ => Some(item),
+                }),
+            ),
+            Ok(())
         );
         assert_eq!(
             syscalls,
