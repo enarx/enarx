@@ -33,6 +33,11 @@ pub const ARCH_GET_FS: libc::c_int = 0x1003;
 /// missing in libc
 pub const ARCH_GET_GS: libc::c_int = 0x1004;
 
+// [`libc::sigaction`] is not in the format used by the kernel.
+/// sigaction as expected by the kernel.
+#[allow(non_camel_case_types)] // follow `libc` conventions
+pub type sigaction = [u64; 4];
+
 #[cfg(test)]
 mod tests {
     use super::*;

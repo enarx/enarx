@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use libc::{c_int, sigaction};
+use crate::item::syscall::sigaction;
+
+use libc::c_int;
 
 pub(super) const SIGRTMAX: c_int = 64;
 
