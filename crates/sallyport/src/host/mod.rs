@@ -11,7 +11,8 @@ use crate::item::Item;
 use crate::Result;
 
 use core::mem::{align_of, size_of};
-use libc::EFAULT;
+use core::ptr::slice_from_raw_parts_mut;
+use libc::{EFAULT, EOVERFLOW};
 
 pub(super) trait Execute {
     unsafe fn execute(self);
@@ -62,12 +63,24 @@ pub fn execute<'a>(items: impl IntoIterator<Item = Item<'a>>) {
 ///
 #[inline]
 pub unsafe fn deref<T>(data: &mut [u8], offset: usize, len: usize) -> Result<*mut T> {
-    let size = len * size_of::<T>();
+    let size = len.checked_mul(size_of::<T>()).ok_or(EOVERFLOW)?;
     if size > data.len() || data.len() - size < offset {
-        Err(libc::EFAULT)
+        Err(EFAULT)
     } else {
         Ok(data[offset..offset + size].as_mut_ptr() as _)
     }
+}
+
+/// Validates that `data` contains `len` elements of type `T` at `offset`
+/// and returns a mutable slice pointer to the first element on success.
+///
+/// # Safety
+///
+/// Callers must ensure that pointer is correctly aligned before accessing it.
+///
+#[inline]
+pub unsafe fn deref_slice<T>(data: &mut [u8], offset: usize, len: usize) -> Result<*mut [T]> {
+    deref(data, offset, len).map(|ptr| slice_from_raw_parts_mut(ptr, len))
 }
 
 /// Validates that `data` contains `len` elements of type `T` at `offset`
@@ -82,6 +95,13 @@ pub fn deref_aligned<T>(data: &mut [u8], offset: usize, len: usize) -> Result<*m
     }
 }
 
+/// Validates that `data` contains `len` elements of type `T` at `offset`
+/// aligned to `align_of::<T>()` and returns a mutable slice pointer to the first element on success.
+#[inline]
+pub fn deref_aligned_slice<T>(data: &mut [u8], offset: usize, len: usize) -> Result<*mut [T]> {
+    deref_aligned(data, offset, len).map(|ptr| slice_from_raw_parts_mut(ptr, len))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -89,6 +109,208 @@ mod tests {
     use crate::NULL;
 
     use libc::*;
+    use std::fmt::Debug;
+
+    struct DerefTestCase<T> {
+        offset: usize,
+        len: usize,
+        expected: T,
+    }
+
+    impl<T> From<(usize, usize, T)> for DerefTestCase<T> {
+        fn from((offset, len, expected): (usize, usize, T)) -> Self {
+            Self {
+                offset,
+                len,
+                expected,
+            }
+        }
+    }
+
+    fn test_deref<T: Debug + PartialEq>(
+        f: impl Fn(&mut [u8], usize, usize) -> T,
+        data: &mut [u8],
+        cases: impl IntoIterator<Item = impl Into<DerefTestCase<T>>>,
+    ) {
+        cases.into_iter().enumerate().for_each(|(i, case)| {
+            let case = case.into();
+            assert_eq!(
+                f(data, case.offset, case.len),
+                case.expected,
+                "case: {}, data: {:?}",
+                i,
+                data.as_mut_ptr(),
+            );
+        })
+    }
+
+    #[test]
+    fn deref() {
+        let mut data = [0u8; 4];
+        let cases = [
+            (0, 0, Ok(data.as_mut_ptr() as _)),
+            (0, 1, Ok(data.as_mut_ptr() as _)),
+            (0, 2, Ok(data.as_mut_ptr() as _)),
+            (0, 3, Err(EFAULT)),
+            (1, 0, Ok(data[1..].as_mut_ptr() as _)),
+            (1, 1, Ok(data[1..].as_mut_ptr() as _)),
+            (1, 2, Err(EFAULT)),
+            (2, 0, Ok(data[2..].as_mut_ptr() as _)),
+            (2, 1, Ok(data[2..].as_mut_ptr() as _)),
+            (2, 2, Err(EFAULT)),
+            (usize::MAX, 0, Err(EFAULT)),
+            (0, usize::MAX, Err(EOVERFLOW)),
+            (usize::MAX, usize::MAX, Err(EOVERFLOW)),
+        ];
+        test_deref(
+            |data, offset, len| unsafe { super::deref::<[u8; 2]>(data, offset, len) },
+            &mut data,
+            cases,
+        );
+        test_deref(
+            |data, offset, len| super::deref_aligned::<[u8; 2]>(data, offset, len),
+            &mut data,
+            cases,
+        );
+    }
+
+    #[test]
+    fn deref_aligned() {
+        let mut data = [0u128; 4];
+        let (prefix, mut data, suffix) = unsafe { data.align_to_mut() };
+        assert!(prefix.is_empty());
+        assert!(suffix.is_empty());
+
+        let cases = [
+            (0, 0, Ok(data.as_mut_ptr() as _)),
+            (0, 1, Ok(data.as_mut_ptr() as _)),
+            (0, 2, Ok(data.as_mut_ptr() as _)),
+            (1, 0, Err(EFAULT)),
+            (1, 1, Err(EFAULT)),
+            (1, 2, Err(EFAULT)),
+            (2, 0, Ok(data[2..].as_mut_ptr() as _)),
+            (2, 1, Ok(data[2..].as_mut_ptr() as _)),
+            (2, 2, Ok(data[2..].as_mut_ptr() as _)),
+            (usize::MAX, 0, Err(EFAULT)),
+            (0, usize::MAX, Err(EOVERFLOW)),
+            (usize::MAX, usize::MAX, Err(EOVERFLOW)),
+        ];
+        test_deref(
+            |data, offset, len| super::deref_aligned::<u16>(data, offset, len),
+            &mut data,
+            cases,
+        );
+    }
+
+    #[test]
+    fn deref_slice() {
+        let mut data = [0u8; 4];
+        let cases = [
+            (
+                0,
+                0,
+                Ok(slice_from_raw_parts_mut(data.as_mut_ptr() as _, 0)),
+            ),
+            (
+                0,
+                1,
+                Ok(slice_from_raw_parts_mut(data.as_mut_ptr() as _, 1)),
+            ),
+            (
+                0,
+                2,
+                Ok(slice_from_raw_parts_mut(data.as_mut_ptr() as _, 2)),
+            ),
+            (0, 3, Err(EFAULT)),
+            (
+                1,
+                0,
+                Ok(slice_from_raw_parts_mut(data[1..].as_mut_ptr() as _, 0)),
+            ),
+            (
+                1,
+                1,
+                Ok(slice_from_raw_parts_mut(data[1..].as_mut_ptr() as _, 1)),
+            ),
+            (1, 2, Err(EFAULT)),
+            (
+                2,
+                0,
+                Ok(slice_from_raw_parts_mut(data[2..].as_mut_ptr() as _, 0)),
+            ),
+            (
+                2,
+                1,
+                Ok(slice_from_raw_parts_mut(data[2..].as_mut_ptr() as _, 1)),
+            ),
+            (2, 2, Err(EFAULT)),
+            (usize::MAX, 0, Err(EFAULT)),
+            (0, usize::MAX, Err(EOVERFLOW)),
+            (usize::MAX, usize::MAX, Err(EOVERFLOW)),
+        ];
+        test_deref(
+            |data, offset, len| unsafe { super::deref_slice::<[u8; 2]>(data, offset, len) },
+            &mut data,
+            cases,
+        );
+        test_deref(
+            |data, offset, len| super::deref_aligned_slice::<[u8; 2]>(data, offset, len),
+            &mut data,
+            cases,
+        );
+    }
+
+    #[test]
+    fn deref_aligned_slice() {
+        let mut data = [0u128; 4];
+        let (prefix, mut data, suffix) = unsafe { data.align_to_mut() };
+        assert!(prefix.is_empty());
+        assert!(suffix.is_empty());
+
+        let cases = [
+            (
+                0,
+                0,
+                Ok(slice_from_raw_parts_mut(data.as_mut_ptr() as _, 0)),
+            ),
+            (
+                0,
+                1,
+                Ok(slice_from_raw_parts_mut(data.as_mut_ptr() as _, 1)),
+            ),
+            (
+                0,
+                2,
+                Ok(slice_from_raw_parts_mut(data.as_mut_ptr() as _, 2)),
+            ),
+            (1, 0, Err(EFAULT)),
+            (1, 1, Err(EFAULT)),
+            (1, 2, Err(EFAULT)),
+            (
+                2,
+                0,
+                Ok(slice_from_raw_parts_mut(data[2..].as_mut_ptr() as _, 0)),
+            ),
+            (
+                2,
+                1,
+                Ok(slice_from_raw_parts_mut(data[2..].as_mut_ptr() as _, 1)),
+            ),
+            (
+                2,
+                2,
+                Ok(slice_from_raw_parts_mut(data[2..].as_mut_ptr() as _, 2)),
+            ),
+            (usize::MAX, 0, Err(EFAULT)),
+            (0, usize::MAX, Err(EOVERFLOW)),
+            (usize::MAX, usize::MAX, Err(EOVERFLOW)),
+        ];
+        test_deref(
+            |data, offset, len| super::deref_aligned_slice::<u16>(data, offset, len),
+            &mut data,
+            cases,
+        );
+    }
 
     #[test]
     fn execute() {
