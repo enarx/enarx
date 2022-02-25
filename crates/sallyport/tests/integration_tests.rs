@@ -343,6 +343,33 @@ fn getrandom() {
 
 #[test]
 #[serial]
+#[cfg_attr(miri, ignore)]
+fn poll() {
+    run_test(1, [0xff; 16], move |_, handler| {
+        let mut fds: [libc::pollfd; 3] = [
+            libc::pollfd {
+                fd: 0,
+                events: 0,
+                revents: 0,
+            },
+            libc::pollfd {
+                fd: 1,
+                events: 0,
+                revents: 0,
+            },
+            libc::pollfd {
+                fd: 2,
+                events: 0,
+                revents: 0,
+            },
+        ];
+
+        assert_eq!(handler.poll(&mut fds, 0), Ok(0));
+    });
+}
+
+#[test]
+#[serial]
 fn read() {
     run_test(2, [0xff; 16], move |i, handler| {
         const EXPECTED: &str = "read";

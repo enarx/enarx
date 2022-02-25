@@ -2,7 +2,7 @@
 
 use super::super::types::Argv;
 use super::Alloc;
-use crate::guest::alloc::{Allocator, Collector, Output};
+use crate::guest::alloc::{Allocator, Collector, InOut, Output};
 use crate::Result;
 
 use libc::{c_int, c_long, pollfd};
@@ -18,12 +18,12 @@ unsafe impl<'a> Alloc<'a> for Poll<'a> {
     type Argv = Argv<3>;
     type Ret = c_int;
 
-    type Staged = Output<'a, [pollfd], &'a mut [pollfd]>;
-    type Committed = Self::Staged;
+    type Staged = InOut<'a, [pollfd], &'a mut [pollfd]>;
+    type Committed = Output<'a, [pollfd], &'a mut [pollfd]>;
     type Collected = Option<Result<c_int>>;
 
     fn stage(self, alloc: &mut impl Allocator) -> Result<(Self::Argv, Self::Staged)> {
-        let fds = Output::stage_slice(alloc, self.fds)?;
+        let fds = InOut::stage_slice(alloc, self.fds)?;
         Ok((Argv([fds.offset(), fds.len(), self.timeout as _]), fds))
     }
 
