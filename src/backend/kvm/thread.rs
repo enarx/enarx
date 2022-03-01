@@ -5,7 +5,7 @@ use super::KeepPersonality;
 
 use std::sync::{Arc, RwLock};
 
-use anyhow::{anyhow, Result};
+use anyhow::{bail, Result};
 use kvm_ioctls::{VcpuExit, VcpuFd};
 use mmarinus::{perms, Kind, Map};
 use primordial::{Address, Register};
@@ -149,17 +149,16 @@ impl<P: KeepPersonality> super::super::Thread for Thread<P> {
                 self.keep.write().unwrap().sallyports[block_nr].replace(block_virt);
                 ret
             }
-
             #[cfg(debug_assertions)]
-            reason => Err(anyhow!(
-                "{:?} {:#x?} {:#x?}",
+            reason => bail!(
+                "KVM error: {:?} {:#x?} {:#x?}",
                 reason,
                 vcpu_fd.get_regs(),
                 vcpu_fd.get_sregs()
-            )),
+            ),
 
             #[cfg(not(debug_assertions))]
-            reason => Err(anyhow!("{:?}", reason)),
+            reason => bail!("KVM error: {:?}", reason),
         }
     }
 }
