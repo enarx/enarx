@@ -47,6 +47,12 @@ pub mod note {
     /// The minimum sallyport semver requires
     pub const REQUIRES: u32 = 0;
 
+    /// The sallyport block size of the shim (u64)
+    pub const BLOCK_SIZE: u32 = 0x73677820;
+
+    /// The number of sallyport blocks of the shim (u64)
+    pub const NUM_BLOCKS: u32 = 0x73677821;
+
     /// SGX ELF Notes
     pub mod sgx {
         /// The SGX enclave bits (u8; in powers of 2)
