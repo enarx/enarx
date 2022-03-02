@@ -18,6 +18,7 @@ use std::convert::TryFrom;
 use std::sync::Arc;
 
 use anyhow::{Error, Result};
+use libc::c_int;
 use mmarinus::{perms, Map};
 use serde::ser::{Serialize, SerializeStruct, Serializer};
 use spinning::Lazy;
@@ -104,6 +105,7 @@ pub trait Thread {
 pub enum Command {
     #[allow(dead_code)]
     Continue,
+    Exit(c_int),
 }
 
 pub static BACKENDS: Lazy<Vec<Box<dyn Backend>>> = Lazy::new(|| {
@@ -138,7 +140,7 @@ pub(super) unsafe fn execute_gdb(
     data: &mut [u8],
     gdb_fd: &mut Option<std::net::TcpStream>,
     sockaddr: &str,
-) -> Result<(), libc::c_int> {
+) -> Result<(), c_int> {
     use gdbstub::Connection;
     use sallyport::host::deref_slice;
     use sallyport::item;

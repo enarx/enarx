@@ -122,7 +122,8 @@ fn main() -> Result<()> {
             #[cfg(feature = "gdb")]
             let gdblisten = Some(exec.gdblisten);
 
-            keep_exec(backend, backend.shim(), binary, gdblisten)
+            let exit_code = keep_exec(backend, backend.shim(), binary, gdblisten)?;
+            std::process::exit(exit_code);
         }
         cli::Command::Run(run) => {
             let modfile = File::open(run.module)?;
@@ -156,10 +157,10 @@ fn main() -> Result<()> {
             #[cfg(feature = "gdb")]
             let gdblisten = Some(run.gdblisten);
 
-            let res = keep_exec(backend, backend.shim(), workldr.exec(), gdblisten);
+            let exit_code = keep_exec(backend, backend.shim(), workldr.exec(), gdblisten)?;
             drop(configfile);
             drop(modfile);
-            res
+            std::process::exit(exit_code);
         }
         #[cfg(feature = "backend-sev")]
         cli::Command::Sev(cmd) => cli::sev::run(cmd),
@@ -171,12 +172,13 @@ fn keep_exec(
     shim: impl AsRef<[u8]>,
     exec: impl AsRef<[u8]>,
     _gdblisten: Option<String>,
-) -> Result<()> {
+) -> Result<libc::c_int> {
     let keep = backend.keep(shim.as_ref(), exec.as_ref())?;
     let mut thread = keep.clone().spawn()?.unwrap();
     loop {
         match thread.enter(&_gdblisten)? {
             Command::Continue => (),
+            Command::Exit(exit_code) => return Ok(exit_code),
         }
     }
 }
