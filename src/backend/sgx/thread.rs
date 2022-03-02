@@ -241,6 +241,17 @@ impl super::super::Thread for Thread {
                                 .context("sallyport::host::execute")?;
                         }
 
+                        // Catch exit and exit_group for a clean shutdown
+                        Item::Syscall(syscall, ..)
+                            if (syscall.num == libc::SYS_exit as usize
+                                || syscall.num == libc::SYS_exit_group as usize) =>
+                        {
+                            if cfg!(feature = "dbg") {
+                                dbg!(&syscall);
+                            }
+                            return Ok(Command::Exit(syscall.argv[0] as _));
+                        }
+
                         Item::Syscall(ref _syscall, ..) => {
                             #[cfg(feature = "dbg")]
                             match (
