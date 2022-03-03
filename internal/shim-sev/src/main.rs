@@ -422,13 +422,10 @@ pub unsafe extern "sysv64" fn _start() -> ! {
         "or     rax,    r12",
         "mov    cr3,    rax",
 
-        // advance rip to kernel address space with {SHIM_VIRT_OFFSET}
-        // clear overflow flag OF for adox
-        "xor    eax,    eax",
         // load trampoline address and correct with {SHIM_VIRT_OFFSET}
         "lea    rax,    [rip + 50f]",
         "mov    rsi,    {SHIM_VIRT_OFFSET}",
-        "adox   rax,    rsi",
+        "add    rax,    rsi",
          // jump to trampoline
         "jmp    rax",
 
