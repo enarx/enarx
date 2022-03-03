@@ -8,7 +8,7 @@ use crate::eprintln;
 use crate::exec::{NEXT_BRK_RWLOCK, NEXT_MMAP_RWLOCK};
 use crate::paging::SHIM_PAGETABLE;
 use crate::snp::ghcb::{GHCB, GHCB_EXT, SNP_ATTESTATION_LEN_MAX};
-use crate::snp::snp_active;
+use crate::snp::{cpuid, snp_active};
 use crate::spin::{RacyCell, RwLocked};
 
 use const_default::ConstDefault;
@@ -27,6 +27,7 @@ use spinning::Lazy;
 use x86_64::instructions::port::Port;
 use x86_64::instructions::segmentation::{Segment64, FS, GS};
 use x86_64::instructions::tlb::flush_all;
+use x86_64::registers::model_specific::{FsBase, GsBase};
 use x86_64::structures::paging::{Page, PageTableFlags, Size4KiB};
 use x86_64::{align_up, VirtAddr};
 
@@ -40,6 +41,9 @@ const BLOCK_SIZE_USIZE: usize = BLOCK_SIZE / core::mem::size_of::<usize>();
 /// Global TLS for the SHIM
 pub static SHIM_LOCAL_STORAGE: Lazy<RwLocked<guest::ThreadLocalStorage>> =
     Lazy::new(|| RwLocked::<guest::ThreadLocalStorage>::new(guest::ThreadLocalStorage::new()));
+
+/// Flag, if the CPU supports FSGSBASE
+pub static CPU_HAS_FSGSBASE: Lazy<bool> = Lazy::new(|| cpuid(7).ebx & 1 == 1);
 
 /// Host file descriptor
 #[derive(Copy, Clone)]
@@ -251,28 +255,44 @@ impl Handler for HostCall<'_> {
         match code {
             syscall::ARCH_SET_FS => {
                 // FIXME: check `addr` value
-                unsafe {
-                    FS::write_base(VirtAddr::new(addr));
+                if *CPU_HAS_FSGSBASE {
+                    unsafe {
+                        FS::write_base(VirtAddr::new(addr));
+                    }
+                } else {
+                    FsBase::write(VirtAddr::new(addr));
                 }
                 eprintln!("SC> arch_prctl(ARCH_SET_FS, {:#x}) = 0", addr);
                 Ok(())
             }
             syscall::ARCH_GET_FS => {
                 let addr: &mut u64 = platform.validate_mut(addr as _)?;
-                *addr = FS::read_base().as_u64();
+                *addr = if *CPU_HAS_FSGSBASE {
+                    FS::read_base().as_u64()
+                } else {
+                    FsBase::read().as_u64()
+                };
                 Ok(())
             }
             syscall::ARCH_SET_GS => {
                 // FIXME: check `addr` value
-                unsafe {
-                    GS::write_base(VirtAddr::new(addr));
+                if *CPU_HAS_FSGSBASE {
+                    unsafe {
+                        GS::write_base(VirtAddr::new(addr));
+                    }
+                } else {
+                    GsBase::write(VirtAddr::new(addr));
                 }
                 eprintln!("SC> arch_prctl(ARCH_SET_GS, {:#x}) = 0", addr);
                 Ok(())
             }
             syscall::ARCH_GET_GS => {
                 let addr: &mut u64 = platform.validate_mut(addr as _)?;
-                *addr = GS::read_base().as_u64();
+                *addr = if *CPU_HAS_FSGSBASE {
+                    GS::read_base().as_u64()
+                } else {
+                    GsBase::read().as_u64()
+                };
                 Ok(())
             }
             x => {
