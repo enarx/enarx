@@ -9,13 +9,14 @@
  * Quote size. */
 
 int main(void) {
-    int* nonce = NULL;
-    int* buf = NULL;
     size_t technology;
     ssize_t expected = 4598;
 
-    ssize_t size = get_att(nonce, sizeof(nonce), buf, sizeof(buf), &technology);
+    ssize_t size = get_att(NULL, 0, NULL, 0, &technology);
 
+    if (size < 0)
+        return !(errno == ENOSYS);
+    
     /* this test is SGX-specific, so just return success if not running on SGX */
     if (technology != TEE_SGX)
         return 0;

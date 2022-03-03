@@ -5,6 +5,7 @@ pub use snp::firmware::Firmware;
 
 use super::kvm::mem::Region;
 use super::kvm::{Keep, KeepPersonality};
+use super::probe::common::system_info;
 use super::Loader;
 
 use std::sync::Arc;
@@ -14,8 +15,9 @@ use data::{
     dev_kvm, dev_sev, dev_sev_readable, dev_sev_writable, has_reasonable_memlock_rlimit,
     kvm_version, sev_enabled_in_kernel, CPUIDS,
 };
+
+use kvm_bindings::bindings::kvm_enc_region;
 use kvm_ioctls::VmFd;
-use snp::launch::linux::KvmEncRegion;
 
 mod builder;
 mod cpuid_page;
@@ -29,7 +31,11 @@ struct SnpKeepPersonality {
 
 impl KeepPersonality for SnpKeepPersonality {
     fn map(vm_fd: &mut VmFd, region: &Region) -> std::io::Result<()> {
-        KvmEncRegion::new(region.backing()).register(vm_fd)?;
+        let memory_region = kvm_enc_region {
+            addr: region.backing().as_ptr() as _,
+            size: region.backing().len() as _,
+        };
+        vm_fd.register_enc_memory_region(&memory_region).unwrap();
         Ok(())
     }
 }
@@ -49,11 +55,12 @@ impl super::Backend for Backend {
 
     #[inline]
     fn have(&self) -> bool {
-        data::dev_sev_writable().pass
+        self.data().iter().all(|x| x.pass)
     }
 
     fn data(&self) -> Vec<super::Datum> {
         let mut data = vec![
+            system_info(),
             dev_sev(),
             sev_enabled_in_kernel(),
             dev_sev_readable(),

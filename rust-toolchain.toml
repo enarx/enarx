@@ -1,4 +1,4 @@
 [toolchain]
-channel = "nightly"
-targets = ["x86_64-unknown-linux-gnu", "x86_64-unknown-linux-musl"]
+channel = "nightly-2022-02-25"
+targets = ["x86_64-unknown-linux-gnu", "x86_64-unknown-linux-musl", "wasm32-wasi"]
 profile = "minimal"

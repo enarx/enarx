@@ -1,0 +1,29 @@
+[package]
+name = "simple"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[[bin]]
+name="echo"
+path= "src/echo.rs"
+
+[[bin]]
+name="memspike"
+path= "src/memspike.rs"
+
+[[bin]]
+name="unix_echo"
+path= "src/unix_echo.rs"
+
+[[bin]]
+name="memory_stress_test"
+path= "src/memory_stress_test.rs"
+
+[[bin]]
+name="cpuid"
+path= "src/cpuid.rs"
+
+[dependencies]

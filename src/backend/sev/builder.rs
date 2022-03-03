@@ -10,32 +10,71 @@ use crate::backend::kvm::mem::Region;
 
 use std::convert::TryFrom;
 use std::sync::{Arc, RwLock};
+use std::{thread, time};
 
-use anyhow::Context;
-use anyhow::{Error, Result};
-use kvm_ioctls::{Kvm, VmFd};
+use anyhow::{Context, Error};
+use kvm_ioctls::Kvm;
 use mmarinus::{perms, Map};
 use primordial::Page;
+use rand::{thread_rng, Rng};
 use sallyport::elf::pf::snp::{CPUID, SECRETS};
 use x86_64::VirtAddr;
 
+const SEV_RETRIES: usize = 3;
+const SEV_RETRY_SLEEP_MS: u64 = 500;
+
 pub struct Builder {
     kvm_fd: Kvm,
-    launcher: Launcher<Started, VmFd, Firmware>,
+    launcher: Launcher<Started, Firmware>,
     regions: Vec<Region>,
     sallyports: Vec<Option<VirtAddr>>,
+}
+
+fn retry<O>(func: impl Fn() -> anyhow::Result<O>) -> anyhow::Result<O> {
+    let mut retries = SEV_RETRIES;
+    let mut rng = thread_rng();
+    loop {
+        match func() {
+            Err(e) if retries > 0 => {
+                retries -= 1;
+                eprintln!(
+                    "Error {:#?}.\nRetry {} of {}.",
+                    e,
+                    SEV_RETRIES - retries,
+                    SEV_RETRIES
+                );
+                let millis =
+                    time::Duration::from_millis(SEV_RETRY_SLEEP_MS + rng.gen::<u8>() as u64);
+                thread::sleep(millis);
+                continue;
+            }
+            Err(e) => {
+                return Err(e);
+            }
+            Ok(o) => {
+                return Ok(o);
+            }
+        }
+    }
 }
 
 impl TryFrom<super::super::kvm::config::Config> for Builder {
     type Error = Error;
 
-    fn try_from(_config: super::super::kvm::config::Config) -> Result<Self> {
-        let kvm_fd = Kvm::new()?;
-        let vm_fd = kvm_fd.create_vm()?;
+    fn try_from(_config: super::super::kvm::config::Config) -> anyhow::Result<Self> {
+        let (kvm_fd, launcher) = retry(|| {
+            // try to open /dev/sev and start the Launcher several times
 
-        let sev = Firmware::open()?;
+            let kvm_fd = Kvm::new().context("Failed to open '/dev/kvm'")?;
+            let vm_fd = kvm_fd
+                .create_vm()
+                .context("Failed to create a virtual machine")?;
 
-        let launcher = Launcher::new(vm_fd, sev)?;
+            let sev = retry(|| Firmware::open().context("Failed to open '/dev/sev'"))?;
+            let launcher = Launcher::new(vm_fd, sev).context("SNP Launcher init failed")?;
+
+            Ok((kvm_fd, launcher))
+        })?;
 
         let start = Start {
             policy: Policy {
@@ -46,7 +85,7 @@ impl TryFrom<super::super::kvm::config::Config> for Builder {
             ..Default::default()
         };
 
-        let launcher = launcher.start(start)?;
+        let launcher = launcher.start(start).context("SNP Launcher start failed")?;
 
         Ok(Builder {
             kvm_fd,
@@ -86,7 +125,9 @@ impl super::super::Mapper for Builder {
         if with & CPUID != 0 {
             assert_eq!(pages.len(), Page::SIZE);
             let mut cpuid_page = CpuidPage::default();
-            cpuid_page.import_from_kvm(&mut self.kvm_fd)?;
+            cpuid_page
+                .import_from_kvm(&mut self.kvm_fd)
+                .context("Failed to create CPUID page")?;
 
             let guest_cpuid_page = pages.as_mut_ptr() as *mut CpuidPage;
             unsafe {
@@ -120,7 +161,7 @@ impl super::super::Mapper for Builder {
 
             self.launcher
                 .update_data(update)
-                .context("SNP Launcher update_data")?;
+                .context("SNP Launcher update_data failed")?;
         } else {
             let update = Update::new(
                 to as u64 >> 12,
@@ -132,7 +173,7 @@ impl super::super::Mapper for Builder {
 
             self.launcher
                 .update_data(update)
-                .context("SNP Launcher update_data")?;
+                .context("SNP Launcher update_data failed")?;
         };
 
         self.regions.push(Region::new(mem_region, pages));
@@ -144,7 +185,7 @@ impl super::super::Mapper for Builder {
 impl TryFrom<Builder> for Arc<dyn super::super::Keep> {
     type Error = Error;
 
-    fn try_from(mut builder: Builder) -> Result<Self> {
+    fn try_from(mut builder: Builder) -> anyhow::Result<Self> {
         let (vcpu_fd, sallyport_block_start) = kvm_try_from_builder(
             &builder.sallyports,
             &mut builder.kvm_fd,
@@ -153,7 +194,10 @@ impl TryFrom<Builder> for Arc<dyn super::super::Keep> {
 
         let finish = Finish::new(None, None, [0u8; 32]);
 
-        let (vm_fd, sev_fd) = builder.launcher.finish(finish)?;
+        let (vm_fd, sev_fd) = builder
+            .launcher
+            .finish(finish)
+            .context("SNP Launcher finish failed")?;
 
         Ok(Arc::new(RwLock::new(super::Keep::<SnpKeepPersonality> {
             kvm_fd: builder.kvm_fd,

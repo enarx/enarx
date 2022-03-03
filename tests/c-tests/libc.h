@@ -294,7 +294,7 @@ int accept(int sockfd, struct sockaddr *addr, socklen_t *addrlen) {
     return rax;
 }
 
-int accept4(int sockfd, const struct sockaddr *addr, socklen_t *addrlen, int flags) {
+int accept4(int sockfd, struct sockaddr *addr, socklen_t *addrlen, int flags) {
     int rax;
     register int r10 __asm__("r10") = flags;
 

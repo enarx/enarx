@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::backend::Datum;
+use crate::backend::{probe::x86_64::CpuId, Datum};
 
 use kvm_ioctls::Kvm;
 
@@ -29,3 +29,11 @@ pub fn kvm_version() -> Datum {
         mesg: None,
     }
 }
+
+pub const CPUIDS: &[CpuId] = &[CpuId {
+    name: "CPU",
+    leaf: 0x80000000,
+    subl: 0x00000000,
+    func: |res| CpuId::cpu_identifier(res, None),
+    vend: None,
+}];

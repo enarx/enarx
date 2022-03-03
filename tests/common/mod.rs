@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use process_control::{ChildExt, Output, Timeout};
-use std::io::Write;
+#![allow(dead_code)]
+
+use process_control::{ChildExt, Control, Output};
+use std::io::{stderr, Write};
 use std::path::Path;
 use std::process::{Command, Stdio};
 use std::time::Duration;
@@ -62,8 +64,9 @@ pub fn keepldr_exec<'a>(bin: &str, input: impl Into<Option<&'a [u8]>>) -> Output
     }
 
     let output = child
-        .with_output_timeout(Duration::from_secs(TIMEOUT_SECS))
-        .terminating()
+        .controlled_with_output()
+        .time_limit(Duration::from_secs(TIMEOUT_SECS))
+        .terminate_for_timeout()
         .wait()
         .unwrap_or_else(|e| panic!("failed to run `{}`: {:#?}", bin, e))
         .unwrap_or_else(|| panic!("process `{}` timed out", bin));
@@ -83,11 +86,15 @@ pub fn keepldr_exec<'a>(bin: &str, input: impl Into<Option<&'a [u8]>>) -> Output
 pub fn keepldr_exec_crate<'a>(
     crate_name: &str,
     bin: &str,
-    input: impl Into<Option<&'a [u8]>>,
+    bin_args: impl Into<Option<&'a [&'a str]>>,
+    input: impl Into<Option<Vec<u8>>>,
 ) -> Output {
     let crate_path = Path::new(CRATE).join(crate_name);
+    let bin_args = bin_args.into();
 
-    let mut child = Command::new("cargo")
+    let mut child = Command::new("cargo");
+
+    let mut child = child
         .current_dir(crate_path)
         .arg("run")
         .arg("--quiet")
@@ -96,27 +103,42 @@ pub fn keepldr_exec_crate<'a>(
         .env("ENARX_BIN", KEEP_BIN)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
+        .stderr(Stdio::piped());
+
+    if let Some(args) = bin_args {
+        child = child.arg("--").args(args);
+    }
+
+    let mut child = child
         .spawn()
         .unwrap_or_else(|e| panic!("failed to run `{}`: {:#?}", bin, e));
 
-    if let Some(input) = input.into() {
-        child
-            .stdin
-            .as_mut()
-            .unwrap()
-            .write_all(input)
-            .expect("failed to write stdin to child");
-
-        drop(child.stdin.take());
-    }
+    let input_thread = if let Some(input) = input.into() {
+        let mut stdin = child.stdin.take().unwrap();
+        let input = input.clone();
+        Some(std::thread::spawn(move || {
+            stdin
+                .write_all(&input)
+                .expect("failed to write stdin to child");
+        }))
+    } else {
+        None
+    };
 
     let output = child
-        .with_output_timeout(Duration::from_secs(TIMEOUT_SECS))
-        .terminating()
+        .controlled_with_output()
+        .time_limit(Duration::from_secs(TIMEOUT_SECS))
+        .terminate_for_timeout()
         .wait()
         .unwrap_or_else(|e| panic!("failed to run `{}`: {:#?}", bin, e))
         .unwrap_or_else(|| panic!("process `{}` timed out", bin));
+
+    if let Some(input_thread) = input_thread {
+        if let Err(_) = input_thread.join() {
+            let _unused = stderr().write_all(&output.stderr);
+            panic!("failed to provide input for process `{}`", bin)
+        }
+    }
 
     assert!(
         output.status.code().is_some(),
@@ -192,12 +214,13 @@ pub fn run_test<'a>(
 pub fn run_crate<'a>(
     crate_name: &str,
     bin: &str,
+    bin_args: impl Into<Option<&'a [&'a str]>>,
     status: i32,
-    input: impl Into<Option<&'a [u8]>>,
+    input: impl Into<Option<Vec<u8>>>,
     expected_stdout: impl Into<Option<&'a [u8]>>,
     expected_stderr: impl Into<Option<&'a [u8]>>,
 ) -> Output {
-    let output = keepldr_exec_crate(crate_name, bin, input);
+    let output = keepldr_exec_crate(crate_name, bin, bin_args, input);
     check_output(&output, status, expected_stdout, expected_stderr);
     output
 }

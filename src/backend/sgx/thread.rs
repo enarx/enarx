@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use super::super::Command;
+use crate::backend::sgx::attestation::get_attestation;
 
+use std::arch::asm;
 use std::mem::MaybeUninit;
 #[cfg(feature = "gdb")]
 use std::net::TcpStream;
@@ -136,6 +138,22 @@ impl super::super::Thread for Thread {
                     | sallyport::syscall::SYS_ENARX_GDB_READ
                     | sallyport::syscall::SYS_ENARX_GDB_WRITE => {
                         return Ok(Command::Gdb(&mut self.block, &mut self.gdb_fd))
+                    }
+
+                    sallyport::syscall::SYS_ENARX_GETATT => {
+                        self.block.msg.rep = unsafe {
+                            get_attestation(
+                                self.block.msg.req.arg[0].into(),
+                                self.block.msg.req.arg[1].into(),
+                                self.block.msg.req.arg[2].into(),
+                                self.block.msg.req.arg[3].into(),
+                            )
+                            .map(|v| [v.into(), 0usize.into()])
+                            .map_err(|e| e.raw_os_error().unwrap_or(libc::EINVAL))
+                            .into()
+                        };
+
+                        return Ok(Command::Continue);
                     }
 
                     _ => return Ok(Command::SysCall(&mut self.block)),

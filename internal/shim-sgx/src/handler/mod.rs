@@ -31,13 +31,12 @@ mod memory;
 mod other;
 mod process;
 
+use core::arch::asm;
 use core::fmt::Write;
 use core::mem::size_of;
 use core::ptr::read_unaligned;
 
-use crate::heap::Heap;
-use crate::{DEBUG, ENARX_EXEC_END, ENARX_EXEC_START, ENARX_HEAP_END, ENCL_SIZE};
-use lset::Line;
+use crate::{DEBUG, ENARX_EXEC_END, ENARX_EXEC_START, ENCL_SIZE};
 use sallyport::syscall::*;
 use sallyport::{request, Block};
 use sgx::ssa::StateSaveArea;
@@ -52,7 +51,6 @@ const OP_CPUID: u16 = 0xa20f;
 pub struct Handler<'a> {
     block: &'a mut Block,
     ssa: &'a mut StateSaveArea,
-    heap: Heap,
 }
 
 impl<'a> Write for Handler<'a> {
@@ -76,12 +74,8 @@ impl<'a> Write for Handler<'a> {
 }
 
 impl<'a> Handler<'a> {
-    fn new(ssa: &'a mut StateSaveArea, block: &'a mut Block, heap: Line<usize>) -> Self {
-        Self {
-            ssa,
-            block,
-            heap: unsafe { Heap::new(heap.into()) },
-        }
+    fn new(ssa: &'a mut StateSaveArea, block: &'a mut Block) -> Self {
+        Self { ssa, block }
     }
 
     /// Finish handling an exception
@@ -98,8 +92,8 @@ impl<'a> Handler<'a> {
     }
 
     /// Handle an exception
-    pub fn handle(ssa: &'a mut StateSaveArea, block: &'a mut Block, heap: Line<usize>) {
-        let mut h = Self::new(ssa, block, heap);
+    pub fn handle(ssa: &'a mut StateSaveArea, block: &'a mut Block) {
+        let mut h = Self::new(ssa, block);
 
         match h.ssa.vector() {
             Some(ExceptionVector::InvalidOpcode) => {
@@ -227,22 +221,22 @@ impl<'a> Handler<'a> {
 
     /// Print a stack trace with the old `rbp` stack frame pointers
     unsafe fn print_stack_trace(&mut self, rip: u64, mut rbp: u64) {
-        let shim_start = ENCL_SIZE as u64;
-        let shim_end = &ENARX_HEAP_END as *const _ as u64;
-
-        let shim_range = shim_start..shim_end;
+        // TODO: parse the elf and actually find the text sections.
+        let encl_start = self as *const _ as u64 / ENCL_SIZE as u64 * ENCL_SIZE as u64;
+        let encl_end = encl_start + ENCL_SIZE as u64;
+        let encl_range = encl_start..encl_end;
 
         debugln!(self, "TRACE:");
 
         self.print_rip(rip);
 
-        //Maximum 64 frames
+        // Maximum 64 frames
         for _frame in 0..64 {
             if rbp == 0 || rbp & 7 != 0 {
                 break;
             }
 
-            if !shim_range.contains(&rbp) {
+            if !encl_range.contains(&rbp) {
                 debugln!(self, "invalid rbp: {:>#016x}", rbp);
                 break;
             }

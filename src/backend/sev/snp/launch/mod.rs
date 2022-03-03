@@ -17,6 +17,8 @@ use std::marker::PhantomData;
 use std::os::unix::io::AsRawFd;
 
 use bitflags::bitflags;
+use kvm_bindings::kvm_enc_region;
+use kvm_ioctls::VmFd;
 
 /// Launcher type-state that indicates a brand new launch.
 pub struct New;
@@ -25,30 +27,30 @@ pub struct New;
 pub struct Started;
 
 /// Facilitates the correct execution of the SEV launch process.
-pub struct Launcher<T, U: AsRawFd, V: AsRawFd> {
-    vm_fd: U,
+pub struct Launcher<T, V: AsRawFd> {
+    vm_fd: VmFd,
     sev: V,
     state: PhantomData<T>,
 }
 
-impl<T, U: AsRawFd, V: AsRawFd> AsRef<U> for Launcher<T, U, V> {
+impl<T, V: AsRawFd> AsRef<VmFd> for Launcher<T, V> {
     /// Give access to the vm fd to create vCPUs or such.
-    fn as_ref(&self) -> &U {
+    fn as_ref(&self) -> &VmFd {
         &self.vm_fd
     }
 }
 
-impl<T, U: AsRawFd, V: AsRawFd> AsMut<U> for Launcher<T, U, V> {
+impl<T, V: AsRawFd> AsMut<VmFd> for Launcher<T, V> {
     /// Give access to the vm fd to create vCPUs or such.
-    fn as_mut(&mut self) -> &mut U {
+    fn as_mut(&mut self) -> &mut VmFd {
         &mut self.vm_fd
     }
 }
 
-impl<U: AsRawFd, V: AsRawFd> Launcher<New, U, V> {
+impl<V: AsRawFd> Launcher<New, V> {
     /// Begin the SEV-SNP launch process by creating a Launcher and issuing the
     /// KVM_SNP_INIT ioctl.
-    pub fn new(vm_fd: U, sev: V) -> Result<Self> {
+    pub fn new(vm_fd: VmFd, sev: V) -> Result<Self> {
         let mut launcher = Launcher {
             vm_fd,
             sev,
@@ -66,7 +68,7 @@ impl<U: AsRawFd, V: AsRawFd> Launcher<New, U, V> {
     }
 
     /// Initialize the flow to launch a guest.
-    pub fn start(mut self, start: Start<'_>) -> Result<Launcher<Started, U, V>> {
+    pub fn start(mut self, start: Start<'_>) -> Result<Launcher<Started, V>> {
         let mut launch_start = LaunchStart::from(start);
         let mut cmd = Command::from_mut(&mut self.sev, &mut launch_start);
 
@@ -84,13 +86,17 @@ impl<U: AsRawFd, V: AsRawFd> Launcher<New, U, V> {
     }
 }
 
-impl<U: AsRawFd, V: AsRawFd> Launcher<Started, U, V> {
+impl<V: AsRawFd> Launcher<Started, V> {
     /// Encrypt guest SNP data.
     pub fn update_data(&mut self, update: Update<'_>) -> Result<()> {
         let launch_update_data = LaunchUpdate::from(update);
         let mut cmd = Command::from(&mut self.sev, &launch_update_data);
 
-        KvmEncRegion::new(update.uaddr).register(&mut self.vm_fd)?;
+        let memory_region = kvm_enc_region {
+            addr: update.uaddr.as_ptr() as _,
+            size: update.uaddr.len() as _,
+        };
+        self.vm_fd.register_enc_memory_region(&memory_region)?;
 
         SNP_LAUNCH_UPDATE
             .ioctl(&mut self.vm_fd, &mut cmd)
@@ -100,7 +106,7 @@ impl<U: AsRawFd, V: AsRawFd> Launcher<Started, U, V> {
     }
 
     /// Complete the SNP launch process.
-    pub fn finish(mut self, finish: Finish<'_, '_>) -> Result<(U, V)> {
+    pub fn finish(mut self, finish: Finish<'_, '_>) -> Result<(VmFd, V)> {
         let launch_finish = LaunchFinish::from(finish);
         let mut cmd = Command::from(&mut self.sev, &launch_finish);
 

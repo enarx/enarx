@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
-
 use std::collections::HashMap;
 use std::ffi::OsStr;
-use std::fs::OpenOptions;
+use std::fs;
+use std::os::unix::fs::FileTypeExt;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use walkdir::WalkDir;
 
 const CRATE: &str = env!("CARGO_MANIFEST_DIR");
-const TEST_BINS_IN: &str = "tests/bin";
+const TEST_BINS_IN: &str = "tests/c-tests";
 
 fn find_files_with_extensions<'a>(
     exts: &'a [&'a str],
@@ -32,11 +32,21 @@ fn rerun_src(path: impl AsRef<Path>) {
         if let Some(path) = entry.to_str() {
             println!("cargo:rerun-if-changed={}", path)
         }
+        if let Some(Some(path)) = entry.parent().map(Path::to_str) {
+            println!("cargo:rerun-if-changed={}", path)
+        }
     }
 }
 
 fn build_cc_tests(in_path: &Path, out_path: &Path) {
     for in_source in find_files_with_extensions(&["c", "s", "S"], &in_path) {
+        if let Some(path) = in_source.to_str() {
+            println!("cargo:rerun-if-changed={}", path)
+        }
+        if let Some(Some(path)) = in_source.parent().map(Path::to_str) {
+            println!("cargo:rerun-if-changed={}", path)
+        }
+
         let output = in_source.file_stem().unwrap();
 
         let mut cmd = cc::Build::new()
@@ -50,6 +60,7 @@ fn build_cc_tests(in_path: &Path, out_path: &Path) {
             .arg("-static-pie")
             .arg("-fPIC")
             .arg("-fno-omit-frame-pointer")
+            .arg("-fno-stack-protector")
             .arg("-g")
             .arg("-o")
             .arg(output)
@@ -70,6 +81,20 @@ fn cargo_build_bin(
     target_name: &str,
     bin_name: &str,
 ) -> std::io::Result<()> {
+    // And here's where we'd like to place the final (stripped) binary
+    let out_bin = out_dir.join("bin").join(bin_name);
+
+    // Don't run the build if ENARX_PREBUILT_${bin_name} is set
+    let prebuilt_env_name = format!("ENARX_PREBUILT_{}", bin_name);
+    if let Ok(prebuilt_path) = std::env::var(&prebuilt_env_name) {
+        println!(
+            "cargo:warning=Using prebuilt {} binary from {}: {}",
+            bin_name, prebuilt_env_name, &prebuilt_path
+        );
+        std::fs::copy(prebuilt_path, out_bin)?;
+        return Ok(());
+    }
+
     let profile: &[&str] = match std::env::var("PROFILE").unwrap().as_str() {
         "release" => &["--release"],
         _ => &[],
@@ -84,10 +109,14 @@ fn cargo_build_bin(
     let path = in_dir.as_os_str().to_str().unwrap();
 
     for p in [
+        "src",
+        "tests",
+        "build.rs",
         "Cargo.tml",
         "Cargo.toml",
         "Cargo.lock",
         "layout.ld",
+        ".cargo",
         ".cargo/config",
     ] {
         let file = in_dir.join(p);
@@ -100,13 +129,13 @@ fn cargo_build_bin(
 
     let target_dir = out_dir.join(path);
 
-    let stdout: Stdio = OpenOptions::new()
+    let stdout: Stdio = fs::OpenOptions::new()
         .write(true)
         .open("/dev/tty")
         .map(Stdio::from)
         .unwrap_or_else(|_| Stdio::inherit());
 
-    let stderr: Stdio = OpenOptions::new()
+    let stderr: Stdio = fs::OpenOptions::new()
         .write(true)
         .open("/dev/tty")
         .map(Stdio::from)
@@ -147,9 +176,6 @@ fn cargo_build_bin(
         .join(target_name)
         .join(std::env::var("PROFILE").unwrap())
         .join(bin_name);
-
-    // And here's where we'd like to place the final (stripped) binary
-    let out_bin = out_dir.join("bin").join(bin_name);
 
     // Strip the binary
     let status = Command::new("strip")
@@ -235,6 +261,26 @@ fn main() {
 
         if cargo_tml.exists() {
             std::fs::remove_file(&cargo_toml).unwrap()
+        }
+    }
+
+    if std::path::Path::new("/dev/sgx_enclave").exists() {
+        // Not expected to fail, as the file exists.
+        let metadata = fs::metadata("/dev/sgx_enclave").unwrap();
+        let file_type = metadata.file_type();
+
+        if file_type.is_char_device() {
+            println!("cargo:rustc-cfg=host_can_test_sgx");
+        }
+    }
+
+    if std::path::Path::new("/dev/sev").exists() {
+        // Not expected to fail, as the file exists.
+        let metadata = fs::metadata("/dev/sev").unwrap();
+        let file_type = metadata.file_type();
+
+        if file_type.is_char_device() {
+            println!("cargo:rustc-cfg=host_can_test_sev");
         }
     }
 }

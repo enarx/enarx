@@ -5,8 +5,11 @@
 use crate::interrupts::XSAVE_AREA_SIZE;
 use crate::snp::cpuid_count;
 
-use x86_64::registers::xcontrol::{XCr0, XCr0Flags};
-use xsave::MxCsr;
+use x86_64::registers::{
+    mxcsr,
+    mxcsr::MxCsr,
+    xcontrol::{XCr0, XCr0Flags},
+};
 
 /// Setup and check SSE relevant stuff
 pub fn init_sse() {
@@ -33,15 +36,12 @@ pub fn init_sse() {
 
     // Make sure that interrupts have enough room for xsave
     assert!(xsave_size <= XSAVE_AREA_SIZE);
-
-    unsafe {
-        let mxcsr: u32 = (MxCsr::INVALID_OPERATION_MASK
+    mxcsr::write(
+        MxCsr::INVALID_OPERATION_MASK
             | MxCsr::DENORMAL_MASK
             | MxCsr::DIVIDE_BY_ZERO_MASK
             | MxCsr::OVERFLOW_MASK
             | MxCsr::UNDERFLOW_MASK
-            | MxCsr::PRECISION_MASK)
-            .bits();
-        asm!("ldmxcsr [{}]", in(reg) &mxcsr, options(nostack));
-    }
+            | MxCsr::PRECISION_MASK,
+    );
 }

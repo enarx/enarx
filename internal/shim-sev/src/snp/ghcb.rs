@@ -9,9 +9,9 @@ use crate::addr::SHIM_VIRT_OFFSET;
 use crate::pagetables::{clear_c_bit_address_range, smash};
 use crate::snp::secrets_page::SECRETS;
 use crate::snp::{pvalidate, PvalidateSize};
-use crate::spin::RwLocked;
-use crate::_ENARX_GHCB;
+use crate::spin::{RacyCell, RwLocked};
 
+use core::arch::asm;
 use core::mem::size_of;
 use core::ptr;
 
@@ -267,16 +267,31 @@ pub unsafe fn vmgexit_msr(request_code: u64, value: u64, expected_response: u64)
 }
 
 /// A handle to the GHCB block
-pub struct GhcbHandle {
-    ghcb: &'static mut Ghcb,
+pub struct GhcbHandle<'a> {
+    ghcb: &'a mut Ghcb,
 }
 
 /// The global Enarx GHCB
-pub static GHCB: Lazy<RwLocked<GhcbHandle>> =
-    Lazy::new(|| RwLocked::<GhcbHandle>::new(GhcbHandle::new(unsafe { &mut _ENARX_GHCB })));
+///
+/// # Safety
+///
+/// `GHCB` is the only way to get an instance of the static `_ENARX_GHCB` struct.
+/// It is guarded by `RwLocked`.
+pub static GHCB: Lazy<RwLocked<GhcbHandle<'_>>> = Lazy::new(|| {
+    extern "C" {
+        /// Extern
+        pub static _ENARX_GHCB: RacyCell<Ghcb>;
+    }
 
-impl GhcbHandle {
-    fn new(ghcb: &'static mut Ghcb) -> Self {
+    unsafe {
+        let ghcb_uninit = _ENARX_GHCB.get();
+        ghcb_uninit.write(Ghcb::DEFAULT);
+        RwLocked::<GhcbHandle<'_>>::new(GhcbHandle::new(&mut *ghcb_uninit))
+    }
+});
+
+impl<'a> GhcbHandle<'a> {
+    fn new(ghcb: &'a mut Ghcb) -> Self {
         let ghcb_virt = VirtAddr::from_ptr(ghcb);
 
         ghcb_msr_make_page_shared(ghcb_virt);
@@ -383,7 +398,7 @@ impl GhcbHandle {
     }
 }
 
-impl RwLocked<GhcbHandle> {
+impl RwLocked<GhcbHandle<'_>> {
     /// GHCB IOIO_PROT
     pub fn do_io_out(&self, portnumber: u16, value: u16) {
         const IOIO_TYPE_OUT: u64 = 0;
@@ -576,12 +591,18 @@ impl Default for GhcbExtHandle {
     }
 }
 
-static mut GHCBEXTHANDLE: GhcbExtHandle = <GhcbExtHandle as ConstDefault>::DEFAULT;
-
 /// The global Enarx GHCB Ext
+///
+/// # Safety
+/// `GHCB_EXT` is the only way to get an instance of the static `GHCBEXTHANDLE`.
+/// It is guarded by `RwLocked`.
 pub static GHCB_EXT: Lazy<RwLocked<&mut GhcbExtHandle>> = Lazy::new(|| unsafe {
-    GHCBEXTHANDLE.init();
-    RwLocked::<&mut GhcbExtHandle>::new(&mut GHCBEXTHANDLE)
+    static GHCBEXTHANDLE: RacyCell<GhcbExtHandle> =
+        RacyCell::new(<GhcbExtHandle as ConstDefault>::DEFAULT);
+
+    let ghcb_ext_handle_mut = &mut (*GHCBEXTHANDLE.get());
+    ghcb_ext_handle_mut.init();
+    RwLocked::<&mut GhcbExtHandle>::new(ghcb_ext_handle_mut)
 });
 
 impl GhcbExtHandle {

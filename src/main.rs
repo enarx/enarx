@@ -27,21 +27,27 @@
 //!
 //! Install the Webassembly rust toolchain:
 //!
-//!     $ rustup target install wasm32-wasi
+//! ```sh
+//! $ rustup target install wasm32-wasi
+//! ```
 //!
 //! Create simple rust program:
 //!
-//!     $ cargo init --bin hello-world
-//!     $ cd hello-world
-//!     $ echo 'fn main() { println!("Hello, Enarx!"); }' > src/main.rs
-//!     $ cargo build --release --target=wasm32-wasi
+//! ```sh
+//! $ cargo init --bin hello-world
+//! $ cd hello-world
+//! $ echo 'fn main() { println!("Hello, Enarx!"); }' > src/main.rs
+//! $ cargo build --release --target=wasm32-wasi
+//! ```
 //!
 //! Assuming you did install the `enarx` binary and have it in your `$PATH`, you can
 //! now run the Webassembly program in an Enarx keep.
 //!
-//!     $ enarx run target/wasm32-wasi/release/hello-world.wasm
-//!     […]
-//!     Hello, Enarx!
+//! ```sh
+//! $ enarx run target/wasm32-wasi/release/hello-world.wasm
+//! […]
+//! Hello, Enarx!
+//! ```
 //!
 //! If you want to suppress the debug output, add `2>/dev/null`.
 //!
@@ -51,20 +57,23 @@
 //! appropriate deployment backend. To see what backends are supported on your
 //! system, run:
 //!
-//!     $ enarx info
+//! ```sh
+//! $ enarx info
+//! ```
 //!
 //! You can manually select a backend with the `--backend` option, or by
 //! setting the `ENARX_BACKEND` environment variable:
 //!
-//!     $ enarx run --backend=sgx target/wasm32-wasi/release/hello-world.wasm
-//!     $ ENARX_BACKEND=sgx enarx run target/wasm32-wasi/release/hello-world.wasm
+//! ```sh
+//! $ enarx run --backend=sgx target/wasm32-wasi/release/hello-world.wasm
+//! $ ENARX_BACKEND=sgx enarx run target/wasm32-wasi/release/hello-world.wasm
+//! ```
 
 #![deny(clippy::all)]
 #![deny(missing_docs)]
 #![warn(rust_2018_idioms)]
 // protobuf-codegen-pure would generate warnings
 #![allow(elided_lifetimes_in_paths)]
-#![feature(asm)]
 
 mod backend;
 mod cli;
@@ -127,6 +136,18 @@ fn main() -> Result<()> {
             // then things will break mysteriously later on. So this assert
             // is just here to make them break earlier, and with less mystery.
             assert!(open_fd == 3, "module got unexpected fd {}", open_fd);
+
+            let configfile = match run.workldr.wasmcfgfile.as_ref() {
+                Some(name) => {
+                    let file = File::open(name)?;
+                    let fd = file.as_raw_fd();
+                    assert!(fd == 4, "config got unexpected fd {}", fd);
+
+                    Some(file)
+                }
+                None => None,
+            };
+
             // TODO: pass open_fd (or its contents) into the keep.
             let backend = run.backend.pick()?;
             let workldr = run.workldr.pick()?;
@@ -136,7 +157,10 @@ fn main() -> Result<()> {
             #[cfg(feature = "gdb")]
             let gdblisten = Some(run.gdblisten);
 
-            keep_exec(backend, backend.shim(), workldr.exec(), gdblisten)
+            let res = keep_exec(backend, backend.shim(), workldr.exec(), gdblisten);
+            drop(configfile);
+            drop(modfile);
+            res
         }
         #[cfg(feature = "backend-sev")]
         cli::Command::Sev(cmd) => cli::sev::run(cmd),

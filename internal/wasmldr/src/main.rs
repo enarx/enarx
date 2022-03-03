@@ -48,6 +48,7 @@
 #![warn(rust_2018_idioms)]
 
 mod cli;
+mod config;
 mod workload;
 
 use log::{debug, info, warn};
@@ -72,8 +73,6 @@ fn main() {
     // (safely, securely) send logs. Might need our own logger for that..
     env_logger::Builder::from_default_env().init();
 
-    info!("version {} starting up", env!("CARGO_PKG_VERSION"));
-
     warn!("🌭DEV-ONLY BUILD, NOT FOR PRODUCTION USE🌭");
 
     debug!("parsing argv");
@@ -94,11 +93,26 @@ fn main() {
         .read_to_end(&mut bytes)
         .expect("Failed to load workload");
 
+    let mut cnf_reader = if let Some(cnf_path) = opts.config {
+        info!("reading config from {:?}", &cnf_path);
+        File::open(&cnf_path).expect("Unable to open file")
+    } else {
+        // v0.1.0 KEEP-CONFIG HACK: just assume config is on FD4
+        info!("reading config from fd 4");
+        unsafe { File::from_raw_fd(4) }
+    };
+
+    let mut buf = String::new();
+    let config: config::Config = cnf_reader
+        .read_to_string(&mut buf)
+        .map(|_| toml::from_str(&buf).unwrap_or_else(|_| panic!("Invalid config file {}", buf)))
+        .unwrap_or_else(|_| config::Config::default());
+
     // TODO: split up / refactor workload::run() so we can configure things
     // like WASI stdio or wasmtime features before executing the workload..
 
     info!("running workload");
-    let result = workload::run(bytes, opts.args, opts.envs);
+    let result = workload::run(bytes, &config);
     info!("got result: {:#?}", result);
 
     // FUTURE: produce attestation report here

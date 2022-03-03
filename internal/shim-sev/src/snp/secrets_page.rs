@@ -2,8 +2,7 @@
 
 //! Secrets page
 
-use crate::spin::RwLocked;
-use crate::_ENARX_SECRETS;
+use crate::spin::{RacyCell, RwLocked};
 
 use spinning::Lazy;
 
@@ -68,18 +67,30 @@ pub struct SnpSecretsPage {
 }
 
 /// A handle to the Secrets page
-pub struct SecretsHandle {
-    secrets: &'static mut SnpSecretsPage,
+pub struct SecretsHandle<'a> {
+    secrets: &'a mut SnpSecretsPage,
 }
 
-/// The global Enarx GHCB
-pub static SECRETS: Lazy<RwLocked<SecretsHandle>> = Lazy::new(|| {
-    let secrets = unsafe { &mut _ENARX_SECRETS };
-
-    RwLocked::<SecretsHandle>::new(SecretsHandle { secrets })
+/// The global Enarx SECRETS
+///
+/// # Safety
+///
+/// `SECRETS` is the only way to get an instance of the static `_ENARX_SECRETS` struct.
+/// It is guarded by `RwLocked`.
+pub static SECRETS: Lazy<RwLocked<SecretsHandle<'_>>> = Lazy::new(|| {
+    extern "C" {
+        /// Extern
+        pub static _ENARX_SECRETS: RacyCell<SnpSecretsPage>;
+    }
+    unsafe {
+        let secrets = _ENARX_SECRETS.get();
+        RwLocked::<SecretsHandle<'_>>::new(SecretsHandle {
+            secrets: &mut *secrets,
+        })
+    }
 });
 
-impl RwLocked<SecretsHandle> {
+impl RwLocked<SecretsHandle<'_>> {
     /// get VM private communication key for VMPL0
     pub fn get_vmpck0(&self) -> [u8; VMPCK_KEY_LEN] {
         let this = self.read();

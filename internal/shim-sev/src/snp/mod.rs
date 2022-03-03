@@ -2,6 +2,7 @@
 
 //! SNP specific modules and functions
 
+use core::arch::asm;
 use core::sync::atomic::{AtomicU64, Ordering};
 
 use x86_64::VirtAddr;

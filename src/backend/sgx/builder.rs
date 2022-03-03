@@ -7,7 +7,7 @@ use std::convert::TryFrom;
 use std::fs::{File, OpenOptions};
 use std::sync::{Arc, RwLock};
 
-use anyhow::{Error, Result};
+use anyhow::{Context, Error, Result};
 use mmarinus::{perms, Kind, Map};
 use primordial::Page;
 use sgx::crypto::{openssl::*, *};
@@ -37,12 +37,13 @@ impl TryFrom<super::config::Config> for Builder {
         let map = Map::map(config.size * 2)
             .anywhere()
             .anonymously()
-            .known::<perms::None>(Kind::Private)?;
+            .known::<perms::None>(Kind::Private)
+            .context("Failed mmap memory")?;
 
         // Naturally align the mapping.
         let addr = (map.addr() + config.size - 1) / config.size * config.size;
-        let (_, map) = map.split_at(addr)?;
-        let (map, _) = map.split(config.size)?;
+        let (_, map) = map.split_at(addr).context("Failed to align memory")?;
+        let (map, _) = map.split(config.size).context("Failed to align memory")?;
         trace!(
             "enclave location: {:016x}-{:016x}",
             map.addr(),
@@ -53,7 +54,8 @@ impl TryFrom<super::config::Config> for Builder {
         let mut file = OpenOptions::new()
             .read(true)
             .write(true)
-            .open("/dev/sgx_enclave")?;
+            .open("/dev/sgx_enclave")
+            .context("Failed to open '/dev/sgx_enclave'")?;
 
         // Create the enclave.
         let secs = config
@@ -61,7 +63,9 @@ impl TryFrom<super::config::Config> for Builder {
             .secs(map.addr() as *const (), map.size(), config.ssap);
         trace!("creating enclave: {:?}", secs);
         let create = Create::new(&secs);
-        ENCLAVE_CREATE.ioctl(&mut file, &create)?;
+        ENCLAVE_CREATE
+            .ioctl(&mut file, &create)
+            .context("Failed to create SGX enclave")?;
 
         Ok(Builder {
             hash: Hasher::new(config.size, config.ssap),
@@ -98,7 +102,9 @@ impl super::super::Mapper for Builder {
 
         // Update the enclave.
         let mut ap = AddPages::new(&*pages, to, &with.0, with.1);
-        ENCLAVE_ADD_PAGES.ioctl(&mut self.file, &mut ap)?;
+        ENCLAVE_ADD_PAGES
+            .ioctl(&mut self.file, &mut ap)
+            .context("Failed to add pages to SGX enclave")?;
 
         // Update the hasher.
         self.hash.load(&*pages, to, with.0, with.1).unwrap();
@@ -127,12 +133,15 @@ impl TryFrom<Builder> for Arc<dyn super::super::Keep> {
         let hash = builder.hash.finish();
         let author = Author::new(0, 0);
         let body = builder.cnfg.parameters.body(hash);
-        let key = RS256PrivateKey::generate(3)?;
-        let signature = Signature::new(&key, author, body)?;
+        let key = RS256PrivateKey::generate(3).context("Failed to create RSA key")?;
+        let signature =
+            Signature::new(&key, author, body).context("Failed to create RSA signature")?;
 
         // Initialize the enclave.
         let init = Init::new(&signature);
-        ENCLAVE_INIT.ioctl(&mut builder.file, &init)?;
+        ENCLAVE_INIT
+            .ioctl(&mut builder.file, &init)
+            .context("Failed to initialize SGX enclave")?;
         trace!("enclave initialized");
 
         // Fix up mapped permissions.
@@ -169,7 +178,8 @@ impl TryFrom<Builder> for Arc<dyn super::super::Keep> {
                 Map::map(size)
                     .onto(addr as usize)
                     .from(&mut builder.file, 0)
-                    .unknown(Kind::Shared, rwx)?
+                    .unknown(Kind::Shared, rwx)
+                    .context("Failed to change permissions on memory")?
             });
         }
 

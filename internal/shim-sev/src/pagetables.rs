@@ -19,6 +19,7 @@ use crate::allocator::ALLOCATOR;
 use crate::paging;
 use crate::paging::{EncPhysOffset, SHIM_PAGETABLE};
 use crate::snp::get_cbit_mask;
+use crate::spin::RacyCell;
 
 /// A page-aligned Page Table.
 #[repr(C, align(4096))]
@@ -66,7 +67,7 @@ const fn gen_4k_pt_entries_ffe0_0000(i: usize) -> u64 {
 ///     [511] Offset:      0xFFFF_FF80_0000_0000..=0xFFFF_FFFF_FFFF_FFFF
 #[no_mangle]
 #[link_section = ".entry64_data"]
-pub static mut PML4T: AlignedPageTable = AlignedPageTable([0; 512]);
+pub static PML4T: RacyCell<AlignedPageTable> = RacyCell::new(AlignedPageTable([0; 512]));
 
 /// Page-Directory-Pointer Table
 ///
@@ -77,20 +78,23 @@ pub static mut PML4T: AlignedPageTable = AlignedPageTable([0; 512]);
 /// CR3 for shim and user space.
 #[no_mangle]
 #[link_section = ".entry64_data"]
-pub static mut PDPT: AlignedPageTable =
-    AlignedPageTable(array_const_fn_init![gen_1gb_pdpt_entries; 512]);
+pub static PDPT: RacyCell<AlignedPageTable> = RacyCell::new(AlignedPageTable(
+    array_const_fn_init![gen_1gb_pdpt_entries; 512],
+));
 
 /// Page-Directory Table for 0xC000_0000..=0xFFFF_FFFF
 #[no_mangle]
 #[link_section = ".entry64_data"]
-pub static mut PDT_C000_0000: AlignedPageTable =
-    AlignedPageTable(array_const_fn_init![gen_2mb_pdt_entries_c000_0000; 512]);
+pub static PDT_C000_0000: RacyCell<AlignedPageTable> = RacyCell::new(AlignedPageTable(
+    array_const_fn_init![gen_2mb_pdt_entries_c000_0000; 512],
+));
 
 /// 4k Page Table for 0xFFE0_0000..=0xFFFF_FFFF
 #[no_mangle]
 #[link_section = ".entry64_data"]
-pub static mut PT_FFE0_0000: AlignedPageTable =
-    AlignedPageTable(array_const_fn_init![gen_4k_pt_entries_ffe0_0000; 512]);
+pub static PT_FFE0_0000: RacyCell<AlignedPageTable> = RacyCell::new(AlignedPageTable(
+    array_const_fn_init![gen_4k_pt_entries_ffe0_0000; 512],
+));
 
 /// Unmap the initial identity mapping for 0xC000_0000..=0xFFFF_FFFF
 pub fn unmap_identity() {

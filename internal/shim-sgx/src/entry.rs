@@ -2,6 +2,8 @@
 
 //! FIXME: add docs
 
+use core::arch::asm;
+
 use crt0stack::{Builder, Entry, Handle, OutOfSpace};
 use goblin::elf::header::{header64::Header, ELFMAG};
 

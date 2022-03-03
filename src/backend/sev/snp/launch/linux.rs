@@ -7,7 +7,7 @@
 use super::super::{Error, Indeterminate};
 use super::{Finish, Start, Update};
 
-use iocuddle::{Group, Ioctl, Write, WriteRead};
+use iocuddle::{Group, Ioctl, WriteRead};
 use std::marker::PhantomData;
 use std::os::raw::c_ulong;
 use std::os::unix::io::AsRawFd;
@@ -39,10 +39,6 @@ const ENC_OP: Ioctl<WriteRead, &c_ulong> = unsafe { KVM.write_read(0xBA) };
 // which would require extra work to wrap around the design decision for
 // that ioctl.
 
-/// Corresponds to the `KVM_MEMORY_ENCRYPT_REG_REGION` ioctl
-pub const ENC_REG_REGION: Ioctl<Write, &KvmEncRegion<'_>> =
-    unsafe { KVM.read::<KvmEncRegion<'_>>(0xBB).lie() };
-
 /// Initialize the SEV-SNP platform in KVM.
 pub const SNP_INIT: Ioctl<WriteRead, &Command<'_, Init>> = unsafe { ENC_OP.lie() };
 
@@ -57,33 +53,6 @@ pub const SNP_LAUNCH_UPDATE: Ioctl<WriteRead, &Command<'_, LaunchUpdate<'_>>> =
 /// Complete the guest launch flow.
 pub const SNP_LAUNCH_FINISH: Ioctl<WriteRead, &Command<'_, LaunchFinish<'_>>> =
     unsafe { ENC_OP.lie() };
-
-/// Corresponds to the kernel struct `kvm_enc_region`
-///
-/// FIXME: remove when https://github.com/rust-vmm/kvm-ioctls/pull/178 is merged
-#[repr(C)]
-#[derive(Debug, Default, Copy, Clone, PartialEq)]
-pub struct KvmEncRegion<'a> {
-    addr: u64,
-    size: u64,
-    phantom: PhantomData<&'a [u8]>,
-}
-
-impl<'a> KvmEncRegion<'a> {
-    /// Create a new `KvmEncRegion` referencing some memory assigned to the virtual machine.
-    pub fn new(data: &'a [u8]) -> Self {
-        Self {
-            addr: data.as_ptr() as _,
-            size: data.len() as _,
-            phantom: PhantomData,
-        }
-    }
-
-    /// Register the encrypted memory region to a virtual machine
-    pub fn register(&mut self, vm_fd: &mut impl AsRawFd) -> std::io::Result<std::os::raw::c_uint> {
-        ENC_REG_REGION.ioctl(vm_fd, self)
-    }
-}
 
 /// A generic SEV command
 #[repr(C)]

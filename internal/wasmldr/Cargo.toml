@@ -1,6 +1,6 @@
 [package]
 name = "wasmldr"
-version = "0.1.0"
+version = "0.2.1"
 authors = ["The Enarx Project Developers"]
 edition = "2021"
 license = "Apache-2.0"
@@ -15,14 +15,16 @@ gdb = []
 dbg = []
 
 [dependencies]
-wasmtime = { version = "0.30", default-features = false, features = ["cranelift"] }
-wasmtime-wasi = { version = "0.30", default-features = false, features = ["sync"] }
-wasi-common = { version = "0.30", default-features = false }
-wasmparser = "0.81"
+wasmtime = { version = "0.34.0", default-features = false, features = ["cranelift", "pooling-allocator"] }
+wasmtime-wasi = { version = "0.34.0", default-features = false, features = ["sync"] }
+wasi-common = { version = "0.34.0", default-features = false }
+wasmparser = "0.83.0"
 structopt = { version = "0.3", default-features = false }
 anyhow = "1.0"
 env_logger = { version = "0.9", default-features = false }
 log = "0.4"
+toml = "0.5.8"
+serde = { version = "1.0", features = ["derive"] }
 
 [dev-dependencies]
 wat = "1.0"

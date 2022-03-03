@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
+use core::arch::asm;
+
 use primordial::Register;
 use sallyport::syscall::{BaseSyscallHandler, ProcessSyscallHandler};
 use sallyport::{Cursor, Request};

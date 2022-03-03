@@ -196,6 +196,8 @@ pub fn execute_exec() -> ! {
 
     #[cfg(feature = "gdb")]
     unsafe {
+        use core::arch::asm;
+
         // Breakpoint at the exec entry address
         asm!(
             "mov dr0, {}",

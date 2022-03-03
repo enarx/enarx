@@ -1,6 +1,6 @@
 [package]
 name = "enarx"
-version = "0.1.0"
+version = "0.2.1"
 authors = ["The Enarx Project Developers"]
 license = "Apache-2.0"
 edition = "2021"
@@ -11,7 +11,7 @@ description = "Enarx Keep Loader"
 readme = "README.md"
 keywords = ["sgx", "sev", "kvm", "tee"]
 categories = ["os", "os::linux-apis", "network-programming", "hardware-support"]
-include = [ "src", "internal", "build.rs", "LICENSE", "README.md", "rust-toolchain.toml" ]
+include = [ "/src", "/internal", "!/internal/*/target", "/build.rs", "/LICENSE", "/README.md", "/rust-toolchain.toml" ]
 
 [badges]
 # See https://doc.rust-lang.org/cargo/reference/manifest.html#the-badges-section
@@ -32,25 +32,27 @@ gdb = ["gdbstub"]
 dbg = []
 
 [dependencies]
-x86_64 = { version = "^0.14.6", default-features = false, optional = true }
+x86_64 = { version = "^0.14.8", default-features = false, optional = true }
 sgx = { version = "0.3.0", features = ["openssl"], optional = true }
 const-default = { version = "1.0", features = [ "derive" ] }
-primordial = { version = "0.3", features = ["alloc"] }
-sallyport = { git = "https://github.com/enarx/sallyport", rev = "dd42c91cc9e5cbc74f342eede3bc072f60ba11bd", features = [ "asm" ] }
+primordial = { version = "0.4", features = ["alloc"] }
+sallyport = { version = "0.2.0", features = [ "asm" ] }
 kvm-bindings = { version = "0.5", optional = true }
 kvm-ioctls = { version = "0.11", optional = true }
 gdbstub = { version = "0.5.0", optional = true }
 protobuf = "2.22"
-structopt = { version = "0.3.16", features = ["wrap_help"] }
+structopt = { version = "0.3.26", features = ["wrap_help"] }
 openssl = "0.10"
 bitflags = "1.2"
 iocuddle = "0.1.1"
 colorful = "0.2"
 mmarinus = "0.2.1"
 nbytes = "0.1"
-anyhow = "1.0.4"
+anyhow = "1.0.55"
+static_assertions = "1.1.0"
 semver = "1.0"
-goblin = "0.4"
+goblin = "0.5"
+rand = "0.8"
 libc = "0.2"
 lset = "0.2"
 vdso = "0.2"
@@ -58,6 +60,8 @@ log = "0.4"
 spinning = "0.1.0"
 env_logger = "0.9"
 reqwest = { version = "0.11", features = [ "blocking" ], optional = true }
+serde = { version = "1.0.136", features = ["derive"] }
+serde_json = "1.0.79"
 
 # h2 is an indirect dependency, to be specified when checking with `-Z minimal-versions`
 # h2 is a dependency of hyper, which is a dep of reqwest
@@ -66,15 +70,15 @@ reqwest = { version = "0.11", features = [ "blocking" ], optional = true }
 [build-dependencies]
 cc = "1.0.41"
 walkdir = "2"
-protobuf-codegen-pure = "2.25"
+protobuf-codegen-pure = "2.27"
 
 [dev-dependencies]
-process_control = "3.0"
-serial_test = "0.5"
-tempfile = "3.2.0"
+process_control = "3.2"
+serial_test = "0.6"
+tempfile = "3.3.0"
 walkdir = "2"
 wat = { version = "1.0" }
 
 [workspace]
-members = [ "integration/sev_attestation", "integration/simple" ]
+members = [ "tests/sev_attestation", "tests/rust-exec", "tests/wasm/rust-tests", "examples/tcp_server" ]
 exclude = [ "internal/shim-sev", "internal/shim-sgx", "internal/wasmldr" ]

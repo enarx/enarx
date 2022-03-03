@@ -7,8 +7,7 @@ use crate::backend::Datum;
 
 use std::arch::x86_64::__cpuid_count;
 use std::fs::OpenOptions;
-use std::mem::{transmute, MaybeUninit};
-use std::str::from_utf8;
+use std::mem::MaybeUninit;
 
 pub fn has_reasonable_memlock_rlimit() -> Datum {
     let mut rlimits = MaybeUninit::uninit();
@@ -68,13 +67,13 @@ pub fn dev_sev() -> Datum {
 
 pub fn sev_enabled_in_kernel() -> Datum {
     let mut datum = Datum {
-        name: " SEV is enabled in host kernel".into(),
+        name: " SEV-SNP is enabled in host kernel".into(),
         pass: false,
         info: None,
         mesg: None,
     };
 
-    let mod_param = "/sys/module/kvm_amd/parameters/sev";
+    let mod_param = "/sys/module/kvm_amd/parameters/sev_snp";
     if std::path::Path::new(mod_param).exists() {
         if let Ok(val) = std::fs::read_to_string(mod_param) {
             datum.pass = val.trim() == "1" || val.trim() == "Y";
@@ -108,14 +107,10 @@ pub fn dev_sev_writable() -> Datum {
 
 pub const CPUIDS: &[CpuId] = &[
     CpuId {
-        name: "CPU Manufacturer",
-        leaf: 0x00000000,
+        name: "CPU",
+        leaf: 0x80000000,
         subl: 0x00000000,
-        func: |res| {
-            let name: [u8; 12] = unsafe { transmute([res.ebx, res.edx, res.ecx]) };
-            let name = from_utf8(&name[..]).unwrap();
-            (name == "AuthenticAMD", Some(name.into()))
-        },
+        func: |res| CpuId::cpu_identifier(res, Some(Vendor::Amd)),
         vend: None,
     },
     CpuId {
@@ -189,10 +184,10 @@ pub const CPUIDS: &[CpuId] = &[
         vend: Some(Vendor::Amd),
     },
     CpuId {
-        name: " Secure Encrypted Virtualization Encrypted State (SEV-ES)",
+        name: " Secure Encrypted Virtualization Secure Nested Paging (SEV-SNP)",
         leaf: 0x8000001f,
         subl: 0x00000000,
-        func: |res| (res.eax & (1 << 3) != 0, None),
+        func: |res| (res.eax & (1 << 4) != 0, None),
         vend: Some(Vendor::Amd),
     },
     CpuId {

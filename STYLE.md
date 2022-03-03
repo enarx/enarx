@@ -104,11 +104,7 @@ beneficial.
 
 ## Use Declarations
 
-When creating `use` statements, these statement should be divided into groups
-separated by an empty line. Empty groups can be omitted altogether (i.e. no
-double empty lines). Formatting imports like this allows `cargo fmt` to
-sort within the groups, but the groups are always kept in the same relative
-order betwen them. The groups are, in order:
+`use`-statements are divided into following groups:
 
 1. Reexports from the same crate.
 2. Reexports from the `core`, `alloc` or `std`.
@@ -116,6 +112,11 @@ order betwen them. The groups are, in order:
 4. Imports from the same crate.
 5. Imports from the `core`, `alloc` or `std`.
 6. Imports from other crates.
+
+Each group is separated by an empty line.
+
+The motivation behind all this is that this makes `cargo fmt` to sort each
+group separately, but the groups are still kept in the same relative order.
 
 ## Import paths
 

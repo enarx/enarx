@@ -7,8 +7,6 @@ use sgx::parameters::{Features, MiscSelect, Xfrm};
 
 use std::arch::x86_64::__cpuid_count;
 use std::fs::File;
-use std::mem::transmute;
-use std::str::from_utf8;
 
 fn humanize(mut size: f64) -> (f64, &'static str) {
     let mut iter = 0;
@@ -36,14 +34,10 @@ fn humanize(mut size: f64) -> (f64, &'static str) {
 
 pub const CPUIDS: &[CpuId] = &[
     CpuId {
-        name: "CPU Manufacturer",
-        leaf: 0x00000000,
+        name: "CPU",
+        leaf: 0x80000000,
         subl: 0x00000000,
-        func: |res| {
-            let name: [u8; 12] = unsafe { transmute([res.ebx, res.edx, res.ecx]) };
-            let name = from_utf8(&name[..]).unwrap();
-            (name == "GenuineIntel", Some(name.into()))
-        },
+        func: |res| CpuId::cpu_identifier(res, Some(Vendor::Intel)),
         vend: None,
     },
     CpuId {

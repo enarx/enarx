@@ -20,6 +20,7 @@ use std::sync::Arc;
 use anyhow::{Error, Result};
 use mmarinus::{perms, Map};
 use sallyport::Block;
+use serde::ser::{Serialize, SerializeStruct, Serializer};
 use spinning::Lazy;
 
 trait Config: Sized {
@@ -67,6 +68,16 @@ pub trait Backend: Sync + Send {
     }
 }
 
+impl Serialize for dyn Backend {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        let mut backend = serializer.serialize_struct("Backend", 2)?;
+        backend.serialize_field("backend", self.name())?;
+        backend.serialize_field("data", &self.data())?;
+        backend.end()
+    }
+}
+
+#[derive(serde::Serialize)]
 pub struct Datum {
     /// The name of this datum.
     pub name: String,

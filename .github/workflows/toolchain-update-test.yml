@@ -1,0 +1,278 @@
+on:
+  workflow_dispatch:
+    branches: [ main ]
+  schedule:
+    - cron: '15 4 * * 4'
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+name: rust-toolchain-test
+jobs:
+  fmt:
+    name: cargo fmt (${{ matrix.crate.name }})
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate rust toolchain snapshot version
+        id: toolchain_version
+        run: echo "::set-output name=toolchain_version::nightly-$(date +%Y-%m-%d)"
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          components: rustfmt
+          toolchain: ${{ steps.toolchain_version.outputs.toolchain_version }}
+          profile: minimal
+          override: true
+      - uses: actions-rs/cargo@v1
+        with:
+          command: fmt
+          args: --manifest-path=${{ matrix.crate.path }} -- --check
+    strategy:
+      fail-fast: false
+      matrix:
+        crate:
+          - {name: enarx, path: Cargo.toml}
+          - {name: shim-sgx, path: internal/shim-sgx/Cargo.toml}
+          - {name: shim-sev, path: internal/shim-sev/Cargo.toml}
+          - {name: wasmldr, path: internal/wasmldr/Cargo.toml}
+  clippy:
+    name: cargo clippy (${{ matrix.crate.name }})
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Generate rust toolchain snapshot version
+        id: toolchain_version
+        run: echo "::set-output name=toolchain_version::nightly-$(date +%Y-%m-%d)"
+      - run: sudo apt -o Acquire::Retries=3 update
+      - run: sudo apt -o Acquire::Retries=3 install -y musl-tools
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          components: clippy
+          toolchain: ${{ steps.toolchain_version.outputs.toolchain_version }}
+          profile: minimal
+          target: x86_64-unknown-linux-musl
+          override: true
+      - uses: actions-rs/cargo@v1
+        with:
+          command: clippy
+          args: ${{ matrix.crate.target }} --all-features --manifest-path=${{ matrix.crate.path }} -- -D warnings
+    strategy:
+      fail-fast: false
+      matrix:
+        crate:
+          - {name: enarx, path: Cargo.toml}
+          - name: shim-sgx
+            path: internal/shim-sgx/Cargo.toml
+            target: --target=x86_64-unknown-linux-musl
+          - name: shim-sev
+            path: internal/shim-sev/Cargo.toml
+            target: --target=x86_64-unknown-linux-musl
+          - name: wasmldr
+            path: internal/wasmldr/Cargo.toml
+            target: --target=x86_64-unknown-linux-musl
+  clippy-single-backends:
+    name: cargo clippy (enarx ${{ matrix.backend.name }} ${{ matrix.profile.name }})
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Generate rust toolchain snapshot version
+        id: toolchain_version
+        run: echo "::set-output name=toolchain_version::nightly-$(date +%Y-%m-%d)"
+      - run: sudo apt -o Acquire::Retries=3 update
+      - run: sudo apt -o Acquire::Retries=3 install -y musl-tools
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          components: clippy
+          toolchain: ${{ steps.toolchain_version.outputs.toolchain_version }}
+          profile: minimal
+          target: x86_64-unknown-linux-musl
+          override: true
+      - uses: actions-rs/cargo@v1
+        with:
+          command: clippy
+          args: ${{ matrix.profile.flag }} --no-default-features --features=backend-${{ matrix.backend.name }} -- -D warnings
+      - uses: actions-rs/cargo@v1
+        with:
+          command: clippy
+          args: ${{ matrix.profile.flag }} --no-default-features --features=backend-${{ matrix.backend.name }} --examples -- -D warnings
+    strategy:
+      fail-fast: false
+      matrix:
+        backend:
+          - {name: sev, host: [self-hosted, linux, sev-snp]}
+          - {name: sgx, host: [self-hosted, linux, sgx]}
+          - {name: kvm, host: [self-hosted, linux]}
+        profile:
+          - name: debug
+          - name: release
+            flag: --release
+  readme:
+    name: cargo readme (${{matrix.crate.name}})
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate rust toolchain snapshot version
+        id: toolchain_version
+        run: echo "::set-output name=toolchain_version::nightly-$(date +%Y-%m-%d)"
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ steps.toolchain_version.outputs.toolchain_version }}
+          profile: minimal
+          override: true
+      - run: cargo install cargo-readme
+      - run: cargo readme --project-root ${{ matrix.crate.path }} > ${{ matrix.crate.path}}/README.md && git diff --exit-code
+    strategy:
+      fail-fast: false
+      matrix:
+        crate:
+          - { name: enarx, path: . }
+          - { name: wasmldr, path: internal/wasmldr }
+  deny:
+    name: cargo deny
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: EmbarkStudios/cargo-deny-action@v1
+        with:
+          arguments: --workspace --manifest-path=${{ matrix.crate.path }}
+    strategy:
+      fail-fast: false
+      matrix:
+        crate:
+          - {name: enarx, path: ./Cargo.toml}
+          - {name: shim-sgx, path: internal/shim-sgx/Cargo.toml}
+          - {name: shim-sev, path: internal/shim-sev/Cargo.toml}
+          - {name: wasmldr, path: internal/wasmldr/Cargo.toml}
+  main:
+    name: enarx ${{ matrix.backend.name }} nightly ${{ matrix.profile.name }}
+    runs-on: ${{ matrix.backend.host }}
+    env:
+        ENARX_BACKEND: ${{ matrix.backend.name }}
+    steps:
+      - name: Generate rust toolchain snapshot version
+        id: toolchain_version
+        run: echo "::set-output name=toolchain_version::nightly-$(date +%Y-%m-%d)"
+      - run: sudo apt -o Acquire::Retries=3 update
+      - run: sudo apt -o Acquire::Retries=3 install -y musl-tools
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          target: x86_64-unknown-linux-musl
+          toolchain: ${{ steps.toolchain_version.outputs.toolchain_version }}
+          override: true
+      - run: rustup target add wasm32-wasi
+      - uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: ${{ matrix.profile.flag }} --no-default-features --features=backend-${{ matrix.backend.name }} --features=wasmldr
+    strategy:
+      fail-fast: false
+      matrix:
+        backend:
+          - {name: sev, host: [self-hosted, linux, sev-snp]}
+          - {name: sgx, host: [self-hosted, linux, sgx]}
+          - {name: kvm, host: [self-hosted, linux]}
+        profile:
+          - name: debug
+          - name: debug with dbg
+            flag: --features=dbg
+          - name: release
+            flag: --release
+  build-only:
+    name: enarx build-only nightly ${{ matrix.profile.name }}
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Generate rust toolchain snapshot version
+        id: toolchain_version
+        run: echo "::set-output name=toolchain_version::nightly-$(date +%Y-%m-%d)"
+      - run: sudo apt -o Acquire::Retries=3 update
+      - run: sudo apt -o Acquire::Retries=3 install -y musl-tools
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          target: x86_64-unknown-linux-musl
+          toolchain: ${{ steps.toolchain_version.outputs.toolchain_version }}
+          override: true
+      - uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: ${{ matrix.profile.flag }}
+    strategy:
+      fail-fast: false
+      matrix:
+        profile:
+          - name: default-features
+          - name: gdb
+            flag: --features=gdb
+  internal:
+    name: ${{ matrix.crate }} nightly ${{ matrix.profile.name }}
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Generate rust toolchain snapshot version
+        id: toolchain_version
+        run: echo "::set-output name=toolchain_version::nightly-$(date +%Y-%m-%d)"
+      - run: sudo apt -o Acquire::Retries=3 update
+      - run: sudo apt -o Acquire::Retries=3 install -y musl-tools
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          target: x86_64-unknown-linux-gnu
+          toolchain: ${{ steps.toolchain_version.outputs.toolchain_version }}
+          override: true
+      - run: cargo test ${{ matrix.profile.flag }} --target x86_64-unknown-linux-gnu
+        working-directory: internal/${{ matrix.crate }}
+    strategy:
+      fail-fast: false
+      matrix:
+        crate:
+          - shim-sgx
+          - shim-sev
+          - wasmldr
+        profile:
+          - name: debug
+          - name: release
+            flag: --release
+  nix:
+    runs-on: ubuntu-20.04
+    steps:
+    - uses: actions/checkout@v2.4.0
+    - uses: cachix/install-nix-action@v16
+    - name: Update rust toolchain to ${{ steps.toolchain_version.outputs.toolchain_version }}
+      run: helper/bump-toolchain.sh 
+      shell: bash
+    - name: Update rust toolchain in nix file
+      run: helper/bump-toolchain-nix.sh
+      shell: bash
+    - run: nix flake check
+    - run: nix develop --ignore-environment -c cargo build
+  create-pr:
+    needs: [ main, nix, internal, build-only, deny, readme, clippy, clippy-single-backends, fmt ]
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Generate rust toolchain snapshot version
+        id: toolchain_version
+        run: echo "::set-output name=toolchain_version::nightly-$(date +%Y-%m-%d)"
+      - uses: actions/checkout@v2.4.0
+      - uses: cachix/install-nix-action@v16
+      - name: Update rust toolchain to ${{ steps.toolchain_version.outputs.toolchain_version }}
+        run: helper/bump-toolchain.sh 
+        shell: bash
+      - name: Update rust toolchain in nix file
+        run: helper/bump-toolchain-nix.sh
+        shell: bash
+      - name: Create pull request
+        uses: enarx/create-pull-request@v3
+        with:
+          token: ${{ secrets.BOT_TOKEN }}
+          commit-message: "chore(deps): bump rust toolchain to version ${{ steps.toolchain_version.outputs.toolchain_version }}"
+          title: "chore(deps): bump rust toolchain to version ${{ steps.toolchain_version.outputs.toolchain_version }}"
+          body: "chore(deps): bump rust toolchain to version ${{ steps.toolchain_version.outputs.toolchain_version }}"
+          labels: dependencies
+          signoff: true
+          branch: chore/update-rust-toolchain
+          head: ${{ github.ref }}
+          base: main
+          add-paths: |
+            rust-toolchain.toml
+            .github/workflows/lint.yml
+            .github/workflows/test.yml
+            flake.nix

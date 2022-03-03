@@ -2,11 +2,13 @@
 
 #![cfg(feature = "gdb")]
 
+use core::arch::asm;
 use core::convert::TryFrom;
 use core::mem::size_of;
 use core::ops::Range;
 
-use crate::{ENARX_EXEC_START, ENARX_HEAP_END, ENCL_SIZE};
+use crate::heap::HEAP;
+use crate::{ENARX_EXEC_START, ENCL_SIZE};
 use gdbstub::arch::Arch;
 use gdbstub::target::ext::base::singlethread::SingleThreadOps;
 use gdbstub::target::ext::base::singlethread::{GdbInterrupt, ResumeAction, StopReason};
@@ -266,7 +268,9 @@ impl GdbTarget {
         block_range: Range<*const u8>,
         ssa_range: Range<*const u8>,
     ) -> Self {
-        let shim_range = shim_base_offset() as *const u8..unsafe { &ENARX_HEAP_END as *const u8 };
+        let start = shim_base_offset() as *const u8;
+        let end = HEAP.read().range().end;
+        let shim_range = start..end;
 
         Self {
             regs,
