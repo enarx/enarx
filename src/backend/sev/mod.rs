@@ -55,7 +55,7 @@ impl super::Backend for Backend {
 
     #[inline]
     fn have(&self) -> bool {
-        data::dev_sev_writable().pass
+        self.data().iter().all(|x| x.pass)
     }
 
     fn data(&self) -> Vec<super::Datum> {
