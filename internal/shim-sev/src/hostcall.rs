@@ -7,17 +7,20 @@ use crate::debug::_enarx_asm_triple_fault;
 use crate::eprintln;
 use crate::exec::{NEXT_BRK_RWLOCK, NEXT_MMAP_RWLOCK};
 use crate::paging::SHIM_PAGETABLE;
+use crate::random::{random, CPU_HAS_RDRAND};
 use crate::snp::ghcb::{GHCB, GHCB_EXT, SNP_ATTESTATION_LEN_MAX};
 use crate::snp::{cpuid, snp_active};
 use crate::spin::{RacyCell, RwLocked};
 
 use const_default::ConstDefault;
 use core::ffi::c_void;
+use core::mem::size_of;
 use core::ops::{Deref, DerefMut};
 use core::ptr::NonNull;
 use core::slice;
 
-use libc::{c_int, c_ulong, off_t, size_t, EINVAL};
+use libc::{c_int, c_uint, c_ulong, off_t, size_t, EINVAL, GRND_NONBLOCK, GRND_RANDOM};
+use sallyport::guest::syscall::Getrandom;
 use sallyport::guest::{self, Handler, Platform, ThreadLocalStorage};
 use sallyport::item::enarxcall::sev::TECH;
 use sallyport::item::syscall;
@@ -487,6 +490,21 @@ impl Handler for HostCall<'_> {
             .unmap_memory(VirtAddr::from_ptr(addr.as_ptr()), length);
 
         Ok(())
+    }
+
+    fn getrandom(&mut self, buf: &mut [u8], flags: c_uint) -> sallyport::Result<size_t> {
+        if flags & !(GRND_NONBLOCK | GRND_RANDOM) != 0 {
+            return Err(EINVAL);
+        }
+
+        if *CPU_HAS_RDRAND {
+            self.execute(Getrandom { buf, flags })?
+        } else {
+            for chunk in buf.chunks_mut(size_of::<u64>()) {
+                chunk.copy_from_slice(&random().to_ne_bytes()[..chunk.len()]);
+            }
+            Ok(buf.len())
+        }
     }
 }
 
