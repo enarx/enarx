@@ -7,11 +7,13 @@ use crate::syscall::_syscall_enter;
 
 use core::ops::Deref;
 
+use crate::hostcall::CPU_HAS_FSGSBASE;
 use nbytes::bytes;
 use spinning::Lazy;
 use x86_64::instructions::segmentation::{Segment, Segment64, CS, DS, ES, FS, GS, SS};
 use x86_64::instructions::tables::load_tss;
-use x86_64::registers::model_specific::{KernelGsBase, LStar, SFMask, Star};
+use x86_64::registers::control::{Cr4, Cr4Flags};
+use x86_64::registers::model_specific::{GsBase, KernelGsBase, LStar, SFMask, Star};
 use x86_64::registers::rflags::RFlags;
 use x86_64::structures::gdt::{Descriptor, GlobalDescriptorTable, SegmentSelector};
 use x86_64::structures::paging::{Page, PageTableFlags, Size2MiB, Size4KiB};
@@ -170,5 +172,11 @@ pub unsafe fn init() {
     // Important: TSS.deref() != &TSS because of lazy_static
     let base = VirtAddr::new(TSS.deref() as *const _ as u64);
     KernelGsBase::write(base);
-    GS::write_base(base);
+
+    if *CPU_HAS_FSGSBASE {
+        Cr4::update(|f| *f |= Cr4Flags::FSGSBASE);
+        GS::write_base(base);
+    } else {
+        GsBase::write(base);
+    }
 }
