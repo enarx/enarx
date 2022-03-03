@@ -46,13 +46,13 @@ impl BackendOptions {
                 .deref()
                 .iter()
                 .find(|b| b.have() && b.name() == name)
-                .ok_or_else(|| anyhow!("Keep backend {:?} is unsupported", name))
+                .ok_or_else(|| anyhow!("Keep backend {:?} is unsupported.", name))
         } else {
-            BACKENDS
-                .deref()
-                .iter()
-                .find(|b| b.have())
-                .ok_or_else(|| anyhow!("No supported backend found"))
+            BACKENDS.deref().iter().find(|b| b.have()).ok_or_else(|| {
+                anyhow!(
+                    "No supported backend found. Please check your machine with `$ enarx info`."
+                )
+            })
         }
         .map(|b| &**b)
     }

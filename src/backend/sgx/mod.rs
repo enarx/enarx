@@ -39,7 +39,7 @@ impl crate::backend::Backend for Backend {
 
     #[inline]
     fn have(&self) -> bool {
-        data::dev_sgx_enclave().pass
+        self.data().iter().all(|x| x.pass)
     }
 
     fn data(&self) -> Vec<super::Datum> {
