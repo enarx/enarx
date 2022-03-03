@@ -24,29 +24,45 @@ struct Info<'a> {
 impl fmt::Display for Info<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         use colorful::*;
-        let backends = self.backends;
-        writeln!(f, "Version {} starting up", self.version)?;
-        for backend in backends {
-            writeln!(f, "Backend: {}", backend.name())?;
 
+        fn get_icon(is_atty: bool, pass: bool) -> String {
+            match is_atty {
+                true => match pass {
+                    true => "✔".green().to_string(),
+                    false => "✗".red().to_string(),
+                },
+                false => match pass {
+                    true => "✔".into(),
+                    false => "✗".into(),
+                },
+            }
+        }
+
+        let is_atty = atty::is(atty::Stream::Stdout);
+        let backends = self.backends;
+
+        writeln!(f, "Enarx version {}", self.version)?;
+
+        for backend in backends {
             let data = backend.data();
+            let pass = data.iter().all(|x| x.pass);
+            let icon = get_icon(is_atty, pass);
+
+            writeln!(f, "{} Backend: {}", icon, backend.name())?;
 
             for datum in &data {
-                let icon = match datum.pass {
-                    true => "✔".green(),
-                    false => "✗".red(),
-                };
+                let icon = get_icon(is_atty, datum.pass);
+                write!(f, "  {} {}", icon, datum.name)?;
 
-                if let Some(info) = datum.info.as_ref() {
-                    writeln!(f, " {} {}: {}", icon, datum.name, info)?;
-                } else {
-                    writeln!(f, " {} {}", icon, datum.name)?;
+                if let Some(ref info) = datum.info {
+                    write!(f, ": {}", info)?;
                 }
+                writeln!(f)?;
             }
 
             for datum in &data {
                 if let Some(mesg) = datum.mesg.as_ref() {
-                    writeln!(f, "\n{}\n", mesg)?;
+                    writeln!(f, "\n  {}\n", mesg)?;
                 }
             }
         }

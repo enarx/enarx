@@ -161,6 +161,7 @@ name = "enarx"
 version = "0.2.1"
 dependencies = [
  "anyhow",
+ "atty",
  "bitflags",
  "cc",
  "colorful",
