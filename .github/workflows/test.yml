@@ -97,3 +97,4 @@ jobs:
     - uses: cachix/install-nix-action@v16
     - run: nix flake check
     - run: nix develop --ignore-environment -c cargo build
+    - run: nix build -L
