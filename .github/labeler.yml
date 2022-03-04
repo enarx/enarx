@@ -1,38 +1,19 @@
-github:
+infrastructure:
 - .github/**/*
-
-helper:
 - helper/**/*
 
-technolgy/sev:
+amd sev:
 - internal/shim-sev/**/*
 
-technolgy/sgx:
+intel sgx:
 - internal/shim-sgx/**/*
 
-technology/wasm:
+wasm:
 - internal/wasmldr/**/*
+- tests/wasm/**/*
 
-src:
-- src/**/*
-
-backend:
-- src/backend/**/*
-
-cli:
+client:
 - src/cli/**/*
 
-protobuf:
-- src/protobuf/**/*
-
-workldr:
-- src/workldr/**/*
-
-tests/bin:
-- tests/bin/**/*
-
-tests/common:
-- tests/common/**/*
-
-tests/wasm:
-- tests/wasm/**/*
+testing:
+- tests/**/*
