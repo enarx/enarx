@@ -49,9 +49,17 @@
 
 mod cli;
 mod config;
+mod tls;
 mod workload;
 
 use log::{debug, info, warn};
+use rustls::cipher_suite::{
+    TLS13_AES_128_GCM_SHA256, TLS13_AES_256_GCM_SHA384, TLS13_CHACHA20_POLY1305_SHA256,
+};
+use rustls::kx_group::X25519;
+use rustls::version::TLS13;
+use rustls::{Certificate, PrivateKey};
+use rustls_pemfile::{certs, pkcs8_private_keys};
 use structopt::StructOpt;
 
 use std::fs::File;
@@ -78,6 +86,28 @@ fn main() {
     debug!("parsing argv");
     let opts = cli::RunOptions::from_args();
     info!("opts: {:#?}", opts);
+
+    let mut root_certificates = rustls::RootCertStore::empty();
+    root_certificates.add_parsable_certificates(
+        &certs(&mut include_bytes!("tls/testdata/ca.crt").as_ref()).unwrap(),
+    );
+    let certificate_chain = certs(&mut include_bytes!("tls/testdata/client.crt").as_ref())
+        .unwrap()
+        .into_iter()
+        .map(Certificate)
+        .collect();
+
+    let certificate_key_der = PrivateKey(
+        pkcs8_private_keys(&mut include_bytes!("tls/testdata/client.key").as_ref())
+            .unwrap()
+            .remove(0),
+    );
+    let tls_client = tls::Client::new(tls::ClientConfig {
+        root_certificates,
+        certificate_chain,
+        certificate_key_der,
+    })
+    .expect("Unable to create TLS client");
 
     let mut reader = if let Some(module) = opts.module {
         info!("reading module from {:?}", &module);
