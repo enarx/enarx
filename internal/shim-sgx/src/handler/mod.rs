@@ -59,9 +59,15 @@ pub struct Handler<'a> {
 
 impl<'a> Write for Handler<'a> {
     fn write_str(&mut self, s: &str) -> core::fmt::Result {
-        self.write(libc::STDERR_FILENO, s.as_bytes())
-            .map_err(|_| core::fmt::Error)
-            .map(|_| ())
+        let buf = s.as_bytes();
+        let len = buf.len();
+        let mut written = 0;
+        while written < len {
+            written += self
+                .write(libc::STDERR_FILENO, &buf[written..])
+                .map_err(|_| core::fmt::Error)? as usize;
+        }
+        Ok(())
     }
 }
 
