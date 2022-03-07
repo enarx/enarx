@@ -231,21 +231,22 @@ jobs:
           - name: debug
           - name: release
             flag: --release
-  nix:
-    runs-on: ubuntu-20.04
-    steps:
-    - uses: actions/checkout@v2.4.0
-    - uses: cachix/install-nix-action@v16
-    - name: Update rust toolchain to ${{ steps.toolchain_version.outputs.toolchain_version }}
-      run: helper/bump-toolchain.sh 
-      shell: bash
-    - name: Update rust toolchain in nix file
-      run: helper/bump-toolchain-nix.sh
-      shell: bash
-    - run: nix flake check
-    - run: nix develop --ignore-environment -c cargo build
+  # nix:
+  #   runs-on: ubuntu-20.04
+  #   steps:
+  #   - uses: actions/checkout@v2.4.0
+  #   - uses: cachix/install-nix-action@v16
+  #   - name: Update rust toolchain to ${{ steps.toolchain_version.outputs.toolchain_version }}
+  #     run: helper/bump-toolchain.sh 
+  #     shell: bash
+  #   - name: Update rust toolchain in nix file
+  #     run: helper/bump-toolchain-nix.sh
+  #     shell: bash
+  #   - run: nix flake check
+  #   - run: nix develop --ignore-environment -c cargo build
   create-pr:
-    needs: [ main, nix, internal, build-only, deny, readme, clippy, clippy-single-backends, fmt ]
+    # needs: [ main, nix, internal, build-only, deny, readme, clippy, clippy-single-backends, fmt ]
+    needs: [ main, internal, build-only, deny, readme, clippy, clippy-single-backends, fmt ]
     runs-on: ubuntu-20.04
     steps:
       - name: Generate rust toolchain snapshot version
