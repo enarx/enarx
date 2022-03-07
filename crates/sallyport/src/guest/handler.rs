@@ -418,7 +418,7 @@ pub trait Handler: Platform {
 
     /// Executes [`sigaltstack`](https://man7.org/linux/man-pages/man2/sigaltstack.2.html) syscall akin to [`libc::sigaltstack`].
     #[inline]
-    fn sigaltstack(&mut self, ss: &stack_t, old_ss: Option<&mut stack_t>) -> Result<()> {
+    fn sigaltstack(&mut self, ss: Option<&stack_t>, old_ss: Option<&mut stack_t>) -> Result<()> {
         self.execute(syscall::Sigaltstack { ss, old_ss })?
     }
 
@@ -735,7 +735,11 @@ pub trait Handler: Platform {
                 self.set_tid_address(tidptr).map(|ret| [ret as _, 0])
             }
             (libc::SYS_sigaltstack, [ss, old_ss, ..]) => {
-                let ss = self.validate(ss)?;
+                let ss = if ss == 0 {
+                    None
+                } else {
+                    self.validate(ss).map(Some)?
+                };
                 let old_ss = if old_ss == 0 {
                     None
                 } else {

@@ -199,7 +199,7 @@ impl Stub for RtSigprocmask<'_> {
 }
 
 pub struct Sigaltstack<'a> {
-    pub ss: &'a stack_t,
+    pub ss: Option<&'a stack_t>,
     pub old_ss: Option<&'a mut stack_t>,
 }
 
