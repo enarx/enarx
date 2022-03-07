@@ -156,6 +156,8 @@ impl<'a> HostCall<'a> {
     }
 
     /// get an SNP attestation report
+    ///
+    /// See https://github.com/enarx/enarx/issues/966
     pub fn get_attestation(
         &mut self,
         platform: &impl Platform,
@@ -168,12 +170,16 @@ impl<'a> HostCall<'a> {
             return Ok([0, 0]);
         }
 
-        if nonce_len == 0 || buf_len == 0 {
+        if buf == 0 {
             return Ok([SNP_ATTESTATION_LEN_MAX, TECH]);
         }
 
-        if buf_len < SNP_ATTESTATION_LEN_MAX {
+        if buf_len > isize::MAX as usize {
             return Err(libc::EINVAL);
+        }
+
+        if buf_len < SNP_ATTESTATION_LEN_MAX {
+            return Err(libc::EMSGSIZE);
         }
 
         if nonce_len != 64 {
@@ -184,9 +190,7 @@ impl<'a> HostCall<'a> {
 
         let buf = platform.validate_slice_mut::<u8>(buf, buf_len)?;
 
-        let len = GHCB_EXT
-            .get_report(1, nonce, buf)
-            .map_err(|e| e as libc::c_int)?;
+        let len = GHCB_EXT.get_report(1, nonce, buf).map_err(|_| libc::EIO)?;
 
         Ok([len, TECH])
     }

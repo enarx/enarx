@@ -257,9 +257,22 @@ impl<'a> Handler<'a> {
         buf: usize,
         buf_len: usize,
     ) -> Result<[usize; 2], libc::c_int> {
-        if hash_len == 0 || buf_len == 0 {
+        if buf == 0 {
             return Ok([QUOTE_SIZE, TECH]);
         }
+
+        if buf_len > isize::MAX as usize {
+            return Err(libc::EINVAL);
+        }
+
+        if buf_len < QUOTE_SIZE {
+            return Err(libc::EMSGSIZE);
+        }
+
+        if hash_len != 64 {
+            return Err(libc::EINVAL);
+        }
+
         let hash = {
             let h = platform.validate_slice::<u8>(hash, hash_len)?;
             let mut hash = [0u8; 64];
