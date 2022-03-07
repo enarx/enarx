@@ -256,7 +256,7 @@ impl EnarxAllocator {
                             (virt_line.start..virt_line.end).step_by(Page::<Size4KiB>::SIZE as _)
                         {
                             let va = VirtAddr::new(addr as _);
-                            unsafe { pvalidate(va, PvalidateSize::Size4K, true).unwrap() };
+                            pvalidate(va, PvalidateSize::Size4K, true).unwrap();
                         }
                     }
 
