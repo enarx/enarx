@@ -58,34 +58,28 @@ pub enum PvalidateSize {
 /// returns `Ok(rmp_changed)` on success with `rmp_changed` indicating if the contents
 /// of the RMP entry was changed or not.
 ///
-/// # Safety
-/// This function is unsafe, because:
 /// - If `addr` is not a readable mapped page, `pvalidate` will result in a Page Fault, #PF exception.
 /// - This is a privileged instruction. Attempted execution at a privilege level other than CPL0 will result in
 ///   a #GP(0) exception.
 /// - VMPL or CPL not zero will result in a #GP(0) exception.
 #[inline(always)]
-pub unsafe fn pvalidate(
-    addr: VirtAddr,
-    size: PvalidateSize,
-    validated: bool,
-) -> Result<bool, Error> {
+pub fn pvalidate(addr: VirtAddr, size: PvalidateSize, validated: bool) -> Result<bool, Error> {
     let rmp_changed: u32;
     let ret: u64;
     let flag: u32 = if validated { 1 } else { 0 };
 
     // pvalidate and output the carry bit in edx
     // return value in rax
-    asm!(
+    unsafe {
+        asm!(
         "pvalidate",
         "setc    dl",
-
         inout("rax") addr.as_u64() & (!0xFFF) => ret,
         in("rcx") size as u64,
         inout("edx") flag => rmp_changed,
-
         options(nostack, nomem)
-    );
+        );
+    }
 
     match ret as u32 {
         0 => Ok(rmp_changed as u8 == 0),

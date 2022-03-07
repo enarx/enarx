@@ -220,7 +220,7 @@ fn ghcb_msr_make_page_shared(page_virt: VirtAddr) {
 
     smash(page_virt).unwrap();
 
-    unsafe { pvalidate(page_virt, PvalidateSize::Size4K, false).unwrap() };
+    pvalidate(page_virt, PvalidateSize::Size4K, false).unwrap();
 
     if clear_c_bit_address_range(page_virt, page_virt + Page::<Size4KiB>::SIZE).is_err() {
         unsafe {
@@ -430,7 +430,7 @@ impl RwLocked<GhcbHandle<'_>> {
             .for_each(|a| {
                 let virt = VirtAddr::new(a);
                 smash(virt).unwrap();
-                unsafe { pvalidate(virt, PvalidateSize::Size4K, false).unwrap() };
+                pvalidate(virt, PvalidateSize::Size4K, false).unwrap();
             });
 
         clear_c_bit_address_range(
