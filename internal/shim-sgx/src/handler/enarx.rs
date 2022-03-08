@@ -59,7 +59,7 @@ impl<'a> EnarxSyscallHandler for super::Handler<'a> {
         let target_info = unsafe { (src.as_ptr() as *const TargetInfo).read_unaligned() };
 
         // Generate Report
-        let report: Report = target_info.enclu_ereport(&ReportData(hash));
+        let report: Report = target_info.report(&ReportData(hash));
 
         // Request Quote from host
 

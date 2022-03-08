@@ -130,7 +130,7 @@ impl Default for ReportData {
 }
 
 impl TargetInfo {
-    pub fn enclu_ereport(&self, reportdata: &ReportData) -> Report {
+    pub fn report(&self, reportdata: &ReportData) -> Report {
         const EREPORT: usize = 0;
 
         // Purposely make an uninitialized memory block for the struct, as it
