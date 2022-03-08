@@ -167,11 +167,11 @@ impl WasiUnstable for Ctx {
 
     async fn fd_prestat_dir_name<'a>(
         &mut self,
-        fd: types::Fd,
-        path: &GuestPtr<'a, u8>,
-        path_max_len: types::Size,
+        _fd: types::Fd,
+        _path: &GuestPtr<'a, u8>,
+        _path_max_len: types::Size,
     ) -> Result<(), Error> {
-        WasiUnstable::fd_prestat_dir_name(&mut self.inner, fd, path, path_max_len).await
+        Err(Error::trap("fd_prestat_dir_name unsupported"))
     }
 
     async fn fd_renumber(&mut self, from: types::Fd, to: types::Fd) -> Result<(), Error> {
@@ -207,127 +207,100 @@ impl WasiUnstable for Ctx {
 
     async fn path_create_directory<'a>(
         &mut self,
-        dirfd: types::Fd,
-        path: &GuestPtr<'a, str>,
+        _dirfd: types::Fd,
+        _path: &GuestPtr<'a, str>,
     ) -> Result<(), Error> {
-        WasiUnstable::path_create_directory(&mut self.inner, dirfd, path).await
+        Err(Error::trap("path_create_directory unsupported"))
     }
 
     async fn path_filestat_get<'a>(
         &mut self,
-        dirfd: types::Fd,
-        flags: types::Lookupflags,
-        path: &GuestPtr<'a, str>,
+        _dirfd: types::Fd,
+        _flags: types::Lookupflags,
+        _path: &GuestPtr<'a, str>,
     ) -> Result<types::Filestat, Error> {
-        WasiUnstable::path_filestat_get(&mut self.inner, dirfd, flags, path).await
+        Err(Error::trap("path_filestat_get unsupported"))
     }
 
     async fn path_filestat_set_times<'a>(
         &mut self,
-        dirfd: types::Fd,
-        flags: types::Lookupflags,
-        path: &GuestPtr<'a, str>,
-        atim: types::Timestamp,
-        mtim: types::Timestamp,
-        fst_flags: types::Fstflags,
+        _dirfd: types::Fd,
+        _flags: types::Lookupflags,
+        _path: &GuestPtr<'a, str>,
+        _atim: types::Timestamp,
+        _mtim: types::Timestamp,
+        _fst_flags: types::Fstflags,
     ) -> Result<(), Error> {
-        WasiUnstable::path_filestat_set_times(
-            &mut self.inner,
-            dirfd,
-            flags,
-            path,
-            atim,
-            mtim,
-            fst_flags,
-        )
-        .await
+        Err(Error::trap("path_filestat_set_times unsupported"))
     }
 
     async fn path_link<'a>(
         &mut self,
-        src_fd: types::Fd,
-        src_flags: types::Lookupflags,
-        src_path: &GuestPtr<'a, str>,
-        target_fd: types::Fd,
-        target_path: &GuestPtr<'a, str>,
+        _src_fd: types::Fd,
+        _src_flags: types::Lookupflags,
+        _src_path: &GuestPtr<'a, str>,
+        _target_fd: types::Fd,
+        _target_path: &GuestPtr<'a, str>,
     ) -> Result<(), Error> {
-        WasiUnstable::path_link(
-            &mut self.inner,
-            src_fd,
-            src_flags,
-            src_path,
-            target_fd,
-            target_path,
-        )
-        .await
+        Err(Error::trap("path_link unsupported"))
     }
 
     async fn path_open<'a>(
         &mut self,
-        dirfd: types::Fd,
-        dirflags: types::Lookupflags,
-        path: &GuestPtr<'a, str>,
-        oflags: types::Oflags,
-        fs_rights_base: types::Rights,
-        fs_rights_inheriting: types::Rights,
-        fdflags: types::Fdflags,
+        _dirfd: types::Fd,
+        _dirflags: types::Lookupflags,
+        _path: &GuestPtr<'a, str>,
+        _oflags: types::Oflags,
+        _fs_rights_base: types::Rights,
+        _fs_rights_inheriting: types::Rights,
+        _fdflags: types::Fdflags,
     ) -> Result<types::Fd, Error> {
-        WasiUnstable::path_open(
-            &mut self.inner,
-            dirfd,
-            dirflags,
-            path,
-            oflags,
-            fs_rights_base,
-            fs_rights_inheriting,
-            fdflags,
-        )
-        .await
+        Err(Error::trap("path_open unsupported"))
     }
 
     async fn path_readlink<'a>(
         &mut self,
-        dirfd: types::Fd,
-        path: &GuestPtr<'a, str>,
-        buf: &GuestPtr<'a, u8>,
-        buf_len: types::Size,
+        _dirfd: types::Fd,
+        _path: &GuestPtr<'a, str>,
+        _buf: &GuestPtr<'a, u8>,
+        _buf_len: types::Size,
     ) -> Result<types::Size, Error> {
-        WasiUnstable::path_readlink(&mut self.inner, dirfd, path, buf, buf_len).await
+        Err(Error::trap("path_readlink unsupported"))
     }
 
     async fn path_remove_directory<'a>(
         &mut self,
-        dirfd: types::Fd,
-        path: &GuestPtr<'a, str>,
+        _dirfd: types::Fd,
+        _path: &GuestPtr<'a, str>,
     ) -> Result<(), Error> {
-        WasiUnstable::path_remove_directory(&mut self.inner, dirfd, path).await
+        Err(Error::trap("path_remove_directory unsupported"))
     }
 
     async fn path_rename<'a>(
         &mut self,
-        src_fd: types::Fd,
-        src_path: &GuestPtr<'a, str>,
-        dest_fd: types::Fd,
-        dest_path: &GuestPtr<'a, str>,
+        _src_fd: types::Fd,
+        _src_path: &GuestPtr<'a, str>,
+        _dest_fd: types::Fd,
+        _dest_path: &GuestPtr<'a, str>,
     ) -> Result<(), Error> {
-        WasiUnstable::path_rename(&mut self.inner, src_fd, src_path, dest_fd, dest_path).await
+        Err(Error::trap("path_rename unsupported"))
     }
 
     async fn path_symlink<'a>(
         &mut self,
-        src_path: &GuestPtr<'a, str>,
-        dirfd: types::Fd,
-        dest_path: &GuestPtr<'a, str>,
+        _src_path: &GuestPtr<'a, str>,
+        _dirfd: types::Fd,
+        _dest_path: &GuestPtr<'a, str>,
     ) -> Result<(), Error> {
-        WasiUnstable::path_symlink(&mut self.inner, src_path, dirfd, dest_path).await
+        Err(Error::trap("path_symlink unsupported"))
     }
 
     async fn path_unlink_file<'a>(
         &mut self,
-        dirfd: types::Fd,
-        path: &GuestPtr<'a, str>,
+        _dirfd: types::Fd,
+        _path: &GuestPtr<'a, str>,
     ) -> Result<(), Error> {
-        WasiUnstable::path_unlink_file(&mut self.inner, dirfd, path).await
+        Err(Error::trap("path_unlink_file unsupported"))
     }
 
     async fn poll_oneoff<'a>(
