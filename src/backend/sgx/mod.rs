@@ -13,6 +13,7 @@ use super::Loader;
 
 use anyhow::Result;
 use mmarinus::{perms, Map};
+use raw_cpuid::CpuId;
 
 use std::arch::x86_64::__cpuid_count;
 use std::sync::{Arc, RwLock};
@@ -39,7 +40,11 @@ impl crate::backend::Backend for Backend {
 
     #[inline]
     fn have(&self) -> bool {
-        self.data().iter().all(|x| x.pass)
+        let cpuid = CpuId::new();
+
+        let has_sgx2 = cpuid.get_sgx_info().map_or(false, |finfo| finfo.has_sgx2());
+
+        has_sgx2 && self.data().iter().all(|x| x.pass)
     }
 
     fn data(&self) -> Vec<super::Datum> {
