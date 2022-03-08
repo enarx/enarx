@@ -183,6 +183,7 @@ dependencies = [
  "protobuf",
  "protobuf-codegen-pure",
  "rand",
+ "raw-cpuid",
  "reqwest",
  "sallyport",
  "semver",
@@ -960,6 +961,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d34f1408f55294453790c48b2f1ebbb1c5b4b7563eb1f418bcfcfdbb06ebb4e7"
 dependencies = [
  "getrandom",
+]
+
+[[package]]
+name = "raw-cpuid"
+version = "10.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "929f54e29691d4e6a9cc558479de70db7aa3d98cd6fe7ab86d7507aa2886b9d2"
+dependencies = [
+ "bitflags",
 ]
 
 [[package]]

@@ -14,6 +14,7 @@ use kvm_bindings::bindings::kvm_userspace_memory_region;
 use kvm_ioctls::Kvm;
 use kvm_ioctls::{VcpuFd, VmFd};
 use mmarinus::{perms, Map};
+use raw_cpuid::CpuId;
 use x86_64::VirtAddr;
 
 pub mod builder;
@@ -80,7 +81,21 @@ impl crate::backend::Backend for Backend {
 
     #[inline]
     fn have(&self) -> bool {
-        self.data().iter().all(|x| x.pass)
+        let cpuid = CpuId::new();
+
+        let has_rdrand = cpuid
+            .get_feature_info()
+            .map_or(false, |finfo| finfo.has_rdrand());
+
+        let has_fsgsbase = cpuid
+            .get_extended_feature_info()
+            .map_or(false, |finfo| finfo.has_fsgsbase());
+
+        let has_adx = cpuid
+            .get_extended_feature_info()
+            .map_or(false, |finfo| finfo.has_adx());
+
+        has_rdrand && has_fsgsbase && has_adx && self.data().iter().all(|x| x.pass)
     }
 
     fn data(&self) -> Vec<super::Datum> {
