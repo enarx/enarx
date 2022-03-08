@@ -17,6 +17,8 @@
 
 use core::arch::asm;
 
+use bitflags::bitflags;
+
 /// Description of the local attestation source enclave contents.
 #[derive(Clone, Copy)]
 #[repr(C)]
@@ -159,6 +161,108 @@ impl TargetInfo {
     }
 }
 
+bitflags! {
+    /// SECINFO flags
+    #[repr(transparent)]
+    pub struct SecInfoFlags: u8 {
+        /// PROT_READ
+        const READ = 1 << 0;
+        /// PROT_WRITE
+        const WRITE = 1 << 1;
+        /// PROT_EXEC
+        const EXECUTE = 1 << 2;
+    }
+}
+
+/// SECINFO Page Type
+#[derive(Copy, Clone)]
+#[repr(u8)]
+pub enum SecInfoClass {
+    /// SGX Enclave Control Structure (SECS)
+    Secs = 0,
+    /// Thread Control Structure (TCS)
+    Tcs = 1,
+    /// Regular page
+    Reg = 2,
+}
+
+#[derive(Clone, Copy)]
+#[repr(C, align(64))]
+pub struct SecInfo {
+    pub flags: SecInfoFlags,
+    pub class: SecInfoClass,
+    reserved: [u8; 48],
+}
+
+impl Default for SecInfo {
+    /// Default to SECINFO for ENCLU[AUG].
+    fn default() -> Self {
+        Self {
+            flags: SecInfoFlags::READ | SecInfoFlags::WRITE,
+            class: SecInfoClass::Reg,
+            reserved: [0; 48],
+        }
+    }
+}
+
+impl SecInfo {
+    /// Create new SecInfo instance.
+    pub const fn new(flags: SecInfoFlags, class: SecInfoClass) -> Self {
+        Self {
+            flags,
+            class,
+            reserved: [0; 48],
+        }
+    }
+
+    /// Return flags.
+    #[inline]
+    pub const fn flags(&self) -> SecInfoFlags {
+        self.flags
+    }
+
+    /// Return class (page type).
+    #[inline]
+    pub const fn class(&self) -> SecInfoClass {
+        self.class
+    }
+
+    /// Execute EACCEPT.
+    pub fn accept(&self, dest: u64) {
+        const EACCEPT: usize = 6;
+
+        unsafe {
+            asm!(
+                "xchg       {RBX}, rbx",
+                "enclu",
+                "mov        rbx, {RBX}",
+
+                RBX = inout(reg) self => _,
+                in("rax") EACCEPT,
+                in("rcx") dest,
+            );
+        }
+    }
+
+    /// Execute EACCEPTCOPY. Not supported on Shadow Stack (SS) pages.
+    pub fn accept_copy(&self, dest: u64, src: u64) {
+        const EACCEPTCOPY: usize = 7;
+
+        unsafe {
+            asm!(
+                "xchg       {RBX}, rbx",
+                "enclu",
+                "mov        rbx, {RBX}",
+
+                RBX = inout(reg) self => _,
+                in("rax") EACCEPTCOPY,
+                in("rcx") dest,
+                in("rdx") src,
+            );
+        }
+    }
+}
+
 #[cfg(test)]
 testaso! {
     struct ReportPayload: 8, 384 => {
@@ -198,5 +302,11 @@ testaso! {
         reserved2: 56,
         configid: 64,
         reserved3: 128
+    }
+
+    struct SecInfo: 64, 64 => {
+        flags: 0,
+        class: 1,
+        reserved: 2
     }
 }

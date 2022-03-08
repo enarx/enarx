@@ -277,6 +277,7 @@ dependencies = [
 name = "shim-sgx"
 version = "0.2.1"
 dependencies = [
+ "bitflags",
  "compiler_builtins",
  "const-default",
  "crt0stack",
