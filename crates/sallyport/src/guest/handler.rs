@@ -19,7 +19,11 @@ use libc::{
 };
 
 /// Guest request handler.
-pub trait Handler: Platform {
+pub trait Handler {
+    /// Suspend guest execution and pass control to host.
+    /// This function will return when the host passes control back to the guest.
+    fn sally(&mut self) -> Result<()>;
+
     /// Returns an immutable borrow of the sallyport block.
     fn block(&self) -> &[usize];
 
@@ -97,7 +101,7 @@ pub trait Handler: Platform {
     }
 
     /// Executes [`arch_prctl`](https://man7.org/linux/man-pages/man2/arch_prctl.2.html).
-    fn arch_prctl(&mut self, code: c_int, addr: c_ulong) -> Result<()>;
+    fn arch_prctl(&mut self, platform: &impl Platform, code: c_int, addr: c_ulong) -> Result<()>;
 
     /// Executes [`bind`](https://man7.org/linux/man-pages/man2/bind.2.html) syscall akin to [`libc::bind`].
     #[inline]
@@ -112,7 +116,11 @@ pub trait Handler: Platform {
     }
 
     /// Executes [`brk`](https://man7.org/linux/man-pages/man2/brk.2.html) syscall akin to [`libc::brk`].
-    fn brk(&mut self, addr: Option<NonNull<c_void>>) -> Result<NonNull<c_void>>;
+    fn brk(
+        &mut self,
+        platform: &impl Platform,
+        addr: Option<NonNull<c_void>>,
+    ) -> Result<NonNull<c_void>>;
 
     /// Executes [`close`](https://man7.org/linux/man-pages/man2/close.2.html) syscall akin to [`libc::close`].
     #[inline]
@@ -298,11 +306,19 @@ pub trait Handler: Platform {
     }
 
     /// Executes [`madvise`](https://man7.org/linux/man-pages/man2/madvise.2.html) syscall akin to [`libc::madvise`].
-    fn madvise(&mut self, addr: NonNull<c_void>, length: size_t, advice: c_int) -> Result<()>;
+    fn madvise(
+        &mut self,
+        platform: &impl Platform,
+        addr: NonNull<c_void>,
+        length: size_t,
+        advice: c_int,
+    ) -> Result<()>;
 
     /// Executes [`mmap`](https://man7.org/linux/man-pages/man2/mmap.2.html) syscall akin to [`libc::mmap`].
+    #[allow(clippy::too_many_arguments)]
     fn mmap(
         &mut self,
+        platform: &impl Platform,
         addr: Option<NonNull<c_void>>,
         length: size_t,
         prot: c_int,
@@ -312,10 +328,21 @@ pub trait Handler: Platform {
     ) -> Result<NonNull<c_void>>;
 
     /// Executes [`mprotect`](https://man7.org/linux/man-pages/man2/mprotect.2.html) syscall akin to [`libc::mprotect`].
-    fn mprotect(&mut self, addr: NonNull<c_void>, len: size_t, prot: c_int) -> Result<()>;
+    fn mprotect(
+        &mut self,
+        platform: &impl Platform,
+        addr: NonNull<c_void>,
+        len: size_t,
+        prot: c_int,
+    ) -> Result<()>;
 
     /// Executes [`munmap`](https://man7.org/linux/man-pages/man2/munmap.2.html) syscall akin to [`libc::munmap`].
-    fn munmap(&mut self, addr: NonNull<c_void>, length: size_t) -> Result<()>;
+    fn munmap(
+        &mut self,
+        platform: &impl Platform,
+        addr: NonNull<c_void>,
+        length: size_t,
+    ) -> Result<()>;
 
     /// Executes [`nanosleep`](https://man7.org/linux/man-pages/man2/nanosleep.2.html) syscall akin to [`libc::nanosleep`].
     fn nanosleep(&mut self, req: &timespec, rem: Option<&mut timespec>) -> Result<()> {
@@ -522,15 +549,21 @@ pub trait Handler: Platform {
     ///
     /// This method is unsafe, because it allows execution of arbitrary syscalls on the host, which is
     /// intrinsically unsafe.
+    ///
+    /// It can also produce multiple references to the same memory.
     #[inline]
-    unsafe fn syscall(&mut self, registers: [usize; 7]) -> Result<[usize; 2]> {
+    unsafe fn syscall(
+        &mut self,
+        platform: &impl Platform,
+        registers: [usize; 7],
+    ) -> Result<[usize; 2]> {
         let [num, argv @ ..] = registers;
         match (num as _, argv) {
             (libc::SYS_accept, [sockfd, addr, addrlen, ..]) => {
                 let addr = if addr == 0 {
                     None
                 } else {
-                    self.validate_sockaddr_output(addr, addrlen).map(Some)?
+                    platform.validate_sockaddr_output(addr, addrlen).map(Some)?
                 };
                 self.accept(sockfd as _, addr).map(|ret| [ret as _, 0])
             }
@@ -538,28 +571,28 @@ pub trait Handler: Platform {
                 let addr = if addr == 0 {
                     None
                 } else {
-                    self.validate_sockaddr_output(addr, addrlen).map(Some)?
+                    platform.validate_sockaddr_output(addr, addrlen).map(Some)?
                 };
                 self.accept4(sockfd as _, addr, flags as _)
                     .map(|ret| [ret as _, 0])
             }
-            (libc::SYS_arch_prctl, [code, addr, ..]) => {
-                self.arch_prctl(code as _, addr as _).map(|_| [0, 0])
-            }
+            (libc::SYS_arch_prctl, [code, addr, ..]) => self
+                .arch_prctl(platform, code as _, addr as _)
+                .map(|_| [0, 0]),
             (libc::SYS_bind, [sockfd, addr, addrlen, ..]) => {
-                let addr = self.validate_slice(addr, addrlen)?;
+                let addr = platform.validate_slice(addr, addrlen)?;
                 self.bind(sockfd as _, addr).map(|_| [0, 0])
             }
             (libc::SYS_brk, [addr, ..]) => self
-                .brk(NonNull::new(addr as _))
+                .brk(platform, NonNull::new(addr as _))
                 .map(|ret| [ret.as_ptr() as _, 0]),
             (libc::SYS_clock_gettime, [clockid, tp, ..]) => {
-                let tp = self.validate_mut(tp)?;
+                let tp = platform.validate_mut(tp)?;
                 self.clock_gettime(clockid as _, tp).map(|_| [0, 0])
             }
             (libc::SYS_close, [fd, ..]) => self.close(fd as _).map(|_| [0, 0]),
             (libc::SYS_connect, [sockfd, addr, addrlen, ..]) => {
-                let addr = self.validate_slice(addr, addrlen)?;
+                let addr = platform.validate_slice(addr, addrlen)?;
                 self.connect(sockfd as _, addr).map(|_| [0, 0])
             }
             (libc::SYS_dup, [oldfd, ..]) => self.dup(oldfd as _).map(|_| [0, 0]),
@@ -573,22 +606,22 @@ pub trait Handler: Platform {
                 self.epoll_create1(flags as _).map(|ret| [ret as _, 0])
             }
             (libc::SYS_epoll_ctl, [epfd, op, fd, event, ..]) => {
-                let event = self.validate(event)?;
+                let event = platform.validate(event)?;
                 self.epoll_ctl(epfd as _, op as _, fd as _, event)
                     .map(|_| [0, 0])
             }
             (libc::SYS_epoll_pwait, [epfd, events, maxevents, timeout, sigmask, ..]) => {
-                let events = self.validate_slice_mut(events, maxevents)?;
+                let events = platform.validate_slice_mut(events, maxevents)?;
                 if sigmask == 0 {
                     self.epoll_wait(epfd as _, events, timeout as _)
                 } else {
-                    let sigmask = self.validate(sigmask)?;
+                    let sigmask = platform.validate(sigmask)?;
                     self.epoll_pwait(epfd as _, events, timeout as _, sigmask)
                 }
                 .map(|ret| [ret as _, 0])
             }
             (libc::SYS_epoll_wait, [epfd, events, maxevents, timeout, ..]) => {
-                let events = self.validate_slice_mut(events, maxevents)?;
+                let events = platform.validate_slice_mut(events, maxevents)?;
                 self.epoll_wait(epfd as _, events, timeout as _)
                     .map(|ret| [ret as _, 0])
             }
@@ -603,7 +636,7 @@ pub trait Handler: Platform {
                 .fcntl(fd as _, cmd as _, arg as _)
                 .map(|ret| [ret as _, 0]),
             (libc::SYS_fstat, [fd, statbuf, ..]) => {
-                let statbuf = self.validate_mut(statbuf)?;
+                let statbuf = platform.validate_mut(statbuf)?;
                 self.fstat(fd as _, statbuf).map(|_| [0, 0])
             }
             (libc::SYS_getegid, ..) => self.getegid().map(|ret| [ret as _, 0]),
@@ -611,11 +644,11 @@ pub trait Handler: Platform {
             (libc::SYS_getgid, ..) => self.getgid().map(|ret| [ret as _, 0]),
             (libc::SYS_getpid, ..) => self.getpid().map(|ret| [ret as _, 0]),
             (libc::SYS_getrandom, [buf, buflen, flags, ..]) => {
-                let buf = self.validate_slice_mut(buf, buflen)?;
+                let buf = platform.validate_slice_mut(buf, buflen)?;
                 self.getrandom(buf, flags as _).map(|ret| [ret as _, 0])
             }
             (libc::SYS_getsockname, [sockfd, addr, addrlen, ..]) => {
-                let addr = self.validate_sockaddr_output(addr, addrlen)?;
+                let addr = platform.validate_sockaddr_output(addr, addrlen)?;
                 self.getsockname(sockfd as _, addr).map(|_| [0, 0])
             }
             (libc::SYS_getuid, ..) => self.getuid().map(|ret| [ret as _, 0]),
@@ -624,7 +657,7 @@ pub trait Handler: Platform {
                     None
                 } else {
                     match request as _ {
-                        FIONBIO | FIONREAD => self.validate_mut::<c_int>(argp).map(|argp| {
+                        FIONBIO | FIONREAD => platform.validate_mut::<c_int>(argp).map(|argp| {
                             Some(slice::from_raw_parts_mut(
                                 argp as *mut _ as _,
                                 size_of::<c_int>(),
@@ -641,10 +674,12 @@ pub trait Handler: Platform {
             }
             (libc::SYS_madvise, [addr, length, advice, ..]) => {
                 let addr = NonNull::new(addr as _).ok_or(EFAULT)?;
-                self.madvise(addr, length, advice as _).map(|_| [0, 0])
+                self.madvise(platform, addr, length, advice as _)
+                    .map(|_| [0, 0])
             }
             (libc::SYS_mmap, [addr, length, prot, flags, fd, offset, ..]) => self
                 .mmap(
+                    platform,
                     NonNull::new(addr as _),
                     length,
                     prot as _,
@@ -655,44 +690,45 @@ pub trait Handler: Platform {
                 .map(|ret| [ret.as_ptr() as _, 0]),
             (libc::SYS_mprotect, [addr, len, prot, ..]) => {
                 let addr = NonNull::new(addr as _).ok_or(EFAULT)?;
-                self.mprotect(addr, len, prot as _).map(|_| [0, 0])
+                self.mprotect(platform, addr, len, prot as _)
+                    .map(|_| [0, 0])
             }
             (libc::SYS_munmap, [addr, length, ..]) => {
                 let addr = NonNull::new(addr as _).ok_or(EFAULT)?;
-                self.munmap(addr, length).map(|_| [0, 0])
+                self.munmap(platform, addr, length).map(|_| [0, 0])
             }
             (libc::SYS_nanosleep, [req, rem, ..]) => {
-                let req = self.validate(req)?;
+                let req = platform.validate(req)?;
                 let rem = if rem == 0 {
                     None
                 } else {
-                    self.validate_mut(rem).map(Some)?
+                    platform.validate_mut(rem).map(Some)?
                 };
                 self.nanosleep(req, rem).map(|_| [0, 0])
             }
             (libc::SYS_poll, [fds, nfds, timeout, ..]) => {
-                let fds = self.validate_slice_mut(fds, nfds)?;
+                let fds = platform.validate_slice_mut(fds, nfds)?;
                 self.poll(fds, timeout as _).map(|ret| [ret as _, 0])
             }
             (libc::SYS_read, [fd, buf, count, ..]) => {
-                let buf = self.validate_slice_mut(buf, count)?;
+                let buf = platform.validate_slice_mut(buf, count)?;
                 self.read(fd as _, buf).map(|ret| [ret, 0])
             }
             (libc::SYS_readlink, [pathname, buf, bufsiz, ..]) => {
-                let pathname = self.validate_str(pathname)?;
-                let buf = self.validate_slice_mut(buf, bufsiz)?;
+                let pathname = platform.validate_str(pathname)?;
+                let buf = platform.validate_slice_mut(buf, bufsiz)?;
                 self.readlink(pathname, buf).map(|ret| [ret, 0])
             }
             (libc::SYS_readv, [fd, iov, iovcnt, ..]) => {
-                let iovs = self.validate_iovec_slice_mut(iov, iovcnt)?;
+                let iovs = platform.validate_iovec_slice_mut(iov, iovcnt)?;
                 self.readv(fd as _, iovs).map(|ret| [ret, 0])
             }
             (libc::SYS_recvfrom, [sockfd, buf, len, flags, src_addr, addrlen, ..]) => {
-                let buf = self.validate_slice_mut(buf, len)?;
+                let buf = platform.validate_slice_mut(buf, len)?;
                 if src_addr == 0 {
                     self.recv(sockfd as _, buf, flags as _)
                 } else {
-                    let src_addr = self.validate_sockaddr_output(src_addr, addrlen)?;
+                    let src_addr = platform.validate_sockaddr_output(src_addr, addrlen)?;
                     self.recvfrom(sockfd as _, buf, flags as _, src_addr)
                 }
                 .map(|ret| [ret, 0])
@@ -701,12 +737,12 @@ pub trait Handler: Platform {
                 let act = if act == 0 {
                     None
                 } else {
-                    self.validate(act).map(Some)?
+                    platform.validate(act).map(Some)?
                 };
                 let oldact = if oldact == 0 {
                     None
                 } else {
-                    self.validate_mut(oldact).map(Some)?
+                    platform.validate_mut(oldact).map(Some)?
                 };
                 self.rt_sigaction(signum as _, act, oldact, sigsetsize as _)
                     .map(|_| [0, 0])
@@ -715,22 +751,22 @@ pub trait Handler: Platform {
                 let set = if set == 0 {
                     None
                 } else {
-                    self.validate(set).map(Some)?
+                    platform.validate(set).map(Some)?
                 };
                 let oldset = if oldset == 0 {
                     None
                 } else {
-                    self.validate_mut(oldset).map(Some)?
+                    platform.validate_mut(oldset).map(Some)?
                 };
                 self.rt_sigprocmask(how as _, set, oldset, sigsetsize as _)
                     .map(|_| [0, 0])
             }
             (libc::SYS_sendto, [sockfd, buf, len, flags, dest_addr, addrlen]) => {
-                let buf = self.validate_slice(buf, len)?;
+                let buf = platform.validate_slice(buf, len)?;
                 if dest_addr == 0 {
                     self.send(sockfd as _, buf, flags as _)
                 } else {
-                    let dest_addr = self.validate_slice(dest_addr, addrlen)?;
+                    let dest_addr = platform.validate_slice(dest_addr, addrlen)?;
                     self.sendto(sockfd as _, buf, flags as _, dest_addr)
                 }
                 .map(|ret| [ret, 0])
@@ -739,25 +775,25 @@ pub trait Handler: Platform {
                 let optval = if optval == 0 {
                     None
                 } else {
-                    self.validate_slice::<u8>(optval, optlen).map(Some)?
+                    platform.validate_slice::<u8>(optval, optlen).map(Some)?
                 };
                 self.setsockopt(sockfd as _, level as _, optname as _, optval)
                     .map(|ret| [ret as _, 0])
             }
             (libc::SYS_set_tid_address, [tidptr, ..]) => {
-                let tidptr = self.validate_mut(tidptr)?;
+                let tidptr = platform.validate_mut(tidptr)?;
                 self.set_tid_address(tidptr).map(|ret| [ret as _, 0])
             }
             (libc::SYS_sigaltstack, [ss, old_ss, ..]) => {
                 let ss = if ss == 0 {
                     None
                 } else {
-                    self.validate(ss).map(Some)?
+                    platform.validate(ss).map(Some)?
                 };
                 let old_ss = if old_ss == 0 {
                     None
                 } else {
-                    self.validate_mut(old_ss).map(Some)?
+                    platform.validate_mut(old_ss).map(Some)?
                 };
                 self.sigaltstack(ss, old_ss).map(|_| [0, 0])
             }
@@ -766,15 +802,15 @@ pub trait Handler: Platform {
                 .map(|ret| [ret as _, 0]),
             (libc::SYS_sync, ..) => self.sync().map(|_| [0, 0]),
             (libc::SYS_uname, [buf, ..]) => {
-                let buf = self.validate_mut(buf)?;
+                let buf = platform.validate_mut(buf)?;
                 self.uname(buf).map(|_| [0, 0])
             }
             (libc::SYS_write, [fd, buf, count, ..]) => {
-                let buf = self.validate_slice(buf, count)?;
+                let buf = platform.validate_slice(buf, count)?;
                 self.write(fd as _, buf).map(|ret| [ret, 0])
             }
             (libc::SYS_writev, [fd, iov, iovcnt, ..]) => {
-                let iovs = self.validate_iovec_slice(iov, iovcnt)?;
+                let iovs = platform.validate_iovec_slice(iov, iovcnt)?;
                 self.writev(fd as _, iovs).map(|ret| [ret, 0])
             }
             _ => Err(ENOSYS),

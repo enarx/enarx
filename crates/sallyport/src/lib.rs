@@ -93,6 +93,7 @@ pub mod elf;
 pub mod guest;
 pub mod host;
 pub mod item;
+pub mod util;
 
 /// Error type used within this crate.
 pub type Error = libc::c_int;

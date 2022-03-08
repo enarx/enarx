@@ -3,15 +3,16 @@
 pub mod enarxcall;
 pub mod syscall;
 
-use std::ffi::CStr;
+use core::slice;
 use std::io::Write;
 use std::net::{TcpStream, ToSocketAddrs};
 use std::ptr::NonNull;
-use std::{slice, thread};
+use std::thread;
 
-use libc::{c_int, c_ulong, c_void, off_t, size_t, ENOSYS};
+use libc::{c_int, c_ulong, c_void, off_t, size_t, EINVAL, ENOSYS};
 use sallyport::guest::{Handler, Platform, ThreadLocalStorage};
 use sallyport::item::Block;
+use sallyport::util::ptr;
 use sallyport::{host, Result};
 
 pub struct TestHandler<const N: usize> {
@@ -19,45 +20,43 @@ pub struct TestHandler<const N: usize> {
     tls: ThreadLocalStorage,
 }
 
-impl<const N: usize> Platform for TestHandler<N> {
-    fn sally(&mut self) -> Result<()> {
-        host::execute(Block::from(self.block_mut()))
+pub struct TestPlatform;
+
+impl Platform for TestPlatform {
+    #[inline]
+    fn validate_mut<T>(&self, ptr: usize) -> Result<&mut T> {
+        ptr::is_aligned_non_null::<T>(ptr).ok_or(EINVAL)?;
+        // unsound for testing
+        unsafe { (ptr as *mut T).as_mut().ok_or(EINVAL) }
     }
 
-    fn validate<'a, T>(&self, ptr: usize) -> Result<&'a T> {
-        Ok(unsafe { &*(ptr as *const _) })
+    #[inline]
+    fn validate<T>(&self, ptr: usize) -> Result<&T> {
+        ptr::is_aligned_non_null::<T>(ptr).ok_or(EINVAL)?;
+        // unsound for testing
+        unsafe { (ptr as *const T).as_ref().ok_or(EINVAL) }
     }
 
-    fn validate_mut<'a, T>(&self, ptr: usize) -> Result<&'a mut T> {
-        Ok(unsafe { &mut *(ptr as *mut _) })
+    #[inline]
+    fn validate_slice_mut<T: Sized>(&self, ptr: usize, count: usize) -> Result<&mut [T]> {
+        ptr::is_aligned_non_null::<T>(ptr).ok_or(EINVAL)?;
+        // unsound for testing
+        unsafe { Ok(slice::from_raw_parts_mut(ptr as *mut T, count)) }
     }
 
-    fn validate_slice<'a, T>(&self, ptr: usize, len: usize) -> Result<&'a [T]> {
-        Ok(unsafe { slice::from_raw_parts(ptr as _, len) })
-    }
-
-    fn validate_slice_mut<'a, T>(&self, ptr: usize, len: usize) -> Result<&'a mut [T]> {
-        Ok(unsafe { slice::from_raw_parts_mut(ptr as _, len) })
-    }
-
-    fn validate_str<'a>(&self, ptr: usize) -> Result<&'a [u8]> {
-        Ok(unsafe { CStr::from_ptr(ptr as _) }.to_bytes())
-    }
-
-    fn validate_iovec_slice_mut<'a>(
-        &self,
-        iov: usize,
-        iovcnt: usize,
-    ) -> Result<&'a mut [&'a mut [u8]]> {
-        Ok(unsafe { slice::from_raw_parts_mut(iov as _, iovcnt) })
-    }
-
-    fn validate_iovec_slice<'a>(&self, iov: usize, iovcnt: usize) -> Result<&'a [&'a [u8]]> {
-        Ok(unsafe { slice::from_raw_parts(iov as _, iovcnt) })
+    #[inline]
+    fn validate_slice<T: Sized>(&self, ptr: usize, count: usize) -> Result<&[T]> {
+        ptr::is_aligned_non_null::<T>(ptr).ok_or(EINVAL)?;
+        // unsound for testing
+        unsafe { Ok(slice::from_raw_parts(ptr as *const T, count)) }
     }
 }
 
 impl<const N: usize> Handler for TestHandler<N> {
+    fn sally(&mut self) -> Result<()> {
+        host::execute(Block::from(self.block_mut()))
+    }
+
     fn block(&self) -> &[usize] {
         self.block.as_slice()
     }
@@ -70,20 +69,36 @@ impl<const N: usize> Handler for TestHandler<N> {
         &mut self.tls
     }
 
-    fn arch_prctl(&mut self, _code: c_int, _addr: c_ulong) -> Result<()> {
+    fn arch_prctl(
+        &mut self,
+        _platform: &impl Platform,
+        _code: c_int,
+        _addr: c_ulong,
+    ) -> Result<()> {
         Err(ENOSYS)
     }
 
-    fn brk(&mut self, _addr: Option<NonNull<c_void>>) -> Result<NonNull<c_void>> {
+    fn brk(
+        &mut self,
+        _platform: &impl Platform,
+        _addr: Option<NonNull<c_void>>,
+    ) -> Result<NonNull<c_void>> {
         Err(ENOSYS)
     }
 
-    fn madvise(&mut self, _addr: NonNull<c_void>, _length: size_t, _advice: c_int) -> Result<()> {
+    fn madvise(
+        &mut self,
+        _platform: &impl Platform,
+        _addr: NonNull<c_void>,
+        _length: size_t,
+        _advice: c_int,
+    ) -> Result<()> {
         Err(ENOSYS)
     }
 
     fn mmap(
         &mut self,
+        _platform: &impl Platform,
         _addr: Option<NonNull<c_void>>,
         _length: size_t,
         _prot: c_int,
@@ -94,31 +109,40 @@ impl<const N: usize> Handler for TestHandler<N> {
         Err(ENOSYS)
     }
 
-    fn mprotect(&mut self, _addr: NonNull<c_void>, _len: size_t, _prot: c_int) -> Result<()> {
+    fn mprotect(
+        &mut self,
+        _platform: &impl Platform,
+        _addr: NonNull<c_void>,
+        _len: size_t,
+        _prot: c_int,
+    ) -> Result<()> {
         Err(ENOSYS)
     }
 
-    fn munmap(&mut self, _addr: NonNull<c_void>, _length: size_t) -> Result<()> {
+    fn munmap(
+        &mut self,
+        _platform: &impl Platform,
+        _addr: NonNull<c_void>,
+        _length: size_t,
+    ) -> Result<()> {
         Err(ENOSYS)
     }
 }
 
-pub fn run_test<const N: usize>(
-    iterations: usize,
-    block: [usize; N],
-    f: impl FnOnce(usize, &mut TestHandler<N>) + Sync + Send + Copy + 'static,
-) {
+pub fn run_test<const N: usize, F>(iterations: usize, block: [usize; N], f: F)
+where
+    F: FnOnce(usize, &mut TestPlatform, &mut TestHandler<N>) + Sync + Send + Copy + 'static,
+{
     for i in 0..iterations {
         thread::Builder::new()
             .name(format!("iteration {}", i))
             .spawn(move || {
-                f(
-                    i,
-                    &mut TestHandler {
-                        block: block.clone(),
-                        tls: Default::default(),
-                    },
-                );
+                let mut platform = TestPlatform;
+                let mut handler = TestHandler {
+                    block: block.clone(),
+                    tls: Default::default(),
+                };
+                f(i, &mut platform, &mut handler);
             })
             .expect(&format!("couldn't spawn test iteration {} thread", i))
             .join()
