@@ -2,9 +2,9 @@
 
 use super::Ctx;
 
-use wasi_common::snapshots::preview_0::types;
 use wasi_common::snapshots::preview_0::wasi_unstable::WasiUnstable;
 use wasi_common::Error;
+use wasi_common::{snapshots::preview_0::types, ErrorExt};
 use wiggle::{GuestPtr, Trap};
 
 impl types::UserErrorConversion for Ctx {
@@ -343,8 +343,8 @@ impl WasiUnstable for Ctx {
         WasiUnstable::proc_exit(&mut self.inner, status).await
     }
 
-    async fn proc_raise(&mut self, sig: types::Signal) -> Result<(), Error> {
-        WasiUnstable::proc_raise(&mut self.inner, sig).await
+    async fn proc_raise(&mut self, _sig: types::Signal) -> Result<(), Error> {
+        Err(Error::trap("proc_raise unsupported"))
     }
 
     async fn sched_yield(&mut self) -> Result<(), Error> {
@@ -361,23 +361,23 @@ impl WasiUnstable for Ctx {
 
     async fn sock_recv<'a>(
         &mut self,
-        fd: types::Fd,
-        ri_data: &types::IovecArray<'a>,
-        ri_flags: types::Riflags,
+        _fd: types::Fd,
+        _ri_data: &types::IovecArray<'a>,
+        _ri_flags: types::Riflags,
     ) -> Result<(types::Size, types::Roflags), Error> {
-        WasiUnstable::sock_recv(&mut self.inner, fd, ri_data, ri_flags).await
+        Err(Error::trap("sock_recv unsupported"))
     }
 
     async fn sock_send<'a>(
         &mut self,
-        fd: types::Fd,
-        si_data: &types::CiovecArray<'a>,
-        si_flags: types::Siflags,
+        _fd: types::Fd,
+        _si_data: &types::CiovecArray<'a>,
+        _si_flags: types::Siflags,
     ) -> Result<types::Size, Error> {
-        WasiUnstable::sock_send(&mut self.inner, fd, si_data, si_flags).await
+        Err(Error::trap("sock_send unsupported"))
     }
 
-    async fn sock_shutdown(&mut self, fd: types::Fd, how: types::Sdflags) -> Result<(), Error> {
-        WasiUnstable::sock_shutdown(&mut self.inner, fd, how).await
+    async fn sock_shutdown(&mut self, _fd: types::Fd, _how: types::Sdflags) -> Result<(), Error> {
+        Err(Error::trap("sock_shutdown unsupported"))
     }
 }
