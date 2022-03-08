@@ -49,6 +49,7 @@
 
 mod cli;
 mod config;
+mod wasi;
 mod workload;
 
 use log::{debug, info, warn};

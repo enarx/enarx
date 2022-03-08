@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::config;
+use crate::{config, wasi};
 
 use log::debug;
 use wasmtime_wasi::sync::{TcpListener, WasiCtxBuilder};
@@ -106,16 +106,16 @@ pub fn run(bytes: impl AsRef<[u8]>, ldr_config: &config::Config) -> Result<Vec<w
     wasmtime_wasi::add_to_linker(&mut linker, |s| s)?;
 
     debug!("creating WASI context");
-    let mut wasi = WasiCtxBuilder::new();
+    let mut ctx_builder = WasiCtxBuilder::new();
 
     debug!("Processing loader config {:#?}", &ldr_config);
 
     if let Some(ref files) = ldr_config.files {
         for file in files {
             match (file.type_.as_ref(), file.name.as_ref()) {
-                ("stdio", "stdin") => wasi = wasi.inherit_stdin(),
-                ("stdio", "stdout") => wasi = wasi.inherit_stdout(),
-                ("stdio", "stderr") => wasi = wasi.inherit_stderr(),
+                ("stdio", "stdin") => ctx_builder = ctx_builder.inherit_stdin(),
+                ("stdio", "stdout") => ctx_builder = ctx_builder.inherit_stdout(),
+                ("stdio", "stderr") => ctx_builder = ctx_builder.inherit_stderr(),
                 _ => {}
             }
         }
@@ -138,9 +138,10 @@ pub fn run(bytes: impl AsRef<[u8]>, ldr_config: &config::Config) -> Result<Vec<w
                         .set_nonblocking(true)
                         .expect("Could not set nonblocking on TcpListener");
 
-                    wasi = wasi.preopened_socket(num_fd, TcpListener::from_std(stdlistener))?;
+                    ctx_builder =
+                        ctx_builder.preopened_socket(num_fd, TcpListener::from_std(stdlistener))?;
                     num_fd += 1;
-                    wasi = wasi.env("LISTEN_FDS", &(num_fd - 3).to_string())?;
+                    ctx_builder = ctx_builder.env("LISTEN_FDS", &(num_fd - 3).to_string())?;
                     fd_names.push(file.name.clone())
                 }
                 "stdio" => {}
@@ -150,12 +151,17 @@ pub fn run(bytes: impl AsRef<[u8]>, ldr_config: &config::Config) -> Result<Vec<w
             }
         }
         if !fd_names.is_empty() {
-            wasi = wasi.env("LISTEN_FDNAMES", &fd_names.join(":"))?;
+            ctx_builder = ctx_builder.env("LISTEN_FDNAMES", &fd_names.join(":"))?;
         }
     }
 
     debug!("creating wasmtime Store");
-    let mut store = wasmtime::Store::new(&engine, wasi.build());
+    let mut store = wasmtime::Store::new(
+        &engine,
+        wasi::Ctx {
+            inner: ctx_builder.build(),
+        },
+    );
 
     debug!("instantiating module from bytes");
     let module = wasmtime::Module::from_binary(&engine, bytes.as_ref())?;
