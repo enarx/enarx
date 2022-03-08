@@ -2,9 +2,9 @@
 
 use super::Ctx;
 
-use wasi_common::snapshots::preview_1::types;
 use wasi_common::snapshots::preview_1::wasi_snapshot_preview1::WasiSnapshotPreview1;
 use wasi_common::Error;
+use wasi_common::{snapshots::preview_1::types, ErrorExt};
 use wiggle::{GuestPtr, Trap};
 
 impl types::UserErrorConversion for Ctx {
@@ -345,8 +345,8 @@ impl WasiSnapshotPreview1 for Ctx {
         WasiSnapshotPreview1::proc_exit(&mut self.inner, status).await
     }
 
-    async fn proc_raise(&mut self, sig: types::Signal) -> Result<(), Error> {
-        WasiSnapshotPreview1::proc_raise(&mut self.inner, sig).await
+    async fn proc_raise(&mut self, _sig: types::Signal) -> Result<(), Error> {
+        Err(Error::trap("proc_raise unsupported"))
     }
 
     async fn sched_yield(&mut self) -> Result<(), Error> {
@@ -371,23 +371,23 @@ impl WasiSnapshotPreview1 for Ctx {
 
     async fn sock_recv<'a>(
         &mut self,
-        fd: types::Fd,
-        ri_data: &types::IovecArray<'a>,
-        ri_flags: types::Riflags,
+        _fd: types::Fd,
+        _ri_data: &types::IovecArray<'a>,
+        _ri_flags: types::Riflags,
     ) -> Result<(types::Size, types::Roflags), Error> {
-        WasiSnapshotPreview1::sock_recv(&mut self.inner, fd, ri_data, ri_flags).await
+        Err(Error::trap("sock_recv unsupported"))
     }
 
     async fn sock_send<'a>(
         &mut self,
-        fd: types::Fd,
-        si_data: &types::CiovecArray<'a>,
-        si_flags: types::Siflags,
+        _fd: types::Fd,
+        _si_data: &types::CiovecArray<'a>,
+        _si_flags: types::Siflags,
     ) -> Result<types::Size, Error> {
-        WasiSnapshotPreview1::sock_send(&mut self.inner, fd, si_data, si_flags).await
+        Err(Error::trap("sock_send unsupported"))
     }
 
-    async fn sock_shutdown(&mut self, fd: types::Fd, how: types::Sdflags) -> Result<(), Error> {
-        WasiSnapshotPreview1::sock_shutdown(&mut self.inner, fd, how).await
+    async fn sock_shutdown(&mut self, _fd: types::Fd, _how: types::Sdflags) -> Result<(), Error> {
+        Err(Error::trap("sock_shutdown unsupported"))
     }
 }
