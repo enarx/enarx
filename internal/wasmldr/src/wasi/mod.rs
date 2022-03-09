@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
+pub mod tls;
+
 mod preview_0;
 mod preview_1;
 
