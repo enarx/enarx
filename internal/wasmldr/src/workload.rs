@@ -1,9 +1,20 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::{config, wasi};
+use std::sync::Arc;
+
+use crate::config;
+use crate::wasi::{tls, Ctx};
 
 use log::debug;
-use wasmtime_wasi::sync::{TcpListener, WasiCtxBuilder};
+use rustls::cipher_suite::{
+    TLS13_AES_128_GCM_SHA256, TLS13_AES_256_GCM_SHA384, TLS13_CHACHA20_POLY1305_SHA256,
+};
+use rustls::kx_group::{SECP256R1, SECP384R1, X25519};
+use rustls::version::TLS13;
+use rustls::{Certificate, PrivateKey, ServerConfig};
+use rustls_pemfile::{certs, pkcs8_private_keys};
+use wasi_common::file::FileCaps;
+use wasmtime_wasi::sync::WasiCtxBuilder;
 
 /// The error codes of workload execution.
 // clippy doesn't like how "ConfigurationError" ends with "Error", so..
@@ -124,6 +135,33 @@ pub fn run(bytes: impl AsRef<[u8]>, ldr_config: &config::Config) -> Result<Vec<w
     let mut num_fd = 3;
     let mut fd_names: Vec<String> = Vec::new();
 
+    let certificate_chain = certs(&mut include_bytes!("testdata/server.crt").as_ref())
+        .unwrap()
+        .into_iter()
+        .map(Certificate)
+        .collect();
+
+    let certificate_key_der = PrivateKey(
+        pkcs8_private_keys(&mut include_bytes!("testdata/server.key").as_ref())
+            .unwrap()
+            .remove(0),
+    );
+
+    let tls_config = ServerConfig::builder()
+        .with_cipher_suites(&[
+            TLS13_AES_256_GCM_SHA384,
+            TLS13_AES_128_GCM_SHA256,
+            TLS13_CHACHA20_POLY1305_SHA256,
+        ])
+        .with_kx_groups(&[&X25519, &SECP384R1, &SECP256R1])
+        .with_protocol_versions(&[&TLS13])
+        .map_err(|_e| Error::ConfigurationError)?
+        .with_no_client_auth() // TODO: Enable client auth
+        .with_single_cert(certificate_chain, certificate_key_der)
+        .map(Arc::new)
+        .map_err(|_e| Error::ConfigurationError)?;
+
+    let mut wasi_files = vec![];
     if let Some(ref files) = ldr_config.files {
         for file in files {
             match file.type_.as_ref() {
@@ -132,14 +170,20 @@ pub fn run(bytes: impl AsRef<[u8]>, ldr_config: &config::Config) -> Result<Vec<w
                         .port
                         .expect("Config file `tcp_listen` has no `port` field set");
                     let addr = file.addr.clone().unwrap_or_else(|| ":::".to_string());
-                    let stdlistener = std::net::TcpListener::bind((addr.as_str(), port))
+                    let tcp_listener = std::net::TcpListener::bind((addr.as_str(), port))
                         .unwrap_or_else(|e| panic!("Could not bind to {addr}:{port}: {e}"));
-                    stdlistener
+                    tcp_listener
                         .set_nonblocking(true)
                         .expect("Could not set nonblocking on TcpListener");
 
-                    ctx_builder =
-                        ctx_builder.preopened_socket(num_fd, TcpListener::from_std(stdlistener))?;
+                    wasi_files.push((
+                        num_fd,
+                        Box::new(tls::Listener::new(tcp_listener, tls_config.clone())),
+                        FileCaps::FDSTAT_SET_FLAGS
+                            | FileCaps::FILESTAT_GET
+                            | FileCaps::READ
+                            | FileCaps::POLL_READWRITE,
+                    ));
                     num_fd += 1;
                     ctx_builder = ctx_builder.env("LISTEN_FDS", &(num_fd - 3).to_string())?;
                     fd_names.push(file.name.clone())
@@ -153,15 +197,14 @@ pub fn run(bytes: impl AsRef<[u8]>, ldr_config: &config::Config) -> Result<Vec<w
         if !fd_names.is_empty() {
             ctx_builder = ctx_builder.env("LISTEN_FDNAMES", &fd_names.join(":"))?;
         }
-    }
+    };
 
     debug!("creating wasmtime Store");
-    let mut store = wasmtime::Store::new(
-        &engine,
-        wasi::Ctx {
-            inner: ctx_builder.build(),
-        },
-    );
+    let mut wasi_ctx = ctx_builder.build();
+    for (fd, file, caps) in wasi_files {
+        wasi_ctx.insert_file(fd, file, caps);
+    }
+    let mut store = wasmtime::Store::new(&engine, Ctx { inner: wasi_ctx });
 
     debug!("instantiating module from bytes");
     let module = wasmtime::Module::from_binary(&engine, bytes.as_ref())?;
