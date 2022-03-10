@@ -126,8 +126,7 @@ impl Stub for Getrandom<'_> {
     type Ret = Result<size_t>;
 
     fn collect(self, _: &impl Collector) -> Self::Ret {
-        let flags = self.flags & !(libc::GRND_NONBLOCK | libc::GRND_RANDOM);
-        if flags != 0 {
+        if self.flags & !(libc::GRND_NONBLOCK | libc::GRND_RANDOM) != 0 {
             return Err(libc::EINVAL);
         }
 
