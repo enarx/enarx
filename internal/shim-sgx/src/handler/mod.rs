@@ -26,6 +26,9 @@ macro_rules! debugln {
 pub(crate) mod gdb;
 pub(crate) mod usermem;
 
+use crate::handler::usermem::UserMemScope;
+use crate::{DEBUG, ENARX_EXEC_END, ENARX_EXEC_START, ENCL_SIZE};
+
 use core::arch::asm;
 use core::arch::x86_64::CpuidResult;
 use core::ffi::c_void;
@@ -35,14 +38,13 @@ use core::ptr::read_unaligned;
 use core::ptr::NonNull;
 use libc::{c_int, c_ulong, off_t, size_t};
 
+use primordial::Page;
 use sallyport::guest::Handler as _;
 use sallyport::guest::{self, Platform, ThreadLocalStorage};
 use sallyport::item::enarxcall::sgx::{Report, ReportData, TargetInfo, QUOTE_SIZE, TECH};
 use sallyport::item::enarxcall::SYS_GETATT;
 use sallyport::item::syscall::{ARCH_GET_FS, ARCH_GET_GS, ARCH_SET_FS, ARCH_SET_GS};
-
-use crate::handler::usermem::UserMemScope;
-use crate::{DEBUG, ENARX_EXEC_END, ENARX_EXEC_START, ENCL_SIZE};
+use sgx::page::{Flags, SecInfo};
 use sgx::ssa::StateSaveArea;
 use x86_64::structures::idt::ExceptionVector;
 
@@ -142,15 +144,43 @@ impl guest::Handler for Handler<'_> {
         Ok(())
     }
 
-    // Until EDMM, we can't change any page permissions.
-    // What you get is what you get. Fake success.
     fn mprotect(
         &mut self,
         _platform: &impl Platform,
-        _addr: NonNull<c_void>,
-        _len: size_t,
-        _prot: c_int,
+        addr: NonNull<c_void>,
+        length: size_t,
+        prot: c_int,
     ) -> sallyport::Result<()> {
+        let user_mem_scope = UserMemScope;
+
+        unsafe {
+            self.syscall(
+                &user_mem_scope,
+                [
+                    libc::SYS_mprotect as usize,
+                    addr.as_ptr() as usize,
+                    length,
+                    prot as usize,
+                    0,
+                    0,
+                    0,
+                ],
+            )?;
+        };
+
+        let none_si = SecInfo::reg(Flags::empty());
+        let prot_si = SecInfo::reg(Flags::from_bits_truncate(prot as u8));
+
+        let ptr = addr.cast::<u8>().as_ptr();
+
+        let mut offset = 0;
+        while offset < length {
+            let dest: *const u8 = unsafe { ptr.add(offset) };
+            none_si.accept(dest);
+            prot_si.protect(dest);
+            offset += Page::SIZE;
+        }
+
         Ok(())
     }
 

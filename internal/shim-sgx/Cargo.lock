@@ -263,8 +263,7 @@ checksum = "ce31e24b01e1e524df96f1c2fdd054405f8d7376249a5110886fb4b658484789"
 [[package]]
 name = "sgx"
 version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "630f9b3f39cc5fbcdbcf881cccbfe6c574084fa04b45b38eaa5f433e91208a6c"
+source = "git+https://github.com/jarkkojs/sgx?branch=feat/sinfo/eaccept#bd3e1247cda4c44631a4aaff03aabee7fee057ce"
 dependencies = [
  "bitflags",
  "x86_64",
