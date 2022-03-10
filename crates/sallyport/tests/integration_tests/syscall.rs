@@ -4,10 +4,10 @@ use super::{run_test, write_tcp};
 
 use libc::{
     c_int, iovec, sockaddr, timespec, SYS_accept, SYS_accept4, SYS_bind, SYS_close, SYS_fcntl,
-    SYS_fstat, SYS_getrandom, SYS_getsockname, SYS_listen, SYS_nanosleep, SYS_read, SYS_readv,
-    SYS_recvfrom, SYS_setsockopt, SYS_socket, SYS_write, SYS_writev, AF_INET, EBADF, EBADFD,
-    ENOSYS, F_GETFD, F_GETFL, F_SETFD, F_SETFL, GRND_RANDOM, O_CREAT, O_RDONLY, O_RDWR,
-    SOCK_CLOEXEC, SOCK_STREAM, SOL_SOCKET, SO_REUSEADDR, STDERR_FILENO, STDIN_FILENO,
+    SYS_fstat, SYS_getrandom, SYS_getsockname, SYS_listen, SYS_nanosleep, SYS_read, SYS_readlink,
+    SYS_readv, SYS_recvfrom, SYS_setsockopt, SYS_socket, SYS_write, SYS_writev, AF_INET, EBADF,
+    EBADFD, ENOENT, ENOSYS, F_GETFD, F_GETFL, F_SETFD, F_SETFL, GRND_RANDOM, O_CREAT, O_RDONLY,
+    O_RDWR, SOCK_CLOEXEC, SOCK_STREAM, SOL_SOCKET, SO_REUSEADDR, STDERR_FILENO, STDIN_FILENO,
     STDOUT_FILENO,
 };
 use std::env::temp_dir;
@@ -411,6 +411,63 @@ fn read() {
         if cfg!(not(miri)) {
             assert_eq!(buf, EXPECTED.as_bytes());
         }
+    });
+}
+
+#[test]
+fn readlink() {
+    run_test(2, [0xff; 16], move |i, platform, handler| {
+        const EXPECTED: &[u8] = b"/init\0";
+        let mut buf = [0u8; EXPECTED.len()];
+
+        if i % 2 == 0 {
+            assert_eq!(handler.readlink(b"/proc/self\0", &mut buf), Err(ENOENT));
+        } else {
+            assert_eq!(
+                unsafe {
+                    handler.syscall(
+                        platform,
+                        [
+                            SYS_readlink as _,
+                            b"/proc/self\0".as_ptr() as _,
+                            buf.as_mut_ptr() as _,
+                            EXPECTED.len(),
+                            0,
+                            0,
+                            0,
+                        ],
+                    )
+                },
+                Err(ENOENT)
+            );
+        }
+        assert_eq!(buf, [0u8; 6]);
+
+        if i % 2 == 0 {
+            assert_eq!(
+                handler.readlink(b"/proc/self/exe\0", &mut buf),
+                Ok(EXPECTED.len())
+            );
+        } else {
+            assert_eq!(
+                unsafe {
+                    handler.syscall(
+                        platform,
+                        [
+                            SYS_readlink as _,
+                            b"/proc/self/exe\0".as_ptr() as _,
+                            buf.as_mut_ptr() as _,
+                            EXPECTED.len(),
+                            0,
+                            0,
+                            0,
+                        ],
+                    )
+                },
+                Ok([EXPECTED.len(), 0])
+            );
+        }
+        assert_eq!(buf, EXPECTED)
     });
 }
 

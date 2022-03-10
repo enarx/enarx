@@ -364,6 +364,8 @@ pub trait Handler {
     }
 
     /// Executes [`readlink`](https://man7.org/linux/man-pages/man2/readlink.2.html) syscall akin to [`libc::readlink`].
+    ///
+    /// `pathname` argument must contain the trailing nul terminator byte.
     #[inline]
     fn readlink(&mut self, pathname: &[u8], buf: &mut [u8]) -> Result<size_t> {
         self.execute(syscall::Readlink { pathname, buf })?

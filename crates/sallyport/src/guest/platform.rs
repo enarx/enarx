@@ -114,7 +114,7 @@ pub trait Platform {
     /// * not borrowed already
     /// and registers the memory as borrowed.
     ///
-    /// Returns an immutable borrow of bytes of the string without nul terminator byte if valid,
+    /// Returns an immutable borrow of bytes of the string with the nul terminator byte if valid,
     /// otherwise [`EINVAL`](libc::EINVAL).
     #[inline]
     fn validate_str(&self, ptr: usize) -> Result<&[u8], c_int> {
@@ -122,10 +122,10 @@ pub trait Platform {
 
         loop {
             let byte = self.validate::<u8>(p)?;
+            p += 1;
             if *byte == 0 {
                 break;
             }
-            p += 1;
         }
 
         let len = p.checked_sub(ptr).ok_or(EINVAL)?;

@@ -7,7 +7,7 @@ use crate::Result;
 use core::mem;
 use libc::{
     c_char, c_int, c_uint, gid_t, pid_t, sigset_t, size_t, stack_t, stat, uid_t, utsname, EBADFD,
-    STDERR_FILENO, STDIN_FILENO, STDOUT_FILENO, S_IFIFO,
+    EINVAL, ENOENT, STDERR_FILENO, STDIN_FILENO, STDOUT_FILENO, S_IFIFO,
 };
 
 /// Fake GID returned by enarx.
@@ -169,16 +169,17 @@ impl Stub for Readlink<'_> {
     type Ret = Option<Result<size_t>>;
 
     fn collect(self, _: &impl Collector) -> Self::Ret {
-        if !self.pathname.eq("/proc/self/exe".as_bytes()) {
-            return Some(Err(libc::ENOENT));
+        match self.pathname {
+            b"/proc/self/exe\0" => {
+                const DEST: &[u8; 6] = b"/init\0";
+                if self.buf.len() < DEST.len() {
+                    return Some(Err(EINVAL));
+                }
+                self.buf[..DEST.len()].copy_from_slice(DEST);
+                Some(Ok(DEST.len()))
+            }
+            _ => Some(Err(ENOENT)),
         }
-
-        const DEST: &[u8; 6] = b"/init\0";
-        if self.buf.len() < DEST.len() {
-            return Some(Err(libc::EINVAL));
-        }
-        self.buf[..DEST.len()].copy_from_slice(DEST);
-        Some(Ok(DEST.len()))
     }
 }
 
