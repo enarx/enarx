@@ -13,9 +13,10 @@ use core::ptr::NonNull;
 use core::slice;
 
 use libc::{
-    c_int, c_uint, c_ulong, c_void, clockid_t, epoll_event, gid_t, off_t, pid_t, pollfd, sigset_t,
-    size_t, stack_t, stat, timespec, uid_t, utsname, Ioctl, EBADFD, EFAULT, EINVAL, ENOSYS,
-    ENOTSUP, ENOTTY, FIONBIO, FIONREAD, STDERR_FILENO, STDIN_FILENO, STDOUT_FILENO, TIOCGWINSZ,
+    c_int, c_uint, c_ulong, c_void, clockid_t, epoll_event, gid_t, mode_t, off_t, pid_t, pollfd,
+    sigset_t, size_t, stack_t, stat, timespec, uid_t, utsname, Ioctl, EBADFD, EFAULT, EINVAL,
+    ENOSYS, ENOTSUP, ENOTTY, FIONBIO, FIONREAD, STDERR_FILENO, STDIN_FILENO, STDOUT_FILENO,
+    TIOCGWINSZ,
 };
 
 /// Guest request handler.
@@ -347,6 +348,17 @@ pub trait Handler {
     /// Executes [`nanosleep`](https://man7.org/linux/man-pages/man2/nanosleep.2.html) syscall akin to [`libc::nanosleep`].
     fn nanosleep(&mut self, req: &timespec, rem: Option<&mut timespec>) -> Result<()> {
         self.execute(syscall::Nanosleep { req, rem })?
+    }
+
+    /// Executes [`open`](https://man7.org/linux/man-pages/man2/open.2.html) syscall akin to [`libc::open`].
+    ///
+    /// `pathname` argument must contain the trailing nul terminator byte.
+    fn open(&mut self, pathname: &[u8], flags: c_int, mode: Option<mode_t>) -> Result<c_int> {
+        self.execute(syscall::Open {
+            pathname,
+            flags,
+            mode,
+        })?
     }
 
     /// Executes [`poll`](https://man7.org/linux/man-pages/man2/poll.2.html) syscall akin to [`libc::poll`].
@@ -707,6 +719,12 @@ pub trait Handler {
                     platform.validate_mut(rem).map(Some)?
                 };
                 self.nanosleep(req, rem).map(|_| [0, 0])
+            }
+            (libc::SYS_open, [pathname, flags, mode, ..]) => {
+                let pathname = platform.validate_str(pathname)?;
+                let mode = if mode == 0 { None } else { Some(mode as _) };
+                self.open(pathname, flags as _, mode)
+                    .map(|ret| [ret as _, 0])
             }
             (libc::SYS_poll, [fds, nfds, timeout, ..]) => {
                 let fds = platform.validate_slice_mut(fds, nfds)?;

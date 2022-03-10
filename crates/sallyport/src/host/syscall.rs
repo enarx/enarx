@@ -445,6 +445,20 @@ pub(super) unsafe fn execute(call: &mut item::Syscall, data: &mut [u8]) -> Resul
 
         item::Syscall {
             num,
+            argv: [pathname_offset, pathname_len, flags, mode, ..],
+            ret: [ret, ..],
+        } if *num == libc::SYS_open as _ => {
+            let pathname = deref::<u8>(data, *pathname_offset, *pathname_len)?;
+            Syscall {
+                num: libc::SYS_open,
+                argv: [pathname as _, *flags, *mode],
+                ret: [ret],
+            }
+            .execute()
+        }
+
+        item::Syscall {
+            num,
             argv: [fds_offset, nfds, timeout, ..],
             ret: [ret, ..],
         } if *num == libc::SYS_poll as _ => {

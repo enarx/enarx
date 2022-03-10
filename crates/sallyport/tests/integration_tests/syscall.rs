@@ -4,11 +4,11 @@ use super::{run_test, write_tcp};
 
 use libc::{
     c_int, iovec, sockaddr, timespec, SYS_accept, SYS_accept4, SYS_bind, SYS_close, SYS_fcntl,
-    SYS_fstat, SYS_getrandom, SYS_getsockname, SYS_listen, SYS_nanosleep, SYS_read, SYS_readlink,
-    SYS_readv, SYS_recvfrom, SYS_setsockopt, SYS_socket, SYS_write, SYS_writev, AF_INET, EBADF,
-    EBADFD, EINVAL, ENOENT, ENOSYS, F_GETFD, F_GETFL, F_SETFD, F_SETFL, GRND_RANDOM, O_APPEND,
-    O_CREAT, O_RDONLY, O_RDWR, O_WRONLY, SOCK_CLOEXEC, SOCK_STREAM, SOL_SOCKET, SO_REUSEADDR,
-    STDERR_FILENO, STDIN_FILENO, STDOUT_FILENO,
+    SYS_fstat, SYS_getrandom, SYS_getsockname, SYS_listen, SYS_nanosleep, SYS_open, SYS_read,
+    SYS_readlink, SYS_readv, SYS_recvfrom, SYS_setsockopt, SYS_socket, SYS_write, SYS_writev,
+    AF_INET, EACCES, EBADF, EBADFD, EINVAL, ENOENT, ENOSYS, F_GETFD, F_GETFL, F_SETFD, F_SETFL,
+    GRND_RANDOM, O_APPEND, O_CREAT, O_RDONLY, O_RDWR, O_WRONLY, SOCK_CLOEXEC, SOCK_STREAM,
+    SOL_SOCKET, SO_REUSEADDR, STDERR_FILENO, STDIN_FILENO, STDOUT_FILENO,
 };
 use std::env::temp_dir;
 use std::ffi::CString;
@@ -81,7 +81,6 @@ fn syscall_recv<'a, 'b>(
 
 #[test]
 #[serial]
-#[cfg(not(miri))]
 fn close() {
     run_test(2, [0xff; 16], move |i, platform, handler| {
         let path = temp_dir().join(format!("sallyport-test-close-{}", i));
@@ -384,6 +383,76 @@ fn nanosleep() {
                 tv_nsec: 0,
             }
         )
+    });
+}
+
+#[test]
+#[serial]
+fn open() {
+    run_test(2, [0xff; 32], move |i, platform, handler| {
+        let libc_ret = unsafe { libc::open(b"/etc/resolv.conf\0".as_ptr() as _, O_RDONLY, 0o666) }; // NOTE: mode argument is ignored in this case, but specified to satisfy miri
+
+        if i % 2 == 0 {
+            assert_eq!(handler.open(b"/etc/passwd\0", O_RDONLY, None), Err(EACCES));
+        } else {
+            assert_eq!(
+                unsafe {
+                    handler.syscall(
+                        platform,
+                        [
+                            SYS_open as _,
+                            b"/etc/passwd\0".as_ptr() as _,
+                            O_RDONLY as _,
+                            0,
+                            0,
+                            0,
+                            0,
+                        ],
+                    )
+                },
+                Err(EACCES)
+            );
+        }
+
+        if i % 2 == 0 {
+            let ret = handler.open(b"/etc/resolv.conf\0", O_RDONLY, None);
+            if cfg!(not(miri)) {
+                if libc_ret < 0 {
+                    assert_eq!(ret, Err(-libc_ret));
+                } else {
+                    assert!(ret.is_ok());
+                    assert_ne!(ret.unwrap(), libc_ret);
+                }
+            } else {
+                assert_eq!(ret, Err(ENOSYS));
+            }
+        } else {
+            let ret = unsafe {
+                handler.syscall(
+                    platform,
+                    [
+                        SYS_open as _,
+                        b"/etc/resolv.conf\0".as_ptr() as _,
+                        O_RDONLY as _,
+                        0,
+                        0,
+                        0,
+                        0,
+                    ],
+                )
+            };
+            if cfg!(not(miri)) {
+                if libc_ret < 0 {
+                    assert_eq!(ret, Err(-libc_ret));
+                } else {
+                    assert!(ret.is_ok());
+                    assert_ne!(ret.unwrap(), [libc_ret as _, 0]);
+                }
+                assert!(ret.is_ok());
+            } else {
+                assert_eq!(ret, Err(ENOSYS));
+            }
+        }
     });
 }
 
