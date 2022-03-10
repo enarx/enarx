@@ -30,7 +30,6 @@ macro_rules! impl_const_id {
     };
 }
 
-pub mod certs;
 pub mod firmware;
 pub mod launch;
 

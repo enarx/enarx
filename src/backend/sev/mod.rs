@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 
-pub use snp::certs;
 pub use snp::firmware::Firmware;
 
 use super::kvm::mem::Region;
