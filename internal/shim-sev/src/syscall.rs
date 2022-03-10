@@ -3,7 +3,7 @@
 //! syscall interface layer between assembler and rust
 
 use crate::hostcall::{HostCall, UserMemScope};
-use crate::spin::{RacyCell, RwLocked};
+use crate::spin::{Locked, RacyCell};
 
 use core::arch::asm;
 use core::mem::size_of;
@@ -103,10 +103,10 @@ pub unsafe extern "sysv64" fn _syscall_enter() -> ! {
 
 /// Thread local storage
 /// FIXME: when using multithreading
-pub static THREAD_TLS: Lazy<RwLocked<&mut guest::ThreadLocalStorage>> = Lazy::new(|| unsafe {
+pub static THREAD_TLS: Lazy<Locked<&mut guest::ThreadLocalStorage>> = Lazy::new(|| unsafe {
     static TLSHANDLE: RacyCell<guest::ThreadLocalStorage> =
         RacyCell::new(guest::ThreadLocalStorage::new());
-    RwLocked::<&mut guest::ThreadLocalStorage>::new(&mut (*TLSHANDLE.get()))
+    Locked::<&mut guest::ThreadLocalStorage>::new(&mut (*TLSHANDLE.get()))
 });
 
 /// Handle a syscall in rust
@@ -127,7 +127,7 @@ extern "sysv64" fn syscall_rust(
         eprintln!("syscall {} …", nr)
     }
 
-    let mut tls = THREAD_TLS.write();
+    let mut tls = THREAD_TLS.lock();
     let mut h = HostCall::try_new(&mut tls).unwrap();
 
     let usermemscope = UserMemScope;

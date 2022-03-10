@@ -2,7 +2,7 @@
 
 //! Secrets page
 
-use crate::spin::{RacyCell, RwLocked};
+use crate::spin::{Locked, RacyCell};
 
 use spinning::Lazy;
 
@@ -77,35 +77,35 @@ pub struct SecretsHandle<'a> {
 ///
 /// `SECRETS` is the only way to get an instance of the static `_ENARX_SECRETS` struct.
 /// It is guarded by `RwLocked`.
-pub static SECRETS: Lazy<RwLocked<SecretsHandle<'_>>> = Lazy::new(|| {
+pub static SECRETS: Lazy<Locked<SecretsHandle<'_>>> = Lazy::new(|| {
     extern "C" {
         /// Extern
         pub static _ENARX_SECRETS: RacyCell<SnpSecretsPage>;
     }
     unsafe {
         let secrets = _ENARX_SECRETS.get();
-        RwLocked::<SecretsHandle<'_>>::new(SecretsHandle {
+        Locked::<SecretsHandle<'_>>::new(SecretsHandle {
             secrets: &mut *secrets,
         })
     }
 });
 
-impl RwLocked<SecretsHandle<'_>> {
+impl Locked<SecretsHandle<'_>> {
     /// get VM private communication key for VMPL0
     pub fn get_vmpck0(&self) -> [u8; VMPCK_KEY_LEN] {
-        let this = self.read();
+        let this = self.lock();
         this.secrets.vmpck0
     }
 
     /// get message sequence number for VM private communication key for VMPL0
     pub fn get_msg_seqno_0(&self) -> u32 {
-        let this = self.read();
+        let this = self.lock();
         this.secrets.os_area.msg_seqno_0.checked_add(1).unwrap()
     }
 
     /// increase message sequence number for VM private communication key for VMPL0
     pub fn inc_msg_seqno_0(&self) {
-        let mut this = self.write();
+        let mut this = self.lock();
         this.secrets.os_area.msg_seqno_0 = this.secrets.os_area.msg_seqno_0.checked_add(2).unwrap();
     }
 }
