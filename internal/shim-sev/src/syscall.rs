@@ -7,6 +7,7 @@ use crate::spin::{RacyCell, RwLocked};
 
 use core::arch::asm;
 use core::mem::size_of;
+use libc::{SYS_write, STDERR_FILENO, STDOUT_FILENO};
 
 use sallyport::guest;
 use sallyport::guest::Handler;
@@ -122,7 +123,9 @@ extern "sysv64" fn syscall_rust(
     let orig_rdx: usize = c;
 
     #[cfg(feature = "dbg")]
-    eprintln!("syscall {} …", nr);
+    if !(nr == SYS_write as usize && (a == STDERR_FILENO as usize || a == STDOUT_FILENO as usize)) {
+        eprintln!("syscall {} …", nr)
+    }
 
     let mut tls = THREAD_TLS.write();
     let mut h = HostCall::try_new(&mut tls).unwrap();
@@ -159,7 +162,11 @@ extern "sysv64" fn syscall_rust(
             match ret {
                 Err(e) => {
                     #[cfg(feature = "dbg")]
-                    eprintln!("syscall {} = {}", nr, e.checked_neg().unwrap());
+                    if !(nr == SYS_write as usize
+                        && (a == STDERR_FILENO as usize || a == STDOUT_FILENO as usize))
+                    {
+                        eprintln!("syscall {} = {}", nr, e.checked_neg().unwrap());
+                    }
                     X8664DoubleReturn {
                         rax: e.checked_neg().unwrap() as _,
                         // Preserve `rdx` as it is normally not clobbered with a syscall
@@ -168,7 +175,11 @@ extern "sysv64" fn syscall_rust(
                 }
                 Ok([rax, _]) => {
                     #[cfg(feature = "dbg")]
-                    eprintln!("syscall {} = {}", nr, rax);
+                    if !(nr == SYS_write as usize
+                        && (a == STDERR_FILENO as usize || a == STDOUT_FILENO as usize))
+                    {
+                        eprintln!("syscall {} = {}", nr, rax);
+                    }
                     X8664DoubleReturn {
                         rax: rax as _,
                         // Preserve `rdx` as it is normally not clobbered with a syscall
