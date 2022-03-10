@@ -28,14 +28,20 @@ pub mod kind {
     pub trait Kind {}
 
     #[repr(transparent)]
-    pub struct Stub<T>(PhantomData<T>);
-    impl<T> Kind for Stub<T> {}
+    pub struct Stub;
+    impl Kind for Stub {}
 
     #[repr(transparent)]
     pub struct Alloc<K>(PhantomData<K>)
     where
         K: alloc::kind::Kind;
     impl<K> Kind for Alloc<K> where K: alloc::kind::Kind {}
+
+    #[repr(transparent)]
+    pub struct MaybeAlloc<K>(PhantomData<K>)
+    where
+        K: alloc::kind::Kind;
+    impl<K> Kind for MaybeAlloc<K> where K: alloc::kind::Kind {}
 
     impl<K> Kind for (K,) {}
     impl<AK, BK> Kind for (AK, BK) {}

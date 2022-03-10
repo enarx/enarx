@@ -15,7 +15,7 @@ pub trait Stub {
     fn collect(self, _: &impl Collector) -> Self::Ret;
 }
 
-impl<T: Stub> Call<'_, kind::Stub<T>> for T {
+impl<T: Stub> Call<'_, kind::Stub> for T {
     type Staged = Self;
     type Committed = Self;
     type Collected = T::Ret;

@@ -1,38 +1,52 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use super::alloc::kind;
-use super::Alloc;
+use super::{Alloc, Call};
 use crate::guest::alloc::{Allocator, Collect, Collector, Commit, Committer};
 use crate::Result;
 
-/// A call, which *may* result in allocation within the block.
-pub trait MaybeAlloc<'a, K, T>
+pub enum UnstagedMaybeAlloc<'a, K, T>
 where
     K: kind::Kind,
     T: Alloc<'a, K>,
 {
-    fn stage(self, alloc: &mut impl Allocator) -> Result<StagedMaybeAlloc<'a, K, T>>;
+    Alloc(T),
+    Stub(T::Collected),
 }
 
-impl<'a, K, T, M> Alloc<'a, kind::MaybeAlloc<'a, K, T>> for M
+/// A call, which *may* result in allocation within the block.
+pub trait MaybeAlloc<'a, K>
 where
     K: kind::Kind,
-    T: Alloc<'a, K>,
-    M: MaybeAlloc<'a, K, T>,
 {
-    type Staged = StagedMaybeAlloc<'a, K, T>;
-    type Committed = CommittedMaybeAlloc<'a, K, T>;
-    type Collected = T::Collected;
+    type Alloc: Alloc<'a, K>;
+
+    fn stage(self) -> Result<UnstagedMaybeAlloc<'a, K, Self::Alloc>>;
+}
+
+impl<'a, K, T> Call<'a, super::kind::MaybeAlloc<K>> for T
+where
+    K: kind::Kind,
+    T: MaybeAlloc<'a, K>,
+{
+    type Staged = StagedMaybeAlloc<'a, K, T::Alloc>;
+    type Committed = CommittedMaybeAlloc<'a, K, T::Alloc>;
+    type Collected = <T::Alloc as Alloc<'a, K>>::Collected;
 
     fn stage(self, alloc: &mut impl Allocator) -> Result<Self::Staged> {
-        M::stage(self, alloc)
+        match T::stage(self)? {
+            UnstagedMaybeAlloc::Alloc(unstaged) => {
+                Call::stage(unstaged, alloc).map(StagedMaybeAlloc::Alloc)
+            }
+            UnstagedMaybeAlloc::Stub(val) => Ok(StagedMaybeAlloc::Stub(val)),
+        }
     }
 }
 
 pub enum StagedMaybeAlloc<'a, K, T>
 where
     K: kind::Kind,
-    T: Alloc<'a, K>,
+    T: Call<'a, super::kind::Alloc<K>>,
 {
     Alloc(T::Staged),
     Stub(T::Collected),
@@ -41,7 +55,7 @@ where
 impl<'a, K, T> Commit for StagedMaybeAlloc<'a, K, T>
 where
     K: kind::Kind,
-    T: Alloc<'a, K>,
+    T: Call<'a, super::kind::Alloc<K>>,
 {
     type Item = CommittedMaybeAlloc<'a, K, T>;
 
@@ -56,7 +70,7 @@ where
 pub enum CommittedMaybeAlloc<'a, K, T>
 where
     K: kind::Kind,
-    T: Alloc<'a, K>,
+    T: Call<'a, super::kind::Alloc<K>>,
 {
     Alloc(T::Committed),
     Stub(T::Collected),
@@ -65,7 +79,7 @@ where
 impl<'a, K, T> Collect for CommittedMaybeAlloc<'a, K, T>
 where
     K: kind::Kind,
-    T: Alloc<'a, K>,
+    T: Call<'a, super::kind::Alloc<K>>,
 {
     type Item = T::Collected;
 

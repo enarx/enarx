@@ -1,11 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
+use super::super::alloc::kind;
 use super::super::types::Argv;
-use super::super::Alloc;
+use super::super::{MaybeAlloc, UnstagedMaybeAlloc};
 use super::PassthroughAlloc;
-use crate::guest::alloc::Allocator;
-use crate::guest::call::alloc::kind;
-use crate::guest::call::{MaybeAlloc, StagedMaybeAlloc};
 use crate::Result;
 
 use libc::{
@@ -33,18 +31,17 @@ unsafe impl PassthroughAlloc for AllocFcntl {
     }
 }
 
-impl<'a> MaybeAlloc<'a, kind::Syscall, AllocFcntl> for Fcntl {
+impl<'a> MaybeAlloc<'a, kind::Syscall> for Fcntl {
+    type Alloc = AllocFcntl;
+
     #[inline]
-    fn stage(
-        self,
-        alloc: &mut impl Allocator,
-    ) -> Result<StagedMaybeAlloc<'a, kind::Syscall, AllocFcntl>> {
+    fn stage(self) -> Result<UnstagedMaybeAlloc<'a, kind::Syscall, Self::Alloc>> {
         match (self.fd, self.cmd) {
-            (STDIN_FILENO, F_GETFL) => Ok(StagedMaybeAlloc::Stub(Ok(O_RDWR | O_APPEND))),
-            (STDOUT_FILENO | STDERR_FILENO, F_GETFL) => Ok(StagedMaybeAlloc::Stub(Ok(O_WRONLY))),
+            (STDIN_FILENO, F_GETFL) => Ok(UnstagedMaybeAlloc::Stub(Ok(O_RDWR | O_APPEND))),
+            (STDOUT_FILENO | STDERR_FILENO, F_GETFL) => Ok(UnstagedMaybeAlloc::Stub(Ok(O_WRONLY))),
             (STDIN_FILENO | STDOUT_FILENO | STDERR_FILENO, _) => Err(EINVAL),
             (_, F_GETFD | F_SETFD | F_GETFL | F_SETFL) => {
-                Alloc::stage(AllocFcntl(self), alloc).map(StagedMaybeAlloc::Alloc)
+                Ok(UnstagedMaybeAlloc::Alloc(AllocFcntl(self)))
             }
             (_, _) => Err(EBADFD),
         }

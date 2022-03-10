@@ -6,9 +6,9 @@ use libc::{
     c_int, iovec, sockaddr, timespec, SYS_accept, SYS_accept4, SYS_bind, SYS_close, SYS_fcntl,
     SYS_fstat, SYS_getrandom, SYS_getsockname, SYS_listen, SYS_nanosleep, SYS_read, SYS_readlink,
     SYS_readv, SYS_recvfrom, SYS_setsockopt, SYS_socket, SYS_write, SYS_writev, AF_INET, EBADF,
-    EBADFD, ENOENT, ENOSYS, F_GETFD, F_GETFL, F_SETFD, F_SETFL, GRND_RANDOM, O_CREAT, O_RDONLY,
-    O_RDWR, SOCK_CLOEXEC, SOCK_STREAM, SOL_SOCKET, SO_REUSEADDR, STDERR_FILENO, STDIN_FILENO,
-    STDOUT_FILENO,
+    EBADFD, EINVAL, ENOENT, ENOSYS, F_GETFD, F_GETFL, F_SETFD, F_SETFL, GRND_RANDOM, O_APPEND,
+    O_CREAT, O_RDONLY, O_RDWR, O_WRONLY, SOCK_CLOEXEC, SOCK_STREAM, SOL_SOCKET, SO_REUSEADDR,
+    STDERR_FILENO, STDIN_FILENO, STDOUT_FILENO,
 };
 use std::env::temp_dir;
 use std::ffi::CString;
@@ -118,6 +118,55 @@ fn close() {
 #[serial]
 fn fcntl() {
     run_test(2, [0xff; 16], move |i, platform, handler| {
+        if i % 2 == 0 {
+            assert_eq!(
+                handler.fcntl(STDIN_FILENO, F_GETFL, 0),
+                Ok(O_RDWR | O_APPEND)
+            );
+        } else {
+            assert_eq!(
+                unsafe {
+                    handler.syscall(
+                        platform,
+                        [SYS_fcntl as _, STDIN_FILENO as _, F_GETFL as _, 0, 0, 0, 0],
+                    )
+                },
+                Ok([(O_RDWR | O_APPEND) as _, 0])
+            );
+        }
+
+        for fd in [STDOUT_FILENO, STDERR_FILENO] {
+            if i % 2 == 0 {
+                assert_eq!(handler.fcntl(fd, F_GETFL, 0), Ok(O_WRONLY));
+            } else {
+                assert_eq!(
+                    unsafe {
+                        handler.syscall(
+                            platform,
+                            [SYS_fcntl as _, fd as _, F_GETFL as _, 0, 0, 0, 0],
+                        )
+                    },
+                    Ok([O_WRONLY as _, 0])
+                );
+            }
+        }
+
+        for fd in [STDIN_FILENO, STDOUT_FILENO, STDERR_FILENO] {
+            if i % 2 == 0 {
+                assert_eq!(handler.fcntl(fd, F_GETFD, 0), Err(EINVAL));
+            } else {
+                assert_eq!(
+                    unsafe {
+                        handler.syscall(
+                            platform,
+                            [SYS_fcntl as _, fd as _, F_GETFD as _, 0, 0, 0, 0],
+                        )
+                    },
+                    Err(EINVAL),
+                );
+            }
+        }
+
         let file = File::create(temp_dir().join(format!("sallyport-test-fcntl-{}", i))).unwrap();
         let fd = file.as_raw_fd();
 
