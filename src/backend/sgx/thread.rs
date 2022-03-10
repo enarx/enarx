@@ -3,10 +3,13 @@
 use super::attestation::{get_attestation_key_id, get_key_size, get_quote, get_target_info};
 #[cfg(feature = "gdb")]
 use crate::backend::execute_gdb;
+use crate::backend::sgx::ioctls::RestrictPermissions;
+use crate::backend::sgx::ioctls::ENCLAVE_RESTRICT_PERMISSIONS;
 use crate::backend::Command;
 
 use std::arch::asm;
 use std::arch::x86_64::CpuidResult;
+use std::fs::{File, OpenOptions};
 use std::io;
 use std::iter;
 use std::mem::{size_of, MaybeUninit};
@@ -21,11 +24,13 @@ use sallyport::item::enarxcall::sgx::{Report, TargetInfo};
 use sallyport::item::enarxcall::Payload;
 use sallyport::item::{Block, Item};
 use sgx::enclu::{EENTER, EEXIT, ERESUME};
+use sgx::page::{Flags, SecInfo};
 use sgx::ssa::Vector;
 use vdso::Symbol;
 
 pub struct Thread {
     enclave: Arc<super::Keep>,
+    enclave_file: File,
     vdso: &'static Symbol,
     tcs: *const super::Tcs,
     block: Vec<usize>,
@@ -55,8 +60,15 @@ impl super::super::Keep for super::Keep {
 
         let block = vec![0; self.sallyport_block_size as usize / size_of::<usize>()];
 
+        let enclave_file = OpenOptions::new()
+            .read(true)
+            .write(true)
+            .open("/dev/sgx_enclave")
+            .unwrap();
+
         Ok(Some(Box::new(Thread {
             enclave: self,
+            enclave_file,
             vdso,
             tcs,
             block,
@@ -252,19 +264,26 @@ impl super::super::Thread for Thread {
                             return Ok(Command::Exit(syscall.argv[0] as _));
                         }
 
-                        Item::Syscall(ref _syscall, ..) => {
+                        Item::Syscall(ref syscall, ..) => {
                             #[cfg(feature = "dbg")]
-                            match (
-                                _syscall.num as libc::c_long,
-                                _syscall.argv[1] as libc::c_int,
-                            ) {
+                            match (syscall.num as libc::c_long, syscall.argv[1] as libc::c_int) {
                                 (
                                     libc::SYS_write | libc::SYS_read,
                                     libc::STDIN_FILENO | libc::STDOUT_FILENO | libc::STDERR_FILENO,
                                 ) => {}
                                 _ => {
-                                    dbg!(&_syscall);
+                                    dbg!(&syscall);
                                 }
+                            }
+
+                            // Before mprotect() reset permissions to PROT_NONE.
+                            if syscall.num == libc::SYS_mprotect as usize {
+                                let addr = syscall.argv[0];
+                                let length = syscall.argv[1];
+                                let si = SecInfo::reg(Flags::empty());
+                                let mut parameters = RestrictPermissions::new(addr, length, &si);
+                                ENCLAVE_RESTRICT_PERMISSIONS
+                                    .ioctl(&mut self.enclave_file, &mut parameters)?;
                             }
 
                             sallyport::host::execute(iter::once(item))
