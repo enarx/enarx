@@ -9,7 +9,7 @@ use crate::addr::SHIM_VIRT_OFFSET;
 use crate::pagetables::{clear_c_bit_address_range, smash};
 use crate::snp::secrets_page::SECRETS;
 use crate::snp::{pvalidate, PvalidateSize};
-use crate::spin::{RacyCell, RwLocked};
+use crate::spin::{Locked, RacyCell, RwLocked};
 
 use core::arch::asm;
 use core::mem::size_of;
@@ -587,13 +587,13 @@ impl Default for GhcbExtHandle {
 /// # Safety
 /// `GHCB_EXT` is the only way to get an instance of the static `GHCBEXTHANDLE`.
 /// It is guarded by `RwLocked`.
-pub static GHCB_EXT: Lazy<RwLocked<&mut GhcbExtHandle>> = Lazy::new(|| unsafe {
+pub static GHCB_EXT: Lazy<Locked<&mut GhcbExtHandle>> = Lazy::new(|| unsafe {
     static GHCBEXTHANDLE: RacyCell<GhcbExtHandle> =
         RacyCell::new(<GhcbExtHandle as ConstDefault>::DEFAULT);
 
     let ghcb_ext_handle_mut = &mut (*GHCBEXTHANDLE.get());
     ghcb_ext_handle_mut.init();
-    RwLocked::<&mut GhcbExtHandle>::new(ghcb_ext_handle_mut)
+    Locked::<&mut GhcbExtHandle>::new(ghcb_ext_handle_mut)
 });
 
 impl GhcbExtHandle {
@@ -744,7 +744,7 @@ impl GhcbExtHandle {
     }
 }
 
-impl RwLocked<&mut GhcbExtHandle> {
+impl Locked<&mut GhcbExtHandle> {
     /// Get an attestation report via the GHCB shared page protocol
     pub fn get_report(&self, version: u8, nonce: &[u8], response: &mut [u8]) -> Result<usize, u64> {
         if nonce.len() != 64 {
@@ -755,7 +755,7 @@ impl RwLocked<&mut GhcbExtHandle> {
             return Err(libc::EINVAL as _);
         }
 
-        let mut this = self.write();
+        let mut this = self.lock();
 
         let mut user_data = [0u8; 64];
         user_data.copy_from_slice(nonce);
