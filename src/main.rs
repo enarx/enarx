@@ -164,6 +164,8 @@ fn main() -> Result<()> {
         }
         #[cfg(feature = "backend-sev")]
         cli::Command::Sev(cmd) => cli::sev::run(cmd),
+        #[cfg(feature = "backend-sgx")]
+        cli::Command::Sgx(cmd) => cli::sgx::run(cmd),
     }
 }
 

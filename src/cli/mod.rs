@@ -6,6 +6,8 @@ mod log;
 mod run;
 #[cfg(feature = "backend-sev")]
 pub mod sev;
+#[cfg(feature = "backend-sgx")]
+pub mod sgx;
 
 use anyhow::{anyhow, Result};
 use std::ops::Deref;
@@ -22,6 +24,8 @@ pub enum Command {
     Run(run::Options),
     #[cfg(feature = "backend-sev")]
     Sev(sev::Command),
+    #[cfg(feature = "backend-sgx")]
+    Sgx(sgx::Command),
 }
 
 //

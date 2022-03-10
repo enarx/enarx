@@ -26,7 +26,7 @@ default = ["backend-kvm", "backend-sgx", "backend-sev", "wasmldr"]
 
 backend-sev = ["backend-kvm", "ureq"]
 backend-kvm = ["x86_64", "kvm-bindings", "kvm-ioctls"]
-backend-sgx = ["x86_64", "sgx"]
+backend-sgx = ["x86_64", "sgx", "ureq"]
 wasmldr = []
 gdb = ["gdbstub"]
 dbg = []
