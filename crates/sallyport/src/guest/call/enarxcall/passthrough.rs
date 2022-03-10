@@ -7,6 +7,7 @@ use crate::item::enarxcall::Number;
 use crate::Result;
 
 use core::ffi::c_void;
+use core::ptr::NonNull;
 
 /// Trait implemented by allocatable Enarx calls, which are passed through directly to the host and do
 /// not require custom handling logic.
@@ -97,5 +98,64 @@ impl PassthroughAlloc for MemInfo {
 
     fn stage(self) -> Self::Argv {
         Argv([])
+    }
+}
+
+/// Within an address range inside the enclave, ask host to remove pages
+/// from the enclave. Pages must be trimmed before this operation is
+/// applied.
+pub struct RemoveSgxPages {
+    pub addr: NonNull<c_void>,
+    pub length: usize,
+}
+
+impl PassthroughAlloc for RemoveSgxPages {
+    const NUM: Number = Number::RemoveSgxPages;
+
+    type Argv = Argv<2>;
+    type Ret = ();
+
+    fn stage(self) -> Self::Argv {
+        Argv([self.addr.as_ptr() as _, self.length])
+    }
+}
+
+/// Within an address range inside the enclave, ask host to reset
+/// permissions to 'read'. Address and length must be page-aligned.  Shim
+/// must validate and acknowledge the changes with ENCLU[EACCEPT], in order
+/// for them to take effect.
+pub struct ResetSgxPermissions {
+    pub addr: NonNull<c_void>,
+    pub length: usize,
+}
+
+impl PassthroughAlloc for ResetSgxPermissions {
+    const NUM: Number = Number::ResetSgxPermissions;
+
+    type Argv = Argv<2>;
+    type Ret = ();
+
+    fn stage(self) -> Self::Argv {
+        Argv([self.addr.as_ptr() as _, self.length])
+    }
+}
+
+/// Within an address range inside the enclave, ask host to set page type to
+/// 'trimmed'. Address and length must be page-aligned. Shim must validate
+/// and acknowledge the changes with ENCLU[EACCEPT], in order for them to
+/// take effect.
+pub struct TrimSgxPages {
+    pub addr: NonNull<c_void>,
+    pub length: usize,
+}
+
+impl PassthroughAlloc for TrimSgxPages {
+    const NUM: Number = Number::TrimSgxPages;
+
+    type Argv = Argv<2>;
+    type Ret = ();
+
+    fn stage(self) -> Self::Argv {
+        Argv([self.addr.as_ptr() as _, self.length])
     }
 }

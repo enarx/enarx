@@ -2,6 +2,7 @@
 
 use super::run_test;
 
+use core::ptr::NonNull;
 use libc::ENOSYS;
 use std::arch::x86_64::{CpuidResult, __cpuid_count};
 
@@ -58,5 +59,35 @@ fn get_sgx_target_info() {
 fn mem_info() {
     run_test(1, [0xff; 16], move |_, _, handler| {
         assert_eq!(handler.mem_info(), Err(ENOSYS));
+    })
+}
+
+#[test]
+fn remove_sgx_pages() {
+    run_test(2, [0xff; 16], move |_, _, handler| {
+        assert_eq!(
+            handler.remove_sgx_pages(NonNull::new(0x7f8af78eb000 as *mut _).unwrap(), 4096),
+            Err(ENOSYS)
+        );
+    })
+}
+
+#[test]
+fn reset_sgx_permissions() {
+    run_test(2, [0xff; 16], move |_, _, handler| {
+        assert_eq!(
+            handler.reset_sgx_permissions(NonNull::new(0x7f8af78eb000 as *mut _).unwrap(), 4096),
+            Err(ENOSYS)
+        );
+    })
+}
+
+#[test]
+fn trim_sgx_pages() {
+    run_test(2, [0xff; 16], move |_, _, handler| {
+        assert_eq!(
+            handler.trim_sgx_pages(NonNull::new(0x7f8af78eb000 as *mut _).unwrap(), 4096),
+            Err(ENOSYS)
+        );
     })
 }

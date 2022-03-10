@@ -56,6 +56,15 @@ pub enum Number {
 
     /// SNP VCEK request call number.
     GetSnpVcek = 0x06,
+
+    /// Remove SGX pages call number.
+    RemoveSgxPages = 0x07,
+
+    /// Reset SGX permissions to read call number.
+    ResetSgxPermissions = 0x08,
+
+    /// Trim SGX pages call number.
+    TrimSgxPages = 0x09,
 }
 
 #[cfg(test)]
