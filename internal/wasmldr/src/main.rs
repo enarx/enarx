@@ -47,17 +47,16 @@
 #![deny(clippy::all)]
 #![warn(rust_2018_idioms)]
 
-mod cli;
 mod config;
-mod wasi;
-mod workload;
+mod loader;
 
-use log::{debug, info, warn};
-use structopt::StructOpt;
+use loader::Loader;
 
 use std::fs::File;
 use std::io::Read;
+use std::mem::forget;
 use std::os::unix::io::FromRawFd;
+use std::os::unix::prelude::AsRawFd;
 
 // v0.1.0 KEEP-CONFIG HACK
 // We don't yet have a well-defined way to pass runtime configuration from
@@ -67,61 +66,126 @@ use std::os::unix::io::FromRawFd;
 //   * logging should be turned on at "debug" level, output goes to stderr
 //
 
-fn main() {
+use clap::Parser;
+
+use std::path::PathBuf;
+
+#[derive(Parser, Debug)]
+struct Args {
+    #[clap(short, long, value_name = "MODULE", parse(from_os_str))]
+    pub module: Option<PathBuf>,
+
+    #[clap(short, long, value_name = "CONFIG", parse(from_os_str))]
+    pub config: Option<PathBuf>,
+}
+
+fn main() -> anyhow::Result<()> {
     // KEEP-CONFIG HACK: we've inherited stdio and the shim sets
     // "RUST_LOG=debug", so this should make logging go to stderr.
     // FUTURE: we should have a keep-provided debug channel where we can
     // (safely, securely) send logs. Might need our own logger for that..
     env_logger::Builder::from_default_env().init();
 
-    warn!("🌭DEV-ONLY BUILD, NOT FOR PRODUCTION USE🌭");
+    let args = Args::parse();
 
-    debug!("parsing argv");
-    let opts = cli::RunOptions::from_args();
-    info!("opts: {:#?}", opts);
+    let mut config = match (args.module, args.config) {
+        (Some(module), Some(config)) => {
+            let module = File::open(&module).expect("unable to open file");
+            let config = File::open(&config).expect("unable to open file");
+            assert_eq!(3, module.as_raw_fd());
+            forget(module); // Leak fd 3.
+            config
+        }
 
-    let mut reader = if let Some(module) = opts.module {
-        info!("reading module from {:?}", &module);
-        File::open(&module).expect("Unable to open file")
-    } else {
-        // v0.1.0 KEEP-CONFIG HACK: just assume module is on FD3
-        info!("reading module from fd 3");
-        unsafe { File::from_raw_fd(3) }
+        (None, None) => unsafe { File::from_raw_fd(4) },
+        _ => panic!(),
     };
 
-    let mut bytes = Vec::new();
-    reader
-        .read_to_end(&mut bytes)
-        .expect("Failed to load workload");
+    let mut buffer = String::new();
+    config.read_to_string(&mut buffer)?;
+    let config: config::Config = toml::from_str(&buffer)?;
 
-    let mut cnf_reader = if let Some(cnf_path) = opts.config {
-        info!("reading config from {:?}", &cnf_path);
-        File::open(&cnf_path).expect("Unable to open file")
-    } else {
-        // v0.1.0 KEEP-CONFIG HACK: just assume config is on FD4
-        info!("reading config from fd 4");
-        unsafe { File::from_raw_fd(4) }
-    };
+    // Step through the state machine.
+    let configured = Loader::from(config);
+    let requested = configured.next()?;
+    let attested = requested.next()?;
+    let acquired = attested.next()?;
+    let compiled = acquired.next()?;
+    let connected = compiled.next()?;
+    let completed = connected.next()?;
 
-    let mut buf = String::new();
-    let config: config::Config = cnf_reader
-        .read_to_string(&mut buf)
-        .map(|_| toml::from_str(&buf).unwrap_or_else(|_| panic!("Invalid config file {}", buf)))
-        .unwrap_or_else(|_| config::Config::default());
+    drop(completed);
+    Ok(())
+}
 
-    // TODO: split up / refactor workload::run() so we can configure things
-    // like WASI stdio or wasmtime features before executing the workload..
+#[cfg(test)]
+pub(crate) mod test {
+    use crate::loader::Loader;
 
-    info!("running workload");
-    let result = workload::run(bytes, &config);
-    info!("got result: {:#?}", result);
+    const NO_EXPORT_WAT: &str = r#"(module
+      (memory (export "") 1)
+    )"#;
 
-    // FUTURE: produce attestation report here
-    // TODO: print the returned value(s) in some format (json?)
+    const RETURN_1_WAT: &str = r#"(module
+      (func (export "") (result i32) i32.const 1)
+    )"#;
 
-    // Choose an appropriate exit code from our result
-    std::process::exit(match result {
-        Ok(_) => 0,
-        Err(e) => i32::from(e),
-    });
+    const HELLO_WASI_WAT: &str = r#"(module
+      (import "wasi_snapshot_preview1" "proc_exit"
+        (func $__wasi_proc_exit (param i32)))
+      (import "wasi_snapshot_preview1" "fd_write"
+        (func $__wasi_fd_write (param i32 i32 i32 i32) (result i32)))
+      (func $_start
+        (i32.store (i32.const 24) (i32.const 14))
+        (i32.store (i32.const 20) (i32.const 0))
+        (block
+          (br_if 0
+            (call $__wasi_fd_write
+              (i32.const 1)
+              (i32.const 20)
+              (i32.const 1)
+              (i32.const 16)))
+          (br_if 0 (i32.ne (i32.load (i32.const 16)) (i32.const 14)))
+          (br 1)
+        )
+        (call $__wasi_proc_exit (i32.const 1))
+      )
+      (memory 1)
+      (export "memory" (memory 0))
+      (export "_start" (func $_start))
+      (data (i32.const 0) "Hello, world!\0a")
+    )"#;
+
+    #[test]
+    fn workload_run_return_1() {
+        let bytes = wat::parse_str(RETURN_1_WAT).expect("error parsing wat");
+
+        let results: Vec<i32> = Loader::run(&bytes)
+            .unwrap()
+            .iter()
+            .map(wasmtime::Val::unwrap_i32)
+            .collect();
+
+        assert_eq!(results, vec![1]);
+    }
+
+    #[test]
+    fn workload_run_no_export() {
+        let bytes = wat::parse_str(NO_EXPORT_WAT).expect("error parsing wat");
+
+        match Loader::run(&bytes) {
+            Err(..) => (),
+            _ => panic!("unexpected success"),
+        }
+    }
+
+    #[test]
+    fn workload_run_hello_wasi() {
+        let bytes = wat::parse_str(HELLO_WASI_WAT).expect("error parsing wat");
+        let values = Loader::run(&bytes).unwrap();
+        assert_eq!(values.len(), 0);
+
+        // TODO/FIXME: we need a way to configure WASI stdout so we can capture
+        // and check it here...
+    }
 }

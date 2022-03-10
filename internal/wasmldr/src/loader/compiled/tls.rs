@@ -3,26 +3,41 @@
 use std::any::Any;
 use std::io;
 use std::io::{Read, Write};
-use std::ops::DerefMut;
-use std::os::unix::prelude::{AsRawFd, FromRawFd};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, RwLock};
 
-use io_lifetimes::{AsFd, BorrowedFd};
-use rustls::{Connection, ServerConfig, ServerConnection};
+use rustls::{ClientConfig, ClientConnection, Connection, ServerConfig, ServerConnection};
 use wasi_common::file::{Advice, FdFlags, FileType, Filestat};
 use wasi_common::{Context, Error, ErrorExt, WasiFile};
-use wasmtime_wasi::net::{TcpListener, TcpStream};
 
-pub struct Stream {
-    raw_stream: Mutex<cap_std::net::TcpStream>,
-    raw_stream_file: Box<dyn WasiFile>,
-    tls_connection: Mutex<Connection>,
+pub struct Stream(RwLock<(std::net::TcpStream, Connection)>);
+
+impl From<Stream> for Box<dyn WasiFile> {
+    fn from(value: Stream) -> Self {
+        Box::new(value)
+    }
+}
+
+impl Stream {
+    pub fn connect(
+        mut tcp: std::net::TcpStream,
+        name: &str,
+        cfg: Arc<ClientConfig>,
+    ) -> Result<Self, Error> {
+        // Set up connection.
+        let tls = ClientConnection::new(cfg, name.try_into()?)?;
+        let mut tls = Connection::Client(tls);
+
+        // Finish the connection.
+        tls.complete_io(&mut tcp)?;
+
+        Ok(Self(RwLock::new((tcp, tls))))
+    }
 }
 
 #[wiggle::async_trait]
 impl WasiFile for Stream {
     fn as_any(&self) -> &dyn Any {
-        self.raw_stream_file.as_any()
+        self
     }
 
     async fn sock_accept(&mut self, _fdflags: FdFlags) -> Result<Box<dyn WasiFile>, Error> {
@@ -38,15 +53,15 @@ impl WasiFile for Stream {
     }
 
     async fn get_filetype(&self) -> Result<FileType, Error> {
-        self.raw_stream_file.get_filetype().await
+        Ok(FileType::SocketStream)
     }
 
     async fn get_fdflags(&self) -> Result<FdFlags, Error> {
-        self.raw_stream_file.get_fdflags().await
+        Ok(FdFlags::APPEND | FdFlags::NONBLOCK)
     }
 
-    async fn set_fdflags(&mut self, fdflags: FdFlags) -> Result<(), Error> {
-        self.raw_stream_file.set_fdflags(fdflags).await
+    async fn set_fdflags(&mut self, _fdflags: FdFlags) -> Result<(), Error> {
+        Err(Error::badf())
     }
 
     async fn get_filestat(&self) -> Result<Filestat, Error> {
@@ -74,36 +89,28 @@ impl WasiFile for Stream {
     }
 
     async fn read_vectored<'a>(&self, bufs: &mut [io::IoSliceMut<'a>]) -> Result<u64, Error> {
-        let mut tls_connection = self
-            .tls_connection
-            .lock()
-            .map_err(|e| Error::trap(format!("could not get TLS connection from mutex: {}", e)))?;
+        let (tcp, tls) = &mut *self.0.write().unwrap();
 
-        let mut raw_stream = self
-            .raw_stream
-            .lock()
-            .map_err(|e| Error::trap(format!("could not get TCP stream from mutex: {}", e)))?;
-
-        if tls_connection.wants_read() {
-            tls_connection
-                .read_tls(raw_stream.deref_mut())
+        if tls.wants_read() {
+            tls.read_tls(tcp)
                 .map_err(|e| Error::io().context(e))
                 .context("could not read TLS ciphertext from TCP stream")?;
-            tls_connection
-                .process_new_packets()
+
+            tls.process_new_packets()
                 .map_err(|e| Error::io().context(e))
                 .context("could not process new TLS packets")?;
         }
-        tls_connection
+
+        let n = tls
             .reader()
             .read_vectored(bufs)
             .map_err(|e| match e.kind() {
                 io::ErrorKind::UnexpectedEof => Error::io().context("unexpected EOF"),
                 _ => Error::io(),
             })
-            .context("could not read decrypted TLS ciphertext")?
-            .try_into()
-            .map_err(|e| Error::range().context(e))
+            .context("could not read decrypted TLS ciphertext")?;
+
+        Ok(n as u64)
     }
 
     async fn read_vectored_at<'a>(
@@ -115,28 +122,21 @@ impl WasiFile for Stream {
     }
 
     async fn write_vectored<'a>(&self, bufs: &[io::IoSlice<'a>]) -> Result<u64, Error> {
-        let mut tls_connection = self
-            .tls_connection
-            .lock()
-            .map_err(|e| Error::trap(format!("could not get TLS connection from mutex: {}", e)))?;
+        let (tcp, tls) = &mut *self.0.write().unwrap();
 
-        let mut raw_stream = self
-            .raw_stream
-            .lock()
-            .map_err(|e| Error::trap(format!("could not get TCP stream from mutex: {}", e)))?;
-
-        let n = tls_connection
+        let n = tls
             .writer()
             .write_vectored(bufs)
             .map_err(|e| Error::io().context(e))
-            .context("could not write plaintext to TLS buffer ciphertext")?
-            .try_into()
-            .map_err(|e| Error::range().context(e))?;
-        tls_connection
-            .write_tls(raw_stream.deref_mut())
-            .map_err(|e| Error::io().context(e))
-            .context("could not write TLS ciphertext on TCP stream")?;
-        Ok(n)
+            .context("could not write plaintext to TLS buffer ciphertext")?;
+
+        while tls.wants_write() {
+            tls.write_tls(tcp)
+                .map_err(|e| Error::io().context(e))
+                .context("could not write TLS ciphertext on TCP stream")?;
+        }
+
+        Ok(n as u64)
     }
 
     async fn write_vectored_at<'a>(
@@ -156,77 +156,63 @@ impl WasiFile for Stream {
     }
 
     async fn num_ready_bytes(&self) -> Result<u64, Error> {
-        self.raw_stream_file.num_ready_bytes().await
+        Ok(0)
     }
 
     fn isatty(&self) -> bool {
-        self.raw_stream_file.isatty()
+        false
     }
 
     async fn readable(&self) -> Result<(), Error> {
-        self.raw_stream_file.readable().await
+        Ok(())
     }
 
     async fn writable(&self) -> Result<(), Error> {
-        self.raw_stream_file.writable().await
+        Ok(())
     }
 }
 
 pub struct Listener {
-    raw_listener: wasmtime_wasi::net::TcpListener,
-    tls_config: Arc<ServerConfig>,
+    listener: std::net::TcpListener,
+    config: Arc<ServerConfig>,
 }
 
 impl Listener {
-    pub fn new(listener: std::net::TcpListener, tls_config: Arc<ServerConfig>) -> Self {
-        Self {
-            raw_listener: TcpListener::from_cap_std(wasmtime_wasi::sync::TcpListener::from_std(
-                listener,
-            )),
-            tls_config,
-        }
+    pub fn new(listener: std::net::TcpListener, config: Arc<ServerConfig>) -> Self {
+        Self { listener, config }
+    }
+}
+
+impl From<Listener> for Box<dyn WasiFile> {
+    fn from(value: Listener) -> Self {
+        Box::new(value)
     }
 }
 
 #[wiggle::async_trait]
 impl WasiFile for Listener {
     fn as_any(&self) -> &dyn Any {
-        self.raw_listener.as_any()
+        self
     }
 
     async fn sock_accept(&mut self, fdflags: FdFlags) -> Result<Box<dyn WasiFile>, Error> {
-        let raw_stream_file = self
-            .raw_listener
-            .sock_accept(fdflags)
-            .await
-            .context("could not accept TCP connection")?;
+        // Accept the connection.
+        let (mut tcp, ..) = self.listener.accept()?;
+        tcp.set_nonblocking(fdflags.contains(FdFlags::NONBLOCK))?;
 
-        let raw_stream_fd = raw_stream_file
-            .as_any()
-            .downcast_ref::<TcpStream>()
-            .ok_or(Error::trap(
-                "could not downcast underlying stream to TCP stream",
-            ))?
-            .as_fd()
-            .as_raw_fd();
+        // Create a new TLS connection.
+        let mut tls = Connection::Server(
+            ServerConnection::new(self.config.clone())
+                .map_err(|e| Error::io().context(e))
+                .context("could not create new TLS connection")?,
+        );
 
-        // Safety: FD is owned by us, this is only required because wasmtime 0.35.0 does not
-        // provide a way to retrieve underlying cap_std::net::TcpStream from TcpStream wrapper.
-        let mut raw_stream = unsafe { cap_std::net::TcpStream::from_raw_fd(raw_stream_fd) };
-
-        let mut tls_connection = ServerConnection::new(self.tls_config.clone())
-            .map_err(|e| Error::io().context(e))
-            .context("could not create new TLS connection")?;
-        tls_connection
-            .complete_io(&mut raw_stream)
+        // Perform handshake.
+        tls.complete_io(&mut tcp)
             .map_err(|e| Error::io().context(e))
             .context("could not perform TLS handshake")?;
 
-        Ok(Box::new(Stream {
-            raw_stream: Mutex::new(raw_stream),
-            raw_stream_file,
-            tls_connection: Mutex::new(tls_connection.into()),
-        }))
+        Ok(Box::new(Stream(RwLock::new((tcp, tls)))))
     }
 
     async fn datasync(&self) -> Result<(), Error> {
@@ -238,15 +224,15 @@ impl WasiFile for Listener {
     }
 
     async fn get_filetype(&self) -> Result<FileType, Error> {
-        self.raw_listener.get_filetype().await
+        Ok(FileType::SocketStream)
     }
 
     async fn get_fdflags(&self) -> Result<FdFlags, Error> {
-        self.raw_listener.get_fdflags().await
+        Ok(FdFlags::NONBLOCK)
     }
 
-    async fn set_fdflags(&mut self, fdflags: FdFlags) -> Result<(), Error> {
-        self.raw_listener.set_fdflags(fdflags).await
+    async fn set_fdflags(&mut self, _fdflags: FdFlags) -> Result<(), Error> {
+        Err(Error::badf())
     }
 
     async fn get_filestat(&self) -> Result<Filestat, Error> {
@@ -306,11 +292,11 @@ impl WasiFile for Listener {
     }
 
     async fn num_ready_bytes(&self) -> Result<u64, Error> {
-        self.raw_listener.num_ready_bytes().await
+        Ok(0)
     }
 
     fn isatty(&self) -> bool {
-        self.raw_listener.isatty()
+        false
     }
 
     async fn readable(&self) -> Result<(), Error> {
@@ -319,11 +305,5 @@ impl WasiFile for Listener {
 
     async fn writable(&self) -> Result<(), Error> {
         Err(Error::badf())
-    }
-}
-
-impl AsFd for Listener {
-    fn as_fd(&self) -> BorrowedFd<'_> {
-        self.raw_listener.as_fd()
     }
 }
