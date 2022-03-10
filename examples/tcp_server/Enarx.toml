@@ -1,17 +1,15 @@
 [[files]]
-type = "stdio"
-name = "stdin"
+kind = "stdin"
 
 [[files]]
-type = "stdio"
-name = "stdout"
+kind = "stdout"
 
 [[files]]
-type = "stdio"
-name = "stderr"
+kind = "stderr"
 
 [[files]]
-type = "tcp_listen"
+kind = "listen"
+prot = "tls"
 addr = "127.0.0.1"
 port = 9000
 name = "TEST_TCP_LISTEN"
