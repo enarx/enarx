@@ -279,19 +279,17 @@ fn check_listen_fd() {
         configfile,
         r#"
 [[files]]
-type = "stdio"
-name = "stdin"
+kind = "stdin"
 
 [[files]]
-type = "stdio"
-name = "stdout"
+kind = "stdout"
 
 [[files]]
-type = "stdio"
-name = "stderr"
+kind = "stderr"
 
 [[files]]
-type = "tcp_listen"
+kind = "listen"
+prot = "tcp"
 addr = "127.0.0.1"
 port = {}
 name = "TEST_TCP_LISTEN"
