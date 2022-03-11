@@ -7,8 +7,9 @@ use crate::spin::{Locked, RacyCell};
 
 use core::arch::asm;
 use core::mem::size_of;
-use libc::{SYS_write, STDERR_FILENO, STDOUT_FILENO};
 
+#[cfg(feature = "dbg")]
+use libc::{SYS_write, STDERR_FILENO, STDOUT_FILENO};
 use sallyport::guest;
 use sallyport::guest::Handler;
 use sallyport::item::enarxcall::SYS_GETATT;
