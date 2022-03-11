@@ -3,6 +3,7 @@
 use std::{collections::HashMap, ops::Deref};
 
 use serde::{de::Error as _, Deserialize, Deserializer};
+use url::Url;
 
 fn default_port() -> u16 {
     443
@@ -56,18 +57,24 @@ pub struct Config {
 
     #[serde(default)]
     pub files: Vec<File>,
+
+    #[serde(default)]
+    pub steward: Option<Url>,
 }
 
 impl Default for Config {
     fn default() -> Self {
+        let files = vec![
+            File::Stdin { name: None },
+            File::Stdout { name: None },
+            File::Stderr { name: None },
+        ];
+
         Self {
             env: HashMap::new(),
             args: vec![],
-            files: vec![
-                File::Stdin { name: None },
-                File::Stdout { name: None },
-                File::Stderr { name: None },
-            ],
+            files,
+            steward: None,
         }
     }
 }
