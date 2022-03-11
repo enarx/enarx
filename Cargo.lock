@@ -167,7 +167,7 @@ dependencies = [
  "const-default",
  "env_logger 0.9.0",
  "gdbstub",
- "goblin 0.5.1",
+ "goblin",
  "iocuddle",
  "kvm-bindings",
  "kvm-ioctls",
@@ -293,24 +293,13 @@ dependencies = [
 
 [[package]]
 name = "goblin"
-version = "0.4.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "32401e89c6446dcd28185931a01b1093726d0356820ac744023e6850689bf926"
-dependencies = [
- "log",
- "plain",
- "scroll 0.10.2",
-]
-
-[[package]]
-name = "goblin"
 version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c955ab4e0ad8c843ea653a3d143048b87490d9be56bd7132a435c2407846ac8f"
 dependencies = [
  "log",
  "plain",
- "scroll 0.11.0",
+ "scroll",
 ]
 
 [[package]]
@@ -822,7 +811,7 @@ name = "sallyport"
 version = "0.3.0"
 source = "git+https://github.com/enarx/sallyport?rev=d28863940e463ee32cb1e29d400db2d2300e3264#d28863940e463ee32cb1e29d400db2d2300e3264"
 dependencies = [
- "goblin 0.5.1",
+ "goblin",
  "libc",
 ]
 
@@ -843,31 +832,11 @@ checksum = "d29ab0c6d3fc0ee92fe66e2d99f700eab17a8d57d1c1d3b748380fb20baa78cd"
 
 [[package]]
 name = "scroll"
-version = "0.10.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fda28d4b4830b807a8b43f7b0e6b5df875311b3e7621d84577188c175b6ec1ec"
-dependencies = [
- "scroll_derive 0.10.5",
-]
-
-[[package]]
-name = "scroll"
 version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "04c565b551bafbef4157586fa379538366e4385d42082f255bfd96e4fe8519da"
 dependencies = [
- "scroll_derive 0.11.0",
-]
-
-[[package]]
-name = "scroll_derive"
-version = "0.10.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "aaaae8f38bb311444cfb7f1979af0bc9240d95795f75f9ceddf6a59b79ceffa0"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn",
+ "scroll_derive",
 ]
 
 [[package]]
@@ -1215,12 +1184,12 @@ checksum = "accd4ea62f7bb7a82fe23066fb0957d48ef677f6eeb8215f372f52e48bb32426"
 
 [[package]]
 name = "vdso"
-version = "0.2.0"
+version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8cb399b214a541520e6f674fc7483b13193724d8d09151e0b9e150b617ee61a4"
+checksum = "7b6282a689cf2bdba1d1d0f73425894165549ab60ca2cd181580786592cbc9db"
 dependencies = [
  "crt0stack",
- "goblin 0.4.3",
+ "goblin",
 ]
 
 [[package]]
