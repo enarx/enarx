@@ -8,7 +8,7 @@ use crate::Result;
 use core::alloc::Layout;
 use core::mem::{align_of, size_of};
 use core::slice;
-use libc::{sockaddr_storage, socklen_t, EOVERFLOW};
+use libc::{sockaddr_in, sockaddr_in6, sockaddr_storage, sockaddr_un, socklen_t, EOVERFLOW};
 
 pub struct SockaddrInput<'a>(pub &'a [u8]);
 
@@ -21,11 +21,24 @@ impl<'a> From<&'a [u8]> for SockaddrInput<'a> {
     }
 }
 
-impl<'a, T> From<&'a T> for SockaddrInput<'a> {
+impl<'a> From<&'a sockaddr_un> for SockaddrInput<'a> {
     #[inline]
-    fn from(addr: &'a T) -> Self {
-        debug_assert!(align_of::<T>() <= align_of::<sockaddr_storage>());
-        Self(unsafe { slice::from_raw_parts(addr as *const _ as _, size_of::<T>()) })
+    fn from(addr: &'a sockaddr_un) -> Self {
+        Self(unsafe { slice::from_raw_parts(addr as *const _ as _, size_of::<sockaddr_un>()) })
+    }
+}
+
+impl<'a> From<&'a sockaddr_in> for SockaddrInput<'a> {
+    #[inline]
+    fn from(addr: &'a sockaddr_in) -> Self {
+        Self(unsafe { slice::from_raw_parts(addr as *const _ as _, size_of::<sockaddr_in>()) })
+    }
+}
+
+impl<'a> From<&'a sockaddr_in6> for SockaddrInput<'a> {
+    #[inline]
+    fn from(addr: &'a sockaddr_in6) -> Self {
+        Self(unsafe { slice::from_raw_parts(addr as *const _ as _, size_of::<sockaddr_in6>()) })
     }
 }
 
