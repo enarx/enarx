@@ -3,7 +3,7 @@
 use super::super::types::Argv;
 use super::types::{SockaddrInput, StagedBytesInput};
 use super::Alloc;
-use crate::guest::alloc::{Allocator, Collector, Input, Stage};
+use crate::guest::alloc::{Allocator, Collector, Commit, Committer, Input, Stage};
 use crate::Result;
 
 use libc::{c_int, c_long, size_t};
@@ -15,13 +15,27 @@ pub struct Sendto<'a, T> {
     pub dest_addr: T,
 }
 
+pub struct StagedSendto<'a> {
+    dest_addr: Input<'a, [u8], &'a [u8]>,
+    buf: Input<'a, [u8], &'a [u8]>,
+}
+
+impl<'a> Commit for StagedSendto<'a> {
+    type Item = size_t;
+
+    fn commit(self, com: &impl Committer) -> Self::Item {
+        self.dest_addr.commit(com);
+        StagedBytesInput(self.buf).commit(com)
+    }
+}
+
 unsafe impl<'a, T: Into<SockaddrInput<'a>>> Alloc<'a> for Sendto<'a, T> {
     const NUM: c_long = libc::SYS_sendto;
 
     type Argv = Argv<6>;
     type Ret = size_t;
 
-    type Staged = StagedBytesInput<'a>;
+    type Staged = StagedSendto<'a>;
     type Committed = size_t;
     type Collected = Option<Result<size_t>>;
 
@@ -37,7 +51,7 @@ unsafe impl<'a, T: Into<SockaddrInput<'a>>> Alloc<'a> for Sendto<'a, T> {
                 dest_addr.offset(),
                 dest_addr.len(),
             ]),
-            StagedBytesInput(buf),
+            StagedSendto { dest_addr, buf },
         ))
     }
 

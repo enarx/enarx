@@ -3,12 +3,13 @@
 use super::{run_test, write_tcp};
 
 use libc::{
-    c_int, iovec, sockaddr, timespec, SYS_accept, SYS_accept4, SYS_bind, SYS_close, SYS_fcntl,
-    SYS_fstat, SYS_getrandom, SYS_getsockname, SYS_listen, SYS_nanosleep, SYS_open, SYS_read,
-    SYS_readlink, SYS_readv, SYS_recvfrom, SYS_setsockopt, SYS_socket, SYS_write, SYS_writev,
-    AF_INET, EACCES, EBADF, EBADFD, EINVAL, ENOENT, ENOSYS, F_GETFD, F_GETFL, F_SETFD, F_SETFL,
-    GRND_RANDOM, O_APPEND, O_CREAT, O_RDONLY, O_RDWR, O_WRONLY, SOCK_CLOEXEC, SOCK_STREAM,
-    SOL_SOCKET, SO_REUSEADDR, STDERR_FILENO, STDIN_FILENO, STDOUT_FILENO,
+    c_int, in_addr, iovec, sockaddr, sockaddr_in, timespec, SYS_accept, SYS_accept4, SYS_bind,
+    SYS_close, SYS_fcntl, SYS_fstat, SYS_getrandom, SYS_getsockname, SYS_listen, SYS_nanosleep,
+    SYS_open, SYS_read, SYS_readlink, SYS_readv, SYS_recvfrom, SYS_sendto, SYS_setsockopt,
+    SYS_socket, SYS_write, SYS_writev, AF_INET, EACCES, EBADF, EBADFD, EINVAL, ENOENT, ENOSYS,
+    F_GETFD, F_GETFL, F_SETFD, F_SETFL, GRND_RANDOM, MSG_NOSIGNAL, O_APPEND, O_CREAT, O_RDONLY,
+    O_RDWR, O_WRONLY, SOCK_CLOEXEC, SOCK_STREAM, SOL_SOCKET, SO_REUSEADDR, STDERR_FILENO,
+    STDIN_FILENO, STDOUT_FILENO,
 };
 use std::env::temp_dir;
 use std::ffi::CString;
@@ -714,9 +715,13 @@ fn tcp_server() {
             );
         }
 
-        let bind_addr = sockaddr {
-            sa_family: AF_INET as _,
-            sa_data: [0, 0, 127, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0],
+        let bind_addr = sockaddr_in {
+            sin_family: AF_INET as _,
+            sin_port: 0,
+            sin_addr: in_addr {
+                s_addr: u32::from_ne_bytes([127, 0, 0, 1]),
+            },
+            ..unsafe { mem::zeroed() }
         };
         if i % 2 == 0 {
             assert_eq!(handler.bind(sockfd, &bind_addr), Ok(()));
@@ -729,7 +734,7 @@ fn tcp_server() {
                             SYS_bind as _,
                             sockfd as _,
                             &bind_addr as *const _ as _,
-                            size_of::<sockaddr>(),
+                            size_of::<sockaddr_in>(),
                             0,
                             0,
                             0,
@@ -741,9 +746,13 @@ fn tcp_server() {
         }
         assert_eq!(
             bind_addr,
-            sockaddr {
-                sa_family: AF_INET as _,
-                sa_data: [0, 0, 127, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0],
+            sockaddr_in {
+                sin_family: AF_INET as _,
+                sin_port: 0,
+                sin_addr: in_addr {
+                    s_addr: u32::from_ne_bytes([127, 0, 0, 1]),
+                },
+                ..unsafe { mem::zeroed() }
             }
         );
 
@@ -758,8 +767,8 @@ fn tcp_server() {
             );
         }
 
-        let mut addr: sockaddr = unsafe { mem::zeroed() };
-        let mut addrlen = size_of::<sockaddr>() as _;
+        let mut addr: sockaddr_in = unsafe { mem::zeroed() };
+        let mut addrlen = size_of::<sockaddr_in>() as _;
         if i % 2 == 0 {
             assert_eq!(
                 handler.getsockname(sockfd, (&mut addr, &mut addrlen)),
@@ -784,12 +793,16 @@ fn tcp_server() {
                 Ok([0, 0])
             );
         }
-        assert_eq!(addrlen, size_of::<sockaddr>() as _);
+        assert_eq!(addrlen, size_of::<sockaddr_in>() as _);
         assert_ne!(
             addr,
-            sockaddr {
-                sa_family: AF_INET as _,
-                sa_data: [0, 0, 127, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0],
+            sockaddr_in {
+                sin_family: AF_INET as _,
+                sin_port: 0,
+                sin_addr: in_addr {
+                    s_addr: u32::from_ne_bytes([127, 0, 0, 1]),
+                },
+                ..unsafe { mem::zeroed() }
             }
         );
         let addr = addr;
@@ -799,10 +812,7 @@ fn tcp_server() {
             .name(String::from("client"))
             .spawn(move || {
                 write_tcp(
-                    (
-                        "127.0.0.1",
-                        u16::from_be_bytes([addr.sa_data[0] as _, addr.sa_data[1] as _]),
-                    ),
+                    ("127.0.0.1", u16::from_be(addr.sin_port)),
                     EXPECTED.as_bytes(),
                 );
             })
@@ -961,6 +971,68 @@ fn recvfrom() {
         );
         assert_eq!(addrlen, size_of::<sockaddr>() as _);
         client.join().expect("couldn't join client thread");
+    });
+}
+
+#[test]
+#[serial]
+#[cfg_attr(miri, ignore)]
+fn sendto() {
+    const EXPECTED: &str = "sendto";
+    const DEST_ADDR: &str = "127.0.0.1:65534";
+
+    run_test(2, [0xff; 32], move |i, platform, handler| {
+        let server = thread::spawn(move || {
+            let mut buf = [0u8; EXPECTED.len()];
+            assert_eq!(
+                UdpSocket::bind(DEST_ADDR)
+                    .expect("couldn't bind to address")
+                    .recv(&mut buf)
+                    .expect("couldn't recv data"),
+                EXPECTED.len()
+            );
+            assert_eq!(buf, EXPECTED.as_bytes());
+        });
+
+        let socket = UdpSocket::bind("127.0.0.1:0").expect("couldn't bind to address");
+        let dest_addr = sockaddr_in {
+            sin_family: AF_INET as _,
+            sin_port: 65534u16.to_be(),
+            sin_addr: in_addr {
+                s_addr: u32::from_ne_bytes([127, 0, 0, 1]),
+            },
+            ..unsafe { mem::zeroed() }
+        };
+        if i % 2 == 0 {
+            assert_eq!(
+                handler.sendto(
+                    socket.as_raw_fd(),
+                    EXPECTED.as_bytes(),
+                    MSG_NOSIGNAL,
+                    &dest_addr,
+                ),
+                Ok(EXPECTED.len())
+            );
+        } else {
+            assert_eq!(
+                unsafe {
+                    handler.syscall(
+                        platform,
+                        [
+                            SYS_sendto as _,
+                            socket.as_raw_fd() as _,
+                            EXPECTED.as_ptr() as _,
+                            EXPECTED.len(),
+                            MSG_NOSIGNAL as _,
+                            &dest_addr as *const _ as _,
+                            size_of::<sockaddr_in>(),
+                        ],
+                    )
+                },
+                Ok([EXPECTED.len(), 0])
+            );
+        }
+        server.join().expect("couldn't join client thread");
     });
 }
 
