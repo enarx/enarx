@@ -43,6 +43,8 @@ use sallyport::item::syscall::{ARCH_GET_FS, ARCH_GET_GS, ARCH_SET_FS, ARCH_SET_G
 
 use crate::handler::usermem::UserMemScope;
 use crate::{DEBUG, ENARX_EXEC_END, ENARX_EXEC_START, ENCL_SIZE};
+use sgx::enclu::{EACCEPT, EACCEPTCOPY, EMODPE};
+use sgx::page::SecInfo;
 use sgx::ssa::StateSaveArea;
 use x86_64::structures::idt::ExceptionVector;
 
@@ -68,6 +70,69 @@ impl<'a> Write for Handler<'a> {
                 .map_err(|_| core::fmt::Error)? as usize;
         }
         Ok(())
+    }
+}
+
+trait SecInfoExt {
+    fn accept(&self, dest: NonNull<c_void>) -> usize;
+    fn accept_copy(&self, dest: NonNull<c_void>, src: NonNull<c_void>) -> usize;
+    fn protect(&self, dest: NonNull<c_void>);
+}
+
+impl SecInfoExt for SecInfo {
+    /// Execute EACCEPT.
+    fn accept(&self, dest: NonNull<c_void>) -> usize {
+        let ret: usize;
+        unsafe {
+            asm!(
+                "xchg       {RBX}, rbx",
+                "enclu",
+                "mov        rbx, {RBX}",
+
+                RBX = inout(reg) self => _,
+                in("rax") EACCEPT,
+                in("rcx") dest.as_ptr(),
+                lateout("rax") ret,
+            );
+        }
+        ret
+    }
+
+    /// Execute EACCEPTCOPY. Not supported on Shadow Stack (SS) pages.
+    fn accept_copy(&self, dest: NonNull<c_void>, src: NonNull<c_void>) -> usize {
+        let ret: usize;
+        unsafe {
+            asm!(
+                "xchg       {RBX}, rbx",
+                "enclu",
+                "mov        rbx, {RBX}",
+
+                RBX = inout(reg) self => _,
+                in("rax") EACCEPTCOPY,
+                in("rcx") dest.as_ptr(),
+                in("rdx") src.as_ptr(),
+                lateout("rax") ret,
+            );
+        }
+        ret
+    }
+
+    /// Execute EMODPE. Not supported on Shadow Stack (SS) pages.
+    ///
+    /// EPCM permissions must be PROT_NONE for this to work always without
+    /// failure, as EMODPE can only extend the protection bits.
+    fn protect(&self, dest: NonNull<c_void>) {
+        unsafe {
+            asm!(
+                "xchg       {RBX}, rbx",
+                "enclu",
+                "mov        rbx, {RBX}",
+
+                RBX = inout(reg) self => _,
+                in("rax") EMODPE,
+                in("rcx") dest.as_ptr(),
+            );
+        }
     }
 }
 
