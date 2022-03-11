@@ -4,18 +4,29 @@ use super::{Attested, Loader, Requested};
 
 use std::{io::Read, ops::Deref, sync::Arc};
 
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use rustls::{cipher_suite::*, kx_group::*, version::TLS13, *};
 use x509::der::{Decodable, Encodable};
 use x509::PkiPath;
 
 impl Loader<Requested> {
-    // TODO: read this value from the config.
-    const URL: &'static str = "https://steward-dev.onrender.com";
+    const DEFAULT_STEWARD: &'static str = "https://steward-dev.onrender.com";
 
     pub fn next(self) -> Result<Loader<Attested>> {
+        // Get the steward URL.
+        let url = self
+            .0
+            .config
+            .steward
+            .as_ref()
+            .map(|url| url.as_str())
+            .unwrap_or(Self::DEFAULT_STEWARD);
+        if !url.starts_with("https:") {
+            return Err(anyhow!("refusing to use an unencrypted steward url"));
+        }
+
         // Send the attestation to the steward.
-        let response = ureq::post(Self::URL)
+        let response = ureq::post(url)
             .set("Content-Type", "application/pkcs10")
             .send_bytes(&self.0.crtreq)?;
 

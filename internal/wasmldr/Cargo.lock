@@ -1191,6 +1191,7 @@ dependencies = [
  "idna",
  "matches",
  "percent-encoding",
+ "serde",
 ]
 
 [[package]]
@@ -1319,6 +1320,7 @@ dependencies = [
  "serde",
  "toml",
  "ureq",
+ "url",
  "wasi-common",
  "wasmparser",
  "wasmtime",
