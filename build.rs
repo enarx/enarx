@@ -251,7 +251,7 @@ fn main() {
             "wasmldr" => cargo_build_bin(&path, &out_dir, target, "wasmldr").unwrap(),
 
             #[cfg(feature = "backend-kvm")]
-            "shim-sev" => cargo_build_bin(&path, &out_dir, target, "shim-sev").unwrap(),
+            "shim-kvm" => cargo_build_bin(&path, &out_dir, target, "shim-kvm").unwrap(),
 
             #[cfg(feature = "backend-sgx")]
             "shim-sgx" => cargo_build_bin(&path, &out_dir, target, "shim-sgx").unwrap(),

@@ -9,7 +9,7 @@ updates:
   schedule:
     interval: "daily"
 - package-ecosystem: "cargo"
-  directory: "internal/shim-sev"
+  directory: "internal/shim-kvm"
   schedule:
     interval: "daily"
 - package-ecosystem: "cargo"

@@ -56,7 +56,7 @@ $ ./helper/parse-trace.sh <shim> [<exec>]
 To find the shim with the debug info and not stripped run this:
 
 ```console
-$ find target -wholename '*linux-musl/*/shim-sev'
+$ find target -wholename '*linux-musl/*/shim-kvm'
 ```
 
 Then choose either the `debug` or `release`, depending with which version the panic occurred.
@@ -66,7 +66,7 @@ Then choose either the `debug` or `release`, depending with which version the pa
 ### From a File
 ```console
 $ ./helper/parse-trace.sh \
-  target/debug/build/*/out/internal/shim-sev/x86_64-unknown-linux-musl/debug/shim-sev \
+  target/debug/build/*/out/internal/shim-kvm/x86_64-unknown-linux-musl/debug/shim-kvm \
   < traceback.txt
 ```
 
@@ -74,7 +74,7 @@ $ ./helper/parse-trace.sh \
 
 ```console
 $ cargo run -- exec <exec> |& ./helper/parse-trace.sh \
-  target/debug/build/*/out/internal/shim-sev/x86_64-unknown-linux-musl/debug/shim-sev 
+  target/debug/build/*/out/internal/shim-kvm/x86_64-unknown-linux-musl/debug/shim-kvm 
 ```
 
 ## GDB
@@ -88,10 +88,10 @@ $ cargo build --features gdb
 
 ### KVM / SEV-SNP
 
-Find the "shim" of the TEE. Normally this is `shim-sev`:
+Find the "shim" of the TEE. Normally this is `shim-kvm`:
 ```console
-$ find target -wholename '*linux-musl/*/shim-sev'
-target/debug/build/enarx-f0e8a07172ba3be9/out/internal/shim-sev/x86_64-unknown-linux-musl/debug/shim-sev
+$ find target -wholename '*linux-musl/*/shim-kvm'
+target/debug/build/enarx-f0e8a07172ba3be9/out/internal/shim-kvm/x86_64-unknown-linux-musl/debug/shim-kvm
 ```
 
 Find the "exec" of the TEE. Normally this is `wasmldr`:
@@ -118,8 +118,8 @@ with the offsets mentioned. Note: the offsets can vary for every run due to addr
 ```console
 $ gdb
 […]
-(gdb) symbol-file -o 0xffffff8000000000 target/debug/build/enarx-f0e8a07172ba3be9/out/internal/shim-sev/x86_64-unknown-linux-musl/debug/shim-sev
-Reading symbols from target/debug/build/enarx-f0e8a07172ba3be9/out/internal/shim-sev/x86_64-unknown-linux-musl/debug/shim-sev...
+(gdb) symbol-file -o 0xffffff8000000000 target/debug/build/enarx-f0e8a07172ba3be9/out/internal/shim-kvm/x86_64-unknown-linux-musl/debug/shim-kvm
+Reading symbols from target/debug/build/enarx-f0e8a07172ba3be9/out/internal/shim-kvm/x86_64-unknown-linux-musl/debug/shim-kvm...
 
 (gdb) add-symbol-file -o 0x7f6ffbef8000 target/debug/build/enarx-f0e8a07172ba3be9/out/internal/wasmldr/x86_64-unknown-linux-musl/debug/wasmldr
 add symbol table from file "target/debug/build/enarx-f0e8a07172ba3be9/out/internal/wasmldr/x86_64-unknown-linux-musl/debug/wasmldr" with all sections offset by 0xfbef8000

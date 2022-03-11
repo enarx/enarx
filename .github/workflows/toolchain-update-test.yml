@@ -32,7 +32,7 @@ jobs:
         crate:
           - {name: enarx, path: Cargo.toml}
           - {name: shim-sgx, path: internal/shim-sgx/Cargo.toml}
-          - {name: shim-sev, path: internal/shim-sev/Cargo.toml}
+          - {name: shim-kvm, path: internal/shim-kvm/Cargo.toml}
           - {name: wasmldr, path: internal/wasmldr/Cargo.toml}
   clippy:
     name: cargo clippy (${{ matrix.crate.name }})
@@ -63,8 +63,8 @@ jobs:
           - name: shim-sgx
             path: internal/shim-sgx/Cargo.toml
             target: --target=x86_64-unknown-linux-musl
-          - name: shim-sev
-            path: internal/shim-sev/Cargo.toml
+          - name: shim-kvm
+            path: internal/shim-kvm/Cargo.toml
             target: --target=x86_64-unknown-linux-musl
           - name: wasmldr
             path: internal/wasmldr/Cargo.toml
@@ -140,7 +140,7 @@ jobs:
         crate:
           - {name: enarx, path: ./Cargo.toml}
           - {name: shim-sgx, path: internal/shim-sgx/Cargo.toml}
-          - {name: shim-sev, path: internal/shim-sev/Cargo.toml}
+          - {name: shim-kvm, path: internal/shim-kvm/Cargo.toml}
           - {name: wasmldr, path: internal/wasmldr/Cargo.toml}
   main:
     name: enarx ${{ matrix.backend.name }} nightly ${{ matrix.profile.name }}
@@ -225,7 +225,7 @@ jobs:
       matrix:
         crate:
           - shim-sgx
-          - shim-sev
+          - shim-kvm
           - wasmldr
         profile:
           - name: debug

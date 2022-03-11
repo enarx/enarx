@@ -68,14 +68,14 @@
               stripAllFlags = [ "--strip-unneeded" ];
               stripAllList = [ "bin" ];
             };
-            shimSev = buildEnarxInternalPackage ./internal/shim-sev;
+            shimKvm = buildEnarxInternalPackage ./internal/shim-kvm;
             shimSgx = buildEnarxInternalPackage ./internal/shim-sgx;
             wasmldr = buildEnarxInternalPackage ./internal/wasmldr;
           in
           buildEnarxPackage {
             inherit src;
 
-            ENARX_PREBUILT_shim-sev = "${shimSev}/bin/shim-sev";
+            ENARX_PREBUILT_shim-kvm = "${shimKvm}/bin/shim-kvm";
             ENARX_PREBUILT_shim-sgx = "${shimSgx}/bin/shim-sgx";
             ENARX_PREBUILT_wasmldr = "${wasmldr}/bin/wasmldr";
 

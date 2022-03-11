@@ -82,4 +82,4 @@ wat = { version = "1.0" }
 
 [workspace]
 members = [ "tests/sev_attestation", "tests/rust-exec", "tests/wasm/rust-tests", "examples/tcp_server" ]
-exclude = [ "internal/shim-sev", "internal/shim-sgx", "internal/wasmldr" ]
+exclude = [ "internal/shim-kvm", "internal/shim-sgx", "internal/wasmldr" ]
