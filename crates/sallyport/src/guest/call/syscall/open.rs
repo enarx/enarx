@@ -15,6 +15,22 @@ pub struct Open<'a> {
     pub mode: Option<mode_t>,
 }
 
+impl<'a> MaybeAlloc<'a, kind::Syscall> for Open<'a> {
+    type Alloc = AllocOpen<'a>;
+
+    #[inline]
+    fn stage(self) -> Result<UnstagedMaybeAlloc<'a, kind::Syscall, Self::Alloc>> {
+        match self.pathname {
+            b"/etc/resolv.conf\0" if self.flags & !(O_RDONLY | O_CLOEXEC) == 0 => {
+                Ok(UnstagedMaybeAlloc::Alloc(AllocOpen(self)))
+            }
+            _ => Ok(UnstagedMaybeAlloc::Stub(Err(EACCES))),
+        }
+    }
+}
+
+pub struct AllocOpen<'a>(Open<'a>);
+
 unsafe impl<'a> Alloc<'a> for AllocOpen<'a> {
     const NUM: c_long = libc::SYS_open;
 
@@ -40,21 +56,5 @@ unsafe impl<'a> Alloc<'a> for AllocOpen<'a> {
 
     fn collect(_: Self::Committed, ret: Result<Self::Ret>, _: &impl Collector) -> Self::Collected {
         ret
-    }
-}
-
-pub struct AllocOpen<'a>(Open<'a>);
-
-impl<'a> MaybeAlloc<'a, kind::Syscall> for Open<'a> {
-    type Alloc = AllocOpen<'a>;
-
-    #[inline]
-    fn stage(self) -> Result<UnstagedMaybeAlloc<'a, kind::Syscall, Self::Alloc>> {
-        match self.pathname {
-            b"/etc/resolv.conf\0" if self.flags & !(O_RDONLY | O_CLOEXEC) == 0 => {
-                Ok(UnstagedMaybeAlloc::Alloc(AllocOpen(self)))
-            }
-            _ => Ok(UnstagedMaybeAlloc::Stub(Err(EACCES))),
-        }
     }
 }

@@ -12,11 +12,11 @@ use core::mem::size_of;
 use core::ptr::NonNull;
 use core::slice;
 
+use crate::libc;
 use crate::libc::{
-    self, c_int, c_uint, c_ulong, c_void, clockid_t, epoll_event, gid_t, mode_t, off_t, pid_t,
-    pollfd, sigset_t, size_t, stack_t, stat, timespec, uid_t, utsname, Ioctl, EBADFD, EFAULT,
-    EINVAL, ENOSYS, ENOTSUP, ENOTTY, FIONBIO, FIONREAD, STDERR_FILENO, STDIN_FILENO, STDOUT_FILENO,
-    TIOCGWINSZ,
+    c_int, c_uint, c_ulong, c_void, clockid_t, epoll_event, gid_t, mode_t, off_t, pid_t, pollfd,
+    sigset_t, size_t, stack_t, stat, timespec, uid_t, utsname, Ioctl, EFAULT, ENOSYS, ENOTSUP,
+    FIONBIO, FIONREAD,
 };
 
 /// Guest request handler.
@@ -289,15 +289,7 @@ pub trait Handler {
     /// Executes [`ioctl`](https://man7.org/linux/man-pages/man2/ioctl.2.html) syscall akin to [`libc::ioctl`].
     #[inline]
     fn ioctl(&mut self, fd: c_int, request: Ioctl, argp: Option<&mut [u8]>) -> Result<c_int> {
-        match (fd, request) {
-            (STDIN_FILENO | STDOUT_FILENO | STDERR_FILENO, TIOCGWINSZ) => {
-                // the keep has no tty
-                Err(ENOTTY)
-            }
-            (STDIN_FILENO | STDOUT_FILENO | STDERR_FILENO, _) => Err(EINVAL),
-            (_, FIONBIO | FIONREAD) => self.execute(syscall::Ioctl { fd, request, argp })?,
-            _ => Err(EBADFD),
-        }
+        self.execute(syscall::Ioctl { fd, request, argp })?
     }
 
     /// Executes [`listen`](https://man7.org/linux/man-pages/man2/listen.2.html) syscall akin to [`libc::listen`].

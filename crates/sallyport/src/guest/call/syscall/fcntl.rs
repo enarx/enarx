@@ -17,20 +17,6 @@ pub struct Fcntl {
     pub arg: c_int,
 }
 
-pub struct AllocFcntl(Fcntl);
-
-unsafe impl PassthroughAlloc for AllocFcntl {
-    const NUM: c_long = libc::SYS_fcntl;
-
-    type Argv = Argv<3>;
-    type Ret = c_int;
-
-    #[inline]
-    fn stage(self) -> Self::Argv {
-        Argv([self.0.fd as _, self.0.cmd as _, self.0.arg as _])
-    }
-}
-
 impl<'a> MaybeAlloc<'a, kind::Syscall> for Fcntl {
     type Alloc = AllocFcntl;
 
@@ -45,5 +31,19 @@ impl<'a> MaybeAlloc<'a, kind::Syscall> for Fcntl {
             }
             (_, _) => Err(EBADFD),
         }
+    }
+}
+
+pub struct AllocFcntl(Fcntl);
+
+unsafe impl PassthroughAlloc for AllocFcntl {
+    const NUM: c_long = libc::SYS_fcntl;
+
+    type Argv = Argv<3>;
+    type Ret = c_int;
+
+    #[inline]
+    fn stage(self) -> Self::Argv {
+        Argv([self.0.fd as _, self.0.cmd as _, self.0.arg as _])
     }
 }
