@@ -21,7 +21,10 @@ $ cargo install --path .
 
 ### Build the WASM application
 
+It will need at least rust version `>= 1.60.0`.
+
 ```
+$ cd <enarx_repo>
 $ cargo build --target wasm32-wasi -p tcp_server
 […]
     Finished dev [unoptimized + debuginfo] target(s) in 1.44s
