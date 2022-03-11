@@ -2,12 +2,17 @@
 
 // modified version of https://github.com/tokio-rs/mio/blob/master/examples/tcp_server.rs
 
+use std::collections::HashMap;
+use std::io::{self, Read, Write};
+#[cfg(unix)]
+use std::os::unix::io::FromRawFd;
+#[cfg(target_os = "wasi")]
+use std::os::wasi::io::FromRawFd;
+use std::str::from_utf8;
+
 use mio::event::Event;
 use mio::net::{TcpListener, TcpStream};
 use mio::{Events, Interest, Poll, Registry, Token};
-use std::collections::HashMap;
-use std::io::{self, Read, Write};
-use std::str::from_utf8;
 
 // Setup some tokens to allow us to identify which event is for which socket.
 const SERVER: Token = Token(0);
@@ -23,32 +28,20 @@ fn main() -> io::Result<()> {
     // Create storage for events.
     let mut events = Events::with_capacity(128);
 
+    std::env::var("LISTEN_FDS").map_err(|_| io::Error::from(io::ErrorKind::InvalidInput))?;
+
     // Setup the TCP server socket.
     let mut server = {
-        if std::env::var("LISTEN_FDS").is_ok() {
-            #[cfg(unix)]
-            use std::os::unix::io::FromRawFd;
-            #[cfg(target_os = "wasi")]
-            use std::os::wasi::io::FromRawFd;
-
-            let stdlistener = unsafe { std::net::TcpListener::from_raw_fd(3) };
-            stdlistener.set_nonblocking(true).unwrap();
-            println!("Using preopened socket FD 3");
-            println!("You can connect to the server using `nc`:");
-            match stdlistener.local_addr() {
-                Ok(a) => println!(" $ nc {} {}", a.ip().to_string(), a.port()),
-                Err(_) => println!(" $ nc <IP> <PORT>"),
-            }
-            println!("You'll see our welcome message and anything you type will be printed here.");
-            TcpListener::from_std(stdlistener)
-        } else {
-            let addr = "127.0.0.1:9000".parse().unwrap();
-            let listener = TcpListener::bind(addr)?;
-            println!("You can connect to the server using `nc`:");
-            println!(" $ nc 127.0.0.1 9000");
-            println!("You'll see our welcome message and anything you type will be printed here.");
-            listener
+        let stdlistener = unsafe { std::net::TcpListener::from_raw_fd(3) };
+        stdlistener.set_nonblocking(true).unwrap();
+        println!("Using preopened socket FD 3");
+        println!("You can connect to the server using `nc`:");
+        match stdlistener.local_addr() {
+            Ok(a) => println!(" $ nc {} {}", a.ip().to_string(), a.port()),
+            Err(_) => println!(" $ nc <IP> <PORT>"),
         }
+        println!("You'll see our welcome message and anything you type will be printed here.");
+        TcpListener::from_std(stdlistener)
     };
 
     // Register the server with poll we can receive events for it.
