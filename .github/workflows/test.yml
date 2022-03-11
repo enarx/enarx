@@ -83,7 +83,7 @@ jobs:
       matrix:
         crate:
           - shim-sgx
-          - shim-sev
+          - shim-kvm
           - wasmldr
         profile:
           - name: debug

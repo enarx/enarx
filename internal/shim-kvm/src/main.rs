@@ -17,15 +17,15 @@ extern crate compiler_builtins;
 #[allow(unused_extern_crates)]
 extern crate rcrt1;
 
-use shim_sev::addr::SHIM_VIRT_OFFSET;
-use shim_sev::exec;
-use shim_sev::gdt;
-use shim_sev::hostcall::BLOCK_SIZE;
-use shim_sev::interrupts;
-use shim_sev::pagetables::{unmap_identity, PDPT, PDT_C000_0000, PML4T, PT_FFE0_0000};
-use shim_sev::print::enable_printing;
-use shim_sev::snp::C_BIT_MASK;
-use shim_sev::sse;
+use shim_kvm::addr::SHIM_VIRT_OFFSET;
+use shim_kvm::exec;
+use shim_kvm::gdt;
+use shim_kvm::hostcall::BLOCK_SIZE;
+use shim_kvm::interrupts;
+use shim_kvm::pagetables::{unmap_identity, PDPT, PDT_C000_0000, PML4T, PT_FFE0_0000};
+use shim_kvm::print::enable_printing;
+use shim_kvm::snp::C_BIT_MASK;
+use shim_kvm::sse;
 
 use core::arch::asm;
 use core::mem::size_of;
@@ -116,9 +116,9 @@ extern "sysv64" fn main() -> ! {
 #[cfg(not(test))]
 fn panic(_info: &core::panic::PanicInfo<'_>) -> ! {
     use core::sync::atomic::AtomicBool;
-    use shim_sev::debug::_enarx_asm_triple_fault;
+    use shim_kvm::debug::_enarx_asm_triple_fault;
     #[cfg(feature = "dbg")]
-    use shim_sev::print::{self, is_printing_enabled};
+    use shim_kvm::print::{self, is_printing_enabled};
 
     static mut ALREADY_IN_PANIC: AtomicBool = AtomicBool::new(false);
 
@@ -131,10 +131,10 @@ fn panic(_info: &core::panic::PanicInfo<'_>) -> ! {
             #[cfg(feature = "dbg")]
             if is_printing_enabled() {
                 print::_eprint(format_args!("{}\n", _info));
-                shim_sev::debug::print_stack_trace();
+                shim_kvm::debug::print_stack_trace();
             }
             // FIXME: might want to have a custom panic hostcall
-            shim_sev::hostcall::shim_exit(255);
+            shim_kvm::hostcall::shim_exit(255);
         }
     }
 

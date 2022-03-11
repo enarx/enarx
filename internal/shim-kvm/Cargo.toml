@@ -1,12 +1,12 @@
 [package]
-name = "shim-sev"
+name = "shim-kvm"
 version = "0.2.1"
 authors = ["The Enarx Project Developers"]
 edition = "2021"
 license = "Apache-2.0"
 
 [[bin]]
-name = "shim-sev"
+name = "shim-kvm"
 test = false
 
 [features]
