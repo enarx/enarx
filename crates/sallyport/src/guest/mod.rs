@@ -4,7 +4,7 @@
 //!
 //! The main entrypoint into this module is a long-lived [`Handler`], which allocates the requests
 //! within the untrusted sallyport block, passes control to the host for execution of the block via
-//! [platform-specific `sally`](Platform::sally) and reads the replies once it gets the control
+//! [`sally`](Handler::sally) and reads the replies once it gets the control
 //! back after verifying the integrity of the block.
 //!
 //! In case the [`Handler`] detects that integrity of the request block is not maintained, it
@@ -33,7 +33,7 @@
 //! This may happen concurrently for `N` staged requests.
 //!
 //! Once this phase is finished, the untrusted sallyport block is ready to be passed to the host for execution
-//! via [platform-specific `sally`](Platform::sally).
+//! via [`sally`](Handler::sally).
 //!
 //! Entities that can be committed implement the [`Commit`](alloc::Commit) trait.
 //!
