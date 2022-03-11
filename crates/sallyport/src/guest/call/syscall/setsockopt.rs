@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use super::super::types::Argv;
-use super::types::SockoptInput;
+use super::types::{SockoptInput, StagedSockoptInput};
 use super::Alloc;
-use crate::guest::alloc::{Allocator, Collector, Stage};
+use crate::guest::alloc::{Allocator, Collector, Commit, Committer, Stage};
 use crate::{Result, NULL};
 
 use libc::{c_int, c_long};
@@ -15,13 +15,25 @@ pub struct Setsockopt<T> {
     pub optval: Option<T>,
 }
 
+pub struct StagedSetsockopt<'a> {
+    optval: Option<StagedSockoptInput<'a>>,
+}
+
+impl<'a> Commit for StagedSetsockopt<'a> {
+    type Item = ();
+
+    fn commit(self, com: &impl Committer) -> Self::Item {
+        self.optval.commit(com);
+    }
+}
+
 unsafe impl<'a, T: Into<SockoptInput<'a>>> Alloc<'a> for Setsockopt<T> {
     const NUM: c_long = libc::SYS_setsockopt;
 
     type Argv = Argv<5>;
     type Ret = c_int;
 
-    type Staged = ();
+    type Staged = StagedSetsockopt<'a>;
     type Committed = ();
     type Collected = Result<c_int>;
 
@@ -43,7 +55,7 @@ unsafe impl<'a, T: Into<SockoptInput<'a>>> Alloc<'a> for Setsockopt<T> {
                 optval_offset,
                 optlen,
             ]),
-            (),
+            StagedSetsockopt { optval },
         ))
     }
 

@@ -3,13 +3,13 @@
 use super::{run_test, write_tcp};
 
 use libc::{
-    c_int, in_addr, iovec, sockaddr, sockaddr_in, timespec, SYS_accept, SYS_accept4, SYS_bind,
-    SYS_close, SYS_fcntl, SYS_fstat, SYS_getrandom, SYS_getsockname, SYS_listen, SYS_nanosleep,
-    SYS_open, SYS_read, SYS_readlink, SYS_readv, SYS_recvfrom, SYS_sendto, SYS_setsockopt,
-    SYS_socket, SYS_write, SYS_writev, AF_INET, EACCES, EBADF, EBADFD, EINVAL, ENOENT, ENOSYS,
-    F_GETFD, F_GETFL, F_SETFD, F_SETFL, GRND_RANDOM, MSG_NOSIGNAL, O_APPEND, O_CREAT, O_RDONLY,
-    O_RDWR, O_WRONLY, SOCK_CLOEXEC, SOCK_STREAM, SOL_SOCKET, SO_REUSEADDR, STDERR_FILENO,
-    STDIN_FILENO, STDOUT_FILENO,
+    c_int, in_addr, iovec, sockaddr, sockaddr_in, timespec, timeval, SYS_accept, SYS_accept4,
+    SYS_bind, SYS_close, SYS_fcntl, SYS_fstat, SYS_getrandom, SYS_getsockname, SYS_listen,
+    SYS_nanosleep, SYS_open, SYS_read, SYS_readlink, SYS_readv, SYS_recvfrom, SYS_sendto,
+    SYS_setsockopt, SYS_socket, SYS_write, SYS_writev, AF_INET, EACCES, EBADF, EBADFD, EINVAL,
+    ENOENT, ENOSYS, F_GETFD, F_GETFL, F_SETFD, F_SETFL, GRND_RANDOM, MSG_NOSIGNAL, O_APPEND,
+    O_CREAT, O_RDONLY, O_RDWR, O_WRONLY, SOCK_CLOEXEC, SOCK_STREAM, SOL_SOCKET, SO_RCVTIMEO,
+    SO_REUSEADDR, STDERR_FILENO, STDIN_FILENO, STDOUT_FILENO,
 };
 use std::env::temp_dir;
 use std::ffi::CString;
@@ -707,6 +707,40 @@ fn tcp_server() {
                             SO_REUSEADDR as _,
                             &optval as *const _ as _,
                             size_of::<c_int>(),
+                            0,
+                        ],
+                    )
+                },
+                Ok([0, 0])
+            );
+        }
+
+        let rcv_timeout = timeval {
+            tv_sec: 1,
+            tv_usec: 2,
+        };
+        if i % 2 == 0 {
+            assert_eq!(
+                handler.setsockopt(
+                    sockfd,
+                    SOL_SOCKET as _,
+                    SO_RCVTIMEO as _,
+                    Some(&rcv_timeout)
+                ),
+                Ok(0)
+            );
+        } else {
+            assert_eq!(
+                unsafe {
+                    handler.syscall(
+                        platform,
+                        [
+                            SYS_setsockopt as _,
+                            sockfd as _,
+                            SOL_SOCKET as _,
+                            SO_RCVTIMEO as _,
+                            &rcv_timeout as *const _ as _,
+                            size_of::<timeval>(),
                             0,
                         ],
                     )
