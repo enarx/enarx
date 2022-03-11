@@ -910,32 +910,33 @@ fn recv() {
 #[cfg_attr(miri, ignore)]
 fn recvfrom() {
     const EXPECTED: &str = "recvfrom";
-    const SRC_ADDR: &str = "127.0.0.1:65534";
 
     run_test(2, [0xff; 32], move |i, platform, handler| {
-        let socket = UdpSocket::bind("127.0.0.1:0").expect("couldn't bind to address");
-        let addr = socket.local_addr().unwrap();
+        let dest_socket = UdpSocket::bind("127.0.0.1:0").expect("couldn't bind to address");
+        let dest_addr = dest_socket.local_addr().unwrap();
+
+        let src_socket = UdpSocket::bind("127.0.0.1:0").expect("couldn't bind to address");
+        let src_port = src_socket.local_addr().unwrap().port();
 
         let client = thread::spawn(move || {
             assert_eq!(
-                UdpSocket::bind(SRC_ADDR)
-                    .expect("couldn't bind to address")
-                    .send_to(EXPECTED.as_bytes(), addr)
+                src_socket
+                    .send_to(EXPECTED.as_bytes(), dest_addr)
                     .expect("couldn't send data"),
                 EXPECTED.len()
             );
         });
 
         let mut buf = [0u8; EXPECTED.len()];
-        let mut src_addr: sockaddr = unsafe { mem::zeroed() };
+        let mut src_addr: sockaddr_in = unsafe { mem::zeroed() };
         let mut src_addr_bytes = unsafe {
-            slice::from_raw_parts_mut(&mut src_addr as *mut _ as _, size_of::<sockaddr>())
+            slice::from_raw_parts_mut(&mut src_addr as *mut _ as _, size_of::<sockaddr_in>())
         };
         let mut addrlen = src_addr_bytes.len() as _;
         if i % 2 == 0 {
             assert_eq!(
                 handler.recvfrom(
-                    socket.as_raw_fd(),
+                    dest_socket.as_raw_fd(),
                     &mut buf,
                     0,
                     SockaddrOutput::new(&mut src_addr_bytes, &mut addrlen),
@@ -949,7 +950,7 @@ fn recvfrom() {
                         platform,
                         [
                             SYS_recvfrom as _,
-                            socket.as_raw_fd() as _,
+                            dest_socket.as_raw_fd() as _,
                             buf.as_mut_ptr() as _,
                             EXPECTED.len(),
                             0,
@@ -964,12 +965,16 @@ fn recvfrom() {
         assert_eq!(buf, EXPECTED.as_bytes());
         assert_eq!(
             src_addr,
-            sockaddr {
-                sa_family: AF_INET as _,
-                sa_data: [0xff as _, 0xfe as _, 127, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0]
+            sockaddr_in {
+                sin_family: AF_INET as _,
+                sin_port: src_port.to_be(),
+                sin_addr: in_addr {
+                    s_addr: u32::from_ne_bytes([127, 0, 0, 1]),
+                },
+                ..unsafe { mem::zeroed() }
             },
         );
-        assert_eq!(addrlen, size_of::<sockaddr>() as _);
+        assert_eq!(addrlen, size_of::<sockaddr_in>() as _);
         client.join().expect("couldn't join client thread");
     });
 }
@@ -979,25 +984,24 @@ fn recvfrom() {
 #[cfg_attr(miri, ignore)]
 fn sendto() {
     const EXPECTED: &str = "sendto";
-    const DEST_ADDR: &str = "127.0.0.1:65534";
 
     run_test(2, [0xff; 32], move |i, platform, handler| {
+        let dest_socket = UdpSocket::bind("127.0.0.1:0").expect("couldn't bind to address");
+        let dest_port = dest_socket.local_addr().unwrap().port();
+
         let server = thread::spawn(move || {
             let mut buf = [0u8; EXPECTED.len()];
             assert_eq!(
-                UdpSocket::bind(DEST_ADDR)
-                    .expect("couldn't bind to address")
-                    .recv(&mut buf)
-                    .expect("couldn't recv data"),
+                dest_socket.recv(&mut buf).expect("couldn't recv data"),
                 EXPECTED.len()
             );
             assert_eq!(buf, EXPECTED.as_bytes());
         });
 
-        let socket = UdpSocket::bind("127.0.0.1:0").expect("couldn't bind to address");
+        let src_socket = UdpSocket::bind("127.0.0.1:0").expect("couldn't bind to address");
         let dest_addr = sockaddr_in {
             sin_family: AF_INET as _,
-            sin_port: 65534u16.to_be(),
+            sin_port: dest_port.to_be(),
             sin_addr: in_addr {
                 s_addr: u32::from_ne_bytes([127, 0, 0, 1]),
             },
@@ -1006,7 +1010,7 @@ fn sendto() {
         if i % 2 == 0 {
             assert_eq!(
                 handler.sendto(
-                    socket.as_raw_fd(),
+                    src_socket.as_raw_fd(),
                     EXPECTED.as_bytes(),
                     MSG_NOSIGNAL,
                     &dest_addr,
@@ -1020,7 +1024,7 @@ fn sendto() {
                         platform,
                         [
                             SYS_sendto as _,
-                            socket.as_raw_fd() as _,
+                            src_socket.as_raw_fd() as _,
                             EXPECTED.as_ptr() as _,
                             EXPECTED.len(),
                             MSG_NOSIGNAL as _,
