@@ -51,7 +51,6 @@ impl Loader<Compiled> {
                     let caps = FileCaps::FDSTAT_SET_FLAGS | FileCaps::POLL_READWRITE;
 
                     let tcp = std::net::TcpListener::bind((":::", *port))?;
-                    tcp.set_nonblocking(true)?;
 
                     match prot {
                         Protocol::Tcp => (Listener(TcpListener::from_std(tcp)).into(), caps),
@@ -69,7 +68,6 @@ impl Loader<Compiled> {
                         | FileCaps::READ;
 
                     let tcp = std::net::TcpStream::connect((&**host, *port))?;
-                    tcp.set_nonblocking(true)?;
 
                     match prot {
                         Protocol::Tcp => (Stream(TcpStream::from_std(tcp)).into(), caps),

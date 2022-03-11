@@ -1312,6 +1312,7 @@ dependencies = [
  "log",
  "pkcs8",
  "ring",
+ "rustix",
  "rustls",
  "rustls-pemfile",
  "sec1",
