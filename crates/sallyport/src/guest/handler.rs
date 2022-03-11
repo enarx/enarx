@@ -346,6 +346,7 @@ pub trait Handler {
     ) -> Result<()>;
 
     /// Executes [`nanosleep`](https://man7.org/linux/man-pages/man2/nanosleep.2.html) syscall akin to [`libc::nanosleep`].
+    #[inline]
     fn nanosleep(&mut self, req: &timespec, rem: Option<&mut timespec>) -> Result<()> {
         self.execute(syscall::Nanosleep { req, rem })?
     }
