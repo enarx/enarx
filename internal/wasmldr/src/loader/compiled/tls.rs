@@ -6,7 +6,7 @@ use std::io::{Read, Write};
 use std::sync::{Arc, RwLock};
 
 use rustls::{ClientConfig, ClientConnection, Connection, ServerConfig, ServerConnection};
-use wasi_common::file::{Advice, FdFlags, FileType, Filestat};
+use wasi_common::file::{FdFlags, FileType};
 use wasi_common::{Context, Error, ErrorExt, WasiFile};
 
 pub struct Stream(RwLock<(std::net::TcpStream, Connection)>);
@@ -40,55 +40,15 @@ impl WasiFile for Stream {
         self
     }
 
-    async fn sock_accept(&mut self, _fdflags: FdFlags) -> Result<Box<dyn WasiFile>, Error> {
-        Err(Error::badf())
-    }
-
-    async fn datasync(&self) -> Result<(), Error> {
-        Err(Error::badf())
-    }
-
-    async fn sync(&self) -> Result<(), Error> {
-        Err(Error::badf())
-    }
-
-    async fn get_filetype(&self) -> Result<FileType, Error> {
+    async fn get_filetype(&mut self) -> Result<FileType, Error> {
         Ok(FileType::SocketStream)
     }
 
-    async fn get_fdflags(&self) -> Result<FdFlags, Error> {
+    async fn get_fdflags(&mut self) -> Result<FdFlags, Error> {
         Ok(FdFlags::APPEND | FdFlags::NONBLOCK)
     }
 
-    async fn set_fdflags(&mut self, _fdflags: FdFlags) -> Result<(), Error> {
-        Err(Error::badf())
-    }
-
-    async fn get_filestat(&self) -> Result<Filestat, Error> {
-        Err(Error::badf())
-    }
-
-    async fn set_filestat_size(&self, _size: u64) -> Result<(), Error> {
-        Err(Error::badf())
-    }
-
-    async fn advise(&self, _offset: u64, _len: u64, _advice: Advice) -> Result<(), Error> {
-        Err(Error::badf())
-    }
-
-    async fn allocate(&self, _offset: u64, _len: u64) -> Result<(), Error> {
-        Err(Error::badf())
-    }
-
-    async fn set_times(
-        &self,
-        _atime: Option<wasi_common::SystemTimeSpec>,
-        _mtime: Option<wasi_common::SystemTimeSpec>,
-    ) -> Result<(), Error> {
-        Err(Error::badf())
-    }
-
-    async fn read_vectored<'a>(&self, bufs: &mut [io::IoSliceMut<'a>]) -> Result<u64, Error> {
+    async fn read_vectored<'a>(&mut self, bufs: &mut [io::IoSliceMut<'a>]) -> Result<u64, Error> {
         let (tcp, tls) = &mut *self.0.write().unwrap();
 
         if tls.wants_read() {
@@ -113,15 +73,7 @@ impl WasiFile for Stream {
         Ok(n as u64)
     }
 
-    async fn read_vectored_at<'a>(
-        &self,
-        _bufs: &mut [io::IoSliceMut<'a>],
-        _offset: u64,
-    ) -> Result<u64, Error> {
-        Err(Error::badf())
-    }
-
-    async fn write_vectored<'a>(&self, bufs: &[io::IoSlice<'a>]) -> Result<u64, Error> {
+    async fn write_vectored<'a>(&mut self, bufs: &[io::IoSlice<'a>]) -> Result<u64, Error> {
         let (tcp, tls) = &mut *self.0.write().unwrap();
 
         let n = tls
@@ -137,30 +89,6 @@ impl WasiFile for Stream {
         }
 
         Ok(n as u64)
-    }
-
-    async fn write_vectored_at<'a>(
-        &self,
-        _bufs: &[io::IoSlice<'a>],
-        _offset: u64,
-    ) -> Result<u64, Error> {
-        Err(Error::badf())
-    }
-
-    async fn seek(&self, _pos: std::io::SeekFrom) -> Result<u64, Error> {
-        Err(Error::badf())
-    }
-
-    async fn peek(&self, _buf: &mut [u8]) -> Result<u64, Error> {
-        Err(Error::badf())
-    }
-
-    async fn num_ready_bytes(&self) -> Result<u64, Error> {
-        Ok(0)
-    }
-
-    fn isatty(&self) -> bool {
-        false
     }
 
     async fn readable(&self) -> Result<(), Error> {
@@ -215,95 +143,11 @@ impl WasiFile for Listener {
         Ok(Box::new(Stream(RwLock::new((tcp, tls)))))
     }
 
-    async fn datasync(&self) -> Result<(), Error> {
-        Err(Error::badf())
-    }
-
-    async fn sync(&self) -> Result<(), Error> {
-        Err(Error::badf())
-    }
-
-    async fn get_filetype(&self) -> Result<FileType, Error> {
+    async fn get_filetype(&mut self) -> Result<FileType, Error> {
         Ok(FileType::SocketStream)
     }
 
-    async fn get_fdflags(&self) -> Result<FdFlags, Error> {
+    async fn get_fdflags(&mut self) -> Result<FdFlags, Error> {
         Ok(FdFlags::NONBLOCK)
-    }
-
-    async fn set_fdflags(&mut self, _fdflags: FdFlags) -> Result<(), Error> {
-        Err(Error::badf())
-    }
-
-    async fn get_filestat(&self) -> Result<Filestat, Error> {
-        Err(Error::badf())
-    }
-
-    async fn set_filestat_size(&self, _size: u64) -> Result<(), Error> {
-        Err(Error::badf())
-    }
-
-    async fn advise(&self, _offset: u64, _len: u64, _advice: Advice) -> Result<(), Error> {
-        Err(Error::badf())
-    }
-
-    async fn allocate(&self, _offset: u64, _len: u64) -> Result<(), Error> {
-        Err(Error::badf())
-    }
-
-    async fn set_times(
-        &self,
-        _atime: Option<wasi_common::SystemTimeSpec>,
-        _mtime: Option<wasi_common::SystemTimeSpec>,
-    ) -> Result<(), Error> {
-        Err(Error::badf())
-    }
-
-    async fn read_vectored<'a>(&self, _bufs: &mut [io::IoSliceMut<'a>]) -> Result<u64, Error> {
-        Err(Error::badf())
-    }
-
-    async fn read_vectored_at<'a>(
-        &self,
-        _bufs: &mut [io::IoSliceMut<'a>],
-        _offset: u64,
-    ) -> Result<u64, Error> {
-        Err(Error::badf())
-    }
-
-    async fn write_vectored<'a>(&self, _bufs: &[io::IoSlice<'a>]) -> Result<u64, Error> {
-        Err(Error::badf())
-    }
-
-    async fn write_vectored_at<'a>(
-        &self,
-        _bufs: &[io::IoSlice<'a>],
-        _offset: u64,
-    ) -> Result<u64, Error> {
-        Err(Error::badf())
-    }
-
-    async fn seek(&self, _pos: std::io::SeekFrom) -> Result<u64, Error> {
-        Err(Error::badf())
-    }
-
-    async fn peek(&self, _buf: &mut [u8]) -> Result<u64, Error> {
-        Err(Error::badf())
-    }
-
-    async fn num_ready_bytes(&self) -> Result<u64, Error> {
-        Ok(0)
-    }
-
-    fn isatty(&self) -> bool {
-        false
-    }
-
-    async fn readable(&self) -> Result<(), Error> {
-        Err(Error::badf())
-    }
-
-    async fn writable(&self) -> Result<(), Error> {
-        Err(Error::badf())
     }
 }

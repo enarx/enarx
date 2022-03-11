@@ -15,10 +15,10 @@ gdb = []
 dbg = []
 
 [dependencies]
-wasmtime = { version = "0.35.1", default-features = false, features = ["cranelift", "pooling-allocator"] }
-wasmtime-wasi = { version = "0.35.0", default-features = false, features = ["sync"] }
-wasi-common = { version = "0.35.0", default-features = false }
-wiggle = { version = "0.35.0", default-features = false }
+wasmtime = { git = "https://github.com/bytecodealliance/wasmtime", branch = "main", default-features = false, features = ["cranelift", "pooling-allocator"] }
+wasmtime-wasi = { git = "https://github.com/bytecodealliance/wasmtime", branch = "main", default-features = false, features = ["sync"] }
+wasi-common = { git = "https://github.com/bytecodealliance/wasmtime", branch = "main", default-features = false }
+wiggle = { git = "https://github.com/bytecodealliance/wasmtime", branch = "main", default-features = false }
 io-lifetimes = { version = "0.5.0", default-features = false }
 cap-std = "0.24.1"
 wasmparser = "0.83.0"
