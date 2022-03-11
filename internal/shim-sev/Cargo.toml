@@ -23,7 +23,7 @@ crt0stack = { version = "0.1", default-features = false }
 spinning = { version = "0.1", default-features = false }
 libc = { version = "0.2.119", default-features = false }
 primordial = "0.4"
-sallyport = { version = "0.3.0", git = "https://github.com/enarx/sallyport", rev = "d28863940e463ee32cb1e29d400db2d2300e3264" }
+sallyport = { version = "0.3.0", git = "https://github.com/enarx/sallyport", rev = "e8bd9ad033353df881e8ae8a7aafcff99c745c46" }
 xsave = { version = "2.0.2" }
 noted = "1.0.0"
 nbytes = "0.1"
