@@ -1,15 +1,18 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use std::any::Any;
-use std::io;
-use std::io::{Read, Write};
-use std::sync::{Arc, RwLock};
+use std::io::{ErrorKind, IoSlice, IoSliceMut, Read, Write};
+use std::sync::Arc;
 
+use rustix::fd::AsFd;
 use rustls::{ClientConfig, ClientConnection, Connection, ServerConfig, ServerConnection};
 use wasi_common::file::{FdFlags, FileType};
 use wasi_common::{Context, Error, ErrorExt, WasiFile};
 
-pub struct Stream(RwLock<(std::net::TcpStream, Connection)>);
+pub struct Stream {
+    tcp: std::net::TcpStream,
+    tls: Connection,
+}
 
 impl From<Stream> for Box<dyn WasiFile> {
     fn from(value: Stream) -> Self {
@@ -30,7 +33,7 @@ impl Stream {
         // Finish the connection.
         tls.complete_io(&mut tcp)?;
 
-        Ok(Self(RwLock::new((tcp, tls))))
+        Ok(Self { tcp, tls })
     }
 }
 
@@ -45,47 +48,29 @@ impl WasiFile for Stream {
     }
 
     async fn get_fdflags(&mut self) -> Result<FdFlags, Error> {
-        Ok(FdFlags::APPEND | FdFlags::NONBLOCK)
+        Ok(FdFlags::APPEND)
     }
 
-    async fn read_vectored<'a>(&mut self, bufs: &mut [io::IoSliceMut<'a>]) -> Result<u64, Error> {
-        let (tcp, tls) = &mut *self.0.write().unwrap();
-
-        if tls.wants_read() {
-            tls.read_tls(tcp)
-                .map_err(|e| Error::io().context(e))
-                .context("could not read TLS ciphertext from TCP stream")?;
-
-            tls.process_new_packets()
-                .map_err(|e| Error::io().context(e))
-                .context("could not process new TLS packets")?;
+    async fn read_vectored<'a>(&mut self, bufs: &mut [IoSliceMut<'a>]) -> Result<u64, Error> {
+        if self.tls.wants_read() {
+            self.tls.read_tls(&mut self.tcp)?;
+            self.tls.process_new_packets()?;
         }
 
-        let n = tls
-            .reader()
-            .read_vectored(bufs)
-            .map_err(|e| match e.kind() {
-                io::ErrorKind::UnexpectedEof => Error::io().context("unexpected EOF"),
-                _ => Error::io(),
-            })
-            .context("could not read decrypted TLS ciphertext")?;
+        let n = match self.tls.reader().read_vectored(bufs) {
+            Err(e) if e.kind() == ErrorKind::UnexpectedEof => 0,
+            Err(e) => return Err(e.into()),
+            Ok(n) => n,
+        };
 
         Ok(n as u64)
     }
 
-    async fn write_vectored<'a>(&mut self, bufs: &[io::IoSlice<'a>]) -> Result<u64, Error> {
-        let (tcp, tls) = &mut *self.0.write().unwrap();
+    async fn write_vectored<'a>(&mut self, bufs: &[IoSlice<'a>]) -> Result<u64, Error> {
+        let n = self.tls.writer().write_vectored(bufs)?;
 
-        let n = tls
-            .writer()
-            .write_vectored(bufs)
-            .map_err(|e| Error::io().context(e))
-            .context("could not write plaintext to TLS buffer ciphertext")?;
-
-        while tls.wants_write() {
-            tls.write_tls(tcp)
-                .map_err(|e| Error::io().context(e))
-                .context("could not write TLS ciphertext on TCP stream")?;
+        while self.tls.wants_write() {
+            self.tls.write_tls(&mut self.tcp)?;
         }
 
         Ok(n as u64)
@@ -97,6 +82,10 @@ impl WasiFile for Stream {
 
     async fn writable(&self) -> Result<(), Error> {
         Ok(())
+    }
+
+    fn pollable(&self) -> Option<rustix::fd::BorrowedFd<'_>> {
+        Some(self.tcp.as_fd())
     }
 }
 
@@ -140,7 +129,7 @@ impl WasiFile for Listener {
             .map_err(|e| Error::io().context(e))
             .context("could not perform TLS handshake")?;
 
-        Ok(Box::new(Stream(RwLock::new((tcp, tls)))))
+        Ok(Box::new(Stream { tcp, tls }))
     }
 
     async fn get_filetype(&mut self) -> Result<FileType, Error> {
@@ -148,6 +137,10 @@ impl WasiFile for Listener {
     }
 
     async fn get_fdflags(&mut self) -> Result<FdFlags, Error> {
-        Ok(FdFlags::NONBLOCK)
+        Ok(FdFlags::empty())
+    }
+
+    fn pollable(&self) -> Option<rustix::fd::BorrowedFd<'_>> {
+        Some(self.listener.as_fd())
     }
 }
