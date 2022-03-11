@@ -5,7 +5,7 @@ use super::Alloc;
 use crate::guest::alloc::{Allocator, Collect, Collector, Commit, Committer, InOut, Input, Output};
 use crate::{Result, NULL};
 
-use libc::{c_long, timespec, EINTR};
+use crate::libc::{self, c_long, timespec, EINTR};
 
 pub struct Nanosleep<'a> {
     pub req: &'a timespec,

@@ -5,7 +5,7 @@ use super::Alloc;
 use crate::guest::alloc::{Allocator, Collector, InOut, Output};
 use crate::Result;
 
-use libc::{c_int, c_long, pollfd};
+use crate::libc::{self, c_int, c_long, pollfd};
 
 pub struct Poll<'a> {
     pub fds: &'a mut [pollfd],

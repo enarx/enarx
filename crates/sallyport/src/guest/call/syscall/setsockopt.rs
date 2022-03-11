@@ -6,7 +6,7 @@ use super::Alloc;
 use crate::guest::alloc::{Allocator, Collector, Commit, Committer, Stage};
 use crate::{Result, NULL};
 
-use libc::{c_int, c_long};
+use crate::libc::{self, c_int, c_long};
 
 pub struct Setsockopt<T> {
     pub sockfd: c_int,

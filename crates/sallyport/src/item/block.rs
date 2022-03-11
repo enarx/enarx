@@ -148,6 +148,7 @@ impl<'a> Iterator for BlockIterator<'a> {
 mod tests {
     use super::super::HEADER_USIZE_COUNT;
     use super::*;
+    use crate::libc;
 
     #[test]
     fn block_size_hint() {

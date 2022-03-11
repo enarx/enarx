@@ -4,11 +4,11 @@ use super::super::Stub;
 use crate::guest::alloc::Collector;
 use crate::Result;
 
-use core::mem;
-use libc::{
-    c_char, c_int, c_uint, gid_t, pid_t, sigset_t, size_t, stack_t, stat, uid_t, utsname, EBADFD,
-    EINVAL, ENOENT, STDERR_FILENO, STDIN_FILENO, STDOUT_FILENO, S_IFIFO,
+use crate::libc::{
+    self, c_char, c_int, c_uint, gid_t, pid_t, sigset_t, size_t, stack_t, stat, uid_t, utsname,
+    EBADFD, EINVAL, ENOENT, STDERR_FILENO, STDIN_FILENO, STDOUT_FILENO, S_IFIFO,
 };
+use core::mem;
 
 /// Fake GID returned by enarx.
 pub const FAKE_GID: gid_t = 1000;

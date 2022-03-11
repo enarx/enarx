@@ -2,7 +2,7 @@
 
 use crate::item::syscall::sigaction;
 
-use libc::c_int;
+use crate::libc::c_int;
 
 pub(super) const SIGRTMAX: c_int = 64;
 

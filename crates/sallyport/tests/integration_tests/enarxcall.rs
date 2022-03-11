@@ -2,7 +2,7 @@
 
 use super::run_test;
 
-use libc::ENOSYS;
+use sallyport::libc::ENOSYS;
 use std::arch::x86_64::{CpuidResult, __cpuid_count};
 
 use sallyport::guest::Handler;

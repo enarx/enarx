@@ -2,6 +2,7 @@
 
 use super::super::Alloc;
 use crate::guest::alloc::{Collect, Collector, Commit, Committer, InOutRef, InRef, Input, OutRef};
+use crate::libc;
 use crate::Result;
 
 /// Staged Enarx call, which holds allocated reference to Enarx call item within the block and [opaque staged value](Alloc::Staged).

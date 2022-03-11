@@ -6,7 +6,7 @@ use super::Alloc;
 use crate::guest::alloc::{Allocator, Collector, Commit, Committer, Input, Stage};
 use crate::Result;
 
-use libc::{c_int, c_long, size_t};
+use crate::libc::{self, c_int, c_long, size_t};
 
 pub struct Sendto<'a, T> {
     pub sockfd: c_int,

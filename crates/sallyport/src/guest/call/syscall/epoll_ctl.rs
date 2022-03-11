@@ -5,7 +5,7 @@ use super::Alloc;
 use crate::guest::alloc::{Allocator, Collector, Input};
 use crate::Result;
 
-use libc::{c_int, c_long, epoll_event};
+use crate::libc::{self, c_int, c_long, epoll_event};
 
 pub struct EpollCtl<'a> {
     pub epfd: c_int,

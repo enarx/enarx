@@ -2,7 +2,7 @@
 
 use crate::guest::alloc::{Commit, Committer, Input};
 
-use libc::size_t;
+use crate::libc::size_t;
 
 pub struct StagedBytesInput<'a>(pub Input<'a, [u8], &'a [u8]>);
 

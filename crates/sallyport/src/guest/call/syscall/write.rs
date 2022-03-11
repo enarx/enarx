@@ -6,7 +6,7 @@ use super::Alloc;
 use crate::guest::alloc::{Allocator, Collector, Input};
 use crate::Result;
 
-use libc::{c_int, c_long, size_t};
+use crate::libc::{self, c_int, c_long, size_t};
 
 pub struct Write<'a> {
     pub fd: c_int,

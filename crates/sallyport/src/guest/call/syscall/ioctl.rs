@@ -5,7 +5,7 @@ use super::Alloc;
 use crate::guest::alloc::{Allocator, Collect, Collector, InOut, Output};
 use crate::{Result, NULL};
 
-use libc::{c_int, c_long};
+use crate::libc::{self, c_int, c_long};
 
 pub struct Ioctl<'a> {
     pub fd: c_int,

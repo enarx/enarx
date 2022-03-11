@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
+use crate::libc::{c_int, EOVERFLOW};
 use core::marker::PhantomData;
-use libc::{c_int, EOVERFLOW};
 
 pub const MAX_ERRNO: c_int = 4096;
 pub const ERRNO_START: usize = usize::MAX - MAX_ERRNO as usize;
@@ -65,6 +65,7 @@ impl From<Result<isize>> for crate::Result<usize> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::libc;
 
     #[test]
     fn result() {

@@ -5,7 +5,7 @@ use super::Alloc;
 use crate::guest::alloc::{Allocator, Collect, Collector, Output};
 use crate::Result;
 
-use libc::{c_long, clockid_t, timespec};
+use crate::libc::{self, c_long, clockid_t, timespec};
 
 pub struct ClockGettime<'a> {
     pub clockid: clockid_t,

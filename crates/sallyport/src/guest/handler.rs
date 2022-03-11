@@ -12,10 +12,10 @@ use core::mem::size_of;
 use core::ptr::NonNull;
 use core::slice;
 
-use libc::{
-    c_int, c_uint, c_ulong, c_void, clockid_t, epoll_event, gid_t, mode_t, off_t, pid_t, pollfd,
-    sigset_t, size_t, stack_t, stat, timespec, uid_t, utsname, Ioctl, EBADFD, EFAULT, EINVAL,
-    ENOSYS, ENOTSUP, ENOTTY, FIONBIO, FIONREAD, STDERR_FILENO, STDIN_FILENO, STDOUT_FILENO,
+use crate::libc::{
+    self, c_int, c_uint, c_ulong, c_void, clockid_t, epoll_event, gid_t, mode_t, off_t, pid_t,
+    pollfd, sigset_t, size_t, stack_t, stat, timespec, uid_t, utsname, Ioctl, EBADFD, EFAULT,
+    EINVAL, ENOSYS, ENOTSUP, ENOTTY, FIONBIO, FIONREAD, STDERR_FILENO, STDIN_FILENO, STDOUT_FILENO,
     TIOCGWINSZ,
 };
 

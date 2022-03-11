@@ -8,8 +8,8 @@ use crate::guest::Call;
 use crate::item::{self, syscall};
 use crate::NULL;
 
+use crate::libc::{self, socklen_t, AF_INET};
 use core::mem::size_of;
-use libc::{socklen_t, AF_INET};
 
 fn assert_call<'a, K: kind::Kind, T: Call<'a, K>, const N: usize>(
     call: T,

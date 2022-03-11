@@ -14,9 +14,9 @@ pub use syscall::Payload as Syscall;
 
 use crate::Error;
 
+use crate::libc::EINVAL;
 use core::convert::{TryFrom, TryInto};
 use core::mem::size_of;
-use libc::EINVAL;
 
 /// The maximum size of a UDP packet
 ///

@@ -16,6 +16,7 @@ pub use output::*;
 
 pub(super) use phase_alloc::*;
 
+use crate::libc;
 use crate::Result;
 
 use core::alloc::Layout;

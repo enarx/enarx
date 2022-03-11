@@ -3,7 +3,7 @@
 use super::syscall::types::SockaddrOutput;
 use core::slice;
 
-use libc::{c_int, EINVAL};
+use crate::libc::{self, c_int, EINVAL};
 
 /// Platform-specific functionality.
 pub trait Platform {

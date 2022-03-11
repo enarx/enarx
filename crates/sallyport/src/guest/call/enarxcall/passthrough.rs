@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use libc::c_void;
+use crate::libc::c_void;
 
 use super::super::types::Argv;
 use super::Alloc;

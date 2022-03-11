@@ -6,7 +6,7 @@ use super::Alloc;
 use crate::guest::alloc::{Allocator, Collect, Collector, Stage};
 use crate::{Result, NULL};
 
-use libc::{c_int, c_long};
+use crate::libc::{self, c_int, c_long};
 
 pub struct Accept4<T> {
     pub sockfd: c_int,

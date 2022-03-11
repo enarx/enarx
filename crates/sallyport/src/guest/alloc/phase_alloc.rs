@@ -3,12 +3,12 @@
 use super::{Allocator, Collector, Committer, InOutRef, InRef, OutRef};
 use crate::Result;
 
+use crate::libc::{EFAULT, ENOMEM, EOVERFLOW};
 use core::alloc::Layout;
 use core::marker::PhantomData;
 use core::mem::{align_of, size_of};
 use core::ptr::addr_of_mut;
 use core::ptr::NonNull;
-use libc::{EFAULT, ENOMEM, EOVERFLOW};
 
 pub(crate) mod phase {
     #[repr(transparent)]

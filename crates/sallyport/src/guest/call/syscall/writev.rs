@@ -5,7 +5,7 @@ use super::{iov_len, Alloc};
 use crate::guest::alloc::{Allocator, Collector, Commit, Committer, InRef};
 use crate::Result;
 
-use libc::{c_int, c_long, size_t};
+use crate::libc::{self, c_int, c_long, size_t};
 
 pub struct Writev<T> {
     pub fd: c_int,

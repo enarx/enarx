@@ -6,7 +6,7 @@ use super::Alloc;
 use crate::guest::alloc::{Allocator, Collector, Input, Stage};
 use crate::Result;
 
-use libc::{c_int, c_long};
+use crate::libc::{self, c_int, c_long};
 
 pub struct Connect<T> {
     pub sockfd: c_int,

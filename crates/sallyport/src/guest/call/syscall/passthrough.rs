@@ -5,7 +5,7 @@ use super::Alloc;
 use crate::guest::alloc::{Allocator, Collector};
 use crate::Result;
 
-use libc::{c_int, c_long};
+use crate::libc::{self, c_int, c_long};
 
 /// Trait implemented by allocatable syscalls, which are passed through directly to the host and do
 /// not require custom handling logic.
@@ -21,7 +21,7 @@ use libc::{c_int, c_long};
 /// use sallyport::guest::syscall::PassthroughAlloc;
 /// use sallyport::Result;
 /// #
-/// # use libc::{c_int, c_long};
+/// # use sallyport::libc::{self, c_int, c_long};
 ///
 /// pub struct Exit {
 ///     pub status: c_int,

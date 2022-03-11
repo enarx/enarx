@@ -3,10 +3,10 @@
 use crate::guest::alloc::{Allocator, Input, Stage};
 use crate::Result;
 
+use crate::libc::EOVERFLOW;
 use core::alloc::Layout;
 use core::mem::{align_of, size_of};
 use core::slice;
-use libc::EOVERFLOW;
 
 pub struct SockoptInput<'a>(pub &'a [u8]);
 

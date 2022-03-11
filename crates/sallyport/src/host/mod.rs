@@ -10,9 +10,9 @@ mod syscall;
 use crate::item::Item;
 use crate::Result;
 
+use crate::libc::{EFAULT, EOVERFLOW};
 use core::mem::{align_of, size_of};
 use core::ptr::slice_from_raw_parts_mut;
-use libc::{EFAULT, EOVERFLOW};
 
 pub(super) trait Execute {
     unsafe fn execute(self) -> Result<()>;
@@ -104,7 +104,7 @@ mod tests {
     use crate::item::{gdbcall, Gdbcall, Syscall};
     use crate::NULL;
 
-    use libc::*;
+    use crate::libc::*;
     use std::fmt::Debug;
 
     struct DerefTestCase<T> {

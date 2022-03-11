@@ -7,7 +7,7 @@ use super::Alloc;
 use crate::guest::alloc::{Allocator, Collector, Input};
 use crate::Result;
 
-use libc::{c_int, c_long, mode_t, EACCES, O_CLOEXEC, O_RDONLY};
+use crate::libc::{self, c_int, c_long, mode_t, EACCES, O_CLOEXEC, O_RDONLY};
 
 pub struct Open<'a> {
     pub pathname: &'a [u8],
