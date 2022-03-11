@@ -9,6 +9,7 @@ use walkdir::WalkDir;
 
 const CRATE: &str = env!("CARGO_MANIFEST_DIR");
 const TEST_BINS_IN: &str = "tests/c-tests";
+const AESM_SOCKET: &str = "/var/run/aesmd/aesm.socket";
 
 fn find_files_with_extensions<'a>(
     exts: &'a [&'a str],
@@ -264,13 +265,18 @@ fn main() {
         }
     }
 
-    if std::path::Path::new("/dev/sgx_enclave").exists() {
-        // Not expected to fail, as the file exists.
-        let metadata = fs::metadata("/dev/sgx_enclave").unwrap();
-        let file_type = metadata.file_type();
+    if std::path::Path::new("/dev/sgx_enclave").exists()
+        && fs::metadata("/dev/sgx_enclave")
+            .unwrap()
+            .file_type()
+            .is_char_device()
+    {
+        println!("cargo:rustc-cfg=host_can_test_sgx");
 
-        if file_type.is_char_device() {
-            println!("cargo:rustc-cfg=host_can_test_sgx");
+        if std::path::Path::new(AESM_SOCKET).exists()
+            && fs::metadata(AESM_SOCKET).unwrap().file_type().is_socket()
+        {
+            println!("cargo:rustc-cfg=host_can_test_attestation");
         }
     }
 
@@ -281,6 +287,7 @@ fn main() {
 
         if file_type.is_char_device() {
             println!("cargo:rustc-cfg=host_can_test_sev");
+            println!("cargo:rustc-cfg=host_can_test_attestation");
         }
     }
 }

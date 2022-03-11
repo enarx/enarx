@@ -286,8 +286,8 @@ pub fn get_quote(report: &[u8], akid: Vec<u8>, out_buf: &mut [u8]) -> Result<usi
 mod tests {
     use super::*;
 
+    #[cfg_attr(not(host_can_test_attestation), ignore)]
     #[test]
-    #[cfg_attr(not(host_can_test_sgx), ignore)]
     fn request_target_info() {
         assert_eq!(std::path::Path::new(AESM_SOCKET).exists(), true);
 
