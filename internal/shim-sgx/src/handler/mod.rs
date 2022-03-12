@@ -39,17 +39,25 @@ use sallyport::guest::{self, Platform, ThreadLocalStorage};
 use sallyport::item::enarxcall::sgx::{Report, ReportData, TargetInfo, TECH};
 use sallyport::item::enarxcall::SYS_GETATT;
 use sallyport::item::syscall::{ARCH_GET_FS, ARCH_GET_GS, ARCH_SET_FS, ARCH_SET_GS};
-use sallyport::libc::{off_t, EINVAL, EMSGSIZE, ENOSYS, STDERR_FILENO};
+use sallyport::libc::{
+    off_t, SYS_mmap, EFAULT, EINVAL, EMSGSIZE, ENOSYS, PROT_READ, STDERR_FILENO,
+};
 
 use crate::handler::usermem::UserMemScope;
 use crate::{DEBUG, ENARX_EXEC_END, ENARX_EXEC_START, ENCL_SIZE};
+use primordial::Page;
 use sgx::ssa::StateSaveArea;
 use sgx::ssa::Vector;
+use x86_64::addr::VirtAddr;
+use x86_64::instructions::sgx::enclu;
+use x86_64::structures::paging::Page as PageAddr;
+use x86_64::structures::sgx::{PageFlags, PageType, SecInfo};
 
 // Opcode constants, details in Volume 2 of the Intel 64 and IA-32 Architectures Software
 // Developer's Manual
 const OP_SYSCALL: u16 = 0x050f;
 const OP_CPUID: u16 = 0xa20f;
+const ZERO_PAGE: Page = Page::zeroed();
 
 /// Thread local storage for the current thread
 pub struct Handler<'a> {
@@ -164,26 +172,59 @@ impl guest::Handler for Handler<'_> {
         fd: c_int,
         offset: off_t,
     ) -> sallyport::Result<NonNull<c_void>> {
-        Ok(NonNull::new(crate::heap::HEAP.write().mmap::<c_void>(
-            addr.map(|v| v.as_ptr() as usize).unwrap_or(0),
-            length,
-            prot,
-            flags,
-            fd,
-            offset,
-        )?)
-        .unwrap())
+        // A hardware constraint.
+        if (prot & PROT_READ as c_int) == 0 {
+            return Err(EINVAL);
+        }
+
+        let addr_u = addr.unwrap().as_ptr() as usize;
+        let user_mem_scope = UserMemScope;
+        let result = match unsafe {
+            self.syscall(
+                &user_mem_scope,
+                [
+                    SYS_mmap as usize,
+                    addr_u,
+                    length as usize,
+                    prot as usize,
+                    flags as usize,
+                    fd as usize,
+                    offset as usize,
+                ],
+            )
+        } {
+            Ok([rax, _]) => NonNull::new(rax as *mut c_void).unwrap(),
+            Err(e) => return Err(e),
+        };
+
+        let secinfo = SecInfo::new(PageType::Regular, PageFlags::from_bits_truncate(prot as u8));
+        let zero_page =
+            PageAddr::from_start_address(VirtAddr::new(ZERO_PAGE.as_ptr() as u64)).unwrap();
+
+        let mut offset = 0;
+        while offset < length {
+            let dest_virt_addr = VirtAddr::new((addr_u + offset) as u64);
+            match enclu::accept_copy(
+                &secinfo,
+                PageAddr::from_start_address(dest_virt_addr).unwrap(),
+                zero_page,
+            ) {
+                Ok(()) => (),
+                Err(_) => return Err(EFAULT),
+            }
+            offset += Page::SIZE;
+        }
+
+        Ok(result)
     }
 
     fn munmap(
         &mut self,
         _platform: &impl Platform,
-        addr: NonNull<c_void>,
-        length: c_size_t,
+        _addr: NonNull<c_void>,
+        _length: c_size_t,
     ) -> sallyport::Result<()> {
-        crate::heap::HEAP
-            .write()
-            .munmap::<c_void>(addr.as_ptr() as _, length)
+        Ok(())
     }
 }
 
