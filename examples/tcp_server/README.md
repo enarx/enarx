@@ -2,8 +2,6 @@
 
 This example is an adapted version of the upstream `mio` crate `tcp_server` example.
 
-It currently depends on a modified version of `mio` with support for WASI.
-
 The added part creates the `TcpListener` from file descriptor `3`,
 if the `LISTEN_FDS` environment variable is set.
 
