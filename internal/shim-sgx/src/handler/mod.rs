@@ -37,7 +37,7 @@ use libc::{c_int, c_ulong, off_t, size_t};
 
 use sallyport::guest::Handler as _;
 use sallyport::guest::{self, Platform, ThreadLocalStorage};
-use sallyport::item::enarxcall::sgx::{Report, ReportData, TargetInfo, QUOTE_SIZE, TECH};
+use sallyport::item::enarxcall::sgx::{Report, ReportData, TargetInfo, TECH};
 use sallyport::item::enarxcall::SYS_GETATT;
 use sallyport::item::syscall::{ARCH_GET_FS, ARCH_GET_GS, ARCH_SET_FS, ARCH_SET_GS};
 
@@ -255,15 +255,17 @@ impl<'a> Handler<'a> {
         buf: usize,
         buf_len: usize,
     ) -> Result<[usize; 2], libc::c_int> {
+        let quote_size = self.get_sgx_quote_size()?;
+
         if buf == 0 {
-            return Ok([QUOTE_SIZE, TECH]);
+            return Ok([quote_size, TECH]);
         }
 
         if buf_len > isize::MAX as usize {
             return Err(libc::EINVAL);
         }
 
-        if buf_len < QUOTE_SIZE {
+        if buf_len < quote_size {
             return Err(libc::EMSGSIZE);
         }
 

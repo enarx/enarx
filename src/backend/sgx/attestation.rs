@@ -4,8 +4,9 @@
 // * https://github.com/fortanix/rust-sgx for examples of AESM requests.
 
 use crate::protobuf::aesm_proto::{
-    Request, Request_GetQuoteExRequest, Request_GetSupportedAttKeyIDNumRequest,
-    Request_GetSupportedAttKeyIDsRequest, Request_InitQuoteExRequest, Response,
+    Request, Request_GetQuoteExRequest, Request_GetQuoteSizeExRequest,
+    Request_GetSupportedAttKeyIDNumRequest, Request_GetSupportedAttKeyIDsRequest,
+    Request_InitQuoteExRequest, Response,
 };
 
 use std::io::{Error, ErrorKind, Read, Write};
@@ -15,7 +16,6 @@ use std::os::unix::net::UnixStream;
 
 use protobuf::Message;
 use sallyport::item::enarxcall::sgx::TargetInfo;
-use sallyport::item::enarxcall::sgx::QUOTE_SIZE as SGX_QUOTE_SIZE;
 const SGX_TI_SIZE: usize = size_of::<TargetInfo>();
 
 const AESM_SOCKET: &str = "/var/run/aesmd/aesm.socket";
@@ -231,27 +231,39 @@ pub fn get_key_size(akid: Vec<u8>) -> Result<usize, Error> {
     Ok(res.get_pub_key_id_size() as usize)
 }
 
-/// Fills the Quote obtained from the AESMD for the Report specified into
-/// the output buffer specified and returns the number of bytes written.
-pub fn get_quote(report: &[u8], akid: Vec<u8>, out_buf: &mut [u8]) -> Result<usize, Error> {
-    if out_buf.len() != SGX_QUOTE_SIZE {
+/// Gets quote size
+pub fn get_quote_size(akid: Vec<u8>) -> Result<usize, Error> {
+    let mut transaction = AesmTransaction::new();
+    let mut msg = Request_GetQuoteSizeExRequest::new();
+
+    msg.set_timeout(AESM_REQUEST_TIMEOUT);
+    msg.set_att_key_id(akid);
+    transaction.set_getQuoteSizeExReq(msg);
+
+    let pb_msg = transaction.request()?;
+
+    let res = pb_msg.get_getQuoteSizeExRes();
+
+    if res.get_errorCode() != 0 {
         return Err(Error::new(
             ErrorKind::InvalidData,
-            format!(
-                "Invalid size of output buffer {} != {}",
-                out_buf.len(),
-                SGX_QUOTE_SIZE
-            ),
+            format!("GetQuoteSizeEx error: {:?}", res.get_errorCode()),
         ));
     }
 
+    Ok(res.get_quote_size() as usize)
+}
+
+/// Fills the Quote obtained from the AESMD for the Report specified into
+/// the output buffer specified and returns the number of bytes written.
+pub fn get_quote(report: &[u8], akid: Vec<u8>, out_buf: &mut [u8]) -> Result<usize, Error> {
     let mut transaction = AesmTransaction::new();
 
     let mut msg = Request_GetQuoteExRequest::new();
     msg.set_timeout(AESM_REQUEST_TIMEOUT);
     msg.set_report(report[0..SGX_REPORT_SIZE].to_vec());
     msg.set_att_key_id(akid);
-    msg.set_buf_size(SGX_QUOTE_SIZE as u32);
+    msg.set_buf_size(out_buf.len() as u32);
     transaction.set_getQuoteExReq(msg);
 
     let pb_msg = transaction.request()?;
@@ -267,13 +279,13 @@ pub fn get_quote(report: &[u8], akid: Vec<u8>, out_buf: &mut [u8]) -> Result<usi
 
     let quote = res.get_quote();
 
-    if quote.len() != SGX_QUOTE_SIZE {
+    if quote.len() != out_buf.len() {
         return Err(Error::new(
             ErrorKind::InvalidData,
             format!(
                 "GetQuoteEx: Invalid QUOTE size: {} != {}",
                 quote.len(),
-                SGX_QUOTE_SIZE
+                out_buf.len()
             ),
         ));
     }

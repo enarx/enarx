@@ -10,7 +10,7 @@
 
 int main(void) {
     unsigned char nonce[64]; /* empty pseudo-hash value to embed in SGX Quote */
-    unsigned char buf[4598];
+    unsigned char buf[10000];
     size_t technology;
     int i;
     unsigned char expected[28] = {
@@ -20,10 +20,23 @@ int main(void) {
             127, 6, 7
     };
 
-    ssize_t size = get_att(nonce, sizeof(nonce), buf, sizeof(buf), &technology);
+    ssize_t size = get_att(NULL, 0, NULL, 0, &technology);
 
-    if (size < 0)
-        return !(errno == ENOSYS);
+    if (size <= 0)
+        return 2;
+
+    /* this test is SGX-specific, so just return success if not running on SGX */
+    if (technology != TEE_SGX)
+        return 0;
+
+    /* Ooops, the test fails because of false assumptions */
+    if (size > sizeof(buf))
+        return 1000;
+
+    ssize_t quote_size = get_att(nonce, sizeof(nonce), buf, size, &technology);
+
+    if (quote_size <= 0)
+        return 2;
 
     /* this test is SGX-specific, so just return success if not running on SGX */
     if (technology != TEE_SGX)

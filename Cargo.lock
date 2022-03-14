@@ -810,10 +810,9 @@ checksum = "73b4b750c782965c211b42f022f59af1fbceabdd026623714f104152f1ec149f"
 [[package]]
 name = "sallyport"
 version = "0.3.0"
-source = "git+https://github.com/enarx/sallyport?rev=e8bd9ad033353df881e8ae8a7aafcff99c745c46#e8bd9ad033353df881e8ae8a7aafcff99c745c46"
+source = "git+https://github.com/enarx/sallyport?rev=92c696ff296cf06b54f68c56aa6d24553e8ed476#92c696ff296cf06b54f68c56aa6d24553e8ed476"
 dependencies = [
  "goblin",
- "libc",
 ]
 
 [[package]]
