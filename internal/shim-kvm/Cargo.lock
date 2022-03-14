@@ -389,7 +389,6 @@ dependencies = [
  "gdbstub",
  "gdbstub_arch",
  "goblin 0.5.1",
- "libc",
  "linked_list_allocator",
  "lock_api",
  "lset",

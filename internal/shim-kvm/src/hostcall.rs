@@ -13,17 +13,20 @@ use crate::snp::{cpuid, snp_active};
 use crate::spin::{RacyCell, RwLocked};
 
 use const_default::ConstDefault;
-use core::ffi::c_void;
+use core::ffi::{c_int, c_size_t, c_uint, c_ulong, c_void};
 use core::mem::size_of;
 use core::ops::{Deref, DerefMut};
 use core::ptr::NonNull;
 use core::slice;
 
-use libc::{c_int, c_uint, c_ulong, off_t, size_t, EINVAL, GRND_NONBLOCK, GRND_RANDOM};
 use sallyport::guest::syscall::Getrandom;
 use sallyport::guest::{self, Handler, Platform, ThreadLocalStorage};
 use sallyport::item::enarxcall::sev::TECH;
 use sallyport::item::syscall;
+use sallyport::libc::{
+    off_t, EAGAIN, EFAULT, EINVAL, EIO, EMSGSIZE, ENOMEM, GRND_NONBLOCK, GRND_RANDOM,
+    MAP_ANONYMOUS, MAP_PRIVATE, PROT_EXEC, PROT_WRITE,
+};
 use sallyport::util::ptr::is_aligned_non_null;
 use sallyport::KVM_SYSCALL_TRIGGER_PORT;
 use spinning::Lazy;
@@ -50,7 +53,7 @@ pub static CPU_HAS_FSGSBASE: Lazy<bool> = Lazy::new(|| cpuid(7).ebx & 1 == 1);
 
 /// Host file descriptor
 #[derive(Copy, Clone)]
-pub struct HostFd(libc::c_int);
+pub struct HostFd(c_int);
 
 impl HostFd {
     /// Extracts the raw file descriptor.
@@ -58,7 +61,7 @@ impl HostFd {
     /// This method does **not** pass ownership of the raw file descriptor
     /// to the caller. The descriptor is only guaranteed to be valid while
     /// the original object has not yet been destroyed.
-    pub fn as_raw_fd(self) -> libc::c_int {
+    pub fn as_raw_fd(self) -> c_int {
         self.0
     }
 
@@ -72,7 +75,7 @@ impl HostFd {
     /// descriptor they are wrapping. Usage of this function could
     /// accidentally allow violating this contract which can cause memory
     /// unsafety in code that relies on it being true.
-    pub unsafe fn from_raw_fd(fd: libc::c_int) -> Self {
+    pub unsafe fn from_raw_fd(fd: c_int) -> Self {
         Self(fd)
     }
 }
@@ -172,7 +175,7 @@ impl<'a> HostCall<'a> {
         nonce_len: usize,
         buf: usize,
         buf_len: usize,
-    ) -> Result<[usize; 2], libc::c_int> {
+    ) -> Result<[usize; 2], c_int> {
         if !snp_active() {
             return Ok([0, 0]);
         }
@@ -182,22 +185,22 @@ impl<'a> HostCall<'a> {
         }
 
         if buf_len > isize::MAX as usize {
-            return Err(libc::EINVAL);
+            return Err(EINVAL);
         }
 
         if buf_len < SNP_ATTESTATION_LEN_MAX {
-            return Err(libc::EMSGSIZE);
+            return Err(EMSGSIZE);
         }
 
         if nonce_len != 64 {
-            return Err(libc::EINVAL);
+            return Err(EINVAL);
         }
 
         let nonce = platform.validate_slice::<u8>(nonce, nonce_len)?;
 
         let buf = platform.validate_slice_mut::<u8>(buf, buf_len)?;
 
-        let len = GHCB_EXT.get_report(1, nonce, buf).map_err(|_| libc::EIO)?;
+        let len = GHCB_EXT.get_report(1, nonce, buf).map_err(|_| EIO)?;
 
         Ok([len, TECH])
     }
@@ -300,7 +303,7 @@ impl Handler for HostCall<'_> {
             }
             x => {
                 eprintln!("SC> arch_prctl({:#x}, {:#x}) = -EINVAL", x, addr);
-                Err(libc::EINVAL)
+                Err(EINVAL)
             }
         }
     }
@@ -326,10 +329,10 @@ impl Handler for HostCall<'_> {
                 }
 
                 // n most likely wrong
-                return Err(libc::EINVAL);
+                return Err(EINVAL);
             }
 
-            let len = addr_u64.checked_sub(next_brk_u64).ok_or(libc::EINVAL)?;
+            let len = addr_u64.checked_sub(next_brk_u64).ok_or(EINVAL)?;
             let len_aligned = align_up(len, Page::<Size4KiB>::SIZE);
             let _ = ALLOCATOR
                 .write()
@@ -345,7 +348,7 @@ impl Handler for HostCall<'_> {
                 )
                 .map_err(|_| {
                     eprintln!("SC> brk({:#?}) = ENOMEM", addr);
-                    libc::ENOMEM
+                    ENOMEM
                 })?;
 
             *next_write_guard += len_aligned;
@@ -362,7 +365,7 @@ impl Handler for HostCall<'_> {
         &mut self,
         _platform: &impl Platform,
         _addr: NonNull<c_void>,
-        _length: size_t,
+        _length: c_size_t,
         _advice: c_int,
     ) -> sallyport::Result<()> {
         // FIXME
@@ -373,24 +376,24 @@ impl Handler for HostCall<'_> {
         &mut self,
         _platform: &impl Platform,
         addr: Option<NonNull<c_void>>,
-        length: size_t,
+        length: c_size_t,
         prot: c_int,
         flags: c_int,
         fd: c_int,
         offset: off_t,
     ) -> sallyport::Result<NonNull<c_void>> {
-        const PA: i32 = libc::MAP_PRIVATE | libc::MAP_ANONYMOUS;
+        const PA: i32 = MAP_PRIVATE | MAP_ANONYMOUS;
         eprintln!("SC> mmap({:#?}, {}, …)", addr, length);
 
         match (addr, length, prot, flags, fd, offset) {
             (None, _, _, PA, -1, 0) => {
                 let mut flags = PageTableFlags::PRESENT | PageTableFlags::USER_ACCESSIBLE;
 
-                if prot & libc::PROT_WRITE != 0 {
+                if prot & PROT_WRITE != 0 {
                     flags |= PageTableFlags::WRITABLE;
                 }
 
-                if prot & libc::PROT_EXEC == 0 {
+                if prot & PROT_EXEC == 0 {
                     flags |= PageTableFlags::NO_EXECUTE;
                 }
 
@@ -409,7 +412,7 @@ impl Handler for HostCall<'_> {
                     )
                     .map_err(|_| {
                         eprintln!("SC> mmap(0, {}, …) = ENOMEM", length);
-                        libc::ENOMEM
+                        ENOMEM
                     })?;
                 eprintln!("SC> mmap(0, {}, …) = {:#?}", length, mem_slice.as_ptr());
                 unsafe {
@@ -430,7 +433,7 @@ impl Handler for HostCall<'_> {
         &mut self,
         _platform: &impl Platform,
         addr: NonNull<c_void>,
-        len: size_t,
+        len: c_size_t,
         prot: c_int,
     ) -> sallyport::Result<()> {
         // FIXME: check, that addr points to userspace address
@@ -440,11 +443,11 @@ impl Handler for HostCall<'_> {
 
         let mut flags = PageTableFlags::PRESENT | PageTableFlags::USER_ACCESSIBLE;
 
-        if prot & libc::PROT_WRITE != 0 {
+        if prot & PROT_WRITE != 0 {
             flags |= PageTableFlags::WRITABLE;
         }
 
-        if prot & libc::PROT_EXEC == 0 {
+        if prot & PROT_EXEC == 0 {
             flags |= PageTableFlags::NO_EXECUTE;
         }
 
@@ -464,7 +467,7 @@ impl Handler for HostCall<'_> {
                         "SC> mprotect({:#?}, {}, {}, …) = EINVAL ({:#?})",
                         addr, len, prot, e
                     );
-                    return Err(libc::EINVAL);
+                    return Err(EINVAL);
                 }
             }
         }
@@ -480,7 +483,7 @@ impl Handler for HostCall<'_> {
         &mut self,
         platform: &impl Platform,
         addr: NonNull<c_void>,
-        length: size_t,
+        length: c_size_t,
     ) -> sallyport::Result<()> {
         let addr: &[u8] = platform.validate_slice(addr.as_ptr() as _, length)?;
 
@@ -492,7 +495,7 @@ impl Handler for HostCall<'_> {
         Ok(())
     }
 
-    fn getrandom(&mut self, buf: &mut [u8], flags: c_uint) -> sallyport::Result<size_t> {
+    fn getrandom(&mut self, buf: &mut [u8], flags: c_uint) -> sallyport::Result<c_size_t> {
         if flags & !(GRND_NONBLOCK | GRND_RANDOM) != 0 {
             return Err(EINVAL);
         }
@@ -519,7 +522,7 @@ impl Platform for UserMemScope {
     /// * not borrowed already
     /// and registers the memory as borrowed mutably.
     ///
-    /// Returns a mutable borrow if valid, otherwise [`EINVAL`](libc::EINVAL).
+    /// Returns a mutable borrow if valid, otherwise [`EINVAL`](https://man7.org/linux/man-pages/man3/errno.3.html).
     ///
     /// [the ptr module documentation]: core::ptr#safety
     #[inline]
@@ -539,7 +542,7 @@ impl Platform for UserMemScope {
     /// * not borrowed already
     /// and registers the memory as borrowed.
     ///
-    /// Returns an immutable borrow if valid, otherwise [`EINVAL`](libc::EINVAL).
+    /// Returns an immutable borrow if valid, otherwise [`EINVAL`](https://man7.org/linux/man-pages/man3/errno.3.html).
     ///
     /// [the ptr module documentation]: core::ptr#safety
     #[inline]
@@ -559,7 +562,7 @@ impl Platform for UserMemScope {
     /// * not borrowed already
     /// and registers the memory as borrowed mutably.
     ///
-    /// Returns a mutable borrow if valid, otherwise [`EINVAL`](libc::EINVAL).
+    /// Returns a mutable borrow if valid, otherwise [`EINVAL`](https://man7.org/linux/man-pages/man3/errno.3.html).
     ///
     /// [the ptr module documentation]: core::ptr#safety
     #[inline]
@@ -583,7 +586,7 @@ impl Platform for UserMemScope {
     /// * not borrowed already
     /// and registers the memory as borrowed.
     ///
-    /// Returns an immutable borrow if valid, otherwise [`EINVAL`](libc::EINVAL).
+    /// Returns an immutable borrow if valid, otherwise [`EINVAL`](https://man7.org/linux/man-pages/man3/errno.3.html).
     ///
     /// [the ptr module documentation]: core::ptr#safety
     #[inline]
@@ -599,18 +602,18 @@ impl Platform for UserMemScope {
 
 /// Write all `bytes` to a host file descriptor `fd`
 #[inline(always)]
-pub fn shim_write_all(fd: HostFd, bytes: &[u8]) -> Result<(), libc::c_int> {
+pub fn shim_write_all(fd: HostFd, bytes: &[u8]) -> Result<(), c_int> {
     let bytes_len = bytes.len();
     let mut to_write = bytes_len;
 
     let mut tls = SHIM_LOCAL_STORAGE.write();
-    let mut host_call = HostCall::try_new(&mut tls).ok_or(libc::EAGAIN)?;
+    let mut host_call = HostCall::try_new(&mut tls).ok_or(EAGAIN)?;
 
     loop {
-        let next = bytes_len.checked_sub(to_write).ok_or(libc::EFAULT)?;
+        let next = bytes_len.checked_sub(to_write).ok_or(EFAULT)?;
         let written = host_call.write(fd.as_raw_fd(), &bytes[next..])?;
         // be careful with `written` as it is untrusted
-        to_write = to_write.checked_sub(written).ok_or(libc::EIO)?;
+        to_write = to_write.checked_sub(written).ok_or(EIO)?;
         if to_write == 0 {
             break;
         }

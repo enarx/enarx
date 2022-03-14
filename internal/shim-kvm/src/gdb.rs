@@ -9,6 +9,7 @@ use crate::hostcall::{HostCall, SHIM_LOCAL_STORAGE};
 use crate::interrupts::ExtendedInterruptStackFrameValue;
 
 use core::arch::asm;
+use core::ffi::c_int;
 use core::sync::atomic::Ordering;
 
 use crate::addr::SHIM_VIRT_OFFSET;
@@ -22,6 +23,7 @@ use gdbstub::target::{Target, TargetError, TargetResult};
 use gdbstub::{DisconnectReason, GdbStubBuilder, GdbStubError};
 use gdbstub_arch::x86::reg::X86_64CoreRegs;
 use sallyport::guest::Handler;
+use sallyport::libc::EIO;
 use x86_64::registers::rflags::RFlags;
 use x86_64::structures::paging::Translate;
 use x86_64::VirtAddr;
@@ -35,18 +37,18 @@ impl GdbConnection {
 }
 
 impl gdbstub::Connection for GdbConnection {
-    type Error = libc::c_int;
+    type Error = c_int;
 
     fn read(&mut self) -> Result<u8, Self::Error> {
         let mut tls = SHIM_LOCAL_STORAGE.write();
-        let mut host_call = HostCall::try_new(&mut tls).ok_or(libc::EIO)?;
+        let mut host_call = HostCall::try_new(&mut tls).ok_or(EIO)?;
 
         host_call.gdb_read()
     }
 
     fn read_exact(&mut self, buf: &mut [u8]) -> Result<(), Self::Error> {
         let mut tls = SHIM_LOCAL_STORAGE.write();
-        let mut host_call = HostCall::try_new(&mut tls).ok_or(libc::EIO)?;
+        let mut host_call = HostCall::try_new(&mut tls).ok_or(EIO)?;
 
         for byte in buf.iter_mut() {
             *byte = host_call.gdb_read()?;
@@ -61,7 +63,7 @@ impl gdbstub::Connection for GdbConnection {
 
     fn write_all(&mut self, buf: &[u8]) -> Result<(), Self::Error> {
         let mut tls = SHIM_LOCAL_STORAGE.write();
-        let mut host_call = HostCall::try_new(&mut tls).ok_or(libc::EIO)?;
+        let mut host_call = HostCall::try_new(&mut tls).ok_or(EIO)?;
 
         host_call.gdb_write_all(buf)?;
         Ok(())
@@ -69,7 +71,7 @@ impl gdbstub::Connection for GdbConnection {
 
     fn peek(&mut self) -> Result<Option<u8>, Self::Error> {
         let mut tls = SHIM_LOCAL_STORAGE.write();
-        let mut host_call = HostCall::try_new(&mut tls).ok_or(libc::EIO)?;
+        let mut host_call = HostCall::try_new(&mut tls).ok_or(EIO)?;
         host_call.gdb_peek()
     }
 
@@ -79,7 +81,7 @@ impl gdbstub::Connection for GdbConnection {
 
     fn on_session_start(&mut self) -> Result<(), Self::Error> {
         let mut tls = SHIM_LOCAL_STORAGE.write();
-        let mut host_call = HostCall::try_new(&mut tls).ok_or(libc::EIO)?;
+        let mut host_call = HostCall::try_new(&mut tls).ok_or(EIO)?;
         host_call.gdb_on_session_start()
     }
 }

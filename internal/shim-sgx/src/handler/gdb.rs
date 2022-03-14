@@ -3,6 +3,7 @@
 #![cfg(feature = "gdb")]
 
 use core::arch::asm;
+use core::ffi::c_int;
 use core::mem::size_of;
 use core::ops::Range;
 
@@ -78,7 +79,7 @@ impl<'a> super::Handler<'a> {
 
         // workaround for the gdbstub main loop (will change with gdbstub-0.6
         loop {
-            let mut gdb = GdbStubBuilder::new(self as &mut dyn Connection<Error = libc::c_int>)
+            let mut gdb = GdbStubBuilder::new(self as &mut dyn Connection<Error = c_int>)
                 .with_packet_buffer(&mut buf)
                 .build()
                 .unwrap();
@@ -146,7 +147,7 @@ impl<'a> super::Handler<'a> {
 }
 
 impl<'a> gdbstub::Connection for super::Handler<'a> {
-    type Error = libc::c_int;
+    type Error = c_int;
 
     fn read(&mut self) -> Result<u8, Self::Error> {
         self.gdb_read()
