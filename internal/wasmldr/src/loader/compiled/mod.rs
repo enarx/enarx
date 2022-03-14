@@ -50,7 +50,10 @@ impl Loader<Compiled> {
                 File::Stderr { .. } => (Box::new(stderr()), FileCaps::all()),
 
                 File::Listen { port, prot, .. } => {
-                    let caps = FileCaps::FDSTAT_SET_FLAGS | FileCaps::POLL_READWRITE;
+                    let caps = FileCaps::FILESTAT_GET
+                        | FileCaps::FDSTAT_SET_FLAGS
+                        | FileCaps::POLL_READWRITE
+                        | FileCaps::READ;
 
                     let tcp = std::net::TcpListener::bind((Ipv4Addr::UNSPECIFIED, *port))?;
 
@@ -63,11 +66,11 @@ impl Loader<Compiled> {
                 File::Connect {
                     host, port, prot, ..
                 } => {
-                    let caps = FileCaps::FDSTAT_SET_FLAGS
+                    let caps = FileCaps::FILESTAT_GET
+                        | FileCaps::FDSTAT_SET_FLAGS
                         | FileCaps::POLL_READWRITE
-                        | FileCaps::FILESTAT_GET
-                        | FileCaps::WRITE
-                        | FileCaps::READ;
+                        | FileCaps::READ
+                        | FileCaps::WRITE;
 
                     let tcp = std::net::TcpStream::connect((&**host, *port))?;
 
