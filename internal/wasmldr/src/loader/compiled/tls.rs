@@ -4,13 +4,18 @@ use std::any::Any;
 use std::io::{ErrorKind, IoSlice, IoSliceMut, Read, Write};
 use std::sync::Arc;
 
+use cap_std::net::{TcpListener, TcpStream};
+use io_lifetimes::{AsFilelike, AsSocketlike};
 use rustix::fd::AsFd;
 use rustls::{ClientConfig, ClientConnection, Connection, ServerConfig, ServerConnection};
+use system_interface::fs::GetSetFdFlags;
+use system_interface::io::{IsReadWrite, ReadReady};
 use wasi_common::file::{FdFlags, FileType};
 use wasi_common::{Context, Error, ErrorExt, WasiFile};
+use wasmtime_wasi::net::from_sysif_fdflags;
 
 pub struct Stream {
-    tcp: std::net::TcpStream,
+    tcp: TcpStream,
     tls: Connection,
 }
 
@@ -21,11 +26,7 @@ impl From<Stream> for Box<dyn WasiFile> {
 }
 
 impl Stream {
-    pub fn connect(
-        mut tcp: std::net::TcpStream,
-        name: &str,
-        cfg: Arc<ClientConfig>,
-    ) -> Result<Self, Error> {
+    pub fn connect(mut tcp: TcpStream, name: &str, cfg: Arc<ClientConfig>) -> Result<Self, Error> {
         // Set up connection.
         let tls = ClientConnection::new(cfg, name.try_into()?)?;
         let mut tls = Connection::Client(tls);
@@ -48,7 +49,19 @@ impl WasiFile for Stream {
     }
 
     async fn get_fdflags(&mut self) -> Result<FdFlags, Error> {
-        Ok(FdFlags::APPEND)
+        let fdflags = self.tcp.as_filelike().get_fd_flags()?;
+        Ok(from_sysif_fdflags(fdflags))
+    }
+
+    async fn set_fdflags(&mut self, fdflags: FdFlags) -> Result<(), Error> {
+        if fdflags == FdFlags::NONBLOCK {
+            self.tcp.set_nonblocking(true)?;
+        } else if fdflags.is_empty() {
+            self.tcp.set_nonblocking(false)?;
+        } else {
+            return Err(Error::invalid_argument().context("cannot set anything else than NONBLOCK"));
+        }
+        Ok(())
     }
 
     async fn read_vectored<'a>(&mut self, bufs: &mut [IoSliceMut<'a>]) -> Result<u64, Error> {
@@ -77,11 +90,20 @@ impl WasiFile for Stream {
     }
 
     async fn readable(&self) -> Result<(), Error> {
-        Ok(())
+        let (readable, _writeable) = self.tcp.is_read_write()?;
+        if readable {
+            Ok(())
+        } else {
+            Err(Error::io())
+        }
     }
-
     async fn writable(&self) -> Result<(), Error> {
-        Ok(())
+        let (_readable, writeable) = self.tcp.is_read_write()?;
+        if writeable {
+            Ok(())
+        } else {
+            Err(Error::io())
+        }
     }
 
     fn pollable(&self) -> Option<rustix::fd::BorrowedFd<'_>> {
@@ -90,12 +112,12 @@ impl WasiFile for Stream {
 }
 
 pub struct Listener {
-    listener: std::net::TcpListener,
+    listener: TcpListener,
     config: Arc<ServerConfig>,
 }
 
 impl Listener {
-    pub fn new(listener: std::net::TcpListener, config: Arc<ServerConfig>) -> Self {
+    pub fn new(listener: TcpListener, config: Arc<ServerConfig>) -> Self {
         Self { listener, config }
     }
 }
@@ -112,10 +134,13 @@ impl WasiFile for Listener {
         self
     }
 
+    fn pollable(&self) -> Option<rustix::fd::BorrowedFd<'_>> {
+        Some(self.listener.as_fd())
+    }
+
     async fn sock_accept(&mut self, fdflags: FdFlags) -> Result<Box<dyn WasiFile>, Error> {
         // Accept the connection.
         let (mut tcp, ..) = self.listener.accept()?;
-        tcp.set_nonblocking(fdflags.contains(FdFlags::NONBLOCK))?;
 
         // Create a new TLS connection.
         let mut tls = Connection::Server(
@@ -123,13 +148,14 @@ impl WasiFile for Listener {
                 .map_err(|e| Error::io().context(e))
                 .context("could not create new TLS connection")?,
         );
-
         // Perform handshake.
         tls.complete_io(&mut tcp)
             .map_err(|e| Error::io().context(e))
             .context("could not perform TLS handshake")?;
 
-        Ok(Box::new(Stream { tcp, tls }))
+        let mut stream = Stream { tcp, tls };
+        stream.set_fdflags(fdflags).await?;
+        Ok(Box::new(stream))
     }
 
     async fn get_filetype(&mut self) -> Result<FileType, Error> {
@@ -137,10 +163,22 @@ impl WasiFile for Listener {
     }
 
     async fn get_fdflags(&mut self) -> Result<FdFlags, Error> {
-        Ok(FdFlags::empty())
+        let fdflags = self.listener.as_filelike().get_fd_flags()?;
+        Ok(from_sysif_fdflags(fdflags))
     }
 
-    fn pollable(&self) -> Option<rustix::fd::BorrowedFd<'_>> {
-        Some(self.listener.as_fd())
+    async fn set_fdflags(&mut self, fdflags: FdFlags) -> Result<(), Error> {
+        if fdflags == FdFlags::NONBLOCK {
+            self.listener.set_nonblocking(true)?;
+        } else if fdflags.is_empty() {
+            self.listener.set_nonblocking(false)?;
+        } else {
+            return Err(Error::invalid_argument().context("cannot set anything else than NONBLOCK"));
+        }
+        Ok(())
+    }
+
+    async fn num_ready_bytes(&self) -> Result<u64, Error> {
+        Ok(1)
     }
 }
