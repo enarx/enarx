@@ -4,9 +4,8 @@ use super::super::types::Argv;
 use super::types::StagedBytesInput;
 use super::Alloc;
 use crate::guest::alloc::{Allocator, Collector, Input};
+use crate::libc::{c_int, c_long, size_t, SYS_write};
 use crate::Result;
-
-use crate::libc::{self, c_int, c_long, size_t};
 
 pub struct Write<'a> {
     pub fd: c_int,
@@ -14,7 +13,7 @@ pub struct Write<'a> {
 }
 
 unsafe impl<'a> Alloc<'a> for Write<'a> {
-    const NUM: c_long = libc::SYS_write;
+    const NUM: c_long = SYS_write;
 
     type Argv = Argv<3>;
     type Ret = size_t;

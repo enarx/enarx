@@ -16,7 +16,7 @@ pub use output::*;
 
 pub(super) use phase_alloc::*;
 
-use crate::libc;
+use crate::libc::EOVERFLOW;
 use crate::Result;
 
 use core::alloc::Layout;
@@ -24,7 +24,7 @@ use core::alloc::Layout;
 /// Returns a [`Layout`] corresponding to an array of `len` elements of type `T`.
 #[inline]
 fn array_layout<T>(len: usize) -> Result<Layout> {
-    Layout::array::<T>(len).map_err(|_| libc::EOVERFLOW)
+    Layout::array::<T>(len).map_err(|_| EOVERFLOW)
 }
 
 /// Allocator in stage phase.

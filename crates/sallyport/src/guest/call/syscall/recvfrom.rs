@@ -4,9 +4,8 @@ use super::super::types::Argv;
 use super::types::{CommittedSockaddrOutput, SockaddrOutput, StagedSockaddrOutput};
 use super::Alloc;
 use crate::guest::alloc::{Allocator, Collect, Collector, Output, Stage};
+use crate::libc::{c_int, c_long, size_t, SYS_recvfrom};
 use crate::Result;
-
-use crate::libc::{self, c_int, c_long, size_t};
 
 pub struct Recvfrom<'a, T> {
     pub sockfd: c_int,
@@ -16,7 +15,7 @@ pub struct Recvfrom<'a, T> {
 }
 
 unsafe impl<'a, T: Into<SockaddrOutput<'a>>> Alloc<'a> for Recvfrom<'a, T> {
-    const NUM: c_long = libc::SYS_recvfrom;
+    const NUM: c_long = SYS_recvfrom;
 
     type Argv = Argv<6>;
     type Ret = size_t;

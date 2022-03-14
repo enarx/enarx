@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::guest::alloc::{Commit, Committer, Input};
-
 use crate::libc::size_t;
 
 pub struct StagedBytesInput<'a>(pub Input<'a, [u8], &'a [u8]>);

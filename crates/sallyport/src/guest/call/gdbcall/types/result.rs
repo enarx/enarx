@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::libc::{c_int, EOVERFLOW};
-use core::marker::PhantomData;
-
 use crate::NULL;
+
+use core::marker::PhantomData;
 
 pub const MAX_ERRNO: c_int = 4096;
 pub const ERRNO_START: usize = usize::MAX - MAX_ERRNO as usize;

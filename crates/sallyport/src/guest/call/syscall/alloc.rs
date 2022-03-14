@@ -3,9 +3,8 @@
 use super::super::alloc;
 use super::types::{self, CommittedAlloc, StagedAlloc};
 use crate::guest::alloc::{Allocator, Collector, Commit};
-use crate::Result;
-
 use crate::libc::c_long;
+use crate::Result;
 
 /// A generic syscall, which can be allocated within the block.
 ///

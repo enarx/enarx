@@ -5,10 +5,9 @@ use super::Alloc;
 use crate::guest::alloc::{Allocator, Collect, Collector, InOut, Output};
 use crate::guest::call::alloc::kind;
 use crate::guest::call::{MaybeAlloc, UnstagedMaybeAlloc};
-use crate::libc;
 use crate::libc::{
-    c_int, c_long, EBADFD, EINVAL, ENOTTY, FIONBIO, FIONREAD, STDERR_FILENO, STDIN_FILENO,
-    STDOUT_FILENO, TIOCGWINSZ,
+    self, c_int, c_long, SYS_ioctl, EBADFD, EINVAL, ENOTTY, FIONBIO, FIONREAD, STDERR_FILENO,
+    STDIN_FILENO, STDOUT_FILENO, TIOCGWINSZ,
 };
 use crate::{Result, NULL};
 
@@ -40,7 +39,7 @@ impl<'a> MaybeAlloc<'a, kind::Syscall> for Ioctl<'a> {
 pub struct AllocIoctl<'a>(Ioctl<'a>);
 
 unsafe impl<'a> Alloc<'a> for AllocIoctl<'a> {
-    const NUM: c_long = libc::SYS_ioctl;
+    const NUM: c_long = SYS_ioctl;
 
     type Argv = Argv<4>;
     type Ret = c_int;

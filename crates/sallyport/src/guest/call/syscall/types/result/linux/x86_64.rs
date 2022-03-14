@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::libc::{c_int, EOVERFLOW};
+
 use core::marker::PhantomData;
 
 pub const MAX_ERRNO: c_int = 4096;
@@ -65,15 +66,15 @@ impl From<Result<isize>> for crate::Result<usize> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::libc;
+    use crate::libc::{self, EPERM, F_GETFD};
 
     #[test]
     fn result() {
-        const ERRNO: c_int = libc::EPERM;
+        const ERRNO: c_int = EPERM;
 
         let expected: Result<isize> = [-ERRNO as usize, 0].into();
         assert_eq!(
-            Result::from([unsafe { libc::fcntl(-1, libc::F_GETFD) } as usize, 0]),
+            Result::from([unsafe { libc::fcntl(-1, F_GETFD) } as usize, 0]),
             expected
         );
 

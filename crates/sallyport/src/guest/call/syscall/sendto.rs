@@ -4,9 +4,8 @@ use super::super::types::Argv;
 use super::types::{SockaddrInput, StagedBytesInput};
 use super::Alloc;
 use crate::guest::alloc::{Allocator, Collector, Commit, Committer, Input, Stage};
+use crate::libc::{c_int, c_long, size_t, SYS_sendto};
 use crate::Result;
-
-use crate::libc::{self, c_int, c_long, size_t};
 
 pub struct Sendto<'a, T> {
     pub sockfd: c_int,
@@ -30,7 +29,7 @@ impl<'a> Commit for StagedSendto<'a> {
 }
 
 unsafe impl<'a, T: Into<SockaddrInput<'a>>> Alloc<'a> for Sendto<'a, T> {
-    const NUM: c_long = libc::SYS_sendto;
+    const NUM: c_long = SYS_sendto;
 
     type Argv = Argv<6>;
     type Ret = size_t;

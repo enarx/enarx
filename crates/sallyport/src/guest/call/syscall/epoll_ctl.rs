@@ -3,9 +3,8 @@
 use super::super::types::Argv;
 use super::Alloc;
 use crate::guest::alloc::{Allocator, Collector, Input};
+use crate::libc::{c_int, c_long, epoll_event, SYS_epoll_ctl};
 use crate::Result;
-
-use crate::libc::{self, c_int, c_long, epoll_event};
 
 pub struct EpollCtl<'a> {
     pub epfd: c_int,
@@ -15,7 +14,7 @@ pub struct EpollCtl<'a> {
 }
 
 unsafe impl<'a> Alloc<'a> for EpollCtl<'a> {
-    const NUM: c_long = libc::SYS_epoll_ctl;
+    const NUM: c_long = SYS_epoll_ctl;
 
     type Argv = Argv<4>;
     type Ret = ();

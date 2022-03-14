@@ -4,9 +4,8 @@ use super::super::types::Argv;
 use super::types::{CommittedSockaddrOutput, SockaddrOutput, StagedSockaddrOutput};
 use super::Alloc;
 use crate::guest::alloc::{Allocator, Collect, Collector, Stage};
+use crate::libc::{c_int, c_long, SYS_getsockname};
 use crate::Result;
-
-use crate::libc::{self, c_int, c_long};
 
 pub struct Getsockname<T> {
     pub sockfd: c_int,
@@ -14,7 +13,7 @@ pub struct Getsockname<T> {
 }
 
 unsafe impl<'a, T: Into<SockaddrOutput<'a>>> Alloc<'a> for Getsockname<T> {
-    const NUM: c_long = libc::SYS_getsockname;
+    const NUM: c_long = SYS_getsockname;
 
     type Argv = Argv<3>;
     type Ret = ();

@@ -4,9 +4,8 @@ use super::super::types::Argv;
 use super::types::{SockaddrInput, StagedSockaddrInput};
 use super::Alloc;
 use crate::guest::alloc::{Allocator, Collector, Stage};
+use crate::libc::{c_int, c_long, SYS_bind};
 use crate::Result;
-
-use crate::libc::{self, c_int, c_long};
 
 pub struct Bind<T> {
     pub sockfd: c_int,
@@ -14,7 +13,7 @@ pub struct Bind<T> {
 }
 
 unsafe impl<'a, T: Into<SockaddrInput<'a>>> Alloc<'a> for Bind<T> {
-    const NUM: c_long = libc::SYS_bind;
+    const NUM: c_long = SYS_bind;
 
     type Argv = Argv<3>;
     type Ret = ();

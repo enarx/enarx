@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use super::syscall::types::SockaddrOutput;
-use core::slice;
+use crate::libc::{c_int, iovec, EINVAL};
 
-use crate::libc::{self, c_int, EINVAL};
+use core::slice;
 
 /// Platform-specific functionality.
 pub trait Platform {
@@ -73,7 +73,7 @@ pub trait Platform {
         iov: usize,
         iovcnt: usize,
     ) -> Result<&mut [&mut [u8]], c_int> {
-        let iovec_slice = self.validate_slice::<libc::iovec>(iov, iovcnt)?;
+        let iovec_slice = self.validate_slice::<iovec>(iov, iovcnt)?;
         for iovec in iovec_slice {
             self.validate_slice_mut::<u8>(iovec.iov_base as _, iovec.iov_len)?;
         }
@@ -96,7 +96,7 @@ pub trait Platform {
     /// of immutable byte buffer borrows if valid, otherwise [`EINVAL`](libc::EINVAL).
     #[inline]
     fn validate_iovec_slice(&self, iov: usize, iovcnt: usize) -> Result<&[&[u8]], c_int> {
-        let iovec_slice = self.validate_slice::<libc::iovec>(iov, iovcnt)?;
+        let iovec_slice = self.validate_slice::<iovec>(iov, iovcnt)?;
         for iovec in iovec_slice {
             self.validate_slice::<u8>(iovec.iov_base as _, iovec.iov_len)?;
         }

@@ -5,9 +5,8 @@ use super::super::types::Argv;
 use super::super::{MaybeAlloc, UnstagedMaybeAlloc};
 use super::Alloc;
 use crate::guest::alloc::{Allocator, Collector, Input};
+use crate::libc::{c_int, c_long, mode_t, SYS_open, EACCES, O_CLOEXEC, O_RDONLY};
 use crate::Result;
-
-use crate::libc::{self, c_int, c_long, mode_t, EACCES, O_CLOEXEC, O_RDONLY};
 
 pub struct Open<'a> {
     pub pathname: &'a [u8],
@@ -32,7 +31,7 @@ impl<'a> MaybeAlloc<'a, kind::Syscall> for Open<'a> {
 pub struct AllocOpen<'a>(Open<'a>);
 
 unsafe impl<'a> Alloc<'a> for AllocOpen<'a> {
-    const NUM: c_long = libc::SYS_open;
+    const NUM: c_long = SYS_open;
 
     type Argv = Argv<4>;
     type Ret = c_int;

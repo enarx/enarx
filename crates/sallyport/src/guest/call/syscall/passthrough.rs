@@ -3,9 +3,11 @@
 use super::super::types::Argv;
 use super::Alloc;
 use crate::guest::alloc::{Allocator, Collector};
+use crate::libc::{
+    c_int, c_long, SYS_close, SYS_dup, SYS_dup2, SYS_dup3, SYS_epoll_create1, SYS_eventfd2,
+    SYS_exit, SYS_exit_group, SYS_listen, SYS_socket, SYS_sync,
+};
 use crate::Result;
-
-use crate::libc::{self, c_int, c_long};
 
 /// Trait implemented by allocatable syscalls, which are passed through directly to the host and do
 /// not require custom handling logic.
@@ -82,7 +84,7 @@ pub struct Close {
 }
 
 unsafe impl PassthroughAlloc for Close {
-    const NUM: c_long = libc::SYS_close;
+    const NUM: c_long = SYS_close;
 
     type Argv = Argv<1>;
     type Ret = ();
@@ -97,7 +99,7 @@ pub struct Dup {
 }
 
 unsafe impl PassthroughAlloc for Dup {
-    const NUM: c_long = libc::SYS_dup;
+    const NUM: c_long = SYS_dup;
 
     type Argv = Argv<1>;
     type Ret = ();
@@ -113,7 +115,7 @@ pub struct Dup2 {
 }
 
 unsafe impl PassthroughAlloc for Dup2 {
-    const NUM: c_long = libc::SYS_dup2;
+    const NUM: c_long = SYS_dup2;
 
     type Argv = Argv<2>;
     type Ret = ();
@@ -130,7 +132,7 @@ pub struct Dup3 {
 }
 
 unsafe impl PassthroughAlloc for Dup3 {
-    const NUM: c_long = libc::SYS_dup3;
+    const NUM: c_long = SYS_dup3;
 
     type Argv = Argv<3>;
     type Ret = ();
@@ -145,7 +147,7 @@ pub struct EpollCreate1 {
 }
 
 unsafe impl PassthroughAlloc for EpollCreate1 {
-    const NUM: c_long = libc::SYS_epoll_create1;
+    const NUM: c_long = SYS_epoll_create1;
 
     type Argv = Argv<1>;
     type Ret = c_int;
@@ -161,7 +163,7 @@ pub struct Eventfd2 {
 }
 
 unsafe impl PassthroughAlloc for Eventfd2 {
-    const NUM: c_long = libc::SYS_eventfd2;
+    const NUM: c_long = SYS_eventfd2;
 
     type Argv = Argv<2>;
     type Ret = c_int;
@@ -176,7 +178,7 @@ pub struct Exit {
 }
 
 unsafe impl PassthroughAlloc for Exit {
-    const NUM: c_long = libc::SYS_exit;
+    const NUM: c_long = SYS_exit;
 
     type Argv = Argv<1>;
     type Ret = ();
@@ -191,7 +193,7 @@ pub struct ExitGroup {
 }
 
 unsafe impl PassthroughAlloc for ExitGroup {
-    const NUM: c_long = libc::SYS_exit_group;
+    const NUM: c_long = SYS_exit_group;
 
     type Argv = Argv<1>;
     type Ret = ();
@@ -207,7 +209,7 @@ pub struct Listen {
 }
 
 unsafe impl PassthroughAlloc for Listen {
-    const NUM: c_long = libc::SYS_listen;
+    const NUM: c_long = SYS_listen;
 
     type Argv = Argv<2>;
     type Ret = ();
@@ -224,7 +226,7 @@ pub struct Socket {
 }
 
 unsafe impl PassthroughAlloc for Socket {
-    const NUM: c_long = libc::SYS_socket;
+    const NUM: c_long = SYS_socket;
 
     type Argv = Argv<3>;
     type Ret = c_int;
@@ -237,7 +239,7 @@ unsafe impl PassthroughAlloc for Socket {
 pub struct Sync;
 
 unsafe impl PassthroughAlloc for Sync {
-    const NUM: c_long = libc::SYS_sync;
+    const NUM: c_long = SYS_sync;
 
     type Argv = Argv<0>;
     type Ret = ();

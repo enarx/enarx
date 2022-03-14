@@ -3,9 +3,8 @@
 use super::super::types::Argv;
 use super::Alloc;
 use crate::guest::alloc::{Allocator, Collector, InOut, Output};
+use crate::libc::{c_int, c_long, pollfd, SYS_poll};
 use crate::Result;
-
-use crate::libc::{self, c_int, c_long, pollfd};
 
 pub struct Poll<'a> {
     pub fds: &'a mut [pollfd],
@@ -13,7 +12,7 @@ pub struct Poll<'a> {
 }
 
 unsafe impl<'a> Alloc<'a> for Poll<'a> {
-    const NUM: c_long = libc::SYS_poll;
+    const NUM: c_long = SYS_poll;
 
     type Argv = Argv<3>;
     type Ret = c_int;

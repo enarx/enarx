@@ -3,9 +3,8 @@
 use super::super::types::Argv;
 use super::Alloc;
 use crate::guest::alloc::{Allocator, Collect, Collector, Commit, Committer, InOut, Input, Output};
+use crate::libc::{c_long, timespec, SYS_nanosleep, EINTR};
 use crate::{Result, NULL};
-
-use crate::libc::{self, c_long, timespec, EINTR};
 
 pub struct Nanosleep<'a> {
     pub req: &'a timespec,
@@ -27,7 +26,7 @@ impl<'a> Commit for StagedNanosleep<'a> {
 }
 
 unsafe impl<'a> Alloc<'a> for Nanosleep<'a> {
-    const NUM: c_long = libc::SYS_nanosleep;
+    const NUM: c_long = SYS_nanosleep;
 
     type Argv = Argv<2>;
     type Ret = ();

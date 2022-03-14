@@ -3,9 +3,8 @@
 use super::super::types::Argv;
 use super::{iov_len, Alloc};
 use crate::guest::alloc::{Allocator, Collector, CommitPassthrough, OutRef};
+use crate::libc::{c_int, c_long, size_t, SYS_read};
 use crate::Result;
-
-use crate::libc::{self, c_int, c_long, size_t};
 
 pub struct Readv<T> {
     pub fd: c_int,
@@ -26,7 +25,7 @@ where
     U: AsRef<[u8]>,
     V: AsMut<[u8]>,
 {
-    const NUM: c_long = libc::SYS_read;
+    const NUM: c_long = SYS_read;
 
     type Argv = Argv<3>;
     type Ret = size_t;

@@ -3,9 +3,9 @@
 use crate::guest::alloc::{
     Allocator, Collect, Collector, Commit, Committer, InOut, Input, Output, Stage,
 };
+use crate::libc::{sockaddr_in, sockaddr_in6, sockaddr_storage, sockaddr_un, socklen_t, EOVERFLOW};
 use crate::Result;
 
-use crate::libc::{sockaddr_in, sockaddr_in6, sockaddr_storage, sockaddr_un, socklen_t, EOVERFLOW};
 use core::alloc::Layout;
 use core::mem::{align_of, size_of};
 use core::slice;

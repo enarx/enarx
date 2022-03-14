@@ -3,9 +3,8 @@
 use super::super::types::Argv;
 use super::Alloc;
 use crate::guest::alloc::{Allocator, Collector, Output};
+use crate::libc::{c_int, c_long, size_t, SYS_recvfrom};
 use crate::Result;
-
-use crate::libc::{self, c_int, c_long, size_t};
 
 pub struct Recv<'a> {
     pub sockfd: c_int,
@@ -14,7 +13,7 @@ pub struct Recv<'a> {
 }
 
 unsafe impl<'a> Alloc<'a> for Recv<'a> {
-    const NUM: c_long = libc::SYS_recvfrom;
+    const NUM: c_long = SYS_recvfrom;
 
     type Argv = Argv<4>;
     type Ret = size_t;

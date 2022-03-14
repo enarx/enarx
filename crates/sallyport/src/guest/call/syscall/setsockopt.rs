@@ -4,9 +4,8 @@ use super::super::types::Argv;
 use super::types::{SockoptInput, StagedSockoptInput};
 use super::Alloc;
 use crate::guest::alloc::{Allocator, Collector, Commit, Committer, Stage};
+use crate::libc::{c_int, c_long, SYS_setsockopt};
 use crate::{Result, NULL};
-
-use crate::libc::{self, c_int, c_long};
 
 pub struct Setsockopt<T> {
     pub sockfd: c_int,
@@ -28,7 +27,7 @@ impl<'a> Commit for StagedSetsockopt<'a> {
 }
 
 unsafe impl<'a, T: Into<SockoptInput<'a>>> Alloc<'a> for Setsockopt<T> {
-    const NUM: c_long = libc::SYS_setsockopt;
+    const NUM: c_long = SYS_setsockopt;
 
     type Argv = Argv<5>;
     type Ret = c_int;

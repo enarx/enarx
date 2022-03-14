@@ -2,7 +2,7 @@
 
 use super::super::Alloc;
 use crate::guest::alloc::{Collect, Collector, Commit, Committer, InOutRef, InRef, Input, OutRef};
-use crate::libc;
+use crate::libc::ENOSYS;
 use crate::Result;
 
 /// Staged Enarx call, which holds allocated reference to Enarx call item within the block and [opaque staged value](Alloc::Staged).
@@ -20,7 +20,7 @@ impl<'a, T: Alloc<'a>> Commit for StagedAlloc<'a, T> {
     fn commit(mut self, com: &impl Committer) -> Self::Item {
         self.num_ref.copy_from(com, T::NUM as usize);
         self.argv.commit(com);
-        self.ret_ref.copy_from(com, -libc::ENOSYS as usize);
+        self.ret_ref.copy_from(com, -ENOSYS as usize);
         Self::Item {
             ret_ref: self.ret_ref.commit(com),
             committed: self.staged.commit(com),

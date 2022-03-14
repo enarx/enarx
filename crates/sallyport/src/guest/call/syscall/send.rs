@@ -4,9 +4,8 @@ use super::super::types::Argv;
 use super::types::StagedBytesInput;
 use super::Alloc;
 use crate::guest::alloc::{Allocator, Collector, Input};
+use crate::libc::{c_int, c_long, size_t, SYS_sendto};
 use crate::Result;
-
-use crate::libc::{self, c_int, c_long, size_t};
 
 pub struct Send<'a> {
     pub sockfd: c_int,
@@ -15,7 +14,7 @@ pub struct Send<'a> {
 }
 
 unsafe impl<'a> Alloc<'a> for Send<'a> {
-    const NUM: c_long = libc::SYS_sendto;
+    const NUM: c_long = SYS_sendto;
 
     type Argv = Argv<4>;
     type Ret = size_t;

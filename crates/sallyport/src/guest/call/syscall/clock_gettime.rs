@@ -3,9 +3,8 @@
 use super::super::types::Argv;
 use super::Alloc;
 use crate::guest::alloc::{Allocator, Collect, Collector, Output};
+use crate::libc::{c_long, clockid_t, timespec, SYS_clock_gettime};
 use crate::Result;
-
-use crate::libc::{self, c_long, clockid_t, timespec};
 
 pub struct ClockGettime<'a> {
     pub clockid: clockid_t,
@@ -13,7 +12,7 @@ pub struct ClockGettime<'a> {
 }
 
 unsafe impl<'a> Alloc<'a> for ClockGettime<'a> {
-    const NUM: c_long = libc::SYS_clock_gettime;
+    const NUM: c_long = SYS_clock_gettime;
 
     type Argv = Argv<2>;
     type Ret = ();

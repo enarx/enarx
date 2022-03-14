@@ -2,7 +2,8 @@
 
 //! System call item definitions
 
-use crate::libc;
+use crate::libc::c_int;
+
 use core::mem::size_of;
 
 /// Payload of an [`Item`](super::Item) of [`Kind::Syscall`](super::Kind::Syscall).
@@ -26,13 +27,13 @@ impl From<&mut [usize; USIZE_COUNT]> for &mut Payload {
 
 // arch_prctl syscalls not available in the libc crate as of version 0.2.69
 /// missing in libc
-pub const ARCH_SET_GS: libc::c_int = 0x1001;
+pub const ARCH_SET_GS: c_int = 0x1001;
 /// missing in libc
-pub const ARCH_SET_FS: libc::c_int = 0x1002;
+pub const ARCH_SET_FS: c_int = 0x1002;
 /// missing in libc
-pub const ARCH_GET_FS: libc::c_int = 0x1003;
+pub const ARCH_GET_FS: c_int = 0x1003;
 /// missing in libc
-pub const ARCH_GET_GS: libc::c_int = 0x1004;
+pub const ARCH_GET_GS: c_int = 0x1004;
 
 // [`libc::sigaction`] is not in the format used by the kernel.
 /// sigaction as expected by the kernel.

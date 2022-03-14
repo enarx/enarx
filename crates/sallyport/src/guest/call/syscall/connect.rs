@@ -4,9 +4,8 @@ use super::super::types::Argv;
 use super::types::SockaddrInput;
 use super::Alloc;
 use crate::guest::alloc::{Allocator, Collector, Input, Stage};
+use crate::libc::{c_int, c_long, SYS_connect};
 use crate::Result;
-
-use crate::libc::{self, c_int, c_long};
 
 pub struct Connect<T> {
     pub sockfd: c_int,
@@ -14,7 +13,7 @@ pub struct Connect<T> {
 }
 
 unsafe impl<'a, T: Into<SockaddrInput<'a>>> Alloc<'a> for Connect<T> {
-    const NUM: c_long = libc::SYS_connect;
+    const NUM: c_long = SYS_connect;
 
     type Argv = Argv<3>;
     type Ret = ();

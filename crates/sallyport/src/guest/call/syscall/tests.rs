@@ -5,10 +5,11 @@ use crate::guest::alloc::{Alloc, Allocator, Collect, Commit, Committer};
 use crate::guest::call::kind;
 use crate::guest::syscall::types::SockaddrOutput;
 use crate::guest::Call;
-use crate::item::{self, syscall};
+use crate::item;
+use crate::item::syscall;
+use crate::libc::{socklen_t, SYS_exit, SYS_recvfrom, AF_INET, ENOSYS};
 use crate::NULL;
 
-use crate::libc::{self, socklen_t, AF_INET};
 use core::mem::size_of;
 
 fn assert_call<'a, K: kind::Kind, T: Call<'a, K>, const N: usize>(
@@ -41,14 +42,14 @@ fn exit() {
         [
             syscall::USIZE_COUNT * size_of::<usize>(),
             item::Kind::Syscall as _,
-            libc::SYS_exit as _,
+            SYS_exit as _,
             2,
             NULL,
             NULL,
             NULL,
             NULL,
             NULL,
-            -libc::ENOSYS as _,
+            -ENOSYS as _,
             0,
         ],
         [0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0, 0],
@@ -71,14 +72,14 @@ fn recv() {
         [
             syscall::USIZE_COUNT * size_of::<usize>() + size_of::<usize>(),
             item::Kind::Syscall as _,
-            libc::SYS_recvfrom as _,
+            SYS_recvfrom as _,
             sockfd as _,
             0,
             buf_len,
             flags as _,
             NULL,
             NULL,
-            -libc::ENOSYS as _,
+            -ENOSYS as _,
             0,
             0,
         ],
@@ -108,14 +109,14 @@ fn recvfrom() {
         [
             syscall::USIZE_COUNT * size_of::<usize>() + 2 * size_of::<usize>(),
             item::Kind::Syscall as _,
-            libc::SYS_recvfrom as _,
+            SYS_recvfrom as _,
             sockfd as _,
             size_of::<usize>() + size_of::<socklen_t>(),
             buf_len,
             flags as _,
             0,
             size_of::<usize>(),
-            -libc::ENOSYS as _,
+            -ENOSYS as _,
             0,
             0,
             7,

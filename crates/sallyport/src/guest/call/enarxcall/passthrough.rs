@@ -1,11 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::libc::c_void;
-
 use super::super::types::Argv;
 use super::Alloc;
 use crate::guest::alloc::{Allocator, Collector};
 use crate::item::enarxcall::Number;
+use crate::libc::c_void;
 use crate::Result;
 
 /// Trait implemented by allocatable Enarx calls, which are passed through directly to the host and do

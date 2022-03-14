@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use super::{Allocator, Collector, Committer, InOutRef, InRef, OutRef};
+use crate::libc::{EFAULT, ENOMEM, EOVERFLOW};
 use crate::Result;
 
-use crate::libc::{EFAULT, ENOMEM, EOVERFLOW};
 use core::alloc::Layout;
 use core::marker::PhantomData;
 use core::mem::{align_of, size_of};

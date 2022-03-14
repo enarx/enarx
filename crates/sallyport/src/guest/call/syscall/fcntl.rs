@@ -4,12 +4,11 @@ use super::super::alloc::kind;
 use super::super::types::Argv;
 use super::super::{MaybeAlloc, UnstagedMaybeAlloc};
 use super::PassthroughAlloc;
-use crate::Result;
-
 use crate::libc::{
-    self, c_int, c_long, EBADFD, EINVAL, F_GETFD, F_GETFL, F_SETFD, F_SETFL, O_APPEND, O_RDWR,
+    c_int, c_long, SYS_fcntl, EBADFD, EINVAL, F_GETFD, F_GETFL, F_SETFD, F_SETFL, O_APPEND, O_RDWR,
     O_WRONLY, STDERR_FILENO, STDIN_FILENO, STDOUT_FILENO,
 };
+use crate::Result;
 
 pub struct Fcntl {
     pub fd: c_int,
@@ -37,7 +36,7 @@ impl<'a> MaybeAlloc<'a, kind::Syscall> for Fcntl {
 pub struct AllocFcntl(Fcntl);
 
 unsafe impl PassthroughAlloc for AllocFcntl {
-    const NUM: c_long = libc::SYS_fcntl;
+    const NUM: c_long = SYS_fcntl;
 
     type Argv = Argv<3>;
     type Ret = c_int;

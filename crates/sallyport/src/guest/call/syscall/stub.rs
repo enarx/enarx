@@ -2,12 +2,13 @@
 
 use super::super::Stub;
 use crate::guest::alloc::Collector;
+use crate::libc::{
+    c_char, c_int, c_uint, gid_t, pid_t, sigset_t, size_t, stack_t, stat, uid_t, utsname, EAGAIN,
+    EBADFD, EINVAL, ENOENT, GRND_NONBLOCK, GRND_RANDOM, STDERR_FILENO, STDIN_FILENO, STDOUT_FILENO,
+    S_IFIFO,
+};
 use crate::Result;
 
-use crate::libc::{
-    self, c_char, c_int, c_uint, gid_t, pid_t, sigset_t, size_t, stack_t, stat, uid_t, utsname,
-    EBADFD, EINVAL, ENOENT, STDERR_FILENO, STDIN_FILENO, STDOUT_FILENO, S_IFIFO,
-};
 use core::mem;
 
 /// Fake GID returned by enarx.
@@ -126,8 +127,8 @@ impl Stub for Getrandom<'_> {
     type Ret = Result<size_t>;
 
     fn collect(self, _: &impl Collector) -> Self::Ret {
-        if self.flags & !(libc::GRND_NONBLOCK | libc::GRND_RANDOM) != 0 {
-            return Err(libc::EINVAL);
+        if self.flags & !(GRND_NONBLOCK | GRND_RANDOM) != 0 {
+            return Err(EINVAL);
         }
 
         for (i, chunk) in self.buf.chunks_mut(8).enumerate() {
@@ -137,10 +138,10 @@ impl Stub for Getrandom<'_> {
                     chunk.copy_from_slice(&el.to_ne_bytes()[..chunk.len()]);
                     break;
                 } else {
-                    if (self.flags & libc::GRND_NONBLOCK) != 0 {
-                        return Err(libc::EAGAIN);
+                    if (self.flags & GRND_NONBLOCK) != 0 {
+                        return Err(EAGAIN);
                     }
-                    if (self.flags & libc::GRND_RANDOM) != 0 {
+                    if (self.flags & GRND_RANDOM) != 0 {
                         return Ok(i.checked_mul(8).unwrap());
                     }
                 }

@@ -12,9 +12,9 @@ pub use enarxcall::Payload as Enarxcall;
 pub use gdbcall::Payload as Gdbcall;
 pub use syscall::Payload as Syscall;
 
+use crate::libc::EINVAL;
 use crate::Error;
 
-use crate::libc::EINVAL;
 use core::convert::{TryFrom, TryInto};
 use core::mem::size_of;
 

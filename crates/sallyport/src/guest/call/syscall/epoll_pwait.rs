@@ -3,9 +3,8 @@
 use super::super::types::Argv;
 use super::Alloc;
 use crate::guest::alloc::{Allocator, Collector, Commit, Committer, Input, Output};
+use crate::libc::{c_int, c_long, epoll_event, sigset_t, SYS_epoll_pwait};
 use crate::Result;
-
-use crate::libc::{self, c_int, c_long, epoll_event, sigset_t};
 
 pub struct EpollPwait<'a> {
     pub epfd: c_int,
@@ -30,7 +29,7 @@ impl<'a> Commit for StagedEpollPwait<'a> {
 }
 
 unsafe impl<'a> Alloc<'a> for EpollPwait<'a> {
-    const NUM: c_long = libc::SYS_epoll_pwait;
+    const NUM: c_long = SYS_epoll_pwait;
 
     type Argv = Argv<5>;
     type Ret = c_int;

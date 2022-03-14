@@ -8,9 +8,9 @@ mod enarxcall;
 mod syscall;
 
 use crate::item::Item;
+use crate::libc::{EFAULT, EOVERFLOW};
 use crate::Result;
 
-use crate::libc::{EFAULT, EOVERFLOW};
 use core::mem::{align_of, size_of};
 use core::ptr::slice_from_raw_parts_mut;
 

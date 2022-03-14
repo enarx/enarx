@@ -148,7 +148,7 @@ impl<'a> Iterator for BlockIterator<'a> {
 mod tests {
     use super::super::HEADER_USIZE_COUNT;
     use super::*;
-    use crate::libc;
+    use crate::libc::{SYS_exit, SYS_read, ENOSYS};
 
     #[test]
     fn block_size_hint() {
@@ -168,27 +168,27 @@ mod tests {
         let mut block: [usize; 3 * HEADER_USIZE_COUNT + 2 * syscall::USIZE_COUNT + 1] = [
             (syscall::USIZE_COUNT + 1) * size_of::<usize>(), // size
             Kind::Syscall as _,                              // kind
-            libc::SYS_read as _,                             // num
+            SYS_read as _,                                   // num
             1,                                               // fd
             0,                                               // buf
             4,                                               // count
             0,                                               // -
             0,                                               // -
             0,                                               // -
-            -libc::ENOSYS as _,                              // ret
+            -ENOSYS as _,                                    // ret
             0,                                               // -
             0xdeadbeef,                                      // data
             /* --------------------- */
             syscall::USIZE_COUNT * size_of::<usize>(), // size
             Kind::Syscall as _,                        // kind
-            libc::SYS_exit as _,                       // num
+            SYS_exit as _,                             // num
             5,                                         // status
             0,                                         // -
             0,                                         // -
             0,                                         // -
             0,                                         // -
             0,                                         // -
-            -libc::ENOSYS as _,                        // ret
+            -ENOSYS as _,                              // ret
             0,                                         // -
             /* --------------------- */
             0,              // size
@@ -201,9 +201,9 @@ mod tests {
         let item = block_iter.next().unwrap();
         assert!(
             matches!(item, Item::Syscall (syscall::Payload{ num, argv, ret }, data) if {
-                assert_eq!(*num, libc::SYS_read as _);
+                assert_eq!(*num, SYS_read as _);
                 assert_eq!(*argv, [1, 0, 4, 0, 0, 0]);
-                assert_eq!(*ret, [-libc::ENOSYS as _, 0]);
+                assert_eq!(*ret, [-ENOSYS as _, 0]);
                 assert_eq!(data, [0xef, 0xbe, 0xad, 0xde, 0, 0, 0, 0]);
                 true
             })
@@ -212,9 +212,9 @@ mod tests {
         let item = block_iter.next().unwrap();
         assert!(
             matches!(item, Item::Syscall (syscall::Payload{ num, argv, ret }, data) if {
-                assert_eq!(*num, libc::SYS_exit as _);
+                assert_eq!(*num, SYS_exit as _);
                 assert_eq!(*argv, [5, 0, 0, 0, 0, 0]);
-                assert_eq!(*ret, [-libc::ENOSYS as _, 0]);
+                assert_eq!(*ret, [-ENOSYS as _, 0]);
                 assert_eq!(data, []);
                 true
             })

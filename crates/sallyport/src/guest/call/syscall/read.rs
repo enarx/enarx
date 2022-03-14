@@ -3,9 +3,8 @@
 use super::super::types::Argv;
 use super::Alloc;
 use crate::guest::alloc::{Allocator, Collector, Output};
+use crate::libc::{c_int, c_long, size_t, SYS_read};
 use crate::Result;
-
-use crate::libc::{self, c_int, c_long, size_t};
 
 pub struct Read<'a> {
     pub fd: c_int,
@@ -13,7 +12,7 @@ pub struct Read<'a> {
 }
 
 unsafe impl<'a> Alloc<'a> for Read<'a> {
-    const NUM: c_long = libc::SYS_read;
+    const NUM: c_long = SYS_read;
 
     type Argv = Argv<3>;
     type Ret = size_t;

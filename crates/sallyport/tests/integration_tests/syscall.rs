@@ -2,15 +2,17 @@
 
 use super::{run_test, write_tcp};
 
+use sallyport::libc;
 use sallyport::libc::{
-    self, c_int, in_addr, iovec, sockaddr, sockaddr_in, timespec, timeval, SYS_accept, SYS_accept4,
-    SYS_bind, SYS_close, SYS_fcntl, SYS_fstat, SYS_getrandom, SYS_getsockname, SYS_listen,
-    SYS_nanosleep, SYS_open, SYS_read, SYS_readlink, SYS_readv, SYS_recvfrom, SYS_sendto,
-    SYS_setsockopt, SYS_socket, SYS_write, SYS_writev, AF_INET, EACCES, EBADF, EBADFD, EINVAL,
-    ENOENT, ENOSYS, F_GETFD, F_GETFL, F_SETFD, F_SETFL, GRND_RANDOM, MSG_NOSIGNAL, O_APPEND,
-    O_CREAT, O_RDONLY, O_RDWR, O_WRONLY, SOCK_CLOEXEC, SOCK_STREAM, SOL_SOCKET, SO_RCVTIMEO,
-    SO_REUSEADDR, STDERR_FILENO, STDIN_FILENO, STDOUT_FILENO,
+    c_int, in_addr, iovec, pollfd, sockaddr, sockaddr_in, timespec, timeval, SYS_accept,
+    SYS_accept4, SYS_bind, SYS_close, SYS_fcntl, SYS_fstat, SYS_getrandom, SYS_getsockname,
+    SYS_listen, SYS_nanosleep, SYS_open, SYS_read, SYS_readlink, SYS_readv, SYS_recvfrom,
+    SYS_sendto, SYS_setsockopt, SYS_socket, SYS_write, SYS_writev, AF_INET, EACCES, EBADF, EBADFD,
+    EINVAL, ENOENT, ENOSYS, F_GETFD, F_GETFL, F_SETFD, F_SETFL, GRND_RANDOM, MSG_NOSIGNAL,
+    O_APPEND, O_CREAT, O_RDONLY, O_RDWR, O_WRONLY, SOCK_CLOEXEC, SOCK_STREAM, SOL_SOCKET,
+    SO_RCVTIMEO, SO_REUSEADDR, STDERR_FILENO, STDIN_FILENO, STDOUT_FILENO,
 };
+
 use std::env::temp_dir;
 use std::ffi::CString;
 use std::fs::{File, OpenOptions};
@@ -462,18 +464,18 @@ fn open() {
 #[cfg_attr(miri, ignore)]
 fn poll() {
     run_test(1, [0xff; 16], move |_, _, handler| {
-        let mut fds: [libc::pollfd; 3] = [
-            libc::pollfd {
+        let mut fds: [pollfd; 3] = [
+            pollfd {
                 fd: 0,
                 events: 0,
                 revents: 0,
             },
-            libc::pollfd {
+            pollfd {
                 fd: 1,
                 events: 0,
                 revents: 0,
             },
-            libc::pollfd {
+            pollfd {
                 fd: 2,
                 events: 0,
                 revents: 0,
