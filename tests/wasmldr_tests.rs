@@ -4,11 +4,10 @@
 
 use process_control::{ChildExt, Control, Output};
 use serial_test::serial;
-use std::fs::File;
-use tempfile::tempdir;
+use tempfile::NamedTempFile;
 
-use std::io::Write;
-use std::net;
+use std::io::{Read, Write};
+use std::net::{self, TcpStream};
 use std::path::Path;
 use std::process::{Command, Stdio};
 use std::thread;
@@ -151,9 +150,8 @@ fn hello_wasi_snapshot1() {
 #[test]
 #[serial]
 fn no_export() {
-    // This module has no exported functions, so we get Error::ExportNotFound,
-    // which wasmldr maps to EX_DATAERR (65) at process exit.
-    run_wasm_test("no_export.wasm", 65, None, None, None);
+    // This module has no exported functions, so we get an error.
+    run_wasm_test("no_export.wasm", 1, None, None, None);
 }
 
 #[test]
@@ -224,130 +222,71 @@ fn zerooneone() {
 
 #[test]
 #[serial]
-fn check_fd() {
-    use std::sync::mpsc::channel;
+fn check_tcp() {
+    const MSG: &str = "one\ntwo\nthree\n";
+    const CFG: &str = r#"
+        [[files]]
+        kind = "stdin"
 
-    enum ThreadFinished {
-        Client,
-        Server,
-    }
+        [[files]]
+        kind = "stdout"
 
-    let tcp_listener = net::TcpListener::bind("127.0.0.1:0").unwrap();
-    let tcp_port = tcp_listener.local_addr().unwrap().port();
+        [[files]]
+        kind = "stderr"
 
-    let tls_listener = net::TcpListener::bind("127.0.0.1:0").unwrap();
-    let tls_port = tls_listener.local_addr().unwrap().port();
+        [[files]]
+        kind = "listen"
+        prot = "tcp"
+        port = @@LPORT@@
+        name = "LISTEN"
 
-    drop(tcp_listener);
-    drop(tls_listener);
+        [[files]]
+        kind = "connect"
+        prot = "tcp"
+        host = "127.0.0.1"
+        port = @@CPORT@@
+        name = "CONNECT"
+    "#;
 
-    let tmpdir = tempdir().unwrap();
-    let configfile_path = tmpdir.path().join("config.toml");
-    let mut configfile = File::create(&configfile_path).unwrap();
-    let configfile_path = configfile_path.to_str().unwrap();
+    // Create listening sockets (allocate a port).
+    let listen = net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let connect = net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let lport = listen.local_addr().unwrap().port();
+    let cport = connect.local_addr().unwrap().port();
+    drop(connect);
 
-    let (tx, rx) = channel::<ThreadFinished>();
+    // Write the config.
+    let cfg = CFG
+        .replace("@@LPORT@@", &cport.to_string())
+        .replace("@@CPORT@@", &lport.to_string());
+    let mut file = NamedTempFile::new().unwrap();
+    file.write_all(cfg.as_bytes()).unwrap();
+    file.flush().unwrap();
 
-    let client_handle = thread::spawn({
-        let tx = tx.clone();
-        move || {
-            let result = std::panic::catch_unwind(|| {
-                use std::io::Read;
-                // Retry connecting until the server started hopefully
-                for i in (0..600).rev() {
-                    thread::sleep(time::Duration::from_secs(1));
-                    let res = net::TcpStream::connect(("127.0.0.1", tcp_port));
-                    if res.is_err() {
-                        if i > 0 {
-                            continue;
-                        } else {
-                            panic!("Failed to connect to 127.0.0.1:{tcp_port}");
-                        }
-                    }
+    // Spawn the IO thread.
+    let background = thread::spawn(move || {
+        let mut output = listen.accept().unwrap().0;
+        output.write_all(MSG.as_bytes()).unwrap();
+        drop(output);
 
-                    let mut stream = res.unwrap();
-                    let mut buf = String::new();
-                    stream.read_to_string(&mut buf).unwrap();
-                    assert_eq!(buf, "Hello World!");
+        let mut input = TcpStream::connect(("127.0.0.1", cport)).unwrap();
+        let mut buffer = String::new();
+        input.read_to_string(&mut buffer).unwrap();
+        drop(input);
 
-                    let res = net::TcpStream::connect(("127.0.0.1", tls_port));
-                    if res.is_err() {
-                        if i > 0 {
-                            continue;
-                        } else {
-                            panic!("Failed to connect to 127.0.0.1:{tls_port}");
-                        }
-                    }
-                    break;
-                }
-            });
-
-            tx.send(ThreadFinished::Client).unwrap();
-            if result.is_err() {
-                panic!("client thread panicked");
-            }
-        }
+        buffer
     });
 
-    write!(
-        configfile,
-        r#"
-[[files]]
-kind = "stdin"
+    run_crate(
+        "tests/wasm/rust-tests",
+        "check_fd",
+        &["--wasmcfgfile", file.path().to_str().unwrap()][..],
+        0,
+        None,
+        None,
+        None,
+    );
 
-[[files]]
-kind = "stdout"
-
-[[files]]
-kind = "stderr"
-
-[[files]]
-kind = "listen"
-prot = "tcp"
-port = {}
-name = "TEST_TCP_LISTEN"
-
-[[files]]
-kind = "listen"
-prot = "tls"
-port = {}
-name = "TEST_TLS_LISTEN"
-    "#,
-        tcp_port, tls_port,
-    )
-    .unwrap();
-    drop(configfile);
-
-    let server_handle = thread::spawn({
-        let configfile_path = configfile_path.to_owned();
-        move || {
-            let result = std::panic::catch_unwind(|| {
-                run_crate(
-                    "tests/wasm/rust-tests",
-                    "check_fd",
-                    &["--wasmcfgfile", &configfile_path][..],
-                    0,
-                    None,
-                    None,
-                    None,
-                );
-            });
-
-            tx.send(ThreadFinished::Server).unwrap();
-            if result.is_err() {
-                panic!("server thread panicked");
-            }
-        }
-    });
-
-    match rx.recv().unwrap() {
-        ThreadFinished::Client => {
-            client_handle.join().unwrap();
-            server_handle.join().unwrap();
-        }
-        ThreadFinished::Server => {
-            server_handle.join().unwrap();
-            client_handle.join().unwrap();
-        }
-    }
+    let output = background.join().unwrap();
+    assert_eq!(MSG, &output);
 }

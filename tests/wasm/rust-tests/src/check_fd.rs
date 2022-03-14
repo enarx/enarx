@@ -2,8 +2,8 @@
 
 #![cfg_attr(target_os = "wasi", feature(wasi_ext))]
 
-use std::io::Write;
-use std::net::TcpListener;
+use std::io::{BufRead, BufReader, Write};
+use std::net::{TcpListener, TcpStream};
 
 #[cfg(unix)]
 use std::os::unix::io::FromRawFd;
@@ -19,25 +19,23 @@ fn main() -> std::io::Result<()> {
 
     let fd_names = std::env::var("FD_NAMES").expect("No FD_NAMES");
 
-    assert_eq!(
-        fd_names,
-        "stdin:stdout:stderr:TEST_TCP_LISTEN:TEST_TLS_LISTEN"
-    );
+    assert_eq!(fd_names, "stdin:stdout:stderr:LISTEN:CONNECT");
     assert_eq!(fd_count, 5);
 
-    let tcp_listener = unsafe { TcpListener::from_raw_fd(3) };
-    tcp_listener.set_nonblocking(false).unwrap();
+    // Set up the environment sockets.
+    let connect = unsafe { TcpStream::from_raw_fd(4) };
+    let listen = unsafe { TcpListener::from_raw_fd(3) };
 
-    let (mut tcp_stream, _addr) = tcp_listener.accept()?;
-    tcp_stream.set_nonblocking(false).unwrap();
-    tcp_stream.write_all(b"Hello World!")?;
+    // Accept the incoming connection.
+    let mut socket = listen.accept().unwrap().0;
 
-    let tls_listener = unsafe { TcpListener::from_raw_fd(4) };
-    tls_listener.set_nonblocking(false).unwrap();
-
-    let (mut tls_stream, _addr) = tls_listener.accept()?;
-    tls_stream.set_nonblocking(false).unwrap();
-    tls_stream.write_all(b"Hello World!")?;
+    // Output all incoming lines to the output.
+    let reader = BufReader::new(connect);
+    for line in reader.lines() {
+        let line = line.unwrap();
+        socket.write_all(line.as_bytes()).unwrap();
+        socket.write_all(b"\n").unwrap();
+    }
 
     Ok(())
 }
