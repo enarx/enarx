@@ -12,17 +12,15 @@ use std::os::unix::io::FromRawFd;
 use std::os::wasi::io::FromRawFd;
 
 fn main() -> std::io::Result<()> {
-    let listen_fds: i32 = std::env::var("LISTEN_FDS")
-        .expect("No LISTEN_FDS")
+    let fd_count: i32 = std::env::var("FD_COUNT")
+        .expect("No FD_COUNT")
         .parse()
-        .expect("Failed to parse LISTEN_FDS to i32");
+        .expect("Failed to parse FD_COUNT to i32");
 
-    let listen_fdnames = std::env::var("LISTEN_FDNAMES").expect("No LISTEN_FDNAMES");
+    let fd_names = std::env::var("FD_NAMES").expect("No FD_NAMES");
+    dbg!(fd_names);
 
-    dbg!(listen_fds);
-    dbg!(listen_fdnames);
-
-    assert_eq!(listen_fds, 1);
+    assert_eq!(fd_count, 4);
 
     let listener = unsafe { TcpListener::from_raw_fd(3) };
 
