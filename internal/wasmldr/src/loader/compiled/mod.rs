@@ -4,7 +4,6 @@ mod null;
 mod tls;
 
 use null::Null;
-use tls::{Listener as TlsListener, Stream as TlsStream};
 
 use super::{Compiled, Connected, Loader};
 use crate::config::{File, Protocol};
@@ -15,7 +14,6 @@ use anyhow::Result;
 use cap_std::net::{TcpListener, TcpStream};
 use wasi_common::{file::FileCaps, WasiFile};
 use wasmtime::AsContextMut;
-use wasmtime_wasi::net::{Socket::TcpListener as Listener, Socket::TcpStream as Stream};
 use wasmtime_wasi::stdio::{stderr, stdin, stdout};
 
 impl Loader<Compiled> {
@@ -56,10 +54,10 @@ impl Loader<Compiled> {
                         | FileCaps::READ;
 
                     let tcp = std::net::TcpListener::bind((Ipv4Addr::UNSPECIFIED, *port))?;
-
+                    let tcp = TcpListener::from_std(tcp);
                     match prot {
-                        Protocol::Tcp => (Listener(TcpListener::from_std(tcp)).into(), caps),
-                        Protocol::Tls => (TlsListener::new(tcp, srv).into(), caps),
+                        Protocol::Tcp => (wasmtime_wasi::net::Socket::from(tcp).into(), caps),
+                        Protocol::Tls => (tls::Listener::new(tcp, srv).into(), caps),
                     }
                 }
 
@@ -73,10 +71,10 @@ impl Loader<Compiled> {
                         | FileCaps::WRITE;
 
                     let tcp = std::net::TcpStream::connect((&**host, *port))?;
-
+                    let tcp = TcpStream::from_std(tcp);
                     match prot {
-                        Protocol::Tcp => (Stream(TcpStream::from_std(tcp)).into(), caps),
-                        Protocol::Tls => (TlsStream::connect(tcp, host, clt)?.into(), caps),
+                        Protocol::Tcp => (wasmtime_wasi::net::Socket::from(tcp).into(), caps),
+                        Protocol::Tls => (tls::Stream::connect(tcp, host, clt)?.into(), caps),
                     }
                 }
             };
