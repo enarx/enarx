@@ -44,7 +44,7 @@ use sallyport::item::syscall::{ARCH_GET_FS, ARCH_GET_GS, ARCH_SET_FS, ARCH_SET_G
 use crate::handler::usermem::UserMemScope;
 use crate::{DEBUG, ENARX_EXEC_END, ENARX_EXEC_START, ENCL_SIZE};
 use sgx::ssa::StateSaveArea;
-use x86_64::structures::idt::ExceptionVector;
+use sgx::ssa::Vector;
 
 // Opcode constants, details in Volume 2 of the Intel 64 and IA-32 Architectures Software
 // Developer's Manual
@@ -194,7 +194,7 @@ impl<'a> Handler<'a> {
 
     /// Finish handling an exception
     pub fn finish(ssa: &'a mut StateSaveArea) {
-        if let Some(ExceptionVector::InvalidOpcode) = ssa.vector() {
+        if let Some(Vector::InvalidOpcode) = ssa.vector() {
             if let OP_SYSCALL | OP_CPUID = unsafe { read_unaligned(ssa.gpr.rip as _) } {
                 // Skip the instruction.
                 ssa.gpr.rip += 2;
@@ -210,35 +210,33 @@ impl<'a> Handler<'a> {
         let mut h = Self::new(ssa, block);
 
         match h.ssa.vector() {
-            Some(ExceptionVector::InvalidOpcode) => {
-                match unsafe { read_unaligned(h.ssa.gpr.rip as _) } {
-                    OP_SYSCALL => h.handle_syscall(),
-                    OP_CPUID => h.handle_cpuid(),
-                    r => {
-                        debugln!(h, "unsupported opcode: {:#04x}", r);
-                        h.print_ssa_stack_trace();
+            Some(Vector::InvalidOpcode) => match unsafe { read_unaligned(h.ssa.gpr.rip as _) } {
+                OP_SYSCALL => h.handle_syscall(),
+                OP_CPUID => h.handle_cpuid(),
+                r => {
+                    debugln!(h, "unsupported opcode: {:#04x}", r);
+                    h.print_ssa_stack_trace();
 
-                        #[cfg(feature = "gdb")]
-                        if r as u8 == 0xCC {
-                            let rip = h.ssa.gpr.rip;
-                            if unsafe { crate::handler::gdb::unset_bp(rip) } {
-                                debugln!(h, "unset_bp: {:#x}", rip);
-                            }
-                        }
-
-                        #[cfg(feature = "gdb")]
-                        h.gdb_session();
-
-                        if r == unsafe { read_unaligned(h.ssa.gpr.rip as _) } {
-                            let _ = h.exit_group(1);
-                            unreachable!()
+                    #[cfg(feature = "gdb")]
+                    if r as u8 == 0xCC {
+                        let rip = h.ssa.gpr.rip;
+                        if unsafe { crate::handler::gdb::unset_bp(rip) } {
+                            debugln!(h, "unset_bp: {:#x}", rip);
                         }
                     }
+
+                    #[cfg(feature = "gdb")]
+                    h.gdb_session();
+
+                    if r == unsafe { read_unaligned(h.ssa.gpr.rip as _) } {
+                        let _ = h.exit_group(1);
+                        unreachable!()
+                    }
                 }
-            }
+            },
 
             #[cfg(feature = "gdb")]
-            Some(ExceptionVector::Page) => {
+            Some(Vector::Page) => {
                 h.print_ssa_stack_trace();
                 h.gdb_session();
                 let _ = h.exit_group(1);
