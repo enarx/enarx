@@ -23,7 +23,7 @@ name="zerooneone"
 path= "src/zerooneone.rs"
 
 [[bin]]
-name="check_listen_fd"
-path="src/check_listen_fd.rs"
+name="check_fd"
+path="src/check_fd.rs"
 
 [dependencies]

@@ -224,7 +224,7 @@ fn zerooneone() {
 
 #[test]
 #[serial]
-fn check_listen_fd() {
+fn check_fd() {
     use std::sync::mpsc::channel;
 
     enum ThreadFinished {
@@ -304,7 +304,7 @@ name = "TEST_TCP_LISTEN"
             let result = std::panic::catch_unwind(|| {
                 run_crate(
                     "tests/wasm/rust-tests",
-                    "check_listen_fd",
+                    "check_fd",
                     &["--wasmcfgfile", &configfile_path][..],
                     0,
                     None,
