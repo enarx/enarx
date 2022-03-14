@@ -14,6 +14,7 @@ use std::mem::{size_of, MaybeUninit};
 use std::net::TcpStream;
 use std::sync::Arc;
 
+use crate::backend::sgx::attestation::get_quote_size;
 use anyhow::{Context, Result};
 use sallyport::host::{deref_aligned, deref_slice};
 use sallyport::item;
@@ -138,6 +139,17 @@ fn sgx_enarxcall<'a>(enarxcall: &'a mut Payload, data: &'a mut [u8]) -> Result<O
 
             let akid = get_attestation_key_id().context("error obtaining attestation key id")?;
             *ret = get_quote(report_buf, akid, quote_buf).context("error getting quote")?;
+
+            Ok(None)
+        }
+
+        item::Enarxcall {
+            num: item::enarxcall::Number::GetSgxQuoteSize,
+            ret,
+            ..
+        } => {
+            let akid = get_attestation_key_id().context("error obtaining attestation key id")?;
+            *ret = get_quote_size(akid).context("error getting quote size")?;
 
             Ok(None)
         }
