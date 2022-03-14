@@ -1,15 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use super::{Configured, Loader, Requested};
+use super::{pki::PrivateKeyInfoExt, Configured, Loader, Requested};
 
 use anyhow::Result;
-use const_oid::ObjectIdentifier;
 
-use const_oid::db::rfc5912::ECDSA_WITH_SHA_256;
-use const_oid::AssociatedOid;
-use pkcs8::{AlgorithmIdentifier, PrivateKeyInfo, SubjectPublicKeyInfo};
-use ring::signature::{EcdsaKeyPair, ECDSA_P256_SHA256_ASN1_SIGNING as ALG};
-use sec1::EcPrivateKey;
+use const_oid::{db::rfc5912::SECP_256_R_1, AssociatedOid, ObjectIdentifier};
+use pkcs8::PrivateKeyInfo;
 use x509::der::{asn1::BitString, Any, Decodable, Encodable};
 use x509::request::{CertReq, CertReqInfo, ExtensionReq};
 use x509::{attr::Attribute, ext::Extension, name::RdnSequence};
@@ -19,29 +15,9 @@ impl Loader<Configured> {
     //const SGX: ObjectIdentifier = ObjectIdentifier::new_unwrap("1.3.6.1.4.1.58270.1.2");
     //const SNP: ObjectIdentifier = ObjectIdentifier::new_unwrap("1.3.6.1.4.1.58270.1.3");
 
-    pub fn next(self) -> Result<Loader<Requested>> {
-        // TODO:
-        //   1. get attestation
-        //   2. get intermediate cert
-        //   3. choose key type based on technology
-        //   4. generate tech-specific attestation extension request
-
-        // Generate a keypair.
-        let rng = ring::rand::SystemRandom::new();
-        let doc = EcdsaKeyPair::generate_pkcs8(&ALG, &rng)?;
-        let pki = PrivateKeyInfo::from_der(doc.as_ref())?;
-        let spki = SubjectPublicKeyInfo {
-            algorithm: pki.algorithm,
-            subject_public_key: EcPrivateKey::from_der(pki.private_key)?.public_key.unwrap(),
-        };
-
+    pub fn make_csr(pki: &PrivateKeyInfo<'_>, exts: Vec<Extension<'_>>) -> Result<Vec<u8>> {
         // Request the extensions.
-        let req = ExtensionReq::from(vec![Extension {
-            extn_id: Self::KVM,
-            critical: false,
-            extn_value: &[],
-        }])
-        .to_vec()?;
+        let req = ExtensionReq::from(exts).to_vec()?;
 
         // Embed the extension requests in an attribute.
         let any = Any::from_der(&req)?;
@@ -55,25 +31,45 @@ impl Loader<Configured> {
             version: x509::request::Version::V1,
             attributes: vec![att].try_into()?,
             subject: RdnSequence::default(),
-            public_key: spki,
+            public_key: pki.public_key()?,
         };
 
         // Sign the request.
-        let kp = EcdsaKeyPair::from_pkcs8(&ALG, doc.as_ref())?;
-        let sig = kp.sign(&rng, &cri.to_vec()?)?;
+        let sig = pki.sign(&cri.to_vec()?, pki.signs_with()?)?;
         let req = CertReq {
             info: cri,
-            algorithm: AlgorithmIdentifier {
-                oid: ECDSA_WITH_SHA_256,
-                parameters: None,
-            },
+            algorithm: pki.signs_with()?,
             signature: BitString::from_bytes(sig.as_ref())?,
         };
 
+        Ok(req.to_vec()?)
+    }
+
+    pub fn next(self) -> Result<Loader<Requested>> {
+        // TODO:
+        //   1. get attestation
+        //   2. get intermediate cert
+        //   3. choose key type based on technology
+        //   4. generate tech-specific attestation extension request
+
+        // Generate a keypair.
+        let raw = PrivateKeyInfo::generate(SECP_256_R_1)?;
+        let pki = PrivateKeyInfo::from_der(raw.as_ref())?;
+
+        // Create extensions.
+        let ext = vec![Extension {
+            extn_id: Self::KVM,
+            critical: false,
+            extn_value: &[],
+        }];
+
+        // Make a certificate signing request.
+        let req = Self::make_csr(&pki, ext)?;
+
         Ok(Loader(Requested {
             config: self.0.config,
-            prvkey: doc.as_ref().to_vec().into(),
-            crtreq: req.to_vec()?,
+            prvkey: raw,
+            crtreq: req,
         }))
     }
 }
