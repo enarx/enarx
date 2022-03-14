@@ -10,6 +10,5 @@ kind = "stderr"
 [[files]]
 kind = "listen"
 prot = "tls"
-addr = "127.0.0.1"
 port = 9000
 name = "TEST_TCP_LISTEN"
