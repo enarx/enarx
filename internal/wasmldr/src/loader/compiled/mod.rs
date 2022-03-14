@@ -9,6 +9,8 @@ use tls::{Listener as TlsListener, Stream as TlsStream};
 use super::{Compiled, Connected, Loader};
 use crate::config::{File, Protocol};
 
+use std::net::Ipv4Addr;
+
 use anyhow::Result;
 use cap_std::net::{TcpListener, TcpStream};
 use wasi_common::{file::FileCaps, WasiFile};
@@ -50,7 +52,7 @@ impl Loader<Compiled> {
                 File::Listen { port, prot, .. } => {
                     let caps = FileCaps::FDSTAT_SET_FLAGS | FileCaps::POLL_READWRITE;
 
-                    let tcp = std::net::TcpListener::bind((":::", *port))?;
+                    let tcp = std::net::TcpListener::bind((Ipv4Addr::UNSPECIFIED, *port))?;
 
                     match prot {
                         Protocol::Tcp => (Listener(TcpListener::from_std(tcp)).into(), caps),
