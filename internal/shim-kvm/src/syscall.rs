@@ -8,11 +8,11 @@ use crate::spin::{Locked, RacyCell};
 use core::arch::asm;
 use core::mem::size_of;
 
-#[cfg(feature = "dbg")]
-use libc::{SYS_write, STDERR_FILENO, STDOUT_FILENO};
 use sallyport::guest;
 use sallyport::guest::Handler;
 use sallyport::item::enarxcall::SYS_GETATT;
+#[cfg(feature = "dbg")]
+use sallyport::libc::{SYS_write, STDERR_FILENO, STDOUT_FILENO};
 use spinning::Lazy;
 
 #[repr(C)]

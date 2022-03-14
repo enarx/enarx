@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use core::slice;
-use libc::EINVAL;
 use sallyport::guest::Platform;
+use sallyport::libc::EINVAL;
 use sallyport::util::ptr::is_aligned_non_null;
 
 /// Memory validation scope
@@ -16,7 +16,7 @@ impl Platform for UserMemScope {
     /// * not borrowed already
     /// and registers the memory as borrowed mutably.
     ///
-    /// Returns a mutable borrow if valid, otherwise [`EINVAL`](libc::EINVAL).
+    /// Returns a mutable borrow if valid, otherwise [`EINVAL`](https://man7.org/linux/man-pages/man3/errno.3.html).
     ///
     /// [the ptr module documentation]: core::ptr#safety
     #[inline]
@@ -36,7 +36,7 @@ impl Platform for UserMemScope {
     /// * not borrowed already
     /// and registers the memory as borrowed.
     ///
-    /// Returns an immutable borrow if valid, otherwise [`EINVAL`](libc::EINVAL).
+    /// Returns an immutable borrow if valid, otherwise [`EINVAL`](https://man7.org/linux/man-pages/man3/errno.3.html).
     ///
     /// [the ptr module documentation]: core::ptr#safety
     #[inline]
@@ -56,7 +56,7 @@ impl Platform for UserMemScope {
     /// * not borrowed already
     /// and registers the memory as borrowed mutably.
     ///
-    /// Returns a mutable borrow if valid, otherwise [`EINVAL`](libc::EINVAL).
+    /// Returns a mutable borrow if valid, otherwise [`EINVAL`](https://man7.org/linux/man-pages/man3/errno.3.html).
     ///
     /// [the ptr module documentation]: core::ptr#safety
     #[inline]
@@ -80,7 +80,7 @@ impl Platform for UserMemScope {
     /// * not borrowed already
     /// and registers the memory as borrowed.
     ///
-    /// Returns an immutable borrow if valid, otherwise [`EINVAL`](libc::EINVAL).
+    /// Returns an immutable borrow if valid, otherwise [`EINVAL`](https://man7.org/linux/man-pages/man3/errno.3.html).
     ///
     /// [the ptr module documentation]: core::ptr#safety
     #[inline]

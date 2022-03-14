@@ -2,11 +2,15 @@
 
 //! Allocate and deallocate memory on a Heap
 
+use core::ffi::{c_int, c_size_t};
 use core::num::NonZeroUsize;
 use core::ops::Range;
 
 use const_default::ConstDefault;
 use primordial::Page;
+use sallyport::libc::{
+    off_t, EINVAL, ENOMEM, MAP_ANONYMOUS, MAP_PRIVATE, PROT_EXEC, PROT_READ, PROT_WRITE,
+};
 
 /// This section MUST be marked as RWX in the linker script
 #[link_section = ".enarx.heap"]
@@ -153,19 +157,19 @@ where
     /// mmap memory from the heap
     pub fn mmap<T>(
         &mut self,
-        addr: libc::size_t,
-        length: libc::size_t,
-        prot: libc::c_int,
-        flags: libc::c_int,
-        fd: libc::c_int,
-        offset: libc::off_t,
-    ) -> Result<*mut T, libc::c_int> {
-        const RWX: libc::c_int = libc::PROT_READ | libc::PROT_WRITE | libc::PROT_EXEC;
-        const PA: libc::c_int = libc::MAP_PRIVATE | libc::MAP_ANONYMOUS;
+        addr: c_size_t,
+        length: c_size_t,
+        prot: c_int,
+        flags: c_int,
+        fd: c_int,
+        offset: off_t,
+    ) -> Result<*mut T, c_int> {
+        const RWX: c_int = PROT_READ | PROT_WRITE | PROT_EXEC;
+        const PA: c_int = MAP_PRIVATE | MAP_ANONYMOUS;
 
         let prot = prot & !RWX;
         if addr != 0 || fd != -1 || offset != 0 || prot != 0 || flags != PA {
-            return Err(libc::EINVAL);
+            return Err(EINVAL);
         }
 
         // The number of pages we need for the given length.
@@ -176,7 +180,7 @@ where
 
         let end = match self.blk.0.len().checked_sub(pages) {
             Some(end) => end,
-            None => return Err(libc::ENOMEM),
+            None => return Err(ENOMEM),
         };
 
         // Search for pages from the end to the front.
@@ -192,31 +196,31 @@ where
             }
         }
 
-        Err(libc::ENOMEM)
+        Err(ENOMEM)
     }
 
     /// munmap memory from the heap
-    pub fn munmap<T>(&mut self, addr: *const T, length: usize) -> Result<(), libc::c_int> {
+    pub fn munmap<T>(&mut self, addr: *const T, length: usize) -> Result<(), c_int> {
         let addr = addr as usize;
 
         if addr % Page::SIZE != 0 {
-            return Err(libc::EINVAL);
+            return Err(EINVAL);
         }
 
         let brk = self.offset_page_up(self.pos()).unwrap();
 
         let bot = match self.offset_page_down(addr) {
             Some(page) => page,
-            None => return Err(libc::EINVAL),
+            None => return Err(EINVAL),
         };
 
         let top = match self.offset_page_up(addr + length) {
             Some(page) => page,
-            None => return Err(libc::EINVAL),
+            None => return Err(EINVAL),
         };
 
         if bot < brk {
-            return Err(libc::EINVAL);
+            return Err(EINVAL);
         }
 
         for page in bot..top {
@@ -231,11 +235,11 @@ where
 mod tests {
     use super::*;
 
+    use core::ffi::c_void;
     use core::ptr::null_mut;
-    use libc::c_void;
 
-    const PROT: libc::c_int = libc::PROT_READ;
-    const FLAGS: libc::c_int = libc::MAP_PRIVATE | libc::MAP_ANONYMOUS;
+    const PROT: c_int = PROT_READ;
+    const FLAGS: c_int = MAP_PRIVATE | MAP_ANONYMOUS;
 
     #[test]
     fn mmap_munmap_oneshot() {
@@ -271,7 +275,7 @@ mod tests {
             // try to allocate memory whose size exceeds the total heap size
             let len = heap.blk.0.len() * Page::SIZE + 1;
             let ret = heap.mmap::<c_void>(0, len, PROT, FLAGS, -1, 0);
-            assert_eq!(ret.unwrap_err(), libc::ENOMEM);
+            assert_eq!(ret.unwrap_err(), ENOMEM);
         }
     }
 
@@ -289,7 +293,7 @@ mod tests {
             let steps = [Page::SIZE, Page::SIZE / 2];
 
             for size in steps {
-                let mut addrs = [null_mut::<libc::c_void>(); 128];
+                let mut addrs = [null_mut::<c_void>(); 128];
 
                 for addr in addrs[brk_page..heap.blk.0.len()].iter_mut() {
                     *addr = heap.mmap(0, size, PROT, FLAGS, -1, 0).unwrap();
@@ -301,7 +305,7 @@ mod tests {
 
                 // try to allocate memory but no free pages
                 let ret = heap.mmap::<c_void>(0, size, PROT, FLAGS, -1, 0);
-                assert_eq!(ret.unwrap_err(), libc::ENOMEM);
+                assert_eq!(ret.unwrap_err(), ENOMEM);
 
                 for addr in addrs[brk_page..heap.blk.0.len()].iter() {
                     heap.munmap(*addr, size).unwrap();

@@ -280,7 +280,6 @@ dependencies = [
  "gdbstub",
  "gdbstub_arch",
  "goblin 0.5.1",
- "libc",
  "lset",
  "memoffset",
  "noted",
