@@ -18,19 +18,26 @@ fn main() -> std::io::Result<()> {
         .expect("Failed to parse FD_COUNT to i32");
 
     let fd_names = std::env::var("FD_NAMES").expect("No FD_NAMES");
-    dbg!(fd_names);
 
-    assert_eq!(fd_count, 4);
+    assert_eq!(
+        fd_names,
+        "stdin:stdout:stderr:TEST_TCP_LISTEN:TEST_TLS_LISTEN"
+    );
+    assert_eq!(fd_count, 5);
 
-    let listener = unsafe { TcpListener::from_raw_fd(3) };
+    let tcp_listener = unsafe { TcpListener::from_raw_fd(3) };
+    tcp_listener.set_nonblocking(false).unwrap();
 
-    listener.set_nonblocking(false).unwrap();
+    let (mut tcp_stream, _addr) = tcp_listener.accept()?;
+    tcp_stream.set_nonblocking(false).unwrap();
+    tcp_stream.write_all(b"Hello World!")?;
 
-    let (mut stream, _addr) = listener.accept()?;
+    let tls_listener = unsafe { TcpListener::from_raw_fd(4) };
+    tls_listener.set_nonblocking(false).unwrap();
 
-    stream.set_nonblocking(false).unwrap();
-
-    stream.write_all(b"Hello World!")?;
+    let (mut tls_stream, _addr) = tls_listener.accept()?;
+    tls_stream.set_nonblocking(false).unwrap();
+    tls_stream.write_all(b"Hello World!")?;
 
     Ok(())
 }

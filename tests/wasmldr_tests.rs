@@ -232,9 +232,14 @@ fn check_fd() {
         Server,
     }
 
-    let listener = net::TcpListener::bind("127.0.0.1:0").unwrap();
-    let port = listener.local_addr().unwrap().port();
-    drop(listener);
+    let tcp_listener = net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let tcp_port = tcp_listener.local_addr().unwrap().port();
+
+    let tls_listener = net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let tls_port = tls_listener.local_addr().unwrap().port();
+
+    drop(tcp_listener);
+    drop(tls_listener);
 
     let tmpdir = tempdir().unwrap();
     let configfile_path = tmpdir.path().join("config.toml");
@@ -251,12 +256,12 @@ fn check_fd() {
                 // Retry connecting until the server started hopefully
                 for i in (0..600).rev() {
                     thread::sleep(time::Duration::from_secs(1));
-                    let res = net::TcpStream::connect(("127.0.0.1", port));
+                    let res = net::TcpStream::connect(("127.0.0.1", tcp_port));
                     if res.is_err() {
                         if i > 0 {
                             continue;
                         } else {
-                            panic!("Failed to connect to 127.0.0.1:{port}");
+                            panic!("Failed to connect to 127.0.0.1:{tcp_port}");
                         }
                     }
 
@@ -264,6 +269,15 @@ fn check_fd() {
                     let mut buf = String::new();
                     stream.read_to_string(&mut buf).unwrap();
                     assert_eq!(buf, "Hello World!");
+
+                    let res = net::TcpStream::connect(("127.0.0.1", tls_port));
+                    if res.is_err() {
+                        if i > 0 {
+                            continue;
+                        } else {
+                            panic!("Failed to connect to 127.0.0.1:{tls_port}");
+                        }
+                    }
                     break;
                 }
             });
@@ -292,8 +306,14 @@ kind = "listen"
 prot = "tcp"
 port = {}
 name = "TEST_TCP_LISTEN"
+
+[[files]]
+kind = "listen"
+prot = "tls"
+port = {}
+name = "TEST_TLS_LISTEN"
     "#,
-        port
+        tcp_port, tls_port,
     )
     .unwrap();
     drop(configfile);
