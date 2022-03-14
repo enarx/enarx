@@ -50,6 +50,7 @@
 mod config;
 mod loader;
 
+use config::Config;
 use loader::Loader;
 
 use std::fs::File;
@@ -102,8 +103,10 @@ fn main() -> anyhow::Result<()> {
     };
 
     let mut buffer = String::new();
-    config.read_to_string(&mut buffer)?;
-    let config: config::Config = toml::from_str(&buffer)?;
+    let config: Config = match config.read_to_string(&mut buffer) {
+        Ok(..) => toml::from_str(&buffer)?,
+        Err(..) => Config::default(),
+    };
 
     // Step through the state machine.
     let configured = Loader::from(config);
