@@ -915,6 +915,12 @@ pub trait Handler {
             .unwrap_or_else(|| self.attacked())
     }
 
+    /// Requests the SGX quote size from the host.
+    #[inline]
+    fn get_sgx_quote_size(&mut self) -> Result<usize> {
+        self.execute(enarxcall::GetSgxQuoteSize)?
+    }
+
     /// Requests [SGX `TargetInfo`](sgx::TargetInfo) from the host.
     #[inline]
     fn get_sgx_target_info(&mut self, info: &mut sgx::TargetInfo) -> Result<()> {

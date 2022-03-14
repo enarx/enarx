@@ -53,6 +53,9 @@ pub enum Number {
 
     /// [SGX `TargetInfo`](sgx::TargetInfo) request call number.
     GetSgxTargetInfo = 0x04,
+
+    /// SGX quote size request call number.
+    GetSgxQuoteSize = 0x05,
 }
 
 #[cfg(test)]

@@ -22,18 +22,6 @@ use core::mem::{size_of, MaybeUninit};
 /// See <https://github.com/enarx/enarx-keepldr/issues/31>
 pub const TECH: usize = 2;
 
-/// Size in bytes of expected SGX Quote
-// TODO: Determine length of Quote of PCK cert type
-pub const QUOTE_SIZE: usize = 4598;
-
-/// Dummy value returned when daemon to return SGX TargetInfo is
-/// not available on the system.
-pub const DUMMY_TI: [u8; size_of::<TargetInfo>()] = [32u8; size_of::<TargetInfo>()];
-
-/// Dummy value returned when daemon to return SGX Quote is not
-/// available on the system.
-pub const DUMMY_QUOTE: [u8; QUOTE_SIZE] = [44u8; QUOTE_SIZE];
-
 /// Description of the local attestation source enclave contents.
 #[derive(Debug, Clone, Copy)]
 #[repr(C)]

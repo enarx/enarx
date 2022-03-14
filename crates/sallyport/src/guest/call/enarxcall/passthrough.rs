@@ -70,6 +70,21 @@ impl PassthroughAlloc for BalloonMemory {
     }
 }
 
+/// Get the size of the SGX Quote
+#[repr(transparent)]
+pub struct GetSgxQuoteSize;
+
+impl PassthroughAlloc for GetSgxQuoteSize {
+    const NUM: Number = Number::GetSgxQuoteSize;
+
+    type Argv = Argv<0>;
+    type Ret = usize;
+
+    fn stage(self) -> Self::Argv {
+        Argv([])
+    }
+}
+
 /// Get number of memory slots available for ballooning from the host.
 #[repr(transparent)]
 pub struct MemInfo;
