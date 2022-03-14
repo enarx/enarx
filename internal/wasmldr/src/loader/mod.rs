@@ -5,6 +5,7 @@ mod attested;
 mod compiled;
 mod configured;
 mod connected;
+mod pki;
 mod requested;
 
 use std::sync::Arc;

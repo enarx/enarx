@@ -1,32 +1,35 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use super::{Attested, Loader, Requested};
+use super::{pki::PrivateKeyInfoExt, Attested, Loader, Requested};
 
+use std::time::Duration;
 use std::{io::Read, ops::Deref, sync::Arc};
 
 use anyhow::{anyhow, Result};
+
+use pkcs8::PrivateKeyInfo;
 use rustls::{cipher_suite::*, kx_group::*, version::TLS13, *};
+use url::Url;
+use x509::der::asn1::{BitString, UIntBytes};
 use x509::der::{Decodable, Encodable};
-use x509::PkiPath;
+use x509::ext::pkix::{BasicConstraints, ExtendedKeyUsage, KeyUsage, KeyUsages};
+use x509::name::RdnSequence;
+use x509::time::Validity;
+use x509::{Certificate, PkiPath, TbsCertificate};
+
+use const_oid::db::rfc5280::{
+    ID_CE_BASIC_CONSTRAINTS, ID_CE_EXT_KEY_USAGE, ID_CE_KEY_USAGE, ID_KP_CLIENT_AUTH,
+    ID_KP_SERVER_AUTH,
+};
 
 impl Loader<Requested> {
-    const DEFAULT_STEWARD: &'static str = "https://steward-dev.onrender.com";
-
-    pub fn next(self) -> Result<Loader<Attested>> {
-        // Get the steward URL.
-        let url = self
-            .0
-            .config
-            .steward
-            .as_ref()
-            .map(|url| url.as_str())
-            .unwrap_or(Self::DEFAULT_STEWARD);
-        if !url.starts_with("https:") {
+    fn steward(&self, url: &Url) -> Result<Vec<Vec<u8>>> {
+        if url.scheme() != "https" {
             return Err(anyhow!("refusing to use an unencrypted steward url"));
         }
 
         // Send the attestation to the steward.
-        let response = ureq::post(url)
+        let response = ureq::post(url.as_str())
             .set("Content-Type", "application/pkcs10")
             .send_bytes(&self.0.crtreq)?;
 
@@ -36,12 +39,79 @@ impl Loader<Requested> {
 
         // Decode the certificate chain.
         let path = PkiPath::from_der(&body)?;
-        let certs = path
-            .0
+        path.0
             .iter()
             .rev()
-            .map(|c| Certificate(c.to_vec().unwrap()))
-            .collect::<Vec<_>>();
+            .map(|c| Ok(c.to_vec()?))
+            .collect::<Result<Vec<_>, _>>()
+    }
+
+    fn selfsigned(&self) -> Result<Vec<Vec<u8>>> {
+        let pki = PrivateKeyInfo::from_der(&self.0.prvkey)?;
+
+        // Create a relative distinguished name.
+        let rdns = RdnSequence::encode_from_string("CN=localhost")?;
+
+        // Create the extensions.
+        let ku = KeyUsage(KeyUsages::DigitalSignature | KeyUsages::KeyEncipherment).to_vec()?;
+        let eu = ExtendedKeyUsage(vec![ID_KP_SERVER_AUTH, ID_KP_CLIENT_AUTH]).to_vec()?;
+        let bc = BasicConstraints {
+            ca: false,
+            path_len_constraint: None,
+        }
+        .to_vec()?;
+
+        // Create the certificate body.
+        let tbs = TbsCertificate {
+            version: x509::Version::V3,
+            serial_number: UIntBytes::new(&[0u8])?,
+            signature: pki.signs_with()?,
+            issuer: RdnSequence::from_der(&rdns)?,
+            validity: Validity::from_now(Duration::from_secs(60 * 60 * 24 * 365))?,
+            subject: RdnSequence::from_der(&rdns)?,
+            subject_public_key_info: pki.public_key()?,
+            issuer_unique_id: None,
+            subject_unique_id: None,
+            extensions: Some(vec![
+                x509::ext::Extension {
+                    extn_id: ID_CE_KEY_USAGE,
+                    critical: true,
+                    extn_value: &ku,
+                },
+                x509::ext::Extension {
+                    extn_id: ID_CE_BASIC_CONSTRAINTS,
+                    critical: true,
+                    extn_value: &bc,
+                },
+                x509::ext::Extension {
+                    extn_id: ID_CE_EXT_KEY_USAGE,
+                    critical: false,
+                    extn_value: &eu,
+                },
+            ]),
+        };
+
+        // Self-sign the certificate.
+        let alg = tbs.signature;
+        let sig = pki.sign(&tbs.to_vec()?, alg)?;
+        let crt = Certificate {
+            tbs_certificate: tbs,
+            signature_algorithm: alg,
+            signature: BitString::from_bytes(&sig)?,
+        };
+
+        Ok(vec![crt.to_vec()?])
+    }
+
+    pub fn next(self) -> Result<Loader<Attested>> {
+        // If the user supplied
+        let certs = match self.0.config.steward.as_ref() {
+            Some(url) => self.steward(url)?,
+            None => self.selfsigned()?,
+        }
+        .into_iter()
+        .map(rustls::Certificate)
+        .collect::<Vec<_>>();
 
         // TODO: load this policy from `Config`.
         let protocol_versions = &[&TLS13];
