@@ -110,6 +110,7 @@ impl Loader<Requested> {
         .collect::<Vec<_>>();
 
         // TODO: load this policy from `Config`.
+        // https://github.com/enarx/enarx/issues/1548
         let protocol_versions = &[&TLS13];
         let kx_groups = &[&X25519, &SECP384R1, &SECP256R1];
         let cipher_suites = &[
@@ -123,7 +124,7 @@ impl Loader<Requested> {
             .with_cipher_suites(cipher_suites)
             .with_kx_groups(kx_groups)
             .with_protocol_versions(protocol_versions)?
-            .with_no_client_auth() // TODO: Enable client auth
+            .with_no_client_auth() // TODO: https://github.com/enarx/enarx/issues/1547
             .with_single_cert(certs.clone(), PrivateKey(self.0.prvkey.deref().clone()))?;
 
         // Set up root store.
