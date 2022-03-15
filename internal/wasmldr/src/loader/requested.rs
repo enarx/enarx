@@ -39,11 +39,7 @@ impl Loader<Requested> {
 
         // Decode the certificate chain.
         let path = PkiPath::from_der(&body)?;
-        path.0
-            .iter()
-            .rev()
-            .map(|c| Ok(c.to_vec()?))
-            .collect::<Result<Vec<_>, _>>()
+        path.0.iter().rev().map(|c| Ok(c.to_vec()?)).collect()
     }
 
     fn selfsigned(&self) -> Result<Vec<Vec<u8>>> {
