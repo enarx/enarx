@@ -2,7 +2,7 @@
 //! A WasiFile for transparent TLS
 
 use std::any::Any;
-use std::io::{ErrorKind, IoSlice, IoSliceMut, Read, Write};
+use std::io::{IoSlice, IoSliceMut, Read, Write};
 use std::mem::forget;
 use std::ops::{Deref, DerefMut};
 use std::sync::{Arc, RwLock};
@@ -13,6 +13,18 @@ use rustls::{ClientConfig, ClientConnection, Connection, ServerConfig, ServerCon
 use wasi_common::file::{Advice, FdFlags, FileType, Filestat};
 use wasi_common::{Context, Error, ErrorExt, WasiFile};
 use wasmtime_wasi::net::{TcpListener as AnyListener, TcpStream as AnyStream};
+
+fn errmap(error: std::io::Error) -> Error {
+    use std::io::ErrorKind::*;
+    use wasi_common::ErrorKind;
+
+    match error.kind() {
+        WouldBlock => ErrorKind::WouldBlk.into(),
+        InvalidInput => ErrorKind::Inval.into(),
+        Unsupported => ErrorKind::Notsup.into(),
+        _ => error.into(),
+    }
+}
 
 /// A type which leaks whatever it wraps
 ///
@@ -83,6 +95,17 @@ impl Stream {
 
         Ok(Self::new(tcp, tls))
     }
+
+    fn complete_io(&self) -> Result<(), Error> {
+        let (cap, tls) = &mut *self.lck.write().unwrap();
+
+        while tls.wants_read() || tls.wants_write() {
+            tls.complete_io(cap.deref_mut()).map_err(errmap)?;
+            tls.process_new_packets()?;
+        }
+
+        Ok(())
+    }
 }
 
 #[wiggle::async_trait]
@@ -140,20 +163,17 @@ impl WasiFile for Stream {
     }
 
     async fn read_vectored<'a>(&self, bufs: &mut [IoSliceMut<'a>]) -> Result<u64, Error> {
-        let (cap, tls) = &mut *self.lck.write().unwrap();
+        self.complete_io()?;
 
-        if tls.wants_read() {
-            tls.read_tls(cap.deref_mut())?;
-            tls.process_new_packets()?;
-        }
-
-        let n = match tls.reader().read_vectored(bufs) {
-            Err(e) if e.kind() == ErrorKind::UnexpectedEof => 0,
-            Err(e) => return Err(e.into()),
-            Ok(n) => n,
-        };
-
-        Ok(n as u64)
+        self.lck
+            .write()
+            .unwrap()
+            .1
+            .reader()
+            .read_vectored(bufs)
+            .map_err(errmap)?
+            .try_into()
+            .map_err(|e| Error::range().context(e))
     }
 
     async fn read_vectored_at<'a>(
@@ -165,15 +185,21 @@ impl WasiFile for Stream {
     }
 
     async fn write_vectored<'a>(&self, bufs: &[IoSlice<'a>]) -> Result<u64, Error> {
-        let (cap, tls) = &mut *self.lck.write().unwrap();
+        self.complete_io()?;
 
-        let n = tls.writer().write_vectored(bufs)?;
+        let n = self
+            .lck
+            .write()
+            .unwrap()
+            .1
+            .writer()
+            .write_vectored(bufs)
+            .map_err(errmap)?
+            .try_into()
+            .map_err(|e| Error::range().context(e))?;
 
-        while tls.wants_write() {
-            tls.write_tls(cap.deref_mut())?;
-        }
-
-        Ok(n as u64)
+        self.complete_io()?;
+        Ok(n)
     }
 
     async fn write_vectored_at<'a>(
@@ -249,7 +275,10 @@ impl WasiFile for Listener {
                 .context("could not create new TLS connection")?,
         );
 
+        cap.set_nonblocking(false)?;
         let mut stream = Stream::new(cap, tls);
+        stream.complete_io()?;
+
         stream.set_fdflags(fdflags).await?;
         Ok(Box::new(stream))
     }
