@@ -33,12 +33,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 
 [[package]]
-name = "compiler_builtins"
-version = "0.1.71"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "163437f05ca8f29d7e9128ea728dedf5eb620e445fbca273641d3a3050305f23"
-
-[[package]]
 name = "const-default"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -275,7 +269,6 @@ dependencies = [
 name = "shim-sgx"
 version = "0.3.0"
 dependencies = [
- "compiler_builtins",
  "const-default",
  "crt0stack",
  "gdbstub",
