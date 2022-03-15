@@ -83,12 +83,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "compiler_builtins"
-version = "0.1.70"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "80873f979f0a344a4ade87c2f70d9ccf5720b83b10c97ec7cd745895d021e85a"
-
-[[package]]
 name = "const-default"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -383,7 +377,6 @@ dependencies = [
  "array-const-fn-init",
  "bit_field",
  "bitflags",
- "compiler_builtins",
  "const-default",
  "crt0stack",
  "gdbstub",

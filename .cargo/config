@@ -1,2 +1,7 @@
 [target.wasm32-wasi]
 runner = "helper/test-enarx-wasm.sh"
+
+[target.x86_64-unknown-none]
+rustflags = [
+    "-C", "linker=gcc",
+]
