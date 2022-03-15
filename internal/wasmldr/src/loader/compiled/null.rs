@@ -75,7 +75,7 @@ impl WasiFile for Null {
     }
 
     async fn write_vectored<'a>(&self, bufs: &[std::io::IoSlice<'a>]) -> Result<u64, Error> {
-        Ok(bufs.iter().map(|b| b.len()).fold(0, |a, x| a + x as u64))
+        Ok(bufs.iter().map(|b| b.len()).sum::<usize>() as _)
     }
 
     async fn write_vectored_at<'a>(
@@ -83,7 +83,7 @@ impl WasiFile for Null {
         bufs: &[std::io::IoSlice<'a>],
         _offset: u64,
     ) -> Result<u64, Error> {
-        Ok(bufs.iter().map(|b| b.len()).fold(0, |a, x| a + x as u64))
+        Ok(bufs.iter().map(|b| b.len()).sum::<usize>() as _)
     }
 
     async fn seek(&self, _pos: std::io::SeekFrom) -> Result<u64, Error> {
