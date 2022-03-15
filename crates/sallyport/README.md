@@ -36,17 +36,18 @@ The size parameter includes the full length of the item except the header value.
 
 * `END`: `0`
 * `SYSCALL`: `1`
-* ...
+* `GDBCALL`: `2`
+* `ENARXCALL`: `3`
 
 #### End
 
 An [`END`](item::Kind::End) item MUST have a `size` of `0`. It has no contents and simply marks the end of items in the block. This communicates the end of the items list to the host. However, the guest MUST NOT rely on the presence of a terminator upon return to the guest.
 
-#### Syscall
+#### System call
 
 A `SYSCALL` item has the following contents:
 
-* `nmbr`: `usize` - the syscall number
+* `nmbr`: `usize` - the system call number
 * `arg0`: `usize` - the first argument
 * `arg1`: `usize` - the second argument
 * `arg2`: `usize` - the third argument
@@ -56,6 +57,31 @@ A `SYSCALL` item has the following contents:
 * `ret0`: `usize` - the first return value
 * `ret1`: `usize` - the second return value
 * `data`: `...` - data that can be referenced (optional)
+
+#### GDB call
+
+A `GDBCALL` item has the following contents:
+
+* `nmbr`: `usize` - the [GDB call number](item::gdbcall::Number)
+* `arg0`: `usize` - the first argument
+* `arg1`: `usize` - the second argument
+* `arg2`: `usize` - the third argument
+* `arg3`: `usize` - the fourth argument
+* `ret`: `usize` - the return value
+* `data`: `...` - data that can be referenced (optional)
+
+#### Enarx call
+
+A `ENARXCALL` item has the following contents:
+
+* `nmbr`: `usize` - the [Enarx call number](item::enarxcall::Number)
+* `arg0`: `usize` - the first argument
+* `arg1`: `usize` - the second argument
+* `arg2`: `usize` - the third argument
+* `arg3`: `usize` - the fourth argument
+* `ret`: `usize` - the return value
+* `data`: `...` - data that can be referenced (optional)
+
 
 The argument values may contain numeric values. However, all pointers MUST be translated to an offset from the beginning of the data section.
 
