@@ -122,7 +122,7 @@ fn main() -> anyhow::Result<()> {
 }
 
 #[cfg(test)]
-pub(crate) mod test {
+mod test {
     use crate::loader::Loader;
 
     const NO_EXPORT_WAT: &str = r#"(module
