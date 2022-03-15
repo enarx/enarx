@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
+//! Definitions of upstream [libc] items used within the crate.
+
 // We cannot use the libc crate directly.
 // This is because the sallyport crate is a dependency of the enarx shims,
 // which support the x86_64-unknown-none target,
