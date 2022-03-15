@@ -73,11 +73,7 @@ impl Stream {
         }
     }
 
-    pub fn connect(
-        mut tcp: cap_std::net::TcpStream,
-        name: &str,
-        cfg: Arc<ClientConfig>,
-    ) -> Result<Self, Error> {
+    pub fn connect(mut tcp: CapStream, name: &str, cfg: Arc<ClientConfig>) -> Result<Self, Error> {
         // Set up connection.
         let tls = ClientConnection::new(cfg, name.try_into()?)?;
         let mut tls = Connection::Client(tls);
@@ -220,7 +216,7 @@ pub struct Listener {
 }
 
 impl Listener {
-    pub fn new(tcp: cap_std::net::TcpListener, cfg: Arc<ServerConfig>) -> Self {
+    pub fn new(tcp: CapListener, cfg: Arc<ServerConfig>) -> Self {
         // Safety: We create a "borrowed" (i.e. `Forgotten`) copy of `CapListener`.
         // The `AnyListener` is the real owner of the file descriptor.
         // This is a workaround until wasmtime 0.36.0 is released.
