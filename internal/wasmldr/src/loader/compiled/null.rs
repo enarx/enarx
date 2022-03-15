@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
+//! A WasiFile behaving like `/dev/null`
 
 use std::any::Any;
 

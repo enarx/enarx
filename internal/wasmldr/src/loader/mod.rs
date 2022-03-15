@@ -1,4 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
+//! The Loader State Machine
+//!
+//! This file contains the `Loader` type which is a state machine for bringing
+//! up a workload. Typically you would start by converting a `Config` into a
+//! `Loader` and then just iterating through the states. However, there is also
+//! a "short cut" `Loader::run()` function used for testing the late stages of
+//! the bring up process.
+//!
+//! The types are defined in sequential order.
 
 mod acquired;
 mod attested;
@@ -17,22 +26,26 @@ use zeroize::Zeroizing;
 
 use crate::config::Config;
 
+/// The first state, indicating successful configuration
 pub struct Configured {
     config: Config,
 }
 
+/// The second state, indicating that a CSR has been generated
 pub struct Requested {
     config: Config,
     prvkey: Zeroizing<Vec<u8>>,
     crtreq: Vec<u8>,
 }
 
+/// The third state, indicating receipt of the certificate
 pub struct Attested {
     config: Config,
     srvcfg: Arc<ServerConfig>,
     cltcfg: Arc<ClientConfig>,
 }
 
+/// The fourth state, indicating receipt of the WASM module
 pub struct Acquired {
     config: Config,
     srvcfg: Arc<ServerConfig>,
@@ -41,6 +54,7 @@ pub struct Acquired {
     webasm: Vec<u8>,
 }
 
+/// The fifth state, indicating compilation of the WASM module
 pub struct Compiled {
     config: Config,
     srvcfg: Arc<ServerConfig>,
@@ -50,11 +64,13 @@ pub struct Compiled {
     linker: Linker<WasiCtx>,
 }
 
+/// The sixth state, indicating connection of all sockets
 pub struct Connected {
     wstore: Store<WasiCtx>,
     linker: Linker<WasiCtx>,
 }
 
+/// The final state, indicating completion of the workload
 pub struct Completed {
     values: Vec<Val>,
 }
