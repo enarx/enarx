@@ -244,20 +244,14 @@ impl WasiFile for Listener {
 
     async fn sock_accept(&mut self, fdflags: FdFlags) -> Result<Box<dyn WasiFile>, Error> {
         // Accept the connection.
-        let (mut cap, ..) = self.cap.accept()?;
+        let (cap, ..) = self.cap.accept()?;
 
         // Create a new TLS connection.
-        let mut tls = Connection::Server(
+        let tls = Connection::Server(
             ServerConnection::new(self.cfg.clone())
                 .map_err(|e| Error::io().context(e))
                 .context("could not create new TLS connection")?,
         );
-
-        // Perform handshake.
-        cap.set_nonblocking(true)?;
-        tls.complete_io(&mut cap)
-            .map_err(|e| Error::io().context(e))
-            .context("could not perform TLS handshake")?;
 
         let mut stream = Stream::new(cap, tls);
         stream.set_fdflags(fdflags).await?;
