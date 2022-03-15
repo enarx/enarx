@@ -345,7 +345,8 @@ dependencies = [
 [[package]]
 name = "sallyport"
 version = "0.3.0"
-source = "git+https://github.com/enarx/sallyport?rev=92c696ff296cf06b54f68c56aa6d24553e8ed476#92c696ff296cf06b54f68c56aa6d24553e8ed476"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f264dba3626016c14186361e82a499d3274d4580305c60e399fd07623af27404"
 dependencies = [
  "goblin 0.5.1",
 ]
