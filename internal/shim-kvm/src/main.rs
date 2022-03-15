@@ -13,8 +13,6 @@
 #![feature(asm_const, asm_sym, naked_functions)]
 
 #[allow(unused_extern_crates)]
-extern crate compiler_builtins;
-#[allow(unused_extern_crates)]
 extern crate rcrt1;
 
 use shim_kvm::addr::SHIM_VIRT_OFFSET;
@@ -41,12 +39,6 @@ noted! {
     static NOTE_ENARX_SALLYPORT<note::NAME, note::REQUIRES, [u8; REQUIRES.len()]> = REQUIRES;
 
     static NOTE_BLOCK_SIZE<note::NAME, note::BLOCK_SIZE, u64> = BLOCK_SIZE as u64;
-}
-
-#[cfg(not(target_feature = "crt-static"))]
-#[allow(missing_docs)]
-fn __check_for_static_linking() {
-    compile_error!("shim is not statically linked");
 }
 
 #[cfg(not(debug_assertions))]

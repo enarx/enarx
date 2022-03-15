@@ -142,8 +142,9 @@ fn cargo_build_bin(
         .map(Stdio::from)
         .unwrap_or_else(|_| Stdio::inherit());
 
-    let mut cmd = Command::new("cargo");
-    let cmd = cmd
+    let mut cmd = &mut Command::new("cargo");
+
+    cmd = cmd
         .current_dir(&path)
         .env_clear()
         .envs(&filtered_env)
@@ -157,6 +158,10 @@ fn cargo_build_bin(
         .arg(target_name)
         .arg("--bin")
         .arg(bin_name);
+
+    if target_name == "x86_64-unknown-none" {
+        cmd = cmd.arg("-Z").arg("build-std")
+    }
 
     #[cfg(feature = "gdb")]
     let cmd = cmd.arg("--features=gdb");
@@ -178,19 +183,7 @@ fn cargo_build_bin(
         .join(std::env::var("PROFILE").unwrap())
         .join(bin_name);
 
-    // Strip the binary
-    let status = Command::new("strip")
-        .arg("--strip-unneeded")
-        .arg("-o")
-        .arg(&out_bin)
-        .arg(&target_bin)
-        .status()?;
-
-    // Failing that, just copy it into place
-    if !status.success() {
-        println!("cargo:warning=Failed to run `strip` on {:?}", target_bin);
-        std::fs::rename(&target_bin, &out_bin)?;
-    }
+    std::fs::copy(&target_bin, &out_bin)?;
 
     Ok(())
 }
@@ -230,8 +223,6 @@ fn main() {
 
     build_cc_tests(&Path::new(CRATE).join(TEST_BINS_IN), &out_dir_bin);
 
-    let target = "x86_64-unknown-linux-musl";
-
     // internal crates are not included, if there is a `Cargo.toml` file
     // trick cargo by renaming the `Cargo.toml` to `Cargo.tml` before
     // publishing and rename it back here.
@@ -249,13 +240,19 @@ fn main() {
 
         match dir_name {
             #[cfg(feature = "wasmldr")]
-            "wasmldr" => cargo_build_bin(&path, &out_dir, target, "wasmldr").unwrap(),
+            "wasmldr" => {
+                cargo_build_bin(&path, &out_dir, "x86_64-unknown-linux-musl", "wasmldr").unwrap()
+            }
 
             #[cfg(feature = "backend-kvm")]
-            "shim-kvm" => cargo_build_bin(&path, &out_dir, target, "shim-kvm").unwrap(),
+            "shim-kvm" => {
+                cargo_build_bin(&path, &out_dir, "x86_64-unknown-none", "shim-kvm").unwrap()
+            }
 
             #[cfg(feature = "backend-sgx")]
-            "shim-sgx" => cargo_build_bin(&path, &out_dir, target, "shim-sgx").unwrap(),
+            "shim-sgx" => {
+                cargo_build_bin(&path, &out_dir, "x86_64-unknown-none", "shim-sgx").unwrap()
+            }
 
             _ => eprintln!("Unknown internal directory: {}", dir_name),
         }

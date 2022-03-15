@@ -26,23 +26,23 @@ PHDRS {
 }
 
 _ENARX_SHIM_START = 0xFFFFF000;
-_ENARX_MEM_START = 0xFFE00000;
+_ENARX_START = ABSOLUTE(0xFFE00000);
 _ENARX_EXEC_LEN = 128M;
 
 /*
  * These 3 sections need to be fixed for the startup asm block to work
  */
-_ENARX_PML3  = ABSOLUTE(_ENARX_MEM_START + 0 * CONSTANT(COMMONPAGESIZE));
-_ENARX_PML4  = ABSOLUTE(_ENARX_MEM_START + 1 * CONSTANT(COMMONPAGESIZE));
-_ENARX_CPUID = ABSOLUTE(_ENARX_MEM_START + 2 * CONSTANT(COMMONPAGESIZE));
+_ENARX_PML3  = ABSOLUTE(_ENARX_START + 0 * CONSTANT(COMMONPAGESIZE));
+_ENARX_PML4  = ABSOLUTE(_ENARX_START + 1 * CONSTANT(COMMONPAGESIZE));
+_ENARX_CPUID = ABSOLUTE(_ENARX_START + 2 * CONSTANT(COMMONPAGESIZE));
 
 ASSERT((_ENARX_SHIM_START >= (3 * 0x40000000)), "SHIM_START is too low for current initial identity page table")
 ASSERT((_ENARX_EXEC_START < (6 * 0x40000000)), "SHIM is too large for current initial identity page table")
 
 SECTIONS {
-    . = _ENARX_MEM_START;
-
     . = _ENARX_PML3;
+    _ENARX_MEM_START = .;
+
     .pml3 : ALIGN(CONSTANT(COMMONPAGESIZE)) {
         QUAD(0);
         QUAD(0);
@@ -51,14 +51,14 @@ SECTIONS {
         QUAD(4 * 0x40000000 + 0x83); /* Flags::HUGE_PAGE | Flags::WRITABLE | Flags::PRESENT */
         QUAD(5 * 0x40000000 + 0x83); /* Flags::HUGE_PAGE | Flags::WRITABLE | Flags::PRESENT */
         FILL(0);
-        . = CONSTANT(COMMONPAGESIZE);
+        . = ALIGN(CONSTANT(COMMONPAGESIZE));
     } :pagetables
 
     . = _ENARX_PML4;
     .pml4 : ALIGN(CONSTANT(COMMONPAGESIZE)) {
         QUAD(_ENARX_PML3 + 0x3); /* Flags::WRITABLE | Flags::PRESENT */
         FILL(0);
-        . = CONSTANT(COMMONPAGESIZE);
+        . = ALIGN(CONSTANT(COMMONPAGESIZE));
     } :pagetables
 
     . = _ENARX_CPUID;
@@ -106,7 +106,7 @@ SECTIONS {
     .bss                : { *(.bss .bss.*) } :data
 
     .code : ALIGN(CONSTANT(COMMONPAGESIZE)) {
-        _ENARX_EXEC_START = ABSOLUTE(.);
+        _ENARX_EXEC_START = .;
         FILL(0);
         . += _ENARX_EXEC_LEN;
     } :exec
