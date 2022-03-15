@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
+//! A WasiFile for transparent TLS
 
 use std::any::Any;
 use std::io::{ErrorKind, IoSlice, IoSliceMut, Read, Write};
@@ -13,6 +14,13 @@ use wasi_common::file::{Advice, FdFlags, FileType, Filestat};
 use wasi_common::{Context, Error, ErrorExt, WasiFile};
 use wasmtime_wasi::net::{TcpListener as AnyListener, TcpStream as AnyStream};
 
+/// A type which leaks whatever it wraps
+///
+/// The use of this type is due to a hack below. The `WasiCtx` does internal
+/// downcasts in order to get the file descriptor for polling. We have fixed
+/// this upstream, but the fix is not yet released. Therefore, we need to
+/// create a "borrowed" instance of that type for polling purposes. This
+/// "borrowed" instance MUST NOT call `close()` on its file descriptor.
 struct Forgotten<T>(Option<T>);
 
 impl<T> Deref for Forgotten<T> {
@@ -54,6 +62,9 @@ impl From<Stream> for Box<dyn WasiFile> {
 
 impl Stream {
     fn new(tcp: CapStream, tls: Connection) -> Self {
+        // Safety: We create a "borrowed" (i.e. `Forgotten`) copy of `CapStream`.
+        // The `AnyStream` is the real owner of the file descriptor.
+        // This is a workaround until wasmtime 0.36.0 is released.
         let cap = unsafe { CapStream::from_raw_fd(tcp.as_raw_fd()) }.into();
         let any = AnyStream::from_cap_std(tcp);
         Self {
@@ -210,6 +221,9 @@ pub struct Listener {
 
 impl Listener {
     pub fn new(tcp: cap_std::net::TcpListener, cfg: Arc<ServerConfig>) -> Self {
+        // Safety: We create a "borrowed" (i.e. `Forgotten`) copy of `CapListener`.
+        // The `AnyListener` is the real owner of the file descriptor.
+        // This is a workaround until wasmtime 0.36.0 is released.
         let cap = unsafe { CapListener::from_raw_fd(tcp.as_raw_fd()) }.into();
         let any = AnyListener::from_cap_std(tcp);
         Self { cap, any, cfg }

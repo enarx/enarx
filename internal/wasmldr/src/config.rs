@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
+//! The Enarx Configuration file format
 
 use std::{collections::HashMap, ops::Deref};
 
