@@ -66,7 +66,9 @@ impl From<Result<isize>> for crate::Result<usize> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::libc::{self, EPERM, F_GETFD};
+    use crate::libc::{EPERM, F_GETFD};
+
+    use libc;
 
     #[test]
     fn result() {

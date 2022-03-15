@@ -181,14 +181,6 @@ pub struct utsname {
     pub domainname: [c_char; 65],
 }
 
-extern "C" {
-    pub fn __errno_location() -> *mut c_int;
-    pub fn close(fd: c_int) -> c_int;
-    pub fn fcntl(fd: c_int, cmd: c_int, ...) -> c_int;
-    pub fn open(path: *const c_char, oflag: c_int, ...) -> c_int;
-    pub fn stat(path: *const c_char, buf: *mut stat) -> c_int;
-}
-
 pub const AF_INET: c_int = 2;
 pub const EACCES: c_int = 13;
 pub const EAGAIN: c_int = 11;
