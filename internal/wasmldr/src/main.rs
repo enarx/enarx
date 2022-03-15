@@ -99,7 +99,7 @@ fn main() -> anyhow::Result<()> {
         }
 
         (None, None) => unsafe { File::from_raw_fd(4) },
-        _ => panic!(),
+        _ => panic!("this configuration is unsupported"),
     };
 
     let mut buffer = String::new();
