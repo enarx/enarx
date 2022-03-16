@@ -4,8 +4,10 @@ use super::super::types::Argv;
 use super::types::{CommittedSockaddrOutput, SockaddrOutput, StagedSockaddrOutput};
 use super::Alloc;
 use crate::guest::alloc::{Allocator, Collect, Collector, Stage};
-use crate::libc::{c_int, c_long, SYS_accept4};
+use crate::libc::SYS_accept4;
 use crate::{Result, NULL};
+
+use core::ffi::{c_int, c_long};
 
 pub struct Accept4<T> {
     pub sockfd: c_int,

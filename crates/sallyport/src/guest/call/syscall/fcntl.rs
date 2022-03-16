@@ -5,10 +5,12 @@ use super::super::types::Argv;
 use super::super::{MaybeAlloc, UnstagedMaybeAlloc};
 use super::PassthroughAlloc;
 use crate::libc::{
-    c_int, c_long, SYS_fcntl, EBADFD, EINVAL, F_GETFD, F_GETFL, F_SETFD, F_SETFL, O_APPEND, O_RDWR,
-    O_WRONLY, STDERR_FILENO, STDIN_FILENO, STDOUT_FILENO,
+    SYS_fcntl, EBADFD, EINVAL, F_GETFD, F_GETFL, F_SETFD, F_SETFL, O_APPEND, O_RDWR, O_WRONLY,
+    STDERR_FILENO, STDIN_FILENO, STDOUT_FILENO,
 };
 use crate::Result;
+
+use core::ffi::{c_int, c_long};
 
 pub struct Fcntl {
     pub fd: c_int,

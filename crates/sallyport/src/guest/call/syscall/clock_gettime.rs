@@ -3,8 +3,10 @@
 use super::super::types::Argv;
 use super::Alloc;
 use crate::guest::alloc::{Allocator, Collect, Collector, Output};
-use crate::libc::{c_long, clockid_t, timespec, SYS_clock_gettime};
+use crate::libc::{clockid_t, timespec, SYS_clock_gettime};
 use crate::Result;
+
+use core::ffi::c_long;
 
 pub struct ClockGettime<'a> {
     pub clockid: clockid_t,

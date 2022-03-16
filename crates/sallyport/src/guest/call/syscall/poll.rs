@@ -3,8 +3,10 @@
 use super::super::types::Argv;
 use super::Alloc;
 use crate::guest::alloc::{Allocator, Collector, InOut, Output};
-use crate::libc::{c_int, c_long, pollfd, SYS_poll};
+use crate::libc::{pollfd, SYS_poll};
 use crate::Result;
+
+use core::ffi::{c_int, c_long};
 
 pub struct Poll<'a> {
     pub fds: &'a mut [pollfd],

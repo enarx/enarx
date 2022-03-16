@@ -4,8 +4,10 @@ use super::super::types::Argv;
 use super::types::SockaddrInput;
 use super::Alloc;
 use crate::guest::alloc::{Allocator, Collector, Input, Stage};
-use crate::libc::{c_int, c_long, SYS_connect};
+use crate::libc::SYS_connect;
 use crate::Result;
+
+use core::ffi::{c_int, c_long};
 
 pub struct Connect<T> {
     pub sockfd: c_int,

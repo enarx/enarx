@@ -6,10 +6,12 @@ use crate::guest::alloc::{Allocator, Collect, Collector, InOut, Output};
 use crate::guest::call::alloc::kind;
 use crate::guest::call::{MaybeAlloc, UnstagedMaybeAlloc};
 use crate::libc::{
-    self, c_int, c_long, SYS_ioctl, EBADFD, EINVAL, ENOTTY, FIONBIO, FIONREAD, STDERR_FILENO,
-    STDIN_FILENO, STDOUT_FILENO, TIOCGWINSZ,
+    self, SYS_ioctl, EBADFD, EINVAL, ENOTTY, FIONBIO, FIONREAD, STDERR_FILENO, STDIN_FILENO,
+    STDOUT_FILENO, TIOCGWINSZ,
 };
 use crate::{Result, NULL};
+
+use core::ffi::{c_int, c_long};
 
 pub struct Ioctl<'a> {
     pub fd: c_int,

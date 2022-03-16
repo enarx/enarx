@@ -4,8 +4,10 @@ use super::super::types::Argv;
 use super::types::StagedBytesInput;
 use super::Alloc;
 use crate::guest::alloc::{Allocator, Collector, Input};
-use crate::libc::{c_int, c_long, size_t, SYS_write};
+use crate::libc::SYS_write;
 use crate::Result;
+
+use core::ffi::{c_int, c_long, c_size_t};
 
 pub struct Write<'a> {
     pub fd: c_int,
@@ -16,11 +18,11 @@ unsafe impl<'a> Alloc<'a> for Write<'a> {
     const NUM: c_long = SYS_write;
 
     type Argv = Argv<3>;
-    type Ret = size_t;
+    type Ret = c_size_t;
 
     type Staged = StagedBytesInput<'a>;
-    type Committed = size_t;
-    type Collected = Option<Result<size_t>>;
+    type Committed = c_size_t;
+    type Collected = Option<Result<c_size_t>>;
 
     fn stage(self, alloc: &mut impl Allocator) -> Result<(Self::Argv, Self::Staged)> {
         let (buf, _) = Input::stage_slice_max(alloc, self.buf)?;

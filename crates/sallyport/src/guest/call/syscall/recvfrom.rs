@@ -4,8 +4,10 @@ use super::super::types::Argv;
 use super::types::{CommittedSockaddrOutput, SockaddrOutput, StagedSockaddrOutput};
 use super::Alloc;
 use crate::guest::alloc::{Allocator, Collect, Collector, Output, Stage};
-use crate::libc::{c_int, c_long, size_t, SYS_recvfrom};
+use crate::libc::SYS_recvfrom;
 use crate::Result;
+
+use core::ffi::{c_int, c_long, c_size_t};
 
 pub struct Recvfrom<'a, T> {
     pub sockfd: c_int,
@@ -18,7 +20,7 @@ unsafe impl<'a, T: Into<SockaddrOutput<'a>>> Alloc<'a> for Recvfrom<'a, T> {
     const NUM: c_long = SYS_recvfrom;
 
     type Argv = Argv<6>;
-    type Ret = size_t;
+    type Ret = c_size_t;
 
     type Staged = (
         Output<'a, [u8], &'a mut [u8]>, // buf
@@ -28,7 +30,7 @@ unsafe impl<'a, T: Into<SockaddrOutput<'a>>> Alloc<'a> for Recvfrom<'a, T> {
         Output<'a, [u8], &'a mut [u8]>, // buf
         CommittedSockaddrOutput<'a>,
     );
-    type Collected = Option<Result<size_t>>;
+    type Collected = Option<Result<c_size_t>>;
 
     fn stage(self, alloc: &mut impl Allocator) -> Result<(Self::Argv, Self::Staged)> {
         let src_addr = self.src_addr.into().stage(alloc)?;

@@ -3,8 +3,10 @@
 use super::super::types::Argv;
 use super::Alloc;
 use crate::guest::alloc::{Allocator, Collector, Output};
-use crate::libc::{c_int, c_long, epoll_event, SYS_epoll_wait};
+use crate::libc::{epoll_event, SYS_epoll_wait};
 use crate::Result;
+
+use core::ffi::{c_int, c_long};
 
 pub struct EpollWait<'a> {
     pub epfd: c_int,

@@ -3,6 +3,7 @@
 pub mod enarxcall;
 pub mod syscall;
 
+use core::ffi::{c_int, c_size_t, c_ulong, c_void};
 use core::slice;
 use std::io::Write;
 use std::net::{TcpStream, ToSocketAddrs};
@@ -11,7 +12,7 @@ use std::thread;
 
 use sallyport::guest::{Handler, Platform, ThreadLocalStorage};
 use sallyport::item::Block;
-use sallyport::libc::{c_int, c_ulong, c_void, off_t, size_t, EINVAL, ENOSYS};
+use sallyport::libc::{off_t, EINVAL, ENOSYS};
 use sallyport::util::ptr;
 use sallyport::{host, Result};
 
@@ -90,7 +91,7 @@ impl<const N: usize> Handler for TestHandler<N> {
         &mut self,
         _platform: &impl Platform,
         _addr: NonNull<c_void>,
-        _length: size_t,
+        _length: c_size_t,
         _advice: c_int,
     ) -> Result<()> {
         Err(ENOSYS)
@@ -100,7 +101,7 @@ impl<const N: usize> Handler for TestHandler<N> {
         &mut self,
         _platform: &impl Platform,
         _addr: Option<NonNull<c_void>>,
-        _length: size_t,
+        _length: c_size_t,
         _prot: c_int,
         _flags: c_int,
         _fd: c_int,
@@ -113,7 +114,7 @@ impl<const N: usize> Handler for TestHandler<N> {
         &mut self,
         _platform: &impl Platform,
         _addr: NonNull<c_void>,
-        _len: size_t,
+        _len: c_size_t,
         _prot: c_int,
     ) -> Result<()> {
         Err(ENOSYS)
@@ -123,7 +124,7 @@ impl<const N: usize> Handler for TestHandler<N> {
         &mut self,
         _platform: &impl Platform,
         _addr: NonNull<c_void>,
-        _length: size_t,
+        _length: c_size_t,
     ) -> Result<()> {
         Err(ENOSYS)
     }

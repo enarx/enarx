@@ -5,8 +5,10 @@ use super::super::types::Argv;
 use super::super::{MaybeAlloc, UnstagedMaybeAlloc};
 use super::Alloc;
 use crate::guest::alloc::{Allocator, Collector, Input};
-use crate::libc::{c_int, c_long, mode_t, SYS_open, EACCES, O_CLOEXEC, O_RDONLY};
+use crate::libc::{mode_t, SYS_open, EACCES, O_CLOEXEC, O_RDONLY};
 use crate::Result;
+
+use core::ffi::{c_int, c_long};
 
 pub struct Open<'a> {
     pub pathname: &'a [u8],

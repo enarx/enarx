@@ -7,20 +7,21 @@ use super::{enarxcall, gdbcall, syscall, Call, Platform, ThreadLocalStorage, SIG
 use crate::item::enarxcall::sgx;
 use crate::item::syscall::sigaction;
 use crate::libc::{
-    c_int, c_uint, c_ulong, c_void, clockid_t, epoll_event, gid_t, mode_t, off_t, pid_t, pollfd,
-    sigset_t, size_t, stack_t, stat, timespec, uid_t, utsname, Ioctl, SYS_accept, SYS_accept4,
-    SYS_arch_prctl, SYS_bind, SYS_brk, SYS_clock_gettime, SYS_close, SYS_connect, SYS_dup,
-    SYS_dup2, SYS_dup3, SYS_epoll_create1, SYS_epoll_ctl, SYS_epoll_pwait, SYS_epoll_wait,
-    SYS_eventfd2, SYS_exit, SYS_exit_group, SYS_fcntl, SYS_fstat, SYS_getegid, SYS_geteuid,
-    SYS_getgid, SYS_getpid, SYS_getrandom, SYS_getsockname, SYS_getuid, SYS_ioctl, SYS_listen,
-    SYS_madvise, SYS_mmap, SYS_mprotect, SYS_munmap, SYS_nanosleep, SYS_open, SYS_poll, SYS_read,
-    SYS_readlink, SYS_readv, SYS_recvfrom, SYS_rt_sigaction, SYS_rt_sigprocmask, SYS_sendto,
-    SYS_set_tid_address, SYS_setsockopt, SYS_sigaltstack, SYS_socket, SYS_sync, SYS_uname,
-    SYS_write, SYS_writev, EFAULT, EINVAL, ENOSYS, ENOTSUP, FIONBIO, FIONREAD,
+    clockid_t, epoll_event, gid_t, mode_t, off_t, pid_t, pollfd, sigset_t, stack_t, stat, timespec,
+    uid_t, utsname, Ioctl, SYS_accept, SYS_accept4, SYS_arch_prctl, SYS_bind, SYS_brk,
+    SYS_clock_gettime, SYS_close, SYS_connect, SYS_dup, SYS_dup2, SYS_dup3, SYS_epoll_create1,
+    SYS_epoll_ctl, SYS_epoll_pwait, SYS_epoll_wait, SYS_eventfd2, SYS_exit, SYS_exit_group,
+    SYS_fcntl, SYS_fstat, SYS_getegid, SYS_geteuid, SYS_getgid, SYS_getpid, SYS_getrandom,
+    SYS_getsockname, SYS_getuid, SYS_ioctl, SYS_listen, SYS_madvise, SYS_mmap, SYS_mprotect,
+    SYS_munmap, SYS_nanosleep, SYS_open, SYS_poll, SYS_read, SYS_readlink, SYS_readv, SYS_recvfrom,
+    SYS_rt_sigaction, SYS_rt_sigprocmask, SYS_sendto, SYS_set_tid_address, SYS_setsockopt,
+    SYS_sigaltstack, SYS_socket, SYS_sync, SYS_uname, SYS_write, SYS_writev, EFAULT, EINVAL,
+    ENOSYS, ENOTSUP, FIONBIO, FIONREAD,
 };
 use crate::{item, Result};
 
 use core::arch::x86_64::CpuidResult;
+use core::ffi::{c_int, c_size_t, c_uint, c_ulong, c_void};
 use core::mem::size_of;
 use core::ptr::NonNull;
 use core::slice;
@@ -272,7 +273,7 @@ pub trait Handler {
 
     /// Executes [`getrandom`](https://man7.org/linux/man-pages/man2/getrandom.2.html) syscall akin to [`libc::getrandom`].
     #[inline]
-    fn getrandom(&mut self, buf: &mut [u8], flags: c_uint) -> Result<size_t> {
+    fn getrandom(&mut self, buf: &mut [u8], flags: c_uint) -> Result<c_size_t> {
         self.execute(syscall::Getrandom { buf, flags })?
     }
 
@@ -309,7 +310,7 @@ pub trait Handler {
         &mut self,
         platform: &impl Platform,
         addr: NonNull<c_void>,
-        length: size_t,
+        length: c_size_t,
         advice: c_int,
     ) -> Result<()>;
 
@@ -319,7 +320,7 @@ pub trait Handler {
         &mut self,
         platform: &impl Platform,
         addr: Option<NonNull<c_void>>,
-        length: size_t,
+        length: c_size_t,
         prot: c_int,
         flags: c_int,
         fd: c_int,
@@ -331,7 +332,7 @@ pub trait Handler {
         &mut self,
         platform: &impl Platform,
         addr: NonNull<c_void>,
-        len: size_t,
+        len: c_size_t,
         prot: c_int,
     ) -> Result<()>;
 
@@ -340,7 +341,7 @@ pub trait Handler {
         &mut self,
         platform: &impl Platform,
         addr: NonNull<c_void>,
-        length: size_t,
+        length: c_size_t,
     ) -> Result<()>;
 
     /// Executes [`nanosleep`](https://man7.org/linux/man-pages/man2/nanosleep.2.html) syscall akin to [`libc::nanosleep`].
@@ -369,7 +370,7 @@ pub trait Handler {
 
     /// Executes [`read`](https://man7.org/linux/man-pages/man2/read.2.html) syscall akin to [`libc::read`].
     #[inline]
-    fn read(&mut self, fd: c_int, buf: &mut [u8]) -> Result<size_t> {
+    fn read(&mut self, fd: c_int, buf: &mut [u8]) -> Result<c_size_t> {
         self.execute(syscall::Read { fd, buf })?
             .unwrap_or_else(|| self.attacked())
     }
@@ -378,7 +379,7 @@ pub trait Handler {
     ///
     /// `pathname` argument must contain the trailing nul terminator byte.
     #[inline]
-    fn readlink(&mut self, pathname: &[u8], buf: &mut [u8]) -> Result<size_t> {
+    fn readlink(&mut self, pathname: &[u8], buf: &mut [u8]) -> Result<c_size_t> {
         self.execute(syscall::Readlink { pathname, buf })?
             .unwrap_or_else(|| self.attacked())
     }
@@ -386,7 +387,7 @@ pub trait Handler {
     /// Executes [`readv`](https://man7.org/linux/man-pages/man2/readv.2.html) syscall by mapping
     /// it onto a single [`read`](https://man7.org/linux/man-pages/man2/read.2.html).
     #[inline]
-    fn readv<T: ?Sized, U, V>(&mut self, fd: c_int, iovs: &mut T) -> Result<size_t>
+    fn readv<T: ?Sized, U, V>(&mut self, fd: c_int, iovs: &mut T) -> Result<c_size_t>
     where
         for<'a> &'a T: IntoIterator<Item = &'a U>,
         for<'a> &'a mut T: IntoIterator<Item = &'a mut V>,
@@ -399,7 +400,7 @@ pub trait Handler {
 
     /// Executes [`recv`](https://man7.org/linux/man-pages/man2/recv.2.html) syscall akin to [`libc::recv`].
     #[inline]
-    fn recv(&mut self, sockfd: c_int, buf: &mut [u8], flags: c_int) -> Result<size_t> {
+    fn recv(&mut self, sockfd: c_int, buf: &mut [u8], flags: c_int) -> Result<c_size_t> {
         self.execute(syscall::Recv { sockfd, buf, flags })?
             .unwrap_or_else(|| self.attacked())
     }
@@ -412,7 +413,7 @@ pub trait Handler {
         buf: &'a mut [u8],
         flags: c_int,
         src_addr: impl Into<SockaddrOutput<'a>>,
-    ) -> Result<size_t> {
+    ) -> Result<c_size_t> {
         self.execute(syscall::Recvfrom {
             sockfd,
             buf,
@@ -429,7 +430,7 @@ pub trait Handler {
         signum: c_int,
         act: Option<&sigaction>,
         oldact: Option<&mut Option<sigaction>>,
-        sigsetsize: size_t,
+        sigsetsize: c_size_t,
     ) -> Result<()> {
         if signum >= SIGRTMAX || sigsetsize != 8 {
             return Err(EINVAL);
@@ -451,7 +452,7 @@ pub trait Handler {
         how: c_int,
         set: Option<&sigset_t>,
         oldset: Option<&mut sigset_t>,
-        sigsetsize: size_t,
+        sigsetsize: c_size_t,
     ) -> Result<()> {
         self.execute(syscall::RtSigprocmask {
             how,
@@ -469,7 +470,7 @@ pub trait Handler {
 
     /// Executes [`send`](https://man7.org/linux/man-pages/man2/send.2.html) syscall akin to [`libc::send`].
     #[inline]
-    fn send(&mut self, sockfd: c_int, buf: &[u8], flags: c_int) -> Result<size_t> {
+    fn send(&mut self, sockfd: c_int, buf: &[u8], flags: c_int) -> Result<c_size_t> {
         self.execute(syscall::Send { sockfd, buf, flags })?
             .unwrap_or_else(|| self.attacked())
     }
@@ -482,7 +483,7 @@ pub trait Handler {
         buf: &'a [u8],
         flags: c_int,
         dest_addr: impl Into<SockaddrInput<'a>>,
-    ) -> Result<size_t> {
+    ) -> Result<c_size_t> {
         self.execute(syscall::Sendto {
             sockfd,
             buf,
@@ -539,7 +540,7 @@ pub trait Handler {
 
     /// Executes [`write`](https://man7.org/linux/man-pages/man2/write.2.html) syscall akin to [`libc::write`].
     #[inline]
-    fn write(&mut self, fd: c_int, buf: &[u8]) -> Result<size_t> {
+    fn write(&mut self, fd: c_int, buf: &[u8]) -> Result<c_size_t> {
         self.execute(syscall::Write { fd, buf })?
             .unwrap_or_else(|| self.attacked())
     }
@@ -547,7 +548,7 @@ pub trait Handler {
     /// Executes [`writev`](https://man7.org/linux/man-pages/man2/writev.2.html) syscall by mapping
     /// it onto a single [`write`](https://man7.org/linux/man-pages/man2/write.2.html).
     #[inline]
-    fn writev<T: ?Sized, U>(&mut self, fd: c_int, iovs: &T) -> Result<size_t>
+    fn writev<T: ?Sized, U>(&mut self, fd: c_int, iovs: &T) -> Result<c_size_t>
     where
         for<'a> &'a T: IntoIterator<Item = &'a U>,
         U: AsRef<[u8]>,

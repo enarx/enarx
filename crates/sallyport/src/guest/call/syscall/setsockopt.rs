@@ -4,8 +4,10 @@ use super::super::types::Argv;
 use super::types::{SockoptInput, StagedSockoptInput};
 use super::Alloc;
 use crate::guest::alloc::{Allocator, Collector, Commit, Committer, Stage};
-use crate::libc::{c_int, c_long, SYS_setsockopt};
+use crate::libc::SYS_setsockopt;
 use crate::{Result, NULL};
+
+use core::ffi::{c_int, c_long};
 
 pub struct Setsockopt<T> {
     pub sockfd: c_int,

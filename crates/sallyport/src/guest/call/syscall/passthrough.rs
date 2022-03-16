@@ -4,10 +4,12 @@ use super::super::types::Argv;
 use super::Alloc;
 use crate::guest::alloc::{Allocator, Collector};
 use crate::libc::{
-    c_int, c_long, SYS_close, SYS_dup, SYS_dup2, SYS_dup3, SYS_epoll_create1, SYS_eventfd2,
-    SYS_exit, SYS_exit_group, SYS_listen, SYS_socket, SYS_sync,
+    SYS_close, SYS_dup, SYS_dup2, SYS_dup3, SYS_epoll_create1, SYS_eventfd2, SYS_exit,
+    SYS_exit_group, SYS_listen, SYS_socket, SYS_sync,
 };
 use crate::Result;
+
+use core::ffi::{c_int, c_long};
 
 /// Trait implemented by allocatable syscalls, which are passed through directly to the host and do
 /// not require custom handling logic.
@@ -19,11 +21,13 @@ use crate::Result;
 ///
 /// # Example
 /// ```rust
+/// # #![feature(core_ffi_c)]
 /// use sallyport::guest::call::types::Argv;
 /// use sallyport::guest::syscall::PassthroughAlloc;
 /// use sallyport::Result;
 /// #
-/// # use sallyport::libc::{self, c_int, c_long};
+/// # use sallyport::libc;
+/// # use core::ffi::{c_int, c_long};
 ///
 /// pub struct Exit {
 ///     pub status: c_int,

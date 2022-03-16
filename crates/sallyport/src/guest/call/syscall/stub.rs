@@ -3,12 +3,12 @@
 use super::super::Stub;
 use crate::guest::alloc::Collector;
 use crate::libc::{
-    c_char, c_int, c_uint, gid_t, pid_t, sigset_t, size_t, stack_t, stat, uid_t, utsname, EAGAIN,
-    EBADFD, EINVAL, ENOENT, GRND_NONBLOCK, GRND_RANDOM, STDERR_FILENO, STDIN_FILENO, STDOUT_FILENO,
-    S_IFIFO,
+    gid_t, pid_t, sigset_t, stack_t, stat, uid_t, utsname, EAGAIN, EBADFD, EINVAL, ENOENT,
+    GRND_NONBLOCK, GRND_RANDOM, STDERR_FILENO, STDIN_FILENO, STDOUT_FILENO, S_IFIFO,
 };
 use crate::Result;
 
+use core::ffi::{c_char, c_int, c_size_t, c_uint};
 use core::mem;
 
 /// Fake GID returned by enarx.
@@ -124,7 +124,7 @@ pub struct Getrandom<'a> {
 }
 
 impl Stub for Getrandom<'_> {
-    type Ret = Result<size_t>;
+    type Ret = Result<c_size_t>;
 
     fn collect(self, _: &impl Collector) -> Self::Ret {
         if self.flags & !(GRND_NONBLOCK | GRND_RANDOM) != 0 {
@@ -167,7 +167,7 @@ pub struct Readlink<'a> {
 }
 
 impl Stub for Readlink<'_> {
-    type Ret = Option<Result<size_t>>;
+    type Ret = Option<Result<c_size_t>>;
 
     fn collect(self, _: &impl Collector) -> Self::Ret {
         match self.pathname {
@@ -188,7 +188,7 @@ pub struct RtSigprocmask<'a> {
     pub how: c_int,
     pub set: Option<&'a sigset_t>,
     pub oldset: Option<&'a mut sigset_t>,
-    pub sigsetsize: size_t,
+    pub sigsetsize: c_size_t,
 }
 
 impl Stub for RtSigprocmask<'_> {

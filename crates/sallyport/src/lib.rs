@@ -125,7 +125,7 @@ pub mod libc;
 pub mod util;
 
 /// Error type used within this crate.
-pub type Error = crate::libc::c_int;
+pub type Error = core::ffi::c_int;
 
 /// Result type returned by functionality exposed by this crate.
 pub type Result<T> = core::result::Result<T, Error>;

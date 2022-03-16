@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use super::syscall::types::SockaddrOutput;
-use crate::libc::{c_int, iovec, EINVAL};
+use crate::libc::{iovec, EINVAL};
 
+use core::ffi::c_int;
 use core::slice;
 
 /// Platform-specific functionality.

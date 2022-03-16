@@ -4,8 +4,9 @@ use super::super::types::Argv;
 use super::Alloc;
 use crate::guest::alloc::{Allocator, Collector};
 use crate::item::enarxcall::Number;
-use crate::libc::c_void;
 use crate::Result;
+
+use core::ffi::c_void;
 
 /// Trait implemented by allocatable Enarx calls, which are passed through directly to the host and do
 /// not require custom handling logic.

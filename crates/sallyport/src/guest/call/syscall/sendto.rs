@@ -4,8 +4,10 @@ use super::super::types::Argv;
 use super::types::{SockaddrInput, StagedBytesInput};
 use super::Alloc;
 use crate::guest::alloc::{Allocator, Collector, Commit, Committer, Input, Stage};
-use crate::libc::{c_int, c_long, size_t, SYS_sendto};
+use crate::libc::SYS_sendto;
 use crate::Result;
+
+use core::ffi::{c_int, c_long, c_size_t};
 
 pub struct Sendto<'a, T> {
     pub sockfd: c_int,
@@ -20,7 +22,7 @@ pub struct StagedSendto<'a> {
 }
 
 impl<'a> Commit for StagedSendto<'a> {
-    type Item = size_t;
+    type Item = c_size_t;
 
     fn commit(self, com: &impl Committer) -> Self::Item {
         self.dest_addr.commit(com);
@@ -32,11 +34,11 @@ unsafe impl<'a, T: Into<SockaddrInput<'a>>> Alloc<'a> for Sendto<'a, T> {
     const NUM: c_long = SYS_sendto;
 
     type Argv = Argv<6>;
-    type Ret = size_t;
+    type Ret = c_size_t;
 
     type Staged = StagedSendto<'a>;
-    type Committed = size_t;
-    type Collected = Option<Result<size_t>>;
+    type Committed = c_size_t;
+    type Collected = Option<Result<c_size_t>>;
 
     fn stage(self, alloc: &mut impl Allocator) -> Result<(Self::Argv, Self::Staged)> {
         let dest_addr = self.dest_addr.into().stage(alloc)?;

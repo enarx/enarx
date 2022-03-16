@@ -15,14 +15,7 @@
 #![allow(non_camel_case_types)]
 #![allow(non_upper_case_globals)]
 
-pub type c_char = core::ffi::c_char;
-pub type c_int = core::ffi::c_int;
-pub type c_long = core::ffi::c_long;
-pub type c_short = core::ffi::c_short;
-pub type c_uint = core::ffi::c_uint;
-pub type c_ulong = core::ffi::c_ulong;
-pub type c_void = core::ffi::c_void;
-pub type size_t = core::ffi::c_size_t;
+use core::ffi::{c_char, c_int, c_long, c_short, c_size_t, c_uint, c_ulong, c_void};
 
 pub type blkcnt_t = i64;
 pub type blksize_t = i64;
@@ -54,7 +47,7 @@ pub struct epoll_event {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct iovec {
     pub iov_base: *mut c_void,
-    pub iov_len: size_t,
+    pub iov_len: c_size_t,
 }
 
 #[repr(C)]
@@ -114,7 +107,7 @@ pub struct sockaddr_in6 {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct sockaddr_storage {
     pub ss_family: sa_family_t,
-    __ss_align: size_t,
+    __ss_align: c_size_t,
     __ss_pad2: [u8; 128 - 2 * 8],
 }
 
@@ -130,7 +123,7 @@ pub struct sockaddr_un {
 pub struct stack_t {
     pub ss_sp: *mut c_void,
     pub ss_flags: c_int,
-    pub ss_size: size_t,
+    pub ss_size: c_size_t,
 }
 
 #[repr(C)]

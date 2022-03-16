@@ -2,8 +2,7 @@
 
 //! System call item definitions
 
-use crate::libc::c_int;
-
+use core::ffi::c_int;
 use core::mem::size_of;
 
 /// Payload of an [`Item`](super::Item) of [`Kind::Syscall`](super::Kind::Syscall).

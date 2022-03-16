@@ -3,8 +3,10 @@
 use super::super::types::Argv;
 use super::{iov_len, Alloc};
 use crate::guest::alloc::{Allocator, Collector, CommitPassthrough, OutRef};
-use crate::libc::{c_int, c_long, size_t, SYS_read};
+use crate::libc::SYS_read;
 use crate::Result;
+
+use core::ffi::{c_int, c_long, c_size_t};
 
 pub struct Readv<T> {
     pub fd: c_int,
@@ -28,11 +30,11 @@ where
     const NUM: c_long = SYS_read;
 
     type Argv = Argv<3>;
-    type Ret = size_t;
+    type Ret = c_size_t;
 
     type Staged = StagedReadv<'a, &'a mut T>;
     type Committed = Self::Staged;
-    type Collected = Option<Result<size_t>>;
+    type Collected = Option<Result<c_size_t>>;
 
     fn stage(self, alloc: &mut impl Allocator) -> Result<(Self::Argv, Self::Staged)> {
         let buf = alloc.allocate_output_slice_max(iov_len(self.iovs as &T))?;

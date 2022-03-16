@@ -3,8 +3,10 @@
 use super::super::types::Argv;
 use super::{iov_len, Alloc};
 use crate::guest::alloc::{Allocator, Collector, Commit, Committer, InRef};
-use crate::libc::{c_int, c_long, size_t, SYS_write};
+use crate::libc::SYS_write;
 use crate::Result;
+
+use core::ffi::{c_int, c_long, c_size_t};
 
 pub struct Writev<T> {
     pub fd: c_int,
@@ -22,7 +24,7 @@ where
     for<'b> &'b T: IntoIterator<Item = &'b U>,
     U: AsRef<[u8]>,
 {
-    type Item = size_t;
+    type Item = c_size_t;
 
     fn commit(mut self, com: &impl Committer) -> Self::Item {
         let mut capacity = self.buf.len();
@@ -59,11 +61,11 @@ where
     const NUM: c_long = SYS_write;
 
     type Argv = Argv<3>;
-    type Ret = size_t;
+    type Ret = c_size_t;
 
     type Staged = StagedWritev<'a, &'a T>;
-    type Committed = size_t;
-    type Collected = Option<Result<size_t>>;
+    type Committed = c_size_t;
+    type Collected = Option<Result<c_size_t>>;
 
     fn stage(self, alloc: &mut impl Allocator) -> Result<(Self::Argv, Self::Staged)> {
         let buf = alloc.allocate_input_slice_max(iov_len(self.iovs))?;

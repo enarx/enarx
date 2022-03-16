@@ -2,6 +2,7 @@
 
 use super::{run_test, write_tcp};
 
+use core::ffi::c_int;
 use libc;
 use std::env::temp_dir;
 use std::ffi::CString;
@@ -17,13 +18,13 @@ use std::{mem, thread};
 use sallyport::guest::syscall::types::SockaddrOutput;
 use sallyport::guest::{syscall, Handler, Platform};
 use sallyport::libc::{
-    c_int, in_addr, iovec, pollfd, sockaddr, sockaddr_in, timespec, timeval, SYS_accept,
-    SYS_accept4, SYS_bind, SYS_close, SYS_fcntl, SYS_fstat, SYS_getrandom, SYS_getsockname,
-    SYS_listen, SYS_nanosleep, SYS_open, SYS_read, SYS_readlink, SYS_readv, SYS_recvfrom,
-    SYS_sendto, SYS_setsockopt, SYS_socket, SYS_write, SYS_writev, AF_INET, EACCES, EBADF, EBADFD,
-    EINVAL, ENOENT, ENOSYS, F_GETFD, F_GETFL, F_SETFD, F_SETFL, GRND_RANDOM, MSG_NOSIGNAL,
-    O_APPEND, O_CREAT, O_RDONLY, O_RDWR, O_WRONLY, SOCK_CLOEXEC, SOCK_STREAM, SOL_SOCKET,
-    SO_RCVTIMEO, SO_REUSEADDR, STDERR_FILENO, STDIN_FILENO, STDOUT_FILENO,
+    in_addr, iovec, pollfd, sockaddr, sockaddr_in, timespec, timeval, SYS_accept, SYS_accept4,
+    SYS_bind, SYS_close, SYS_fcntl, SYS_fstat, SYS_getrandom, SYS_getsockname, SYS_listen,
+    SYS_nanosleep, SYS_open, SYS_read, SYS_readlink, SYS_readv, SYS_recvfrom, SYS_sendto,
+    SYS_setsockopt, SYS_socket, SYS_write, SYS_writev, AF_INET, EACCES, EBADF, EBADFD, EINVAL,
+    ENOENT, ENOSYS, F_GETFD, F_GETFL, F_SETFD, F_SETFL, GRND_RANDOM, MSG_NOSIGNAL, O_APPEND,
+    O_CREAT, O_RDONLY, O_RDWR, O_WRONLY, SOCK_CLOEXEC, SOCK_STREAM, SOL_SOCKET, SO_RCVTIMEO,
+    SO_REUSEADDR, STDERR_FILENO, STDIN_FILENO, STDOUT_FILENO,
 };
 use serial_test::serial;
 
