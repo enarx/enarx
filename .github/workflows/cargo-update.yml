@@ -1,0 +1,38 @@
+on:
+  workflow_dispatch:
+    branches: [ main ]
+  schedule:
+    - cron: '15 3 * * 4'
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+name: cargo-update
+jobs:
+  create-pr:
+    runs-on: ubuntu-20.04
+    steps:
+      - uses: actions/checkout@v2.4.0
+      - name: Update dependencies
+        run: |
+         cargo update --manifest-path=internal/shim-kvm/Cargo.toml
+         cargo update --manifest-path=internal/shim-sgx/Cargo.toml
+         cargo update --manifest-path=src/bin/wasmldr/Cargo.toml
+         cargo update --manifest-path=Cargo.toml
+        shell: bash
+      - name: Create pull request
+        uses: enarx/create-pull-request@v3
+        with:
+          token: ${{ secrets.BOT_TOKEN }}
+          commit-message: "chore(deps): cargo update to update dependencies"
+          title: "chore(deps): cargo update to update dependencies"
+          body: "chore(deps): cargo update to update dependencies"
+          labels: dependencies
+          signoff: true
+          branch: chore/cargo-update
+          head: ${{ github.ref }}
+          base: main
+          add-paths: |
+            Cargo.lock
+            internal/shim-sev/Cargo.lock
+            internal/shim-sgx/Cargo.lock
+            src/bin/wasmldr/Cargo.lock
