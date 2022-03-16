@@ -130,7 +130,7 @@ dependencies = [
  "io-lifetimes 0.5.3",
  "ipnet",
  "maybe-owned",
- "rustix",
+ "rustix 0.33.4",
  "winapi",
  "winapi-util",
  "winx",
@@ -156,7 +156,7 @@ dependencies = [
  "io-extras",
  "io-lifetimes 0.5.3",
  "ipnet",
- "rustix",
+ "rustix 0.33.4",
 ]
 
 [[package]]
@@ -167,7 +167,7 @@ checksum = "7a34e5a4375b768b3acaec25dd7b53bcc15c801258c43a0ef2da2027f2028e46"
 dependencies = [
  "cap-primitives",
  "once_cell",
- "rustix",
+ "rustix 0.33.4",
  "winx",
 ]
 
@@ -450,7 +450,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7df62ee66ee2d532ea8d567b5a3f0d03ecd64636b98bad5be1e93dcc918b92aa"
 dependencies = [
  "io-lifetimes 0.5.3",
- "rustix",
+ "rustix 0.33.4",
  "winapi",
 ]
 
@@ -587,7 +587,7 @@ checksum = "7c89a757e762896bdbdfadf2860d0f8b0cea5e363d8cf3e7bdfeb63d1d976352"
 dependencies = [
  "hermit-abi 0.2.0",
  "io-lifetimes 0.5.3",
- "rustix",
+ "rustix 0.33.4",
  "winapi",
 ]
 
@@ -927,6 +927,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "rustix"
+version = "0.34.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "40022ca0a2a8ed0ef04033ef4ed5ed47f440a3d0aeb772bc1bb8ccf709138461"
+dependencies = [
+ "bitflags",
+ "errno",
+ "io-lifetimes 0.6.0",
+ "libc",
+ "linux-raw-sys",
+ "winapi",
+]
+
+[[package]]
 name = "rustls"
 version = "0.20.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1046,7 +1060,7 @@ dependencies = [
  "cap-fs-ext",
  "cap-std",
  "io-lifetimes 0.5.3",
- "rustix",
+ "rustix 0.33.4",
  "winapi",
  "winx",
 ]
@@ -1244,7 +1258,7 @@ dependencies = [
  "io-lifetimes 0.5.3",
  "is-terminal",
  "lazy_static",
- "rustix",
+ "rustix 0.33.4",
  "system-interface",
  "tracing",
  "wasi-common",
@@ -1261,7 +1275,7 @@ dependencies = [
  "bitflags",
  "cap-rand",
  "cap-std",
- "rustix",
+ "rustix 0.33.4",
  "thiserror",
  "tracing",
  "wiggle",
@@ -1335,7 +1349,7 @@ dependencies = [
  "log",
  "pkcs8",
  "ring",
- "rustix",
+ "rustix 0.34.0",
  "rustls",
  "rustls-pemfile",
  "sec1",
@@ -1448,7 +1462,7 @@ dependencies = [
  "object",
  "region",
  "rustc-demangle",
- "rustix",
+ "rustix 0.33.4",
  "serde",
  "target-lexicon",
  "thiserror",
@@ -1484,7 +1498,7 @@ dependencies = [
  "more-asserts",
  "rand",
  "region",
- "rustix",
+ "rustix 0.33.4",
  "thiserror",
  "wasmtime-environ",
  "wasmtime-jit-debug",
