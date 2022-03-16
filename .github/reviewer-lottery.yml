@@ -1,0 +1,17 @@
+groups:
+  - name: codeowners
+    reviewers: 1
+    internal_reviewers: 1
+    usernames:
+      - npmccallum
+      - haraldh
+      - rvolosatovs
+
+  - name: reviewers
+    reviewers: 1
+    internal_reviewers: 1
+    usernames:
+      - jarkkojs
+      - bstrie
+      - rjzak
+      - definitelynobody
