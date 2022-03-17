@@ -45,6 +45,9 @@ use crate::handler::usermem::UserMemScope;
 use crate::{DEBUG, ENARX_EXEC_END, ENARX_EXEC_START, ENCL_SIZE};
 use sgx::ssa::StateSaveArea;
 use sgx::ssa::Vector;
+use x86_64::instructions::segmentation::Segment64;
+use x86_64::registers::segmentation::{FS, GS};
+use x86_64::VirtAddr;
 
 // Opcode constants, details in Volume 2 of the Intel 64 and IA-32 Architectures Software
 // Developer's Manual
@@ -107,11 +110,23 @@ impl guest::Handler for Handler<'_> {
         code: c_int,
         addr: c_ulong,
     ) -> sallyport::Result<()> {
-        // TODO: Check that addr in %rdx does not point to an unmapped address
-        // and is not outside of the process address space.
+        let encl_addr = self.ssa.gpr.fsbase as c_ulong & !(ENCL_SIZE - 1) as c_ulong;
+        let encl_end = encl_addr + ENCL_SIZE as c_ulong;
+
+        if addr < encl_addr || addr > encl_end {
+            return Err(EINVAL);
+        }
+
         match code {
-            ARCH_SET_FS => self.ssa.gpr.fsbase = addr,
-            ARCH_SET_GS => self.ssa.gpr.gsbase = addr,
+            // Emulate Seccomp with ENOSYS (instead of EINVAL).
+            ARCH_SET_FS => unsafe {
+                FS::write_base(VirtAddr::new(addr));
+                self.ssa.gpr.fsbase = addr
+            },
+            ARCH_SET_GS => unsafe {
+                GS::write_base(VirtAddr::new(addr));
+                self.ssa.gpr.gsbase = addr
+            },
             ARCH_GET_FS => return Err(ENOSYS),
             ARCH_GET_GS => return Err(ENOSYS),
             _ => return Err(EINVAL),
