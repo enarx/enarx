@@ -8,7 +8,7 @@ use core::mem::size_of;
 use core::ops::Range;
 
 use crate::heap::HEAP;
-use crate::{BLOCK_SIZE, ENARX_EXEC_START, ENCL_SIZE};
+use crate::{shim_address, BLOCK_SIZE, ENARX_EXEC_START};
 use gdbstub::arch::Arch;
 use gdbstub::target::ext::base::singlethread::SingleThreadOps;
 use gdbstub::target::ext::base::singlethread::{GdbInterrupt, ResumeAction, StopReason};
@@ -72,7 +72,7 @@ impl<'a> super::Handler<'a> {
 
         let mut buf = [0; 4096];
         debugln!(self, "Starting GDB session...");
-        debugln!(self, "symbol-file -o {:#x} <shim>", shim_base_offset());
+        debugln!(self, "symbol-file -o {:#x} <shim>", shim_address());
         debugln!(self, "symbol-file -o {:#x} <exec>", unsafe {
             &ENARX_EXEC_START as *const u8 as u64
         });
@@ -193,7 +193,7 @@ pub(crate) struct GdbTarget {
 
 impl GdbTarget {
     pub fn new(regs: X86_64CoreRegs, block_range: Range<usize>, ssa_range: Range<usize>) -> Self {
-        let start = shim_base_offset() as usize;
+        let start = shim_address() as usize;
         let end = HEAP.read().range().end as usize;
         let shim_range = start..end;
 
@@ -315,20 +315,6 @@ impl SingleThreadOps for GdbTarget {
         dst.copy_from_slice(data);
         Ok(())
     }
-}
-
-fn shim_base_offset() -> u64 {
-    let base: u64;
-    unsafe {
-        asm!(
-            "lea    {0},    [rip + _DYNAMIC]", // rdi = address of _DYNAMIC section
-            "and    {0},    -{SIZE}         ", // rsi = relocation address
-            out(reg) base,
-            SIZE = const ENCL_SIZE,
-            options(nostack, nomem)
-        );
-    }
-    base
 }
 
 static mut TRACE_BYTE: (u64, u8) = (0, 0);
