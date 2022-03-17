@@ -42,7 +42,7 @@ use sallyport::item::syscall::{ARCH_GET_FS, ARCH_GET_GS, ARCH_SET_FS, ARCH_SET_G
 use sallyport::libc::{off_t, EINVAL, EMSGSIZE, ENOSYS, STDERR_FILENO};
 
 use crate::handler::usermem::UserMemScope;
-use crate::{DEBUG, ENARX_EXEC_END, ENARX_EXEC_START, ENCL_SIZE};
+use crate::{shim_address, DEBUG, ENARX_EXEC_END, ENARX_EXEC_START, ENCL_SIZE};
 use sgx::ssa::StateSaveArea;
 use sgx::ssa::Vector;
 
@@ -402,7 +402,6 @@ impl<'a> Handler<'a> {
     /// This can be used with `addr2line` and the executable with debug info
     /// to get the function name and line number.
     unsafe fn print_rip(&mut self, rip: u64) {
-        let shim_start = ENCL_SIZE as u64;
         let enarx_exec_start = &ENARX_EXEC_START as *const _ as u64;
         let enarx_exec_end = &ENARX_EXEC_END as *const _ as u64;
 
@@ -412,7 +411,7 @@ impl<'a> Handler<'a> {
             let rip_pie = rip - enarx_exec_start;
             debugln!(self, "E {:>#016x}", rip_pie);
         } else {
-            let rip_pie = (shim_start - 1) & rip;
+            let rip_pie = rip - shim_address() as u64;
             debugln!(self, "S {:>#016x}", rip_pie);
         }
     }
