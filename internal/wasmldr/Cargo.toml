@@ -35,7 +35,7 @@ x509 = { version = "0.0.2", features = ["std"], package = "x509-cert" }
 pkcs8 = "0.9.0-pre.1"
 sec1 = "0.3.0-pre.1"
 const-oid = "0.9.0"
-zeroize = { version = "^1.5.2", features = ["alloc"] }
+zeroize = { version = "^1.5.4", features = ["alloc"] }
 ring = { version = "0.16.20", features = ["std"] }
 ureq = { version = "^2.4.0" }
 clap = { version = "3.1.6", default-features = false, features = ["derive", "std"] }
