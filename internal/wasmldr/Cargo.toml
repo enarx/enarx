@@ -20,7 +20,7 @@ wasmtime-wasi = { version = "0.35.0", default-features = false, features = ["syn
 wasi-common = { version = "0.35.0", default-features = false }
 wiggle = { version = "0.35.0", default-features = false }
 io-lifetimes = { version = "0.6.0", default-features = false }
-cap-std = "0.24.1"
+cap-std = "0.24.2"
 system-interface = { version = "0.20.0", features = ["cap_std_impls"] }
 wasmparser = "0.83.0"
 anyhow = "1.0"
