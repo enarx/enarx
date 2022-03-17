@@ -104,7 +104,10 @@ mod tests {
     use crate::item::{gdbcall, Gdbcall, Syscall};
     use crate::NULL;
 
-    use crate::libc::*;
+    use libc::{
+        SYS_close, SYS_dup2, SYS_fcntl, SYS_read, SYS_sync, SYS_write, EFAULT, ENOSYS, EOVERFLOW,
+        F_GETFD, STDIN_FILENO, STDOUT_FILENO,
+    };
     use std::fmt::Debug;
 
     struct DerefTestCase<T> {

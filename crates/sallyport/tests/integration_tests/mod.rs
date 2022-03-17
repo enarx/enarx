@@ -5,6 +5,7 @@ pub mod syscall;
 
 use core::ffi::{c_int, c_size_t, c_ulong, c_void};
 use core::slice;
+use libc::{EINVAL, ENOSYS};
 use std::io::Write;
 use std::net::{TcpStream, ToSocketAddrs};
 use std::ptr::NonNull;
@@ -12,7 +13,7 @@ use std::thread;
 
 use sallyport::guest::{Handler, Platform, ThreadLocalStorage};
 use sallyport::item::Block;
-use sallyport::libc::{off_t, EINVAL, ENOSYS};
+use sallyport::libc::off_t;
 use sallyport::util::ptr;
 use sallyport::{host, Result};
 
