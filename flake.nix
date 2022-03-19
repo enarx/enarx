@@ -7,10 +7,8 @@
   inputs.nixpkgs.url = github:NixOS/nixpkgs/nixos-unstable;
   inputs.fenix.inputs.nixpkgs.follows = "nixpkgs";
   inputs.fenix.url = github:rvolosatovs/fenix?ref=fix/rustc-patch;
-  inputs.naersk.url = github:nix-community/naersk;
-  inputs.naersk.inputs.nixpkgs.follows = "nixpkgs";
 
-  outputs = { self, nixpkgs, fenix, flake-utils, naersk, ... }:
+  outputs = { self, nixpkgs, fenix, flake-utils, ... }:
     # NOTE: musl is only supported on Linux.
     with flake-utils.lib; eachSystem [ system.x86_64-linux ] (system:
       let
@@ -39,25 +37,29 @@
           let
             src = nixpkgs.lib.cleanSource self;
 
+            pkgsCross = import nixpkgs {
+              inherit system;
+              crossSystem.config = "x86_64-unknown-linux-musl";
+            };
+
             # Common base derivation to build Enarx crates
-            buildEnarxPackage = { src, ... }@extraAttrs:
+            buildEnarxPackage = pkgs: extraAttrs:
               let
                 cargoToml = with builtins; fromTOML (readFile "${src}/Cargo.toml");
-                buildPackage = (naersk.lib.${system}.override {
+                buildPackage = (pkgs.makeRustPlatform {
                   cargo = rust;
                   rustc = rust;
-                }).buildPackage;
+                }).buildRustPackage;
               in
               buildPackage ({
-                inherit src;
                 inherit (cargoToml.package) name version;
+
+                cargoLock.lockFile = "${extraAttrs.src}/Cargo.lock";
               } // extraAttrs);
 
             # Enarx internal static dependencies
-            buildEnarxInternalPackage = src: buildEnarxPackage {
+            buildEnarxInternalPackage = src: buildEnarxPackage pkgsCross {
               inherit src;
-
-              CARGO_BUILD_TARGET = "x86_64-unknown-linux-musl";
 
               stripAllFlags = [ "--strip-unneeded" ];
               stripAllList = [ "bin" ];
@@ -66,20 +68,20 @@
             shimSgx = buildEnarxInternalPackage ./crates/shim-sgx;
             execWasmtime = buildEnarxInternalPackage ./crates/exec-wasmtime;
           in
-          buildEnarxPackage {
+          buildEnarxPackage pkgs {
             inherit src;
+
+            postPatch = ''
+              patchShebangs ./helper
+            '';
 
             ENARX_PREBUILT_shim-kvm = "${shimKvm}/bin/shim-kvm";
             ENARX_PREBUILT_shim-sgx = "${shimSgx}/bin/shim-sgx";
             ENARX_PREBUILT_exec-wasmtime = "${execWasmtime}/bin/exec-wasmtime";
 
-            CARGO_BUILD_TARGET = "x86_64-unknown-linux-gnu";
-
             doCheck = true;
             preCheck = ''
-              if [[ -e /dev/kvm ]]; then
-                export cargo_test_options="$cargo_test_options -- --skip check_listen_fd"
-              else
+              if [[ ! -e /dev/kvm ]]; then
                 header "No KVM support, running only unit tests"
                 export cargo_test_options="$cargo_test_options --bins"
               fi
