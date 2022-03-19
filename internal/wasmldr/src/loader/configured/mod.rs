@@ -1,5 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
+#![allow(dead_code)]
+
+mod platform;
+
+#[allow(unused_imports)]
+use platform::{Platform, Technology};
+
 use super::{pki::PrivateKeyInfoExt, Configured, Loader, Requested};
 
 use anyhow::Result;
