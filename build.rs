@@ -81,6 +81,7 @@ fn cargo_build_bin(
     out_dir: &Path,
     target_name: &str,
     bin_name: &str,
+    build_std: bool,
 ) -> std::io::Result<()> {
     // And here's where we'd like to place the final (stripped) binary
     let out_bin = out_dir.join("bin").join(bin_name);
@@ -143,7 +144,7 @@ fn cargo_build_bin(
         .unwrap_or_else(|_| Stdio::inherit());
 
     let mut cmd = Command::new("cargo");
-    let cmd = cmd
+    let mut cmd = cmd
         .current_dir(&path)
         .env_clear()
         .envs(&filtered_env)
@@ -157,6 +158,10 @@ fn cargo_build_bin(
         .arg(target_name)
         .arg("--bin")
         .arg(bin_name);
+
+    if build_std {
+        cmd = cmd.arg("-Z").arg("build-std=core");
+    }
 
     #[cfg(feature = "gdb")]
     let cmd = cmd.arg("--features=gdb");
@@ -230,8 +235,6 @@ fn main() {
 
     build_cc_tests(&Path::new(CRATE).join(TEST_BINS_IN), &out_dir_bin);
 
-    let target = "x86_64-unknown-linux-musl";
-
     // internal crates are not included, if there is a `Cargo.toml` file
     // trick cargo by renaming the `Cargo.toml` to `Cargo.tml` before
     // publishing and rename it back here.
@@ -249,13 +252,29 @@ fn main() {
 
         match dir_name {
             #[cfg(feature = "wasmldr")]
-            "wasmldr" => cargo_build_bin(&path, &out_dir, target, "wasmldr").unwrap(),
+            "wasmldr" => cargo_build_bin(
+                &path,
+                &out_dir,
+                "x86_64-unknown-linux-musl",
+                "wasmldr",
+                false,
+            )
+            .unwrap(),
 
             #[cfg(feature = "backend-kvm")]
-            "shim-kvm" => cargo_build_bin(&path, &out_dir, target, "shim-kvm").unwrap(),
+            "shim-kvm" => {
+                cargo_build_bin(&path, &out_dir, "x86_64-unknown-none", "shim-kvm", true).unwrap()
+            }
 
             #[cfg(feature = "backend-sgx")]
-            "shim-sgx" => cargo_build_bin(&path, &out_dir, target, "shim-sgx").unwrap(),
+            "shim-sgx" => cargo_build_bin(
+                &path,
+                &out_dir,
+                "x86_64-unknown-linux-musl",
+                "shim-sgx",
+                false,
+            )
+            .unwrap(),
 
             _ => eprintln!("Unknown internal directory: {}", dir_name),
         }

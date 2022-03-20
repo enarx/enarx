@@ -1,10 +1,12 @@
 [build]
-target = "x86_64-unknown-linux-musl"
+# FIXME: "x86_64-unknown-none" is not yet a tier 2 target, so setting this as
+#        the default target breaks rust-analyzer.
+# target = "x86_64-unknown-none"
 
-[target.x86_64-unknown-linux-musl]
+[target.x86_64-unknown-none]
 rustflags = [
     "-C", "relocation-model=pic",
+    "-C", "linker=gcc",
     "-C", "link-args=-Wl,--sort-section=alignment,-Tlayout.ld -nostartfiles",
-    "-C", "link-self-contained=no",
-    "-C", "force-frame-pointers=yes",
+    "-C", "target-feature=-soft-float,+sse,+sse2",
 ]
