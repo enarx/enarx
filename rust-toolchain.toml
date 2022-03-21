@@ -1,4 +1,5 @@
 [toolchain]
 channel = "nightly-2022-03-14"
-targets = ["x86_64-unknown-linux-gnu", "x86_64-unknown-linux-musl", "wasm32-wasi"]
+targets = ["x86_64-unknown-linux-gnu", "x86_64-unknown-linux-musl", "x86_64-unknown-none", "wasm32-wasi"]
 profile = "minimal"
+components = [ "rust-src" ]
