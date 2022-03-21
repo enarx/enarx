@@ -5,8 +5,5 @@
 
 [target.x86_64-unknown-none]
 rustflags = [
-    "-C", "relocation-model=pic",
-    "-C", "linker=gcc",
-    "-C", "link-args=-Wl,--sort-section=alignment,-Tlayout.ld -nostartfiles",
     "-C", "target-feature=-soft-float,+sse,+sse2",
 ]
