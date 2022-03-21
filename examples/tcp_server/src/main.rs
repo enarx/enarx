@@ -28,7 +28,7 @@ fn main() -> io::Result<()> {
     // Create storage for events.
     let mut events = Events::with_capacity(128);
 
-    std::env::var("LISTEN_FDS").map_err(|_| io::Error::from(io::ErrorKind::InvalidInput))?;
+    std::env::var("FD_COUNT").map_err(|_| io::Error::from(io::ErrorKind::InvalidInput))?;
 
     // Setup the TCP server socket.
     let mut server = {

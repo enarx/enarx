@@ -11,6 +11,7 @@
 #![feature(generic_const_exprs)]
 #![feature(naked_functions)]
 #![feature(const_mut_refs)]
+#![feature(c_size_t, core_ffi_c)]
 #![deny(clippy::all)]
 #![deny(missing_docs)]
 #![warn(rust_2018_idioms)]
@@ -55,7 +56,17 @@ pub const BLOCK_SIZE: usize = 69632;
 // NOTE: You MUST take the address of these symbols for them to work!
 extern "C" {
     /// Extern
+    pub static ENARX_SHIM_ADDRESS: u8;
+    /// Extern
     pub static ENARX_EXEC_START: u8;
     /// Extern
     pub static ENARX_EXEC_END: u8;
+}
+
+/// Get the Shim's base address. It can be taken from any symbol inside the
+/// shim, but the reason for having ENARX_SHIM_ADDRESS is that it can be easily
+/// adapted to naked functions.
+#[inline]
+pub fn shim_address() -> usize {
+    unsafe { &ENARX_SHIM_ADDRESS as *const _ as usize }
 }

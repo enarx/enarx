@@ -19,6 +19,7 @@ use aes_gcm::AeadInPlace;
 use aes_gcm::NewAead;
 use aes_gcm::{Aes256Gcm, Key, Nonce, Tag};
 use const_default::ConstDefault;
+use sallyport::libc::EINVAL;
 use spinning::Lazy;
 use x86_64::registers::model_specific::Msr;
 use x86_64::structures::paging::{Page, Size4KiB};
@@ -748,11 +749,11 @@ impl Locked<&mut GhcbExtHandle> {
     /// Get an attestation report via the GHCB shared page protocol
     pub fn get_report(&self, version: u8, nonce: &[u8], response: &mut [u8]) -> Result<usize, u64> {
         if nonce.len() != 64 {
-            return Err(libc::EINVAL as _);
+            return Err(EINVAL as _);
         }
 
         if response.len() < SNP_ATTESTATION_LEN_MAX {
-            return Err(libc::EINVAL as _);
+            return Err(EINVAL as _);
         }
 
         let mut this = self.lock();

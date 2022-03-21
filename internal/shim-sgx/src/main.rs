@@ -20,7 +20,7 @@ extern crate rcrt1;
 use core::arch::asm;
 
 use shim_sgx::{
-    entry, handler, ATTR, BLOCK_SIZE, ENARX_EXEC_START, ENCL_SIZE, ENCL_SIZE_BITS, MISC,
+    entry, handler, ATTR, BLOCK_SIZE, ENARX_EXEC_START, ENARX_SHIM_ADDRESS, ENCL_SIZE_BITS, MISC,
 };
 
 #[panic_handler]
@@ -167,10 +167,9 @@ unsafe extern "sysv64" fn relocate() {
         "push   r10",
         "push   r11",
 
-        "lea    rdi,    [rip + _DYNAMIC]", // rdi = address of _DYNAMIC section
-        "mov    rsi,    -{SIZE}         ", // rsi = enclave start address mask
-        "and    rsi,    rdi             ", // rsi = relocation address
-        "call   {DYN_RELOC}             ", // relocate the dynamic symbols
+        "lea    rdi,    [rip + _DYNAMIC]",             // rdi = address of _DYNAMIC section
+        "lea    rsi,    [rip + {ENARX_SHIM_ADDRESS}]", // rsi = enclave start address mask
+        "call   {DYN_RELOC}",                          // relocate the dynamic symbols
 
         "pop    r11",
         "pop    r10",
@@ -184,8 +183,8 @@ unsafe extern "sysv64" fn relocate() {
 
         "ret",
 
-        SIZE = const ENCL_SIZE,
         DYN_RELOC = sym rcrt1::dyn_reloc,
+        ENARX_SHIM_ADDRESS = sym ENARX_SHIM_ADDRESS,
         options(noreturn)
     )
 }

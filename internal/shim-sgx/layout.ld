@@ -16,6 +16,7 @@ PHDRS {
 }
 
 SECTIONS {
+    HIDDEN(ENARX_SHIM_ADDRESS = .);
     . = SIZEOF_HEADERS;
 
     . = ALIGN(4K);

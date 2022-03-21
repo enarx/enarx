@@ -28,21 +28,21 @@ pub(crate) mod usermem;
 
 use core::arch::asm;
 use core::arch::x86_64::CpuidResult;
-use core::ffi::c_void;
+use core::ffi::{c_int, c_size_t, c_ulong, c_void};
 use core::fmt::Write;
 use core::mem::size_of;
 use core::ptr::read_unaligned;
 use core::ptr::NonNull;
-use libc::{c_int, c_ulong, off_t, size_t};
 
 use sallyport::guest::Handler as _;
 use sallyport::guest::{self, Platform, ThreadLocalStorage};
 use sallyport::item::enarxcall::sgx::{Report, ReportData, TargetInfo, TECH};
 use sallyport::item::enarxcall::SYS_GETATT;
 use sallyport::item::syscall::{ARCH_GET_FS, ARCH_GET_GS, ARCH_SET_FS, ARCH_SET_GS};
+use sallyport::libc::{off_t, EINVAL, EMSGSIZE, ENOSYS, STDERR_FILENO};
 
 use crate::handler::usermem::UserMemScope;
-use crate::{DEBUG, ENARX_EXEC_END, ENARX_EXEC_START, ENCL_SIZE};
+use crate::{shim_address, DEBUG, ENARX_EXEC_END, ENARX_EXEC_START, ENCL_SIZE};
 use sgx::ssa::StateSaveArea;
 use sgx::ssa::Vector;
 
@@ -64,7 +64,7 @@ impl<'a> Write for Handler<'a> {
         let mut written = 0;
         while written < len {
             written += self
-                .write(libc::STDERR_FILENO, &buf[written..])
+                .write(STDERR_FILENO, &buf[written..])
                 .map_err(|_| core::fmt::Error)? as usize;
         }
         Ok(())
@@ -112,9 +112,9 @@ impl guest::Handler for Handler<'_> {
         match code {
             ARCH_SET_FS => self.ssa.gpr.fsbase = addr,
             ARCH_SET_GS => self.ssa.gpr.gsbase = addr,
-            ARCH_GET_FS => return Err(libc::ENOSYS),
-            ARCH_GET_GS => return Err(libc::ENOSYS),
-            _ => return Err(libc::EINVAL),
+            ARCH_GET_FS => return Err(ENOSYS),
+            ARCH_GET_GS => return Err(ENOSYS),
+            _ => return Err(EINVAL),
         }
         Ok(())
     }
@@ -136,7 +136,7 @@ impl guest::Handler for Handler<'_> {
         &mut self,
         _platform: &impl Platform,
         _addr: NonNull<c_void>,
-        _length: size_t,
+        _length: c_size_t,
         _advice: c_int,
     ) -> sallyport::Result<()> {
         Ok(())
@@ -148,7 +148,7 @@ impl guest::Handler for Handler<'_> {
         &mut self,
         _platform: &impl Platform,
         _addr: NonNull<c_void>,
-        _len: size_t,
+        _len: c_size_t,
         _prot: c_int,
     ) -> sallyport::Result<()> {
         Ok(())
@@ -158,13 +158,13 @@ impl guest::Handler for Handler<'_> {
         &mut self,
         _platform: &impl Platform,
         addr: Option<NonNull<c_void>>,
-        length: size_t,
+        length: c_size_t,
         prot: c_int,
         flags: c_int,
         fd: c_int,
         offset: off_t,
     ) -> sallyport::Result<NonNull<c_void>> {
-        Ok(NonNull::new(crate::heap::HEAP.write().mmap::<libc::c_void>(
+        Ok(NonNull::new(crate::heap::HEAP.write().mmap::<c_void>(
             addr.map(|v| v.as_ptr() as usize).unwrap_or(0),
             length,
             prot,
@@ -179,11 +179,11 @@ impl guest::Handler for Handler<'_> {
         &mut self,
         _platform: &impl Platform,
         addr: NonNull<c_void>,
-        length: size_t,
+        length: c_size_t,
     ) -> sallyport::Result<()> {
         crate::heap::HEAP
             .write()
-            .munmap::<libc::c_void>(addr.as_ptr() as _, length)
+            .munmap::<c_void>(addr.as_ptr() as _, length)
     }
 }
 
@@ -254,7 +254,7 @@ impl<'a> Handler<'a> {
         hash_len: usize,
         buf: usize,
         buf_len: usize,
-    ) -> Result<[usize; 2], libc::c_int> {
+    ) -> Result<[usize; 2], c_int> {
         let quote_size = self.get_sgx_quote_size()?;
 
         if buf == 0 {
@@ -262,15 +262,15 @@ impl<'a> Handler<'a> {
         }
 
         if buf_len > isize::MAX as usize {
-            return Err(libc::EINVAL);
+            return Err(EINVAL);
         }
 
         if buf_len < quote_size {
-            return Err(libc::EMSGSIZE);
+            return Err(EMSGSIZE);
         }
 
         if hash_len != 64 {
-            return Err(libc::EINVAL);
+            return Err(EINVAL);
         }
 
         let hash = {
@@ -402,7 +402,6 @@ impl<'a> Handler<'a> {
     /// This can be used with `addr2line` and the executable with debug info
     /// to get the function name and line number.
     unsafe fn print_rip(&mut self, rip: u64) {
-        let shim_start = ENCL_SIZE as u64;
         let enarx_exec_start = &ENARX_EXEC_START as *const _ as u64;
         let enarx_exec_end = &ENARX_EXEC_END as *const _ as u64;
 
@@ -412,7 +411,7 @@ impl<'a> Handler<'a> {
             let rip_pie = rip - enarx_exec_start;
             debugln!(self, "E {:>#016x}", rip_pie);
         } else {
-            let rip_pie = (shim_start - 1) & rip;
+            let rip_pie = rip - shim_address() as u64;
             debugln!(self, "S {:>#016x}", rip_pie);
         }
     }
