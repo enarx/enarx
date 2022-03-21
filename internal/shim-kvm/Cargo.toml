@@ -32,7 +32,7 @@ linked_list_allocator = { version = "0.9.1", default-features = false }
 bit_field = "0.10"
 bitflags = "1.3"
 lock_api = "0.4"
-aes-gcm = { version = "0.9", features = ["aes"], default-features = false  }
+aes-gcm = { version = "0.9", features = ["aes", "force-soft" ], default-features = false  }
 const-default = { version = "1.0", features = [ "derive" ] }
 
 [dev-dependencies]

@@ -1,9 +1,0 @@
-[build]
-# FIXME: "x86_64-unknown-none" is not yet a tier 2 target, so setting this as
-#        the default target breaks rust-analyzer.
-# target = "x86_64-unknown-none"
-
-[target.x86_64-unknown-none]
-rustflags = [
-    "-C", "target-feature=-soft-float,+sse,+sse2",
-]
