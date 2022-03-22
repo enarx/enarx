@@ -11,6 +11,7 @@ pub use cpuid_page::{cpuid, cpuid_count, get_cpuid_max};
 
 use crate::snp::Error::{FailInput, FailSizeMismatch, Unknown};
 
+pub mod attestation;
 pub mod cpuid_page;
 pub mod ghcb;
 pub mod secrets_page;
