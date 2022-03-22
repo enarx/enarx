@@ -7,7 +7,7 @@ license = "Apache-2.0"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-sallyport = { version = "0.3.0" }
+sallyport = { version = "0.3.0", git = "https://github.com/enarx/sallyport", rev = "580480b19b1542bc3da2fdafef08f895f5bb3389" }
 
 [dev-dependencies]
 memoffset = "0.6.4"
