@@ -462,12 +462,6 @@ pub trait Handler {
         })?
     }
 
-    /// Executes [`sigaltstack`](https://man7.org/linux/man-pages/man2/sigaltstack.2.html) syscall akin to [`libc::sigaltstack`].
-    #[inline]
-    fn sigaltstack(&mut self, ss: Option<&stack_t>, old_ss: Option<&mut stack_t>) -> Result<()> {
-        self.execute(syscall::Sigaltstack { ss, old_ss })?
-    }
-
     /// Executes [`send`](https://man7.org/linux/man-pages/man2/send.2.html) syscall akin to [`libc::send`].
     #[inline]
     fn send(&mut self, sockfd: c_int, buf: &[u8], flags: c_int) -> Result<c_size_t> {
@@ -514,6 +508,12 @@ pub trait Handler {
     #[inline]
     fn set_tid_address(&mut self, tidptr: &mut c_int) -> Result<pid_t> {
         self.execute(syscall::SetTidAddress { tidptr })
+    }
+
+    /// Executes [`sigaltstack`](https://man7.org/linux/man-pages/man2/sigaltstack.2.html) syscall akin to [`libc::sigaltstack`].
+    #[inline]
+    fn sigaltstack(&mut self, ss: Option<&stack_t>, old_ss: Option<&mut stack_t>) -> Result<()> {
+        self.execute(syscall::Sigaltstack { ss, old_ss })?
     }
 
     /// Executes [`socket`](https://man7.org/linux/man-pages/man2/socket.2.html) syscall akin to [`libc::socket`].
