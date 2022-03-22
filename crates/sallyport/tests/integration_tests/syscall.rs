@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::integration_tests::recv_udp;
 use super::{run_test, write_tcp};
+use crate::integration_tests::recv_udp;
 
 use core::ffi::{c_char, c_int};
 use libc::{
@@ -929,7 +929,7 @@ fn tcp_server() {
 
         const EXPECTED: &str = "tcp";
         let client = thread::Builder::new()
-            .name(String::from("client"))
+            .name("client".into())
             .spawn(move || {
                 write_tcp(
                     ("127.0.0.1", u16::from_be(addr.sin_port)),
@@ -1039,7 +1039,7 @@ fn recvfrom() {
         let src_port = src_socket.local_addr().unwrap().port();
 
         let client = thread::Builder::new()
-            .name(String::from("client"))
+            .name("client".into())
             .spawn(move || {
                 assert_eq!(
                     src_socket
@@ -1216,7 +1216,7 @@ fn send() {
         let dest_addr = dest_socket.local_addr().unwrap();
 
         let server = thread::Builder::new()
-            .name(String::from("server"))
+            .name("server".into())
             .spawn(move || recv_udp(dest_socket, EXPECTED))
             .expect("couldn't spawn server thread");
 
@@ -1263,7 +1263,7 @@ fn sendto() {
         let dest_port = dest_socket.local_addr().unwrap().port();
 
         let server = thread::Builder::new()
-            .name(String::from("server"))
+            .name("server".into())
             .spawn(move || recv_udp(dest_socket, EXPECTED))
             .expect("couldn't spawn server thread");
 
