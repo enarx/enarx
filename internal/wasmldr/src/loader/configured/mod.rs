@@ -11,17 +11,14 @@ use super::{pki::PrivateKeyInfoExt, Configured, Loader, Requested};
 
 use anyhow::Result;
 
-use const_oid::{db::rfc5912::SECP_256_R_1, AssociatedOid, ObjectIdentifier};
+use const_oid::{db::rfc5912::SECP_256_R_1, db::rfc5912::SECP_384_R_1, AssociatedOid};
 use pkcs8::PrivateKeyInfo;
+use sha2::{Digest, Sha256, Sha384};
 use x509::der::{asn1::BitString, Any, Decodable, Encodable};
 use x509::request::{CertReq, CertReqInfo, ExtensionReq};
 use x509::{attr::Attribute, ext::Extension, name::RdnSequence};
 
 impl Loader<Configured> {
-    const KVM: ObjectIdentifier = ObjectIdentifier::new_unwrap("1.3.6.1.4.1.58270.1.1");
-    //const SGX: ObjectIdentifier = ObjectIdentifier::new_unwrap("1.3.6.1.4.1.58270.1.2");
-    //const SNP: ObjectIdentifier = ObjectIdentifier::new_unwrap("1.3.6.1.4.1.58270.1.3");
-
     pub fn make_csr(pki: &PrivateKeyInfo<'_>, exts: Vec<Extension<'_>>) -> Result<Vec<u8>> {
         // Request the extensions.
         let req = ExtensionReq::from(exts).to_vec()?;
@@ -53,21 +50,37 @@ impl Loader<Configured> {
     }
 
     pub fn next(self) -> Result<Loader<Requested>> {
-        // TODO:
-        //   1. get attestation
-        //   2. get intermediate cert
-        //   3. choose key type based on technology
-        //   4. generate tech-specific attestation extension request
+        let platform = Platform::get()?;
+        let cert_algo = match platform.technology() {
+            Technology::Snp => SECP_384_R_1,
+            Technology::Sgx => SECP_256_R_1,
+            Technology::Kvm => SECP_256_R_1,
+        };
 
         // Generate a keypair.
-        let raw = PrivateKeyInfo::generate(SECP_256_R_1)?;
+        let raw = PrivateKeyInfo::generate(cert_algo)?;
         let pki = PrivateKeyInfo::from_der(raw.as_ref())?;
+        let der = pki.public_key().unwrap().to_vec().unwrap();
+
+        let mut key_hash = [0u8; 64];
+        match platform.technology() {
+            Technology::Snp => {
+                let hash = Sha384::digest(der);
+                key_hash[..48].copy_from_slice(&hash);
+            }
+            _ => {
+                let hash = Sha256::digest(der);
+                key_hash[..32].copy_from_slice(&hash);
+            }
+        };
+
+        let attestation_report = platform.attest(&key_hash)?;
 
         // Create extensions.
         let ext = vec![Extension {
-            extn_id: Self::KVM,
+            extn_id: platform.technology().into(),
             critical: false,
-            extn_value: &[],
+            extn_value: &attestation_report,
         }];
 
         // Make a certificate signing request.
