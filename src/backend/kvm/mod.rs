@@ -14,6 +14,8 @@ use kvm_bindings::bindings::kvm_userspace_memory_region;
 use kvm_ioctls::Kvm;
 use kvm_ioctls::{VcpuFd, VmFd};
 use mmarinus::{perms, Map};
+use sallyport::item::enarxcall::Payload;
+use sallyport::item::Item;
 use x86_64::VirtAddr;
 
 pub mod builder;
@@ -25,6 +27,14 @@ pub mod thread;
 pub trait KeepPersonality {
     fn map(_vm_fd: &mut VmFd, _region: &Region) -> std::io::Result<()> {
         Ok(())
+    }
+
+    fn enarxcall<'a>(
+        &mut self,
+        enarxcall: &'a mut Payload,
+        data: &'a mut [u8],
+    ) -> Result<Option<Item<'a>>> {
+        Ok(Some(Item::Enarxcall(enarxcall, data)))
     }
 }
 

@@ -161,11 +161,16 @@ impl<P: KeepPersonality> super::super::Thread for Thread<P> {
                         }
 
                         Item::Enarxcall(enarxcall, data) => {
-                            sallyport::host::execute(
-                                self.kvm_enarxcall(enarxcall, data)?.into_iter(),
-                            )
-                            .map_err(io::Error::from_raw_os_error)
-                            .context("sallyport::host::execute")?;
+                            if let Some(Item::Enarxcall(enarxcall, data)) =
+                                self.kvm_enarxcall(enarxcall, data)?
+                            {
+                                let mut keep = self.keep.write().unwrap();
+                                sallyport::host::execute(
+                                    keep.personality.enarxcall(enarxcall, data)?.into_iter(),
+                                )
+                                .map_err(io::Error::from_raw_os_error)
+                                .context("sallyport::host::execute")?;
+                            }
                         }
 
                         // Catch exit and exit_group for a clean shutdown
