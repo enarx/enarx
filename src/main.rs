@@ -163,7 +163,7 @@ fn main() -> Result<()> {
             std::process::exit(exit_code);
         }
         #[cfg(feature = "backend-sev")]
-        cli::Command::Sev(cmd) => cli::sev::run(cmd),
+        cli::Command::Snp(cmd) => cli::snp::run(cmd),
         #[cfg(feature = "backend-sgx")]
         cli::Command::Sgx(cmd) => cli::sgx::run(cmd),
     }
