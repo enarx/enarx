@@ -15,7 +15,7 @@ pub use syscall::Payload as Syscall;
 use crate::libc::EINVAL;
 use crate::Error;
 
-use core::convert::{TryFrom, TryInto};
+use core::convert::TryFrom;
 use core::mem::size_of;
 
 /// The maximum size of a UDP packet
@@ -63,8 +63,6 @@ impl TryFrom<usize> for Kind {
     }
 }
 
-pub(crate) const HEADER_USIZE_COUNT: usize = size_of::<Header>() / size_of::<usize>();
-
 /// `sallyport` item header.
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[repr(C, align(8))]
@@ -73,21 +71,29 @@ pub struct Header {
     pub kind: Kind,
 }
 
-impl TryFrom<[usize; HEADER_USIZE_COUNT]> for Header {
-    type Error = Error;
-
-    #[inline]
-    fn try_from(header: [usize; HEADER_USIZE_COUNT]) -> Result<Self, Self::Error> {
-        let [size, kind] = header;
-        let kind = kind.try_into()?;
-        Ok(Self { size, kind })
-    }
-}
-
 /// `sallyport` item.
 #[derive(Debug, PartialEq)]
 pub enum Item<'a> {
     Syscall(&'a mut Syscall, &'a mut [u8]),
     Gdbcall(&'a mut Gdbcall, &'a mut [u8]),
     Enarxcall(&'a mut Enarxcall, &'a mut [u8]),
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn kind_try_from() {
+        for (v, expected) in [
+            (0x00, Ok(Kind::End)),
+            (0x01, Ok(Kind::Syscall)),
+            (0x02, Ok(Kind::Gdbcall)),
+            (0x03, Ok(Kind::Enarxcall)),
+            (0x04, Err(EINVAL)),
+            (0xff, Err(EINVAL)),
+        ] {
+            assert_eq!(v.try_into(), expected, "Invalid mapping for {}", v);
+        }
+    }
 }

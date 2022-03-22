@@ -1,22 +1,26 @@
 // SPDX-License-Identifier: Apache-2.0
 
+use crate::integration_tests::recv_udp;
 use super::{run_test, write_tcp};
 
-use core::ffi::c_int;
-use libc;
+use core::ffi::{c_char, c_int};
 use libc::{
-    SYS_accept, SYS_accept4, SYS_bind, SYS_close, SYS_fcntl, SYS_fstat, SYS_getrandom,
-    SYS_getsockname, SYS_listen, SYS_nanosleep, SYS_open, SYS_read, SYS_readlink, SYS_readv,
-    SYS_recvfrom, SYS_sendto, SYS_setsockopt, SYS_socket, SYS_write, SYS_writev, AF_INET, EACCES,
-    EBADF, EBADFD, EINVAL, ENOENT, ENOSYS, F_GETFD, F_GETFL, F_SETFD, F_SETFL, GRND_RANDOM,
-    MSG_NOSIGNAL, O_APPEND, O_CREAT, O_RDONLY, O_RDWR, O_WRONLY, SOCK_CLOEXEC, SOCK_STREAM,
-    SOL_SOCKET, SO_RCVTIMEO, SO_REUSEADDR, STDERR_FILENO, STDIN_FILENO, STDOUT_FILENO,
+    self, SYS_accept, SYS_accept4, SYS_bind, SYS_close, SYS_fcntl, SYS_fstat, SYS_getegid,
+    SYS_geteuid, SYS_getgid, SYS_getpid, SYS_getrandom, SYS_getsockname, SYS_listen, SYS_nanosleep,
+    SYS_open, SYS_poll, SYS_read, SYS_readlink, SYS_readv, SYS_recvfrom, SYS_rt_sigaction,
+    SYS_rt_sigprocmask, SYS_sendto, SYS_set_tid_address, SYS_setsockopt, SYS_sigaltstack,
+    SYS_socket, SYS_uname, SYS_write, SYS_writev, AF_INET, EACCES, EBADF, EBADFD, EINVAL, ENOENT,
+    ENOSYS, F_GETFD, F_GETFL, F_SETFD, F_SETFL, GRND_RANDOM, MSG_NOSIGNAL, O_APPEND, O_CREAT,
+    O_RDONLY, O_RDWR, O_WRONLY, SIGCHLD, SIG_BLOCK, SOCK_CLOEXEC, SOCK_STREAM, SOL_SOCKET,
+    SO_RCVTIMEO, SO_REUSEADDR, STDERR_FILENO, STDIN_FILENO, STDOUT_FILENO,
 };
+use sallyport::guest::syscall::{FAKE_GID, FAKE_PID, FAKE_TID, FAKE_UID};
+use sallyport::item::syscall::sigaction;
 use std::env::temp_dir;
 use std::ffi::CString;
 use std::fs::{File, OpenOptions};
 use std::io::{Read, Seek, Write};
-use std::mem::size_of;
+use std::mem::{size_of, transmute};
 use std::net::{TcpListener, UdpSocket};
 use std::os::unix::prelude::AsRawFd;
 use std::ptr::null_mut;
@@ -25,7 +29,7 @@ use std::{mem, thread};
 
 use sallyport::guest::syscall::types::SockaddrOutput;
 use sallyport::guest::{syscall, Handler, Platform};
-use sallyport::libc::{in_addr, iovec, pollfd, sockaddr, sockaddr_in, timespec, timeval};
+use sallyport::libc::{in_addr, iovec, pollfd, sockaddr, sockaddr_in, timespec, timeval, utsname};
 use serial_test::serial;
 
 fn syscall_socket<'a, 'b>(
@@ -230,30 +234,11 @@ fn fstat() {
     let file = File::create(temp_dir().join("sallyport-test-fstat")).unwrap();
     let fd = file.as_raw_fd();
 
-    run_test(1, [0xff; 16], move |_, platform, handler| {
+    run_test(2, [0xff; 16], move |i, platform, handler| {
         let mut fd_stat = unsafe { mem::zeroed() };
-        assert_eq!(handler.fstat(fd, &mut fd_stat), Err(EBADFD));
-        assert_eq!(
-            unsafe {
-                handler.syscall(
-                    platform,
-                    [
-                        SYS_fstat as _,
-                        fd as _,
-                        &mut fd_stat as *mut _ as _,
-                        0,
-                        0,
-                        0,
-                        0,
-                    ],
-                )
-            },
-            Err(EBADFD)
-        );
-
-        for fd in [STDIN_FILENO, STDOUT_FILENO, STDERR_FILENO] {
-            let mut stat = unsafe { mem::zeroed() };
-            assert_eq!(handler.fstat(fd, &mut stat), Ok(()));
+        if i % 2 == 0 {
+            assert_eq!(handler.fstat(fd, &mut fd_stat), Err(EBADFD));
+        } else {
             assert_eq!(
                 unsafe {
                     handler.syscall(
@@ -261,7 +246,7 @@ fn fstat() {
                         [
                             SYS_fstat as _,
                             fd as _,
-                            &mut stat as *mut _ as _,
+                            &mut fd_stat as *mut _ as _,
                             0,
                             0,
                             0,
@@ -269,11 +254,92 @@ fn fstat() {
                         ],
                     )
                 },
-                Ok([0, 0])
+                Err(EBADFD)
             );
+        }
+
+        for fd in [STDIN_FILENO, STDOUT_FILENO, STDERR_FILENO] {
+            let mut stat = unsafe { mem::zeroed() };
+            if i % 2 == 0 {
+                assert_eq!(handler.fstat(fd, &mut stat), Ok(()));
+            } else {
+                assert_eq!(
+                    unsafe {
+                        handler.syscall(
+                            platform,
+                            [
+                                SYS_fstat as _,
+                                fd as _,
+                                &mut stat as *mut _ as _,
+                                0,
+                                0,
+                                0,
+                                0,
+                            ],
+                        )
+                    },
+                    Ok([0, 0])
+                );
+            }
         }
     });
     let _ = file;
+}
+
+#[test]
+fn getegid() {
+    run_test(2, [0xff; 16], move |i, platform, handler| {
+        if i % 2 == 0 {
+            assert_eq!(handler.getegid(), Ok(FAKE_GID));
+        } else {
+            assert_eq!(
+                unsafe { handler.syscall(platform, [SYS_getegid as _, 0, 0, 0, 0, 0, 0,],) },
+                Ok([FAKE_GID as _, 0])
+            );
+        }
+    });
+}
+
+#[test]
+fn geteuid() {
+    run_test(2, [0xff; 16], move |i, platform, handler| {
+        if i % 2 == 0 {
+            assert_eq!(handler.geteuid(), Ok(FAKE_UID));
+        } else {
+            assert_eq!(
+                unsafe { handler.syscall(platform, [SYS_geteuid as _, 0, 0, 0, 0, 0, 0,],) },
+                Ok([FAKE_UID as _, 0])
+            );
+        }
+    });
+}
+
+#[test]
+fn getgid() {
+    run_test(2, [0xff; 16], move |i, platform, handler| {
+        if i % 2 == 0 {
+            assert_eq!(handler.getgid(), Ok(FAKE_GID));
+        } else {
+            assert_eq!(
+                unsafe { handler.syscall(platform, [SYS_getgid as _, 0, 0, 0, 0, 0, 0,],) },
+                Ok([FAKE_GID as _, 0])
+            );
+        }
+    });
+}
+
+#[test]
+fn getpid() {
+    run_test(2, [0xff; 16], move |i, platform, handler| {
+        if i % 2 == 0 {
+            assert_eq!(handler.getpid(), Ok(FAKE_PID));
+        } else {
+            assert_eq!(
+                unsafe { handler.syscall(platform, [SYS_getpid as _, 0, 0, 0, 0, 0, 0,],) },
+                Ok([FAKE_PID as _, 0])
+            );
+        }
+    });
 }
 
 #[test]
@@ -461,9 +527,8 @@ fn open() {
 
 #[test]
 #[serial]
-#[cfg_attr(miri, ignore)]
 fn poll() {
-    run_test(1, [0xff; 16], move |_, _, handler| {
+    run_test(2, [0xff; 16], move |i, platform, handler| {
         let mut fds: [pollfd; 3] = [
             pollfd {
                 fd: 0,
@@ -482,7 +547,26 @@ fn poll() {
             },
         ];
 
-        assert_eq!(handler.poll(&mut fds, 0), Ok(0));
+        if i % 2 == 0 {
+            assert_eq!(
+                handler.poll(&mut fds, 0),
+                if cfg!(not(miri)) { Ok(0) } else { Err(ENOSYS) }
+            );
+        } else {
+            assert_eq!(
+                unsafe {
+                    handler.syscall(
+                        platform,
+                        [SYS_poll as _, fds.as_mut_ptr() as _, fds.len(), 0, 0, 0, 0],
+                    )
+                },
+                if cfg!(not(miri)) {
+                    Ok([0, 0])
+                } else {
+                    Err(ENOSYS)
+                }
+            );
+        }
     });
 }
 
@@ -954,14 +1038,17 @@ fn recvfrom() {
         let src_socket = UdpSocket::bind("127.0.0.1:0").expect("couldn't bind to address");
         let src_port = src_socket.local_addr().unwrap().port();
 
-        let client = thread::spawn(move || {
-            assert_eq!(
-                src_socket
-                    .send_to(EXPECTED.as_bytes(), dest_addr)
-                    .expect("couldn't send data"),
-                EXPECTED.len()
-            );
-        });
+        let client = thread::Builder::new()
+            .name(String::from("client"))
+            .spawn(move || {
+                assert_eq!(
+                    src_socket
+                        .send_to(EXPECTED.as_bytes(), dest_addr)
+                        .expect("couldn't send data"),
+                    EXPECTED.len()
+                );
+            })
+            .expect("couldn't spawn client thread");
 
         let mut buf = [0u8; EXPECTED.len()];
         let mut src_addr: sockaddr_in = unsafe { mem::zeroed() };
@@ -1016,6 +1103,156 @@ fn recvfrom() {
 }
 
 #[test]
+fn rt_sigaction() {
+    run_test(2, [0xff; 16], move |i, platform, handler| {
+        let act = [0, 1, 2, 3];
+        let act_2 = [3, 2, 1, 0];
+        if i % 2 == 0 {
+            let mut oldact = None;
+            assert_eq!(
+                handler.rt_sigaction(SIGCHLD, Some(&act), Some(&mut oldact), 8),
+                Ok(())
+            );
+            assert_eq!(oldact, None);
+
+            assert_eq!(
+                handler.rt_sigaction(SIGCHLD, Some(&act_2), Some(&mut oldact), 8),
+                Ok(())
+            );
+            assert_eq!(oldact, Some(act));
+
+            assert_eq!(handler.rt_sigaction(SIGCHLD, None, None, 8), Ok(()));
+            assert_eq!(handler.rt_sigaction(SIGCHLD, None, None, 4), Err(EINVAL));
+        } else {
+            let mut oldact: sigaction = [0; 4];
+            assert_eq!(
+                unsafe {
+                    handler.syscall(
+                        platform,
+                        [
+                            SYS_rt_sigaction as _,
+                            SIGCHLD as _,
+                            &act as *const _ as _,
+                            &mut oldact as *mut _ as _,
+                            8,
+                            0,
+                            0,
+                        ],
+                    )
+                },
+                Ok([0, 0])
+            );
+            assert_eq!(oldact, [0; 4]);
+
+            assert_eq!(
+                unsafe {
+                    handler.syscall(
+                        platform,
+                        [
+                            SYS_rt_sigaction as _,
+                            SIGCHLD as _,
+                            &act_2 as *const _ as _,
+                            &mut oldact as *mut _ as _,
+                            8,
+                            0,
+                            0,
+                        ],
+                    )
+                },
+                Ok([0, 0])
+            );
+            assert_eq!(oldact, act);
+
+            assert_eq!(
+                unsafe {
+                    handler.syscall(
+                        platform,
+                        [SYS_rt_sigaction as _, SIGCHLD as _, 0, 0, 8, 0, 0],
+                    )
+                },
+                Ok([0, 0])
+            );
+
+            assert_eq!(
+                unsafe {
+                    handler.syscall(
+                        platform,
+                        [SYS_rt_sigaction as _, SIGCHLD as _, 0, 0, 4, 0, 0],
+                    )
+                },
+                Err(EINVAL)
+            );
+        }
+    });
+}
+
+#[test]
+fn rt_sigprocmask() {
+    run_test(2, [0xff; 16], move |i, platform, handler| {
+        if i % 2 == 0 {
+            assert_eq!(handler.rt_sigprocmask(SIG_BLOCK, None, None, 1), Ok(()));
+        } else {
+            assert_eq!(
+                unsafe {
+                    handler.syscall(
+                        platform,
+                        [SYS_rt_sigprocmask as _, SIG_BLOCK as _, 0, 0, 1, 0, 0],
+                    )
+                },
+                Ok([0, 0])
+            );
+        }
+    });
+}
+
+#[test]
+#[serial]
+#[cfg_attr(miri, ignore)]
+fn send() {
+    const EXPECTED: &str = "send";
+
+    run_test(2, [0xff; 32], move |i, platform, handler| {
+        let dest_socket = UdpSocket::bind("127.0.0.1:0").expect("couldn't bind to address");
+        let dest_addr = dest_socket.local_addr().unwrap();
+
+        let server = thread::Builder::new()
+            .name(String::from("server"))
+            .spawn(move || recv_udp(dest_socket, EXPECTED))
+            .expect("couldn't spawn server thread");
+
+        let src_socket = UdpSocket::bind("127.0.0.1:0").expect("couldn't bind to address");
+        src_socket
+            .connect(dest_addr)
+            .expect("couldn't connect to destination address");
+        if i % 2 == 0 {
+            assert_eq!(
+                handler.send(src_socket.as_raw_fd(), EXPECTED.as_bytes(), MSG_NOSIGNAL),
+                Ok(EXPECTED.len())
+            );
+        } else {
+            assert_eq!(
+                unsafe {
+                    handler.syscall(
+                        platform,
+                        [
+                            SYS_sendto as _,
+                            src_socket.as_raw_fd() as _,
+                            EXPECTED.as_ptr() as _,
+                            EXPECTED.len(),
+                            MSG_NOSIGNAL as _,
+                            0,
+                            0,
+                        ],
+                    )
+                },
+                Ok([EXPECTED.len(), 0])
+            );
+        }
+        server.join().expect("couldn't join server thread");
+    });
+}
+
+#[test]
 #[serial]
 #[cfg_attr(miri, ignore)]
 fn sendto() {
@@ -1025,14 +1262,10 @@ fn sendto() {
         let dest_socket = UdpSocket::bind("127.0.0.1:0").expect("couldn't bind to address");
         let dest_port = dest_socket.local_addr().unwrap().port();
 
-        let server = thread::spawn(move || {
-            let mut buf = [0u8; EXPECTED.len()];
-            assert_eq!(
-                dest_socket.recv(&mut buf).expect("couldn't recv data"),
-                EXPECTED.len()
-            );
-            assert_eq!(buf, EXPECTED.as_bytes());
-        });
+        let server = thread::Builder::new()
+            .name(String::from("server"))
+            .spawn(move || recv_udp(dest_socket, EXPECTED))
+            .expect("couldn't spawn server thread");
 
         let src_socket = UdpSocket::bind("127.0.0.1:0").expect("couldn't bind to address");
         let dest_addr = sockaddr_in {
@@ -1072,7 +1305,49 @@ fn sendto() {
                 Ok([EXPECTED.len(), 0])
             );
         }
-        server.join().expect("couldn't join client thread");
+        server.join().expect("couldn't join server thread");
+    });
+}
+
+#[test]
+fn set_tid_address() {
+    run_test(2, [0xff; 16], move |i, platform, handler| {
+        let mut tidptr = 0;
+        if i % 2 == 0 {
+            assert_eq!(handler.set_tid_address(&mut tidptr), Ok(FAKE_TID));
+        } else {
+            assert_eq!(
+                unsafe {
+                    handler.syscall(
+                        platform,
+                        [
+                            SYS_set_tid_address as _,
+                            &mut tidptr as *mut _ as _,
+                            0,
+                            0,
+                            0,
+                            0,
+                            0,
+                        ],
+                    )
+                },
+                Ok([FAKE_TID as _, 0])
+            );
+        }
+    });
+}
+
+#[test]
+fn sigaltstack() {
+    run_test(2, [0xff; 16], move |i, platform, handler| {
+        if i % 2 == 0 {
+            assert_eq!(handler.sigaltstack(None, None), Ok(()));
+        } else {
+            assert_eq!(
+                unsafe { handler.syscall(platform, [SYS_sigaltstack as _, 0, 0, 0, 0, 0, 0],) },
+                Ok([0, 0])
+            );
+        }
     });
 }
 
@@ -1102,6 +1377,44 @@ fn sync_read_close() {
         } else {
             assert_eq!(ret, Ok((Err(ENOSYS), Some(Err(ENOSYS)), Err(ENOSYS))));
         }
+    });
+}
+
+#[test]
+fn uname() {
+    run_test(2, [0xff; 16], move |i, platform, handler| {
+        let mut buf = unsafe { mem::zeroed() };
+        if i % 2 == 0 {
+            assert_eq!(handler.uname(&mut buf), Ok(()));
+        } else {
+            assert_eq!(
+                unsafe {
+                    handler.syscall(
+                        platform,
+                        [SYS_uname as _, &mut buf as *mut _ as _, 0, 0, 0, 0, 0],
+                    )
+                },
+                Ok([0, 0])
+            );
+        }
+
+        fn field(val: &str) -> [c_char; 65] {
+            let mut buf = [0u8; 65];
+            let val = val.as_bytes();
+            buf[..val.len()].copy_from_slice(val);
+            unsafe { transmute(buf) }
+        }
+        assert_eq!(
+            buf,
+            utsname {
+                sysname: field("Linux"),
+                nodename: field("localhost.localdomain"),
+                release: field("5.6.0"),
+                version: field("#1"),
+                machine: field("x86_64"),
+                domainname: [0; 65],
+            }
+        );
     });
 }
 

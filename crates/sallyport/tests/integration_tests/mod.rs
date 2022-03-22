@@ -1,13 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 
 pub mod enarxcall;
+pub mod gdbcall;
 pub mod syscall;
 
 use core::ffi::{c_int, c_size_t, c_ulong, c_void};
 use core::slice;
 use libc::{EINVAL, ENOSYS};
 use std::io::Write;
-use std::net::{TcpStream, ToSocketAddrs};
+use std::net::{TcpStream, ToSocketAddrs, UdpSocket};
 use std::ptr::NonNull;
 use std::thread;
 
@@ -150,6 +151,16 @@ where
             .join()
             .expect(&format!("couldn't join test iteration {} thread", i))
     }
+}
+
+pub fn recv_udp(sock: UdpSocket, expected: &str) {
+    let mut buf = Vec::with_capacity(expected.len());
+    buf.resize(expected.len(), 0);
+    assert_eq!(
+        sock.recv(&mut buf).expect("couldn't recv data"),
+        expected.len()
+    );
+    assert_eq!(buf, expected.as_bytes());
 }
 
 pub fn write_tcp(addr: impl ToSocketAddrs, buf: &[u8]) {

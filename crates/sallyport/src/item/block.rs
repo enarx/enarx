@@ -146,9 +146,12 @@ impl<'a> Iterator for BlockIterator<'a> {
 
 #[cfg(test)]
 mod tests {
-    use super::super::HEADER_USIZE_COUNT;
     use super::*;
+    use crate::item::Header;
+
     use libc::{SYS_exit, SYS_read, ENOSYS};
+
+    const HEADER_USIZE_COUNT: usize = size_of::<Header>() / size_of::<usize>();
 
     #[test]
     fn block_size_hint() {
