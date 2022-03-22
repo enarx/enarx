@@ -57,6 +57,14 @@ bitflags! {
 pub struct Identifier(Vec<u8>);
 
 impl Identifier {
+    // Get a unique identifier for the VCEK key to be used in linux file names
+    pub fn vcek_cache_name(&self, version: &TcbVersion) -> String {
+        format!(
+            "vcek-{:x}-{:02}-{:02}-{:02}-{:02}",
+            self, version.bootloader, version.tee, version.snp, version.microcode,
+        )
+    }
+
     /// Get the URL to download the VCEK.
     pub fn vcek_url(&self, version: &TcbVersion) -> String {
         format!(
