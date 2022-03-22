@@ -756,13 +756,17 @@ pub trait Handler {
                 } else {
                     platform.validate(act).map(Some)?
                 };
-                let oldact = if oldact == 0 {
-                    None
+                if oldact == 0 {
+                    self.rt_sigaction(signum as _, act, None, sigsetsize as _)?
                 } else {
-                    platform.validate_mut(oldact).map(Some)?
-                };
-                self.rt_sigaction(signum as _, act, oldact, sigsetsize as _)
-                    .map(|_| [0, 0])
+                    let sys_oldact = platform.validate_mut(oldact)?;
+                    let mut oldact = None;
+                    self.rt_sigaction(signum as _, act, Some(&mut oldact), sigsetsize as _)?;
+                    if let Some(oldact) = oldact {
+                        *sys_oldact = oldact;
+                    }
+                }
+                Ok([0, 0])
             }
             (SYS_rt_sigprocmask, [how, set, oldset, sigsetsize, ..]) => {
                 let set = if set == 0 {
