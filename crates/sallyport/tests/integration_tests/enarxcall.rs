@@ -39,6 +39,14 @@ fn get_sgx_quote() {
 }
 
 #[test]
+fn get_snp_vcek() {
+    run_test(1, [0xff; 512], move |_, _, handler| {
+        let mut vcek = [0u8; 16];
+        assert_eq!(handler.get_snp_vcek(&mut vcek), Err(ENOSYS));
+    })
+}
+
+#[test]
 fn get_sgx_target_info() {
     run_test(1, [0xff; 512], move |_, _, handler| {
         let mut info = Default::default();

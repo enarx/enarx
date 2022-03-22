@@ -931,6 +931,13 @@ pub trait Handler {
         self.execute(enarxcall::GetSgxTargetInfo { info })?
     }
 
+    /// Requests SNP VCEK from the host.
+    #[inline]
+    fn get_snp_vcek(&mut self, vcek: &mut [u8]) -> Result<usize> {
+        self.execute(enarxcall::GetSnpVcek { vcek })?
+            .unwrap_or_else(|| self.attacked())
+    }
+
     /// Gets number of memory slots available for ballooning from the host.
     ///
     /// KVM only has a limited number of memory ballooning slots, which varies by technology and kernel version.

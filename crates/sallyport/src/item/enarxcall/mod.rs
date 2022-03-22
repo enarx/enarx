@@ -56,6 +56,9 @@ pub enum Number {
 
     /// SGX quote size request call number.
     GetSgxQuoteSize = 0x05,
+
+    /// SNP VCEK request call number.
+    GetSnpVcek = 0x06,
 }
 
 #[cfg(test)]
