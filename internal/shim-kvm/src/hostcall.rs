@@ -8,6 +8,7 @@ use crate::eprintln;
 use crate::exec::{NEXT_BRK_RWLOCK, NEXT_MMAP_RWLOCK};
 use crate::paging::SHIM_PAGETABLE;
 use crate::random::{random, CPU_HAS_RDRAND};
+use crate::snp::attestation::{asn1_encode_report_vcek, SnpReportResponseData};
 use crate::snp::ghcb::{GHCB, GHCB_EXT, SNP_ATTESTATION_LEN_MAX};
 use crate::snp::{cpuid, snp_active};
 use crate::spin::{RacyCell, RwLocked};
@@ -47,6 +48,22 @@ const BLOCK_SIZE_USIZE: usize = BLOCK_SIZE / core::mem::size_of::<usize>();
 /// Global TLS for the SHIM
 pub static SHIM_LOCAL_STORAGE: Lazy<RwLocked<guest::ThreadLocalStorage>> =
     Lazy::new(|| RwLocked::<guest::ThreadLocalStorage>::new(guest::ThreadLocalStorage::new()));
+
+const SNP_VCEK_BUF_SIZE: usize = 4096;
+
+/// SNP VCEK buffer
+pub static SNP_VCEK: Lazy<Result<&[u8], c_int>> = Lazy::new(|| {
+    static SNP_VCEK_BUFFER: RacyCell<[u8; SNP_VCEK_BUF_SIZE]> =
+        RacyCell::new([0; SNP_VCEK_BUF_SIZE]);
+
+    let buffer_mut = unsafe { &mut *SNP_VCEK_BUFFER.get() };
+
+    let mut tls = SHIM_LOCAL_STORAGE.write();
+    let mut host_call = HostCall::try_new(&mut tls).ok_or(EAGAIN)?;
+    let vcek_len = host_call.get_snp_vcek(buffer_mut)?;
+
+    Ok(&buffer_mut[..vcek_len])
+});
 
 /// Flag, if the CPU supports FSGSBASE
 pub static CPU_HAS_FSGSBASE: Lazy<bool> = Lazy::new(|| cpuid(7).ebx & 1 == 1);
@@ -180,8 +197,12 @@ impl<'a> HostCall<'a> {
             return Ok([0, 0]);
         }
 
+        let vcek = (*SNP_VCEK.deref())?;
+
         if buf == 0 {
-            return Ok([SNP_ATTESTATION_LEN_MAX, TECH]);
+            // if the unwrap panics, it is totally worthy
+            let len = SNP_ATTESTATION_LEN_MAX.checked_add(vcek.len()).unwrap();
+            return Ok([len, TECH]);
         }
 
         if buf_len > isize::MAX as usize {
@@ -197,10 +218,31 @@ impl<'a> HostCall<'a> {
         }
 
         let nonce = platform.validate_slice::<u8>(nonce, nonce_len)?;
+        let user_buf = platform.validate_slice_mut::<u8>(buf, buf_len)?;
 
-        let buf = platform.validate_slice_mut::<u8>(buf, buf_len)?;
+        let mut report_buf = [0u8; SNP_ATTESTATION_LEN_MAX];
+        let len = GHCB_EXT
+            .get_report(1, nonce, &mut report_buf)
+            .map_err(|_| EIO)?;
 
-        let len = GHCB_EXT.get_report(1, nonce, buf).map_err(|_| EIO)?;
+        if len < size_of::<SnpReportResponseData>() {
+            return Err(EIO);
+        }
+
+        let report_ptr = report_buf.as_ptr() as *const SnpReportResponseData;
+        let report = unsafe { report_ptr.read_unaligned() };
+
+        if report.status != 0 {
+            return Err(EIO);
+        }
+
+        // if the unwrap panics, it is totally worthy
+        let report_end = size_of::<SnpReportResponseData>()
+            .checked_add(report.size as usize)
+            .unwrap();
+        let report_data = &report_buf[size_of::<SnpReportResponseData>()..report_end];
+
+        let len = asn1_encode_report_vcek(user_buf, report_data, vcek).ok_or(EIO)?;
 
         Ok([len, TECH])
     }

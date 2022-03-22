@@ -6,7 +6,7 @@ use super::kvm::mem::Region;
 use super::kvm::{Keep, KeepPersonality};
 use super::probe::common::system_info;
 use super::Loader;
-use crate::cli::sev::get_vcek_reader;
+use crate::cli::snp::get_vcek_reader;
 use data::{
     dev_kvm, dev_sev, dev_sev_readable, dev_sev_writable, has_reasonable_memlock_rlimit,
     kvm_version, sev_enabled_in_kernel, CPUIDS,

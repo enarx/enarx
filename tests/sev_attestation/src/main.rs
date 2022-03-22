@@ -2,6 +2,7 @@
 
 use std::arch::asm;
 use std::convert::TryFrom;
+use std::mem::size_of;
 
 use sallyport::item::enarxcall::SYS_GETATT;
 
@@ -156,43 +157,65 @@ pub fn get_att_syscall(
     Ok((rax as _, tech))
 }
 
-fn main() -> std::io::Result<()> {
-    let (len, tech) = get_att_syscall(None, None)?;
-
-    if matches!(tech, TeeTech::Sev) {
-        assert_eq!(len, 4000);
-
-        get_att([
-            0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D,
-            0x0E, 0x0F, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1A, 0x1B,
-            0x1C, 0x1D, 0x1E, 0x1F, 0x20, 0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28, 0x29,
-            0x2A, 0x2B, 0x2C, 0x2D, 0x2E, 0x2F, 0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37,
-            0x38, 0x39, 0x3A, 0x3B, 0x3C, 0x3D, 0x3E, 0x3F,
-        ])?;
-
-        get_att([0; 64])?;
-    }
-
-    Ok(())
+fn main() {
+    get_att([
+        0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E,
+        0x0F, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1A, 0x1B, 0x1C, 0x1D,
+        0x1E, 0x1F, 0x20, 0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28, 0x29, 0x2A, 0x2B, 0x2C,
+        0x2D, 0x2E, 0x2F, 0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38, 0x39, 0x3A, 0x3B,
+        0x3C, 0x3D, 0x3E, 0x3F,
+    ])
+    .unwrap()
 }
 
+const ASN_LEN_HEADER_SIZE: usize = 6;
+const ASN_SECTION_CONSTRUCTED: u8 = 0x30;
+const ASN_OCTET_STRING: u8 = 0x04;
+const ASN_LEN_4_BYTES: u8 = 0x84;
+
 fn get_att(mut nonce: [u8; 64]) -> std::io::Result<()> {
-    let mut buffer = [0u8; 4000];
-    let (len, tech) = get_att_syscall(Some(&mut nonce[..]), Some(&mut buffer))?;
-
+    let (len, tech) = get_att_syscall(None, None)?;
     assert!(matches!(tech, TeeTech::Sev));
-    assert_eq!(len, core::mem::size_of::<SnpReportResponseData>());
 
-    let report_data = buffer.as_ptr() as *const SnpReportResponseData;
+    let mut buf = vec![0u8; len];
+    let (len, tech) = get_att_syscall(Some(&mut nonce[..]), Some(&mut buf))?;
+    assert!(matches!(tech, TeeTech::Sev));
+    let chunks = &buf[..len];
 
+    eprintln!("To be pasted in https://lapo.it/asn1js/ :");
+    for b in chunks {
+        eprint!("{:02x} ", b);
+    }
+    eprintln!("\n");
+
+    // section
+    let (asn_header, chunks) = chunks.split_at(ASN_LEN_HEADER_SIZE);
+    assert_eq!(asn_header[0], ASN_SECTION_CONSTRUCTED);
+    assert_eq!(asn_header[1], ASN_LEN_4_BYTES);
+    let len_left = u32::from_be_bytes(asn_header[2..6].try_into().unwrap());
+    assert_eq!(chunks.len(), len_left as usize);
+
+    // vcek
+    let (vcek_buf, chunks) =
+        chunks.split_at(chunks.len() - size_of::<SnpReportData>() - ASN_LEN_HEADER_SIZE);
+
+    // octet
+    let (asn_header, report_buf) = chunks.split_at(ASN_LEN_HEADER_SIZE);
+    assert_eq!(asn_header[0], ASN_OCTET_STRING);
+    assert_eq!(asn_header[1], ASN_LEN_4_BYTES);
+    let len_left = u32::from_be_bytes(asn_header[2..6].try_into().unwrap());
+    assert_eq!(report_buf.len(), len_left as usize);
+
+    // report
+    assert_eq!(report_buf.len(), size_of::<SnpReportData>());
+    let report_data = report_buf.as_ptr() as *const SnpReportData;
     let report = unsafe { report_data.read_unaligned() };
 
-    assert_eq!(report.status, 0);
-    assert_eq!(report.size, 1184);
-
-    assert_eq!(report.report.version, 2);
+    assert_eq!(report.version, 2);
+    assert_eq!(nonce, report.report_data);
 
     eprintln!("report: {:?}", report);
+    eprintln!("vcek: {:?}", vcek_buf);
     Ok(())
 }
 
