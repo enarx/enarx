@@ -279,7 +279,9 @@ mod tests {
             join_handles.push(thread::spawn(move || {
                 let (path, mut r) = get_or_write(
                     vec![
-                        PathBuf::from("/ENOENT DIRECTORY SHOULD NOT EXIST/"),
+                        PathBuf::from(
+                            "/proc/ENOENT DIRECTORY SHOULD NOT EXIST AND NOT BE ABLE TO CREATE/",
+                        ),
                         tmp_dir_path,
                         tmp_dir_path2,
                     ],
@@ -304,7 +306,9 @@ mod tests {
     #[test]
     fn test_empty_cache_path() -> Result<()> {
         let res = get_or_write(
-            vec![PathBuf::from("/ENOENT DIRECTORY SHOULD NOT EXIST/")],
+            vec![PathBuf::from(
+                "/proc/ENOENT DIRECTORY SHOULD NOT EXIST AND NOT BE ABLE TO CREATE/",
+            )],
             "test".to_string(),
             || Ok(Box::new(b"test test".as_slice())),
             UpdateMode::ReadOnly,
