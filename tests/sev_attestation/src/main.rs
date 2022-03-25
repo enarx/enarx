@@ -197,118 +197,68 @@ fn get_att(mut nonce: [u8; 64]) -> std::io::Result<()> {
 }
 
 #[cfg(test)]
-macro_rules! testaso {
-    (@off $name:path=>$field:ident) => {
-        memoffset::offset_of!($name, $field)
-    };
+mod test {
+    use super::*;
+    use testaso::testaso;
 
-    ($(struct $name:path: $align:expr, $size:expr => { $($field:ident: $offset:expr),* })+) => {
-        #[cfg(test)]
-        #[test]
-        fn align() {
-            use core::mem::align_of;
-
-            $(
-                assert_eq!(
-                    align_of::<$name>(),
-                    $align,
-                    "align: {}",
-                    stringify!($name)
-                );
-            )+
+    testaso! {
+        struct SnpReportResponseData: 8, 1216 => {
         }
 
-        #[cfg(test)]
-        #[test]
-        fn size() {
-            use core::mem::size_of;
-
-            $(
-                assert_eq!(
-                    size_of::<$name>(),
-                    $size,
-                    "size: {}",
-                    stringify!($name)
-                );
-            )+
+        struct SnpReportData: 8, 1184 => {
+            version: 0,
+            guest_svn: 4,
+            policy: 8,
+            family_id: 0x10,
+            image_id: 0x20,
+            vmpl: 0x30,
+            sig_algo: 0x34,
+            current_tcb: 0x38,
+            plat_info: 0x40,
+            author_key_en: 0x48,
+            rsvd1: 0x4C,
+            report_data: 0x50,
+            measurement: 0x90,
+            host_data: 0xC0,
+            id_key_digest: 0xE0,
+            author_key_digest: 0x110,
+            report_id: 0x140,
+            report_id_ma: 0x160,
+            reported_tcb: 0x180,
+            rsvd2: 0x188,
+            chip_id: 0x1A0,
+            committed_tcb: 0x1E0,
+            current_build: 0x1E8,
+            current_minor: 0x1E9,
+            current_major: 0x1EA,
+            rsvd3: 0x1EB,
+            committed_build: 0x1EC,
+            committed_minor: 0x1ED,
+            committed_major: 0x1EE,
+            rsvd4: 0x1EF,
+            launch_tcb: 0x1F0,
+            rsvd5: 0x1F8,
+            signature: 0x2A0
         }
 
-        #[cfg(test)]
-        #[test]
-        fn offsets() {
-            $(
-                $(
-                    assert_eq!(
-                        testaso!(@off $name=>$field),
-                        $offset,
-                        "offset: {}::{}",
-                        stringify!($name),
-                        stringify!($field)
-                    );
-                )*
-        )+
+        struct SnpGuestMsgHdr: 8, 0x60 => {
+            authtag: 0,
+            msg_seqno: 0x20,
+            rsvd1: 0x28,
+            algo: 0x30,
+            hdr_version: 0x31,
+            hdr_sz: 0x32,
+            msg_type: 0x34,
+            msg_version: 0x35,
+            msg_sz: 0x36,
+            rsvd2: 0x38,
+            msg_vmpck: 0x3C,
+            rsvd3: 0x3D
         }
-    };
-}
 
-#[cfg(test)]
-testaso! {
-    struct SnpReportResponseData: 8, 1216 => {
-    }
-
-    struct SnpReportData: 8, 1184 => {
-        version: 0,
-        guest_svn: 4,
-        policy: 8,
-        family_id: 0x10,
-        image_id: 0x20,
-        vmpl: 0x30,
-        sig_algo: 0x34,
-        current_tcb: 0x38,
-        plat_info: 0x40,
-        author_key_en: 0x48,
-        rsvd1: 0x4C,
-        report_data: 0x50,
-        measurement: 0x90,
-        host_data: 0xC0,
-        id_key_digest: 0xE0,
-        author_key_digest: 0x110,
-        report_id: 0x140,
-        report_id_ma: 0x160,
-        reported_tcb: 0x180,
-        rsvd2: 0x188,
-        chip_id: 0x1A0,
-        committed_tcb: 0x1E0,
-        current_build: 0x1E8,
-        current_minor: 0x1E9,
-        current_major: 0x1EA,
-        rsvd3: 0x1EB,
-        committed_build: 0x1EC,
-        committed_minor: 0x1ED,
-        committed_major: 0x1EE,
-        rsvd4: 0x1EF,
-        launch_tcb: 0x1F0,
-        rsvd5: 0x1F8,
-        signature: 0x2A0
-    }
-
-    struct SnpGuestMsgHdr: 8, 0x60 => {
-        authtag: 0,
-        msg_seqno: 0x20,
-        rsvd1: 0x28,
-        algo: 0x30,
-        hdr_version: 0x31,
-        hdr_sz: 0x32,
-        msg_type: 0x34,
-        msg_version: 0x35,
-        msg_sz: 0x36,
-        rsvd2: 0x38,
-        msg_vmpck: 0x3C,
-        rsvd3: 0x3D
-    }
-
-    struct SnpGuestMsg: 4096, 4096 => {
-        hdr: 0,
-        payload: 0x60
+        struct SnpGuestMsg: 4096, 4096 => {
+            hdr: 0,
+            payload: 0x60
+        }
     }
 }

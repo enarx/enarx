@@ -233,15 +233,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0ca88d725a0a943b096803bd34e73a4437208b6077654cc4ecb2947a5f91618d"
 
 [[package]]
-name = "memoffset"
-version = "0.6.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5aa361d4faea93603064a027415f07bd8e1d5c88c9fbf68bf56a285428fd79ce"
-dependencies = [
- "autocfg",
-]
-
-[[package]]
 name = "nbytes"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -385,13 +376,13 @@ dependencies = [
  "linked_list_allocator",
  "lock_api",
  "lset",
- "memoffset",
  "nbytes",
  "noted",
  "primordial",
  "rcrt1",
  "sallyport",
  "spinning",
+ "testaso",
  "x86_64",
  "xsave",
 ]
@@ -421,6 +412,12 @@ dependencies = [
  "quote",
  "unicode-xid",
 ]
+
+[[package]]
+name = "testaso"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "63b4d2149a2f578665ca39f8115084635847e9dd6921b5442dcafc7f87bb8e99"
 
 [[package]]
 name = "thiserror"
