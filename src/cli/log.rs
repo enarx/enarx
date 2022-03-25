@@ -3,27 +3,27 @@
 use std::str::FromStr;
 
 use anyhow::{anyhow, Result};
-use structopt::StructOpt;
+use clap::Args;
 
 /// Common logging / output options
-#[derive(StructOpt, Debug)]
+#[derive(Args, Debug)]
 pub struct LogOptions {
     /// Increase log verbosity. Pass multiple times for more log output.
     ///
     /// By default we only show error messages. Passing `-v` will show warnings,
     /// `-vv` adds info, `-vvv` for debug, and `-vvvv` for trace.
-    #[structopt(long = "verbose", short = "v", parse(from_occurrences))]
+    #[clap(long = "verbose", short = 'v', parse(from_occurrences))]
     verbosity: u8,
 
     /// Set fancier logging filters.
     ///
     /// This is equivalent to the `RUST_LOG` environment variable.
     /// For more info, see the `env_logger` crate documentation.
-    #[structopt(long = "log-filter", env = "ENARX_LOG")]
+    #[clap(long = "log-filter", env = "ENARX_LOG")]
     log_filter: Option<String>,
 
     /// Set log output target ("stderr", "stdout")
-    #[structopt(long, default_value = "stderr")]
+    #[clap(long, default_value = "stderr")]
     log_target: LogTarget,
 }
 
@@ -37,7 +37,7 @@ enum LogTarget {
     // FUTURE: file path, syslog/journal, ...
 }
 
-/// Convert a str to a LogTarget. This is how StructOpt parses CLI args.
+/// Convert a str to a LogTarget. This is how Clap parses CLI args.
 impl FromStr for LogTarget {
     type Err = anyhow::Error;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
