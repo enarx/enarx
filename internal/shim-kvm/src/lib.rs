@@ -18,9 +18,6 @@ use goblin::elf::header::header64::Header;
 use primordial::Page as Page4KiB;
 
 #[macro_use]
-pub mod testaso;
-
-#[macro_use]
 pub mod print;
 
 pub mod addr;

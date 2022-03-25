@@ -111,25 +111,30 @@ impl Locked<SecretsHandle<'_>> {
 }
 
 #[cfg(test)]
-testaso! {
-    struct SnpSecretsPage: 4096, 4096 => {
-        version:    0,
-        imi_en:     4,
-        fms:        8,
-        gosvw:   0x10,
-        vmpck0:  0x20,
-        vmpck1:  0x40,
-        vmpck2:  0x60,
-        vmpck3:  0x80,
-        os_area: 0xA0
-    }
+mod test {
+    use super::*;
+    use testaso::testaso;
 
-    struct SecretsOsArea: 8, 96 => {
-        msg_seqno_0:        0,
-        msg_seqno_1:        4,
-        msg_seqno_2:        8,
-        msg_seqno_3:       12,
-        ap_jump_table_pa:  16,
-        guest_usage:       64
+    testaso! {
+        struct SnpSecretsPage: 4096, 4096 => {
+            version:    0,
+            imi_en:     4,
+            fms:        8,
+            gosvw:   0x10,
+            vmpck0:  0x20,
+            vmpck1:  0x40,
+            vmpck2:  0x60,
+            vmpck3:  0x80,
+            os_area: 0xA0
+        }
+
+        struct SecretsOsArea: 8, 96 => {
+            msg_seqno_0:        0,
+            msg_seqno_1:        4,
+            msg_seqno_2:        8,
+            msg_seqno_3:       12,
+            ap_jump_table_pa:  16,
+            guest_usage:       64
+        }
     }
 }
