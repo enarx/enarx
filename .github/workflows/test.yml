@@ -19,8 +19,9 @@ jobs:
       - uses: actions-rs/toolchain@v1
         with:
           target: x86_64-unknown-linux-musl
-          toolchain: nightly-2022-03-14
+          toolchain: nightly-2022-03-23
           override: true
+          components: rust-src
       - run: rustup target add wasm32-wasi
       - uses: actions-rs/cargo@v1
         with:
@@ -50,8 +51,9 @@ jobs:
       - uses: actions-rs/toolchain@v1
         with:
           target: x86_64-unknown-linux-musl
-          toolchain: nightly-2022-03-14
+          toolchain: nightly-2022-03-23
           override: true
+          components: rust-src
       - uses: actions-rs/cargo@v1
         with:
           command: build
@@ -74,7 +76,7 @@ jobs:
       - uses: actions-rs/toolchain@v1
         with:
           target: x86_64-unknown-linux-gnu
-          toolchain: nightly-2022-03-14
+          toolchain: nightly-2022-03-23
           override: true
       - run: cargo test ${{ matrix.profile.flag }} --target x86_64-unknown-linux-gnu
         working-directory: internal/${{ matrix.crate }}
