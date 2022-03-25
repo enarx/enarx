@@ -1,24 +1,26 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use super::{BackendOptions, StructOpt, WorkldrOptions};
+use super::{BackendOptions, WorkldrOptions};
 
 use std::{fmt::Debug, path::PathBuf};
 
+use clap::Args;
+
 /// Run a WebAssembly module inside an Enarx Keep.
-#[derive(StructOpt, Debug)]
+#[derive(Args, Debug)]
 pub struct Options {
-    #[structopt(flatten)]
+    #[clap(flatten)]
     pub backend: BackendOptions,
 
-    #[structopt(flatten)]
+    #[clap(flatten)]
     pub workldr: WorkldrOptions,
 
     /// Path of the WebAssembly module to run
-    #[structopt(value_name = "MODULE", parse(from_os_str))]
+    #[clap(value_name = "MODULE", parse(from_os_str))]
     pub module: PathBuf,
 
     /// gdb options
     #[cfg(feature = "gdb")]
-    #[structopt(long, default_value = "localhost:23456")]
+    #[clap(long, default_value = "localhost:23456")]
     pub gdblisten: String,
 }
