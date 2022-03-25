@@ -36,7 +36,7 @@ aes-gcm = { version = "0.9", features = ["aes", "force-soft"], default-features 
 const-default = { version = "1.0", features = [ "derive" ] }
 
 [dev-dependencies]
-memoffset = "0.6.1"
+testaso = "0.1.0"
 
 [profile.dev.package.rcrt1]
 opt-level = 3
