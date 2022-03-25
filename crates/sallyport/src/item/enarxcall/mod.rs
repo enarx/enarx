@@ -2,9 +2,6 @@
 
 //! Enarx call item definitions
 
-#[macro_use]
-pub mod testaso;
-
 pub mod sev;
 pub mod sgx;
 

@@ -188,6 +188,8 @@ impl TargetInfo {
 mod tests {
     use super::*;
 
+    use testaso::testaso;
+
     testaso! {
         struct ReportPayload: 8, 384 => {
             cpusvn: 0,
