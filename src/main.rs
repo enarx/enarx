@@ -86,26 +86,23 @@ use std::fs::File;
 use std::os::unix::io::AsRawFd;
 
 use anyhow::Result;
+use clap::Parser;
 use log::info;
-use structopt::StructOpt;
 
 // This defines the toplevel `enarx` CLI
-#[derive(StructOpt, Debug)]
-#[structopt(
-    setting = structopt::clap::AppSettings::DeriveDisplayOrder,
-)]
+#[derive(Parser, Debug)]
 struct Options {
     /// Logging options
-    #[structopt(flatten)]
+    #[clap(flatten)]
     log: cli::LogOptions,
 
     /// Subcommands (with their own options)
-    #[structopt(flatten)]
+    #[clap(subcommand)]
     cmd: cli::Command,
 }
 
 fn main() -> Result<()> {
-    let opts = Options::from_args();
+    let opts = Options::parse();
     opts.log.init_logger();
 
     info!("logging initialized!");

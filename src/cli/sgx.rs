@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use anyhow::{Context, Result};
-use structopt::StructOpt;
+use clap::Subcommand;
 
 const EFI_UUID: &str = "304e0796-d515-4698-ac6e-e76cb1a71c28";
 const EFI_NAME: &str = "SgxRegistrationServerRequest";
@@ -9,7 +9,7 @@ const PATH: &str = "/sys/firmware/efi/efivars";
 const URL: &str = "https://api.trustedservices.intel.com/sgx/registration/v1/platform";
 
 /// SGX-specific functionality
-#[derive(StructOpt, Debug)]
+#[derive(Subcommand, Debug)]
 pub enum Command {
     /// Register the platform with Intel
     Register,
