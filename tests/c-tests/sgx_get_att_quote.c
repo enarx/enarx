@@ -30,7 +30,7 @@ int main(void) {
         return 0;
 
     /* Ooops, the test fails because of false assumptions */
-    if (size > sizeof(buf))
+    if (size > (ssize_t) sizeof(buf))
         return 1000;
 
     ssize_t quote_size = get_att(nonce, sizeof(nonce), buf, size, &technology);
