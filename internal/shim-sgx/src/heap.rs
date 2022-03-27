@@ -2,12 +2,14 @@
 
 //! Allocate and deallocate memory on a Heap
 
+use core::cmp::Ordering;
 use core::ffi::{c_int, c_size_t};
 use core::num::NonZeroUsize;
 use core::ops::Range;
 
 use const_default::ConstDefault;
-use primordial::Page;
+use mmledger::{Access, Ledger, Region};
+use primordial::{Address, Offset, Page};
 use sallyport::libc::{
     off_t, EINVAL, ENOMEM, MAP_ANONYMOUS, MAP_PRIVATE, PROT_EXEC, PROT_READ, PROT_WRITE,
 };
@@ -17,9 +19,9 @@ use sallyport::libc::{
 static mut BLOCK: Block<32768> = Block::new();
 
 /// The keep heap
-pub static HEAP: spinning::RwLock<Heap<'_, 32768>> =
+pub static HEAP: spinning::RwLock<Heap<'_>> =
     spinning::RwLock::const_new(spinning::RawRwLock::const_new(), unsafe {
-        Heap::new(&mut BLOCK)
+        Heap::new(&mut BLOCK.0)
     });
 
 /// An allocated block of memory
@@ -33,72 +35,41 @@ impl<const N: usize> Block<N> {
 }
 
 /// A heap
-pub struct Heap<'a, const N: usize>
-where
-    [(); N * 64]: Sized,
-{
-    blk: &'a mut Block<N>,
-    map: [u64; N * 64],
+pub struct Heap<'a> {
+    memory: &'a mut [Page],
+    ledger: Ledger<511>,
     brk: Option<NonZeroUsize>,
 }
 
-impl<'a, const N: usize> Heap<'a, N>
-where
-    [(); N * 64]: Sized,
-{
+impl<'a> Heap<'a> {
     /// Create a new heap backed by the passed block
     ///
     /// # Safety
     ///
     /// This function is unsafe because it expects the block to be mapped RWX.
-    const unsafe fn new(blk: &'a mut Block<N>) -> Self {
+    const unsafe fn new(memory: &'a mut [Page]) -> Self {
         let brk = None;
-        let bitmap = [0; N * 64];
+        let memory_len = Address::new(memory.len() * Page::SIZE);
         Self {
-            blk,
-            map: bitmap,
+            memory,
             brk,
+            ledger: Ledger::new(Region::new(Address::new(0), memory_len)),
         }
+    }
+
+    /// Get reference to the heap's memory.
+    pub fn memory(&self) -> &[Page] {
+        self.memory
     }
 
     /// Returns the range of the heap area
-    pub fn range(&self) -> Range<*const u8> {
-        unsafe { self.blk.0.align_to::<u8>().1.as_ptr_range() }
-    }
-
-    #[inline(always)]
-    const fn idx_bit(page: usize) -> (usize, usize) {
-        (page / 64, page % 64)
-    }
-
-    fn is_allocated(&self, page: usize) -> bool {
-        let (idx, bit) = Self::idx_bit(page);
-        self.map[idx] & (1 << bit) != 0
-    }
-
-    fn is_allocated_range(&self, range: core::ops::Range<usize>) -> bool {
-        for i in range {
-            if self.is_allocated(i) {
-                return true;
-            }
-        }
-
-        false
-    }
-
-    fn allocate(&mut self, page: usize) {
-        let (idx, bit) = Self::idx_bit(page);
-        self.map[idx] |= 1 << bit;
-    }
-
-    fn deallocate(&mut self, page: usize) {
-        let (idx, bit) = Self::idx_bit(page);
-        self.map[idx] &= !(1 << bit);
+    pub fn range(&self) -> Range<*const Page> {
+        self.memory().as_ptr_range()
     }
 
     fn offset(&self, addr: usize) -> Option<usize> {
-        let base = self.blk.0.as_ptr() as usize;
-        let ceil = base + self.blk.0.len() * Page::SIZE;
+        let base = self.memory().as_ptr() as usize;
+        let ceil = base + self.memory().len() * Page::SIZE;
 
         if base <= addr {
             if addr < ceil {
@@ -123,7 +94,7 @@ where
     fn pos(&self) -> usize {
         self.brk
             .map(|x| x.into())
-            .unwrap_or(self.blk.0[0].as_ptr() as _)
+            .unwrap_or(self.memory().as_ptr() as _)
     }
 
     /// Allocate heap memory to address `brk`
@@ -133,23 +104,29 @@ where
             Some(page) => page,
             None => return self.pos(),
         };
-
-        if old < new {
-            for page in old..new {
-                if self.is_allocated(page) {
+        match old.cmp(&new) {
+            Ordering::Less => {
+                let region = Region::new(
+                    Address::new(old * Page::SIZE),
+                    Address::new(new * Page::SIZE),
+                );
+                if self
+                    .ledger
+                    .map(region, Access::READ | Access::WRITE)
+                    .is_err()
+                {
                     return self.pos();
                 }
             }
-
-            for page in old..new {
-                self.allocate(page);
+            Ordering::Greater => {
+                let region = Region::new(
+                    Address::new(new * Page::SIZE),
+                    Address::new(old * Page::SIZE),
+                );
+                self.ledger.unmap(region).unwrap();
             }
-        } else {
-            for page in old..new {
-                self.deallocate(page);
-            }
+            Ordering::Equal => (),
         }
-
         self.brk = NonZeroUsize::new(brk);
         brk
     }
@@ -166,7 +143,6 @@ where
     ) -> Result<*mut T, c_int> {
         const RWX: c_int = PROT_READ | PROT_WRITE | PROT_EXEC;
         const PA: c_int = MAP_PRIVATE | MAP_ANONYMOUS;
-
         let prot = prot & !RWX;
         if addr != 0 || fd != -1 || offset != 0 || prot != 0 || flags != PA {
             return Err(EINVAL);
@@ -175,25 +151,16 @@ where
         // The number of pages we need for the given length.
         let pages = (length + Page::SIZE - 1) / Page::SIZE;
 
-        // Find the brk page offset.
-        let brk = self.offset_page_up(self.pos()).unwrap();
+        if let Some(addr) = self.ledger.find_free_back(Offset::from_items(pages)) {
+            let base = self.memory().as_ptr() as usize;
+            let offset = addr.as_ptr() as usize;
+            let region = Region::new(addr, addr + Offset::from_items(pages));
 
-        let end = match self.blk.0.len().checked_sub(pages) {
-            Some(end) => end,
-            None => return Err(ENOMEM),
-        };
+            self.ledger
+                .map(region, Access::from_bits_truncate(prot as usize))
+                .unwrap();
 
-        // Search for pages from the end to the front.
-        for i in (brk..=end).rev() {
-            let range = i..i + pages;
-
-            if !self.is_allocated_range(range.clone()) {
-                for page in range.clone() {
-                    self.allocate(page);
-                }
-
-                return Ok(self.blk.0[range].as_mut_ptr() as *mut T);
-            }
+            return Ok((base + offset) as *mut T);
         }
 
         Err(ENOMEM)
@@ -223,9 +190,11 @@ where
             return Err(EINVAL);
         }
 
-        for page in bot..top {
-            self.deallocate(page);
-        }
+        let region = Region::new(
+            Address::new(bot * Page::SIZE),
+            Address::new(top * Page::SIZE),
+        );
+        self.ledger.unmap(region).unwrap();
 
         Ok(())
     }
@@ -241,14 +210,32 @@ mod tests {
     const PROT: c_int = PROT_READ;
     const FLAGS: c_int = MAP_PRIVATE | MAP_ANONYMOUS;
 
+    trait HeapTestExt {
+        fn is_allocated(&self, page: usize) -> bool;
+    }
+
+    impl<'a> HeapTestExt for Heap<'a> {
+        fn is_allocated(&self, page: usize) -> bool {
+            let addr = page * Page::SIZE;
+            for record in self.ledger.records() {
+                let record_start = record.region.start.as_ptr() as usize;
+                let record_end = record.region.end.as_ptr() as usize;
+                if addr >= record_start && addr < record_end {
+                    return true;
+                }
+            }
+            false
+        }
+    }
+
     #[test]
     fn mmap_munmap_oneshot() {
         let mut block = Block::<128>::new();
-        let mut heap = unsafe { Heap::new(&mut block) };
+        let mut heap = unsafe { Heap::new(&mut block.0) };
 
         for pages in [128, 64] {
-            let brk_page = heap.blk.0.len() - pages;
-            let brk = heap.blk as *const _ as usize + brk_page * Page::SIZE;
+            let brk_page = heap.memory().len() - pages;
+            let brk = heap.memory().as_ptr() as usize + brk_page * Page::SIZE;
             let ret = heap.brk(brk);
             assert_eq!(ret, brk);
 
@@ -262,10 +249,10 @@ mod tests {
             for (s, allocated) in steps {
                 let addr = heap.mmap(0, s, PROT, FLAGS, -1, 0).unwrap();
 
-                for page in brk_page..heap.blk.0.len() - allocated {
+                for page in brk_page..heap.memory().len() - allocated {
                     assert!(!heap.is_allocated(page));
                 }
-                for page in heap.blk.0.len() - allocated..heap.blk.0.len() {
+                for page in heap.memory().len() - allocated..heap.memory().len() {
                     assert!(heap.is_allocated(page));
                 }
 
@@ -273,7 +260,7 @@ mod tests {
             }
 
             // try to allocate memory whose size exceeds the total heap size
-            let len = heap.blk.0.len() * Page::SIZE + 1;
+            let len = heap.memory().len() * Page::SIZE + 1;
             let ret = heap.mmap::<c_void>(0, len, PROT, FLAGS, -1, 0);
             assert_eq!(ret.unwrap_err(), ENOMEM);
         }
@@ -282,11 +269,11 @@ mod tests {
     #[test]
     fn mmap_munmap_incremental() {
         let mut block = Block::<128>::new();
-        let mut heap = unsafe { Heap::new(&mut block) };
+        let mut heap = unsafe { Heap::new(&mut block.0) };
 
         for pages in [128, 64] {
-            let brk_page = heap.blk.0.len() - pages;
-            let brk = heap.blk as *const _ as usize + brk_page * Page::SIZE;
+            let brk_page = heap.memory().len() - pages;
+            let brk = heap.memory().as_ptr() as usize + brk_page * Page::SIZE;
             let ret = heap.brk(brk);
             assert_eq!(ret, brk);
 
@@ -295,11 +282,11 @@ mod tests {
             for size in steps {
                 let mut addrs = [null_mut::<c_void>(); 128];
 
-                for addr in addrs[brk_page..heap.blk.0.len()].iter_mut() {
+                for addr in addrs[brk_page..heap.memory().len()].iter_mut() {
                     *addr = heap.mmap(0, size, PROT, FLAGS, -1, 0).unwrap();
                 }
 
-                for page in brk_page..heap.blk.0.len() {
+                for page in brk_page..heap.memory().len() {
                     assert!(heap.is_allocated(page));
                 }
 
@@ -307,11 +294,11 @@ mod tests {
                 let ret = heap.mmap::<c_void>(0, size, PROT, FLAGS, -1, 0);
                 assert_eq!(ret.unwrap_err(), ENOMEM);
 
-                for addr in addrs[brk_page..heap.blk.0.len()].iter() {
+                for addr in addrs[brk_page..heap.memory().len()].iter() {
                     heap.munmap(*addr, size).unwrap();
                 }
 
-                for page in brk_page..heap.blk.0.len() {
+                for page in brk_page..heap.memory().len() {
                     assert!(!heap.is_allocated(page));
                 }
             }
