@@ -7,7 +7,8 @@ use core::num::NonZeroUsize;
 use core::ops::Range;
 
 use const_default::ConstDefault;
-use primordial::Page;
+use mmledger::{Access, Ledger, Region};
+use primordial::{Address, Page};
 use sallyport::libc::{
     off_t, EINVAL, ENOMEM, MAP_ANONYMOUS, MAP_PRIVATE, PROT_EXEC, PROT_READ, PROT_WRITE,
 };
@@ -32,14 +33,21 @@ impl<const N: usize> Block<N> {
     }
 }
 
+/// The total amount of memory consumed by the ledger in bytes. Must divisible
+/// by the page size.
+const LEDGER_SIZE: usize = 65536;
+
+/// The amount of VMA's that the ledger has capacity to handle.
+const LEDGER_CAPACITY: usize = LEDGER_SIZE / 32 - 1;
+
 /// A heap
 pub struct Heap<'a, const N: usize>
 where
     [(); N * 64]: Sized,
 {
     blk: &'a mut Block<N>,
-    map: [u64; N * 64],
     brk: Option<NonZeroUsize>,
+    ledger: Ledger<LEDGER_CAPACITY>,
 }
 
 impl<'a, const N: usize> Heap<'a, N>
@@ -53,11 +61,10 @@ where
     /// This function is unsafe because it expects the block to be mapped RWX.
     const unsafe fn new(blk: &'a mut Block<N>) -> Self {
         let brk = None;
-        let bitmap = [0; N * 64];
         Self {
             blk,
-            map: bitmap,
             brk,
+            ledger: Ledger::new(Address::new(N * Page::SIZE)),
         }
     }
 
@@ -66,14 +73,16 @@ where
         unsafe { self.blk.0.align_to::<u8>().1.as_ptr_range() }
     }
 
-    #[inline(always)]
-    const fn idx_bit(page: usize) -> (usize, usize) {
-        (page / 64, page % 64)
-    }
-
     fn is_allocated(&self, page: usize) -> bool {
-        let (idx, bit) = Self::idx_bit(page);
-        self.map[idx] & (1 << bit) != 0
+        let addr = page * Page::SIZE;
+        for record in self.ledger.records() {
+            let record_start = record.region.start.as_ptr() as usize;
+            let record_end = record.region.end.as_ptr() as usize;
+            if addr >= record_start && addr < record_end {
+                return true;
+            }
+        }
+        false
     }
 
     fn is_allocated_range(&self, range: core::ops::Range<usize>) -> bool {
@@ -87,13 +96,15 @@ where
     }
 
     fn allocate(&mut self, page: usize) {
-        let (idx, bit) = Self::idx_bit(page);
-        self.map[idx] |= 1 << bit;
+        let addr = page * Page::SIZE;
+        let region = Region::new(Address::new(addr), Address::new(addr + Page::SIZE));
+        self.ledger.map(region, Access::empty()).unwrap();
     }
 
     fn deallocate(&mut self, page: usize) {
-        let (idx, bit) = Self::idx_bit(page);
-        self.map[idx] &= !(1 << bit);
+        let addr = page * Page::SIZE;
+        let region = Region::new(Address::new(addr), Address::new(addr + Page::SIZE));
+        self.ledger.unmap(region).unwrap();
     }
 
     fn offset(&self, addr: usize) -> Option<usize> {
