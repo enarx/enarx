@@ -8,7 +8,7 @@ use core::ops::Range;
 
 use const_default::ConstDefault;
 use mmledger::{Access, Ledger, Region};
-use primordial::{Address, Page};
+use primordial::{Address, Offset, Page};
 use sallyport::libc::{
     off_t, EINVAL, ENOMEM, MAP_ANONYMOUS, MAP_PRIVATE, PROT_EXEC, PROT_READ, PROT_WRITE,
 };
@@ -82,16 +82,6 @@ where
                 return true;
             }
         }
-        false
-    }
-
-    fn is_allocated_range(&self, range: core::ops::Range<usize>) -> bool {
-        for i in range {
-            if self.is_allocated(i) {
-                return true;
-            }
-        }
-
         false
     }
 
@@ -178,33 +168,19 @@ where
         const RWX: c_int = PROT_READ | PROT_WRITE | PROT_EXEC;
         const PA: c_int = MAP_PRIVATE | MAP_ANONYMOUS;
 
+        let pages = (length + Page::SIZE - 1) / Page::SIZE;
         let prot = prot & !RWX;
+
         if addr != 0 || fd != -1 || offset != 0 || prot != 0 || flags != PA {
             return Err(EINVAL);
         }
 
-        // The number of pages we need for the given length.
-        let pages = (length + Page::SIZE - 1) / Page::SIZE;
-
-        // Find the brk page offset.
-        let brk = self.offset_page_up(self.pos()).unwrap();
-
-        let end = match self.blk.0.len().checked_sub(pages) {
-            Some(end) => end,
-            None => return Err(ENOMEM),
-        };
-
-        // Search for pages from the end to the front.
-        for i in (brk..=end).rev() {
-            let range = i..i + pages;
-
-            if !self.is_allocated_range(range.clone()) {
-                for page in range.clone() {
-                    self.allocate(page);
-                }
-
-                return Ok(self.blk.0[range].as_mut_ptr() as *mut T);
-            }
+        if let Some(addr) = self.ledger.find_free_back(Offset::from_items(pages)) {
+            let base = self.blk.0.as_ptr() as usize;
+            let offset = addr.as_ptr() as usize;
+            let region = Region::new(addr, addr + Offset::from_items(pages));
+            self.ledger.map(region, Access::empty()).unwrap();
+            return Ok((base + offset) as *mut T);
         }
 
         Err(ENOMEM)
