@@ -6,7 +6,7 @@ on:
       - Cargo.lock
       - internal/shim-kvm/Cargo.lock
       - internal/shim-sgx/Cargo.lock
-      - internal/wasmldr/Cargo.lock
+      - src/bin/wasmldr/Cargo.lock
 
 jobs:
   Regenerate-BOM:

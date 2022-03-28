@@ -239,11 +239,6 @@ fn main() {
         let dir_name = path.file_name().unwrap().to_str().unwrap_or_default();
 
         match dir_name {
-            #[cfg(feature = "wasmldr")]
-            "wasmldr" => {
-                cargo_build_bin(&path, &out_dir, "x86_64-unknown-linux-musl", "wasmldr").unwrap()
-            }
-
             #[cfg(feature = "backend-kvm")]
             "shim-kvm" => {
                 cargo_build_bin(&path, &out_dir, "x86_64-unknown-none", "shim-kvm").unwrap()

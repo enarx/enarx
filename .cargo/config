@@ -5,3 +5,6 @@ runner = "helper/test-enarx-wasm.sh"
 rustflags = [
     "-C", "linker=gcc",
 ]
+
+[unstable]
+bindeps = true

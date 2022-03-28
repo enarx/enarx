@@ -22,12 +22,11 @@ is-it-maintained-issue-resolution = { repository = "enarx/enarx" }
 is-it-maintained-open-issues = { repository = "enarx/enarx" }
 
 [features]
-default = ["backend-kvm", "backend-sgx", "backend-sev", "wasmldr"]
+default = ["backend-kvm", "backend-sgx", "backend-sev"]
 
 backend-sev = ["backend-kvm", "ureq"]
 backend-kvm = ["x86_64", "kvm-bindings", "kvm-ioctls"]
 backend-sgx = ["x86_64", "sgx", "ureq"]
-wasmldr = []
 gdb = ["gdbstub"]
 dbg = []
 
@@ -65,6 +64,9 @@ serde_json = "1.0.79"
 atty = "0.2"
 dirs = "4.0"
 
+# binary dependencies
+wasmldr = { path = "src/bin/wasmldr", artifact = "bin", target = "x86_64-unknown-linux-musl" }
+
 # h2 is an indirect dependency, to be specified when checking with `-Z minimal-versions`
 # h2 is a dependency of hyper, which is a dep of reqwest
 # h2 = "0.3.5"
@@ -81,6 +83,16 @@ tempfile = "3.3.0"
 walkdir = "2"
 wat = { version = "1.0" }
 
+[profile.dev]
+strip = true
+
+[profile.release]
+incremental = false
+codegen-units = 1
+lto = true
+opt-level = "s"
+strip = true
+
 [workspace]
 members = [ "tests/sev_attestation", "tests/rust-exec", "tests/wasm/rust-tests", "examples/tcp_server" ]
-exclude = [ "internal/shim-kvm", "internal/shim-sgx", "internal/wasmldr" ]
+exclude = [ "internal/shim-kvm", "internal/shim-sgx" ]

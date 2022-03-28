@@ -45,14 +45,3 @@ sha2 = "^0.10.2"
 
 [dev-dependencies]
 wat = "1.0"
-
-[profile.dev]
-strip = true
-
-[profile.release]
-incremental = false
-codegen-units = 1
-panic = "abort"
-lto = true
-opt-level = "s"
-strip = true
