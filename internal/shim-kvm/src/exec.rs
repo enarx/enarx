@@ -17,6 +17,7 @@ use crt0stack::{self, Builder, Entry};
 use goblin::elf::header::header64::Header;
 use goblin::elf::header::ELFMAG;
 use goblin::elf::program_header::program_header64::*;
+use lset::Line;
 use nbytes::bytes;
 use spinning::{Lazy, RwLock};
 use x86_64::structures::paging::{Page, PageTableFlags, Size4KiB};
@@ -54,11 +55,9 @@ pub static EXEC_VIRT_ADDR: Lazy<RwLock<VirtAddr>> = Lazy::new(|| {
 });
 
 /// Actual brk virtual address the exec gets, when calling brk
-pub static NEXT_BRK_RWLOCK: Lazy<RwLock<VirtAddr>> = Lazy::new(|| {
-    RwLock::<VirtAddr>::const_new(
-        spinning::RawRwLock::const_new(),
-        EXEC_BRK_VIRT_ADDR_BASE + (random() & 0xFFFF_F000),
-    )
+pub static BRK_LINE: Lazy<RwLock<Line<VirtAddr>>> = Lazy::new(|| {
+    let start = EXEC_BRK_VIRT_ADDR_BASE + (random() & 0xFFFF_F000);
+    RwLock::<Line<VirtAddr>>::const_new(spinning::RawRwLock::const_new(), Line::new(start, start))
 });
 
 /// The global NextMMap RwLock

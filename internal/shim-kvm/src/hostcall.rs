@@ -5,7 +5,7 @@
 use crate::allocator::ALLOCATOR;
 use crate::debug::_enarx_asm_triple_fault;
 use crate::eprintln;
-use crate::exec::{NEXT_BRK_RWLOCK, NEXT_MMAP_RWLOCK};
+use crate::exec::{BRK_LINE, NEXT_MMAP_RWLOCK};
 use crate::paging::SHIM_PAGETABLE;
 use crate::random::{random, CPU_HAS_RDRAND};
 use crate::snp::attestation::{asn1_encode_report_vcek, SnpReportResponseData};
@@ -355,51 +355,72 @@ impl Handler for HostCall<'_> {
         _platform: &impl Platform,
         addr: Option<NonNull<c_void>>,
     ) -> sallyport::Result<NonNull<c_void>> {
-        let mut next_write_guard = NEXT_BRK_RWLOCK.write();
-
-        let next_brk_u64 = next_write_guard.as_u64();
+        let mut brk_line = BRK_LINE.write();
+        let brk_end_u64 = brk_line.end.as_u64();
 
         eprintln!("SC> brk({:#?}) …", addr);
 
-        if let Some(addr) = addr {
-            let addr_u64 = addr.as_ptr() as u64;
-            if addr_u64 <= next_brk_u64 {
-                if addr_u64 > next_brk_u64.checked_sub(Page::<Size4KiB>::SIZE).unwrap() {
-                    // already mapped
-                    eprintln!("SC> brk({:#?}) = {:#x}", addr, addr_u64);
-                    return Ok(addr);
-                }
-
-                // n most likely wrong
-                return Err(EINVAL);
+        match addr.map(|a| a.as_ptr() as u64) {
+            None => {
+                eprintln!("SC> brk({:#?}) = {:#x}", addr, brk_end_u64);
+                Ok(NonNull::new(brk_line.end.as_mut_ptr()).unwrap())
             }
 
-            let len = addr_u64.checked_sub(next_brk_u64).ok_or(EINVAL)?;
-            let len_aligned = align_up(len, Page::<Size4KiB>::SIZE);
-            let _ = ALLOCATOR
-                .write()
-                .allocate_and_map_memory(
-                    *next_write_guard.deref(),
-                    len_aligned as usize,
-                    PageTableFlags::PRESENT
-                        | PageTableFlags::USER_ACCESSIBLE
-                        | PageTableFlags::WRITABLE,
-                    PageTableFlags::PRESENT
-                        | PageTableFlags::WRITABLE
-                        | PageTableFlags::USER_ACCESSIBLE,
-                )
-                .map_err(|_| {
-                    eprintln!("SC> brk({:#?}) = ENOMEM", addr);
-                    ENOMEM
-                })?;
+            // out of range
+            Some(addr_u64) if addr_u64 < brk_line.start.as_u64() => Err(EINVAL),
 
-            *next_write_guard += len_aligned;
+            // below the last mapped page
+            Some(addr_u64)
+                if addr_u64 < brk_end_u64.checked_sub(Page::<Size4KiB>::SIZE).unwrap() =>
+            {
+                let addr_u64_aligned = align_up(addr_u64, Page::<Size4KiB>::SIZE);
+                let len = (brk_line.end - addr_u64_aligned).as_u64();
 
-            eprintln!("SC> brk({:#?}) = {:#x}", addr, addr_u64);
-            Ok(NonNull::new(addr_u64 as _).unwrap())
-        } else {
-            eprintln!("SC> brk({:#?}) = {:#x}", addr, next_brk_u64);
-            Ok(NonNull::new(next_write_guard.as_mut_ptr()).unwrap())
+                // unmap the rest
+                ALLOCATOR
+                    .write()
+                    .unmap_memory(VirtAddr::new(addr_u64_aligned), len as usize)
+                    .unwrap();
+
+                brk_line.end = VirtAddr::new(addr_u64_aligned);
+
+                eprintln!("SC> brk({:#?}) = {:#x}", addr, addr_u64);
+                Ok(NonNull::new(addr_u64 as _).unwrap())
+            }
+
+            // inside the last mapped page
+            Some(addr_u64) if addr_u64 < brk_end_u64 => {
+                eprintln!("SC> brk({:#?}) = {:#x}", addr, addr_u64);
+                Ok(NonNull::new(addr_u64 as _).unwrap())
+            }
+
+            // above the last mapped page
+            Some(addr_u64) => {
+                let addr_u64_aligned = align_up(addr_u64, Page::<Size4KiB>::SIZE);
+                let len = addr_u64_aligned.checked_sub(brk_line.end.as_u64()).unwrap();
+
+                ALLOCATOR
+                    .write()
+                    .allocate_and_map_memory(
+                        brk_line.end,
+                        len as usize,
+                        PageTableFlags::PRESENT
+                            | PageTableFlags::USER_ACCESSIBLE
+                            | PageTableFlags::WRITABLE,
+                        PageTableFlags::PRESENT
+                            | PageTableFlags::WRITABLE
+                            | PageTableFlags::USER_ACCESSIBLE,
+                    )
+                    .map_err(|_| {
+                        eprintln!("SC> brk({:#?}) = ENOMEM", addr);
+                        ENOMEM
+                    })?;
+
+                brk_line.end = VirtAddr::new(addr_u64_aligned);
+
+                eprintln!("SC> brk({:#?}) = {:#x}", addr, addr_u64);
+                Ok(NonNull::new(addr_u64 as _).unwrap())
+            }
         }
     }
 
