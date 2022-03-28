@@ -3,6 +3,6 @@
         "Cargo.toml",
         "internal/shim-sev/Cargo.toml",
         "internal/shim-sgx/Cargo.toml",
-        "internal/wasmldr/Cargo.toml"
+        "src/bin/wasmldr/Cargo.toml"
     ]
 }

@@ -26,7 +26,7 @@ jobs:
       - uses: actions-rs/cargo@v1
         with:
           command: test
-          args: ${{ matrix.profile.flag }} --no-default-features --features=backend-${{ matrix.backend.name }} --features=wasmldr
+          args: ${{ matrix.profile.flag }} --no-default-features --features=backend-${{ matrix.backend.name }}
     strategy:
       fail-fast: false
       matrix:
@@ -86,6 +86,29 @@ jobs:
         crate:
           - shim-sgx
           - shim-kvm
+        profile:
+          - name: debug
+          - name: release
+            flag: --release
+
+  bindeps:
+    name: ${{ matrix.crate }} nightly ${{ matrix.profile.name }}
+    runs-on: ubuntu-20.04
+    steps:
+      - run: sudo apt -o Acquire::Retries=3 update
+      - run: sudo apt -o Acquire::Retries=3 install -y musl-tools
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          target: x86_64-unknown-linux-gnu
+          toolchain: nightly-2022-03-23
+          override: true
+      - run: cargo test ${{ matrix.profile.flag }} --target x86_64-unknown-linux-gnu
+        working-directory: src/bin/${{ matrix.crate }}
+    strategy:
+      fail-fast: false
+      matrix:
+        crate:
           - wasmldr
         profile:
           - name: debug

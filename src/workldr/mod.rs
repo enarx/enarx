@@ -21,7 +21,6 @@
 // might need to examine the workload and determine which Workldr is
 // the right one to use. But first... we gotta make wasmldr work.
 
-#[cfg(feature = "wasmldr")]
 pub mod wasmldr;
 
 use spinning::Lazy;
@@ -40,9 +39,4 @@ pub trait Workldr: Sync + Send {
     fn exec(&self) -> &'static [u8];
 }
 
-pub static WORKLDRS: Lazy<Vec<Box<dyn Workldr>>> = Lazy::new(|| {
-    vec![
-        #[cfg(feature = "wasmldr")]
-        Box::new(wasmldr::Wasmldr),
-    ]
-});
+pub static WORKLDRS: Lazy<Vec<Box<dyn Workldr>>> = Lazy::new(|| vec![Box::new(wasmldr::Wasmldr)]);

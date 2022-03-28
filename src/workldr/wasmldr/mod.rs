@@ -10,7 +10,7 @@ impl crate::workldr::Workldr for Wasmldr {
 
     #[inline]
     fn exec(&self) -> &'static [u8] {
-        include_bytes!(concat!(env!("OUT_DIR"), "/bin/wasmldr"))
+        include_bytes!(env!("CARGO_BIN_FILE_WASMLDR"))
     }
 }
 
@@ -25,7 +25,7 @@ pub(crate) mod test {
         let wasmldr = Box::new(Wasmldr);
         assert_eq!(
             wasmldr.exec(),
-            include_bytes!(concat!(env!("OUT_DIR"), "/bin/wasmldr"))
+            include_bytes!(env!("CARGO_BIN_FILE_WASMLDR"))
         );
     }
 }
