@@ -10,5 +10,5 @@ on:
 
 jobs:
   Regenerate-BOM:
-    uses: ./.github/workflows/sbom_manifest_action.yml@main
+    uses: ./.github/workflows/sbom_manifest_action.yml
 
