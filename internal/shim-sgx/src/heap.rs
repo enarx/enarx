@@ -13,16 +13,15 @@ use primordial::{Address, Offset, Page};
 use sallyport::libc::{
     off_t, EINVAL, ENOMEM, MAP_ANONYMOUS, MAP_PRIVATE, PROT_EXEC, PROT_READ, PROT_WRITE,
 };
+use spinning::{Lazy, RwLock};
 
 /// This section MUST be marked as RWX in the linker script
 #[link_section = ".enarx.heap"]
 static mut BLOCK: Block<32768> = Block::new();
 
 /// The keep heap
-pub static HEAP: spinning::RwLock<Heap<'_>> =
-    spinning::RwLock::const_new(spinning::RawRwLock::const_new(), unsafe {
-        Heap::new(&mut BLOCK.0)
-    });
+pub static HEAP: Lazy<RwLock<Heap<'_>>> =
+    Lazy::new(|| RwLock::new(unsafe { Heap::new(&mut BLOCK.0) }));
 
 /// An allocated block of memory
 #[repr(C, align(4096))]
