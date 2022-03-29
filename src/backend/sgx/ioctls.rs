@@ -190,17 +190,15 @@ impl<'a> RestrictPermissions<'a> {
 #[cfg(all(test, host_can_test_sgx))]
 mod tests {
     use super::*;
+    use crate::backend::sgx::enclave::Enclave;
+    use std::fs::File;
 
     #[test]
     fn relax_permissions() {
         use sgx::page::{Flags, SecInfo};
-        use std::fs::OpenOptions;
 
-        let mut device_file = OpenOptions::new()
-            .read(true)
-            .write(true)
-            .open("/dev/sgx_enclave")
-            .unwrap();
+        let enclave = Enclave::new().unwrap();
+        let mut device_file: File = enclave.into();
 
         let secinfo = SecInfo::reg(Flags::empty());
         let mut parameters = RelaxPermissions::new(0, 0, &secinfo);
@@ -216,13 +214,9 @@ mod tests {
     #[test]
     fn restrict_permissions() {
         use sgx::page::{Flags, SecInfo};
-        use std::fs::OpenOptions;
 
-        let mut device_file = OpenOptions::new()
-            .read(true)
-            .write(true)
-            .open("/dev/sgx_enclave")
-            .unwrap();
+        let enclave = Enclave::new().unwrap();
+        let mut device_file: File = enclave.into();
 
         let secinfo = SecInfo::reg(Flags::empty());
         let mut parameters = RestrictPermissions::new(0, 0, &secinfo);

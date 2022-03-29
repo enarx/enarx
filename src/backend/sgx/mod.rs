@@ -4,6 +4,7 @@ mod attestation;
 mod builder;
 mod config;
 mod data;
+mod enclave;
 mod hasher;
 mod ioctls;
 mod thread;

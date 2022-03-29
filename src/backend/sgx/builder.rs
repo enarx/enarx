@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use super::config::Config;
+use super::enclave::{Enclave, ENCLAVE_DEVICE_PATH};
 use super::ioctls::*;
 
 use std::convert::TryFrom;
-use std::fs::{File, OpenOptions};
+use std::fs::File;
 use std::sync::{Arc, RwLock};
 
 use anyhow::{Context, Error, Result};
@@ -50,12 +51,11 @@ impl TryFrom<super::config::Config> for Builder {
             map.addr() + map.size()
         );
 
-        // Open the device.
-        let mut file = OpenOptions::new()
-            .read(true)
-            .write(true)
-            .open("/dev/sgx_enclave")
-            .context("Failed to open '/dev/sgx_enclave'")?;
+        // Create a new enclave instance
+        let mut file = Enclave::new()
+            .context(format!("Failed to open '{}'", ENCLAVE_DEVICE_PATH))
+            .unwrap()
+            .into();
 
         // Create the enclave.
         let secs = config
