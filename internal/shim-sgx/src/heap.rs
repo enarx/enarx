@@ -11,7 +11,7 @@ use const_default::ConstDefault;
 use mmledger::{Access, Ledger, Region};
 use primordial::{Address, Offset, Page};
 use sallyport::libc::{
-    off_t, EINVAL, ENOMEM, MAP_ANONYMOUS, MAP_PRIVATE, PROT_EXEC, PROT_READ, PROT_WRITE,
+    off_t, EACCES, EINVAL, ENOMEM, MAP_ANONYMOUS, MAP_PRIVATE, PROT_EXEC, PROT_READ, PROT_WRITE,
 };
 use spinning::{Lazy, RwLock};
 
@@ -96,6 +96,37 @@ impl<'a> Heap<'a> {
             .unwrap_or(self.memory().as_ptr() as _)
     }
 
+    fn mmap_fixed(
+        &mut self,
+        addr: c_size_t,
+        length: c_size_t,
+        prot: c_int,
+    ) -> Result<usize, c_int> {
+        let prot = prot & (PROT_READ | PROT_WRITE | PROT_EXEC);
+        let start = self.memory().as_ptr() as usize;
+        let end = start + self.memory.len() * Page::SIZE;
+
+        assert!(length > 0);
+        assert!(addr >= start);
+        assert!((addr + length) <= end);
+
+        let pages = (length + Page::SIZE - 1) / Page::SIZE;
+        let region = Region::new(
+            Address::new(addr - start),
+            Address::new(addr - start) + Offset::from_items(pages),
+        );
+
+        if self
+            .ledger
+            .map(region, Access::from_bits_truncate(prot as usize))
+            .is_err()
+        {
+            return Err(EACCES);
+        }
+
+        Ok(addr)
+    }
+
     /// Allocate heap memory to address `brk`
     pub fn brk(&mut self, brk: usize) -> usize {
         let old = self.offset_page_up(self.pos()).unwrap();
@@ -105,13 +136,12 @@ impl<'a> Heap<'a> {
         };
         match old.cmp(&new) {
             Ordering::Less => {
-                let region = Region::new(
-                    Address::new(old * Page::SIZE),
-                    Address::new(new * Page::SIZE),
-                );
                 if self
-                    .ledger
-                    .map(region, Access::READ | Access::WRITE)
+                    .mmap_fixed(
+                        old * Page::SIZE + self.memory().as_ptr() as usize,
+                        new * Page::SIZE - old,
+                        PROT_READ | PROT_WRITE,
+                    )
                     .is_err()
                 {
                     return self.pos();
@@ -147,22 +177,17 @@ impl<'a> Heap<'a> {
             return Err(EINVAL);
         }
 
-        // The number of pages we need for the given length.
-        let pages = (length + Page::SIZE - 1) / Page::SIZE;
-
-        if let Some(addr) = self.ledger.find_free_back(Offset::from_items(pages)) {
-            let base = self.memory().as_ptr() as usize;
-            let offset = addr.as_ptr() as usize;
-            let region = Region::new(addr, addr + Offset::from_items(pages));
-
-            self.ledger
-                .map(region, Access::from_bits_truncate(prot as usize))
-                .unwrap();
-
-            return Ok((base + offset) as *mut T);
+        let length = Offset::from_items((length + Page::SIZE - 1) / Page::SIZE);
+        if let Some(addr) = self.ledger.find_free_back(length) {
+            self.mmap_fixed(
+                self.memory().as_ptr() as usize + addr.as_ptr() as usize,
+                length.bytes(),
+                prot,
+            )
+            .map(|addr| addr as *mut T)
+        } else {
+            Err(ENOMEM)
         }
-
-        Err(ENOMEM)
     }
 
     /// munmap memory from the heap
