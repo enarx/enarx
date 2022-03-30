@@ -149,7 +149,7 @@ dependencies = [
 [[package]]
 name = "mmledger"
 version = "0.1.13"
-source = "git+https://github.com/jarkkojs/mmledger?rev=2b3e55024cc13c8c14b76efa2f61bbae0905f6eb#2b3e55024cc13c8c14b76efa2f61bbae0905f6eb"
+source = "git+https://github.com/enarx/mmledger?rev=843bd70e5266bcff912d651af0a9c07a413b5626#843bd70e5266bcff912d651af0a9c07a413b5626"
 dependencies = [
  "bitflags",
  "lset",
