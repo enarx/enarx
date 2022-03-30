@@ -14,7 +14,7 @@ use std::sync::Arc;
 use tempfile::Builder;
 
 mod common;
-use common::{assert_eq_slices, run_crate};
+use common::{assert_eq_slices, run_test};
 
 #[test]
 #[serial]
@@ -24,23 +24,13 @@ fn echo() {
     for i in 0..input.capacity() {
         input.push(i as _);
     }
+    let input = input.as_slice();
 
-    let expected_input = input.clone();
-
-    run_crate(
-        "tests/rust-exec",
-        "echo",
-        None,
-        0,
-        input,
-        expected_input.as_slice(),
-        None,
-    );
+    let bin = env!("CARGO_BIN_FILE_RUST_EXEC_TESTS_echo");
+    run_test(bin, 0, input, input, None);
 }
 
 #[test]
-// FIXME: this tests causes frequent failure on SEV
-#[ignore]
 #[serial]
 fn unix_echo() {
     let tmpdir = Arc::new(Builder::new().prefix("unix_echo").tempdir().unwrap());
@@ -81,15 +71,9 @@ fn unix_echo() {
         }
     });
 
-    run_crate(
-        "tests/rust-exec",
-        "unix_echo",
-        None,
-        0,
-        Vec::from(tmpdir.path().as_os_str().as_bytes()),
-        None,
-        None,
-    );
+    let bin = env!("CARGO_BIN_FILE_RUST_EXEC_TESTS_unix_echo");
+    let input = tmpdir.path().as_os_str().as_bytes();
+    run_test(bin, 0, input, None, None);
 
     handle.join().unwrap();
 }
@@ -99,39 +83,27 @@ fn unix_echo() {
 #[cfg_attr(not(host_can_test_sev), ignore)]
 #[serial]
 fn rust_sev_attestation() {
-    run_crate(
-        "tests/sev_attestation",
-        "sev_attestation",
-        None,
-        0,
-        None,
-        None,
-        None,
-    );
+    let bin = env!("CARGO_BIN_FILE_SEV_ATTESTATION_sev_attestation");
+    run_test(bin, 0, None, None, None);
 }
 
 #[test]
 #[serial]
 fn memspike() {
-    run_crate("tests/rust-exec", "memspike", None, 0, None, None, None);
+    let bin = env!("CARGO_BIN_FILE_RUST_EXEC_TESTS_memspike");
+    run_test(bin, 0, None, None, None);
 }
 
 #[test]
 #[serial]
 fn memory_stress_test() {
-    run_crate(
-        "tests/rust-exec",
-        "memory_stress_test",
-        None,
-        0,
-        None,
-        None,
-        None,
-    );
+    let bin = env!("CARGO_BIN_FILE_RUST_EXEC_TESTS_memory_stress_test");
+    run_test(bin, 0, None, None, None);
 }
 
 #[test]
 #[serial]
 fn cpuid() {
-    run_crate("tests/rust-exec", "cpuid", None, 0, None, None, None);
+    let bin = env!("CARGO_BIN_FILE_RUST_EXEC_TESTS_cpuid");
+    run_test(bin, 0, None, None, None);
 }

@@ -524,11 +524,13 @@ dependencies = [
  "protobuf",
  "protobuf-codegen-pure",
  "rand",
+ "rust_exec_tests",
  "sallyport",
  "semver",
  "serde",
  "serde_json",
  "serial_test",
+ "sev_attestation",
  "sgx",
  "spinning",
  "static_assertions",
@@ -536,6 +538,7 @@ dependencies = [
  "ureq",
  "vdso",
  "walkdir",
+ "wasm_rust_tests",
  "wasmldr",
  "wat",
  "x86_64",
@@ -1382,6 +1385,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "rust_exec_tests"
+version = "0.1.0"
+
+[[package]]
 name = "rustc-demangle"
 version = "0.1.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1619,10 +1626,6 @@ checksum = "83bdb7831b2d85ddf4a7b148aa19d0587eddbe8671a436b7bd1182eaad0f2829"
 dependencies = [
  "dirs-next",
 ]
-
-[[package]]
-name = "simple"
-version = "0.1.0"
 
 [[package]]
 name = "smallvec"
@@ -2071,6 +2074,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3d958d035c4438e28c70e4321a2911302f10135ce78a9c7834c0cab4123d06a2"
 
 [[package]]
+name = "wasm_rust_tests"
+version = "0.1.0"
+
+[[package]]
 name = "wasmldr"
 version = "0.3.0"
 dependencies = [
@@ -2109,10 +2116,6 @@ name = "wasmparser"
 version = "0.83.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "718ed7c55c2add6548cca3ddd6383d738cd73b892df400e96b9aa876f0141d7a"
-
-[[package]]
-name = "wasmsimple"
-version = "0.1.0"
 
 [[package]]
 name = "wasmtime"
