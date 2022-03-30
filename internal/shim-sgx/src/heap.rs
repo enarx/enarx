@@ -143,7 +143,7 @@ impl<'a> Heap<'a> {
         const RWX: c_int = PROT_READ | PROT_WRITE | PROT_EXEC;
         const PA: c_int = MAP_PRIVATE | MAP_ANONYMOUS;
         let prot = prot & !RWX;
-        if addr != 0 || fd != -1 || offset != 0 || prot != 0 || flags != PA {
+        if addr != 0 || fd != -1 || offset != 0 || prot != 0 || flags != PA || length == 0 {
             return Err(EINVAL);
         }
 
