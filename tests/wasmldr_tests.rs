@@ -5,7 +5,7 @@ use process_control::{ChildExt, Control, Output};
 use serial_test::serial;
 use tempfile::NamedTempFile;
 
-use std::io::{Read, Write};
+use std::io::{stderr, Read, Write};
 use std::net::{self, TcpStream};
 use std::path::Path;
 use std::process::{Command, Stdio};
@@ -13,7 +13,7 @@ use std::thread;
 use std::time;
 
 pub mod common;
-use common::{check_output, run_crate, CRATE, KEEP_BIN, OUT_DIR, TEST_BINS_OUT, TIMEOUT_SECS};
+use common::{check_output, CRATE, KEEP_BIN, OUT_DIR, TEST_BINS_OUT, TIMEOUT_SECS};
 
 fn create(path: &Path) {
     match std::fs::create_dir(&path) {
@@ -26,32 +26,46 @@ fn create(path: &Path) {
     }
 }
 
-pub fn enarx_run<'a>(wasm: &str, input: impl Into<Option<&'a [u8]>>) -> Output {
+pub fn enarx_run<'a>(
+    wasm: &str,
+    bin_args: impl Into<Option<&'a [&'a str]>>,
+    input: impl Into<Option<&'a [u8]>>,
+) -> Output {
+    let bin_args = bin_args.into();
+
     let wasm_path = Path::new(CRATE)
         .join(OUT_DIR)
         .join(TEST_BINS_OUT)
         .join(wasm);
 
-    let mut child = Command::new(&String::from(KEEP_BIN))
+    let mut child = Command::new(&KEEP_BIN);
+    let mut child = child
         .current_dir(CRATE)
         .arg("run")
         .arg(wasm_path)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
+        .stderr(Stdio::piped());
+
+    if let Some(args) = bin_args {
+        child = child.args(args);
+    }
+
+    let mut child = child
         .spawn()
         .unwrap_or_else(|e| panic!("failed to run `{}`: {:#?}", wasm, e));
 
-    if let Some(input) = input.into() {
-        child
-            .stdin
-            .as_mut()
-            .unwrap()
-            .write_all(input)
-            .expect("failed to write stdin to child");
-
-        drop(child.stdin.take());
-    }
+    let input_thread = if let Some(input) = input.into() {
+        let mut stdin = child.stdin.take().unwrap();
+        let input = input.to_vec();
+        Some(std::thread::spawn(move || {
+            stdin
+                .write_all(&input)
+                .expect("failed to write stdin to child");
+        }))
+    } else {
+        None
+    };
 
     let output = child
         .controlled_with_output()
@@ -60,6 +74,13 @@ pub fn enarx_run<'a>(wasm: &str, input: impl Into<Option<&'a [u8]>>) -> Output {
         .wait()
         .unwrap_or_else(|e| panic!("failed to run `{}`: {:#?}", wasm, e))
         .unwrap_or_else(|| panic!("process `{}` timed out", wasm));
+
+    if let Some(input_thread) = input_thread {
+        if let Err(_) = input_thread.join() {
+            let _unused = stderr().write_all(&output.stderr);
+            panic!("failed to provide input for process `{}`", wasm)
+        }
+    }
 
     assert!(
         output.status.code().is_some(),
@@ -103,6 +124,20 @@ fn compile(wasm: &str) {
 
 fn run_wasm_test<'a>(
     wasm: &str,
+    bin_args: impl Into<Option<&'a [&'a str]>>,
+    status: i32,
+    input: impl Into<Option<&'a [u8]>>,
+    expected_stdout: impl Into<Option<&'a [u8]>>,
+    expected_stderr: impl Into<Option<&'a [u8]>>,
+) -> Output {
+    let output = enarx_run(wasm, bin_args, input);
+    check_output(&output, status, expected_stdout, expected_stderr);
+    output
+}
+
+fn run_wat_test<'a>(
+    wasm: &str,
+    bin_args: impl Into<Option<&'a [&'a str]>>,
     status: i32,
     input: impl Into<Option<&'a [u8]>>,
     expected_stdout: impl Into<Option<&'a [u8]>>,
@@ -110,7 +145,7 @@ fn run_wasm_test<'a>(
 ) -> Output {
     compile(wasm);
 
-    let output = enarx_run(wasm, input);
+    let output = enarx_run(wasm, bin_args, input);
     check_output(&output, status, expected_stdout, expected_stderr);
     output
 }
@@ -121,7 +156,7 @@ fn return_1() {
     // This module does, in fact, return 1. But function return values
     // are separate from setting the process exit status code, so
     // we still expect a return code of '0' here.
-    run_wasm_test("return_1.wasm", 0, None, None, None);
+    run_wat_test("return_1.wasm", None, 0, None, None, None);
 }
 
 #[test]
@@ -130,15 +165,16 @@ fn wasi_snapshot1() {
     // This module uses WASI to return the number of commandline args.
     // Since we don't currently do anything with the function return value,
     // we don't get any output here, and we expect '0', as above.
-    run_wasm_test("wasi_snapshot1.wasm", 0, None, None, None);
+    run_wat_test("wasi_snapshot1.wasm", None, 0, None, None, None);
 }
 
 #[test]
 #[serial]
 fn hello_wasi_snapshot1() {
     // This module just prints "Hello, world!" to stdout. Hooray!
-    run_wasm_test(
+    run_wat_test(
         "hello_wasi_snapshot1.wasm",
+        None,
         0,
         None,
         &b"Hello, world!\n"[..],
@@ -150,7 +186,7 @@ fn hello_wasi_snapshot1() {
 #[serial]
 fn no_export() {
     // This module has no exported functions, so we get an error.
-    run_wasm_test("no_export.wasm", 1, None, None, None);
+    run_wat_test("no_export.wasm", None, 1, None, None, None);
 }
 
 #[test]
@@ -161,62 +197,34 @@ fn echo() {
     for i in 0..input.capacity() {
         input.push(i as _);
     }
+    let input = input.as_slice();
 
-    let expected_input = input.clone();
-
-    run_crate(
-        "tests/wasm/rust-tests",
-        "echo",
-        None,
-        0,
-        input,
-        expected_input.as_slice(),
-        None,
-    );
+    let bin = env!("CARGO_BIN_FILE_WASM_RUST_TESTS_echo");
+    run_wasm_test(bin, None, 0, input, input, None);
 }
 
 #[test]
 #[serial]
 fn memspike() {
-    run_crate(
-        "tests/wasm/rust-tests",
-        "memspike",
-        None,
-        0,
-        None,
-        None,
-        None,
-    );
+    let bin = env!("CARGO_BIN_FILE_WASM_RUST_TESTS_memspike");
+    run_wasm_test(bin, None, 0, None, None, None);
 }
 
 #[test]
 #[serial]
 fn memory_stress_test() {
-    run_crate(
-        "tests/wasm/rust-tests",
-        "memory_stress_test",
-        None,
-        0,
-        None,
-        None,
-        None,
-    );
+    let bin = env!("CARGO_BIN_FILE_WASM_RUST_TESTS_memory_stress_test");
+    run_wasm_test(bin, None, 0, None, None, None);
 }
 
 #[test]
 #[serial]
 fn zerooneone() {
-    let input = Vec::from("Good morning, that's a nice tnetennba.\n0118 999 881 999 119 725 3\n");
+    let input = b"Good morning, that's a nice tnetennba.\n0118 999 881 999 119 725 3\n";
 
-    run_crate(
-        "tests/wasm/rust-tests",
-        "zerooneone",
-        None,
-        0,
-        input,
-        &b"Tbbq zbeavat, gung'f n avpr gargraaon.\n0118 999 881 999 119 725 3\n"[..],
-        None,
-    );
+    let bin = env!("CARGO_BIN_FILE_WASM_RUST_TESTS_zerooneone");
+    let output = b"Tbbq zbeavat, gung'f n avpr gargraaon.\n0118 999 881 999 119 725 3\n";
+    run_wasm_test(bin, None, 0, input.as_slice(), output.as_slice(), None);
 }
 
 #[test]
@@ -276,15 +284,9 @@ fn check_tcp() {
         buffer
     });
 
-    run_crate(
-        "tests/wasm/rust-tests",
-        "check_fd",
-        &["--wasmcfgfile", file.path().to_str().unwrap()][..],
-        0,
-        None,
-        None,
-        None,
-    );
+    let bin = env!("CARGO_BIN_FILE_WASM_RUST_TESTS_check_fd");
+    let bin_args = ["--wasmcfgfile", file.path().to_str().unwrap()];
+    run_wasm_test(bin, bin_args.as_slice(), 0, None, None, None);
 
     let output = background.join().unwrap();
     assert_eq!(MSG, &output);
