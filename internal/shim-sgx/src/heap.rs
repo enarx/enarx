@@ -2,7 +2,6 @@
 
 //! Allocate and deallocate memory on a Heap
 
-use core::cmp::Ordering;
 use core::ffi::{c_int, c_size_t};
 use core::num::NonZeroUsize;
 use core::ops::Range;
@@ -38,6 +37,7 @@ pub struct Heap<'a> {
     memory: &'a mut [Page],
     ledger: Ledger<511>,
     brk: Option<NonZeroUsize>,
+    brk_max: Option<NonZeroUsize>,
 }
 
 impl<'a> Heap<'a> {
@@ -51,8 +51,9 @@ impl<'a> Heap<'a> {
         let memory_len = Address::new(memory.len() * Page::SIZE);
         Self {
             memory,
-            brk,
             ledger: Ledger::new(Region::new(Address::new(0), memory_len)),
+            brk,
+            brk_max: brk,
         }
     }
 
@@ -96,6 +97,12 @@ impl<'a> Heap<'a> {
             .unwrap_or(self.memory().as_ptr() as _)
     }
 
+    fn pos_max(&self) -> usize {
+        self.brk_max
+            .map(|x| x.into())
+            .unwrap_or(self.memory().as_ptr() as _)
+    }
+
     fn mmap_fixed(
         &mut self,
         addr: c_size_t,
@@ -129,32 +136,28 @@ impl<'a> Heap<'a> {
 
     /// Allocate heap memory to address `brk`
     pub fn brk(&mut self, brk: usize) -> usize {
+        let max = self.offset_page_up(self.pos_max()).unwrap();
         let old = self.offset_page_up(self.pos()).unwrap();
         let new = match self.offset_page_up(brk) {
             Some(page) => page,
             None => return self.pos(),
         };
-        match old.cmp(&new) {
-            Ordering::Less => {
-                if self
-                    .mmap_fixed(
-                        old * Page::SIZE + self.memory().as_ptr() as usize,
-                        new * Page::SIZE - old,
-                        PROT_READ | PROT_WRITE,
-                    )
-                    .is_err()
-                {
-                    return self.pos();
-                }
+        if new > max {
+            if self
+                .mmap_fixed(
+                    old * Page::SIZE + self.memory().as_ptr() as usize,
+                    new * Page::SIZE - old,
+                    PROT_READ | PROT_WRITE,
+                )
+                .is_err()
+            {
+                return self.pos();
             }
-            Ordering::Greater => {
-                let region = Region::new(
-                    Address::new(new * Page::SIZE),
-                    Address::new(old * Page::SIZE),
-                );
-                self.ledger.unmap(region).unwrap();
-            }
-            Ordering::Equal => (),
+
+            self.brk = NonZeroUsize::new(brk);
+            self.brk_max = NonZeroUsize::new(brk);
+
+            return brk;
         }
         self.brk = NonZeroUsize::new(brk);
         brk
