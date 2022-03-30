@@ -12,12 +12,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
-        with:
-          components: rustfmt
-          toolchain: nightly-2022-03-23
-          profile: minimal
-          override: true
+      - name: Setup Rust toolchain
+        run: rustup show
       - uses: actions-rs/cargo@v1
         with:
           command: fmt
@@ -38,13 +34,8 @@ jobs:
       - run: sudo apt -o Acquire::Retries=3 update
       - run: sudo apt -o Acquire::Retries=3 install -y musl-tools
       - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
-        with:
-          components: clippy
-          toolchain: nightly-2022-03-23
-          profile: minimal
-          target: x86_64-unknown-linux-musl
-          override: true
+      - name: Setup Rust toolchain
+        run: rustup show
       - uses: actions-rs/cargo@v1
         with:
           command: clippy
@@ -71,13 +62,8 @@ jobs:
       - run: sudo apt -o Acquire::Retries=3 update
       - run: sudo apt -o Acquire::Retries=3 install -y musl-tools
       - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
-        with:
-          components: clippy
-          toolchain: nightly-2022-03-23
-          profile: minimal
-          target: x86_64-unknown-linux-musl
-          override: true
+      - name: Setup Rust toolchain
+        run: rustup show
       - uses: actions-rs/cargo@v1
         with:
           command: clippy
@@ -103,11 +89,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
-        with:
-          toolchain: nightly-2022-03-23
-          profile: minimal
-          override: true
+      - name: Setup Rust toolchain
+        run: rustup show
       - run: cargo install cargo-readme
       - run: cargo readme --project-root ${{ matrix.crate.path }} > ${{ matrix.crate.path}}/README.md && git diff --exit-code
     strategy:
