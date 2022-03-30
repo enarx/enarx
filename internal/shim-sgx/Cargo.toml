@@ -28,7 +28,7 @@ xsave = { version = "2.0.2" }
 rcrt1 = "1.0.0"
 lset = { git = "https://github.com/enarx/lset", rev = "5c2feed24d85442725f55d812315854e1b29595d"  }
 sgx = "0.3"
-mmledger = { git = "https://github.com/jarkkojs/mmledger", rev = "2b3e55024cc13c8c14b76efa2f61bbae0905f6eb" }
+mmledger = { git = "https://github.com/enarx/mmledger", rev = "843bd70e5266bcff912d651af0a9c07a413b5626" }
 
 [dev-dependencies]
 memoffset = "0.6.1"
