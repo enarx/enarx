@@ -274,6 +274,4 @@ jobs:
           base: main
           add-paths: |
             rust-toolchain.toml
-            .github/workflows/lint.yml
-            .github/workflows/test.yml
             flake.nix
