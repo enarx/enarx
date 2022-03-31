@@ -82,31 +82,27 @@ mod workldr;
 
 use backend::{Backend, Command};
 
-use std::convert::TryInto;
 use std::fs::File;
 use std::os::unix::io::AsRawFd;
 
 use anyhow::Result;
+use clap::Parser;
 use log::info;
-use structopt::StructOpt;
 
 // This defines the toplevel `enarx` CLI
-#[derive(StructOpt, Debug)]
-#[structopt(
-    setting = structopt::clap::AppSettings::DeriveDisplayOrder,
-)]
+#[derive(Parser, Debug)]
 struct Options {
     /// Logging options
-    #[structopt(flatten)]
+    #[clap(flatten)]
     log: cli::LogOptions,
 
     /// Subcommands (with their own options)
-    #[structopt(flatten)]
+    #[clap(subcommand)]
     cmd: cli::Command,
 }
 
 fn main() -> Result<()> {
-    let opts = Options::from_args();
+    let opts = Options::parse();
     opts.log.init_logger();
 
     info!("logging initialized!");
@@ -123,7 +119,8 @@ fn main() -> Result<()> {
             #[cfg(feature = "gdb")]
             let gdblisten = Some(exec.gdblisten);
 
-            keep_exec(backend, backend.shim(), binary, gdblisten)
+            let exit_code = keep_exec(backend, backend.shim(), binary, gdblisten)?;
+            std::process::exit(exit_code);
         }
         cli::Command::Run(run) => {
             let modfile = File::open(run.module)?;
@@ -157,13 +154,15 @@ fn main() -> Result<()> {
             #[cfg(feature = "gdb")]
             let gdblisten = Some(run.gdblisten);
 
-            let res = keep_exec(backend, backend.shim(), workldr.exec(), gdblisten);
+            let exit_code = keep_exec(backend, backend.shim(), workldr.exec(), gdblisten)?;
             drop(configfile);
             drop(modfile);
-            res
+            std::process::exit(exit_code);
         }
         #[cfg(feature = "backend-sev")]
-        cli::Command::Sev(cmd) => cli::sev::run(cmd),
+        cli::Command::Snp(cmd) => cli::snp::run(cmd),
+        #[cfg(feature = "backend-sgx")]
+        cli::Command::Sgx(cmd) => cli::sgx::run(cmd),
     }
 }
 
@@ -172,33 +171,13 @@ fn keep_exec(
     shim: impl AsRef<[u8]>,
     exec: impl AsRef<[u8]>,
     _gdblisten: Option<String>,
-) -> Result<()> {
+) -> Result<libc::c_int> {
     let keep = backend.keep(shim.as_ref(), exec.as_ref())?;
     let mut thread = keep.clone().spawn()?.unwrap();
     loop {
-        match thread.enter()? {
-            Command::SysCall(block) => unsafe {
-                block.msg.rep = block.msg.req.syscall();
-            },
-
-            Command::CpuId(block) => unsafe {
-                let cpuid = core::arch::x86_64::__cpuid_count(
-                    block.msg.req.arg[0].try_into().unwrap(),
-                    block.msg.req.arg[1].try_into().unwrap(),
-                );
-
-                block.msg.req.arg[0] = cpuid.eax.into();
-                block.msg.req.arg[1] = cpuid.ebx.into();
-                block.msg.req.arg[2] = cpuid.ecx.into();
-                block.msg.req.arg[3] = cpuid.edx.into();
-            },
-
-            #[cfg(feature = "gdb")]
-            Command::Gdb(block, gdb_fd) => {
-                backend::handle_gdb(block, gdb_fd, _gdblisten.as_ref().unwrap());
-            }
-
+        match thread.enter(&_gdblisten)? {
             Command::Continue => (),
+            Command::Exit(exit_code) => return Ok(exit_code),
         }
     }
 }

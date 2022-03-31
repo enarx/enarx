@@ -12,12 +12,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
-        with:
-          components: rustfmt
-          toolchain: nightly-2022-02-25
-          profile: minimal
-          override: true
+      - name: Setup Rust toolchain
+        run: rustup show
       - uses: actions-rs/cargo@v1
         with:
           command: fmt
@@ -28,8 +24,8 @@ jobs:
         crate:
           - {name: enarx, path: Cargo.toml}
           - {name: shim-sgx, path: internal/shim-sgx/Cargo.toml}
-          - {name: shim-sev, path: internal/shim-sev/Cargo.toml}
-          - {name: wasmldr, path: internal/wasmldr/Cargo.toml}
+          - {name: shim-kvm, path: internal/shim-kvm/Cargo.toml}
+          - {name: wasmldr, path: src/bin/wasmldr/Cargo.toml}
 
   clippy:
     name: cargo clippy (${{ matrix.crate.name }})
@@ -38,13 +34,8 @@ jobs:
       - run: sudo apt -o Acquire::Retries=3 update
       - run: sudo apt -o Acquire::Retries=3 install -y musl-tools
       - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
-        with:
-          components: clippy
-          toolchain: nightly-2022-02-25
-          profile: minimal
-          target: x86_64-unknown-linux-musl
-          override: true
+      - name: Setup Rust toolchain
+        run: rustup show
       - uses: actions-rs/cargo@v1
         with:
           command: clippy
@@ -57,11 +48,11 @@ jobs:
           - name: shim-sgx
             path: internal/shim-sgx/Cargo.toml
             target: --target=x86_64-unknown-linux-musl
-          - name: shim-sev
-            path: internal/shim-sev/Cargo.toml
+          - name: shim-kvm
+            path: internal/shim-kvm/Cargo.toml
             target: --target=x86_64-unknown-linux-musl
           - name: wasmldr
-            path: internal/wasmldr/Cargo.toml
+            path: src/bin/wasmldr/Cargo.toml
             target: --target=x86_64-unknown-linux-musl
 
   clippy-single-backends:
@@ -71,13 +62,8 @@ jobs:
       - run: sudo apt -o Acquire::Retries=3 update
       - run: sudo apt -o Acquire::Retries=3 install -y musl-tools
       - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
-        with:
-          components: clippy
-          toolchain: nightly-2022-02-25
-          profile: minimal
-          target: x86_64-unknown-linux-musl
-          override: true
+      - name: Setup Rust toolchain
+        run: rustup show
       - uses: actions-rs/cargo@v1
         with:
           command: clippy
@@ -103,11 +89,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
-        with:
-          toolchain: nightly-2022-02-25
-          profile: minimal
-          override: true
+      - name: Setup Rust toolchain
+        run: rustup show
       - run: cargo install cargo-readme
       - run: cargo readme --project-root ${{ matrix.crate.path }} > ${{ matrix.crate.path}}/README.md && git diff --exit-code
     strategy:
@@ -115,7 +98,7 @@ jobs:
       matrix:
         crate:
           - { name: enarx, path: . }
-          - { name: wasmldr, path: internal/wasmldr }
+          - { name: wasmldr, path: src/bin/wasmldr }
 
   deny:
     name: cargo deny
@@ -131,8 +114,8 @@ jobs:
         crate:
           - {name: enarx, path: ./Cargo.toml}
           - {name: shim-sgx, path: internal/shim-sgx/Cargo.toml}
-          - {name: shim-sev, path: internal/shim-sev/Cargo.toml}
-          - {name: wasmldr, path: internal/wasmldr/Cargo.toml}
+          - {name: shim-kvm, path: internal/shim-kvm/Cargo.toml}
+          - {name: wasmldr, path: src/bin/wasmldr/Cargo.toml}
 
   check-spdx-headers:
     runs-on: ubuntu-latest

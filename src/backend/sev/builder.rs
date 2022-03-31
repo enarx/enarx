@@ -6,6 +6,7 @@ use super::snp::launch::*;
 
 use super::SnpKeepPersonality;
 use crate::backend::kvm::builder::kvm_try_from_builder;
+use crate::backend::kvm::config::Config;
 use crate::backend::kvm::mem::Region;
 
 use std::convert::TryFrom;
@@ -24,6 +25,7 @@ const SEV_RETRIES: usize = 3;
 const SEV_RETRY_SLEEP_MS: u64 = 500;
 
 pub struct Builder {
+    config: Config,
     kvm_fd: Kvm,
     launcher: Launcher<Started, Firmware>,
     regions: Vec<Region>,
@@ -61,7 +63,7 @@ fn retry<O>(func: impl Fn() -> anyhow::Result<O>) -> anyhow::Result<O> {
 impl TryFrom<super::super::kvm::config::Config> for Builder {
     type Error = Error;
 
-    fn try_from(_config: super::super::kvm::config::Config) -> anyhow::Result<Self> {
+    fn try_from(config: super::super::kvm::config::Config) -> anyhow::Result<Self> {
         let (kvm_fd, launcher) = retry(|| {
             // try to open /dev/sev and start the Launcher several times
 
@@ -88,6 +90,7 @@ impl TryFrom<super::super::kvm::config::Config> for Builder {
         let launcher = launcher.start(start).context("SNP Launcher start failed")?;
 
         Ok(Builder {
+            config,
             kvm_fd,
             launcher,
             regions: Vec::new(),
@@ -112,6 +115,7 @@ impl super::super::Mapper for Builder {
         }
 
         let mem_region = super::super::kvm::builder::kvm_builder_map(
+            self.config.sallyport_block_size as _,
             &mut self.sallyports,
             self.launcher.as_mut(),
             &mut pages,
@@ -186,7 +190,7 @@ impl TryFrom<Builder> for Arc<dyn super::super::Keep> {
     type Error = Error;
 
     fn try_from(mut builder: Builder) -> anyhow::Result<Self> {
-        let (vcpu_fd, sallyport_block_start) = kvm_try_from_builder(
+        let vcpu_fd = kvm_try_from_builder(
             &builder.sallyports,
             &mut builder.kvm_fd,
             builder.launcher.as_mut(),
@@ -204,8 +208,8 @@ impl TryFrom<Builder> for Arc<dyn super::super::Keep> {
             vm_fd,
             cpu_fds: vec![vcpu_fd],
             regions: builder.regions,
+            sallyport_block_size: builder.config.sallyport_block_size,
             sallyports: builder.sallyports,
-            sallyport_start: sallyport_block_start,
             personality: SnpKeepPersonality { _sev_fd: sev_fd },
         })))
     }

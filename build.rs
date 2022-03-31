@@ -9,6 +9,7 @@ use walkdir::WalkDir;
 
 const CRATE: &str = env!("CARGO_MANIFEST_DIR");
 const TEST_BINS_IN: &str = "tests/c-tests";
+const AESM_SOCKET: &str = "/var/run/aesmd/aesm.socket";
 
 fn find_files_with_extensions<'a>(
     exts: &'a [&'a str],
@@ -141,8 +142,9 @@ fn cargo_build_bin(
         .map(Stdio::from)
         .unwrap_or_else(|_| Stdio::inherit());
 
-    let mut cmd = Command::new("cargo");
-    let cmd = cmd
+    let mut cmd = &mut Command::new("cargo");
+
+    cmd = cmd
         .current_dir(&path)
         .env_clear()
         .envs(&filtered_env)
@@ -156,6 +158,10 @@ fn cargo_build_bin(
         .arg(target_name)
         .arg("--bin")
         .arg(bin_name);
+
+    if target_name == "x86_64-unknown-none" {
+        cmd = cmd.arg("-Z").arg("build-std")
+    }
 
     #[cfg(feature = "gdb")]
     let cmd = cmd.arg("--features=gdb");
@@ -177,19 +183,7 @@ fn cargo_build_bin(
         .join(std::env::var("PROFILE").unwrap())
         .join(bin_name);
 
-    // Strip the binary
-    let status = Command::new("strip")
-        .arg("--strip-unneeded")
-        .arg("-o")
-        .arg(&out_bin)
-        .arg(&target_bin)
-        .status()?;
-
-    // Failing that, just copy it into place
-    if !status.success() {
-        println!("cargo:warning=Failed to run `strip` on {:?}", target_bin);
-        std::fs::rename(&target_bin, &out_bin)?;
-    }
+    std::fs::copy(&target_bin, &out_bin)?;
 
     Ok(())
 }
@@ -229,8 +223,6 @@ fn main() {
 
     build_cc_tests(&Path::new(CRATE).join(TEST_BINS_IN), &out_dir_bin);
 
-    let target = "x86_64-unknown-linux-musl";
-
     // internal crates are not included, if there is a `Cargo.toml` file
     // trick cargo by renaming the `Cargo.toml` to `Cargo.tml` before
     // publishing and rename it back here.
@@ -247,14 +239,15 @@ fn main() {
         let dir_name = path.file_name().unwrap().to_str().unwrap_or_default();
 
         match dir_name {
-            #[cfg(feature = "wasmldr")]
-            "wasmldr" => cargo_build_bin(&path, &out_dir, target, "wasmldr").unwrap(),
-
             #[cfg(feature = "backend-kvm")]
-            "shim-sev" => cargo_build_bin(&path, &out_dir, target, "shim-sev").unwrap(),
+            "shim-kvm" => {
+                cargo_build_bin(&path, &out_dir, "x86_64-unknown-none", "shim-kvm").unwrap()
+            }
 
             #[cfg(feature = "backend-sgx")]
-            "shim-sgx" => cargo_build_bin(&path, &out_dir, target, "shim-sgx").unwrap(),
+            "shim-sgx" => {
+                cargo_build_bin(&path, &out_dir, "x86_64-unknown-none", "shim-sgx").unwrap()
+            }
 
             _ => eprintln!("Unknown internal directory: {}", dir_name),
         }
@@ -264,13 +257,18 @@ fn main() {
         }
     }
 
-    if std::path::Path::new("/dev/sgx_enclave").exists() {
-        // Not expected to fail, as the file exists.
-        let metadata = fs::metadata("/dev/sgx_enclave").unwrap();
-        let file_type = metadata.file_type();
+    if std::path::Path::new("/dev/sgx_enclave").exists()
+        && fs::metadata("/dev/sgx_enclave")
+            .unwrap()
+            .file_type()
+            .is_char_device()
+    {
+        println!("cargo:rustc-cfg=host_can_test_sgx");
 
-        if file_type.is_char_device() {
-            println!("cargo:rustc-cfg=host_can_test_sgx");
+        if std::path::Path::new(AESM_SOCKET).exists()
+            && fs::metadata(AESM_SOCKET).unwrap().file_type().is_socket()
+        {
+            println!("cargo:rustc-cfg=host_can_test_attestation");
         }
     }
 
@@ -281,6 +279,7 @@ fn main() {
 
         if file_type.is_char_device() {
             println!("cargo:rustc-cfg=host_can_test_sev");
+            println!("cargo:rustc-cfg=host_can_test_attestation");
         }
     }
 }

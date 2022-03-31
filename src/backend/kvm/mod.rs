@@ -14,6 +14,8 @@ use kvm_bindings::bindings::kvm_userspace_memory_region;
 use kvm_ioctls::Kvm;
 use kvm_ioctls::{VcpuFd, VmFd};
 use mmarinus::{perms, Map};
+use sallyport::item::enarxcall::Payload;
+use sallyport::item::Item;
 use x86_64::VirtAddr;
 
 pub mod builder;
@@ -26,6 +28,14 @@ pub trait KeepPersonality {
     fn map(_vm_fd: &mut VmFd, _region: &Region) -> std::io::Result<()> {
         Ok(())
     }
+
+    fn enarxcall<'a>(
+        &mut self,
+        enarxcall: &'a mut Payload,
+        data: &'a mut [u8],
+    ) -> Result<Option<Item<'a>>> {
+        Ok(Some(Item::Enarxcall(enarxcall, data)))
+    }
 }
 
 struct KvmKeepPersonality(());
@@ -36,8 +46,7 @@ pub struct Keep<P: KeepPersonality> {
     pub kvm_fd: Kvm,
     pub vm_fd: VmFd,
     pub cpu_fds: Vec<VcpuFd>,
-    // FIXME: This will be removed in the near future
-    pub sallyport_start: VirtAddr,
+    pub sallyport_block_size: usize,
     pub sallyports: Vec<Option<VirtAddr>>,
     pub regions: Vec<Region>,
     pub personality: P,
@@ -75,7 +84,7 @@ impl crate::backend::Backend for Backend {
 
     #[inline]
     fn shim(&self) -> &'static [u8] {
-        include_bytes!(concat!(env!("OUT_DIR"), "/bin/shim-sev"))
+        include_bytes!(concat!(env!("OUT_DIR"), "/bin/shim-kvm"))
     }
 
     #[inline]

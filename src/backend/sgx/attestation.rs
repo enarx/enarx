@@ -3,20 +3,24 @@
 // CREDITS
 // * https://github.com/fortanix/rust-sgx for examples of AESM requests.
 
+use super::AESM_SOCKET;
+
 use crate::protobuf::aesm_proto::{
-    Request, Request_GetQuoteExRequest, Request_GetSupportedAttKeyIDNumRequest,
-    Request_GetSupportedAttKeyIDsRequest, Request_InitQuoteExRequest, Response,
+    Request, Request_GetQuoteExRequest, Request_GetQuoteSizeExRequest,
+    Request_GetSupportedAttKeyIDNumRequest, Request_GetSupportedAttKeyIDsRequest,
+    Request_InitQuoteExRequest, Response,
 };
 
 use std::io::{Error, ErrorKind, Read, Write};
+use std::mem::size_of;
 use std::ops::{Deref, DerefMut};
 use std::os::unix::net::UnixStream;
-use std::slice::{from_raw_parts, from_raw_parts_mut};
 
 use protobuf::Message;
-use sallyport::syscall::{SGX_QUOTE_SIZE, SGX_TI_SIZE};
+use sallyport::item::enarxcall::sgx::TargetInfo;
 
-const AESM_SOCKET: &str = "/var/run/aesmd/aesm.socket";
+const SGX_TI_SIZE: usize = size_of::<TargetInfo>();
+
 const AESM_REQUEST_TIMEOUT: u32 = 1_000_000;
 const SGX_KEY_ID_SIZE: u32 = 256;
 const SGX_REPORT_SIZE: usize = 432;
@@ -127,7 +131,7 @@ fn get_key_ids(num_key_ids: u32) -> Result<Vec<Vec<u8>>, Error> {
 }
 
 /// Gets Att Key ID
-fn get_attestation_key_id() -> Result<Vec<u8>, Error> {
+pub fn get_attestation_key_id() -> Result<Vec<u8>, Error> {
     let num_key_ids = get_key_id_num()?;
     if num_key_ids != 1 {
         return Err(Error::new(
@@ -155,7 +159,7 @@ fn get_attestation_key_id() -> Result<Vec<u8>, Error> {
 
 /// Fills the Target Info of the QE into the output buffer specified and
 /// returns the number of bytes written.
-fn get_target_info(akid: Vec<u8>, size: usize, out_buf: &mut [u8]) -> Result<usize, Error> {
+pub fn get_target_info(akid: Vec<u8>, size: usize, out_buf: &mut [u8]) -> Result<usize, Error> {
     if out_buf.len() != SGX_TI_SIZE {
         return Err(Error::new(
             ErrorKind::Other,
@@ -206,7 +210,7 @@ fn get_target_info(akid: Vec<u8>, size: usize, out_buf: &mut [u8]) -> Result<usi
 }
 
 /// Gets key size
-fn get_key_size(akid: Vec<u8>) -> Result<usize, Error> {
+pub fn get_key_size(akid: Vec<u8>) -> Result<usize, Error> {
     let mut transaction = AesmTransaction::new();
     let mut msg = Request_InitQuoteExRequest::new();
 
@@ -229,27 +233,39 @@ fn get_key_size(akid: Vec<u8>) -> Result<usize, Error> {
     Ok(res.get_pub_key_id_size() as usize)
 }
 
-/// Fills the Quote obtained from the AESMD for the Report specified into
-/// the output buffer specified and returns the number of bytes written.
-fn get_quote(report: &[u8], akid: Vec<u8>, out_buf: &mut [u8]) -> Result<usize, Error> {
-    if out_buf.len() != SGX_QUOTE_SIZE {
+/// Gets quote size
+pub fn get_quote_size(akid: Vec<u8>) -> Result<usize, Error> {
+    let mut transaction = AesmTransaction::new();
+    let mut msg = Request_GetQuoteSizeExRequest::new();
+
+    msg.set_timeout(AESM_REQUEST_TIMEOUT);
+    msg.set_att_key_id(akid);
+    transaction.set_getQuoteSizeExReq(msg);
+
+    let pb_msg = transaction.request()?;
+
+    let res = pb_msg.get_getQuoteSizeExRes();
+
+    if res.get_errorCode() != 0 {
         return Err(Error::new(
             ErrorKind::InvalidData,
-            format!(
-                "Invalid size of output buffer {} != {}",
-                out_buf.len(),
-                SGX_QUOTE_SIZE
-            ),
+            format!("GetQuoteSizeEx error: {:?}", res.get_errorCode()),
         ));
     }
 
+    Ok(res.get_quote_size() as usize)
+}
+
+/// Fills the Quote obtained from the AESMD for the Report specified into
+/// the output buffer specified and returns the number of bytes written.
+pub fn get_quote(report: &[u8], akid: Vec<u8>, out_buf: &mut [u8]) -> Result<usize, Error> {
     let mut transaction = AesmTransaction::new();
 
     let mut msg = Request_GetQuoteExRequest::new();
     msg.set_timeout(AESM_REQUEST_TIMEOUT);
     msg.set_report(report[0..SGX_REPORT_SIZE].to_vec());
     msg.set_att_key_id(akid);
-    msg.set_buf_size(SGX_QUOTE_SIZE as u32);
+    msg.set_buf_size(out_buf.len() as u32);
     transaction.set_getQuoteExReq(msg);
 
     let pb_msg = transaction.request()?;
@@ -265,13 +281,13 @@ fn get_quote(report: &[u8], akid: Vec<u8>, out_buf: &mut [u8]) -> Result<usize, 
 
     let quote = res.get_quote();
 
-    if quote.len() != SGX_QUOTE_SIZE {
+    if quote.len() != out_buf.len() {
         return Err(Error::new(
             ErrorKind::InvalidData,
             format!(
                 "GetQuoteEx: Invalid QUOTE size: {} != {}",
                 quote.len(),
-                SGX_QUOTE_SIZE
+                out_buf.len()
             ),
         ));
     }
@@ -280,40 +296,21 @@ fn get_quote(report: &[u8], akid: Vec<u8>, out_buf: &mut [u8]) -> Result<usize, 
     Ok(quote.len())
 }
 
-/// Returns the number of bytes written to the output buffer. Depending on
-/// whether the specified nonce is NULL, the output buffer will be filled with the
-/// Target Info for the QE, or a Quote verifying a Report.
-pub fn get_attestation(
-    nonce: usize,
-    nonce_len: usize,
-    buf: usize,
-    buf_len: usize,
-) -> Result<usize, Error> {
-    let out_buf = unsafe { from_raw_parts_mut(buf as *mut u8, buf_len) };
-
-    let akid = get_attestation_key_id().expect("error obtaining attestation key id");
-
-    if nonce == 0 {
-        let pkeysize = get_key_size(akid.clone()).expect("error obtaining key size");
-        get_target_info(akid, pkeysize, out_buf)
-    } else {
-        let report: &[u8] = unsafe { from_raw_parts(nonce as *const u8, nonce_len) };
-        get_quote(report, akid, out_buf)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    #[cfg_attr(not(host_can_test_sgx), ignore)]
+    #[cfg_attr(not(all(host_can_test_sgx, host_can_test_attestation)), ignore)]
     fn request_target_info() {
         assert_eq!(std::path::Path::new(AESM_SOCKET).exists(), true);
 
-        let output = [1u8; SGX_TI_SIZE];
+        let mut output = [1u8; SGX_TI_SIZE];
+
+        let akid = get_attestation_key_id().expect("error obtaining attestation key id");
+        let pkeysize = get_key_size(akid.clone()).expect("error obtaining key size");
         assert_eq!(
-            get_attestation(0, 0, output.as_ptr() as usize, output.len()).unwrap(),
+            get_target_info(akid, pkeysize, &mut output).unwrap(),
             SGX_TI_SIZE
         );
     }

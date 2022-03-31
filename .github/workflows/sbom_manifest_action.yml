@@ -1,0 +1,52 @@
+name: Generate the CycloneDX BOM for a Rust crate
+
+on: [workflow_dispatch, workflow_call]
+
+jobs:
+  Generate-BOM-Manifest:
+    name: Run cargo-cyclonedx and generate BOM files [both JSON and XML]
+    runs-on: ubuntu-20.04
+    steps:
+      - run: |
+          sudo apt -o Acquire::Retries=3 update
+          sudo apt -o Acquire::Retries=3 install -y musl-tools
+
+      - uses: actions/checkout@v2
+
+      - name: Install Rust tool chain
+        uses: actions-rs/toolchain@v1
+        with:
+          target: x86_64-unknown-linux-musl
+          toolchain: nightly-2022-03-23
+          override: true
+
+      - name: Install cargo-cyclonedx
+        uses: actions-rs/cargo@v1
+        with:
+          command: install
+          args: cargo-cyclonedx
+
+      - name: Run cycloneDX and get JSON output
+        uses: actions-rs/cargo@v1
+        with:
+          command: cyclonedx
+          args: --all --format=json
+
+      - name: Run cycloneDX and get XML output
+        uses: actions-rs/cargo@v1
+        with:
+          command: cyclonedx
+          args: --all --format=xml
+
+      - name: Upload the JSON BOM file
+        uses: actions/upload-artifact@v3
+        with:
+          name: SBOM.json
+          path: bom.json
+
+      - name: Upload the XML BOM file
+        uses: actions/upload-artifact@v3
+        with:
+          name: SBOM.xml
+          path: bom.xml
+

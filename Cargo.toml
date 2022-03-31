@@ -1,6 +1,6 @@
 [package]
 name = "enarx"
-version = "0.2.1"
+version = "0.3.0"
 authors = ["The Enarx Project Developers"]
 license = "Apache-2.0"
 edition = "2021"
@@ -22,12 +22,11 @@ is-it-maintained-issue-resolution = { repository = "enarx/enarx" }
 is-it-maintained-open-issues = { repository = "enarx/enarx" }
 
 [features]
-default = ["backend-kvm", "backend-sgx", "backend-sev", "wasmldr"]
+default = ["backend-kvm", "backend-sgx", "backend-sev"]
 
-backend-sev = ["backend-kvm", "reqwest"]
+backend-sev = ["backend-kvm", "ureq"]
 backend-kvm = ["x86_64", "kvm-bindings", "kvm-ioctls"]
-backend-sgx = ["x86_64", "sgx"]
-wasmldr = []
+backend-sgx = ["x86_64", "sgx", "ureq"]
 gdb = ["gdbstub"]
 dbg = []
 
@@ -36,19 +35,19 @@ x86_64 = { version = "^0.14.8", default-features = false, optional = true }
 sgx = { version = "0.3.0", features = ["openssl"], optional = true }
 const-default = { version = "1.0", features = [ "derive" ] }
 primordial = { version = "0.4", features = ["alloc"] }
-sallyport = { version = "0.2.0", features = [ "asm" ] }
+sallyport = { version = "0.3.0", git = "https://github.com/enarx/sallyport", rev = "580480b19b1542bc3da2fdafef08f895f5bb3389" }
 kvm-bindings = { version = "0.5", optional = true }
 kvm-ioctls = { version = "0.11", optional = true }
 gdbstub = { version = "0.5.0", optional = true }
 protobuf = "2.22"
-structopt = { version = "0.3.26", features = ["wrap_help"] }
+clap = { version = "3.0", features = ["env", "derive", "wrap_help"] }
 openssl = "0.10"
 bitflags = "1.2"
 iocuddle = "0.1.1"
 colorful = "0.2"
 mmarinus = "0.2.1"
 nbytes = "0.1"
-anyhow = "1.0.55"
+anyhow = "1.0.56"
 static_assertions = "1.1.0"
 semver = "1.0"
 goblin = "0.5"
@@ -59,10 +58,14 @@ vdso = "0.2"
 log = "0.4"
 spinning = "0.1.0"
 env_logger = "0.9"
-reqwest = { version = "0.11", features = [ "blocking" ], optional = true }
+ureq = { version = "2.4.0", optional = true }
 serde = { version = "1.0.136", features = ["derive"] }
 serde_json = "1.0.79"
 atty = "0.2"
+dirs = "4.0"
+
+# binary dependencies
+wasmldr = { path = "src/bin/wasmldr", artifact = "bin", target = "x86_64-unknown-linux-musl" }
 
 # h2 is an indirect dependency, to be specified when checking with `-Z minimal-versions`
 # h2 is a dependency of hyper, which is a dep of reqwest
@@ -74,12 +77,22 @@ walkdir = "2"
 protobuf-codegen-pure = "2.27"
 
 [dev-dependencies]
-process_control = "3.2"
+process_control = "3.3"
 serial_test = "0.6"
 tempfile = "3.3.0"
 walkdir = "2"
 wat = { version = "1.0" }
 
+[profile.dev]
+strip = true
+
+[profile.release]
+incremental = false
+codegen-units = 1
+lto = true
+opt-level = "s"
+strip = true
+
 [workspace]
 members = [ "tests/sev_attestation", "tests/rust-exec", "tests/wasm/rust-tests", "examples/tcp_server" ]
-exclude = [ "internal/shim-sev", "internal/shim-sgx", "internal/wasmldr" ]
+exclude = [ "internal/shim-kvm", "internal/shim-sgx" ]

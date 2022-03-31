@@ -6,13 +6,14 @@ use core::arch::asm;
 
 use crt0stack::{Builder, Entry, Handle, OutOfSpace};
 use goblin::elf::header::{header64::Header, ELFMAG};
+use sallyport::libc::SYS_exit;
 
 fn exit(code: usize) -> ! {
     loop {
         unsafe {
             asm!(
                 "syscall",
-                in("rax") libc::SYS_exit,
+                in("rax") SYS_exit,
                 in("rdi") code
             );
         }

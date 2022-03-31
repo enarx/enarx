@@ -1,0 +1,14 @@
+name: Regenerate and upload CycloneDX Manifest on changes to Cargo.lock files
+
+on:
+  push:
+    paths:
+      - Cargo.lock
+      - internal/shim-kvm/Cargo.lock
+      - internal/shim-sgx/Cargo.lock
+      - src/bin/wasmldr/Cargo.lock
+
+jobs:
+  Regenerate-BOM:
+    uses: ./.github/workflows/sbom_manifest_action.yml
+

@@ -33,12 +33,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 
 [[package]]
-name = "compiler_builtins"
-version = "0.1.70"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "80873f979f0a344a4ade87c2f70d9ccf5720b83b10c97ec7cd745895d021e85a"
-
-[[package]]
 name = "const-default"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -110,9 +104,9 @@ dependencies = [
 
 [[package]]
 name = "libc"
-version = "0.2.119"
+version = "0.2.121"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1bf2e165bb3457c8e098ea76f3e3bc9db55f87aa90d52d0e6be741470916aaa4"
+checksum = "efaa7b300f3b5fe8eb6bf21ce3895e1751d9665086af2d64b42f19701015ff4f"
 
 [[package]]
 name = "lock_api"
@@ -125,9 +119,9 @@ dependencies = [
 
 [[package]]
 name = "log"
-version = "0.4.14"
+version = "0.4.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "51b9bbe6c47d51fc3e1a9b945965946b4c44142ab8792c50835a980d362c2710"
+checksum = "6389c490849ff5bc16be905ae24bc913a9c8892e19b2341dbc175e14c341c2b8"
 dependencies = [
  "cfg-if 1.0.0",
 ]
@@ -135,8 +129,7 @@ dependencies = [
 [[package]]
 name = "lset"
 version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "efeae5282702b072b5e21cf8f430ccd3c5031c1e346321a28429523266c4a9b0"
+source = "git+https://github.com/enarx/lset?rev=5c2feed24d85442725f55d812315854e1b29595d#5c2feed24d85442725f55d812315854e1b29595d"
 
 [[package]]
 name = "managed"
@@ -151,6 +144,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5aa361d4faea93603064a027415f07bd8e1d5c88c9fbf68bf56a285428fd79ce"
 dependencies = [
  "autocfg",
+]
+
+[[package]]
+name = "mmledger"
+version = "0.1.13"
+source = "git+https://github.com/enarx/mmledger?rev=843bd70e5266bcff912d651af0a9c07a413b5626#843bd70e5266bcff912d651af0a9c07a413b5626"
+dependencies = [
+ "bitflags",
+ "lset",
+ "primordial",
 ]
 
 [[package]]
@@ -170,9 +173,9 @@ dependencies = [
 
 [[package]]
 name = "paste"
-version = "1.0.6"
+version = "1.0.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0744126afe1a6dd7f394cb50a716dbe086cb06e255e53d8d0185d82828358fb5"
+checksum = "0c520e05135d6e763148b6426a837e239041653ba7becd2e538c076c738025fc"
 
 [[package]]
 name = "plain"
@@ -183,8 +186,7 @@ checksum = "b4596b6d070b27117e987119b4dac604f3c58cfb0b191112e24771b2faeac1a6"
 [[package]]
 name = "primordial"
 version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b3146f8670eff948342703c5e866cdb6d092032207a7fc2dd53c4c3fef480cfe"
+source = "git+https://github.com/enarx/primordial?rev=b606b9e472e2238384b003f12fdada077e04d2fe#b606b9e472e2238384b003f12fdada077e04d2fe"
 dependencies = [
  "const-default",
 ]
@@ -210,9 +212,9 @@ dependencies = [
 
 [[package]]
 name = "quote"
-version = "1.0.15"
+version = "1.0.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "864d3e96a899863136fc6e99f3d7cae289dafe43bf2c5ac19b70df7210c0a145"
+checksum = "632d02bff7f874a36f33ea8bb416cd484b90cc66c1194b1a1110d067a7013f58"
 dependencies = [
  "proc-macro2",
 ]
@@ -229,13 +231,10 @@ dependencies = [
 
 [[package]]
 name = "sallyport"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eab61195772feb0221de35deddc39ca51e04a3c9522af0ec47962415e8624987"
+version = "0.3.0"
+source = "git+https://github.com/enarx/sallyport?rev=580480b19b1542bc3da2fdafef08f895f5bb3389#580480b19b1542bc3da2fdafef08f895f5bb3389"
 dependencies = [
- "goblin 0.4.3",
- "libc",
- "primordial",
+ "goblin 0.5.1",
 ]
 
 [[package]]
@@ -275,17 +274,16 @@ dependencies = [
 
 [[package]]
 name = "shim-sgx"
-version = "0.2.1"
+version = "0.3.0"
 dependencies = [
- "compiler_builtins",
  "const-default",
  "crt0stack",
  "gdbstub",
  "gdbstub_arch",
  "goblin 0.5.1",
- "libc",
  "lset",
  "memoffset",
+ "mmledger",
  "noted",
  "primordial",
  "rcrt1",
@@ -307,9 +305,9 @@ dependencies = [
 
 [[package]]
 name = "syn"
-version = "1.0.86"
+version = "1.0.90"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8a65b3f4ffa0092e9887669db0eae07941f023991ab58ea44da8fe8e2d511c6b"
+checksum = "704df27628939572cd88d33f171cd6f896f4eaca85252c6e0a72d8d8287ee86f"
 dependencies = [
  "proc-macro2",
  "quote",

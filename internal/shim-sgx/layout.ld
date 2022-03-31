@@ -16,6 +16,7 @@ PHDRS {
 }
 
 SECTIONS {
+    HIDDEN(ENARX_SHIM_ADDRESS = .);
     . = SIZEOF_HEADERS;
 
     . = ALIGN(4K);
@@ -53,10 +54,10 @@ SECTIONS {
     .enarx.stk0 (NOLOAD) : { . += 2M - 4K * 5; } :stk0 =0
     .enarx.tcs0 : {
         . += 16;
-        QUAD(. + 4K - 16)   /* OSSA */
-        LONG(0)             /* CSSA */
-        LONG(3)             /* NSSA */
-        QUAD(_start)        /* OENTRY */
+        QUAD(ADDR(.enarx.ssa0))   /* OSSA */
+        LONG(0)                   /* CSSA */
+        LONG(3)                   /* NSSA */
+        QUAD(_start)              /* OENTRY */
         . = ALIGN(4K);
     } :tcs0 =0
     .enarx.ssa0 (NOLOAD) : { . += 4K * 3; } :ssa0 =0

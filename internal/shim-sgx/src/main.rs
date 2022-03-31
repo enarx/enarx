@@ -13,43 +13,19 @@
 #![no_main]
 
 #[allow(unused_extern_crates)]
-extern crate compiler_builtins;
-#[allow(unused_extern_crates)]
 extern crate rcrt1;
 
 use core::arch::asm;
 
-use shim_sgx::{entry, handler, ATTR, ENARX_EXEC_START, ENCL_SIZE, ENCL_SIZE_BITS, MISC};
+use shim_sgx::{
+    entry, handler, ATTR, BLOCK_SIZE, ENARX_EXEC_START, ENARX_SHIM_ADDRESS, ENCL_SIZE_BITS, MISC,
+};
 
 #[panic_handler]
 #[cfg(not(test))]
 #[allow(clippy::empty_loop)]
 fn panic(_info: &core::panic::PanicInfo<'_>) -> ! {
     loop {}
-}
-
-/// _Unwind_Resume is only needed in the `debug` profile
-///
-/// even though this project has `panic=abort`
-/// it seems like the debug libc.rlib has some references
-/// with unwinding
-/// See also: https://github.com/rust-lang/rust/issues/47493
-#[cfg(debug_assertions)]
-#[no_mangle]
-extern "C" fn _Unwind_Resume() {
-    unimplemented!();
-}
-
-/// rust_eh_personality is only needed in the `debug` profile
-///
-/// even though this project has `panic=abort`
-/// it seems like the debug libc.rlib has some references
-/// with unwinding
-/// See also: https://github.com/rust-lang/rust/issues/47493
-#[cfg(debug_assertions)]
-#[no_mangle]
-pub extern "C" fn rust_eh_personality() {
-    unimplemented!();
 }
 
 // ============== REAL CODE HERE ===============
@@ -61,6 +37,8 @@ use sgx::ssa::{GenPurposeRegs, StateSaveArea};
 
 noted! {
     static NOTE_REQUIRES<note::NAME, note::REQUIRES, [u8; REQUIRES.len()]> = REQUIRES;
+
+    static NOTE_BLOCK_SIZE<note::NAME, note::BLOCK_SIZE, u64> = BLOCK_SIZE as u64;
 
     static NOTE_BITS<note::NAME, note::sgx::BITS, u8> = ENCL_SIZE_BITS;
     static NOTE_SSAP<note::NAME, note::sgx::SSAP, u8> = 1;
@@ -163,10 +141,9 @@ unsafe extern "sysv64" fn relocate() {
         "push   r10",
         "push   r11",
 
-        "lea    rdi,    [rip + _DYNAMIC]", // rdi = address of _DYNAMIC section
-        "mov    rsi,    -{SIZE}         ", // rsi = enclave start address mask
-        "and    rsi,    rdi             ", // rsi = relocation address
-        "call   {DYN_RELOC}             ", // relocate the dynamic symbols
+        "lea    rdi,    [rip + _DYNAMIC]",             // rdi = address of _DYNAMIC section
+        "lea    rsi,    [rip + {ENARX_SHIM_ADDRESS}]", // rsi = enclave start address mask
+        "call   {DYN_RELOC}",                          // relocate the dynamic symbols
 
         "pop    r11",
         "pop    r10",
@@ -180,8 +157,8 @@ unsafe extern "sysv64" fn relocate() {
 
         "ret",
 
-        SIZE = const ENCL_SIZE,
         DYN_RELOC = sym rcrt1::dyn_reloc,
+        ENARX_SHIM_ADDRESS = sym ENARX_SHIM_ADDRESS,
         options(noreturn)
     )
 }
@@ -271,12 +248,16 @@ pub unsafe extern "sysv64" fn _start() -> ! {
     )
 }
 
-unsafe extern "C" fn main(port: &mut sallyport::Block, ssas: &mut [StateSaveArea; 3], cssa: usize) {
+unsafe extern "C" fn main(
+    port: &mut [usize; BLOCK_SIZE / core::mem::size_of::<usize>()],
+    ssas: &mut [StateSaveArea; 3],
+    cssa: usize,
+) {
     ssas[cssa].extra[0] = 1; // Enable exceptions
 
     match cssa {
         0 => entry::entry(&ENARX_EXEC_START as *const u8 as _),
-        1 => handler::Handler::handle(&mut ssas[0], port),
+        1 => handler::Handler::handle(&mut ssas[0], port.as_mut_slice()),
         n => handler::Handler::finish(&mut ssas[n - 1]),
     }
 

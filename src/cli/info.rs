@@ -1,16 +1,19 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::backend::BACKENDS;
-use crate::cli::{Result, StructOpt};
+use crate::cli::Result;
 use crate::Backend;
-use core::fmt::Formatter;
-use serde::Serialize;
-use std::fmt;
+
+use std::fmt::{self, Formatter};
 use std::ops::Deref;
+
+use clap::Args;
+use serde::Serialize;
+
 /// Show details about backend support on this system
-#[derive(StructOpt, Debug)]
+#[derive(Args, Debug)]
 pub struct Options {
-    #[structopt(short, long)]
+    #[clap(short, long)]
     /// Emit JSON rather than human-readable output
     json: bool,
 }

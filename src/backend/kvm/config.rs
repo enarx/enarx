@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use goblin::elf64::program_header::PT_LOAD;
-use sallyport::elf::pf::kvm::SALLYPORT;
+use sallyport::elf::{self, pf::kvm::SALLYPORT};
 
-pub struct Config {}
+pub struct Config {
+    pub sallyport_block_size: usize,
+}
 
 impl super::super::Config for Config {
     type Flags = u32;
@@ -20,6 +22,13 @@ impl super::super::Config for Config {
             anyhow::bail!("KVM shim must contain exactly one sallyport PT_LOAD segment.")
         }
 
-        Ok(Self {})
+        let sallyport_block_size =
+            // Safety: converting 8 bytes into u64 should not produce any unsound behavior.
+            unsafe { shim.note::<u64>(elf::note::NAME, elf::note::BLOCK_SIZE) }
+                .ok_or_else(|| anyhow!("KVM shim is missing BLOCK_SIZE"))? as usize;
+
+        Ok(Self {
+            sallyport_block_size,
+        })
     }
 }

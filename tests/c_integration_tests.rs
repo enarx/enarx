@@ -126,6 +126,7 @@ fn read_udp() {
     run_test("read_udp", 0, input.as_slice(), input.as_slice(), None);
 }
 
+#[cfg_attr(not(host_can_test_attestation), ignore)]
 #[test]
 #[serial]
 fn get_att() {
@@ -133,6 +134,7 @@ fn get_att() {
 }
 
 #[cfg(feature = "backend-sgx")]
+#[cfg_attr(not(host_can_test_attestation), ignore)]
 #[test]
 #[serial]
 fn sgx_get_att_quote() {
@@ -140,6 +142,7 @@ fn sgx_get_att_quote() {
 }
 
 #[cfg(feature = "backend-sgx")]
+#[cfg_attr(not(host_can_test_attestation), ignore)]
 #[test]
 #[serial]
 fn sgx_get_att_quote_size() {

@@ -32,8 +32,8 @@ jobs:
         crate:
           - {name: enarx, path: Cargo.toml}
           - {name: shim-sgx, path: internal/shim-sgx/Cargo.toml}
-          - {name: shim-sev, path: internal/shim-sev/Cargo.toml}
-          - {name: wasmldr, path: internal/wasmldr/Cargo.toml}
+          - {name: shim-kvm, path: internal/shim-kvm/Cargo.toml}
+          - {name: wasmldr, path: src/bin/wasmldr/Cargo.toml}
   clippy:
     name: cargo clippy (${{ matrix.crate.name }})
     runs-on: ubuntu-20.04
@@ -63,11 +63,11 @@ jobs:
           - name: shim-sgx
             path: internal/shim-sgx/Cargo.toml
             target: --target=x86_64-unknown-linux-musl
-          - name: shim-sev
-            path: internal/shim-sev/Cargo.toml
+          - name: shim-kvm
+            path: internal/shim-kvm/Cargo.toml
             target: --target=x86_64-unknown-linux-musl
           - name: wasmldr
-            path: internal/wasmldr/Cargo.toml
+            path: src/bin/wasmldr/Cargo.toml
             target: --target=x86_64-unknown-linux-musl
   clippy-single-backends:
     name: cargo clippy (enarx ${{ matrix.backend.name }} ${{ matrix.profile.name }})
@@ -125,7 +125,7 @@ jobs:
       matrix:
         crate:
           - { name: enarx, path: . }
-          - { name: wasmldr, path: internal/wasmldr }
+          - { name: wasmldr, path: src/bin/wasmldr }
   deny:
     name: cargo deny
     runs-on: ubuntu-latest
@@ -140,8 +140,8 @@ jobs:
         crate:
           - {name: enarx, path: ./Cargo.toml}
           - {name: shim-sgx, path: internal/shim-sgx/Cargo.toml}
-          - {name: shim-sev, path: internal/shim-sev/Cargo.toml}
-          - {name: wasmldr, path: internal/wasmldr/Cargo.toml}
+          - {name: shim-kvm, path: internal/shim-kvm/Cargo.toml}
+          - {name: wasmldr, path: src/bin/wasmldr/Cargo.toml}
   main:
     name: enarx ${{ matrix.backend.name }} nightly ${{ matrix.profile.name }}
     runs-on: ${{ matrix.backend.host }}
@@ -163,7 +163,7 @@ jobs:
       - uses: actions-rs/cargo@v1
         with:
           command: test
-          args: ${{ matrix.profile.flag }} --no-default-features --features=backend-${{ matrix.backend.name }} --features=wasmldr
+          args: ${{ matrix.profile.flag }} --no-default-features --features=backend-${{ matrix.backend.name }}
     strategy:
       fail-fast: false
       matrix:
@@ -225,27 +225,28 @@ jobs:
       matrix:
         crate:
           - shim-sgx
-          - shim-sev
+          - shim-kvm
           - wasmldr
         profile:
           - name: debug
           - name: release
             flag: --release
-  nix:
-    runs-on: ubuntu-20.04
-    steps:
-    - uses: actions/checkout@v2.4.0
-    - uses: cachix/install-nix-action@v16
-    - name: Update rust toolchain to ${{ steps.toolchain_version.outputs.toolchain_version }}
-      run: helper/bump-toolchain.sh 
-      shell: bash
-    - name: Update rust toolchain in nix file
-      run: helper/bump-toolchain-nix.sh
-      shell: bash
-    - run: nix flake check
-    - run: nix develop --ignore-environment -c cargo build
+  # nix:
+  #   runs-on: ubuntu-20.04
+  #   steps:
+  #   - uses: actions/checkout@v2.4.0
+  #   - uses: cachix/install-nix-action@v16
+  #   - name: Update rust toolchain to ${{ steps.toolchain_version.outputs.toolchain_version }}
+  #     run: helper/bump-toolchain.sh 
+  #     shell: bash
+  #   - name: Update rust toolchain in nix file
+  #     run: helper/bump-toolchain-nix.sh
+  #     shell: bash
+  #   - run: nix flake check
+  #   - run: nix develop --ignore-environment -c cargo build
   create-pr:
-    needs: [ main, nix, internal, build-only, deny, readme, clippy, clippy-single-backends, fmt ]
+    # needs: [ main, nix, internal, build-only, deny, readme, clippy, clippy-single-backends, fmt ]
+    needs: [ main, internal, build-only, deny, readme, clippy, clippy-single-backends, fmt ]
     runs-on: ubuntu-20.04
     steps:
       - name: Generate rust toolchain snapshot version
@@ -273,6 +274,4 @@ jobs:
           base: main
           add-paths: |
             rust-toolchain.toml
-            .github/workflows/lint.yml
-            .github/workflows/test.yml
             flake.nix

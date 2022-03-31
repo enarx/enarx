@@ -4,24 +4,30 @@ mod exec;
 mod info;
 mod log;
 mod run;
+#[cfg(feature = "backend-sgx")]
+pub mod sgx;
 #[cfg(feature = "backend-sev")]
-pub mod sev;
+pub mod snp;
 
 use anyhow::{anyhow, Result};
+use clap::{Args, Subcommand};
 use std::ops::Deref;
-use structopt::{clap::AppSettings, StructOpt};
 
 pub use self::log::LogOptions;
 
 /// `enarx` subcommands and their options/arguments.
-#[derive(StructOpt, Debug)]
+#[derive(Subcommand, Debug)]
 pub enum Command {
     Info(info::Options),
-    #[structopt(setting(AppSettings::Hidden))]
+    #[clap(hide = true)]
     Exec(exec::Options),
     Run(run::Options),
     #[cfg(feature = "backend-sev")]
-    Sev(sev::Command),
+    #[clap(subcommand)]
+    Snp(snp::Command),
+    #[cfg(feature = "backend-sgx")]
+    #[clap(subcommand)]
+    Sgx(sgx::Command),
 }
 
 //
@@ -30,10 +36,10 @@ pub enum Command {
 
 use crate::backend::{Backend, BACKENDS};
 
-#[derive(StructOpt, Debug)]
+#[derive(Args, Debug)]
 pub struct BackendOptions {
     /// Set which backend to use
-    #[structopt(long, env = "ENARX_BACKEND")]
+    #[clap(long, env = "ENARX_BACKEND")]
     backend: Option<String>,
     // TODO: Path to an external shim binary?
     //shim: Option<PathBuf>,
@@ -63,9 +69,9 @@ impl BackendOptions {
 //
 use crate::workldr::{Workldr, WORKLDRS};
 
-#[derive(StructOpt, Debug)]
+#[derive(Args, Debug)]
 pub struct WorkldrOptions {
-    #[structopt(long, env = "ENARX_WASMCFGFILE")]
+    #[clap(long, env = "ENARX_WASMCFGFILE")]
     pub wasmcfgfile: Option<String>,
     // FUTURE: Path to an external workldr binary
 }

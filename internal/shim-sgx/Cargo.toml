@@ -1,6 +1,6 @@
 [package]
 name = "shim-sgx"
-version = "0.2.1"
+version = "0.3.0"
 authors = ["The Enarx Project Developers"]
 edition = "2021"
 license = "Apache-2.0"
@@ -14,22 +14,21 @@ gdb = [ "gdbstub", "gdbstub_arch", "dbg" ]
 dbg = []
 
 [dependencies]
-compiler_builtins = { version = "0.1.68", default-features = false, features = [ "mem" ] }
 gdbstub_arch = { version = "0.1.1" , default-features = false, optional = true }
 gdbstub = { version = "0.5.0" , default-features = false, optional = true }
 goblin = { version = "0.5", default-features = false, features = [ "elf64" ] }
-primordial = { version = "^0.4.0", features = ["const-default"] }
+primordial = { git = "https://github.com/enarx/primordial", rev = "b606b9e472e2238384b003f12fdada077e04d2fe", features = ["const-default"] }
 x86_64 = { version = "^0.14.8", default-features = false }
 crt0stack = { version = "0.1", default-features = false }
-sallyport = { version = "0.2.0" }
+sallyport = { version = "0.3.0", git = "https://github.com/enarx/sallyport", rev = "580480b19b1542bc3da2fdafef08f895f5bb3389" }
 spinning = { version = "0.1", default-features = false }
-libc = { version = "0.2.119", default-features = false }
 const-default = "1.0"
 noted = "^1.0.0"
 xsave = { version = "2.0.2" }
 rcrt1 = "1.0.0"
-lset = "0.2"
+lset = { git = "https://github.com/enarx/lset", rev = "5c2feed24d85442725f55d812315854e1b29595d"  }
 sgx = "0.3"
+mmledger = { git = "https://github.com/enarx/mmledger", rev = "843bd70e5266bcff912d651af0a9c07a413b5626" }
 
 [dev-dependencies]
 memoffset = "0.6.1"
@@ -39,6 +38,7 @@ opt-level = 3
 
 [profile.dev]
 panic = "abort"
+strip = true
 
 [profile.release]
 panic = "abort"
@@ -46,3 +46,4 @@ codegen-units = 1
 incremental = false
 lto = true
 opt-level = "s"
+strip = true
