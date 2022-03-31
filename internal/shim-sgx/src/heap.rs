@@ -2,35 +2,31 @@
 
 //! Allocate and deallocate memory on a Heap
 
+use crate::{shim_address, ENARX_EXEC_END, ENCL_SIZE};
+
 use core::ffi::{c_int, c_size_t};
 use core::num::NonZeroUsize;
 use core::ops::Range;
+use core::slice::from_raw_parts_mut;
 
-use const_default::ConstDefault;
 use mmledger::{Access, Ledger, Region};
 use primordial::{Address, Offset, Page};
 use sallyport::libc::{
     off_t, EACCES, EINVAL, ENOMEM, MAP_ANONYMOUS, MAP_PRIVATE, PROT_EXEC, PROT_READ, PROT_WRITE,
 };
+use sgx::page::{Class, Flags};
 use spinning::{Lazy, RwLock};
-
-/// This section MUST be marked as RWX in the linker script
-#[link_section = ".enarx.heap"]
-static mut BLOCK: Block<32768> = Block::new();
+use x86_64::addr::VirtAddr;
+use x86_64::structures::paging::Page as PageAddr;
 
 /// The keep heap
-pub static HEAP: Lazy<RwLock<Heap<'_>>> =
-    Lazy::new(|| RwLock::new(unsafe { Heap::new(&mut BLOCK.0) }));
-
-/// An allocated block of memory
-#[repr(C, align(4096))]
-struct Block<const N: usize>([Page; N]);
-
-impl<const N: usize> Block<N> {
-    const fn new() -> Self {
-        Self([Page::DEFAULT; N])
-    }
-}
+pub static HEAP: Lazy<RwLock<Heap<'_>>> = Lazy::new(|| unsafe {
+    let shim_end = &ENARX_EXEC_END as *const _ as usize;
+    RwLock::new(Heap::new(from_raw_parts_mut(
+        shim_end as *mut Page,
+        (shim_address() + ENCL_SIZE - shim_end) / Page::SIZE,
+    )))
+});
 
 /// A heap
 pub struct Heap<'a> {
@@ -103,6 +99,22 @@ impl<'a> Heap<'a> {
             .unwrap_or(self.memory().as_ptr() as _)
     }
 
+    fn mmap_augment(&mut self, addr: c_size_t, length: c_size_t) -> Result<usize, c_int> {
+        static ZERO_PAGE: Page = Page::zeroed();
+        let pages = (length + Page::SIZE - 1) / Page::SIZE;
+        let secinfo = Class::Regular.info(Flags::READ | Flags::WRITE | Flags::EXECUTE);
+        let zero = PageAddr::from_start_address(VirtAddr::new(ZERO_PAGE.as_ptr() as u64)).unwrap();
+        for i in 0..pages {
+            let addr =
+                PageAddr::from_start_address(VirtAddr::new((addr + i * pages) as u64)).unwrap();
+            if secinfo.accept_copy(addr, zero).is_err() {
+                panic!();
+            }
+        }
+
+        Ok(addr)
+    }
+
     fn mmap_fixed(
         &mut self,
         addr: c_size_t,
@@ -131,7 +143,11 @@ impl<'a> Heap<'a> {
             return Err(EACCES);
         }
 
-        Ok(addr)
+        if cfg!(test) {
+            Ok(addr)
+        } else {
+            self.mmap_augment(addr, length)
+        }
     }
 
     /// Allocate heap memory to address `brk`
@@ -194,7 +210,7 @@ impl<'a> Heap<'a> {
     }
 
     /// munmap memory from the heap
-    pub fn munmap<T>(&mut self, addr: *const T, length: usize) -> Result<(), c_int> {
+    pub fn munmap<T>(&mut self, addr: *const T, _length: usize) -> Result<(), c_int> {
         let addr = addr as usize;
 
         if addr % Page::SIZE != 0 {
@@ -208,7 +224,9 @@ impl<'a> Heap<'a> {
             None => return Err(EINVAL),
         };
 
-        let top = match self.offset_page_up(addr + length) {
+        // TODO: Re-enable when trimming for SGX2 is implemented.
+        #[cfg(test)]
+        let top = match self.offset_page_up(addr + _length) {
             Some(page) => page,
             None => return Err(EINVAL),
         };
@@ -217,11 +235,14 @@ impl<'a> Heap<'a> {
             return Err(EINVAL);
         }
 
-        let region = Region::new(
-            Address::new(bot * Page::SIZE),
-            Address::new(top * Page::SIZE),
-        );
-        self.ledger.unmap(region).unwrap();
+        // TODO: Re-enable when trimming for SGX2 is implemented.
+        #[cfg(test)]
+        self.ledger
+            .unmap(Region::new(
+                Address::new(bot * Page::SIZE),
+                Address::new(top * Page::SIZE),
+            ))
+            .unwrap();
 
         Ok(())
     }
@@ -231,11 +252,22 @@ impl<'a> Heap<'a> {
 mod tests {
     use super::*;
 
+    use const_default::ConstDefault;
     use core::ffi::c_void;
     use core::ptr::null_mut;
 
     const PROT: c_int = PROT_READ;
     const FLAGS: c_int = MAP_PRIVATE | MAP_ANONYMOUS;
+
+    /// An allocated block of memory
+    #[repr(C, align(4096))]
+    struct Block<const N: usize>([Page; N]);
+
+    impl<const N: usize> Block<N> {
+        const fn new() -> Self {
+            Self([Page::DEFAULT; N])
+        }
+    }
 
     trait HeapTestExt {
         fn is_allocated(&self, page: usize) -> bool;
