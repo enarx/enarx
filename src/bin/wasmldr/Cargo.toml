@@ -13,6 +13,7 @@ exclude = [ ".gitignore", ".github/*" ]
 [features]
 gdb = []
 dbg = []
+no_aesm_daemon = []
 
 [dependencies]
 wasmtime = { version = "0.35.1", default-features = false, features = ["cranelift", "pooling-allocator"] }

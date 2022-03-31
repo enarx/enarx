@@ -46,7 +46,11 @@ impl crate::backend::Backend for Backend {
     }
 
     fn data(&self) -> Vec<super::Datum> {
+        #[cfg(not(feature = "no_aesm_daemon"))]
         let mut data = vec![system_info(), data::dev_sgx_enclave(), data::aesm_socket()];
+
+        #[cfg(feature = "no_aesm_daemon")]
+        let mut data = vec![system_info(), data::dev_sgx_enclave()];
 
         data.extend(data::CPUIDS.iter().map(|c| c.into()));
 

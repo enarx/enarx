@@ -11,6 +11,8 @@ use super::{pki::PrivateKeyInfoExt, Configured, Loader, Requested};
 
 use anyhow::Result;
 
+#[cfg(feature = "no_aesm_daemon")]
+use const_oid::ObjectIdentifier;
 use const_oid::{db::rfc5912::SECP_256_R_1, db::rfc5912::SECP_384_R_1, AssociatedOid};
 use pkcs8::PrivateKeyInfo;
 use sha2::{Digest, Sha256, Sha384};
@@ -19,6 +21,9 @@ use x509::request::{CertReq, CertReqInfo, ExtensionReq};
 use x509::{attr::Attribute, ext::Extension, name::RdnSequence};
 
 impl Loader<Configured> {
+    #[cfg(feature = "no_aesm_daemon")]
+    const KVM: ObjectIdentifier = ObjectIdentifier::new_unwrap("1.3.6.1.4.1.58270.1.1");
+
     pub fn make_csr(pki: &PrivateKeyInfo<'_>, exts: Vec<Extension<'_>>) -> Result<Vec<u8>> {
         // Request the extensions.
         let req = ExtensionReq::from(exts).to_vec()?;
@@ -49,6 +54,7 @@ impl Loader<Configured> {
         Ok(req.to_vec()?)
     }
 
+    #[cfg(not(feature = "no_aesm_daemon"))]
     pub fn next(self) -> Result<Loader<Requested>> {
         let platform = Platform::get()?;
         let cert_algo = match platform.technology() {
@@ -81,6 +87,29 @@ impl Loader<Configured> {
             extn_id: platform.technology().into(),
             critical: false,
             extn_value: &attestation_report,
+        }];
+
+        // Make a certificate signing request.
+        let req = Self::make_csr(&pki, ext)?;
+
+        Ok(Loader(Requested {
+            config: self.0.config,
+            prvkey: raw,
+            crtreq: req,
+        }))
+    }
+
+    #[cfg(feature = "no_aesm_daemon")]
+    pub fn next(self) -> Result<Loader<Requested>> {
+        // Generate a keypair.
+        let raw = PrivateKeyInfo::generate(SECP_256_R_1)?;
+        let pki = PrivateKeyInfo::from_der(raw.as_ref())?;
+
+        // Create extensions.
+        let ext = vec![Extension {
+            extn_id: Self::KVM,
+            critical: false,
+            extn_value: &[],
         }];
 
         // Make a certificate signing request.

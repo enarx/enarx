@@ -29,6 +29,7 @@ backend-kvm = ["x86_64", "kvm-bindings", "kvm-ioctls"]
 backend-sgx = ["x86_64", "sgx", "ureq"]
 gdb = ["gdbstub"]
 dbg = []
+no_aesm_daemon = []
 
 [dependencies]
 x86_64 = { version = "^0.14.8", default-features = false, optional = true }

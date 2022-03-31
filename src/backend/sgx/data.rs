@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::backend::probe::x86_64::{CpuId, Vendor};
+#[cfg(not(feature = "no_aesm_daemon"))]
 use crate::backend::sgx::AESM_SOCKET;
 use crate::backend::Datum;
 
@@ -8,6 +9,7 @@ use sgx::parameters::{Features, MiscSelect, Xfrm};
 
 use std::arch::x86_64::__cpuid_count;
 use std::fs::File;
+#[cfg(not(feature = "no_aesm_daemon"))]
 use std::path::Path;
 
 fn humanize(mut size: f64) -> (f64, &'static str) {
@@ -164,6 +166,7 @@ pub fn dev_sgx_enclave() -> Datum {
     }
 }
 
+#[cfg(not(feature = "no_aesm_daemon"))]
 pub fn aesm_socket() -> Datum {
     Datum {
         name: "AESM Daemon Socket".into(),
