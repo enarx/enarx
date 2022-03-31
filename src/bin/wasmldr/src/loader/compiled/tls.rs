@@ -2,6 +2,7 @@
 //! A WasiFile for transparent TLS
 
 use std::any::Any;
+use std::io;
 use std::io::{IoSlice, IoSliceMut, Read, Write};
 use std::mem::forget;
 use std::ops::{Deref, DerefMut};
@@ -11,18 +12,87 @@ use cap_std::net::{TcpListener as CapListener, TcpStream as CapStream};
 use rustix::fd::{AsRawFd, FromRawFd};
 use rustls::{ClientConfig, ClientConnection, Connection, ServerConfig, ServerConnection};
 use wasi_common::file::{Advice, FdFlags, FileType, Filestat};
-use wasi_common::{Context, Error, ErrorExt, WasiFile};
+use wasi_common::{Context, Error, ErrorExt, ErrorKind, WasiFile};
 use wasmtime_wasi::net::{TcpListener as AnyListener, TcpStream as AnyStream};
 
 fn errmap(error: std::io::Error) -> Error {
     use std::io::ErrorKind::*;
-    use wasi_common::ErrorKind;
 
     match error.kind() {
         WouldBlock => ErrorKind::WouldBlk.into(),
         InvalidInput => ErrorKind::Inval.into(),
         Unsupported => ErrorKind::Notsup.into(),
-        _ => error.into(),
+        InvalidData => ErrorKind::Inval.into(),
+        _ => Error::from(ErrorKind::Io).context(error),
+    }
+}
+
+trait IOAsync {
+    fn complete_io_async<T>(&mut self, io: &mut T) -> Result<(usize, usize), io::Error>
+    where
+        Self: Sized,
+        T: io::Read + io::Write;
+}
+
+impl IOAsync for Connection {
+    /// This function uses `io` to complete any outstanding IO for this connection.
+    ///
+    /// Based upon [`complete_io`], but with added `flush()` and `WouldBlock` error handling for async connections.
+    ///
+    /// [`complete_io`]: https://github.com/rustls/rustls/blob/c42c53e13dfc54495cbb62577f6bb58eddf5ff8a/rustls/src/conn.rs#L462-L507
+    fn complete_io_async<T>(&mut self, io: &mut T) -> Result<(usize, usize), io::Error>
+    where
+        Self: Sized,
+        T: io::Read + io::Write,
+    {
+        let until_handshaked = self.is_handshaking();
+        let mut eof = false;
+        let mut wrlen = 0;
+        let mut rdlen = 0;
+
+        loop {
+            while self.wants_write() {
+                let res = self.write_tls(io);
+                if matches!(&res, Err(e) if e.kind() == io::ErrorKind::WouldBlock) {
+                    break;
+                }
+                wrlen += res?;
+            }
+
+            if !until_handshaked && wrlen > 0 {
+                let _ignored = io.flush();
+                return Ok((rdlen, wrlen));
+            }
+
+            if !eof && self.wants_read() {
+                match self.read_tls(io) {
+                    Ok(0) => eof = true,
+                    Ok(n) => rdlen += n,
+                    Err(e) if e.kind() == io::ErrorKind::WouldBlock => return Ok((rdlen, wrlen)),
+                    Err(e) => return Err(e),
+                }
+            }
+
+            match self.process_new_packets() {
+                Ok(_) => {}
+                Err(e) => {
+                    // In case we have an alert to send describing this error,
+                    // try a last-gasp write -- but don't predate the primary
+                    // error.
+                    let _ignored = self.write_tls(io);
+                    let _ignored = io.flush();
+
+                    return Err(io::Error::new(io::ErrorKind::InvalidData, e));
+                }
+            };
+
+            match (eof, until_handshaked, self.is_handshaking()) {
+                (_, true, false) => return Ok((rdlen, wrlen)),
+                (_, false, _) => return Ok((rdlen, wrlen)),
+                (true, true, true) => return Err(io::Error::from(io::ErrorKind::UnexpectedEof)),
+                (..) => {}
+            }
+        }
     }
 }
 
@@ -98,12 +168,7 @@ impl Stream {
 
     fn complete_io(&self) -> Result<(), Error> {
         let (cap, tls) = &mut *self.lck.write().unwrap();
-
-        while tls.wants_read() || tls.wants_write() {
-            tls.complete_io(cap.deref_mut()).map_err(errmap)?;
-            tls.process_new_packets()?;
-        }
-
+        tls.complete_io_async(cap.deref_mut()).map_err(errmap)?;
         Ok(())
     }
 }
