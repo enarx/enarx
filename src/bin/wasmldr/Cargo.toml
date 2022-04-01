@@ -15,10 +15,10 @@ gdb = []
 dbg = []
 
 [dependencies]
-wasmtime = { version = "0.35.1", default-features = false, features = ["cranelift", "pooling-allocator"] }
-wasmtime-wasi = { version = "0.35.0", default-features = false, features = ["sync"] }
-wasi-common = { version = "0.35.0", default-features = false }
-wiggle = { version = "0.35.0", default-features = false }
+wasmtime = { version = "0.35.2", default-features = false, features = ["cranelift", "pooling-allocator"] }
+wasmtime-wasi = { version = "0.35.2", default-features = false, features = ["sync"] }
+wasi-common = { version = "0.35.2", default-features = false }
+wiggle = { version = "0.35.2", default-features = false }
 io-lifetimes = { version = "0.6.0", default-features = false }
 cap-std = "0.24.2"
 system-interface = { version = "0.20.0", features = ["cap_std_impls"] }
@@ -39,7 +39,7 @@ zeroize = { version = "^1.5.4", features = ["alloc"] }
 ring = { version = "0.16.20", features = ["std"] }
 ureq = { version = "^2.4.0" }
 clap = { version = "3.1.6", default-features = false, features = ["derive", "std"] }
-rustix = "0.34.0"
+rustix = "0.34.1"
 url = { version = "2.2.2", features = ["serde"] }
 sha2 = "^0.10.2"
 
