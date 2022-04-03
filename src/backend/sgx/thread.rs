@@ -107,9 +107,13 @@ fn sgx_enarxcall<'a>(enarxcall: &'a mut Payload, data: &'a mut [u8]) -> Result<O
                     .context("sgx_enarxcall deref")?
             };
 
-            let akid = get_attestation_key_id().context("error obtaining attestation key id")?;
-            let pkeysize = get_key_size(akid.clone()).context("error obtaining key size")?;
-            *ret = get_target_info(akid, pkeysize, out_buf).context("error getting target info")?;
+            if !cfg!(force_backend) {
+                let akid =
+                    get_attestation_key_id().context("error obtaining attestation key id")?;
+                let pkeysize = get_key_size(akid.clone()).context("error obtaining key size")?;
+                *ret = get_target_info(akid, pkeysize, out_buf)
+                    .context("error getting target info")?;
+            }
 
             Ok(None)
         }
@@ -137,8 +141,11 @@ fn sgx_enarxcall<'a>(enarxcall: &'a mut Payload, data: &'a mut [u8]) -> Result<O
                     .context("sgx_enarxcall deref")?
             };
 
-            let akid = get_attestation_key_id().context("error obtaining attestation key id")?;
-            *ret = get_quote(report_buf, akid, quote_buf).context("error getting quote")?;
+            if !cfg!(force_backend) {
+                let akid =
+                    get_attestation_key_id().context("error obtaining attestation key id")?;
+                *ret = get_quote(report_buf, akid, quote_buf).context("error getting quote")?;
+            }
 
             Ok(None)
         }
@@ -148,8 +155,11 @@ fn sgx_enarxcall<'a>(enarxcall: &'a mut Payload, data: &'a mut [u8]) -> Result<O
             ret,
             ..
         } => {
-            let akid = get_attestation_key_id().context("error obtaining attestation key id")?;
-            *ret = get_quote_size(akid).context("error getting quote size")?;
+            if !cfg!(force_backend) {
+                let akid =
+                    get_attestation_key_id().context("error obtaining attestation key id")?;
+                *ret = get_quote_size(akid).context("error getting quote size")?;
+            }
 
             Ok(None)
         }

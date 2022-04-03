@@ -282,4 +282,7 @@ fn main() {
             println!("cargo:rustc-cfg=host_can_test_attestation");
         }
     }
+
+    #[cfg(feature = "force-backend")]
+    println!("cargo:rustc-cfg=force_backend");
 }

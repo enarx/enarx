@@ -51,7 +51,7 @@ impl BackendOptions {
             BACKENDS
                 .deref()
                 .iter()
-                .find(|b| b.have() && b.name() == name)
+                .find(|b| (b.name() == name && cfg!(force_backend) || b.have()))
                 .ok_or_else(|| anyhow!("Keep backend {:?} is unsupported.", name))
         } else {
             BACKENDS.deref().iter().find(|b| b.have()).ok_or_else(|| {
