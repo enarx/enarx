@@ -168,10 +168,50 @@ fn main() {
     .unwrap()
 }
 
-const ASN_LEN_HEADER_SIZE: usize = 6;
 const ASN_SECTION_CONSTRUCTED: u8 = 0x30;
 const ASN_OCTET_STRING: u8 = 0x04;
-const ASN_LEN_4_BYTES: u8 = 0x84;
+
+// returns (lenght, header_len) where
+// header_len = tag_size + length_prefix + nbytes
+// header_len = 1 + (0 or 1) + nbytes
+fn decode_len(buf: &[u8]) -> Option<(u32, usize)> {
+    match *buf.get(0)? {
+        // Note: per X.690 Section 8.1.3.6.1 the byte 0x80 encodes indefinite
+        // lengths, which are not allowed in DER, so disallow that byte.
+        len if len < 0x80 => Some((len.into(), 2)),
+        // 1-4 byte variable-sized length prefix
+        tag @ 0x81..=0x84 => {
+            let nbytes = tag.checked_sub(0x80)? as usize;
+            debug_assert!(nbytes <= 4);
+
+            let mut decoded_len = 0;
+            for i in 0..nbytes {
+                decoded_len = (decoded_len << 8) | *buf.get(i + 1)? as u32;
+            }
+
+            Some((decoded_len, nbytes + 2))
+        }
+        _ => {
+            // We specialize to a maximum 4-byte length (including initial octet)
+            None
+        }
+    }
+}
+
+/// size of header for a tag and the length encoded with a minimum number of octets
+///
+/// helper function for ASN.1 encoding
+fn asn_len_header_len(len: usize) -> Option<usize> {
+    let len: u32 = len.try_into().ok()?;
+
+    match len.to_be_bytes() {
+        [0, 0, 0, byte] if byte < 0x80 => Some(2),
+        [0, 0, 0, _] => Some(3),
+        [0, 0, _, _] => Some(4),
+        [0, _, _, _] => Some(5),
+        [_, _, _, _] => Some(6),
+    }
+}
 
 fn get_att(mut nonce: [u8; 64]) -> std::io::Result<()> {
     let (len, tech) = get_att_syscall(None, None)?;
@@ -189,21 +229,22 @@ fn get_att(mut nonce: [u8; 64]) -> std::io::Result<()> {
     eprintln!("\n");
 
     // section
-    let (asn_header, chunks) = chunks.split_at(ASN_LEN_HEADER_SIZE);
-    assert_eq!(asn_header[0], ASN_SECTION_CONSTRUCTED);
-    assert_eq!(asn_header[1], ASN_LEN_4_BYTES);
-    let len_left = u32::from_be_bytes(asn_header[2..6].try_into().unwrap());
+    assert_eq!(chunks[0], ASN_SECTION_CONSTRUCTED);
+    let (len_left, len) = decode_len(&chunks[1..]).unwrap();
+    let (_, chunks) = chunks.split_at(len);
     assert_eq!(chunks.len(), len_left as usize);
 
     // vcek
-    let (vcek_buf, chunks) =
-        chunks.split_at(chunks.len() - size_of::<SnpReportData>() - ASN_LEN_HEADER_SIZE);
+    let (vcek_buf, chunks) = chunks.split_at(
+        chunks.len()
+            - size_of::<SnpReportData>()
+            - asn_len_header_len(size_of::<SnpReportData>()).unwrap(),
+    );
 
     // octet
-    let (asn_header, report_buf) = chunks.split_at(ASN_LEN_HEADER_SIZE);
-    assert_eq!(asn_header[0], ASN_OCTET_STRING);
-    assert_eq!(asn_header[1], ASN_LEN_4_BYTES);
-    let len_left = u32::from_be_bytes(asn_header[2..6].try_into().unwrap());
+    assert_eq!(chunks[0], ASN_OCTET_STRING);
+    let (len_left, len) = decode_len(&chunks[1..]).unwrap();
+    let (_, report_buf) = chunks.split_at(len);
     assert_eq!(report_buf.len(), len_left as usize);
 
     // report
