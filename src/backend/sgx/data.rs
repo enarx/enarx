@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::backend::probe::x86_64::{CpuId, Vendor};
+use crate::backend::sgx::enclave::Enclave;
 use crate::backend::sgx::AESM_SOCKET;
 use crate::backend::Datum;
 
 use sgx::parameters::{Features, MiscSelect, Xfrm};
 
 use std::arch::x86_64::__cpuid_count;
-use std::fs::File;
 use std::path::Path;
 
 fn humanize(mut size: f64) -> (f64, &'static str) {
@@ -158,8 +158,8 @@ pub fn epc_size(max: u32) -> Datum {
 pub fn dev_sgx_enclave() -> Datum {
     Datum {
         name: "Driver".into(),
-        pass: File::open("/dev/sgx_enclave").is_ok(),
-        info: Some("/dev/sgx_enclave".into()),
+        pass: Enclave::new().is_ok(),
+        info: Some(Enclave::DEVICE.into()),
         mesg: None,
     }
 }

@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use super::config::Config;
-use super::ioctls::*;
+use super::enclave::Enclave;
 
 use std::convert::TryFrom;
-use std::fs::{File, OpenOptions};
+use std::fs::File;
 use std::sync::{Arc, RwLock};
 
 use anyhow::{Context, Error, Result};
@@ -17,7 +17,7 @@ use sgx::signature::{Author, Hasher, Signature};
 use log::trace;
 
 pub struct Builder {
-    file: File,
+    encl: Enclave,
     cnfg: Config,
     hash: Hasher<S256Digest>,
     mmap: Map<perms::Unknown>,
@@ -50,22 +50,16 @@ impl TryFrom<super::config::Config> for Builder {
             map.addr() + map.size()
         );
 
-        // Open the device.
-        let mut file = OpenOptions::new()
-            .read(true)
-            .write(true)
-            .open("/dev/sgx_enclave")
-            .context("Failed to open '/dev/sgx_enclave'")?;
+        // Create a new enclave instance
+        let mut encl = Enclave::new().context(format!("Failed to open '{}'", Enclave::DEVICE))?;
 
         // Create the enclave.
         let secs = config
             .parameters
             .secs(map.addr() as *const (), map.size(), config.ssap);
         trace!("creating enclave: {:?}", secs);
-        let create = Create::new(&secs);
-        ENCLAVE_CREATE
-            .ioctl(&mut file, &create)
-            .context("Failed to create SGX enclave")?;
+
+        encl.create(&secs).context("Failed to create SGX enclave")?;
 
         Ok(Builder {
             hash: Hasher::new(config.size, config.ssap),
@@ -73,7 +67,7 @@ impl TryFrom<super::config::Config> for Builder {
             perm: Vec::new(),
             tcsp: Vec::new(),
             cnfg: config,
-            file,
+            encl,
         })
     }
 }
@@ -101,9 +95,8 @@ impl super::super::Mapper for Builder {
         );
 
         // Update the enclave.
-        let mut ap = AddPages::new(&*pages, to, &with.0, with.1);
-        ENCLAVE_ADD_PAGES
-            .ioctl(&mut self.file, &mut ap)
+        self.encl
+            .add_pages(&*pages, to, &with.0, with.1)
             .context("Failed to add pages to SGX enclave")?;
 
         // Update the hasher.
@@ -138,9 +131,9 @@ impl TryFrom<Builder> for Arc<dyn super::super::Keep> {
             Signature::new(&key, author, body).context("Failed to create RSA signature")?;
 
         // Initialize the enclave.
-        let init = Init::new(&signature);
-        ENCLAVE_INIT
-            .ioctl(&mut builder.file, &init)
+        builder
+            .encl
+            .init(&signature)
             .context("Failed to initialize SGX enclave")?;
         trace!("enclave initialized");
 
@@ -179,10 +172,11 @@ impl TryFrom<Builder> for Arc<dyn super::super::Keep> {
             };
 
             // Change the permissions on an existing region of memory.
+            let mut file: File = builder.encl.try_clone()?.into();
             std::mem::forget(unsafe {
                 Map::map(size)
                     .onto(addr as usize)
-                    .from(&mut builder.file, 0)
+                    .from(&mut file, 0)
                     .unknown(Kind::Shared, rwx)
                     .context("Failed to change permissions on memory")?
             });
@@ -199,10 +193,11 @@ impl TryFrom<Builder> for Arc<dyn super::super::Keep> {
         let heap_size = builder.mmap.addr() + builder.mmap.size() - heap_addr;
 
         // Map the heap RWX.
+        let mut file: File = builder.encl.try_clone()?.into();
         std::mem::forget(unsafe {
             Map::map(heap_size)
                 .onto(heap_addr)
-                .from(&mut builder.file, 0)
+                .from(&mut file, 0)
                 .unknown(
                     Kind::Shared,
                     libc::PROT_READ | libc::PROT_WRITE | libc::PROT_EXEC,
@@ -214,6 +209,7 @@ impl TryFrom<Builder> for Arc<dyn super::super::Keep> {
             sallyport_block_size: builder.cnfg.sallyport_block_size,
             _mem: builder.mmap,
             tcs: RwLock::new(builder.tcsp),
+            _encl: builder.encl.try_clone()?,
         }))
     }
 }
