@@ -40,7 +40,7 @@ kvm-bindings = { version = "0.5", optional = true }
 kvm-ioctls = { version = "0.11", optional = true }
 gdbstub = { version = "0.5.0", optional = true }
 protobuf = "2.22"
-clap = { version = "3.0", features = ["env", "derive", "wrap_help"] }
+clap = { version = "3.1", features = ["env", "derive", "wrap_help"] }
 openssl = "0.10"
 bitflags = "1.2"
 iocuddle = "0.1.1"
