@@ -5,7 +5,6 @@ mod builder;
 mod config;
 mod data;
 mod hasher;
-mod ioctls;
 mod thread;
 
 use super::probe::common::system_info;
@@ -25,6 +24,7 @@ struct Keep {
     sallyport_block_size: u64,
     _mem: Map<perms::Unknown>,
     tcs: RwLock<Vec<*const Tcs>>,
+    _encl: sgx::enclave::Enclave,
 }
 
 pub struct Backend;
