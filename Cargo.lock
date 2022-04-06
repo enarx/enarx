@@ -1466,7 +1466,7 @@ checksum = "73b4b750c782965c211b42f022f59af1fbceabdd026623714f104152f1ec149f"
 [[package]]
 name = "sallyport"
 version = "0.3.0"
-source = "git+https://github.com/enarx/sallyport?rev=580480b19b1542bc3da2fdafef08f895f5bb3389#580480b19b1542bc3da2fdafef08f895f5bb3389"
+source = "git+https://github.com/enarx/sallyport?rev=0b290de72c57569d94de6c3ead4570981c187c6c#0b290de72c57569d94de6c3ead4570981c187c6c"
 dependencies = [
  "goblin",
 ]
