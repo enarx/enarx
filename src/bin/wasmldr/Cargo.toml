@@ -22,7 +22,7 @@ wiggle = { version = "0.35.2", default-features = false }
 io-lifetimes = { version = "0.6.0", default-features = false }
 cap-std = "0.24.2"
 system-interface = { version = "0.20.0", features = ["cap_std_impls"] }
-wasmparser = "0.83.0"
+wasmparser = "0.84.0"
 anyhow = "1.0"
 env_logger = { version = "0.9", default-features = false }
 log = "0.4"
