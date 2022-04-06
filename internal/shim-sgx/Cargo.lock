@@ -60,6 +60,27 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9274b445ee572d50bdeb17a1101be829becc565b5c12b21a697af4d360b48e8d"
 
 [[package]]
+name = "der"
+version = "0.6.0-pre.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b3ed717eef39a802bcfbfefed277ffe0639c53ad7720753646d21d2bd6074fe1"
+dependencies = [
+ "der_derive",
+]
+
+[[package]]
+name = "der_derive"
+version = "0.6.0-pre.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "45cd173346b7c0770907daa7d0b0c1f8e5ce67a853d7fa10f5ff77dc73d82b46"
+dependencies = [
+ "proc-macro-error",
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "gdbstub"
 version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -202,6 +223,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "proc-macro-error"
+version = "1.0.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "da25490ff9892aab3fcf7c36f08cfb902dd3e71ca0f9f9517bea02a73a5ce38c"
+dependencies = [
+ "proc-macro-error-attr",
+ "proc-macro2",
+ "quote",
+ "syn",
+ "version_check",
+]
+
+[[package]]
+name = "proc-macro-error-attr"
+version = "1.0.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a1be40180e52ecc98ad80b184934baf3d0d29f979574e439af5a55274b35f869"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "version_check",
+]
+
+[[package]]
 name = "proc-macro2"
 version = "1.0.36"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -270,10 +315,10 @@ checksum = "ce31e24b01e1e524df96f1c2fdd054405f8d7376249a5110886fb4b658484789"
 [[package]]
 name = "sgx"
 version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "630f9b3f39cc5fbcdbcf881cccbfe6c574084fa04b45b38eaa5f433e91208a6c"
+source = "git+https://github.com/enarx/sgx?rev=f6de78316cdd74abf825dc3f6794f6f43f744e85#f6de78316cdd74abf825dc3f6794f6f43f744e85"
 dependencies = [
  "bitflags",
+ "der",
  "x86_64",
  "xsave",
 ]
@@ -354,6 +399,12 @@ name = "unicode-xid"
 version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8ccb82d61f80a663efe1f787a51b16b5a51e3314d6ac365b08639f52387b33f3"
+
+[[package]]
+name = "version_check"
+version = "0.9.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "49874b5167b65d7193b8aba1567f5c7d93d001cafc34600cee003eda787e483f"
 
 [[package]]
 name = "volatile"

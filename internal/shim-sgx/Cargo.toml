@@ -28,7 +28,7 @@ noted = "^1.0.0"
 xsave = { version = "2.0.2" }
 rcrt1 = "1.0.0"
 lset = { git = "https://github.com/enarx/lset", rev = "5c2feed24d85442725f55d812315854e1b29595d"  }
-sgx = "0.3"
+sgx = { git = "https://github.com/enarx/sgx", rev = "f6de78316cdd74abf825dc3f6794f6f43f744e85" }
 mmledger = { git = "https://github.com/enarx/mmledger", rev = "843bd70e5266bcff912d651af0a9c07a413b5626" }
 
 [dev-dependencies]
