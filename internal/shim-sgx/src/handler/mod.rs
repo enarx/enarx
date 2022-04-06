@@ -255,6 +255,10 @@ impl<'a> Handler<'a> {
         buf: usize,
         buf_len: usize,
     ) -> Result<[usize; 2], c_int> {
+        if cfg!(feature = "disable-sgx-attestation") {
+            return Ok([0, 0]);
+        }
+
         let quote_size = self.get_sgx_quote_size()?;
 
         if buf == 0 {

@@ -12,6 +12,7 @@ test = false
 [features]
 gdb = [ "gdbstub", "gdbstub_arch", "dbg" ]
 dbg = []
+disable-sgx-attestation = []
 
 [dependencies]
 gdbstub_arch = { version = "0.1.1" , default-features = false, optional = true }

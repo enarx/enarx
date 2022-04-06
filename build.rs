@@ -169,6 +169,9 @@ fn cargo_build_bin(
     #[cfg(feature = "dbg")]
     let cmd = cmd.arg("--features=dbg");
 
+    #[cfg(feature = "disable-sgx-attestation")]
+    let cmd = cmd.arg("--features=disable-sgx-attestation");
+
     let status = cmd.status()?;
 
     if !status.success() {
@@ -265,7 +268,8 @@ fn main() {
     {
         println!("cargo:rustc-cfg=host_can_test_sgx");
 
-        if std::path::Path::new(AESM_SOCKET).exists()
+        if (!cfg!(feature = "disable-sgx-attestation"))
+            && std::path::Path::new(AESM_SOCKET).exists()
             && fs::metadata(AESM_SOCKET).unwrap().file_type().is_socket()
         {
             println!("cargo:rustc-cfg=host_can_test_attestation");
