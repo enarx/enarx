@@ -12,6 +12,7 @@ test = false
 [features]
 gdb = [ "gdbstub", "gdbstub_arch", "dbg" ]
 dbg = []
+disable-sgx-attestation = []
 
 [dependencies]
 x86_64 = { version = "0.14.8", default-features = false, features = ["instructions", "inline_asm"] }

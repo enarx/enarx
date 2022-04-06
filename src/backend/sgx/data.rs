@@ -167,7 +167,7 @@ pub fn dev_sgx_enclave() -> Datum {
 pub fn aesm_socket() -> Datum {
     Datum {
         name: "AESM Daemon Socket".into(),
-        pass: Path::new(AESM_SOCKET).exists(),
+        pass: cfg!(feature = "disable-sgx-attestation") || Path::new(AESM_SOCKET).exists(),
         info: Some(AESM_SOCKET.into()),
         mesg: None,
     }
