@@ -130,7 +130,7 @@ pub fn asn1_encode_report_vcek(chunks: &mut [u8], report: &[u8], vcek: &[u8]) ->
         let report_chunk_len = report_chunk_len_f()?;
         let vcek_len = vcek.len();
         let len = report_chunk_len
-            .checked_add(calc_asn_header_len(vcek_len)?)?
+            .checked_add(calc_asn_header_len(report_chunk_len)?)?
             .checked_add(vcek_len)?;
         Some(len)
     };
