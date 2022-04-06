@@ -3,32 +3,32 @@
 use super::{run_test, write_tcp};
 use crate::integration_tests::recv_udp;
 
-use core::ffi::{c_char, c_int};
 use libc::{
     self, SYS_accept, SYS_accept4, SYS_bind, SYS_close, SYS_fcntl, SYS_fstat, SYS_getegid,
-    SYS_geteuid, SYS_getgid, SYS_getpid, SYS_getrandom, SYS_getsockname, SYS_listen, SYS_nanosleep,
-    SYS_open, SYS_poll, SYS_read, SYS_readlink, SYS_readv, SYS_recvfrom, SYS_rt_sigaction,
-    SYS_rt_sigprocmask, SYS_sendto, SYS_set_tid_address, SYS_setsockopt, SYS_sigaltstack,
-    SYS_socket, SYS_uname, SYS_write, SYS_writev, AF_INET, EACCES, EBADF, EBADFD, EINVAL, ENOENT,
-    ENOSYS, F_GETFD, F_GETFL, F_SETFD, F_SETFL, GRND_RANDOM, MSG_NOSIGNAL, O_APPEND, O_CREAT,
-    O_RDONLY, O_RDWR, O_WRONLY, SIGCHLD, SIG_BLOCK, SOCK_CLOEXEC, SOCK_STREAM, SOL_SOCKET,
-    SO_RCVTIMEO, SO_REUSEADDR, STDERR_FILENO, STDIN_FILENO, STDOUT_FILENO,
+    SYS_geteuid, SYS_getgid, SYS_getpid, SYS_getrandom, SYS_getsockname, SYS_listen, SYS_mremap,
+    SYS_nanosleep, SYS_open, SYS_poll, SYS_read, SYS_readlink, SYS_readv, SYS_recvfrom,
+    SYS_rt_sigaction, SYS_rt_sigprocmask, SYS_sendto, SYS_set_tid_address, SYS_setsockopt,
+    SYS_sigaltstack, SYS_socket, SYS_uname, SYS_write, SYS_writev, AF_INET, EACCES, EBADF, EBADFD,
+    EINVAL, ENOENT, ENOSYS, F_GETFD, F_GETFL, F_SETFD, F_SETFL, GRND_RANDOM, MREMAP_DONTUNMAP,
+    MREMAP_FIXED, MREMAP_MAYMOVE, MSG_NOSIGNAL, O_APPEND, O_CREAT, O_RDONLY, O_RDWR, O_WRONLY,
+    SIGCHLD, SIG_BLOCK, SOCK_CLOEXEC, SOCK_STREAM, SOL_SOCKET, SO_RCVTIMEO, SO_REUSEADDR,
+    STDERR_FILENO, STDIN_FILENO, STDOUT_FILENO,
 };
-use sallyport::guest::syscall::{FAKE_GID, FAKE_PID, FAKE_TID, FAKE_UID};
-use sallyport::item::syscall::sigaction;
 use std::env::temp_dir;
-use std::ffi::CString;
+use std::ffi::{c_char, c_int, CString};
 use std::fs::{File, OpenOptions};
 use std::io::{Read, Seek, Write};
 use std::mem::{size_of, transmute};
 use std::net::{TcpListener, UdpSocket};
 use std::os::unix::prelude::AsRawFd;
-use std::ptr::null_mut;
+use std::ptr::{null_mut, NonNull};
 use std::slice;
 use std::{mem, thread};
 
 use sallyport::guest::syscall::types::SockaddrOutput;
+use sallyport::guest::syscall::{FAKE_GID, FAKE_PID, FAKE_TID, FAKE_UID};
 use sallyport::guest::{syscall, Handler, Platform};
+use sallyport::item::syscall::sigaction;
 use sallyport::libc::{in_addr, iovec, pollfd, sockaddr, sockaddr_in, timespec, timeval, utsname};
 use serial_test::serial;
 
@@ -373,6 +373,48 @@ fn getrandom() {
         );
         assert_ne!(buf_2, [0u8; LEN]);
         assert_ne!(buf_2, buf);
+    });
+}
+
+#[test]
+fn mremap() {
+    run_test(2, [0xff; 0], move |i, platform, handler| {
+        if i % 2 == 0 {
+            assert_eq!(
+                handler.mremap(platform, NonNull::new(0xffff as _).unwrap(), 1, 2, None),
+                Err(ENOSYS)
+            );
+        } else {
+            for (flags, new_address, errno) in [
+                (0, 0, ENOSYS),
+                (0, 1, EINVAL),
+                (0xffff, 0, EINVAL),
+                (MREMAP_MAYMOVE, 0xffff, EINVAL),
+                (MREMAP_MAYMOVE, 0, ENOSYS),
+                (MREMAP_DONTUNMAP, 0, EINVAL),
+                (MREMAP_FIXED, 0xffff, EINVAL),
+                (MREMAP_MAYMOVE | MREMAP_FIXED, 0, EINVAL),
+                (MREMAP_MAYMOVE | MREMAP_FIXED, 0xffff, ENOSYS),
+                (MREMAP_MAYMOVE | MREMAP_DONTUNMAP, 0xffff, EINVAL),
+                (MREMAP_MAYMOVE | MREMAP_DONTUNMAP, 0, ENOSYS),
+                (MREMAP_MAYMOVE | MREMAP_FIXED | MREMAP_DONTUNMAP, 0, EINVAL),
+                (
+                    MREMAP_MAYMOVE | MREMAP_FIXED | MREMAP_DONTUNMAP,
+                    0xffff,
+                    ENOSYS,
+                ),
+            ] {
+                assert_eq!(
+                    unsafe {
+                        handler.syscall(
+                            platform,
+                            [SYS_mremap as _, 0xffff, 1, 2, flags as _, new_address, 0],
+                        )
+                    },
+                    Err(errno)
+                );
+            }
+        }
     });
 }
 

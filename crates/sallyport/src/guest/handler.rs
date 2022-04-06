@@ -2,7 +2,7 @@
 
 use super::alloc::{Alloc, Allocator, Collect, Commit, Committer};
 use super::call::kind;
-use super::syscall::types::{SockaddrInput, SockaddrOutput, SockoptInput};
+use super::syscall::types::{MremapFlags, SockaddrInput, SockaddrOutput, SockoptInput};
 use super::{enarxcall, gdbcall, syscall, Call, Platform, ThreadLocalStorage, SIGRTMAX};
 use crate::item::enarxcall::sgx;
 use crate::item::syscall::sigaction;
@@ -13,10 +13,11 @@ use crate::libc::{
     SYS_epoll_ctl, SYS_epoll_pwait, SYS_epoll_wait, SYS_eventfd2, SYS_exit, SYS_exit_group,
     SYS_fcntl, SYS_fstat, SYS_getegid, SYS_geteuid, SYS_getgid, SYS_getpid, SYS_getrandom,
     SYS_getsockname, SYS_getuid, SYS_ioctl, SYS_listen, SYS_madvise, SYS_mmap, SYS_mprotect,
-    SYS_munmap, SYS_nanosleep, SYS_open, SYS_poll, SYS_read, SYS_readlink, SYS_readv, SYS_recvfrom,
-    SYS_rt_sigaction, SYS_rt_sigprocmask, SYS_sendto, SYS_set_tid_address, SYS_setsockopt,
-    SYS_sigaltstack, SYS_socket, SYS_sync, SYS_uname, SYS_write, SYS_writev, EFAULT, EINVAL,
-    ENOSYS, ENOTSUP, FIONBIO, FIONREAD,
+    SYS_mremap, SYS_munmap, SYS_nanosleep, SYS_open, SYS_poll, SYS_read, SYS_readlink, SYS_readv,
+    SYS_recvfrom, SYS_rt_sigaction, SYS_rt_sigprocmask, SYS_sendto, SYS_set_tid_address,
+    SYS_setsockopt, SYS_sigaltstack, SYS_socket, SYS_sync, SYS_uname, SYS_write, SYS_writev,
+    EFAULT, EINVAL, ENOSYS, ENOTSUP, FIONBIO, FIONREAD, MREMAP_DONTUNMAP, MREMAP_FIXED,
+    MREMAP_MAYMOVE,
 };
 use crate::{item, Result};
 
@@ -335,6 +336,17 @@ pub trait Handler {
         len: c_size_t,
         prot: c_int,
     ) -> Result<()>;
+
+    /// Executes [`mremap`](https://man7.org/linux/man-pages/man2/mremap.2.html) syscall akin to [`libc::mremap`].
+    /// If `flags` is `Some`, `[libc::MREMAP_MAYMOVE]` is implied.
+    fn mremap(
+        &mut self,
+        platform: &impl Platform,
+        old_address: NonNull<c_void>,
+        old_size: c_size_t,
+        new_size: c_size_t,
+        flags: Option<MremapFlags>,
+    ) -> Result<NonNull<c_void>>;
 
     /// Executes [`munmap`](https://man7.org/linux/man-pages/man2/munmap.2.html) syscall akin to [`libc::munmap`].
     fn munmap(
@@ -703,6 +715,35 @@ pub trait Handler {
                 let addr = NonNull::new(addr as _).ok_or(EFAULT)?;
                 self.mprotect(platform, addr, len, prot as _)
                     .map(|_| [0, 0])
+            }
+            (SYS_mremap, [old_address, old_size, new_size, flags, new_address, ..]) => {
+                let old_address = NonNull::new(old_address as _).ok_or(EFAULT)?;
+                let flags = match (flags as _, new_address) {
+                    (0, 0) => None,
+                    (MREMAP_MAYMOVE, 0) => Some(Default::default()),
+                    (flags, 0) if flags == MREMAP_MAYMOVE | MREMAP_DONTUNMAP => Some(MremapFlags {
+                        DONTUNMAP: true,
+                        ..Default::default()
+                    }),
+                    (flags, 0) if flags & MREMAP_FIXED != 0 => return Err(EINVAL),
+                    (flags, new_address) if flags == MREMAP_MAYMOVE | MREMAP_FIXED => {
+                        Some(MremapFlags {
+                            FIXED: Some(NonNull::new(new_address as _).unwrap()),
+                            ..Default::default()
+                        })
+                    }
+                    (flags, new_address)
+                        if flags == MREMAP_MAYMOVE | MREMAP_FIXED | MREMAP_DONTUNMAP =>
+                    {
+                        Some(MremapFlags {
+                            DONTUNMAP: true,
+                            FIXED: Some(NonNull::new(new_address as _).unwrap()),
+                        })
+                    }
+                    _ => return Err(EINVAL),
+                };
+                self.mremap(platform, old_address, old_size, new_size, flags)
+                    .map(|ret| [ret.as_ptr() as _, 0])
             }
             (SYS_munmap, [addr, length, ..]) => {
                 let addr = NonNull::new(addr as _).ok_or(EFAULT)?;

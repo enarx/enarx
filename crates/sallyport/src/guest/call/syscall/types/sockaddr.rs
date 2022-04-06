@@ -7,7 +7,9 @@ use crate::libc::{sockaddr_in, sockaddr_in6, sockaddr_storage, sockaddr_un, sock
 use crate::Result;
 
 use core::alloc::Layout;
+use core::ffi::c_void;
 use core::mem::{align_of, size_of};
+use core::ptr::NonNull;
 use core::slice;
 
 pub struct SockaddrInput<'a>(pub &'a [u8]);
@@ -133,4 +135,11 @@ impl<'a> Collect for CommittedSockaddrOutput<'a> {
         let len = self.addr.len().min(addrlen as _);
         unsafe { self.addr.collect_range(col, 0..len) };
     }
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+#[allow(non_snake_case)]
+pub struct MremapFlags {
+    pub FIXED: Option<NonNull<c_void>>,
+    pub DONTUNMAP: bool,
 }
