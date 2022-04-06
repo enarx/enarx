@@ -111,7 +111,7 @@ impl<'a> SetAttribute<'a> {
 
 #[repr(C)]
 #[derive(Debug)]
-/// SGX_IOC_ENCLAVE_RELAX_PERMISSIONS parameter structure
+/// SGX_IOC_ENCLAVE_RESTRICT_PERMISSIONS parameter structure
 pub struct RestrictPermissions<'a> {
     /// In: starting page offset
     offset: u64,
