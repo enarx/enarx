@@ -15,7 +15,7 @@ use data::{
 use std::io;
 use std::sync::Arc;
 
-use anyhow::{Context, Result};
+use anyhow::{bail, Context, Result};
 use kvm_bindings::bindings::kvm_enc_region;
 use kvm_ioctls::VmFd;
 use sallyport::host::deref_slice;
@@ -62,6 +62,9 @@ impl KeepPersonality for SnpKeepPersonality {
                 };
                 let mut vcek_reader = get_vcek_reader()?;
                 *ret = std::io::copy(&mut vcek_reader, &mut vcek_buf)? as _;
+                if *ret == 0 {
+                    bail!("Could not get SEV-SNP vcek! Run `enarx snp vcek update`")
+                }
                 Ok(None)
             }
             _ => return Ok(Some(Item::Enarxcall(enarxcall, data))),

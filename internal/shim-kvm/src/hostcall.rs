@@ -29,7 +29,7 @@ use sallyport::libc::{
     MAP_ANONYMOUS, MAP_PRIVATE, PROT_EXEC, PROT_WRITE,
 };
 use sallyport::util::ptr::is_aligned_non_null;
-use sallyport::KVM_SYSCALL_TRIGGER_PORT;
+use sallyport::{libc, KVM_SYSCALL_TRIGGER_PORT};
 use spinning::Lazy;
 use x86_64::instructions::port::Port;
 use x86_64::instructions::segmentation::{Segment64, FS, GS};
@@ -62,7 +62,11 @@ pub static SNP_VCEK: Lazy<Result<&[u8], c_int>> = Lazy::new(|| {
     let mut host_call = HostCall::try_new(&mut tls).ok_or(EAGAIN)?;
     let vcek_len = host_call.get_snp_vcek(buffer_mut)?;
 
-    Ok(&buffer_mut[..vcek_len])
+    if vcek_len == 0 {
+        Err(libc::EIO)
+    } else {
+        Ok(&buffer_mut[..vcek_len])
+    }
 });
 
 /// Flag, if the CPU supports FSGSBASE
