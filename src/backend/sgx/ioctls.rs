@@ -29,7 +29,7 @@ pub const ENCLAVE_SET_ATTRIBUTE: Ioctl<Write, &SetAttribute<'_>> = unsafe { SGX.
 
 /// SGX_IOC_ENCLAVE_RESTRICT_PERMISSIONS
 pub const ENCLAVE_RESTRICT_PERMISSIONS: Ioctl<WriteRead, &RestrictPermissions<'_>> =
-    unsafe { SGX.write_read(0x06) };
+    unsafe { SGX.write_read(0x05) };
 
 #[repr(C)]
 #[derive(Debug)]
