@@ -12,7 +12,6 @@ use std::net::{TcpStream, ToSocketAddrs, UdpSocket};
 use std::ptr::NonNull;
 use std::thread;
 
-use sallyport::guest::syscall::types::MremapFlags;
 use sallyport::guest::{Handler, Platform, ThreadLocalStorage};
 use sallyport::item::Block;
 use sallyport::libc::off_t;
@@ -120,17 +119,6 @@ impl<const N: usize> Handler for TestHandler<N> {
         _len: c_size_t,
         _prot: c_int,
     ) -> Result<()> {
-        Err(ENOSYS)
-    }
-
-    fn mremap(
-        &mut self,
-        _platform: &impl Platform,
-        _old_address: NonNull<c_void>,
-        _old_size: c_size_t,
-        _new_size: c_size_t,
-        _flags: Option<MremapFlags>,
-    ) -> Result<NonNull<c_void>> {
         Err(ENOSYS)
     }
 

@@ -16,12 +16,13 @@ use crate::libc::{
     SYS_mremap, SYS_munmap, SYS_nanosleep, SYS_open, SYS_poll, SYS_read, SYS_readlink, SYS_readv,
     SYS_recvfrom, SYS_rt_sigaction, SYS_rt_sigprocmask, SYS_sendto, SYS_set_tid_address,
     SYS_setsockopt, SYS_sigaltstack, SYS_socket, SYS_sync, SYS_uname, SYS_write, SYS_writev,
-    EFAULT, EINVAL, ENOSYS, ENOTSUP, FIONBIO, FIONREAD, MREMAP_DONTUNMAP, MREMAP_FIXED,
-    MREMAP_MAYMOVE,
+    EFAULT, EINVAL, ENOSYS, ENOTSUP, FIONBIO, FIONREAD, MAP_ANONYMOUS, MAP_PRIVATE,
+    MREMAP_DONTUNMAP, MREMAP_FIXED, MREMAP_MAYMOVE, PROT_EXEC, PROT_READ, PROT_WRITE,
 };
 use crate::{item, Result};
 
 use core::arch::x86_64::CpuidResult;
+use core::cmp::Ordering;
 use core::ffi::{c_int, c_size_t, c_uint, c_ulong, c_void};
 use core::mem::size_of;
 use core::ptr::NonNull;
@@ -346,7 +347,69 @@ pub trait Handler {
         old_size: c_size_t,
         new_size: c_size_t,
         flags: Option<MremapFlags>,
-    ) -> Result<NonNull<c_void>>;
+    ) -> Result<NonNull<c_void>> {
+        match (flags, new_size.cmp(&new_size)) {
+            (None | Some(MremapFlags { FIXED: None, .. }), Ordering::Equal) => Ok(old_address),
+            (
+                Some(MremapFlags {
+                    FIXED: None,
+                    DONTUNMAP: false,
+                }),
+                Ordering::Less,
+            ) => {
+                // Make sure old address range is owned by process
+                let source_slice =
+                    platform.validate_slice::<u8>(old_address.as_ptr() as _, old_size)?;
+
+                // simply unmap the tail
+                let addr = &source_slice[new_size] as *const _;
+                // It is not an error if the indicated range does not contain any mapped pages.
+                let _ = self.munmap(
+                    platform,
+                    NonNull::new(addr as *mut c_void).ok_or(EINVAL)?,
+                    old_size.checked_sub(new_size).ok_or(EINVAL)?,
+                );
+                Ok(old_address)
+            }
+            (
+                Some(MremapFlags {
+                    FIXED: None,
+                    DONTUNMAP,
+                }),
+                Ordering::Greater,
+            ) => {
+                // Make sure old address range is owned by process
+                let source_slice =
+                    platform.validate_slice::<u8>(old_address.as_ptr() as _, old_size)?;
+
+                // simply copy the old data to a new location
+                // FIXME: find out the permissions of the old segment
+                let prot = PROT_WRITE | PROT_EXEC | PROT_READ;
+                let new_addr = self.mmap(
+                    platform,
+                    None,
+                    new_size,
+                    prot,
+                    MAP_PRIVATE | MAP_ANONYMOUS,
+                    -1,
+                    0,
+                )?;
+                // SAFETY: we successfully mmap'ed the memory
+                let new_slice =
+                    unsafe { slice::from_raw_parts_mut(new_addr.as_ptr() as *mut u8, new_size) };
+                new_slice[..old_size].copy_from_slice(source_slice);
+
+                if !DONTUNMAP {
+                    // It is not an error if the indicated range does not contain any mapped pages.
+                    let _ = self.munmap(platform, old_address, old_size);
+                }
+
+                Ok(NonNull::new(new_slice.as_ptr() as *mut _).unwrap())
+            }
+
+            _ => Err(ENOTSUP),
+        }
+    }
 
     /// Executes [`munmap`](https://man7.org/linux/man-pages/man2/munmap.2.html) syscall akin to [`libc::munmap`].
     fn munmap(

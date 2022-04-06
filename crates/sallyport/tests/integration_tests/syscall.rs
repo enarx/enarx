@@ -9,10 +9,10 @@ use libc::{
     SYS_nanosleep, SYS_open, SYS_poll, SYS_read, SYS_readlink, SYS_readv, SYS_recvfrom,
     SYS_rt_sigaction, SYS_rt_sigprocmask, SYS_sendto, SYS_set_tid_address, SYS_setsockopt,
     SYS_sigaltstack, SYS_socket, SYS_uname, SYS_write, SYS_writev, AF_INET, EACCES, EBADF, EBADFD,
-    EINVAL, ENOENT, ENOSYS, F_GETFD, F_GETFL, F_SETFD, F_SETFL, GRND_RANDOM, MREMAP_DONTUNMAP,
-    MREMAP_FIXED, MREMAP_MAYMOVE, MSG_NOSIGNAL, O_APPEND, O_CREAT, O_RDONLY, O_RDWR, O_WRONLY,
-    SIGCHLD, SIG_BLOCK, SOCK_CLOEXEC, SOCK_STREAM, SOL_SOCKET, SO_RCVTIMEO, SO_REUSEADDR,
-    STDERR_FILENO, STDIN_FILENO, STDOUT_FILENO,
+    EINVAL, ENOENT, ENOSYS, ENOTSUP, F_GETFD, F_GETFL, F_SETFD, F_SETFL, GRND_RANDOM,
+    MREMAP_DONTUNMAP, MREMAP_FIXED, MREMAP_MAYMOVE, MSG_NOSIGNAL, O_APPEND, O_CREAT, O_RDONLY,
+    O_RDWR, O_WRONLY, SIGCHLD, SIG_BLOCK, SOCK_CLOEXEC, SOCK_STREAM, SOL_SOCKET, SO_RCVTIMEO,
+    SO_REUSEADDR, STDERR_FILENO, STDIN_FILENO, STDOUT_FILENO,
 };
 use std::env::temp_dir;
 use std::ffi::{c_char, c_int, CString};
@@ -382,26 +382,30 @@ fn mremap() {
         if i % 2 == 0 {
             assert_eq!(
                 handler.mremap(platform, NonNull::new(0xffff as _).unwrap(), 1, 2, None),
-                Err(ENOSYS)
+                Ok(unsafe { NonNull::new_unchecked(0xffff as _) })
             );
         } else {
-            for (flags, new_address, errno) in [
-                (0, 0, ENOSYS),
-                (0, 1, EINVAL),
-                (0xffff, 0, EINVAL),
-                (MREMAP_MAYMOVE, 0xffff, EINVAL),
-                (MREMAP_MAYMOVE, 0, ENOSYS),
-                (MREMAP_DONTUNMAP, 0, EINVAL),
-                (MREMAP_FIXED, 0xffff, EINVAL),
-                (MREMAP_MAYMOVE | MREMAP_FIXED, 0, EINVAL),
-                (MREMAP_MAYMOVE | MREMAP_FIXED, 0xffff, ENOSYS),
-                (MREMAP_MAYMOVE | MREMAP_DONTUNMAP, 0xffff, EINVAL),
-                (MREMAP_MAYMOVE | MREMAP_DONTUNMAP, 0, ENOSYS),
-                (MREMAP_MAYMOVE | MREMAP_FIXED | MREMAP_DONTUNMAP, 0, EINVAL),
+            for (flags, new_address, result) in [
+                (0, 0, Ok([0xffff, 0])),
+                (0, 1, Err(EINVAL)),
+                (0xffff, 0, Err(EINVAL)),
+                (MREMAP_MAYMOVE, 0xffff, Err(EINVAL)),
+                (MREMAP_MAYMOVE, 0, Ok([0xffff, 0])),
+                (MREMAP_DONTUNMAP, 0, Err(EINVAL)),
+                (MREMAP_FIXED, 0xffff, Err(EINVAL)),
+                (MREMAP_MAYMOVE | MREMAP_FIXED, 0, Err(EINVAL)),
+                (MREMAP_MAYMOVE | MREMAP_FIXED, 0xffff, Err(ENOTSUP)),
+                (MREMAP_MAYMOVE | MREMAP_DONTUNMAP, 0xffff, Err(EINVAL)),
+                (MREMAP_MAYMOVE | MREMAP_DONTUNMAP, 0, Ok([0xffff, 0])),
+                (
+                    MREMAP_MAYMOVE | MREMAP_FIXED | MREMAP_DONTUNMAP,
+                    0,
+                    Err(EINVAL),
+                ),
                 (
                     MREMAP_MAYMOVE | MREMAP_FIXED | MREMAP_DONTUNMAP,
                     0xffff,
-                    ENOSYS,
+                    Err(ENOTSUP),
                 ),
             ] {
                 assert_eq!(
@@ -411,7 +415,7 @@ fn mremap() {
                             [SYS_mremap as _, 0xffff, 1, 2, flags as _, new_address, 0],
                         )
                     },
-                    Err(errno)
+                    result
                 );
             }
         }
