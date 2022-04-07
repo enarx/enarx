@@ -9,10 +9,10 @@ updates:
   schedule:
     interval: "daily"
 - package-ecosystem: "cargo"
-  directory: "internal/shim-kvm"
+  directory: "src/bin/shim-kvm"
   schedule:
     interval: "daily"
 - package-ecosystem: "cargo"
-  directory: "internal/shim-sgx"
+  directory: "src/bin/shim-sgx"
   schedule:
     interval: "daily"

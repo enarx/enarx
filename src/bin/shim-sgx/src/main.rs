@@ -17,7 +17,7 @@ extern crate rcrt1;
 
 use core::arch::asm;
 
-use shim_sgx::{
+use enarx_shim_sgx::{
     entry, handler, ATTR, BLOCK_SIZE, ENARX_EXEC_START, ENARX_SHIM_ADDRESS, ENCL_SIZE_BITS, MISC,
 };
 

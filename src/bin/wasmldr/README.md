@@ -1,4 +1,4 @@
-# wasmldr
+# enarx-wasmldr
 
 `wasmldr` - the Enarx WebAssembly loader
 

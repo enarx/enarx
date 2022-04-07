@@ -1,14 +1,11 @@
 [package]
-name = "wasmldr"
+name = "enarx-wasmldr"
 version = "0.3.0"
 authors = ["The Enarx Project Developers"]
 edition = "2021"
 license = "Apache-2.0"
 description = "Enarx WebAssembly Loader"
 readme = "README.md"
-
-# TODO: merge these into the toplevel actions/gitignore
-exclude = [ ".gitignore", ".github/*" ]
 
 [features]
 gdb = []
