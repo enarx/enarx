@@ -7,7 +7,7 @@ use core::ffi::c_int;
 use core::mem::size_of;
 use core::ops::Range;
 
-use crate::heap::HEAP;
+use crate::handler::HEAP;
 use crate::{shim_address, BLOCK_SIZE, ENARX_EXEC_START};
 use gdbstub::arch::Arch;
 use gdbstub::target::ext::base::singlethread::SingleThreadOps;

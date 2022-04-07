@@ -26,6 +26,10 @@ macro_rules! debugln {
 pub(crate) mod gdb;
 pub(crate) mod usermem;
 
+use crate::handler::usermem::UserMemScope;
+use crate::heap::Heap;
+use crate::{shim_address, DEBUG, ENARX_EXEC_END, ENARX_EXEC_START, ENCL_SIZE};
+
 use core::arch::asm;
 use core::arch::x86_64::CpuidResult;
 use core::ffi::{c_int, c_size_t, c_ulong, c_void};
@@ -34,27 +38,61 @@ use core::mem::size_of;
 use core::ptr::read_unaligned;
 use core::ptr::NonNull;
 
+use mmledger::{Access, Region};
+use primordial::{Address, Offset, Page};
 use sallyport::guest::Handler as _;
 use sallyport::guest::{self, Platform, ThreadLocalStorage};
 use sallyport::item::enarxcall::sgx::{Report, ReportData, TargetInfo, TECH};
 use sallyport::item::enarxcall::SYS_GETATT;
 use sallyport::item::syscall::{ARCH_GET_FS, ARCH_GET_GS, ARCH_SET_FS, ARCH_SET_GS};
-use sallyport::libc::{off_t, EINVAL, EMSGSIZE, ENOSYS, STDERR_FILENO};
-
-use crate::handler::usermem::UserMemScope;
-use crate::{shim_address, DEBUG, ENARX_EXEC_END, ENARX_EXEC_START, ENCL_SIZE};
+use sallyport::libc::{
+    off_t, EINVAL, EMSGSIZE, ENOMEM, ENOSYS, ENOTSUP, MAP_ANONYMOUS, MAP_PRIVATE, PROT_EXEC,
+    PROT_READ, PROT_WRITE, STDERR_FILENO,
+};
+use sgx::page::{Class, Flags};
 use sgx::ssa::StateSaveArea;
 use sgx::ssa::Vector;
+use spinning::{Lazy, RwLock};
+use x86_64::addr::VirtAddr;
+use x86_64::structures::paging::Page as PageAddr;
 
 // Opcode constants, details in Volume 2 of the Intel 64 and IA-32 Architectures Software
 // Developer's Manual
 const OP_SYSCALL: u16 = 0x050f;
 const OP_CPUID: u16 = 0xa20f;
 
+/// The keep heap
+pub static HEAP: Lazy<RwLock<Heap>> = Lazy::new(|| {
+    let start = unsafe { &ENARX_EXEC_END as *const _ } as usize;
+    let end = shim_address() + ENCL_SIZE;
+    RwLock::new(Heap::new(Address::new(start), Address::new(end)))
+});
+
+// For `Handler::accept_mmap()`
+static ZERO: Page = Page::zeroed();
+
 /// Thread local storage for the current thread
 pub struct Handler<'a> {
     block: &'a mut [usize],
     ssa: &'a mut StateSaveArea,
+}
+
+impl<'a> Handler<'a> {
+    /// Acknowledge pages committed by the host with ENCLS[EAUG].
+    fn accept_mmap(&mut self, region: Region) {
+        assert!(region.start < region.end);
+        let length = region.end - region.start;
+        let secinfo = Class::Regular.info(Flags::READ | Flags::WRITE | Flags::EXECUTE);
+        let zero = PageAddr::from_start_address(VirtAddr::new(ZERO.as_ptr() as u64)).unwrap();
+        for i in 0..length.items() {
+            let virt_addr = VirtAddr::new((region.start.raw() + i * Page::SIZE) as u64);
+            let page_addr = PageAddr::from_start_address(virt_addr).unwrap();
+            // FIXME: handle with `.unwrap()` once `SecInfo` implements `Debug` trait.
+            if secinfo.accept_copy(page_addr, zero).is_err() {
+                panic!();
+            }
+        }
+    }
 }
 
 impl<'a> Write for Handler<'a> {
@@ -124,12 +162,20 @@ impl guest::Handler for Handler<'_> {
         _platform: &impl Platform,
         addr: Option<NonNull<c_void>>,
     ) -> sallyport::Result<NonNull<c_void>> {
-        Ok(NonNull::new(
-            crate::heap::HEAP
-                .write()
-                .brk(addr.map(|v| v.as_ptr() as usize).unwrap_or(0)) as _,
-        )
-        .unwrap())
+        let addr = Address::<usize, Page>::new(
+            addr.map(|v| (v.as_ptr() as usize + Page::SIZE - 1) & !(Page::SIZE - 1))
+                .unwrap_or(0),
+        );
+
+        let mut heap = HEAP.write();
+        let max = heap.brk_max();
+        let addr = heap.brk(addr);
+
+        if addr > max {
+            self.accept_mmap(Region::new(max, addr));
+        }
+
+        Ok(NonNull::new(addr.raw() as *mut _).unwrap())
     }
 
     fn madvise(
@@ -164,26 +210,39 @@ impl guest::Handler for Handler<'_> {
         fd: c_int,
         offset: off_t,
     ) -> sallyport::Result<NonNull<c_void>> {
-        Ok(NonNull::new(crate::heap::HEAP.write().mmap::<c_void>(
-            addr.map(|v| v.as_ptr() as usize).unwrap_or(0),
-            length,
-            prot,
-            flags,
-            fd,
-            offset,
-        )?)
-        .unwrap())
+        let addr = addr.map(|v| v.as_ptr() as usize).unwrap_or(0);
+
+        if addr != 0
+            || length == 0
+            || fd != -1
+            || offset != 0
+            || flags != MAP_PRIVATE | MAP_ANONYMOUS
+        {
+            return Err(ENOTSUP);
+        }
+
+        if prot & !(PROT_READ | PROT_WRITE | PROT_EXEC) != 0 {
+            return Err(EINVAL);
+        }
+
+        let length = Offset::from_items((length + Page::SIZE - 1) / Page::SIZE);
+        let access = Access::from_bits_truncate(prot as usize);
+        let mut heap = HEAP.write();
+        if let Some(addr) = heap.mmap(length, access) {
+            self.accept_mmap(Region::new(addr, addr + length));
+            Ok(NonNull::new(addr.raw() as *mut c_void).unwrap())
+        } else {
+            Err(ENOMEM)
+        }
     }
 
     fn munmap(
         &mut self,
         _platform: &impl Platform,
-        addr: NonNull<c_void>,
-        length: c_size_t,
+        _addr: NonNull<c_void>,
+        _length: c_size_t,
     ) -> sallyport::Result<()> {
-        crate::heap::HEAP
-            .write()
-            .munmap::<c_void>(addr.as_ptr() as _, length)
+        Ok(())
     }
 }
 
