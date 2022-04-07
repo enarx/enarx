@@ -5,15 +5,15 @@ use crate::integration_tests::recv_udp;
 
 use libc::{
     self, in_addr, iovec, pollfd, sockaddr, sockaddr_in, timespec, timeval, utsname, SYS_accept,
-    SYS_accept4, SYS_bind, SYS_clock_gettime, SYS_close, SYS_fcntl, SYS_fstat, SYS_getegid,
-    SYS_geteuid, SYS_getgid, SYS_getpid, SYS_getrandom, SYS_getsockname, SYS_listen, SYS_mremap,
-    SYS_nanosleep, SYS_open, SYS_poll, SYS_read, SYS_readlink, SYS_readv, SYS_recvfrom,
+    SYS_accept4, SYS_bind, SYS_clock_getres, SYS_clock_gettime, SYS_close, SYS_fcntl, SYS_fstat,
+    SYS_getegid, SYS_geteuid, SYS_getgid, SYS_getpid, SYS_getrandom, SYS_getsockname, SYS_listen,
+    SYS_mremap, SYS_nanosleep, SYS_open, SYS_poll, SYS_read, SYS_readlink, SYS_readv, SYS_recvfrom,
     SYS_rt_sigaction, SYS_rt_sigprocmask, SYS_sendto, SYS_set_tid_address, SYS_setsockopt,
     SYS_sigaltstack, SYS_socket, SYS_uname, SYS_write, SYS_writev, AF_INET, CLOCK_MONOTONIC,
-    EACCES, EBADF, EBADFD, EINVAL, ENOENT, ENOSYS, ENOTSUP, F_GETFD, F_GETFL, F_SETFD, F_SETFL,
-    GRND_RANDOM, MREMAP_DONTUNMAP, MREMAP_FIXED, MREMAP_MAYMOVE, MSG_NOSIGNAL, O_APPEND, O_CREAT,
-    O_RDONLY, O_RDWR, O_WRONLY, SIGCHLD, SIG_BLOCK, SOCK_CLOEXEC, SOCK_STREAM, SOL_SOCKET,
-    SO_RCVTIMEO, SO_REUSEADDR, STDERR_FILENO, STDIN_FILENO, STDOUT_FILENO,
+    CLOCK_REALTIME, EACCES, EBADF, EBADFD, EINVAL, ENOENT, ENOSYS, ENOTSUP, F_GETFD, F_GETFL,
+    F_SETFD, F_SETFL, GRND_RANDOM, MREMAP_DONTUNMAP, MREMAP_FIXED, MREMAP_MAYMOVE, MSG_NOSIGNAL,
+    O_APPEND, O_CREAT, O_RDONLY, O_RDWR, O_WRONLY, SIGCHLD, SIG_BLOCK, SOCK_CLOEXEC, SOCK_STREAM,
+    SOL_SOCKET, SO_RCVTIMEO, SO_REUSEADDR, STDERR_FILENO, STDIN_FILENO, STDOUT_FILENO,
 };
 use std::env::temp_dir;
 use std::ffi::{c_char, c_int, CString};
@@ -84,6 +84,77 @@ fn syscall_recv<'a, 'b>(
             Ok([expected_len, 0])
         );
     }
+}
+
+#[test]
+fn clock_getres() {
+    run_test(2, [0xff; 16], move |i, platform, handler| {
+        #[cfg(not(miri))]
+        assert_eq!(unsafe { libc::clock_getres(CLOCK_REALTIME, null_mut()) }, 0);
+
+        let mut expected = unsafe { mem::zeroed() };
+        #[cfg(not(miri))]
+        assert_eq!(
+            unsafe { libc::clock_getres(CLOCK_REALTIME, &mut expected as *mut _) },
+            0
+        );
+
+        let mut res = unsafe { mem::zeroed::<timespec>() };
+        if i % 2 == 0 {
+            assert_eq!(
+                handler.clock_getres(CLOCK_REALTIME, None),
+                if cfg!(not(miri)) { Ok(()) } else { Err(ENOSYS) }
+            );
+            assert_eq!(
+                handler.clock_getres(CLOCK_REALTIME, Some(unsafe { transmute(&mut res) })),
+                if cfg!(not(miri)) { Ok(()) } else { Err(ENOSYS) }
+            );
+        } else {
+            assert_eq!(
+                unsafe {
+                    handler.syscall(
+                        platform,
+                        [
+                            SYS_clock_getres as _,
+                            CLOCK_REALTIME as _,
+                            null_mut::<timespec>() as _,
+                            0,
+                            0,
+                            0,
+                            0,
+                        ],
+                    )
+                },
+                if cfg!(not(miri)) {
+                    Ok([0, 0])
+                } else {
+                    Err(ENOSYS)
+                }
+            );
+            assert_eq!(
+                unsafe {
+                    handler.syscall(
+                        platform,
+                        [
+                            SYS_clock_getres as _,
+                            CLOCK_REALTIME as _,
+                            &mut res as *mut _ as _,
+                            0,
+                            0,
+                            0,
+                            0,
+                        ],
+                    )
+                },
+                if cfg!(not(miri)) {
+                    Ok([0, 0])
+                } else {
+                    Err(ENOSYS)
+                }
+            );
+        }
+        assert_eq!(res, expected);
+    });
 }
 
 #[test]

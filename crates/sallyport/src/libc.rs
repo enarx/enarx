@@ -228,6 +228,7 @@ pub const SYS_accept4: c_long = 288;
 pub const SYS_arch_prctl: c_long = 158;
 pub const SYS_bind: c_long = 49;
 pub const SYS_brk: c_long = 12;
+pub const SYS_clock_getres: c_long = 229;
 pub const SYS_clock_gettime: c_long = 228;
 pub const SYS_close: c_long = 3;
 pub const SYS_connect: c_long = 42;

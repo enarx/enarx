@@ -9,15 +9,15 @@ use crate::item::syscall::sigaction;
 use crate::libc::{
     clockid_t, epoll_event, gid_t, mode_t, off_t, pid_t, pollfd, sigset_t, stack_t, stat, timespec,
     uid_t, utsname, Ioctl, SYS_accept, SYS_accept4, SYS_arch_prctl, SYS_bind, SYS_brk,
-    SYS_clock_gettime, SYS_close, SYS_connect, SYS_dup, SYS_dup2, SYS_dup3, SYS_epoll_create1,
-    SYS_epoll_ctl, SYS_epoll_pwait, SYS_epoll_wait, SYS_eventfd2, SYS_exit, SYS_exit_group,
-    SYS_fcntl, SYS_fstat, SYS_getegid, SYS_geteuid, SYS_getgid, SYS_getpid, SYS_getrandom,
-    SYS_getsockname, SYS_getuid, SYS_ioctl, SYS_listen, SYS_madvise, SYS_mmap, SYS_mprotect,
-    SYS_mremap, SYS_munmap, SYS_nanosleep, SYS_open, SYS_poll, SYS_read, SYS_readlink, SYS_readv,
-    SYS_recvfrom, SYS_rt_sigaction, SYS_rt_sigprocmask, SYS_sendto, SYS_set_tid_address,
-    SYS_setsockopt, SYS_sigaltstack, SYS_socket, SYS_sync, SYS_uname, SYS_write, SYS_writev,
-    EFAULT, EINVAL, ENOSYS, ENOTSUP, FIONBIO, FIONREAD, MAP_ANONYMOUS, MAP_PRIVATE,
-    MREMAP_DONTUNMAP, MREMAP_FIXED, MREMAP_MAYMOVE, PROT_EXEC, PROT_READ, PROT_WRITE,
+    SYS_clock_getres, SYS_clock_gettime, SYS_close, SYS_connect, SYS_dup, SYS_dup2, SYS_dup3,
+    SYS_epoll_create1, SYS_epoll_ctl, SYS_epoll_pwait, SYS_epoll_wait, SYS_eventfd2, SYS_exit,
+    SYS_exit_group, SYS_fcntl, SYS_fstat, SYS_getegid, SYS_geteuid, SYS_getgid, SYS_getpid,
+    SYS_getrandom, SYS_getsockname, SYS_getuid, SYS_ioctl, SYS_listen, SYS_madvise, SYS_mmap,
+    SYS_mprotect, SYS_mremap, SYS_munmap, SYS_nanosleep, SYS_open, SYS_poll, SYS_read,
+    SYS_readlink, SYS_readv, SYS_recvfrom, SYS_rt_sigaction, SYS_rt_sigprocmask, SYS_sendto,
+    SYS_set_tid_address, SYS_setsockopt, SYS_sigaltstack, SYS_socket, SYS_sync, SYS_uname,
+    SYS_write, SYS_writev, EFAULT, EINVAL, ENOSYS, ENOTSUP, FIONBIO, FIONREAD, MAP_ANONYMOUS,
+    MAP_PRIVATE, MREMAP_DONTUNMAP, MREMAP_FIXED, MREMAP_MAYMOVE, PROT_EXEC, PROT_READ, PROT_WRITE,
 };
 use crate::{item, Result};
 
@@ -118,18 +118,24 @@ pub trait Handler {
         self.execute(syscall::Bind { sockfd, addr })?
     }
 
-    /// Executes [`clock_gettime`](https://man7.org/linux/man-pages/man2/clock_gettime.2.html) syscall akin to [`libc::clock_gettime`].
-    #[inline]
-    fn clock_gettime(&mut self, clockid: clockid_t, tp: &mut timespec) -> Result<()> {
-        self.execute(syscall::ClockGettime { clockid, tp })?
-    }
-
     /// Executes [`brk`](https://man7.org/linux/man-pages/man2/brk.2.html) syscall akin to [`libc::brk`].
     fn brk(
         &mut self,
         platform: &impl Platform,
         addr: Option<NonNull<c_void>>,
     ) -> Result<NonNull<c_void>>;
+
+    /// Executes [`clock_getres`](https://man7.org/linux/man-pages/man2/clock_getres.2.html) syscall akin to [`libc::clock_getres`].
+    #[inline]
+    fn clock_getres(&mut self, clockid: clockid_t, res: Option<&mut timespec>) -> Result<()> {
+        self.execute(syscall::ClockGetres { clockid, res })?
+    }
+
+    /// Executes [`clock_gettime`](https://man7.org/linux/man-pages/man2/clock_gettime.2.html) syscall akin to [`libc::clock_gettime`].
+    #[inline]
+    fn clock_gettime(&mut self, clockid: clockid_t, tp: &mut timespec) -> Result<()> {
+        self.execute(syscall::ClockGettime { clockid, tp })?
+    }
 
     /// Executes [`close`](https://man7.org/linux/man-pages/man2/close.2.html) syscall akin to [`libc::close`].
     #[inline]
@@ -668,6 +674,14 @@ pub trait Handler {
             (SYS_brk, [addr, ..]) => self
                 .brk(platform, NonNull::new(addr as _))
                 .map(|ret| [ret.as_ptr() as _, 0]),
+            (SYS_clock_getres, [clockid, res, ..]) => {
+                let res = if res == 0 {
+                    None
+                } else {
+                    platform.validate_mut(res).map(Some)?
+                };
+                self.clock_getres(clockid as _, res).map(|_| [0, 0])
+            }
             (SYS_clock_gettime, [clockid, tp, ..]) => {
                 let tp = platform.validate_mut(tp)?;
                 self.clock_gettime(clockid as _, tp).map(|_| [0, 0])

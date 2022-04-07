@@ -216,6 +216,24 @@ pub(super) unsafe fn execute(call: &mut item::Syscall, data: &mut [u8]) -> Resul
 
         item::Syscall {
             num,
+            argv: [clockid, res_offset, ..],
+            ret: [ret, ..],
+        } if *num == libc::SYS_clock_getres as _ => {
+            let res = if *res_offset == NULL {
+                null_mut()
+            } else {
+                deref_aligned::<timespec>(data, *res_offset, 1)?
+            };
+            Syscall {
+                num: libc::SYS_clock_getres,
+                argv: [*clockid, res as _],
+                ret: [ret],
+            }
+            .execute()
+        }
+
+        item::Syscall {
+            num,
             argv: [clockid, tp_offset, ..],
             ret: [ret, ..],
         } if *num == libc::SYS_clock_gettime as _ => {
