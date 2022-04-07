@@ -518,6 +518,7 @@ dependencies = [
  "lset",
  "mmarinus",
  "nbytes",
+ "once_cell",
  "openssl",
  "primordial",
  "process_control",
@@ -532,7 +533,6 @@ dependencies = [
  "serial_test",
  "sev_attestation",
  "sgx",
- "spinning",
  "static_assertions",
  "tempfile",
  "ureq",
@@ -1638,15 +1638,6 @@ name = "spin"
 version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6e63cff320ae2c57904679ba7cb63280a3dc4613885beafb148ee7bf9aa9042d"
-
-[[package]]
-name = "spinning"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2d4f0e86297cad2658d92a707320d87bf4e6ae1050287f51d19b67ef3f153a7b"
-dependencies = [
- "lock_api",
-]
 
 [[package]]
 name = "spki"

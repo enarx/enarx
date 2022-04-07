@@ -23,7 +23,7 @@
 
 pub mod wasmldr;
 
-use spinning::Lazy;
+use once_cell::sync::Lazy;
 
 /// A trait for the "Workloader" - shortened to Workldr, also known as "exec"
 /// (as in Backend::keep(shim, exec) [q.v.]) and formerly known as the "code"
