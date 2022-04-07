@@ -22,7 +22,6 @@ use crate::libc::{
 use crate::{item, Result};
 
 use core::arch::x86_64::CpuidResult;
-use core::cmp::Ordering;
 use core::ffi::{c_int, c_size_t, c_uint, c_ulong, c_void};
 use core::mem::size_of;
 use core::ptr::NonNull;
@@ -348,15 +347,12 @@ pub trait Handler {
         new_size: c_size_t,
         flags: Option<MremapFlags>,
     ) -> Result<NonNull<c_void>> {
-        match (flags, new_size.cmp(&new_size)) {
-            (None | Some(MremapFlags { FIXED: None, .. }), Ordering::Equal) => Ok(old_address),
-            (
-                Some(MremapFlags {
-                    FIXED: None,
-                    DONTUNMAP: false,
-                }),
-                Ordering::Less,
-            ) => {
+        match flags {
+            None | Some(MremapFlags { FIXED: None, .. }) if new_size == old_size => Ok(old_address),
+            Some(MremapFlags {
+                FIXED: None,
+                DONTUNMAP: false,
+            }) if new_size < old_size => {
                 // Make sure old address range is owned by process
                 let source_slice =
                     platform.validate_slice::<u8>(old_address.as_ptr() as _, old_size)?;
@@ -371,13 +367,10 @@ pub trait Handler {
                 );
                 Ok(old_address)
             }
-            (
-                Some(MremapFlags {
-                    FIXED: None,
-                    DONTUNMAP,
-                }),
-                Ordering::Greater,
-            ) => {
+            Some(MremapFlags {
+                FIXED: None,
+                DONTUNMAP,
+            }) if new_size > old_size => {
                 // Make sure old address range is owned by process
                 let source_slice =
                     platform.validate_slice::<u8>(old_address.as_ptr() as _, old_size)?;
@@ -406,7 +399,6 @@ pub trait Handler {
 
                 Ok(NonNull::new(new_slice.as_ptr() as *mut _).unwrap())
             }
-
             _ => Err(ENOTSUP),
         }
     }

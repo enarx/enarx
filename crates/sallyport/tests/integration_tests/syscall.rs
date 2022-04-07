@@ -378,25 +378,33 @@ fn getrandom() {
 
 #[test]
 fn mremap() {
+    let mem = [0u8; 4096];
+
     run_test(2, [0xff; 0], move |i, platform, handler| {
         if i % 2 == 0 {
             assert_eq!(
-                handler.mremap(platform, NonNull::new(0xffff as _).unwrap(), 1, 2, None),
-                Ok(unsafe { NonNull::new_unchecked(0xffff as _) })
+                handler.mremap(
+                    platform,
+                    NonNull::new(mem.as_ptr() as _).unwrap(),
+                    1,
+                    2,
+                    None
+                ),
+                Err(ENOTSUP)
             );
         } else {
             for (flags, new_address, result) in [
-                (0, 0, Ok([0xffff, 0])),
+                (0, 0, Err(ENOTSUP)),
                 (0, 1, Err(EINVAL)),
                 (0xffff, 0, Err(EINVAL)),
                 (MREMAP_MAYMOVE, 0xffff, Err(EINVAL)),
-                (MREMAP_MAYMOVE, 0, Ok([0xffff, 0])),
+                (MREMAP_MAYMOVE, 0, Err(ENOSYS)),
                 (MREMAP_DONTUNMAP, 0, Err(EINVAL)),
                 (MREMAP_FIXED, 0xffff, Err(EINVAL)),
                 (MREMAP_MAYMOVE | MREMAP_FIXED, 0, Err(EINVAL)),
                 (MREMAP_MAYMOVE | MREMAP_FIXED, 0xffff, Err(ENOTSUP)),
                 (MREMAP_MAYMOVE | MREMAP_DONTUNMAP, 0xffff, Err(EINVAL)),
-                (MREMAP_MAYMOVE | MREMAP_DONTUNMAP, 0, Ok([0xffff, 0])),
+                (MREMAP_MAYMOVE | MREMAP_DONTUNMAP, 0, Err(ENOSYS)),
                 (
                     MREMAP_MAYMOVE | MREMAP_FIXED | MREMAP_DONTUNMAP,
                     0,
@@ -412,7 +420,15 @@ fn mremap() {
                     unsafe {
                         handler.syscall(
                             platform,
-                            [SYS_mremap as _, 0xffff, 1, 2, flags as _, new_address, 0],
+                            [
+                                SYS_mremap as _,
+                                mem.as_ptr() as _,
+                                1,
+                                2,
+                                flags as _,
+                                new_address,
+                                0,
+                            ],
                         )
                     },
                     result
