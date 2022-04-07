@@ -4,15 +4,16 @@ use super::{run_test, write_tcp};
 use crate::integration_tests::recv_udp;
 
 use libc::{
-    self, SYS_accept, SYS_accept4, SYS_bind, SYS_close, SYS_fcntl, SYS_fstat, SYS_getegid,
-    SYS_geteuid, SYS_getgid, SYS_getpid, SYS_getrandom, SYS_getsockname, SYS_listen, SYS_mremap,
-    SYS_nanosleep, SYS_open, SYS_poll, SYS_read, SYS_readlink, SYS_readv, SYS_recvfrom,
-    SYS_rt_sigaction, SYS_rt_sigprocmask, SYS_sendto, SYS_set_tid_address, SYS_setsockopt,
-    SYS_sigaltstack, SYS_socket, SYS_uname, SYS_write, SYS_writev, AF_INET, EACCES, EBADF, EBADFD,
-    EINVAL, ENOENT, ENOSYS, ENOTSUP, F_GETFD, F_GETFL, F_SETFD, F_SETFL, GRND_RANDOM,
-    MREMAP_DONTUNMAP, MREMAP_FIXED, MREMAP_MAYMOVE, MSG_NOSIGNAL, O_APPEND, O_CREAT, O_RDONLY,
-    O_RDWR, O_WRONLY, SIGCHLD, SIG_BLOCK, SOCK_CLOEXEC, SOCK_STREAM, SOL_SOCKET, SO_RCVTIMEO,
-    SO_REUSEADDR, STDERR_FILENO, STDIN_FILENO, STDOUT_FILENO,
+    self, in_addr, iovec, pollfd, sockaddr, sockaddr_in, timespec, timeval, utsname, SYS_accept,
+    SYS_accept4, SYS_bind, SYS_close, SYS_fcntl, SYS_fstat, SYS_getegid, SYS_geteuid, SYS_getgid,
+    SYS_getpid, SYS_getrandom, SYS_getsockname, SYS_listen, SYS_mremap, SYS_nanosleep, SYS_open,
+    SYS_poll, SYS_read, SYS_readlink, SYS_readv, SYS_recvfrom, SYS_rt_sigaction,
+    SYS_rt_sigprocmask, SYS_sendto, SYS_set_tid_address, SYS_setsockopt, SYS_sigaltstack,
+    SYS_socket, SYS_uname, SYS_write, SYS_writev, AF_INET, EACCES, EBADF, EBADFD, EINVAL, ENOENT,
+    ENOSYS, ENOTSUP, F_GETFD, F_GETFL, F_SETFD, F_SETFL, GRND_RANDOM, MREMAP_DONTUNMAP,
+    MREMAP_FIXED, MREMAP_MAYMOVE, MSG_NOSIGNAL, O_APPEND, O_CREAT, O_RDONLY, O_RDWR, O_WRONLY,
+    SIGCHLD, SIG_BLOCK, SOCK_CLOEXEC, SOCK_STREAM, SOL_SOCKET, SO_RCVTIMEO, SO_REUSEADDR,
+    STDERR_FILENO, STDIN_FILENO, STDOUT_FILENO,
 };
 use std::env::temp_dir;
 use std::ffi::{c_char, c_int, CString};
@@ -29,7 +30,6 @@ use sallyport::guest::syscall::types::SockaddrOutput;
 use sallyport::guest::syscall::{FAKE_GID, FAKE_PID, FAKE_TID, FAKE_UID};
 use sallyport::guest::{syscall, Handler, Platform};
 use sallyport::item::syscall::sigaction;
-use sallyport::libc::{in_addr, iovec, pollfd, sockaddr, sockaddr_in, timespec, timeval, utsname};
 use serial_test::serial;
 
 fn syscall_socket<'a, 'b>(
@@ -448,7 +448,7 @@ fn nanosleep() {
         };
         if i % 2 == 0 {
             assert_eq!(
-                handler.nanosleep(&req, None),
+                handler.nanosleep(unsafe { transmute(&req) }, None),
                 if cfg!(not(miri)) { Ok(()) } else { Err(ENOSYS) }
             );
         } else {
@@ -481,7 +481,10 @@ fn nanosleep() {
         };
         if i % 2 == 0 {
             assert_eq!(
-                handler.nanosleep(&req, Some(&mut rem)),
+                handler.nanosleep(
+                    unsafe { transmute(&req) },
+                    Some(unsafe { transmute(&mut rem) })
+                ),
                 if cfg!(not(miri)) { Ok(()) } else { Err(ENOSYS) }
             );
         } else {
@@ -611,7 +614,7 @@ fn poll() {
 
         if i % 2 == 0 {
             assert_eq!(
-                handler.poll(&mut fds, 0),
+                handler.poll(unsafe { transmute::<_, &mut [_; 3]>(&mut fds) }, 0),
                 if cfg!(not(miri)) { Ok(0) } else { Err(ENOSYS) }
             );
         } else {
@@ -906,7 +909,12 @@ fn tcp_server() {
             ..unsafe { mem::zeroed() }
         };
         if i % 2 == 0 {
-            assert_eq!(handler.bind(sockfd, &bind_addr), Ok(()));
+            assert_eq!(
+                handler.bind(sockfd, unsafe {
+                    transmute::<_, &sallyport::libc::sockaddr_in>(&bind_addr)
+                }),
+                Ok(())
+            );
         } else {
             assert_eq!(
                 unsafe {
@@ -1344,7 +1352,7 @@ fn sendto() {
                     src_socket.as_raw_fd(),
                     EXPECTED.as_bytes(),
                     MSG_NOSIGNAL,
-                    &dest_addr,
+                    unsafe { transmute::<_, &sallyport::libc::sockaddr_in>(&dest_addr) },
                 ),
                 Ok(EXPECTED.len())
             );
@@ -1466,17 +1474,16 @@ fn uname() {
             buf[..val.len()].copy_from_slice(val);
             unsafe { transmute(buf) }
         }
-        assert_eq!(
-            buf,
-            utsname {
+        assert_eq!(buf, unsafe {
+            transmute(utsname {
                 sysname: field("Linux"),
                 nodename: field("localhost.localdomain"),
                 release: field("5.6.0"),
                 version: field("#1"),
                 machine: field("x86_64"),
                 domainname: [0; 65],
-            }
-        );
+            })
+        });
     });
 }
 
