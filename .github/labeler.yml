@@ -2,19 +2,28 @@ infrastructure:
 - .github/**/*
 - helper/**/*
 
+backend:
+- src/backend/**/*
+
+kvm:
+- internal/shim-kvm/**/*
+- src/backend/kvm/**/*
+
 amd sev:
-- internal/shim-sev/**/*
+- internal/shim-kvm/**/*
+- src/backend/sev/**/*
 
 intel sgx:
 - internal/shim-sgx/**/*
+- src/backend/sgx/**/*
 
 wasm:
-- internal/wasmldr/**/*
+- src/bin/wasmldr/**/*
 - tests/wasm/**/*
+- tests/wasmldr_tests.rs
 
 client:
 - src/cli/**/*
 
 testing:
 - tests/**/*
-
