@@ -28,7 +28,7 @@ libc = { version = "0.2.119", default-features = false, optional = true }
 [dev-dependencies]
 serial_test = "0.6"
 testaso = "0.1.0"
-libc = { version = "0.2.119" }
+libc = { version = "0.2", features = [ "extra_traits" ] }
 
 [features]
 doc = [ "gdbstub", "libc" ]
