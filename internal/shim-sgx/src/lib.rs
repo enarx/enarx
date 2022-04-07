@@ -6,11 +6,6 @@
 //! instructions) from the enclave code and proxies them to the host.
 
 #![cfg_attr(not(test), no_std)]
-#![allow(incomplete_features)]
-#![feature(asm_const, asm_sym)]
-#![feature(generic_const_exprs)]
-#![feature(naked_functions)]
-#![feature(const_mut_refs)]
 #![feature(c_size_t, core_ffi_c)]
 #![deny(clippy::all)]
 #![deny(missing_docs)]
