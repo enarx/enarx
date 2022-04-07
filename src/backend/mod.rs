@@ -20,8 +20,8 @@ use std::sync::Arc;
 use anyhow::{Error, Result};
 use libc::c_int;
 use mmarinus::{perms, Map};
+use once_cell::sync::Lazy;
 use serde::ser::{Serialize, SerializeStruct, Serializer};
-use spinning::Lazy;
 
 trait Config: Sized {
     type Flags;
