@@ -22,8 +22,10 @@ jobs:
           toolchain: nightly
           profile: minimal
       - name: Setup Rust toolchain
-        run: rustup show
-      - run: rustup target add wasm32-wasi
+        run: >
+            rustup override unset || :
+            && rustup target add wasm32-wasi
+            && rustup show
       - uses: actions-rs/cargo@v1
         with:
           command: test
