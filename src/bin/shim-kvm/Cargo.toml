@@ -1,12 +1,12 @@
 [package]
-name = "shim-kvm"
+name = "enarx-shim-kvm"
 version = "0.3.0"
 authors = ["The Enarx Project Developers"]
 edition = "2021"
 license = "Apache-2.0"
 
 [[bin]]
-name = "shim-kvm"
+name = "enarx-shim-kvm"
 test = false
 
 [features]
@@ -38,18 +38,3 @@ const-default = { version = "1.0", features = [ "derive" ] }
 
 [dev-dependencies]
 testaso = "0.1.0"
-
-[profile.dev.package.rcrt1]
-opt-level = 3
-
-[profile.dev]
-panic = "abort"
-strip = true
-
-[profile.release]
-panic = "abort"
-codegen-units = 1
-incremental = false
-lto = true
-opt-level = "s"
-strip = true

@@ -4,8 +4,8 @@ on:
   push:
     paths:
       - Cargo.lock
-      - internal/shim-kvm/Cargo.lock
-      - internal/shim-sgx/Cargo.lock
+      - src/bin/shim-kvm/Cargo.lock
+      - src/bin/shim-sgx/Cargo.lock
       - src/bin/wasmldr/Cargo.lock
 
 jobs:

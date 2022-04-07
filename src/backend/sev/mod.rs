@@ -82,7 +82,7 @@ impl super::Backend for Backend {
 
     #[inline]
     fn shim(&self) -> &'static [u8] {
-        include_bytes!(concat!(env!("OUT_DIR"), "/bin/shim-kvm"))
+        include_bytes!(env!("CARGO_BIN_FILE_ENARX_SHIM_KVM"))
     }
 
     #[inline]

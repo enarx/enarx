@@ -1,12 +1,12 @@
 [package]
-name = "shim-sgx"
+name = "enarx-shim-sgx"
 version = "0.3.0"
 authors = ["The Enarx Project Developers"]
 edition = "2021"
 license = "Apache-2.0"
 
 [[bin]]
-name = "shim-sgx"
+name = "enarx-shim-sgx"
 test = false
 
 [features]
@@ -33,18 +33,3 @@ mmledger = { git = "https://github.com/enarx/mmledger", rev = "843bd70e5266bcff9
 
 [dev-dependencies]
 memoffset = "0.6.1"
-
-[profile.dev.package.rcrt1]
-opt-level = 3
-
-[profile.dev]
-panic = "abort"
-strip = true
-
-[profile.release]
-panic = "abort"
-codegen-units = 1
-incremental = false
-lto = true
-opt-level = "s"
-strip = true

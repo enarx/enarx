@@ -31,8 +31,8 @@ jobs:
       matrix:
         crate:
           - {name: enarx, path: Cargo.toml}
-          - {name: shim-sgx, path: internal/shim-sgx/Cargo.toml}
-          - {name: shim-kvm, path: internal/shim-kvm/Cargo.toml}
+          - {name: shim-sgx, path: src/bin/shim-sgx/Cargo.toml}
+          - {name: shim-kvm, path: src/bin/shim-kvm/Cargo.toml}
           - {name: wasmldr, path: src/bin/wasmldr/Cargo.toml}
   clippy:
     name: cargo clippy (${{ matrix.crate.name }})
@@ -61,10 +61,10 @@ jobs:
         crate:
           - {name: enarx, path: Cargo.toml}
           - name: shim-sgx
-            path: internal/shim-sgx/Cargo.toml
+            path: src/bin/shim-sgx/Cargo.toml
             target: --target=x86_64-unknown-linux-musl
           - name: shim-kvm
-            path: internal/shim-kvm/Cargo.toml
+            path: src/bin/shim-kvm/Cargo.toml
             target: --target=x86_64-unknown-linux-musl
           - name: wasmldr
             path: src/bin/wasmldr/Cargo.toml
@@ -139,8 +139,8 @@ jobs:
       matrix:
         crate:
           - {name: enarx, path: ./Cargo.toml}
-          - {name: shim-sgx, path: internal/shim-sgx/Cargo.toml}
-          - {name: shim-kvm, path: internal/shim-kvm/Cargo.toml}
+          - {name: shim-sgx, path: src/bin/shim-sgx/Cargo.toml}
+          - {name: shim-kvm, path: src/bin/shim-kvm/Cargo.toml}
           - {name: wasmldr, path: src/bin/wasmldr/Cargo.toml}
   main:
     name: enarx ${{ matrix.backend.name }} nightly ${{ matrix.profile.name }}
@@ -203,7 +203,7 @@ jobs:
           - name: default-features
           - name: gdb
             flag: --features=gdb
-  internal:
+  bindeps:
     name: ${{ matrix.crate }} nightly ${{ matrix.profile.name }}
     runs-on: ubuntu-20.04
     steps:
@@ -219,7 +219,7 @@ jobs:
           toolchain: ${{ steps.toolchain_version.outputs.toolchain_version }}
           override: true
       - run: cargo test ${{ matrix.profile.flag }} --target x86_64-unknown-linux-gnu
-        working-directory: internal/${{ matrix.crate }}
+        working-directory: src/bin/${{ matrix.crate }}
     strategy:
       fail-fast: false
       matrix:
@@ -245,8 +245,8 @@ jobs:
   #   - run: nix flake check
   #   - run: nix develop --ignore-environment -c cargo build
   create-pr:
-    # needs: [ main, nix, internal, build-only, deny, readme, clippy, clippy-single-backends, fmt ]
-    needs: [ main, internal, build-only, deny, readme, clippy, clippy-single-backends, fmt ]
+    # needs: [ main, nix, bindeps, build-only, deny, readme, clippy, clippy-single-backends, fmt ]
+    needs: [ main, bindeps, build-only, deny, readme, clippy, clippy-single-backends, fmt ]
     runs-on: ubuntu-20.04
     steps:
       - name: Generate rust toolchain snapshot version
