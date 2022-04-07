@@ -12,7 +12,6 @@ PHDRS {
     ssa0 PT_LOAD;
 
     exec 0x63400000 FLAGS(0); /* sallyport::elf::pt::EXEC */
-    heap PT_LOAD FLAGS(7);
 }
 
 SECTIONS {
@@ -66,9 +65,6 @@ SECTIONS {
     . = ALIGN(1M);
     HIDDEN(ENARX_EXEC_START = .);
     .enarx.exec (NOLOAD) : { . = ALIGN(128M); } :exec =0
+    . = ALIGN(4K);
     HIDDEN(ENARX_EXEC_END = .);
-
-    /* HEAP */
-    . = ALIGN(128M);
-    .enarx.heap (NOLOAD) : { *(.enarx.heap) } :heap =0
 }

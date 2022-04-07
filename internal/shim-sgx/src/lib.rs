@@ -25,7 +25,7 @@ use sgx::parameters::{Attributes, Features, MiscSelect, Xfrm};
 const DEBUG: bool = cfg!(feature = "dbg");
 
 /// FIXME: doc
-pub const ENCL_SIZE_BITS: u8 = 31;
+pub const ENCL_SIZE_BITS: u8 = 32;
 /// FIXME: doc
 pub const ENCL_SIZE: usize = 1 << ENCL_SIZE_BITS;
 

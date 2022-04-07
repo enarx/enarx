@@ -144,6 +144,11 @@ impl TryFrom<Builder> for Arc<dyn super::super::Keep> {
             .context("Failed to initialize SGX enclave")?;
         trace!("enclave initialized");
 
+        // Record the maximum address and size, so that the start address of the
+        // heap can be offsetted appropriately.
+        let mut max_addr = 0;
+        let mut max_size = 0;
+
         // Fix up mapped permissions.
         builder.perm.sort_by_key(|x| x.0);
         for (addr, size, si) in builder.perm {
@@ -181,7 +186,29 @@ impl TryFrom<Builder> for Arc<dyn super::super::Keep> {
                     .unknown(Kind::Shared, rwx)
                     .context("Failed to change permissions on memory")?
             });
+
+            if addr as usize > max_addr {
+                (max_addr, max_size) = (addr as usize, size);
+            }
         }
+
+        assert_ne!(max_addr, 0);
+        assert_ne!(max_size, 0);
+
+        let heap_addr = max_addr + max_size;
+        let heap_size = builder.mmap.addr() + builder.mmap.size() - heap_addr;
+
+        // Map the heap RWX.
+        std::mem::forget(unsafe {
+            Map::map(heap_size)
+                .onto(heap_addr)
+                .from(&mut builder.file, 0)
+                .unknown(
+                    Kind::Shared,
+                    libc::PROT_READ | libc::PROT_WRITE | libc::PROT_EXEC,
+                )
+                .context("Failed to change permissions on heap")?
+        });
 
         Ok(Arc::new(super::Keep {
             sallyport_block_size: builder.cnfg.sallyport_block_size,
