@@ -151,7 +151,7 @@ fn get_att() {
 }
 
 #[cfg(feature = "backend-sgx")]
-#[cfg_attr(not(host_can_test_attestation), ignore)]
+#[cfg_attr(any(not(host_can_test_sgx), not(host_can_test_attestation)), ignore)]
 #[test]
 #[serial]
 fn sgx_get_att_quote() {
@@ -159,7 +159,7 @@ fn sgx_get_att_quote() {
 }
 
 #[cfg(feature = "backend-sgx")]
-#[cfg_attr(not(host_can_test_attestation), ignore)]
+#[cfg_attr(any(not(host_can_test_sgx), not(host_can_test_attestation)), ignore)]
 #[test]
 #[serial]
 fn sgx_get_att_quote_size() {
