@@ -32,7 +32,6 @@ use sallyport::util::ptr::is_aligned_non_null;
 use sallyport::{libc, KVM_SYSCALL_TRIGGER_PORT};
 use spinning::Lazy;
 use x86_64::instructions::port::Port;
-use x86_64::instructions::segmentation::{Segment64, FS, GS};
 use x86_64::instructions::tlb::flush_all;
 use x86_64::registers::model_specific::{FsBase, GsBase};
 use x86_64::structures::paging::{Page, PageTableFlags, Size4KiB};
@@ -304,47 +303,31 @@ impl Handler for HostCall<'_> {
         code: c_int,
         addr: c_ulong,
     ) -> sallyport::Result<()> {
+        if *CPU_HAS_FSGSBASE {
+            panic!("arch_prctl should not have been called")
+        }
+
         match code {
             syscall::ARCH_SET_FS => {
                 // FIXME: check `addr` value
-                if *CPU_HAS_FSGSBASE {
-                    unsafe {
-                        FS::write_base(VirtAddr::new(addr));
-                    }
-                } else {
-                    FsBase::write(VirtAddr::new(addr));
-                }
+                FsBase::write(VirtAddr::new(addr));
                 eprintln!("SC> arch_prctl(ARCH_SET_FS, {:#x}) = 0", addr);
                 Ok(())
             }
             syscall::ARCH_GET_FS => {
                 let addr: &mut u64 = platform.validate_mut(addr as _)?;
-                *addr = if *CPU_HAS_FSGSBASE {
-                    FS::read_base().as_u64()
-                } else {
-                    FsBase::read().as_u64()
-                };
+                *addr = FsBase::read().as_u64();
                 Ok(())
             }
             syscall::ARCH_SET_GS => {
                 // FIXME: check `addr` value
-                if *CPU_HAS_FSGSBASE {
-                    unsafe {
-                        GS::write_base(VirtAddr::new(addr));
-                    }
-                } else {
-                    GsBase::write(VirtAddr::new(addr));
-                }
+                GsBase::write(VirtAddr::new(addr));
                 eprintln!("SC> arch_prctl(ARCH_SET_GS, {:#x}) = 0", addr);
                 Ok(())
             }
             syscall::ARCH_GET_GS => {
                 let addr: &mut u64 = platform.validate_mut(addr as _)?;
-                *addr = if *CPU_HAS_FSGSBASE {
-                    GS::read_base().as_u64()
-                } else {
-                    GsBase::read().as_u64()
-                };
+                *addr = GsBase::read().as_u64();
                 Ok(())
             }
             x => {
