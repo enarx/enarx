@@ -21,14 +21,14 @@ is-it-maintained-issue-resolution = { repository = "enarx/sallyport" }
 is-it-maintained-open-issues = { repository = "enarx/sallyport" }
 
 [dependencies]
-gdbstub = { version = "0.6.0", default-features = false, optional = true }
+gdbstub = { version = "0.6", default-features = false, optional = true }
 goblin = { version = "0.5", default-features = false, features = [ "elf64" ] }
-libc = { version = "0.2.119", default-features = false, optional = true }
+libc = { version = "0.2.102", default-features = false, optional = true }
 
 [dev-dependencies]
 serial_test = "0.6"
-testaso = "0.1.0"
-libc = { version = "0.2", features = [ "extra_traits" ] }
+testaso = "0.1"
+libc = { version = "0.2.102", features = [ "extra_traits" ] }
 
 [features]
 doc = [ "gdbstub", "libc" ]
