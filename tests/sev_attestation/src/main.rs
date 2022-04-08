@@ -1,10 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 
+#![feature(core_ffi_c)]
+
 use std::arch::asm;
 use std::convert::TryFrom;
 use std::mem::size_of;
 
 use sallyport::item::enarxcall::SYS_GETATT;
+use sallyport::item::syscall::ARCH_SET_FS;
+use sallyport::libc::SYS_arch_prctl;
 
 pub const MAX_AUTHTAG_LEN: usize = 32;
 
@@ -99,6 +103,31 @@ impl TryFrom<u64> for TeeTech {
             _ => Err(TryFromIntError(())),
         }
     }
+}
+
+/// Set FSBASE
+///
+/// Overwrite the only location in musl, which uses the `arch_prctl` syscall
+#[no_mangle]
+pub extern "C" fn __set_thread_area(p: *mut std::ffi::c_void) -> std::ffi::c_int {
+    let mut rax: usize = 0;
+    if unsafe { core::arch::x86_64::__cpuid(7).ebx } & 1 == 1 {
+        unsafe {
+            std::arch::asm!("wrfsbase {}", in(reg) p);
+        }
+    } else {
+        unsafe {
+            std::arch::asm!(
+            "syscall",
+            inlateout("rax")  SYS_arch_prctl => rax,
+            in("rdi") ARCH_SET_FS,
+            in("rsi") p,
+            lateout("rcx") _, // clobbered
+            lateout("r11") _, // clobbered
+            );
+        }
+    }
+    rax as _
 }
 
 pub fn get_att_syscall(

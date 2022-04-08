@@ -1,8 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 
+#![feature(core_ffi_c)]
+
+use rust_exec_tests::musl_fsbase_fix;
 use std::io::{self, stdin, Read, Write};
 use std::os::unix::net::{UnixListener, UnixStream};
 use std::path::PathBuf;
+
+musl_fsbase_fix!();
 
 fn main() -> io::Result<()> {
     let mut dir_name = String::new();

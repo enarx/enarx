@@ -44,7 +44,6 @@ use sallyport::guest::Handler as _;
 use sallyport::guest::{self, Platform, ThreadLocalStorage};
 use sallyport::item::enarxcall::sgx::{Report, ReportData, TargetInfo, TECH};
 use sallyport::item::enarxcall::SYS_GETATT;
-use sallyport::item::syscall::{ARCH_GET_FS, ARCH_GET_GS, ARCH_SET_FS, ARCH_SET_GS};
 use sallyport::libc::{
     off_t, EINVAL, EMSGSIZE, ENOMEM, ENOSYS, ENOTSUP, MAP_ANONYMOUS, MAP_PRIVATE, PROT_EXEC,
     PROT_READ, PROT_WRITE, STDERR_FILENO,
@@ -142,19 +141,11 @@ impl guest::Handler for Handler<'_> {
     fn arch_prctl(
         &mut self,
         _platform: &impl Platform,
-        code: c_int,
-        addr: c_ulong,
+        _code: c_int,
+        _addr: c_ulong,
     ) -> sallyport::Result<()> {
-        // TODO: Check that addr in %rdx does not point to an unmapped address
-        // and is not outside of the process address space.
-        match code {
-            ARCH_SET_FS => self.ssa.gpr.fsbase = addr,
-            ARCH_SET_GS => self.ssa.gpr.gsbase = addr,
-            ARCH_GET_FS => return Err(ENOSYS),
-            ARCH_GET_GS => return Err(ENOSYS),
-            _ => return Err(EINVAL),
-        }
-        Ok(())
+        debugln!(self, "arch_prctl should have never been called");
+        Err(ENOSYS)
     }
 
     fn brk(

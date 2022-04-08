@@ -664,6 +664,7 @@ dependencies = [
  "const-oid",
  "env_logger",
  "io-lifetimes 0.6.1",
+ "libc",
  "log",
  "pkcs8",
  "ring",
@@ -1584,6 +1585,9 @@ dependencies = [
 [[package]]
 name = "rust_exec_tests"
 version = "0.1.0"
+dependencies = [
+ "libc",
+]
 
 [[package]]
 name = "rustc-demangle"

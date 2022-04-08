@@ -1,5 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
+#![feature(core_ffi_c)]
+use rust_exec_tests::musl_fsbase_fix;
+
+musl_fsbase_fix!();
+
 const SIZE_32M: usize = 1024 * 1024 * 32;
 
 fn main() {

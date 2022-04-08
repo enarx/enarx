@@ -27,3 +27,4 @@ name="cpuid"
 path= "src/cpuid.rs"
 
 [dependencies]
+libc = "0.2.102"
