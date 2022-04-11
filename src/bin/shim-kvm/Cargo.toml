@@ -21,7 +21,7 @@ gdbstub = { version = "0.5.0" , default-features = false, optional = true }
 goblin = { version = "0.5", default-features = false, features = [ "elf64" ] }
 crt0stack = { version = "0.1", default-features = false }
 spinning = { version = "0.1", default-features = false }
-primordial = "0.4"
+primordial = "0.5"
 sallyport = { version = "0.3.0", git = "https://github.com/enarx/sallyport", rev = "867b54c50ca43569719b75db22d94199d80268e9" }
 xsave = { version = "2.0.2" }
 noted = "1.0.0"
