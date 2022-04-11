@@ -58,7 +58,7 @@ fn crt0setup<'a>(
     // inside the keep. The actual implementation may be completely different.
     builder.push("ENARX_STDIO_FDS=0,1,2")?;
     builder.push("ENARX_MODULE_FD=3")?;
-    builder.push("RUST_LOG=enarx=debug,wasmldr=debug")?;
+    builder.push("RUST_LOG=enarx=debug,enarx-exec-wasmtime=debug")?;
 
     // Set the aux vector
     let mut builder = builder.done()?;

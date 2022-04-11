@@ -6,19 +6,19 @@ backend:
 - src/backend/**/*
 
 kvm:
-- internal/shim-kvm/**/*
+- src/bin/shim-kvm/**/*
 - src/backend/kvm/**/*
 
 amd sev:
-- internal/shim-kvm/**/*
+- src/bin/shim-kvm/**/*
 - src/backend/sev/**/*
 
 intel sgx:
-- internal/shim-sgx/**/*
+- src/bin/shim-sgx/**/*
 - src/backend/sgx/**/*
 
 wasm:
-- src/bin/wasmldr/**/*
+- src/bin/exec-wasmtime/**/*
 - tests/wasm/**/*
 - tests/wasmldr_tests.rs
 

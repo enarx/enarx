@@ -143,7 +143,9 @@ fn crt0setup(
     // inside the keep. The actual implementation may be completely different.
     builder.push("ENARX_STDIO_FDS=0,1,2").unwrap();
     builder.push("ENARX_MODULE_FD=3").unwrap();
-    builder.push("RUST_LOG=enarx=debug,wasmldr=debug").unwrap();
+    builder
+        .push("RUST_LOG=enarx=debug,enarx-exec-wasmtime=debug")
+        .unwrap();
     let mut builder = builder.done().unwrap();
 
     let ph_header = app_virt_start + header.e_phoff;

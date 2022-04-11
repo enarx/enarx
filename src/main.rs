@@ -127,7 +127,7 @@ fn main() -> Result<()> {
             let open_fd = modfile.as_raw_fd();
             // FIXME (v0.1.0 KEEP-CONFIG HACK): since we don't have any way to
             // pass configuration or data into a keep yet, for v0.1.0 we've
-            // just hardcoded wasmldr to assume the module is open for reading
+            // just hardcoded exec-wasmtime to assume the module is open for reading
             // on FD3. That *should* always be the case here (since nothing
             // above opens files or anything), but if that assumption is wrong
             // then things will break mysteriously later on. So this assert

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-// FUTURE: right now we only have one Workldr, `wasmldr`.
+// FUTURE: right now we only have one Workldr, `enarx-exec-wasmtime`.
 // In the future there may be other workload types - in theory we can run
 // any static PIE ELF binary. We could have a Lua interpreter, or a
 // JavaScript interpreter, or whatever.
@@ -19,9 +19,9 @@
 // So: someday we might want to split this into two traits, and we might
 // have multiple Workldrs for different languages/environments, and we
 // might need to examine the workload and determine which Workldr is
-// the right one to use. But first... we gotta make wasmldr work.
+// the right one to use. But first... we gotta make exec-wasmtime work.
 
-pub mod wasmldr;
+pub mod exec_wasmtime;
 
 use once_cell::sync::Lazy;
 
@@ -30,13 +30,14 @@ use once_cell::sync::Lazy;
 /// layer. This is the part that runs inside the keep, prepares the workload
 /// environment, and then actually executes the tenant's workload.
 ///
-/// Basically, this is a generic view of wasmldr.
+/// Basically, this is a generic view of exec_wasmtime.
 pub trait Workldr: Sync + Send {
     /// The name of the Workldr
     fn name(&self) -> &'static str;
 
-    /// The builtin Workldr binary (e.g. wasmldr)
+    /// The builtin Workldr binary (e.g. exec_wasmtime)
     fn exec(&self) -> &'static [u8];
 }
 
-pub static WORKLDRS: Lazy<Vec<Box<dyn Workldr>>> = Lazy::new(|| vec![Box::new(wasmldr::Wasmldr)]);
+pub static WORKLDRS: Lazy<Vec<Box<dyn Workldr>>> =
+    Lazy::new(|| vec![Box::new(exec_wasmtime::Wasmldr)]);

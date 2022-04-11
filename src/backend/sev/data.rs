@@ -16,7 +16,7 @@ pub fn has_reasonable_memlock_rlimit() -> Datum {
     let (pass, info) = if res == 0 {
         let rlimit = unsafe { rlimits.assume_init() };
 
-        /* footprint = approximately (size of shim + size of wasmldr + size of workload) */
+        /* footprint = approximately (size of shim + size of exec-wasmtime + size of workload) */
         let keep_footprint = nbytes::bytes![5; MiB];
 
         let num_keeps = rlimit.rlim_cur as usize / keep_footprint;
@@ -41,7 +41,7 @@ pub fn has_reasonable_memlock_rlimit() -> Datum {
 
     let mesg = if !pass {
         let mesg = "The MEMLOCK rlimit must be large enough to \
-                    accommodate the Enarx shim, wasmldr, and the memory pressure \
+                    accommodate the Enarx shim, exec-wasmtime, and the memory pressure \
                     requirements of the target workloads across all deployed SEV keeps.";
         Some(mesg.into())
     } else {
