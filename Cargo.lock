@@ -570,7 +570,7 @@ dependencies = [
  "enarx-shim-sgx",
  "enarx-wasmldr",
  "env_logger",
- "gdbstub",
+ "gdbstub 0.5.0",
  "goblin 0.5.1",
  "iocuddle",
  "kvm-bindings",
@@ -615,7 +615,7 @@ dependencies = [
  "bitflags",
  "const-default",
  "crt0stack",
- "gdbstub",
+ "gdbstub 0.5.0",
  "gdbstub_arch",
  "goblin 0.5.1",
  "linked_list_allocator",
@@ -638,7 +638,7 @@ version = "0.3.0"
 dependencies = [
  "const-default",
  "crt0stack",
- "gdbstub",
+ "gdbstub 0.5.0",
  "gdbstub_arch",
  "goblin 0.5.1",
  "lset 0.2.0 (git+https://github.com/enarx/lset?rev=5c2feed24d85442725f55d812315854e1b29595d)",
@@ -805,12 +805,26 @@ dependencies = [
 ]
 
 [[package]]
-name = "gdbstub_arch"
-version = "0.1.1"
+name = "gdbstub"
+version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e358b9c0e1468eae66099062e47bb502849308b987b74b5e72f1936397c33c16"
+checksum = "9fa2ca5d6b045de372cef3991f873389b421b4cabcfbe52f7787fae8b8b37906"
 dependencies = [
- "gdbstub",
+ "bitflags",
+ "cfg-if 1.0.0",
+ "log",
+ "managed",
+ "num-traits",
+ "paste",
+]
+
+[[package]]
+name = "gdbstub_arch"
+version = "0.2.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "51dc4b5718ac76d21e8605c0966dd32d80273b89b11e6cfef467b04e45934d37"
+dependencies = [
+ "gdbstub 0.6.1",
  "num-traits",
 ]
 
