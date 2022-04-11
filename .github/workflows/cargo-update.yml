@@ -14,9 +14,9 @@ jobs:
       - uses: actions/checkout@v2.4.0
       - name: Update dependencies
         run: |
-         cargo update --manifest-path=internal/shim-kvm/Cargo.toml
-         cargo update --manifest-path=internal/shim-sgx/Cargo.toml
-         cargo update --manifest-path=src/bin/wasmldr/Cargo.toml
+         cargo update --manifest-path=src/bin/shim-kvm/Cargo.toml
+         cargo update --manifest-path=src/bin/shim-sgx/Cargo.toml
+         cargo update --manifest-path=src/bin/exec-wasmtime/Cargo.toml
          cargo update --manifest-path=Cargo.toml
         shell: bash
       - name: Create pull request
@@ -33,6 +33,3 @@ jobs:
           base: main
           add-paths: |
             Cargo.lock
-            internal/shim-sev/Cargo.lock
-            internal/shim-sgx/Cargo.lock
-            src/bin/wasmldr/Cargo.lock

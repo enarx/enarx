@@ -67,7 +67,7 @@ dirs = "4.0"
 # binary dependencies
 enarx-shim-kvm = { path = "src/bin/shim-kvm", artifact = "bin", target = "x86_64-unknown-none" }
 enarx-shim-sgx = { path = "src/bin/shim-sgx", artifact = "bin", target = "x86_64-unknown-none" }
-enarx-wasmldr = { path = "src/bin/wasmldr", artifact = "bin", target = "x86_64-unknown-linux-musl" }
+enarx-exec-wasmtime = { path = "src/bin/exec-wasmtime", artifact = "bin", target = "x86_64-unknown-linux-musl" }
 
 # h2 is an indirect dependency, to be specified when checking with `-Z minimal-versions`
 # h2 is a dependency of hyper, which is a dep of reqwest
@@ -102,4 +102,4 @@ strip = true
 opt-level = 3
 
 [workspace]
-members = ["src/bin/shim-kvm", "src/bin/shim-sgx", "src/bin/wasmldr"]
+members = ["src/bin/shim-kvm", "src/bin/shim-sgx", "src/bin/exec-wasmtime"]

@@ -5,7 +5,7 @@ updates:
   schedule:
     interval: "daily"
 - package-ecosystem: "cargo"
-  directory: "src/bin/wasmldr"
+  directory: "src/bin/exec-wasmtime"
   schedule:
     interval: "daily"
 - package-ecosystem: "cargo"

@@ -82,7 +82,7 @@ jobs:
         crate:
           - shim-kvm
           - shim-sgx
-          - wasmldr
+          - exec-wasmtime
         profile:
           - name: debug
           - name: release

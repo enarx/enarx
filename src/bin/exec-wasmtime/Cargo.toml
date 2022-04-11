@@ -1,5 +1,5 @@
 [package]
-name = "enarx-wasmldr"
+name = "enarx-exec-wasmtime"
 version = "0.3.0"
 authors = ["The Enarx Project Developers"]
 edition = "2021"

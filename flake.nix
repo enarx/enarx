@@ -69,14 +69,14 @@
             };
             shimKvm = buildEnarxInternalPackage ./src/bin/shim-kvm;
             shimSgx = buildEnarxInternalPackage ./src/bin/shim-sgx;
-            wasmldr = buildEnarxInternalPackage ./src/bin/wasmldr;
+            execWasmtime = buildEnarxInternalPackage ./src/bin/exec-wasmtime;
           in
           buildEnarxPackage {
             inherit src;
 
             ENARX_PREBUILT_shim-kvm = "${shimKvm}/bin/shim-kvm";
             ENARX_PREBUILT_shim-sgx = "${shimSgx}/bin/shim-sgx";
-            ENARX_PREBUILT_wasmldr = "${wasmldr}/bin/wasmldr";
+            ENARX_PREBUILT_exec-wasmtime = "${execWasmtime}/bin/exec-wasmtime";
 
             CARGO_BUILD_TARGET = "x86_64-unknown-linux-gnu";
 

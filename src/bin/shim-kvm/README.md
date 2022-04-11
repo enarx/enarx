@@ -9,7 +9,7 @@
 
 - create a normal VM, reserve memory
 - special ioctls with /dev/sev to talk to the firmware of the PSP
-- populate the memory with the shim and executable (wasmldr) elf sections
+- populate the memory with the shim and executable (exec-wasmtime) elf sections
 - mark memory as encrypted
 - 2 special pages marked in the elf sections
     - CPUID
