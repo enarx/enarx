@@ -21,7 +21,7 @@ goblin = { version = "0.5", default-features = false, features = [ "elf64" ] }
 primordial = { git = "https://github.com/enarx/primordial", rev = "b606b9e472e2238384b003f12fdada077e04d2fe", features = ["const-default"] }
 x86_64 = { version = "^0.14.9", default-features = false }
 crt0stack = { version = "0.1", default-features = false }
-sallyport = { version = "0.3.0", git = "https://github.com/enarx/sallyport", rev = "867b54c50ca43569719b75db22d94199d80268e9" }
+sallyport = "0.4"
 spinning = { version = "0.1", default-features = false }
 const-default = "1.0"
 noted = "^1.0.0"
