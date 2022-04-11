@@ -92,12 +92,16 @@ fn clock_getres() {
         #[cfg(not(miri))]
         assert_eq!(unsafe { libc::clock_getres(CLOCK_REALTIME, null_mut()) }, 0);
 
-        let mut expected = unsafe { mem::zeroed() };
-        #[cfg(not(miri))]
-        assert_eq!(
-            unsafe { libc::clock_getres(CLOCK_REALTIME, &mut expected as *mut _) },
-            0
-        );
+        let expected = if cfg!(not(miri)) {
+            let mut expected = unsafe { mem::zeroed() };
+            assert_eq!(
+                unsafe { libc::clock_getres(CLOCK_REALTIME, &mut expected as *mut _) },
+                0
+            );
+            expected
+        } else {
+            unsafe { mem::zeroed() }
+        };
 
         let mut res = unsafe { mem::zeroed::<timespec>() };
         if i % 2 == 0 {
@@ -160,12 +164,16 @@ fn clock_getres() {
 #[test]
 fn clock_gettime() {
     run_test(2, [0xff; 16], move |i, platform, handler| {
-        let mut start = unsafe { mem::zeroed::<timespec>() };
-        #[cfg(not(miri))]
-        assert_eq!(
-            unsafe { libc::clock_gettime(CLOCK_MONOTONIC, &mut start as *mut _) },
-            0
-        );
+        let start: timespec = if cfg!(not(miri)) {
+            let mut start = unsafe { mem::zeroed() };
+            assert_eq!(
+                unsafe { libc::clock_gettime(CLOCK_MONOTONIC, &mut start as *mut _) },
+                0
+            );
+            start
+        } else {
+            unsafe { mem::zeroed() }
+        };
 
         let mut tp = unsafe { mem::zeroed::<timespec>() };
         if i % 2 == 0 {
