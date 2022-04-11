@@ -32,7 +32,7 @@ disable-sgx-attestation = []
 
 [dependencies]
 x86_64 = { version = "^0.14.9", default-features = false, optional = true }
-sgx = { version = "0.3.0", features = ["openssl"], optional = true }
+sgx = { git = "https://github.com/jarkkojs/sgx", rev = "701f87efc4c8ae41503bd990cdf1f0b59c4f50c2", features = ["iocuddle", "openssl"], optional = true  }
 const-default = { version = "1.0", features = [ "derive" ] }
 primordial = { version = "0.4", features = ["alloc"] }
 sallyport = { version = "0.3.0", git = "https://github.com/enarx/sallyport", rev = "867b54c50ca43569719b75db22d94199d80268e9" }

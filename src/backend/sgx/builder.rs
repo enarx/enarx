@@ -161,7 +161,7 @@ impl TryFrom<Builder> for Arc<dyn super::super::Keep> {
 
             let rwx = match si.class() {
                 Class::Tcs => libc::PROT_READ | libc::PROT_WRITE,
-                Class::Reg => {
+                Class::Regular => {
                     let mut prot = libc::PROT_NONE;
                     if si.flags().contains(Flags::READ) {
                         prot |= libc::PROT_READ;

@@ -594,7 +594,7 @@ dependencies = [
  "serde_json",
  "serial_test",
  "sev_attestation",
- "sgx 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "sgx 0.3.0 (git+https://github.com/jarkkojs/sgx?rev=701f87efc4c8ae41503bd990cdf1f0b59c4f50c2)",
  "static_assertions",
  "tempfile",
  "ureq",
@@ -1801,10 +1801,11 @@ dependencies = [
 [[package]]
 name = "sgx"
 version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "630f9b3f39cc5fbcdbcf881cccbfe6c574084fa04b45b38eaa5f433e91208a6c"
+source = "git+https://github.com/jarkkojs/sgx?rev=701f87efc4c8ae41503bd990cdf1f0b59c4f50c2#701f87efc4c8ae41503bd990cdf1f0b59c4f50c2"
 dependencies = [
  "bitflags",
+ "der",
+ "iocuddle",
  "openssl",
  "x86_64",
  "xsave",

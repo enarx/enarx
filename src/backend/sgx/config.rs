@@ -5,7 +5,7 @@ use std::num::NonZeroU32;
 use anyhow::{anyhow, Result};
 use goblin::elf::program_header::{PF_R, PF_W, PF_X};
 use sallyport::elf;
-use sgx::page::{Flags, SecInfo};
+use sgx::page::{Class, Flags, SecInfo};
 use sgx::parameters::{Masked, Parameters};
 
 #[derive(Debug)]
@@ -38,8 +38,8 @@ impl super::super::Config for Config {
 
         let m = flags & elf::pf::sgx::UNMEASURED == 0;
         let si = match flags & elf::pf::sgx::TCS {
-            0 => SecInfo::reg(rwx),
-            _ => SecInfo::tcs(),
+            0 => SecInfo::new(Class::Regular, rwx),
+            _ => SecInfo::new(Class::Tcs, Flags::empty()),
         };
 
         (si, m)
