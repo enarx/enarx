@@ -20,3 +20,19 @@ updates:
   directory: "crates/sallyport/Cargo.toml"
   schedule:
     interval: "daily"
+- package-ecosystem: "cargo"
+  directory: "tests/rust_exec_tests"
+  schedule:
+    interval: "daily"
+- package-ecosystem: "cargo"
+  directory: "tests/rust_syscall_tests"
+  schedule:
+    interval: "daily"
+- package-ecosystem: "cargo"
+  directory: "tests/sev_attestation"
+  schedule:
+    interval: "daily"
+- package-ecosystem: "cargo"
+  directory: "tests/wasm/wasm_rust_tests"
+  schedule:
+    interval: "daily"

@@ -588,7 +588,8 @@ dependencies = [
  "protobuf-codegen-pure",
  "rand",
  "rust_exec_tests",
- "sallyport",
+ "rust_syscall_tests",
+ "sallyport 0.4.0",
  "semver",
  "serde",
  "serde_json",
@@ -660,7 +661,7 @@ dependencies = [
  "noted",
  "primordial",
  "rcrt1",
- "sallyport",
+ "sallyport 0.4.0",
  "spinning",
  "testaso",
  "x86_64",
@@ -682,7 +683,7 @@ dependencies = [
  "noted",
  "primordial",
  "rcrt1",
- "sallyport",
+ "sallyport 0.4.0",
  "sgx",
  "spinning",
  "x86_64",
@@ -1604,6 +1605,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "rust_syscall_tests"
+version = "0.1.0"
+dependencies = [
+ "goblin 0.5.1",
+ "rcrt1",
+ "sallyport 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
 name = "rustc-demangle"
 version = "0.1.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1687,6 +1697,15 @@ dependencies = [
  "libc",
  "serial_test",
  "testaso",
+]
+
+[[package]]
+name = "sallyport"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "77d32884a5700fb9298473bb829536f523437523f410793ff3d64531e17b3927"
+dependencies = [
+ "goblin 0.5.1",
 ]
 
 [[package]]
@@ -1815,7 +1834,7 @@ dependencies = [
 name = "sev_attestation"
 version = "0.1.0"
 dependencies = [
- "sallyport",
+ "sallyport 0.4.0",
  "testaso",
 ]
 

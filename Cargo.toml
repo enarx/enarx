@@ -82,11 +82,11 @@ protobuf-codegen-pure = "2.27"
 process_control = "3.3"
 serial_test = "0.6"
 tempfile = "3.3.0"
-walkdir = "2"
 wat = { version = "1.0" }
 rust_exec_tests = { path = "tests/rust_exec_tests", artifact = "bin", target = "x86_64-unknown-linux-musl" }
 sev_attestation = { path = "tests/sev_attestation", artifact = "bin", target = "x86_64-unknown-linux-musl" }
 wasm_rust_tests  = { path = "tests/wasm/wasm_rust_tests", artifact = "bin", target = "wasm32-wasi" }
+rust_syscall_tests = { path = "tests/rust_syscall_tests", artifact = "bin", target = "x86_64-unknown-none" }
 
 [profile.dev]
 strip = true
