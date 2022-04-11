@@ -655,10 +655,10 @@ dependencies = [
  "goblin 0.5.1",
  "linked_list_allocator",
  "lock_api",
- "lset 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "lset 0.3.0",
  "nbytes",
  "noted",
- "primordial 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "primordial 0.5.0",
  "rcrt1",
  "sallyport",
  "spinning",
@@ -1109,6 +1109,12 @@ version = "0.2.0"
 source = "git+https://github.com/enarx/lset?rev=5c2feed24d85442725f55d812315854e1b29595d#5c2feed24d85442725f55d812315854e1b29595d"
 
 [[package]]
+name = "lset"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3919d8ed5e9b055f0fd725e3f4c324052df3f8c893824a5fcbffea36356abfb5"
+
+[[package]]
 name = "mach"
 version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1361,6 +1367,12 @@ source = "git+https://github.com/enarx/primordial?rev=b606b9e472e2238384b003f12f
 dependencies = [
  "const-default",
 ]
+
+[[package]]
+name = "primordial"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b24688c4d0374cf896ccde4b79d111d1c12e7b2ab6ec272c57aedc304cb1791d"
 
 [[package]]
 name = "proc-macro-crate"
@@ -1666,8 +1678,9 @@ checksum = "73b4b750c782965c211b42f022f59af1fbceabdd026623714f104152f1ec149f"
 
 [[package]]
 name = "sallyport"
-version = "0.3.0"
-source = "git+https://github.com/enarx/sallyport?rev=867b54c50ca43569719b75db22d94199d80268e9#867b54c50ca43569719b75db22d94199d80268e9"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "77d32884a5700fb9298473bb829536f523437523f410793ff3d64531e17b3927"
 dependencies = [
  "goblin 0.5.1",
 ]
