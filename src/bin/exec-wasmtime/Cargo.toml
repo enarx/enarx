@@ -1,6 +1,6 @@
 [package]
 name = "enarx-exec-wasmtime"
-version = "0.3.0"
+version = "0.4.0-pre"
 authors = ["The Enarx Project Developers"]
 edition = "2021"
 license = "Apache-2.0"
