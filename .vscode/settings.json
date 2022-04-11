@@ -1,8 +1,0 @@
-{
-    "rust-analyzer.linkedProjects": [
-        "Cargo.toml",
-        "src/bin/shim-sev/Cargo.toml",
-        "src/bin/shim-sgx/Cargo.toml",
-        "src/bin/exec-wasmtime/Cargo.toml"
-    ]
-}
