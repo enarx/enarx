@@ -1,0 +1,44 @@
+on:
+  workflow_dispatch:
+    branches: [ main ]
+  schedule:
+    - cron: '15 4 * * 4'
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+name: rust-toolchain-update
+permissions:
+  contents: write
+  pull-requests: write
+jobs:
+  create-pr:
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Generate rust toolchain snapshot version
+        id: toolchain_version
+        run: echo "::set-output name=toolchain_version::nightly-$(date +%Y-%m-%d)"
+      - uses: actions/checkout@v3
+        with:
+          repository: ${{ github.repository }}
+          ref: chore/update-rust-toolchain 
+      - name: Update rust toolchain
+        id: update_rust_toolchain
+        run: |
+          git config --global init.defaultBranch main
+          git config user.name  'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          git fetch --all
+          git reset --hard origin/main
+          sed -i "s/channel = .*/channel = \"${{ steps.toolchain_version.outputs.toolchain_version }}\"/" rust-toolchain.toml
+          git diff --quiet && git diff --staged --quiet || git commit -am "chore(deps): bump rust toolchain to version ${{ steps.toolchain_version.outputs.toolchain_version }}" && \
+            git push --force origin chore/update-rust-toolchain && \
+            echo "::set-output name=updated::0"
+        shell: bash
+      - name: Create pull request
+        if: steps.update_rust_toolchain.outputs.updated == 0
+        run: |
+          gh pr create -B main -b "chore(deps): bump rust toolchain to version ${{ steps.toolchain_version.outputs.toolchain_version }}" \
+                               -t "chore(deps): bump rust toolchain to version ${{ steps.toolchain_version.outputs.toolchain_version }}" -l dependencies
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        shell: bash
