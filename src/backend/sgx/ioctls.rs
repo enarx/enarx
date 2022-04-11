@@ -156,7 +156,7 @@ mod tests {
 
     #[test]
     fn restrict_permissions() {
-        use sgx::page::{Flags, SecInfo};
+        use sgx::page::Class;
         use std::fs::OpenOptions;
 
         let mut device_file = OpenOptions::new()
@@ -165,7 +165,7 @@ mod tests {
             .open("/dev/sgx_enclave")
             .unwrap();
 
-        let secinfo = SecInfo::reg(Flags::empty());
+        let secinfo = Class::Regular.info(None);
         let mut parameters = RestrictPermissions::new(0, 0, &secinfo);
 
         let ret = match ENCLAVE_RESTRICT_PERMISSIONS.ioctl(&mut device_file, &mut parameters) {
