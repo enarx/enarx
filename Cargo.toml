@@ -1,6 +1,6 @@
 [package]
 name = "enarx"
-version = "0.3.0"
+version = "0.4.0-pre"
 authors = ["The Enarx Project Developers"]
 license = "Apache-2.0"
 edition = "2021"
@@ -65,9 +65,9 @@ atty = "0.2"
 dirs = "4.0"
 
 # binary dependencies
-enarx-shim-kvm = { path = "src/bin/shim-kvm", artifact = "bin", target = "x86_64-unknown-none" }
-enarx-shim-sgx = { path = "src/bin/shim-sgx", artifact = "bin", target = "x86_64-unknown-none" }
-enarx-exec-wasmtime = { path = "src/bin/exec-wasmtime", artifact = "bin", target = "x86_64-unknown-linux-musl" }
+enarx-shim-kvm = { version = "0.4.0-pre", artifact = "bin", target = "x86_64-unknown-none" }
+enarx-shim-sgx = { version = "0.4.0-pre", artifact = "bin", target = "x86_64-unknown-none" }
+enarx-exec-wasmtime = { version = "0.4.0-pre", artifact = "bin", target = "x86_64-unknown-linux-musl" }
 
 # h2 is an indirect dependency, to be specified when checking with `-Z minimal-versions`
 # h2 is a dependency of hyper, which is a dep of reqwest

@@ -607,7 +607,7 @@ dependencies = [
 
 [[package]]
 name = "enarx-exec-wasmtime"
-version = "0.3.0"
+version = "0.4.0-pre"
 dependencies = [
  "anyhow",
  "cap-std",
@@ -642,7 +642,7 @@ dependencies = [
 
 [[package]]
 name = "enarx-shim-kvm"
-version = "0.3.0"
+version = "0.4.0-pre"
 dependencies = [
  "aes-gcm",
  "array-const-fn-init",
@@ -669,7 +669,7 @@ dependencies = [
 
 [[package]]
 name = "enarx-shim-sgx"
-version = "0.3.0"
+version = "0.4.0-pre"
 dependencies = [
  "const-default",
  "crt0stack",
