@@ -27,3 +27,6 @@ client:
 
 testing:
 - tests/**/*
+
+sallyport:
+- crates/sallyport/**/*
