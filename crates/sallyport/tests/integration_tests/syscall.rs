@@ -21,6 +21,7 @@ use std::fs::{File, OpenOptions};
 use std::io::{Read, Seek, Write};
 use std::mem::{size_of, transmute};
 use std::net::{TcpListener, UdpSocket};
+use std::os::unix::io::IntoRawFd;
 use std::os::unix::prelude::AsRawFd;
 use std::ptr::{null_mut, NonNull};
 use std::slice;
@@ -84,6 +85,10 @@ fn syscall_recv<'a, 'b>(
             Ok([expected_len, 0])
         );
     }
+}
+
+fn dev_null() -> File {
+    std::fs::File::open("/dev/null").unwrap()
 }
 
 #[test]
@@ -719,20 +724,24 @@ fn open() {
 #[test]
 #[serial]
 fn poll() {
+    let dev_null_0 = dev_null().into_raw_fd();
+    let dev_null_1 = dev_null().into_raw_fd();
+    let dev_null_2 = dev_null().into_raw_fd();
+
     run_test(2, [0xff; 16], move |i, platform, handler| {
         let mut fds: [pollfd; 3] = [
             pollfd {
-                fd: 0,
+                fd: dev_null_0,
                 events: 0,
                 revents: 0,
             },
             pollfd {
-                fd: 1,
+                fd: dev_null_1,
                 events: 0,
                 revents: 0,
             },
             pollfd {
-                fd: 2,
+                fd: dev_null_2,
                 events: 0,
                 revents: 0,
             },
