@@ -9,7 +9,7 @@ concurrency:
 name: cargo-update
 permissions:
   contents: write
-  pull-requests: write  
+  pull-requests: write
 jobs:
   create-pr:
     runs-on: ubuntu-20.04
@@ -26,10 +26,7 @@ jobs:
           git config user.email 'github-actions[bot]@users.noreply.github.com'
           git fetch --all
           git reset --hard origin/main
-          cargo update --manifest-path=src/bin/shim-kvm/Cargo.toml
-          cargo update --manifest-path=src/bin/shim-sgx/Cargo.toml
-          cargo update --manifest-path=src/bin/exec-wasmtime/Cargo.toml
-          cargo update --manifest-path=Cargo.toml
+          for i in $(find . -name Cargo.toml); do cargo update --manifest-path=$i; done
           git diff --quiet && git diff --staged --quiet || git commit -am 'chore(deps): cargo update to update dependencies' && \
             git push --force origin chore/cargo-update && echo "::set-output name=updated::0"
         shell: bash
