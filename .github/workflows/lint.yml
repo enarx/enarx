@@ -26,6 +26,7 @@ jobs:
           - {name: shim-sgx, path: src/bin/shim-sgx/Cargo.toml}
           - {name: shim-kvm, path: src/bin/shim-kvm/Cargo.toml}
           - {name: exec-wasmtime, path: src/bin/exec-wasmtime/Cargo.toml}
+          - {name: sallyport, path: crates/sallyport/Cargo.toml}
 
   clippy:
     name: cargo clippy (${{ matrix.crate.name }})
@@ -54,6 +55,9 @@ jobs:
           - name: exec-wasmtime
             path: src/bin/exec-wasmtime/Cargo.toml
             target: --target=x86_64-unknown-linux-musl
+          - name: sallyport
+            path: crates/sallyport/Cargo.toml
+            target: --target=x86_64-unknown-none
 
   clippy-single-backends:
     name: cargo clippy (enarx ${{ matrix.backend.name }} ${{ matrix.profile.name }})
@@ -99,6 +103,7 @@ jobs:
         crate:
           - { name: enarx, path: . }
           - { name: exec-wasmtime, path: src/bin/exec-wasmtime }
+          - { name: sallyport, path: crates/sallyport }
 
   deny:
     name: cargo deny
@@ -116,6 +121,7 @@ jobs:
           - {name: shim-sgx, path: src/bin/shim-sgx/Cargo.toml}
           - {name: shim-kvm, path: src/bin/shim-kvm/Cargo.toml}
           - {name: exec-wasmtime, path: src/bin/exec-wasmtime/Cargo.toml}
+          - {name: sallyport, path: crates/sallyport/Cargo.toml}
 
   check-spdx-headers:
     runs-on: ubuntu-latest
