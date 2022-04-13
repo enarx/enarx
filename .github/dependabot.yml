@@ -16,3 +16,7 @@ updates:
   directory: "src/bin/shim-sgx"
   schedule:
     interval: "daily"
+- package-ecosystem: "cargo"
+  directory: "crates/sallyport/Cargo.toml"
+  schedule:
+    interval: "daily"
