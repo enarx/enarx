@@ -1,0 +1,37 @@
+[package]
+name = "sallyport"
+version = "0.4.0"
+authors = ["The Enarx Project Developers"]
+license = "Apache-2.0"
+edition = "2021"
+homepage = "https://github.com/enarx/sallyport"
+repository = "https://github.com/enarx/sallyport"
+description = "API for the Enarx hypervisor-microkernel boundary"
+readme = "README.md"
+keywords = ["enarx", "syscall"]
+categories = [ "no-std" ]
+exclude = [ ".gitignore", ".github/*" ]
+
+[badges]
+# See https://doc.rust-lang.org/cargo/reference/manifest.html#the-badges-section
+github = { repository = "enarx/sallyport", workflow = "test" }
+#github = { repository = "enarx/sallyport", workflow = "lint" }
+maintenance = { status = "actively-developed" }
+is-it-maintained-issue-resolution = { repository = "enarx/sallyport" }
+is-it-maintained-open-issues = { repository = "enarx/sallyport" }
+
+[dependencies]
+gdbstub = { version = "0.6", default-features = false, optional = true }
+goblin = { version = "0.5", default-features = false, features = [ "elf64" ] }
+libc = { version = "0.2.102", default-features = false, optional = true }
+
+[dev-dependencies]
+serial_test = "0.6"
+testaso = "0.1"
+libc = { version = "0.2.102", features = [ "extra_traits" ] }
+
+[features]
+doc = [ "gdbstub", "libc" ]
+
+[package.metadata.docs.rs]
+all-features = true
