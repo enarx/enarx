@@ -75,14 +75,15 @@ jobs:
       - name: Setup Rust toolchain
         run: rustup show
       - run: cargo test ${{ matrix.profile.flag }} --target x86_64-unknown-linux-gnu
-        working-directory: src/bin/${{ matrix.crate }}
+        working-directory: ${{ matrix.crate }}
     strategy:
       fail-fast: false
       matrix:
         crate:
-          - shim-kvm
-          - shim-sgx
-          - exec-wasmtime
+          - src/bin/shim-kvm
+          - src/bin/shim-sgx
+          - src/bin/exec-wasmtime
+          - crates/sallyport
         profile:
           - name: debug
           - name: release
