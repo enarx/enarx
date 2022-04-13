@@ -6,24 +6,4 @@ license = "Apache-2.0"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
-[[bin]]
-name="echo"
-path= "src/echo.rs"
-
-[[bin]]
-name="memspike"
-path= "src/memspike.rs"
-
-[[bin]]
-name="memory_stress_test"
-path= "src/memory_stress_test.rs"
-
-[[bin]]
-name="zerooneone"
-path= "src/zerooneone.rs"
-
-[[bin]]
-name="check_fd"
-path="src/check_fd.rs"
-
 [dependencies]
