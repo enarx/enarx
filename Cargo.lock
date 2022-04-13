@@ -195,7 +195,7 @@ dependencies = [
  "io-lifetimes 0.5.3",
  "ipnet",
  "maybe-owned",
- "rustix 0.33.5",
+ "rustix 0.33.6",
  "winapi",
  "winapi-util",
  "winx",
@@ -221,7 +221,7 @@ dependencies = [
  "io-extras",
  "io-lifetimes 0.5.3",
  "ipnet",
- "rustix 0.33.5",
+ "rustix 0.33.6",
 ]
 
 [[package]]
@@ -232,7 +232,7 @@ checksum = "b9ee4390904645f384bd4e03125a4ed4d1167e9f195931c41323bacc8a2328ce"
 dependencies = [
  "cap-primitives",
  "once_cell",
- "rustix 0.33.5",
+ "rustix 0.33.6",
  "winx",
 ]
 
@@ -570,7 +570,7 @@ dependencies = [
  "enarx-shim-kvm",
  "enarx-shim-sgx",
  "env_logger",
- "gdbstub",
+ "gdbstub 0.5.0",
  "goblin 0.5.1",
  "iocuddle",
  "kvm-bindings",
@@ -619,7 +619,7 @@ dependencies = [
  "log",
  "pkcs8",
  "ring",
- "rustix 0.34.2",
+ "rustix 0.34.3",
  "rustls",
  "rustls-pemfile",
  "sec1",
@@ -650,7 +650,7 @@ dependencies = [
  "bitflags",
  "const-default",
  "crt0stack",
- "gdbstub",
+ "gdbstub 0.5.0",
  "gdbstub_arch",
  "goblin 0.5.1",
  "linked_list_allocator",
@@ -673,7 +673,7 @@ version = "0.4.0"
 dependencies = [
  "const-default",
  "crt0stack",
- "gdbstub",
+ "gdbstub 0.5.0",
  "gdbstub_arch",
  "goblin 0.5.1",
  "lset",
@@ -788,7 +788,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7df62ee66ee2d532ea8d567b5a3f0d03ecd64636b98bad5be1e93dcc918b92aa"
 dependencies = [
  "io-lifetimes 0.5.3",
- "rustix 0.33.5",
+ "rustix 0.33.6",
  "winapi",
 ]
 
@@ -806,12 +806,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "gdbstub"
+version = "0.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9fa2ca5d6b045de372cef3991f873389b421b4cabcfbe52f7787fae8b8b37906"
+dependencies = [
+ "bitflags",
+ "cfg-if 1.0.0",
+ "log",
+ "managed",
+ "num-traits",
+ "paste",
+]
+
+[[package]]
 name = "gdbstub_arch"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e358b9c0e1468eae66099062e47bb502849308b987b74b5e72f1936397c33c16"
 dependencies = [
- "gdbstub",
+ "gdbstub 0.5.0",
  "num-traits",
 ]
 
@@ -1000,7 +1014,7 @@ checksum = "7c89a757e762896bdbdfadf2860d0f8b0cea5e363d8cf3e7bdfeb63d1d976352"
 dependencies = [
  "hermit-abi 0.2.0",
  "io-lifetimes 0.5.3",
- "rustix 0.33.5",
+ "rustix 0.33.6",
  "winapi",
 ]
 
@@ -1062,9 +1076,9 @@ checksum = "884e2677b40cc8c339eaefcb701c32ef1fd2493d71118dc0ca4b6a736c93bd67"
 
 [[package]]
 name = "libc"
-version = "0.2.122"
+version = "0.2.123"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ec647867e2bf0772e28c8bcde4f0d19a9216916e890543b5a03ed8ef27b8f259"
+checksum = "cb691a747a7ab48abc15c5b42066eaafde10dc427e3b6ee2a1cf43db04c763bd"
 
 [[package]]
 name = "linked_list_allocator"
@@ -1603,9 +1617,9 @@ checksum = "08d43f7aa6b08d49f382cde6a7982047c3426db949b1424bc4b7ec9ae12c6ce2"
 
 [[package]]
 name = "rustix"
-version = "0.33.5"
+version = "0.33.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "03627528abcc4a365554d32a9f3bbf67f7694c102cfeda792dc86a2d6057cc85"
+checksum = "7ac32d9fc97153ca55305284cb6c2dcbb84e1fc6d7ac13392cea02222f2d8741"
 dependencies = [
  "bitflags",
  "errno",
@@ -1619,9 +1633,9 @@ dependencies = [
 
 [[package]]
 name = "rustix"
-version = "0.34.2"
+version = "0.34.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "96619609a54d638872db136f56941d34e2a00bb0acf3fa783a90d6b96a093ba2"
+checksum = "cb617eb09c4ef1536405e357e3b63f39e3ab4cc2159db05395278ad5c352bb16"
 dependencies = [
  "bitflags",
  "errno",
@@ -1667,10 +1681,12 @@ checksum = "73b4b750c782965c211b42f022f59af1fbceabdd026623714f104152f1ec149f"
 [[package]]
 name = "sallyport"
 version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "77d32884a5700fb9298473bb829536f523437523f410793ff3d64531e17b3927"
 dependencies = [
+ "gdbstub 0.6.1",
  "goblin 0.5.1",
+ "libc",
+ "serial_test",
+ "testaso",
 ]
 
 [[package]]
@@ -1912,7 +1928,7 @@ dependencies = [
  "cap-fs-ext",
  "cap-std",
  "io-lifetimes 0.5.3",
- "rustix 0.33.5",
+ "rustix 0.33.6",
  "winapi",
  "winx",
 ]
@@ -2041,9 +2057,9 @@ dependencies = [
 
 [[package]]
 name = "tracing-core"
-version = "0.1.24"
+version = "0.1.25"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "90442985ee2f57c9e1b548ee72ae842f4a9a20e3f417cc38dbc5dc684d9bb4ee"
+checksum = "6dfce9f3241b150f36e8e54bb561a742d5daa1a47b5dd9a5ce369fd4a4db2210"
 dependencies = [
  "lazy_static",
 ]
@@ -2205,7 +2221,7 @@ dependencies = [
  "io-lifetimes 0.5.3",
  "is-terminal",
  "lazy_static",
- "rustix 0.33.5",
+ "rustix 0.33.6",
  "system-interface",
  "tracing",
  "wasi-common",
@@ -2222,7 +2238,7 @@ dependencies = [
  "bitflags",
  "cap-rand",
  "cap-std",
- "rustix 0.33.5",
+ "rustix 0.33.6",
  "thiserror",
  "tracing",
  "wiggle",
@@ -2389,7 +2405,7 @@ dependencies = [
  "object",
  "region",
  "rustc-demangle",
- "rustix 0.33.5",
+ "rustix 0.33.6",
  "serde",
  "target-lexicon",
  "thiserror",
@@ -2425,7 +2441,7 @@ dependencies = [
  "more-asserts",
  "rand",
  "region",
- "rustix 0.33.5",
+ "rustix 0.33.6",
  "thiserror",
  "wasmtime-environ",
  "wasmtime-jit-debug",

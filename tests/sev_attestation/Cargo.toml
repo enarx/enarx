@@ -7,7 +7,7 @@ license = "Apache-2.0"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-sallyport = "0.4"
+sallyport = { path = "../../crates/sallyport" }
 
 [dev-dependencies]
 testaso = "0.1.0"
