@@ -23,7 +23,7 @@ goblin = { version = "0.5", default-features = false, features = [ "elf64" ] }
 crt0stack = { version = "0.1", default-features = false }
 spinning = { version = "0.1", default-features = false }
 primordial = "0.5"
-sallyport = "0.4"
+sallyport = { path = "../../../crates/sallyport" }
 xsave = { version = "2.0.2" }
 noted = "1.0.0"
 nbytes = "0.1"
