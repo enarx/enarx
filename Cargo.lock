@@ -566,9 +566,9 @@ dependencies = [
  "colorful",
  "const-default",
  "dirs",
- "enarx-exec-wasmtime 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "enarx-shim-kvm 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "enarx-shim-sgx 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "enarx-exec-wasmtime",
+ "enarx-shim-kvm",
+ "enarx-shim-sgx",
  "env_logger",
  "gdbstub",
  "goblin 0.5.1",
@@ -641,42 +641,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "enarx-exec-wasmtime"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3f78eb91d95ae3c6e2a2f269fe6573efad4f24d08a408b415c4255d912845720"
-dependencies = [
- "anyhow",
- "cap-std",
- "clap",
- "const-oid",
- "env_logger",
- "io-lifetimes 0.6.1",
- "libc",
- "log",
- "pkcs8",
- "ring",
- "rustix 0.34.2",
- "rustls",
- "rustls-pemfile",
- "sec1",
- "serde",
- "sha2",
- "system-interface",
- "toml",
- "ureq",
- "url",
- "wasi-common",
- "wasmparser 0.84.0",
- "wasmtime",
- "wasmtime-wasi",
- "webpki-roots",
- "wiggle",
- "x509-cert",
- "zeroize",
-]
-
-[[package]]
 name = "enarx-shim-kvm"
 version = "0.4.0"
 dependencies = [
@@ -704,32 +668,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "enarx-shim-kvm"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a5ce1a9c84135127cfd1c529218ae897fd186c0b5f150d05e48c13e4504dc2eb"
-dependencies = [
- "aes-gcm",
- "array-const-fn-init",
- "bit_field",
- "bitflags",
- "const-default",
- "crt0stack",
- "goblin 0.5.1",
- "linked_list_allocator",
- "lock_api",
- "lset",
- "nbytes",
- "noted",
- "primordial",
- "rcrt1",
- "sallyport",
- "spinning",
- "x86_64",
- "xsave",
-]
-
-[[package]]
 name = "enarx-shim-sgx"
 version = "0.4.0"
 dependencies = [
@@ -740,27 +678,6 @@ dependencies = [
  "goblin 0.5.1",
  "lset",
  "memoffset",
- "mmledger",
- "noted",
- "primordial",
- "rcrt1",
- "sallyport",
- "sgx",
- "spinning",
- "x86_64",
- "xsave",
-]
-
-[[package]]
-name = "enarx-shim-sgx"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a639cb028469847f85fee3d8dc98a57050601ddb78b11795e62ea4d7fb5aa486"
-dependencies = [
- "const-default",
- "crt0stack",
- "goblin 0.5.1",
- "lset",
  "mmledger",
  "noted",
  "primordial",
