@@ -50,6 +50,8 @@ impl Platform {
                 in("rsi") nonce.map(|x| x.len()).unwrap_or_default(),
                 in("rdx") buf.as_mut().map(|x| x.as_mut_ptr()).unwrap_or_else(null_mut),
                 in("r10") buf.map(|x| x.len()).unwrap_or_default(),
+                lateout("rcx") _, // clobbered
+                lateout("r11") _, // clobbered
             )
         }
 
