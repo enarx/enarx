@@ -1,9 +1,8 @@
-![lint](https://github.com/enarx/enarx/workflows/lint/badge.svg)
-![enarxbot](https://github.com/enarx/enarx/workflows/enarxbot/badge.svg)
-[![Workflow Status](https://github.com/enarx/enarx/workflows/test/badge.svg)](https://github.com/enarx/enarx/actions?query=workflow%3A%22test%22)
-[![Average time to resolve an issue](https://isitmaintained.com/badge/resolution/enarx/enarx.svg)](https://isitmaintained.com/project/enarx/enarx "Average time to resolve an issue")
-[![Percentage of issues still open](https://isitmaintained.com/badge/open/enarx/enarx.svg)](https://isitmaintained.com/project/enarx/enarx "Percentage of issues still open")
-![Maintenance](https://img.shields.io/badge/maintenance-activly--developed-brightgreen.svg)
+[![Test Status](https://github.com/enarx/enarx/actions/workflows/test.yml/badge.svg)](https://github.com/enarx/enarx/actions/workflows/test.yml)
+[![Bug Status](https://img.shields.io/github/issues-raw/enarx/enarx/bug)](https://github.com/enarx/enarx/labels/bug)
+[![Maintenance Status](https://img.shields.io/github/commit-activity/y/enarx/enarx)](https://github.com/enarx/enarx/pulse)
+[![Version Status](https://img.shields.io/crates/v/enarx)](https://crates.io/crates/enarx)
+[![Coverage Status](https://codecov.io/gh/enarx/enarx/branch/main/graph/badge.svg?token=03QIZXNJ2Y)](https://codecov.io/gh/enarx/enarx)
 
 # enarx
 
