@@ -1,8 +1,3 @@
-[![Workflow Status](https://github.com/enarx/sallyport/workflows/test/badge.svg)](https://github.com/enarx/sallyport/actions?query=workflow%3A%22test%22)
-[![Average time to resolve an issue](https://isitmaintained.com/badge/resolution/enarx/sallyport.svg)](https://isitmaintained.com/project/enarx/sallyport "Average time to resolve an issue")
-[![Percentage of issues still open](https://isitmaintained.com/badge/open/enarx/sallyport.svg)](https://isitmaintained.com/project/enarx/sallyport "Percentage of issues still open")
-![Maintenance](https://img.shields.io/badge/maintenance-activly--developed-brightgreen.svg)
-
 # sallyport
 
 API for the hypervisor-microkernel boundary

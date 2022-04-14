@@ -1,38 +1,41 @@
 [package]
 name = "enarx-shim-kvm"
 version = "0.4.0"
-authors = ["The Enarx Project Developers"]
 edition = "2021"
-license = "Apache-2.0"
 description = "Enarx KVM shim"
-
-[[bin]]
-name = "enarx-shim-kvm"
-test = false
+authors = ["The Enarx Project Developers"]
+repository = "https://github.com/enarx/sallyport"
+license = "Apache-2.0"
 
 [features]
-gdb = [ "gdbstub", "gdbstub_arch", "dbg" ]
+gdb = ["gdbstub", "gdbstub_arch", "dbg"]
 dbg = []
 disable-sgx-attestation = []
 
 [dependencies]
-x86_64 = { version = "0.14.9", default-features = false, features = ["instructions", "inline_asm"] }
-gdbstub_arch = { version = "0.1.1" , default-features = false, optional = true }
-gdbstub = { version = "0.5.0" , default-features = false, optional = true }
-goblin = { version = "0.5", default-features = false, features = [ "elf64" ] }
-crt0stack = { version = "0.1", default-features = false }
-spinning = { version = "0.1", default-features = false }
-primordial = "0.5"
-sallyport = { path = "../sallyport" }
-xsave = { version = "2.0.2" }
-noted = "1.0.0"
-nbytes = "0.1"
-rcrt1 = "1.0.0"
-lset = "0.3"
+aes-gcm = { version = "0.9", features = ["aes", "force-soft"], default-features = false }
 array-const-fn-init = "0.1"
+const-default = { version = "1.0", features = ["derive"] }
+crt0stack = { version = "0.1", default-features = false }
+goblin = { version = "0.5", default-features = false, features = ["elf64"] }
 linked_list_allocator = { version = "0.9.1", default-features = false }
-aes-gcm = { version = "0.9", features = ["aes", "force-soft"], default-features = false  }
-const-default = { version = "1.0", features = [ "derive" ] }
+lset = "0.3"
+nbytes = "0.1"
+noted = "1.0.0"
+primordial = "0.5"
+rcrt1 = "1.0.0"
+sallyport = { version = "0.4.0", path = "../sallyport" }
+spinning = { version = "0.1", default-features = false }
+x86_64 = { version = "0.14.9", default-features = false, features = ["instructions", "inline_asm"] }
+xsave = { version = "2.0.2" }
+
+# optional dependencies
+gdbstub = { version = "0.5.0", default-features = false, optional = true }
+gdbstub_arch = { version = "0.1.1", default-features = false, optional = true }
 
 [dev-dependencies]
 testaso = "0.1.0"
+
+[[bin]]
+name = "enarx-shim-kvm"
+test = false
