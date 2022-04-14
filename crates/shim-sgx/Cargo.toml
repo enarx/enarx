@@ -1,32 +1,35 @@
 [package]
 name = "enarx-shim-sgx"
 version = "0.4.0"
-authors = ["The Enarx Project Developers"]
 edition = "2021"
-license = "Apache-2.0"
 description = "Enarx SGX shim"
-
-[[bin]]
-name = "enarx-shim-sgx"
-test = false
+authors = ["The Enarx Project Developers"]
+repository = "https://github.com/enarx/sallyport"
+license = "Apache-2.0"
 
 [features]
-gdb = [ "gdbstub", "gdbstub_arch", "dbg" ]
+gdb = ["gdbstub", "gdbstub_arch", "dbg"]
 dbg = []
 disable-sgx-attestation = []
 
 [dependencies]
-gdbstub_arch = { version = "0.1.1" , default-features = false, optional = true }
-gdbstub = { version = "0.5.0" , default-features = false, optional = true }
-goblin = { version = "0.5", default-features = false, features = [ "elf64" ] }
-primordial = { version = "0.5.0", features = ["const-default"] }
-x86_64 = { version = "^0.14.9", default-features = false }
-crt0stack = { version = "0.1", default-features = false }
-sallyport = { path = "../sallyport" }
-spinning = { version = "0.1", default-features = false }
 const-default = "1.0"
-noted = "^1.0.0"
-xsave = { version = "2.0.2" }
-rcrt1 = "1.0.0"
-sgx = "0.4.0"
+crt0stack = { version = "0.1", default-features = false }
+goblin = { version = "0.5", default-features = false, features = [ "elf64" ] }
 mmledger = "0.2.0"
+noted = "1.0.0"
+primordial = { version = "0.5.0", features = ["const-default"] }
+rcrt1 = "1.0.0"
+sallyport = { path = "../sallyport" }
+sgx = "0.4.0"
+spinning = { version = "0.1", default-features = false }
+x86_64 = { version = "0.14.9", default-features = false }
+xsave = { version = "2.0.2" }
+
+# optional dependencies
+gdbstub = { version = "0.5.0", default-features = false, optional = true }
+gdbstub_arch = { version = "0.1.1", default-features = false, optional = true }
+
+[[bin]]
+name = "enarx-shim-sgx"
+test = false
