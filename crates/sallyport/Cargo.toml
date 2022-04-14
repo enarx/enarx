@@ -23,7 +23,6 @@ is-it-maintained-open-issues = { repository = "enarx/sallyport" }
 [dependencies]
 gdbstub = { version = "0.6", default-features = false, optional = true }
 goblin = { version = "0.5", default-features = false, features = [ "elf64" ] }
-libc = { version = "0.2.102", default-features = false, optional = true }
 
 [dev-dependencies]
 serial_test = "0.6"
@@ -31,7 +30,7 @@ testaso = "0.1"
 libc = { version = "0.2.102", features = [ "extra_traits" ] }
 
 [features]
-doc = [ "gdbstub", "libc" ]
+doc = [ "gdbstub" ]
 
 [package.metadata.docs.rs]
 all-features = true
