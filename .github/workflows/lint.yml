@@ -88,23 +88,6 @@ jobs:
           - name: release
             flag: --release
 
-  readme:
-    name: cargo readme (${{matrix.crate.name}})
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - name: Setup Rust toolchain
-        run: rustup show
-      - run: cargo install cargo-readme
-      - run: cargo readme --project-root ${{ matrix.crate.path }} > ${{ matrix.crate.path}}/README.md && git diff --exit-code
-    strategy:
-      fail-fast: false
-      matrix:
-        crate:
-          - { name: enarx, path: . }
-          - { name: exec-wasmtime, path: crates/exec-wasmtime }
-          - { name: sallyport, path: crates/sallyport }
-
   deny:
     name: cargo deny
     runs-on: ubuntu-latest

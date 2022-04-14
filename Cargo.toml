@@ -92,9 +92,3 @@ opt-level = 3
 
 [workspace]
 members = ["crates/*"]
-
-[badges]
-github = { repository = "enarx/enarx", workflow = "test" }
-maintenance = { status = "actively-developed" }
-is-it-maintained-issue-resolution = { repository = "enarx/enarx" }
-is-it-maintained-open-issues = { repository = "enarx/enarx" }
