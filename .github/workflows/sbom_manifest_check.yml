@@ -4,9 +4,9 @@ on:
   push:
     paths:
       - Cargo.lock
-      - src/bin/shim-kvm/Cargo.lock
-      - src/bin/shim-sgx/Cargo.lock
-      - src/bin/exec-wasmtime/Cargo.lock
+      - crates/shim-kvm/Cargo.lock
+      - crates/shim-sgx/Cargo.lock
+      - crates/exec-wasmtime/Cargo.lock
 
 jobs:
   Regenerate-BOM:

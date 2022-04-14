@@ -20,7 +20,7 @@ fn main() {
     println!("cargo:rerun-if-env-changed=OUT_DIR");
 
     // FIXME: this exists to work around https://github.com/rust-lang/cargo/issues/10527
-    println!("cargo:rerun-if-changed=src/bin");
+    println!("cargo:rerun-if-changed=crates/");
 
     let out_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap());
     let out_dir_proto = out_dir.join("protos");

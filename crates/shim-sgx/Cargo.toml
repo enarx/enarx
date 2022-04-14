@@ -1,13 +1,13 @@
 [package]
-name = "enarx-shim-kvm"
+name = "enarx-shim-sgx"
 version = "0.4.0"
 authors = ["The Enarx Project Developers"]
 edition = "2021"
 license = "Apache-2.0"
-description = "Enarx KVM shim"
+description = "Enarx SGX shim"
 
 [[bin]]
-name = "enarx-shim-kvm"
+name = "enarx-shim-sgx"
 test = false
 
 [features]
@@ -16,23 +16,17 @@ dbg = []
 disable-sgx-attestation = []
 
 [dependencies]
-x86_64 = { version = "0.14.9", default-features = false, features = ["instructions", "inline_asm"] }
 gdbstub_arch = { version = "0.1.1" , default-features = false, optional = true }
 gdbstub = { version = "0.5.0" , default-features = false, optional = true }
 goblin = { version = "0.5", default-features = false, features = [ "elf64" ] }
+primordial = { version = "0.5.0", features = ["const-default"] }
+x86_64 = { version = "^0.14.9", default-features = false }
 crt0stack = { version = "0.1", default-features = false }
+sallyport = { path = "../sallyport" }
 spinning = { version = "0.1", default-features = false }
-primordial = "0.5"
-sallyport = { path = "../../../crates/sallyport" }
+const-default = "1.0"
+noted = "^1.0.0"
 xsave = { version = "2.0.2" }
-noted = "1.0.0"
-nbytes = "0.1"
 rcrt1 = "1.0.0"
-lset = "0.3"
-array-const-fn-init = "0.1"
-linked_list_allocator = { version = "0.9.1", default-features = false }
-aes-gcm = { version = "0.9", features = ["aes", "force-soft"], default-features = false  }
-const-default = { version = "1.0", features = [ "derive" ] }
-
-[dev-dependencies]
-testaso = "0.1.0"
+sgx = "0.4.0"
+mmledger = "0.2.0"
