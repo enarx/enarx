@@ -67,9 +67,9 @@
               stripAllFlags = [ "--strip-unneeded" ];
               stripAllList = [ "bin" ];
             };
-            shimKvm = buildEnarxInternalPackage ./src/bin/shim-kvm;
-            shimSgx = buildEnarxInternalPackage ./src/bin/shim-sgx;
-            execWasmtime = buildEnarxInternalPackage ./src/bin/exec-wasmtime;
+            shimKvm = buildEnarxInternalPackage ./crates/shim-kvm;
+            shimSgx = buildEnarxInternalPackage ./crates/shim-sgx;
+            execWasmtime = buildEnarxInternalPackage ./crates/exec-wasmtime;
           in
           buildEnarxPackage {
             inherit src;

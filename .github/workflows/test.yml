@@ -79,9 +79,9 @@ jobs:
       fail-fast: false
       matrix:
         crate:
-          - { name: exec-wasmtime, path: src/bin/exec-wasmtime }
-          - { name: shim-kvm, path: src/bin/shim-kvm }
-          - { name: shim-sgx, path: src/bin/shim-sgx }
+          - { name: exec-wasmtime, path: crates/exec-wasmtime }
+          - { name: shim-kvm, path: crates/shim-kvm }
+          - { name: shim-sgx, path: crates/shim-sgx }
           - { name: sallyport, path: crates/sallyport }
         profile:
           - name: debug

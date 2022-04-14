@@ -23,9 +23,9 @@ jobs:
       matrix:
         crate:
           - {name: enarx, path: Cargo.toml}
-          - {name: shim-sgx, path: src/bin/shim-sgx/Cargo.toml}
-          - {name: shim-kvm, path: src/bin/shim-kvm/Cargo.toml}
-          - {name: exec-wasmtime, path: src/bin/exec-wasmtime/Cargo.toml}
+          - {name: shim-sgx, path: crates/shim-sgx/Cargo.toml}
+          - {name: shim-kvm, path: crates/shim-kvm/Cargo.toml}
+          - {name: exec-wasmtime, path: crates/exec-wasmtime/Cargo.toml}
           - {name: sallyport, path: crates/sallyport/Cargo.toml}
 
   clippy:
@@ -47,13 +47,13 @@ jobs:
         crate:
           - {name: enarx, path: Cargo.toml}
           - name: shim-sgx
-            path: src/bin/shim-sgx/Cargo.toml
+            path: crates/shim-sgx/Cargo.toml
             target: --target=x86_64-unknown-none
           - name: shim-kvm
-            path: src/bin/shim-kvm/Cargo.toml
+            path: crates/shim-kvm/Cargo.toml
             target: --target=x86_64-unknown-none
           - name: exec-wasmtime
-            path: src/bin/exec-wasmtime/Cargo.toml
+            path: crates/exec-wasmtime/Cargo.toml
             target: --target=x86_64-unknown-linux-musl
           - name: sallyport
             path: crates/sallyport/Cargo.toml
@@ -102,7 +102,7 @@ jobs:
       matrix:
         crate:
           - { name: enarx, path: . }
-          - { name: exec-wasmtime, path: src/bin/exec-wasmtime }
+          - { name: exec-wasmtime, path: crates/exec-wasmtime }
           - { name: sallyport, path: crates/sallyport }
 
   deny:
@@ -118,9 +118,9 @@ jobs:
       matrix:
         crate:
           - {name: enarx, path: ./Cargo.toml}
-          - {name: shim-sgx, path: src/bin/shim-sgx/Cargo.toml}
-          - {name: shim-kvm, path: src/bin/shim-kvm/Cargo.toml}
-          - {name: exec-wasmtime, path: src/bin/exec-wasmtime/Cargo.toml}
+          - {name: shim-sgx, path: crates/shim-sgx/Cargo.toml}
+          - {name: shim-kvm, path: crates/shim-kvm/Cargo.toml}
+          - {name: exec-wasmtime, path: crates/exec-wasmtime/Cargo.toml}
           - {name: sallyport, path: crates/sallyport/Cargo.toml}
 
   check-spdx-headers:

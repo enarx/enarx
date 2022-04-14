@@ -5,19 +5,19 @@ updates:
   schedule:
     interval: "daily"
 - package-ecosystem: "cargo"
-  directory: "src/bin/exec-wasmtime"
+  directory: "crates/exec-wasmtime"
   schedule:
     interval: "daily"
 - package-ecosystem: "cargo"
-  directory: "src/bin/shim-kvm"
+  directory: "crates/shim-kvm"
   schedule:
     interval: "daily"
 - package-ecosystem: "cargo"
-  directory: "src/bin/shim-sgx"
+  directory: "crates/shim-sgx"
   schedule:
     interval: "daily"
 - package-ecosystem: "cargo"
-  directory: "crates/sallyport/Cargo.toml"
+  directory: "crates/sallyport"
   schedule:
     interval: "daily"
 - package-ecosystem: "cargo"

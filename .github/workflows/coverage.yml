@@ -24,9 +24,9 @@ jobs:
           - { name: sev, path: ., host: [ self-hosted, linux, sev-snp ], flags: --no-default-features --features=backend-sev }
           - { name: sgx, path: ., host: [ self-hosted, linux, sgx ], flags: --no-default-features --features=backend-sgx }
           - { name: kvm, path: ., host: [ self-hosted, linux ], flags: --no-default-features --features=backend-kvm }
-          - { name: exec-wasmtime, path: ./src/bin/exec-wasmtime, host: ubuntu-20.04 }
-          - { name: shim-kvm, path: ./src/bin/shim-kvm, host: [ self-hosted, linux ] }
-          - { name: shim-sgx, path: ./src/bin/shim-sgx, host: [ self-hosted, linux ] }
+          - { name: exec-wasmtime, path: ./crates/exec-wasmtime, host: ubuntu-20.04 }
+          - { name: shim-kvm, path: ./crates/shim-kvm, host: [ self-hosted, linux ] }
+          - { name: shim-sgx, path: ./crates/shim-sgx, host: [ self-hosted, linux ] }
           - { name: sallyport, path: ./crates/sallyport, host: [ self-hosted, linux ] }
 
     steps:
