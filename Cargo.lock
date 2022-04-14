@@ -436,7 +436,7 @@ dependencies = [
  "itertools",
  "log",
  "smallvec",
- "wasmparser 0.83.0",
+ "wasmparser",
  "wasmtime-types",
 ]
 
@@ -561,7 +561,6 @@ dependencies = [
  "anyhow",
  "atty",
  "bitflags",
- "cc",
  "clap",
  "colorful",
  "const-default",
@@ -581,7 +580,6 @@ dependencies = [
  "mmarinus",
  "nbytes",
  "once_cell",
- "openssl",
  "primordial",
  "process_control",
  "protobuf",
@@ -600,7 +598,6 @@ dependencies = [
  "tempfile",
  "ureq",
  "vdso",
- "walkdir",
  "wasm_rust_tests",
  "wat",
  "x86_64",
@@ -615,23 +612,18 @@ dependencies = [
  "clap",
  "const-oid",
  "env_logger",
- "io-lifetimes 0.6.1",
  "libc",
- "log",
  "pkcs8",
  "ring",
  "rustix 0.34.3",
  "rustls",
- "rustls-pemfile",
  "sec1",
  "serde",
  "sha2",
- "system-interface",
  "toml",
  "ureq",
  "url",
  "wasi-common",
- "wasmparser 0.84.0",
  "wasmtime",
  "wasmtime-wasi",
  "wat",
@@ -647,15 +639,12 @@ version = "0.4.0"
 dependencies = [
  "aes-gcm",
  "array-const-fn-init",
- "bit_field",
- "bitflags",
  "const-default",
  "crt0stack",
  "gdbstub 0.5.0",
  "gdbstub_arch",
  "goblin 0.5.1",
  "linked_list_allocator",
- "lock_api",
  "lset",
  "nbytes",
  "noted",
@@ -677,8 +666,6 @@ dependencies = [
  "gdbstub 0.5.0",
  "gdbstub_arch",
  "goblin 0.5.1",
- "lset",
- "memoffset",
  "mmledger",
  "noted",
  "primordial",
@@ -1668,15 +1655,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "rustls-pemfile"
-version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1ee86d63972a7c661d1536fefe8c3c8407321c3df668891286de28abcd087360"
-dependencies = [
- "base64",
-]
-
-[[package]]
 name = "rustversion"
 version = "1.0.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1706,15 +1684,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "77d32884a5700fb9298473bb829536f523437523f410793ff3d64531e17b3927"
 dependencies = [
  "goblin 0.5.1",
-]
-
-[[package]]
-name = "same-file"
-version = "1.0.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "93fc1dc3aaa9bfed95e02e6eadabb4baf7e3078b0bd1b4d7b6b0b68378900502"
-dependencies = [
- "winapi-util",
 ]
 
 [[package]]
@@ -2207,17 +2176,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e4c2dbd44eb8b53973357e6e207e370f0c1059990df850aca1eca8947cf464f0"
 
 [[package]]
-name = "walkdir"
-version = "2.3.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "808cf2735cd4b6866113f648b791c6adc5714537bc222d9347bb203386ffda56"
-dependencies = [
- "same-file",
- "winapi",
- "winapi-util",
-]
-
-[[package]]
 name = "wasi"
 version = "0.10.2+wasi-snapshot-preview1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2329,15 +2287,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "718ed7c55c2add6548cca3ddd6383d738cd73b892df400e96b9aa876f0141d7a"
 
 [[package]]
-name = "wasmparser"
-version = "0.84.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "77dc97c22bb5ce49a47b745bed8812d30206eff5ef3af31424f2c1820c0974b2"
-dependencies = [
- "indexmap",
-]
-
-[[package]]
 name = "wasmtime"
 version = "0.35.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2358,7 +2307,7 @@ dependencies = [
  "region",
  "serde",
  "target-lexicon",
- "wasmparser 0.83.0",
+ "wasmparser",
  "wasmtime-cranelift",
  "wasmtime-environ",
  "wasmtime-jit",
@@ -2384,7 +2333,7 @@ dependencies = [
  "object",
  "target-lexicon",
  "thiserror",
- "wasmparser 0.83.0",
+ "wasmparser",
  "wasmtime-environ",
 ]
 
@@ -2404,7 +2353,7 @@ dependencies = [
  "serde",
  "target-lexicon",
  "thiserror",
- "wasmparser 0.83.0",
+ "wasmparser",
  "wasmtime-types",
 ]
 
@@ -2476,7 +2425,7 @@ dependencies = [
  "cranelift-entity",
  "serde",
  "thiserror",
- "wasmparser 0.83.0",
+ "wasmparser",
 ]
 
 [[package]]
