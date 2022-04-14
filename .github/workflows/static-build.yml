@@ -1,0 +1,55 @@
+on:
+  workflow_dispatch:
+    inputs:
+      rust_toolchain:
+        description: 'The version of rust toolchain to build against. See https://rust-lang.github.io/rustup-components-history/x86_64-unknown-linux-musl.html'
+        required: true
+        default: nightly-2022-04-13
+      target:
+        description: 'Build target'
+        required: true
+        default: 'x86_64-unknown-linux-musl' 
+        type: choice
+        options:
+        - x86_64-unknown-linux-musl 
+        - x86_64-unknown-linux-gnu
+      cache:
+        description: 'Turn on caching?'
+        required: true
+        default: true
+        type: boolean
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+name: rust-static-build
+env:
+  BINARY_NAME: enarx
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Set variables
+      id: vars
+      run: |
+        USER_INPUT_RUST_TOOLCHAINN=${{ github.event.inputs.rust_toolchain }}
+        echo "::set-output name=rust_toolchain::${USER_INPUT_RUST_TOOLCHAINN:-"nightly-2022-04-13"}"
+        USER_INPUT_TARGET=${{ github.event.inputs.target }}
+        echo "::set-output name=target::${USER_INPUT_TARGET:-"x86_64-unknown-linux-musl"}"
+        USER_INPUT_CACHE=${{ github.event.inputs.cache }}
+        echo "::set-output name=cache::${USER_INPUT_CACHE:-"true"}"
+    - uses: actions/checkout@v3
+    - uses: Swatinem/rust-cache@v1
+      if: ${{ steps.vars.outputs.cache == 'true' }}
+    - name: Build static binary
+      uses: platten/rust-musl-action@main
+      with:
+        args: cargo build --target ${{ steps.vars.outputs.target }} --release --bin ${{ env.BINARY_NAME }}
+      env:
+        TOOLCHAIN: ${{ steps.vars.outputs.rust_toolchain }} 
+        TARGET: ${{ steps.vars.outputs.target }} 
+    - name: Upload artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: ${{ env.BINARY_NAME }}-${{ steps.vars.outputs.rust_toolchain }}-${{ steps.vars.outputs.target }}
+        path: ./target/${{ steps.vars.outputs.target }}/release/${{ env.BINARY_NAME }}
