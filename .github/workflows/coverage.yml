@@ -1,0 +1,70 @@
+name: coverage
+
+on: [ push, pull_request ]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  test:
+    name: ${{ matrix.crate.name }} coverage
+    runs-on: ${{ matrix.crate.host }}
+    env:
+      ENARX_BACKEND: ${{ matrix.crate.name }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        crate:
+          - { name: sev, path: ., host: [ self-hosted, linux, sev-snp ], flags: --no-default-features --features=backend-sev }
+          - { name: sgx, path: ., host: [ self-hosted, linux, sgx ], flags: --no-default-features --features=backend-sgx }
+          - { name: kvm, path: ., host: [ self-hosted, linux ], flags: --no-default-features --features=backend-kvm }
+          - { name: exec-wasmtime, path: ./src/bin/exec-wasmtime, host: ubuntu-20.04 }
+          - { name: shim-kvm, path: ./src/bin/shim-kvm, host: [ self-hosted, linux ] }
+          - { name: shim-sgx, path: ./src/bin/shim-sgx, host: [ self-hosted, linux ] }
+          - { name: sallyport, path: ./crates/sallyport, host: [ self-hosted, linux ] }
+
+    steps:
+      - run: sudo apt -o Acquire::Retries=3 update
+      - run: sudo apt -o Acquire::Retries=3 install -y musl-tools lcov
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          target: x86_64-unknown-linux-gnu
+          toolchain: nightly
+          profile: minimal
+      - name: Setup Rust toolchain
+        run: |
+          rustup show
+          rustup component add llvm-tools-preview
+
+      # Use this special version until https://github.com/haraldh/cargo-llvm-cov/commit/a16a14be4a8f2b522f44eed54231b1022e174906
+      # is upstream or in our own enarx repo. It is needed because of our bindeps and enclaves.
+      - name: Install cargo-llvm-cov
+        run: cargo install --git https://github.com/haraldh/cargo-llvm-cov/ --branch target_rustflags --bin cargo-llvm-cov cargo-llvm-cov
+
+      - name: Run cargo-llvm-cov
+        run: cargo llvm-cov ${{ matrix.crate.flags }} --target x86_64-unknown-linux-gnu --manifest-path ${{ matrix.crate.path }}/Cargo.toml --lcov --output-path lcov.info
+
+      - name: Coveralls Parallel
+        uses: coverallsapp/github-action@master
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          flag-name: run-${{ matrix.crate.name }}
+          parallel: true
+          path-to-lcov: lcov.info
+
+  finish:
+    needs: test
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Coveralls Finished
+        uses: coverallsapp/github-action@master
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          parallel-finished: true
