@@ -8,7 +8,7 @@ concurrency:
 
 permissions:
   contents: read
-  pull-requests: read
+  pull-requests: write
 
 jobs:
   test:
@@ -51,20 +51,11 @@ jobs:
       - name: Run cargo-llvm-cov
         run: cargo llvm-cov ${{ matrix.crate.flags }} --target x86_64-unknown-linux-gnu --manifest-path ${{ matrix.crate.path }}/Cargo.toml --lcov --output-path lcov.info
 
-      - name: Coveralls Parallel
-        uses: coverallsapp/github-action@master
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v2
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          flag-name: run-${{ matrix.crate.name }}
-          parallel: true
-          path-to-lcov: lcov.info
-
-  finish:
-    needs: test
-    runs-on: ubuntu-20.04
-    steps:
-      - name: Coveralls Finished
-        uses: coverallsapp/github-action@master
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          parallel-finished: true
+          directory: ./
+          fail_ci_if_error: false
+          files: ./lcov.info
+          name: ${{ matrix.crate.name }}
+          verbose: true
