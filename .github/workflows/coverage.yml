@@ -21,13 +21,30 @@ jobs:
       fail-fast: false
       matrix:
         crate:
-          - { name: sev, path: ., host: [ self-hosted, linux, sev-snp ], flags: --no-default-features --features=backend-sev }
-          - { name: sgx, path: ., host: [ self-hosted, linux, sgx ], flags: --no-default-features --features=backend-sgx }
-          - { name: kvm, path: ., host: [ self-hosted, linux ], flags: --no-default-features --features=backend-kvm }
-          - { name: exec-wasmtime, path: ./crates/exec-wasmtime, host: ubuntu-20.04 }
-          - { name: shim-kvm, path: ./crates/shim-kvm, host: [ self-hosted, linux ] }
-          - { name: shim-sgx, path: ./crates/shim-sgx, host: [ self-hosted, linux ] }
-          - { name: sallyport, path: ./crates/sallyport, host: [ self-hosted, linux ] }
+          - name: sev
+            path: .
+            host: [ self-hosted, linux, sev-snp ]
+            flags: --no-default-features --features=backend-sev
+          - name: sgx
+            path: .
+            host: [ self-hosted, linux, sgx ]
+            flags: --no-default-features --features=backend-sgx
+          - name: kvm
+            path: .
+            host: [ self-hosted, linux ]
+            flags: --no-default-features --features=backend-kvm
+          - name: exec-wasmtime
+            path: ./crates/exec-wasmtime
+            host: ubuntu-20.04 # enarx syscall returns -EPERM on self-hosted (podman??)
+          - name: shim-kvm
+            path: ./crates/shim-kvm
+            host: [ self-hosted, linux ]
+          - name: shim-sgx
+            path: ./crates/shim-sgx
+            host: [ self-hosted, linux ]
+          - name: sallyport
+            path: ./crates/sallyport
+            host: [ self-hosted, linux ]
 
     steps:
       - run: sudo apt -o Acquire::Retries=3 update
