@@ -36,7 +36,7 @@ jobs:
             flags: --no-default-features --features=backend-kvm
           - name: exec-wasmtime
             path: ./crates/exec-wasmtime
-            host: ubuntu-20.04 # enarx syscall returns -EPERM on self-hosted (podman??)
+            host: [ self-hosted, linux ]
           - name: shim-kvm
             path: ./crates/shim-kvm
             host: [ self-hosted, linux ]
