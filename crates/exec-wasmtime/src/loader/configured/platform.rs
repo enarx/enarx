@@ -36,7 +36,9 @@ impl Platform {
     const SYS_GETATT: usize = 0xEA01;
 
     fn get_att(nonce: Option<&[u8]>, mut buf: Option<&mut [u8]>) -> Result<Self> {
-        const ENOSYS: isize = -38;
+        const ENOSYS: isize = -(libc::ENOSYS as isize);
+        const EPERM: isize = -(libc::EPERM as isize);
+
         let mut rax;
         let mut rdx;
 
@@ -56,7 +58,7 @@ impl Platform {
         }
 
         match (rax, rdx) {
-            (ENOSYS, ..) => Ok(Self(Technology::Kvm, 0)),
+            (ENOSYS | EPERM, ..) => Ok(Self(Technology::Kvm, 0)),
             (n, ..) if n < 0 => Err(std::io::Error::from_raw_os_error(-n as i32)),
             (n, t) => match t {
                 0 => Ok(Self(Technology::Kvm, n as _)),
