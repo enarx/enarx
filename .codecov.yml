@@ -1,0 +1,19 @@
+codecov:
+  notify:
+    after_n_builds: 7 # adjust to the number of jobs in .github/workflows/coverage.yml
+    require_ci_to_pass: false
+    wait_for_ci: false
+
+coverage:
+  status:
+    project:
+      default:
+        target: auto  # auto compares coverage to the previous base commit
+        threshold: 0.05%  # the leniency in hitting the target
+    patch:
+      default:
+        target: auto
+        threshold: 0.05%
+
+ignore:
+  - "/tests/"  # ignore test binaries
