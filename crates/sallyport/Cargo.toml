@@ -19,7 +19,7 @@ goblin = { version = "0.5", default-features = false, features = ["elf64"] }
 gdbstub = { version = "0.6", default-features = false, optional = true }
 
 [dev-dependencies]
-libc = { version = "0.2.102", features = ["extra_traits"] }
+libc = { version = "0.2.124", features = ["extra_traits"] }
 serial_test = "0.6"
 testaso = "0.1"
 
