@@ -24,14 +24,9 @@
         devShell = pkgs.mkShell.override { stdenv = pkgs.stdenvNoCC; } {
           buildInputs = (with pkgs; [
             gcc11
-            openssl
             musl
           ]) ++ [
             rust
-          ];
-
-          nativeBuildInputs = with pkgs; [
-            pkg-config
           ];
 
           shellHook = ''
@@ -79,9 +74,6 @@
             ENARX_PREBUILT_exec-wasmtime = "${execWasmtime}/bin/exec-wasmtime";
 
             CARGO_BUILD_TARGET = "x86_64-unknown-linux-gnu";
-
-            nativeBuildInputs = [ pkgs.pkg-config ];
-            buildInputs = [ pkgs.openssl ];
 
             doCheck = true;
             preCheck = ''

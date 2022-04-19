@@ -10,7 +10,7 @@ use std::sync::{Arc, RwLock};
 use anyhow::{Context, Error, Result};
 use mmarinus::{perms, Kind, Map};
 use primordial::Page;
-use sgx::crypto::{openssl::*, *};
+use sgx::crypto::{rcrypto::*, *};
 use sgx::page::{Class, Flags, SecInfo};
 use sgx::signature::{Author, Hasher, Signature};
 
