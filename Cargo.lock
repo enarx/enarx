@@ -615,7 +615,7 @@ dependencies = [
  "libc",
  "pkcs8",
  "ring",
- "rustix 0.34.3",
+ "rustix 0.34.4",
  "rustls",
  "sec1",
  "serde",
@@ -1630,9 +1630,9 @@ dependencies = [
 
 [[package]]
 name = "rustix"
-version = "0.34.3"
+version = "0.34.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cb617eb09c4ef1536405e357e3b63f39e3ab4cc2159db05395278ad5c352bb16"
+checksum = "3f5d1c6ed6d1c6915aa64749b809fc1bafff49d160f5d927463658093d7d62ab"
 dependencies = [
  "bitflags",
  "errno",
