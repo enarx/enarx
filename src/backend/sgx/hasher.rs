@@ -5,7 +5,7 @@ use std::convert::TryFrom;
 use anyhow::{Error, Result};
 use sgx::page::SecInfo;
 
-pub struct Hasher(sgx::signature::Hasher<sgx::crypto::openssl::S256Digest>);
+pub struct Hasher(sgx::signature::Hasher<sgx::crypto::rcrypto::S256Digest>);
 
 impl TryFrom<super::config::Config> for Hasher {
     type Error = Error;
