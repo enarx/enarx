@@ -17,7 +17,7 @@ cap-std = "0.24.2"
 clap = { version = "3.1.9", default-features = false, features = ["derive", "std"] }
 const-oid = "0.9.0"
 env_logger = { version = "0.9", default-features = false }
-libc = "0.2.102"
+libc = "0.2.124"
 pkcs8 = "0.9.0-pre.1"
 ring = { version = "0.16.20", features = ["std"] }
 rustix = "0.34.4"
