@@ -3,6 +3,9 @@
 use super::attestation::{get_attestation_key_id, get_key_size, get_quote, get_target_info};
 #[cfg(feature = "gdb")]
 use crate::backend::execute_gdb;
+use crate::backend::sgx::ioctls::{
+    ModifyTypes, RemovePages, ENCLAVE_MODIFY_TYPES, ENCLAVE_REMOVE_PAGES,
+};
 use crate::backend::Command;
 
 use std::arch::asm;
@@ -26,7 +29,7 @@ use sgx::ssa::Vector;
 use vdso::Symbol;
 
 pub struct Thread {
-    enclave: Arc<super::Keep>,
+    keep: Arc<super::Keep>,
     vdso: &'static Symbol,
     tcs: *const super::Tcs,
     block: Vec<usize>,
@@ -38,7 +41,7 @@ pub struct Thread {
 
 impl Drop for Thread {
     fn drop(&mut self) {
-        self.enclave.tcs.write().unwrap().push(self.tcs)
+        self.keep.tcs.write().unwrap().push(self.tcs)
     }
 }
 
@@ -57,7 +60,7 @@ impl super::super::Keep for super::Keep {
         let block = vec![0; self.sallyport_block_size as usize / size_of::<usize>()];
 
         Ok(Some(Box::new(Thread {
-            enclave: self,
+            keep: self,
             vdso,
             tcs,
             block,
@@ -69,7 +72,11 @@ impl super::super::Keep for super::Keep {
     }
 }
 
-fn sgx_enarxcall<'a>(enarxcall: &'a mut Payload, data: &'a mut [u8]) -> Result<Option<Item<'a>>> {
+fn sgx_enarxcall<'a>(
+    enarxcall: &'a mut Payload,
+    data: &'a mut [u8],
+    keep: Arc<super::Keep>,
+) -> Result<Option<Item<'a>>> {
     match enarxcall {
         item::Enarxcall {
             num: item::enarxcall::Number::Cpuid,
@@ -151,6 +158,34 @@ fn sgx_enarxcall<'a>(enarxcall: &'a mut Payload, data: &'a mut [u8]) -> Result<O
             let akid = get_attestation_key_id().context("error obtaining attestation key id")?;
             *ret = get_quote_size(akid).context("error getting quote size")?;
 
+            Ok(None)
+        }
+
+        item::Enarxcall {
+            num: item::enarxcall::Number::RemoveSgxPages,
+            argv: [addr, length, ..],
+            ret,
+            ..
+        } => {
+            let mut parameters = RemovePages::new(*addr - keep.mem.addr(), *length);
+            ENCLAVE_REMOVE_PAGES
+                .ioctl(&mut keep.enclave.try_clone().unwrap(), &mut parameters)
+                .context("ENCLAVE_REMOVE_PAGES failed")?;
+            *ret = 0;
+            Ok(None)
+        }
+
+        item::Enarxcall {
+            num: item::enarxcall::Number::TrimSgxPages,
+            argv: [addr, length, ..],
+            ret,
+            ..
+        } => {
+            let mut parameters = ModifyTypes::new(*addr - keep.mem.addr(), *length, 4);
+            ENCLAVE_MODIFY_TYPES
+                .ioctl(&mut keep.enclave.try_clone().unwrap(), &mut parameters)
+                .context("ENCLAVE_MODIFY_TYPES failed")?;
+            *ret = 0;
             Ok(None)
         }
 
@@ -248,9 +283,11 @@ impl super::super::Thread for Thread {
                         }
 
                         Item::Enarxcall(enarxcall, data) => {
-                            sallyport::host::execute(sgx_enarxcall(enarxcall, data)?.into_iter())
-                                .map_err(io::Error::from_raw_os_error)
-                                .context("sallyport::host::execute")?;
+                            sallyport::host::execute(
+                                sgx_enarxcall(enarxcall, data, self.keep.clone())?.into_iter(),
+                            )
+                            .map_err(io::Error::from_raw_os_error)
+                            .context("sallyport::host::execute")?;
                         }
 
                         // Catch exit and exit_group for a clean shutdown

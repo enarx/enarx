@@ -31,6 +31,12 @@ pub const ENCLAVE_SET_ATTRIBUTE: Ioctl<Write, &SetAttribute<'_>> = unsafe { SGX.
 pub const ENCLAVE_RESTRICT_PERMISSIONS: Ioctl<WriteRead, &RestrictPermissions> =
     unsafe { SGX.write_read(0x05) };
 
+/// SGX_IOC_ENCLAVE_MODIFY_TYPES
+pub const ENCLAVE_MODIFY_TYPES: Ioctl<WriteRead, &ModifyTypes> = unsafe { SGX.write_read(0x06) };
+
+/// SGX_IOC_ENCLAVE_REMOVE_PAGES
+pub const ENCLAVE_REMOVE_PAGES: Ioctl<WriteRead, &RemovePages> = unsafe { SGX.write_read(0x07) };
+
 #[repr(C)]
 #[derive(Debug)]
 /// Struct for creating a new enclave from SECS
@@ -148,13 +154,79 @@ impl RestrictPermissions {
     }
 }
 
+#[repr(C)]
+#[derive(Debug)]
+/// SGX_IOC_ENCLAVE_MODIFY_TYPES parameter structure
+pub struct ModifyTypes {
+    /// In: starting page offset
+    offset: u64,
+    /// In: length of the address range (multiple of the page size)
+    length: u64,
+    /// In: page type
+    page_type: u64,
+    /// Out: ENCLU[EMODT] return value
+    result: u64,
+    /// Out: length of the address range successfully changed
+    count: u64,
+}
+
+impl ModifyTypes {
+    /// Create a new ModifyTypes instance.
+    pub fn new(offset: usize, length: usize, page_type: usize) -> Self {
+        Self {
+            offset: offset as _,
+            length: length as _,
+            page_type: page_type as _,
+            result: 0,
+            count: 0,
+        }
+    }
+
+    /// Read result attribute.
+    pub fn result(&self) -> u64 {
+        self.count
+    }
+
+    /// Read count attribute.
+    pub fn count(&self) -> u64 {
+        self.count
+    }
+}
+
+#[repr(C)]
+#[derive(Debug)]
+/// SGX_IOC_ENCLAVE_REMOVE_PAGES parameter structure
+pub struct RemovePages {
+    /// In: starting page offset
+    offset: u64,
+    /// In: length of the address range (multiple of the page size)
+    length: u64,
+    /// Out: length of the address range successfully changed
+    count: u64,
+}
+
+impl RemovePages {
+    /// Create a new RemovePages instance.
+    pub fn new(offset: usize, length: usize) -> Self {
+        Self {
+            offset: offset as _,
+            length: length as _,
+            count: 0,
+        }
+    }
+
+    /// Read count attribute.
+    pub fn count(&self) -> u64 {
+        self.count
+    }
+}
+
 #[cfg(all(test, host_can_test_sgx))]
 mod tests {
     use super::*;
 
     #[test]
     fn restrict_permissions() {
-        use sgx::page::Class;
         use std::fs::OpenOptions;
 
         let mut device_file = OpenOptions::new()

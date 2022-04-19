@@ -16,7 +16,7 @@ disable-sgx-attestation = []
 const-default = { version = "1.0", default-features = false }
 crt0stack = { version = "0.1", default-features = false }
 goblin = { version = "0.5", features = ["elf64"], default-features = false }
-mmledger = { version = "0.2.0", default-features = false }
+mmledger = { git = "https://github.com/enarx/mmledger", rev = "af098f235fc8ac0b3d96d51e5a56aeb288374c2d", default-features = false }
 noted = { version = "1.0.0", default-features = false }
 primordial = { version = "0.5.0", features = ["const-default"], default-features = false }
 rcrt1 = { version = "1.0.0", default-features = false }

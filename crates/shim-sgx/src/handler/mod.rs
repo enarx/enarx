@@ -92,6 +92,23 @@ impl<'a> Handler<'a> {
             }
         }
     }
+
+    /// Acknowledge the trimmed pages, i.e. the pages commited by ENCLS[EMODT]
+    /// with `Class::Trimmed` page type.
+    fn accept_munmap(&mut self, region: Region) {
+        assert!(region.start < region.end);
+        let length = region.end - region.start;
+        // Zero permissions because ENCLS[EMODT] resets them:
+        let secinfo = Class::Trimmed.info(Flags::MODIFIED);
+        for i in 0..length.items() {
+            let virt_addr = VirtAddr::new((region.start.raw() + i * Page::SIZE) as u64);
+            let page_addr = PageAddr::from_start_address(virt_addr).unwrap();
+            // FIXME: handle with `.unwrap()` once `SecInfo` implements `Debug` trait.
+            if secinfo.accept(page_addr).is_err() {
+                panic!();
+            }
+        }
+    }
 }
 
 impl<'a> Write for Handler<'a> {
@@ -230,9 +247,40 @@ impl guest::Handler for Handler<'_> {
     fn munmap(
         &mut self,
         _platform: &impl Platform,
-        _addr: NonNull<c_void>,
-        _length: c_size_t,
+        addr: NonNull<c_void>,
+        length: c_size_t,
     ) -> sallyport::Result<()> {
+        let addr = addr.as_ptr() as usize;
+
+        if addr & 0xfff != 0 || length == 0 {
+            return Err(EINVAL);
+        }
+
+        let addr = Address::<usize, Page>::new(addr);
+        let length = Offset::from_items((length + Page::SIZE - 1) / Page::SIZE);
+        let region = Region::new(addr, addr + length);
+
+        let mut heap = HEAP.write();
+
+        if heap.contains(region) == None {
+            return Err(EINVAL);
+        }
+
+        self.trim_sgx_pages(
+            NonNull::new(addr.raw() as *mut _).unwrap(),
+            length.items() * Page::SIZE,
+        )?;
+        self.accept_munmap(region);
+        self.remove_sgx_pages(
+            NonNull::new(addr.raw() as *mut _).unwrap(),
+            length.items() * Page::SIZE,
+        )?;
+
+        // Must be the last operation. This makes sure that corrupted memory
+        // will never be made available, if any of the previous operations
+        // fail.
+        heap.munmap(region);
+
         Ok(())
     }
 }

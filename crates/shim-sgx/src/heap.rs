@@ -30,6 +30,12 @@ impl Heap {
         }
     }
 
+    /// Check whether the ledger contains the given region, and return the
+    /// maximum allowed access for it.
+    pub fn contains(&self, region: Region) -> Option<Access> {
+        self.ledger.contains(region)
+    }
+
     /// Return the maximum `brk` address reached.
     pub fn brk_max(&self) -> Address<usize, Page> {
         self.brk_max
@@ -80,6 +86,12 @@ impl Heap {
         self.ledger.map(region, access).ok()?;
         Some(addr)
     }
+
+    /// Release a region.
+    pub fn munmap(&mut self, region: Region) {
+        assert!(self.contains(region) != None);
+        assert!(self.ledger.unmap(region).is_ok());
+    }
 }
 
 #[cfg(test)]
@@ -109,6 +121,8 @@ mod tests {
 
     #[test]
     fn mmap_order() {
+        let mut heap = Heap::new(Address::new(0), Address::new(BYTES));
+
         for pages in [128, 64] {
             let brk_page = PAGES - pages;
             let brk = Address::new(brk_page * Page::SIZE);
@@ -116,7 +130,6 @@ mod tests {
             let steps = [1, pages];
 
             for allocated in steps {
-                let mut heap = Heap::new(Address::new(0), Address::new(BYTES));
                 assert_ne!(heap.mmap(Offset::from_items(allocated), Access::READ), None);
 
                 let ret = heap.brk(brk);
@@ -128,6 +141,11 @@ mod tests {
                 for page in PAGES - allocated..PAGES {
                     assert!(heap.is_allocated(page));
                 }
+
+                heap.munmap(Region::new(
+                    Address::new((PAGES - allocated) * Page::SIZE),
+                    Address::new(BYTES),
+                ));
             }
         }
     }
