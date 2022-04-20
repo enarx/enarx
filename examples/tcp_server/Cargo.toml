@@ -6,4 +6,4 @@ license = "MIT"
 
 [dependencies]
 env_logger = { version = "0.8", default-features = false }
-mio = { version = "0.8.2", features=[ "os-poll", "net" ] }
+mio = { version = "0.8.2", features = ["os-poll", "net"], default-features = false }

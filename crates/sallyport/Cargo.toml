@@ -13,15 +13,15 @@ categories = ["no-std"]
 doc = ["gdbstub"]
 
 [dependencies]
-goblin = { version = "0.5", default-features = false, features = ["elf64"] }
+goblin = { version = "0.5", features = ["elf64"], default-features = false }
 
 # optional features
-gdbstub = { version = "0.6", default-features = false, optional = true }
+gdbstub = { version = "0.6", optional = true, default-features = false }
 
 [dev-dependencies]
-libc = { version = "0.2.124", features = ["extra_traits"] }
-serial_test = "0.6"
-testaso = "0.1"
+libc = { version = "0.2.124", features = ["extra_traits"], default-features = false }
+serial_test = { version = "0.6", default-features = false }
+testaso = { version = "0.1", default-features = false }
 
 [package.metadata.docs.rs]
 all-features = true

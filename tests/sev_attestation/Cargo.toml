@@ -5,7 +5,7 @@ edition = "2021"
 license = "Apache-2.0"
 
 [dependencies]
-sallyport = { path = "../../crates/sallyport" }
+sallyport = { version = "0.4.0", path = "../../crates/sallyport", default-features = false }
 
 [dev-dependencies]
-testaso = "0.1.0"
+testaso = { version = "0.1.0", default-features = false }
