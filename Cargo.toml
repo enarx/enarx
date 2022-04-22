@@ -23,7 +23,7 @@ dbg = []
 disable-sgx-attestation = []
 
 [dependencies]
-anyhow = { version = "1.0.56", features = ["std"], default-features = false }
+anyhow = { version = "1.0.57", features = ["std"], default-features = false }
 atty = { version = "0.2", default-features = false }
 bitflags = { version = "1.2", default-features = false }
 clap = { version = "3.1", features = ["env", "derive", "std"], default-features = false }
