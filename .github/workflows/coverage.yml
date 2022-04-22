@@ -18,7 +18,6 @@ jobs:
       ENARX_BACKEND: ${{ matrix.crate.name }}
 
     strategy:
-      fail-fast: false
       matrix:
         crate:
           # If you change the number of elements here, also adjust /.codecov.yml

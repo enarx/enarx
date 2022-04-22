@@ -19,7 +19,6 @@ jobs:
           command: fmt
           args: --manifest-path=${{ matrix.crate.path }} -- --check
     strategy:
-      fail-fast: false
       matrix:
         crate:
           - {name: enarx, path: Cargo.toml}
@@ -42,7 +41,6 @@ jobs:
           command: clippy
           args: ${{ matrix.crate.target }} --all-features --manifest-path=${{ matrix.crate.path }} -- -D warnings
     strategy:
-      fail-fast: false
       matrix:
         crate:
           - {name: enarx, path: Cargo.toml}
@@ -77,7 +75,6 @@ jobs:
           command: clippy
           args: ${{ matrix.profile.flag }} --no-default-features --features=backend-${{ matrix.backend.name }} --examples -- -D warnings
     strategy:
-      fail-fast: false
       matrix:
         backend:
           - {name: sev, host: [self-hosted, linux, sev-snp]}
@@ -97,7 +94,6 @@ jobs:
         with:
           arguments: --workspace --manifest-path=${{ matrix.crate.path }}
     strategy:
-      fail-fast: false
       matrix:
         crate:
           - {name: enarx, path: ./Cargo.toml}

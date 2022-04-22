@@ -31,7 +31,6 @@ jobs:
           command: test
           args: ${{ matrix.profile.flag }} --no-default-features --features=backend-${{ matrix.backend.name }}
     strategy:
-      fail-fast: false
       matrix:
         backend:
           - {name: sev, host: [self-hosted, linux, sev-snp]}
@@ -58,7 +57,6 @@ jobs:
           command: build
           args: ${{ matrix.profile.flag }}
     strategy:
-      fail-fast: false
       matrix:
         profile:
           - name: default-features
@@ -76,7 +74,6 @@ jobs:
         run: rustup show
       - run: cargo test ${{ matrix.profile.flag }} --target x86_64-unknown-linux-gnu --manifest-path ${{ matrix.crate.path }}/Cargo.toml
     strategy:
-      fail-fast: false
       matrix:
         crate:
           - { name: exec-wasmtime, path: crates/exec-wasmtime }
@@ -110,7 +107,6 @@ jobs:
           command: miri
           args: test --manifest-path ${{ matrix.crate.path }}/Cargo.toml
     strategy:
-      fail-fast: false
       matrix:
         crate:
           - { name: sallyport, path: crates/sallyport }
