@@ -12,10 +12,11 @@ categories = ["os", "os::linux-apis", "network-programming", "hardware-support"]
 exclude = [".github/"]
 
 [features]
-default = ["backend-kvm", "backend-sev", "backend-sgx"]
+default = ["backend-kvm", "backend-sev", "backend-sgx", "backend-nil"]
 backend-kvm = ["kvm-bindings", "kvm-ioctls", "x86_64"]
 backend-sev = ["backend-kvm", "ureq"]
 backend-sgx = ["sgx", "ureq", "x86_64"]
+backend-nil = ["crt0stack"]
 
 # non-default features
 gdb = ["gdbstub"]
@@ -29,6 +30,7 @@ bitflags = { version = "1.2", default-features = false }
 clap = { version = "3.1", features = ["env", "derive", "std"], default-features = false }
 colorful = { version = "0.2", default-features = false }
 const-default = { version = "1.0", features = ["derive"], default-features = false }
+crt0stack = { version = "0.1", default-features = false, optional = true }
 dirs = { version = "4.0", default-features = false }
 env_logger = { version = "0.9", default-features = false }
 goblin = { version = "0.5", features = ["elf64"], default-features = false }

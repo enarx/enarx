@@ -572,6 +572,7 @@ dependencies = [
  "clap",
  "colorful",
  "const-default",
+ "crt0stack",
  "dirs",
  "enarx-exec-wasmtime",
  "enarx-shim-kvm",

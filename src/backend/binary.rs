@@ -23,7 +23,15 @@ struct Segment<'a> {
 pub struct Binary<'a>(&'a [u8], Elf<'a>);
 
 impl<'a> Binary<'a> {
-    fn new(bytes: &'a [u8]) -> Result<Self> {
+    pub fn bytes(&self) -> &'a [u8] {
+        self.0
+    }
+
+    pub fn elf(&self) -> &Elf<'a> {
+        &self.1
+    }
+
+    pub fn new(bytes: &'a [u8]) -> Result<Self> {
         let elf = Elf::parse(bytes)?;
 
         if elf.header.e_ident[EI_CLASS] != ELFCLASS64 {
@@ -83,7 +91,7 @@ impl<'a> Binary<'a> {
     }
 
     /// Find the total memory region for the binary.
-    fn range(&self) -> Range<usize> {
+    pub fn range(&self) -> Range<usize> {
         let lo = self
             .headers(PT_LOAD)
             .map(|phdr| phdr.vm_range().start)
