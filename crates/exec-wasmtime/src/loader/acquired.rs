@@ -9,7 +9,6 @@ impl Loader<Acquired> {
     pub fn next(self) -> Result<Loader<Compiled>> {
         // Set up the wasmtime config.
         let mut config = wasmtime::Config::new();
-        config.wasm_module_linking(true);
         config.wasm_multi_memory(true);
         config.static_memory_maximum_size(0);
         config.static_memory_guard_size(0);

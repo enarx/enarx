@@ -28,11 +28,11 @@ sha2 = { version = "0.10.2", default-features = false }
 toml = { version = "0.5.9", default-features = false }
 ureq = { version = "2.4.0", default-features = false }
 url = { version = "2.2.2", features = ["serde"], default-features = false }
-wasi-common = { version = "0.35.2", default-features = false }
-wasmtime = { version = "0.35.2", features = ["cranelift", "pooling-allocator"], default-features = false }
-wasmtime-wasi = { version = "0.35.2", features = ["sync"], default-features = false }
+wasi-common = { version = "0.36", default-features = false }
+wasmtime = { version = "0.36", features = ["cranelift", "pooling-allocator"], default-features = false }
+wasmtime-wasi = { version = "0.36", features = ["sync"], default-features = false }
+wiggle = { version = "0.36", default-features = false }
 webpki-roots = { version = "0.22.2", default-features = false }
-wiggle = { version = "0.35.2", default-features = false }
 x509 = { package = "x509-cert", version = "0.0.2", features = ["std"], default-features = false }
 zeroize = { version = "1.5.4", features = ["alloc"], default-features = false }
 

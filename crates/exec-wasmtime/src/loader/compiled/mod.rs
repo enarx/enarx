@@ -40,7 +40,7 @@ impl Loader<Compiled> {
             let srv = self.0.srvcfg.clone();
             let clt = self.0.cltcfg.clone();
 
-            let (file, mut caps): (Box<dyn WasiFile>, _) = match file {
+            let (mut file, mut caps): (Box<dyn WasiFile>, _) = match file {
                 File::Null { .. } => (Box::new(Null), FileCaps::all()),
                 File::Stdin { .. } => (Box::new(stdin()), FileCaps::all()),
                 File::Stdout { .. } => (Box::new(stdout()), FileCaps::all()),
