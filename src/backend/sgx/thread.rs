@@ -207,7 +207,10 @@ impl super::super::Thread for Thread {
 
             EEXIT => ERESUME,
 
-            _ => panic!("Unexpected AEX: {:?}", run.vector),
+            _ => panic!(
+                "Unexpected {:?}: address = {:>#016x}, error code = {:>#016b}",
+                run.vector, run.exception_addr, run.exception_error_code
+            ),
         };
 
         // Keep track of the CSSA
