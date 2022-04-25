@@ -1685,6 +1685,7 @@ version = "0.20.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4fbfeb8d0ddb84706bc597a5574ab8912817c52a397f819e5b614e2265206921"
 dependencies = [
+ "log",
  "ring",
  "sct",
  "webpki",
@@ -2139,7 +2140,10 @@ dependencies = [
  "chunked_transfer",
  "log",
  "once_cell",
+ "rustls",
  "url",
+ "webpki",
+ "webpki-roots",
 ]
 
 [[package]]
