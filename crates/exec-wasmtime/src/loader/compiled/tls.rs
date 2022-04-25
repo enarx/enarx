@@ -183,19 +183,19 @@ impl WasiFile for Stream {
         self.any.sock_accept(fdflags).await
     }
 
-    async fn datasync(&self) -> Result<(), Error> {
+    async fn datasync(&mut self) -> Result<(), Error> {
         self.any.datasync().await
     }
 
-    async fn sync(&self) -> Result<(), Error> {
+    async fn sync(&mut self) -> Result<(), Error> {
         self.any.sync().await
     }
 
-    async fn get_filetype(&self) -> Result<FileType, Error> {
+    async fn get_filetype(&mut self) -> Result<FileType, Error> {
         self.any.get_filetype().await
     }
 
-    async fn get_fdflags(&self) -> Result<FdFlags, Error> {
+    async fn get_fdflags(&mut self) -> Result<FdFlags, Error> {
         self.any.get_fdflags().await
     }
 
@@ -203,31 +203,31 @@ impl WasiFile for Stream {
         self.any.set_fdflags(fdflags).await
     }
 
-    async fn get_filestat(&self) -> Result<Filestat, Error> {
+    async fn get_filestat(&mut self) -> Result<Filestat, Error> {
         self.any.get_filestat().await
     }
 
-    async fn set_filestat_size(&self, size: u64) -> Result<(), Error> {
+    async fn set_filestat_size(&mut self, size: u64) -> Result<(), Error> {
         self.any.set_filestat_size(size).await
     }
 
-    async fn advise(&self, offset: u64, len: u64, advice: Advice) -> Result<(), Error> {
+    async fn advise(&mut self, offset: u64, len: u64, advice: Advice) -> Result<(), Error> {
         self.any.advise(offset, len, advice).await
     }
 
-    async fn allocate(&self, offset: u64, len: u64) -> Result<(), Error> {
+    async fn allocate(&mut self, offset: u64, len: u64) -> Result<(), Error> {
         self.any.allocate(offset, len).await
     }
 
     async fn set_times(
-        &self,
+        &mut self,
         atime: Option<wasi_common::SystemTimeSpec>,
         mtime: Option<wasi_common::SystemTimeSpec>,
     ) -> Result<(), Error> {
         self.any.set_times(atime, mtime).await
     }
 
-    async fn read_vectored<'a>(&self, bufs: &mut [IoSliceMut<'a>]) -> Result<u64, Error> {
+    async fn read_vectored<'a>(&mut self, bufs: &mut [IoSliceMut<'a>]) -> Result<u64, Error> {
         self.complete_io()?;
 
         self.lck
@@ -242,14 +242,14 @@ impl WasiFile for Stream {
     }
 
     async fn read_vectored_at<'a>(
-        &self,
+        &mut self,
         _bufs: &mut [IoSliceMut<'a>],
         _offset: u64,
     ) -> Result<u64, Error> {
         Err(Error::badf())
     }
 
-    async fn write_vectored<'a>(&self, bufs: &[IoSlice<'a>]) -> Result<u64, Error> {
+    async fn write_vectored<'a>(&mut self, bufs: &[IoSlice<'a>]) -> Result<u64, Error> {
         self.complete_io()?;
 
         let n = self
@@ -268,18 +268,18 @@ impl WasiFile for Stream {
     }
 
     async fn write_vectored_at<'a>(
-        &self,
+        &mut self,
         _bufs: &[IoSlice<'a>],
         _offset: u64,
     ) -> Result<u64, Error> {
         Err(Error::badf())
     }
 
-    async fn seek(&self, pos: std::io::SeekFrom) -> Result<u64, Error> {
+    async fn seek(&mut self, pos: std::io::SeekFrom) -> Result<u64, Error> {
         self.any.seek(pos).await
     }
 
-    async fn peek(&self, _buf: &mut [u8]) -> Result<u64, Error> {
+    async fn peek(&mut self, _buf: &mut [u8]) -> Result<u64, Error> {
         Err(Error::badf())
     }
 
@@ -287,7 +287,7 @@ impl WasiFile for Stream {
         self.any.num_ready_bytes().await
     }
 
-    fn isatty(&self) -> bool {
+    fn isatty(&mut self) -> bool {
         self.any.isatty()
     }
 
@@ -348,19 +348,19 @@ impl WasiFile for Listener {
         Ok(Box::new(stream))
     }
 
-    async fn datasync(&self) -> Result<(), Error> {
+    async fn datasync(&mut self) -> Result<(), Error> {
         self.any.datasync().await
     }
 
-    async fn sync(&self) -> Result<(), Error> {
+    async fn sync(&mut self) -> Result<(), Error> {
         self.any.sync().await
     }
 
-    async fn get_filetype(&self) -> Result<FileType, Error> {
+    async fn get_filetype(&mut self) -> Result<FileType, Error> {
         self.any.get_filetype().await
     }
 
-    async fn get_fdflags(&self) -> Result<FdFlags, Error> {
+    async fn get_fdflags(&mut self) -> Result<FdFlags, Error> {
         self.any.get_fdflags().await
     }
 
@@ -368,55 +368,59 @@ impl WasiFile for Listener {
         self.any.set_fdflags(fdflags).await
     }
 
-    async fn get_filestat(&self) -> Result<Filestat, Error> {
+    async fn get_filestat(&mut self) -> Result<Filestat, Error> {
         self.any.get_filestat().await
     }
 
-    async fn set_filestat_size(&self, size: u64) -> Result<(), Error> {
+    async fn set_filestat_size(&mut self, size: u64) -> Result<(), Error> {
         self.any.set_filestat_size(size).await
     }
 
-    async fn advise(&self, offset: u64, len: u64, advice: Advice) -> Result<(), Error> {
+    async fn advise(&mut self, offset: u64, len: u64, advice: Advice) -> Result<(), Error> {
         self.any.advise(offset, len, advice).await
     }
 
-    async fn allocate(&self, offset: u64, len: u64) -> Result<(), Error> {
+    async fn allocate(&mut self, offset: u64, len: u64) -> Result<(), Error> {
         self.any.allocate(offset, len).await
     }
 
     async fn set_times(
-        &self,
+        &mut self,
         atime: Option<wasi_common::SystemTimeSpec>,
         mtime: Option<wasi_common::SystemTimeSpec>,
     ) -> Result<(), Error> {
         self.any.set_times(atime, mtime).await
     }
 
-    async fn read_vectored<'a>(&self, bufs: &mut [IoSliceMut<'a>]) -> Result<u64, Error> {
+    async fn read_vectored<'a>(&mut self, bufs: &mut [IoSliceMut<'a>]) -> Result<u64, Error> {
         self.any.read_vectored(bufs).await
     }
 
     async fn read_vectored_at<'a>(
-        &self,
+        &mut self,
         bufs: &mut [IoSliceMut<'a>],
         offset: u64,
     ) -> Result<u64, Error> {
         self.any.read_vectored_at(bufs, offset).await
     }
 
-    async fn write_vectored<'a>(&self, bufs: &[IoSlice<'a>]) -> Result<u64, Error> {
+    async fn write_vectored<'a>(&mut self, bufs: &[IoSlice<'a>]) -> Result<u64, Error> {
         self.any.write_vectored(bufs).await
     }
 
-    async fn write_vectored_at<'a>(&self, bufs: &[IoSlice<'a>], offset: u64) -> Result<u64, Error> {
+    async fn write_vectored_at<'a>(
+        &mut self,
+        bufs: &[IoSlice<'a>],
+        offset: u64,
+    ) -> Result<u64, Error> {
         self.any.write_vectored_at(bufs, offset).await
     }
 
-    async fn seek(&self, pos: std::io::SeekFrom) -> Result<u64, Error> {
+    async fn seek(&mut self, pos: std::io::SeekFrom) -> Result<u64, Error> {
         self.any.seek(pos).await
     }
 
-    async fn peek(&self, buf: &mut [u8]) -> Result<u64, Error> {
+    async fn peek(&mut self, buf: &mut [u8]) -> Result<u64, Error> {
         self.any.peek(buf).await
     }
 
@@ -424,7 +428,7 @@ impl WasiFile for Listener {
         self.any.num_ready_bytes().await
     }
 
-    fn isatty(&self) -> bool {
+    fn isatty(&mut self) -> bool {
         self.any.isatty()
     }
 
