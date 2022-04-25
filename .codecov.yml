@@ -9,47 +9,47 @@ coverage:
     project:
       default: false
       shim-kvm:
-        paths: [ "/crates/shim-kvm/" ]
+        paths: [ "crates/shim-kvm" ]
         target: auto  # auto compares coverage to the previous base commit
         threshold: 0.05%  # the leniency in hitting the target
       shim-sgx:
-        paths: [ "/crates/shim-sgx/" ]
+        paths: [ "crates/shim-sgx" ]
         target: auto  # auto compares coverage to the previous base commit
         threshold: 0.05%  # the leniency in hitting the target
       sallyport:
-        paths: [ "/crates/sallyport/" ]
+        paths: [ "crates/sallyport" ]
         target: auto  # auto compares coverage to the previous base commit
         threshold: 0.05%  # the leniency in hitting the target
       exec-wasmtime:
-        paths: [ "/crates/exec-wasmtime/" ]
+        paths: [ "crates/exec-wasmtime" ]
         target: auto  # auto compares coverage to the previous base commit
         threshold: 0.05%  # the leniency in hitting the target
       enarx:
-        paths: [ "/src/" ]
+        paths: [ "src" ]
         target: auto  # auto compares coverage to the previous base commit
         threshold: 0.05%  # the leniency in hitting the target
     patch:
       default: false
       shim-kvm:
-        paths: [ "/crates/shim-kvm/" ]
+        paths: [ "crates/shim-kvm" ]
         target: auto  # auto compares coverage to the previous base commit
         threshold: 0.05%  # the leniency in hitting the target
       shim-sgx:
-        paths: [ "/crates/shim-sgx/" ]
+        paths: [ "crates/shim-sgx" ]
         target: auto  # auto compares coverage to the previous base commit
         threshold: 0.05%  # the leniency in hitting the target
       sallyport:
-        paths: [ "/crates/sallyport/" ]
+        paths: [ "crates/sallyport" ]
         target: auto  # auto compares coverage to the previous base commit
         threshold: 0.05%  # the leniency in hitting the target
       exec-wasmtime:
-        paths: [ "/crates/exec-wasmtime/" ]
+        paths: [ "crates/exec-wasmtime" ]
         target: auto  # auto compares coverage to the previous base commit
         threshold: 0.05%  # the leniency in hitting the target
       enarx:
-        paths: [ "/src/" ]
+        paths: [ "src" ]
         target: auto  # auto compares coverage to the previous base commit
         threshold: 0.05%  # the leniency in hitting the target
 
 ignore:
-  - "/tests/"  # ignore test binaries
+  - "tests"  # ignore test binaries
