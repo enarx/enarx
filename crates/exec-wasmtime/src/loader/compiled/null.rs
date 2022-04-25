@@ -3,8 +3,8 @@
 
 use std::any::Any;
 
-use wasi_common::file::{Advice, FdFlags, FileType, Filestat};
-use wasi_common::{Error, ErrorExt, WasiFile};
+use wasi_common::file::{FdFlags, FileType};
+use wasi_common::{Error, WasiFile};
 
 pub struct Null;
 
@@ -14,52 +14,12 @@ impl WasiFile for Null {
         self
     }
 
-    async fn sock_accept(&mut self, _fdflags: FdFlags) -> Result<Box<dyn WasiFile>, Error> {
-        Err(Error::badf())
-    }
-
-    async fn datasync(&mut self) -> Result<(), Error> {
-        Ok(())
-    }
-
-    async fn sync(&mut self) -> Result<(), Error> {
-        Ok(())
-    }
-
     async fn get_filetype(&mut self) -> Result<FileType, Error> {
         Ok(FileType::Pipe)
     }
 
     async fn get_fdflags(&mut self) -> Result<FdFlags, Error> {
         Ok(FdFlags::APPEND | FdFlags::NONBLOCK)
-    }
-
-    async fn set_fdflags(&mut self, _fdflags: FdFlags) -> Result<(), Error> {
-        Err(Error::badf())
-    }
-
-    async fn get_filestat(&mut self) -> Result<Filestat, Error> {
-        Err(Error::badf())
-    }
-
-    async fn set_filestat_size(&mut self, _size: u64) -> Result<(), Error> {
-        Err(Error::badf())
-    }
-
-    async fn advise(&mut self, _offset: u64, _len: u64, _advice: Advice) -> Result<(), Error> {
-        Err(Error::badf())
-    }
-
-    async fn allocate(&mut self, _offset: u64, _len: u64) -> Result<(), Error> {
-        Err(Error::badf())
-    }
-
-    async fn set_times(
-        &mut self,
-        _atime: Option<wasi_common::SystemTimeSpec>,
-        _mtime: Option<wasi_common::SystemTimeSpec>,
-    ) -> Result<(), Error> {
-        Err(Error::badf())
     }
 
     async fn read_vectored<'a>(
@@ -89,20 +49,8 @@ impl WasiFile for Null {
         Ok(bufs.iter().map(|b| b.len()).sum::<usize>() as _)
     }
 
-    async fn seek(&mut self, _pos: std::io::SeekFrom) -> Result<u64, Error> {
-        Err(Error::badf())
-    }
-
     async fn peek(&mut self, _buf: &mut [u8]) -> Result<u64, Error> {
         Ok(0)
-    }
-
-    async fn num_ready_bytes(&self) -> Result<u64, Error> {
-        Ok(0)
-    }
-
-    fn isatty(&mut self) -> bool {
-        false
     }
 
     async fn readable(&self) -> Result<(), Error> {
