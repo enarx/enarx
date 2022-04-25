@@ -7,13 +7,49 @@ codecov:
 coverage:
   status:
     project:
-      default:
+      default: false
+      shim-kvm:
+        paths: [ "/crates/shim-kvm/" ]
+        target: auto  # auto compares coverage to the previous base commit
+        threshold: 0.05%  # the leniency in hitting the target
+      shim-sgx:
+        paths: [ "/crates/shim-sgx/" ]
+        target: auto  # auto compares coverage to the previous base commit
+        threshold: 0.05%  # the leniency in hitting the target
+      sallyport:
+        paths: [ "/crates/sallyport/" ]
+        target: auto  # auto compares coverage to the previous base commit
+        threshold: 0.05%  # the leniency in hitting the target
+      exec-wasmtime:
+        paths: [ "/crates/exec-wasmtime/" ]
+        target: auto  # auto compares coverage to the previous base commit
+        threshold: 0.05%  # the leniency in hitting the target
+      enarx:
+        paths: [ "/src/" ]
         target: auto  # auto compares coverage to the previous base commit
         threshold: 0.05%  # the leniency in hitting the target
     patch:
-      default:
-        target: auto
-        threshold: 0.05%
+      default: false
+      shim-kvm:
+        paths: [ "/crates/shim-kvm/" ]
+        target: auto  # auto compares coverage to the previous base commit
+        threshold: 0.05%  # the leniency in hitting the target
+      shim-sgx:
+        paths: [ "/crates/shim-sgx/" ]
+        target: auto  # auto compares coverage to the previous base commit
+        threshold: 0.05%  # the leniency in hitting the target
+      sallyport:
+        paths: [ "/crates/sallyport/" ]
+        target: auto  # auto compares coverage to the previous base commit
+        threshold: 0.05%  # the leniency in hitting the target
+      exec-wasmtime:
+        paths: [ "/crates/exec-wasmtime/" ]
+        target: auto  # auto compares coverage to the previous base commit
+        threshold: 0.05%  # the leniency in hitting the target
+      enarx:
+        paths: [ "/src/" ]
+        target: auto  # auto compares coverage to the previous base commit
+        threshold: 0.05%  # the leniency in hitting the target
 
 ignore:
   - "/tests/"  # ignore test binaries
