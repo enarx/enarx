@@ -10,7 +10,6 @@ license = "Apache-2.0"
 [features]
 gdb = ["gdbstub", "gdbstub_arch", "dbg"]
 dbg = []
-disable-sgx-attestation = []
 
 [dependencies]
 aes-gcm = { version = "0.9", features = ["force-soft"], default-features = false }

@@ -7,10 +7,6 @@ authors = ["The Enarx Project Developers"]
 repository = "https://github.com/enarx/enarx"
 license = "Apache-2.0"
 
-[features]
-dbg = []
-gdb = []
-
 [dependencies]
 anyhow = { version = "1.0", default-features = false }
 cap-std = { version = "0.24.2", default-features = false }
