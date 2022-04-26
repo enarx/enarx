@@ -6,7 +6,7 @@ use std::convert::TryInto;
 
 use anyhow::{anyhow, Result};
 use goblin::elf::{header::*, note::NoteIterator, program_header::*, Elf};
-use mmarinus::{perms, Kind, Map};
+use mmarinus::{perms, Map};
 use primordial::Page;
 use sallyport::elf;
 
@@ -184,10 +184,10 @@ impl<T: Mapper> Loader for T {
         // Load segments.
         for seg in ssegs.iter().chain(esegs.iter()) {
             // Create the mapping and copy the bytes.
-            let mut map = Map::map(seg.range.end - seg.range.start)
+            let mut map = Map::bytes(seg.range.end - seg.range.start)
                 .anywhere()
                 .anonymously()
-                .known::<perms::ReadWrite>(Kind::Private)?;
+                .with(perms::ReadWrite)?;
             map[seg.skipb..][..seg.bytes.len()].copy_from_slice(seg.bytes);
 
             // Pass the region to the builder.

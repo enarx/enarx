@@ -12,7 +12,7 @@ use std::sync::{Arc, RwLock};
 
 use anyhow::{bail, Context, Result};
 use kvm_ioctls::{VcpuExit, VcpuFd};
-use mmarinus::{perms, Kind, Map};
+use mmarinus::{perms, Map};
 use sallyport::item::enarxcall::Payload;
 use sallyport::item::{Block, Item};
 use sallyport::{item, KVM_SYSCALL_TRIGGER_PORT};
@@ -62,10 +62,10 @@ impl<P: KeepPersonality> Thread<P> {
         }
 
         // Allocate the new memory
-        let pages = Map::map(size * npgs)
+        let pages = Map::bytes(size * npgs)
             .anywhere()
             .anonymously()
-            .known::<perms::ReadWrite>(Kind::Private)
+            .with(perms::ReadWrite)
             .map_err(|e| e.err.raw_os_error().unwrap_or(libc::ENOTSUP))?;
 
         let mut keep = self.keep.write().unwrap();

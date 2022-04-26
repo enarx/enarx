@@ -3,6 +3,7 @@
 use std::convert::TryFrom;
 
 use anyhow::{Error, Result};
+use mmarinus::{perms, Map};
 use sgx::page::SecInfo;
 
 pub struct Hasher(sgx::signature::Hasher<sgx::crypto::rcrypto::S256Digest>);
@@ -23,7 +24,7 @@ impl super::super::Mapper for Hasher {
     #[inline]
     fn map(
         &mut self,
-        pages: mmarinus::Map<mmarinus::perms::ReadWrite>,
+        pages: Map<perms::ReadWrite>,
         to: usize,
         with: (SecInfo, bool),
     ) -> anyhow::Result<()> {
