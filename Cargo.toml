@@ -18,9 +18,9 @@ backend-sev = ["backend-kvm", "ureq"]
 backend-sgx = ["sgx", "ureq", "x86_64"]
 
 # non-default features
-gdb = ["gdbstub"]
-dbg = []
-disable-sgx-attestation = []
+gdb = ["gdbstub", "enarx-shim-kvm/gdb", "enarx-shim-sgx/gdb"]
+dbg = [ "enarx-shim-kvm/dbg", "enarx-shim-sgx/dbg" ]
+disable-sgx-attestation = ["enarx-shim-sgx/disable-sgx-attestation"]
 
 [dependencies]
 anyhow = { version = "1.0.56", features = ["std"], default-features = false }
