@@ -8,7 +8,7 @@ use std::fs::{File, OpenOptions};
 use std::sync::{Arc, RwLock};
 
 use anyhow::{Context, Error, Result};
-use mmarinus::{perms, Kind, Map};
+use mmarinus::{perms, Map, Shared};
 use primordial::Page;
 use sgx::crypto::{rcrypto::*, *};
 use sgx::page::{Class, Flags, SecInfo};
@@ -34,10 +34,10 @@ impl TryFrom<super::config::Config> for Builder {
 
         // Map the memory for the enclave
         // We map twice as much as we need so that we can naturally align it.
-        let map = Map::map(config.size * 2)
+        let map = Map::bytes(config.size * 2)
             .anywhere()
             .anonymously()
-            .known::<perms::None>(Kind::Private)
+            .with(perms::None)
             .context("Failed mmap memory")?;
 
         // Naturally align the mapping.
@@ -180,10 +180,11 @@ impl TryFrom<Builder> for Arc<dyn super::super::Keep> {
 
             // Change the permissions on an existing region of memory.
             std::mem::forget(unsafe {
-                Map::map(size)
+                Map::bytes(size)
                     .onto(addr as usize)
                     .from(&mut builder.file, 0)
-                    .unknown(Kind::Shared, rwx)
+                    .with_kind(Shared)
+                    .with(perms::Unknown(rwx))
                     .context("Failed to change permissions on memory")?
             });
 
@@ -199,14 +200,13 @@ impl TryFrom<Builder> for Arc<dyn super::super::Keep> {
         let heap_size = builder.mmap.addr() + builder.mmap.size() - heap_addr;
 
         // Map the heap RWX.
+        let rwx = libc::PROT_READ | libc::PROT_WRITE | libc::PROT_EXEC;
         std::mem::forget(unsafe {
-            Map::map(heap_size)
+            Map::bytes(heap_size)
                 .onto(heap_addr)
                 .from(&mut builder.file, 0)
-                .unknown(
-                    Kind::Shared,
-                    libc::PROT_READ | libc::PROT_WRITE | libc::PROT_EXEC,
-                )
+                .with_kind(Shared)
+                .with(perms::Unknown(rwx))
                 .context("Failed to change permissions on heap")?
         });
 

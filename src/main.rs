@@ -13,6 +13,7 @@ mod protobuf;
 mod workldr;
 
 use backend::{Backend, Command};
+use mmarinus::{perms, Map, Private};
 
 use std::fs::File;
 use std::os::unix::io::AsRawFd;
@@ -44,7 +45,8 @@ fn main() -> Result<()> {
         cli::Command::Info(info) => info.display(),
         cli::Command::Exec(exec) => {
             let backend = exec.backend.pick()?;
-            let binary = mmarinus::Kind::Private.load::<mmarinus::perms::Read, _>(&exec.binpath)?;
+            let binary = Map::load(&exec.binpath, Private, perms::Read)?;
+
             #[cfg(not(feature = "gdb"))]
             let gdblisten = None;
 
