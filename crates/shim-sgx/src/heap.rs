@@ -55,10 +55,9 @@ impl Heap {
         }
         if brk > self.brk_max {
             let length = Offset::from_items((brk.raw() - self.brk_max.raw()) / Page::SIZE);
-            let region = Region::new(self.brk_max, self.brk_max + length);
             if self
                 .ledger
-                .map(region, Access::READ | Access::WRITE)
+                .map(self.brk_max, length, Access::READ | Access::WRITE)
                 .is_err()
             {
                 return self.brk;
@@ -76,8 +75,7 @@ impl Heap {
         access: Access,
     ) -> Option<Address<usize, Page>> {
         let addr = self.ledger.find_free_back(length)?;
-        let region = Region::new(addr, addr + length);
-        self.ledger.map(region, access).ok()?;
+        self.ledger.map(addr, length, access).ok()?;
         Some(addr)
     }
 }

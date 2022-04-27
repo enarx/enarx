@@ -16,12 +16,12 @@ disable-sgx-attestation = []
 const-default = { version = "1.0", default-features = false }
 crt0stack = { version = "0.1", default-features = false }
 goblin = { version = "0.5", features = ["elf64"], default-features = false }
-mmledger = { version = "0.2.0", default-features = false }
+mmledger = { git = "https://github.com/enarx/mmledger", rev = "a19f609", default-features = false }
 noted = { version = "1.0.0", default-features = false }
 primordial = { version = "0.5.0", features = ["const-default"], default-features = false }
 rcrt1 = { version = "1.0.0", default-features = false }
 sallyport = { version = "0.4.0", path = "../sallyport", default-features = false }
-sgx = { version = "0.4.0", default-features = false }
+sgx = { git = "https://github.com/enarx/sgx", rev = "3530660", default-features = false }
 spinning = { version = "0.1", default-features = false }
 x86_64 = { version = "0.14.9", default-features = false }
 xsave = { version = "2.0.2", default-features = false }
