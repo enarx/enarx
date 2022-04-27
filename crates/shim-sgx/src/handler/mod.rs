@@ -219,7 +219,7 @@ impl guest::Handler for Handler<'_> {
         let length = Offset::from_items((length + Page::SIZE - 1) / Page::SIZE);
         let access = Access::from_bits_truncate(prot as usize);
         let mut heap = HEAP.write();
-        if let Some(addr) = heap.mmap(length, access) {
+        if let Some(addr) = heap.mmap(None, length, access) {
             self.accept_mmap(Region::new(addr, addr + length));
             Ok(NonNull::new(addr.raw() as *mut c_void).unwrap())
         } else {
