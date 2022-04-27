@@ -53,20 +53,28 @@ impl Heap {
         if brk < self.start || brk >= self.end {
             return self.brk;
         }
-        if brk > self.brk_max {
-            let length = Offset::from_items((brk.raw() - self.brk_max.raw()) / Page::SIZE);
-            let region = Region::new(self.brk_max, self.brk_max + length);
-            if self
-                .ledger
-                .map(region, Access::READ | Access::WRITE)
-                .is_err()
-            {
-                return self.brk;
-            }
-            self.brk_max = brk;
+
+        if brk <= self.brk_max {
+            self.brk = brk;
+            return brk;
         }
-        self.brk = brk;
-        self.brk
+
+        let region = Region::new(self.brk_max, brk);
+
+        if self.ledger.overlaps(region) {
+            return self.brk;
+        }
+
+        if self
+            .ledger
+            .map(region, Access::READ | Access::WRITE)
+            .is_err()
+        {
+            return self.brk;
+        }
+
+        self.brk_max = brk;
+        brk
     }
 
     /// Find and reserve an address range.
