@@ -46,8 +46,8 @@ use sallyport::guest::{self, Platform, ThreadLocalStorage};
 use sallyport::item::enarxcall::sgx::{Report, ReportData, TargetInfo, TECH};
 use sallyport::item::enarxcall::SYS_GETATT;
 use sallyport::libc::{
-    off_t, EINVAL, EMSGSIZE, ENOMEM, ENOSYS, ENOTSUP, MAP_ANONYMOUS, MAP_PRIVATE, PROT_EXEC,
-    PROT_READ, PROT_WRITE, STDERR_FILENO,
+    off_t, EACCES, EINVAL, EMSGSIZE, ENOMEM, ENOSYS, ENOTSUP, MAP_ANONYMOUS, MAP_PRIVATE,
+    PROT_EXEC, PROT_READ, PROT_WRITE, STDERR_FILENO,
 };
 use sgx::page::{Class, Flags};
 use sgx::ssa::StateSaveArea;
@@ -79,18 +79,20 @@ pub struct Handler<'a> {
 
 impl<'a> Handler<'a> {
     /// Acknowledge pages committed by the host with ENCLS[EAUG].
-    fn accept_mmap(&mut self, region: Region) {
+    fn accept_mmap(&mut self, region: Region, prot: c_int) {
         assert!(region.start < region.end);
         let length = region.end - region.start;
-        let secinfo = Class::Regular.info(Flags::READ | Flags::WRITE | Flags::EXECUTE);
+        let flags = Flags::from_bits_truncate((prot | PROT_READ) as u8);
         let zero = PageAddr::from_start_address(VirtAddr::new(ZERO.as_ptr() as u64)).unwrap();
+        // TODO: Remove ` | PROT_READ` when possible. It's only done  because
+        // some of the ioctl's in the v4 of the SGX2 series check for it.
         for i in 0..length.items() {
             let virt_addr = VirtAddr::new((region.start.raw() + i * Page::SIZE) as u64);
             let page_addr = PageAddr::from_start_address(virt_addr).unwrap();
-            // FIXME: handle with `.unwrap()` once `SecInfo` implements `Debug` trait.
-            if secinfo.accept_copy(page_addr, zero).is_err() {
-                panic!();
-            }
+            Class::Regular
+                .info(flags)
+                .accept_copy(page_addr, zero)
+                .unwrap();
         }
     }
 }
@@ -166,7 +168,7 @@ impl guest::Handler for Handler<'_> {
         let result = NonNull::new(brk.raw() as *mut _).unwrap();
 
         match brk.cmp(&max) {
-            Ordering::Greater => self.accept_mmap(Region::new(max, brk)),
+            Ordering::Greater => self.accept_mmap(Region::new(max, brk), PROT_READ | PROT_WRITE),
             Ordering::Less => self.munmap(platform, result, (max - brk).bytes())?,
             Ordering::Equal => (),
         }
@@ -184,15 +186,60 @@ impl guest::Handler for Handler<'_> {
         Ok(())
     }
 
-    // Until EDMM, we can't change any page permissions.
-    // What you get is what you get. Fake success.
     fn mprotect(
         &mut self,
         _platform: &impl Platform,
-        _addr: NonNull<c_void>,
-        _len: c_size_t,
-        _prot: c_int,
+        addr: NonNull<c_void>,
+        length: c_size_t,
+        prot: c_int,
     ) -> sallyport::Result<()> {
+        let addr = addr.as_ptr() as usize;
+        let length = (length + 0xfff) & !0xfff;
+
+        if addr & 0xfff != 0 || length == 0 {
+            return Err(EINVAL);
+        }
+
+        // Given that the hardware asserts on !W^R, the function, by practical
+        // means, only RWX is disregarded from non-empty subsets of permissions.
+        if prot != PROT_READ && prot != (PROT_READ | PROT_WRITE) && prot != (PROT_READ | PROT_EXEC)
+        {
+            debugln!(self, "({:>#016x}, {:>#016x}, {:>#02x})", addr, length, prot);
+            return Err(EACCES);
+        }
+
+        let mut heap = HEAP.write();
+
+        if heap.contains(Region::new(Address::new(addr), Address::new(addr + length))) == None {
+            return Err(EINVAL);
+        }
+
+        // TODO: Change the backend to zero the permissions instead of
+        // restricting them to 'read' (SGX2 series v4 issue).
+        self.reset_sgx_permissions(NonNull::new(addr as *mut _).unwrap(), length)?;
+
+        for i in 0..length / Page::SIZE {
+            let virt_addr = VirtAddr::new((addr + i * Page::SIZE) as u64);
+            let page_addr = PageAddr::from_start_address(virt_addr).unwrap();
+
+            // TODO: Remove `Flags::READ | ` when possible (SGX2 series v4
+            // issue)
+            Class::Regular
+                .info(Flags::READ | Flags::RESTRICTED)
+                .accept(page_addr)
+                .unwrap();
+
+            Class::Regular
+                .info(Flags::from_bits_truncate(prot as u8))
+                .extend_permissions(page_addr);
+        }
+
+        heap.mmap(
+            Some(Address::new(addr)),
+            Offset::from_items(length / Page::SIZE),
+            Access::from_bits_truncate(prot as usize),
+        );
+
         Ok(())
     }
 
@@ -217,15 +264,22 @@ impl guest::Handler for Handler<'_> {
             return Err(ENOTSUP);
         }
 
-        if prot & !(PROT_READ | PROT_WRITE | PROT_EXEC) != 0 {
-            return Err(EINVAL);
+        // Given that the hardware asserts on !W^R, the function, by practical
+        // means, only RWX is disregarded from non-empty subsets of permissions.
+        if prot != 0
+            && prot != PROT_READ
+            && prot != (PROT_READ | PROT_WRITE)
+            && prot != (PROT_READ | PROT_EXEC)
+        {
+            debugln!(self, "({:>#016x}, {:>#016x}, {:>#02x})", addr, length, prot);
+            return Err(EACCES);
         }
 
         let length = Offset::from_items((length + Page::SIZE - 1) / Page::SIZE);
         let access = Access::from_bits_truncate(prot as usize);
         let mut heap = HEAP.write();
         if let Some(addr) = heap.mmap(None, length, access) {
-            self.accept_mmap(Region::new(addr, addr + length));
+            self.accept_mmap(Region::new(addr, addr + length), prot);
             Ok(NonNull::new(addr.raw() as *mut c_void).unwrap())
         } else {
             Err(ENOMEM)
