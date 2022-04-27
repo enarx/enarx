@@ -15,6 +15,7 @@ use anyhow::Result;
 use mmarinus::{perms, Map};
 
 use std::arch::x86_64::__cpuid_count;
+use std::fs::File;
 use std::sync::{Arc, RwLock};
 
 pub const AESM_SOCKET: &str = "/var/run/aesmd/aesm.socket";
@@ -23,8 +24,9 @@ struct Tcs;
 
 struct Keep {
     sallyport_block_size: u64,
-    _mem: Map<perms::Unknown>,
+    mem: Map<perms::Unknown>,
     tcs: RwLock<Vec<*const Tcs>>,
+    enclave: File,
 }
 
 pub struct Backend;
