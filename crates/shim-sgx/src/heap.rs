@@ -77,10 +77,11 @@ impl Heap {
     /// Find and reserve an address range.
     pub fn mmap(
         &mut self,
+        addr: Option<Address<usize, Page>>,
         length: Offset<usize, Page>,
         access: Access,
     ) -> Option<Address<usize, Page>> {
-        let addr = self.ledger.find_free_back(length)?;
+        let addr = addr.or_else(|| self.ledger.find_free_back(length))?;
         self.ledger.map(addr, length, access).ok()?;
         Some(addr)
     }
@@ -121,7 +122,8 @@ mod tests {
 
             for allocated in steps {
                 let mut heap = Heap::new(Address::new(0), Address::new(BYTES));
-                assert_ne!(heap.mmap(Offset::from_items(allocated), Access::READ), None);
+                let ret = heap.mmap(None, Offset::from_items(allocated), Access::READ);
+                assert_ne!(ret, None);
 
                 let ret = heap.brk(brk);
                 assert_eq!(ret, brk);
@@ -140,7 +142,7 @@ mod tests {
     fn mmap_oversubscribe() {
         let mut heap = Heap::new(Address::new(0), Address::new(BYTES));
         assert_eq!(
-            heap.mmap(Offset::from_items(BYTES + Page::SIZE), Access::READ),
+            heap.mmap(None, Offset::from_items(BYTES + Page::SIZE), Access::READ),
             None
         );
     }
