@@ -16,8 +16,8 @@ use gdbstub::target::ext::base::BaseOps;
 use gdbstub::target::{Target, TargetError, TargetResult};
 use gdbstub::Connection;
 use gdbstub_arch::x86::reg::X86_64CoreRegs;
-use mmledger::{Access, Region};
-use primordial::Address;
+use mmledger::Access;
+use primordial::{Address, Offset, Page};
 use sallyport::guest::Handler;
 use sgx::ssa::StateSaveArea;
 use x86_64::registers::rflags::RFlags;
@@ -271,10 +271,10 @@ impl SingleThreadOps for GdbTarget {
         let end_addr = start_addr
             .checked_add(data.len())
             .ok_or(TargetError::NonFatal)?;
-        let region = Region::new(Address::new(start_addr), Address::new(end_addr));
+        let length = Offset::from_items((end_addr - start_addr) / Page::SIZE);
         let heap = HEAP.read();
         let readable = heap
-            .contains(region)
+            .contains(Address::new(start_addr), length)
             .map_or(false, |access| access.contains(Access::READ));
 
         if !(readable
@@ -300,10 +300,10 @@ impl SingleThreadOps for GdbTarget {
             .ok_or(TargetError::Fatal(GdbTargetError::WriteMemoryOutOfRange(
                 start_addr as _,
             )))?;
-        let region = Region::new(Address::new(start_addr), Address::new(end_addr));
+        let length = Offset::from_items((end_addr - start_addr) / Page::SIZE);
         let heap = HEAP.read();
         let writable = heap
-            .contains(region)
+            .contains(Address::new(start_addr), length)
             .map_or(false, |access| access.contains(Access::WRITE));
 
         if !(writable
