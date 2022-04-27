@@ -1,0 +1,18 @@
+# FIXME: The enarx-exec-wasmtime-bin crate should be merged with enarx-exec-wasmtime again, see https://github.com/enarx/enarx/issues/1798
+
+[package]
+name = "enarx-exec-wasmtime-bin"
+version = "0.4.0"
+edition = "2021"
+description = "Enarx WebAssembly Loader"
+authors = ["The Enarx Project Developers"]
+repository = "https://github.com/enarx/enarx"
+license = "Apache-2.0"
+
+[dependencies]
+anyhow = { version = "1.0", default-features = false }
+clap = { version = "3.1.10", features = ["derive", "std"], default-features = false }
+enarx-exec-wasmtime = { version = "0.4.0", path = "../exec-wasmtime", default-features = false }
+env_logger = { version = "0.9", default-features = false }
+libc = { version = "0.2.124", default-features = false }
+
