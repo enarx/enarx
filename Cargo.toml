@@ -36,7 +36,7 @@ iocuddle = { version = "0.1.1", default-features = false }
 libc = { version = "0.2", default-features = false }
 log = { version = "0.4", default-features = false }
 lset = { version = "0.3", default-features = false }
-mmarinus = { version = "0.2.1", default-features = false }
+mmarinus = { version = "0.3.0", default-features = false }
 nbytes = { version = "0.1", default-features = false }
 once_cell = { version = "1.10.0", features = ["std"], default-features = false }
 primordial = { version = "0.5", features = ["alloc"], default-features = false }

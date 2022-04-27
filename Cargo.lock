@@ -1125,9 +1125,9 @@ dependencies = [
 
 [[package]]
 name = "mmarinus"
-version = "0.2.1"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6f001c2c323e765b22d8248a0b8a7f8f66672a007babf01c380b579cc71e862c"
+checksum = "74020ba203c75e7aad76f84d7661d3896744b3eb933925abf68e1e67a39ac9a6"
 dependencies = [
  "libc",
 ]
