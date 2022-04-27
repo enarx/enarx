@@ -32,6 +32,7 @@ use crate::{shim_address, DEBUG, ENARX_EXEC_END, ENARX_EXEC_START, ENCL_SIZE};
 
 use core::arch::asm;
 use core::arch::x86_64::CpuidResult;
+use core::cmp::Ordering;
 use core::ffi::{c_int, c_size_t, c_ulong, c_void};
 use core::fmt::Write;
 use core::mem::size_of;
@@ -150,7 +151,7 @@ impl guest::Handler for Handler<'_> {
 
     fn brk(
         &mut self,
-        _platform: &impl Platform,
+        platform: &impl Platform,
         addr: Option<NonNull<c_void>>,
     ) -> sallyport::Result<NonNull<c_void>> {
         let addr = Address::<usize, Page>::new(
@@ -159,14 +160,18 @@ impl guest::Handler for Handler<'_> {
         );
 
         let mut heap = HEAP.write();
-        let max = heap.brk_max();
-        let addr = heap.brk(addr);
 
-        if addr > max {
-            self.accept_mmap(Region::new(max, addr));
+        let max = heap.brk_max();
+        let brk = heap.brk(addr);
+        let result = NonNull::new(brk.raw() as *mut _).unwrap();
+
+        match brk.cmp(&max) {
+            Ordering::Greater => self.accept_mmap(Region::new(max, brk)),
+            Ordering::Less => self.munmap(platform, result, (max - brk).bytes())?,
+            Ordering::Equal => (),
         }
 
-        Ok(NonNull::new(addr.raw() as *mut _).unwrap())
+        Ok(result)
     }
 
     fn madvise(
