@@ -193,6 +193,7 @@ impl TryFrom<Builder> for Arc<dyn super::super::Keep> {
             }
         }
 
+        // TODO: https://github.com/enarx/enarx/issues/1783
         assert_ne!(max_addr, 0);
         assert_ne!(max_size, 0);
 
@@ -212,8 +213,9 @@ impl TryFrom<Builder> for Arc<dyn super::super::Keep> {
 
         Ok(Arc::new(super::Keep {
             sallyport_block_size: builder.cnfg.sallyport_block_size,
-            _mem: builder.mmap,
+            mem: builder.mmap,
             tcs: RwLock::new(builder.tcsp),
+            enclave: builder.file.try_clone().unwrap(),
         }))
     }
 }
