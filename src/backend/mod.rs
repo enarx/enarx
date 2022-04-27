@@ -9,7 +9,15 @@ pub mod sev;
 #[cfg(feature = "backend-sgx")]
 pub mod sgx;
 
+#[cfg(feature = "backend-nil")]
+pub mod nil;
+
 mod binary;
+#[cfg(any(
+    feature = "backend-sgx",
+    feature = "backend-sev",
+    feature = "backend-kvm"
+))]
 mod probe;
 
 use binary::Binary;
@@ -116,6 +124,8 @@ pub static BACKENDS: Lazy<Vec<Box<dyn Backend>>> = Lazy::new(|| {
         Box::new(sev::Backend),
         #[cfg(feature = "backend-kvm")]
         Box::new(kvm::Backend),
+        #[cfg(feature = "backend-nil")]
+        Box::new(nil::Backend),
     ]
 });
 

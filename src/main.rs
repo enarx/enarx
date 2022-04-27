@@ -81,7 +81,13 @@ fn main() -> Result<()> {
 
             // TODO: pass open_fd (or its contents) into the keep.
             let backend = run.backend.pick()?;
-            let workldr = run.workldr.pick()?;
+
+            let workldr = match backend.name() {
+                #[cfg(feature = "backend-nil")]
+                "nil" => &backend::nil::NilWorkldr as &dyn crate::workldr::Workldr,
+
+                _ => run.workldr.pick()?,
+            };
             #[cfg(not(feature = "gdb"))]
             let gdblisten = None;
 

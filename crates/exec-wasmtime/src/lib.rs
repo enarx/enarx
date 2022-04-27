@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-//! the enarx-exec-wasmtime lib
+//! enarx-exec-wasmtime to be used by enarx-exec-wasmtime-bin or the enarx frontend
 
 #![deny(missing_docs)]
 #![deny(clippy::all)]
@@ -33,11 +33,11 @@ use std::path::PathBuf;
 /// The Arguments
 #[derive(Parser, Debug)]
 pub struct Args {
-    /// The Module
+    /// The WASM Module
     #[clap(short, long, value_name = "MODULE", parse(from_os_str))]
     pub module: Option<PathBuf>,
 
-    /// The Config File
+    /// The Enarx config file
     #[clap(short, long, value_name = "CONFIG", parse(from_os_str))]
     pub config: Option<PathBuf>,
 }

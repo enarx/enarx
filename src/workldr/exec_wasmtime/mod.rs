@@ -25,7 +25,7 @@ pub(crate) mod test {
         let wasmldr = Box::new(Wasmldr);
         assert_eq!(
             wasmldr.exec(),
-            include_bytes!(env!("CARGO_BIN_FILE_ENARX_EXEC_WASMTIME"))
+            include_bytes!(env!("CARGO_BIN_FILE_ENARX_EXEC_WASMTIME_BIN"))
         );
     }
 }
