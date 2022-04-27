@@ -12,10 +12,11 @@ categories = ["os", "os::linux-apis", "network-programming", "hardware-support"]
 exclude = [".github/"]
 
 [features]
-default = ["backend-kvm", "backend-sev", "backend-sgx"]
+default = ["backend-kvm", "backend-sev", "backend-sgx", "backend-nil"]
 backend-kvm = ["kvm-bindings", "kvm-ioctls", "x86_64"]
 backend-sev = ["backend-kvm", "ureq"]
 backend-sgx = ["sgx", "ureq", "x86_64"]
+backend-nil = ["enarx-exec-wasmtime"]
 
 # non-default features
 gdb = ["gdbstub", "enarx-shim-kvm/gdb", "enarx-shim-sgx/gdb"]
