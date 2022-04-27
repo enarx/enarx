@@ -230,9 +230,38 @@ impl guest::Handler for Handler<'_> {
     fn munmap(
         &mut self,
         _platform: &impl Platform,
-        _addr: NonNull<c_void>,
-        _length: c_size_t,
+        addr: NonNull<c_void>,
+        length: c_size_t,
     ) -> sallyport::Result<()> {
+        let addr = addr.as_ptr() as usize;
+        let length = (length + 0xfff) & !0xfff;
+
+        if addr & 0xfff != 0 || length == 0 {
+            return Err(EINVAL);
+        }
+
+        let mut heap = HEAP.write();
+
+        let region = Region::new(Address::new(addr), Address::new(addr + length));
+
+        if heap.contains(region) == None {
+            return Err(EINVAL);
+        }
+
+        self.trim_sgx_pages(NonNull::new(addr as *mut _).unwrap(), length)?;
+
+        for i in 0..length / Page::SIZE {
+            let virt_addr = VirtAddr::new((addr + i * Page::SIZE) as u64);
+            let page_addr = PageAddr::from_start_address(virt_addr).unwrap();
+
+            Class::Trimmed
+                .info(Flags::MODIFIED)
+                .accept(page_addr)
+                .unwrap();
+        }
+
+        self.remove_sgx_pages(NonNull::new(addr as *mut _).unwrap(), length)?;
+        heap.munmap(region);
         Ok(())
     }
 }
