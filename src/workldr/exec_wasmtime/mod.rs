@@ -10,7 +10,7 @@ impl crate::workldr::Workldr for Wasmldr {
 
     #[inline]
     fn exec(&self) -> &'static [u8] {
-        include_bytes!(env!("CARGO_BIN_FILE_ENARX_EXEC_WASMTIME"))
+        include_bytes!(env!("CARGO_BIN_FILE_ENARX_EXEC_WASMTIME_BIN"))
     }
 }
 

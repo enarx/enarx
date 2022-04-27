@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
-#![doc = include_str!("../README.md")]
+//! the enarx-exec-wasmtime lib
+
 #![deny(missing_docs)]
 #![deny(clippy::all)]
 #![warn(rust_2018_idioms)]
@@ -29,50 +30,24 @@ use std::os::unix::prelude::AsRawFd;
 use clap::Parser;
 use std::path::PathBuf;
 
-/// Set FSBASE
-///
-/// Overwrite the only location in musl, which uses the `arch_prctl` syscall
-#[no_mangle]
-pub extern "C" fn __set_thread_area(p: *mut std::ffi::c_void) -> std::ffi::c_int {
-    let mut rax: usize = 0;
-    if unsafe { core::arch::x86_64::__cpuid(7).ebx } & 1 == 1 {
-        unsafe {
-            std::arch::asm!("wrfsbase {}", in(reg) p);
-        }
-    } else {
-        const ARCH_SET_FS: std::ffi::c_int = 0x1002;
-        unsafe {
-            std::arch::asm!(
-            "syscall",
-            inlateout("rax")  libc::SYS_arch_prctl => rax,
-            in("rdi") ARCH_SET_FS,
-            in("rsi") p,
-            lateout("rcx") _, // clobbered
-            lateout("r11") _, // clobbered
-            );
-        }
-    }
-    rax as _
-}
-
+/// The Arguments
 #[derive(Parser, Debug)]
-struct Args {
+pub struct Args {
+    /// The Module
     #[clap(short, long, value_name = "MODULE", parse(from_os_str))]
     pub module: Option<PathBuf>,
 
+    /// The Config File
     #[clap(short, long, value_name = "CONFIG", parse(from_os_str))]
     pub config: Option<PathBuf>,
 }
 
-fn main() -> anyhow::Result<()> {
+/// Execute
+pub fn execute(args: Args) -> anyhow::Result<()> {
     // KEEP-CONFIG HACK: we've inherited stdio and the shim sets
     // "RUST_LOG=debug", so this should make logging go to stderr.
     // FUTURE: we should have a keep-provided debug channel where we can
     // (safely, securely) send logs. Might need our own logger for that..
-    env_logger::Builder::from_default_env().init();
-
-    let args = Args::parse();
-
     let mut config = match (args.module, args.config) {
         (Some(module), Some(config)) => {
             let module = File::open(&module).expect("unable to open file");
