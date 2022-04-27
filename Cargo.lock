@@ -602,7 +602,7 @@ dependencies = [
  "serde_json",
  "serial_test",
  "sev_attestation",
- "sgx",
+ "sgx 0.4.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "static_assertions",
  "tempfile",
  "ureq",
@@ -694,7 +694,7 @@ dependencies = [
  "primordial",
  "rcrt1",
  "sallyport 0.4.0",
- "sgx",
+ "sgx 0.4.1 (git+https://github.com/enarx/sgx?rev=3530660)",
  "spinning",
  "x86_64",
  "xsave",
@@ -1171,8 +1171,7 @@ dependencies = [
 [[package]]
 name = "mmledger"
 version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "026fcace872fef43fbc9e08a48cb8d36828852a30a915d46894c6d07cef73fce"
+source = "git+https://github.com/enarx/mmledger?rev=a19f609#a19f60996d3313a55d3b614579d92b279dbbd926"
 dependencies = [
  "bitflags",
  "lset",
@@ -1844,6 +1843,16 @@ dependencies = [
  "rand",
  "rsa",
  "sha2",
+ "x86_64",
+ "xsave",
+]
+
+[[package]]
+name = "sgx"
+version = "0.4.1"
+source = "git+https://github.com/enarx/sgx?rev=3530660#3530660d45f50abd0dfd1a29bc8641762d0a532b"
+dependencies = [
+ "bitflags",
  "x86_64",
  "xsave",
 ]
