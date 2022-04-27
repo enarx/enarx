@@ -230,9 +230,50 @@ impl guest::Handler for Handler<'_> {
     fn munmap(
         &mut self,
         _platform: &impl Platform,
-        _addr: NonNull<c_void>,
-        _length: c_size_t,
+        addr_in: NonNull<c_void>,
+        length_in: c_size_t,
     ) -> sallyport::Result<()> {
+        let addr = addr_in.as_ptr() as usize;
+        let pages = ((length_in + Page::SIZE - 1) & !(Page::SIZE - 1)) / Page::SIZE;
+
+        if addr & 0xfff != 0 || pages == 0 {
+            return Err(EINVAL);
+        }
+
+        let addr = Address::new(addr);
+        let length = Offset::from_items(pages);
+
+        let mut heap = HEAP.write();
+        if heap.contains(addr, length) == None {
+            return Ok(());
+        }
+
+        // Process the ledger first, before doing anything else, because it can
+        // legitly fail when running out of resources.
+        heap.munmap(addr, length).map_err(|_| ENOMEM)?;
+
+        // On the other hand, failing in any of these operations is expected to
+        // crash the enclave because it is due either to a software bug, or a
+        // malicious host.
+        self.trim_sgx_pages(addr_in, length.bytes())
+            .unwrap_or_else(|_| self.attacked());
+
+        for i in 0..pages {
+            let virt_addr = VirtAddr::new((addr.raw() + i * Page::SIZE) as u64);
+            // # Safety
+            //
+            // The address must be page aligned.
+            let page_addr = unsafe { PageAddr::from_start_address_unchecked(virt_addr) };
+
+            Class::Trimmed
+                .info(Flags::MODIFIED)
+                .accept(page_addr)
+                .unwrap_or_else(|_| self.attacked());
+        }
+
+        self.remove_sgx_pages(addr_in, length.bytes())
+            .unwrap_or_else(|_| self.attacked());
+
         Ok(())
     }
 }
