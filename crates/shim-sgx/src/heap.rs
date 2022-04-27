@@ -49,23 +49,29 @@ impl Heap {
 
     /// Increase or decrease `brk` address.
     /// TODO: unmap memory, once support for EMODT is added.
-    pub fn brk(&mut self, brk: Address<usize, Page>) -> Address<usize, Page> {
-        if brk < self.start || brk >= self.end {
+    pub fn brk(&mut self, next: Address<usize, Page>) -> Address<usize, Page> {
+        if next < self.start || next >= self.end {
             return self.brk;
         }
-        if brk > self.brk_max {
-            let length = Offset::from_items((brk.raw() - self.brk_max.raw()) / Page::SIZE);
-            if self
-                .ledger
-                .map(self.brk_max, length, Access::READ | Access::WRITE)
-                .is_err()
-            {
-                return self.brk;
-            }
-            self.brk_max = brk;
+
+        if next <= self.brk_max {
+            self.brk = next;
+            return next;
         }
-        self.brk = brk;
-        self.brk
+
+        let length = next - self.brk_max;
+
+        if self.ledger.overlaps(self.brk_max, length) {
+            return self.brk;
+        }
+
+        match self.ledger.map(self.brk_max, length, Access::READ | Access::WRITE) {
+            Ok(_) => {
+                self.brk_max = next;
+                next
+            }
+            Err(_) => self.brk,
+        }
     }
 
     /// Find and reserve an address range.
