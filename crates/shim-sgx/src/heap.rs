@@ -2,9 +2,6 @@
 
 //! Allocate and deallocate memory on a Heap
 
-use core::ops::Range;
-use core::slice::from_raw_parts_mut;
-
 use mmledger::{Access, Ledger, Region};
 use primordial::{Address, Offset, Page};
 
@@ -39,18 +36,6 @@ impl Heap {
     /// Return the maximum `brk` address reached.
     pub fn brk_max(&self) -> Address<usize, Page> {
         self.brk_max
-    }
-
-    /// Returns the range of the heap area
-    pub fn range(&self) -> Range<*const Page> {
-        // SAFETY: expects to be mapped for the enclave.
-        unsafe {
-            from_raw_parts_mut(
-                self.start.raw() as *mut Page,
-                (self.end.raw() - self.start.raw()) / Page::SIZE,
-            )
-        }
-        .as_ptr_range()
     }
 
     /// Increase or decrease `brk` address.
