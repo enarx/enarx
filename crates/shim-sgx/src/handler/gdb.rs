@@ -16,6 +16,8 @@ use gdbstub::target::ext::base::BaseOps;
 use gdbstub::target::{Target, TargetError, TargetResult};
 use gdbstub::Connection;
 use gdbstub_arch::x86::reg::X86_64CoreRegs;
+use mmledger::{Access, Region};
+use primordial::Address;
 use sallyport::guest::Handler;
 use sgx::ssa::StateSaveArea;
 use x86_64::registers::rflags::RFlags;
@@ -186,20 +188,14 @@ impl<'a> gdbstub::Connection for super::Handler<'a> {
 #[derive(Debug)]
 pub(crate) struct GdbTarget {
     regs: X86_64CoreRegs,
-    shim_range: Range<usize>,
     block_range: Range<usize>,
     ssa_range: Range<usize>,
 }
 
 impl GdbTarget {
     pub fn new(regs: X86_64CoreRegs, block_range: Range<usize>, ssa_range: Range<usize>) -> Self {
-        let start = shim_address() as usize;
-        let end = HEAP.read().range().end as usize;
-        let shim_range = start..end;
-
         Self {
             regs,
-            shim_range,
             block_range,
             ssa_range,
         }
@@ -275,8 +271,13 @@ impl SingleThreadOps for GdbTarget {
         let end_addr = start_addr
             .checked_add(data.len())
             .ok_or(TargetError::NonFatal)?;
+        let region = Region::new(Address::new(start_addr), Address::new(end_addr));
+        let heap = HEAP.read();
+        let readable = heap
+            .contains(region)
+            .map_or(false, |access| access.contains(Access::READ));
 
-        if !((self.shim_range.contains(&start_addr) && self.shim_range.contains(&end_addr))
+        if !(readable
             || (self.block_range.contains(&start_addr) && self.block_range.contains(&end_addr))
             || (self.ssa_range.contains(&start_addr) && self.ssa_range.contains(&end_addr)))
         {
@@ -299,8 +300,13 @@ impl SingleThreadOps for GdbTarget {
             .ok_or(TargetError::Fatal(GdbTargetError::WriteMemoryOutOfRange(
                 start_addr as _,
             )))?;
+        let region = Region::new(Address::new(start_addr), Address::new(end_addr));
+        let heap = HEAP.read();
+        let writable = heap
+            .contains(region)
+            .map_or(false, |access| access.contains(Access::WRITE));
 
-        if !((self.shim_range.contains(&start_addr) && self.shim_range.contains(&end_addr))
+        if !(writable
             || (self.block_range.contains(&start_addr) && self.block_range.contains(&end_addr))
             || (self.ssa_range.contains(&start_addr) && self.ssa_range.contains(&end_addr)))
         {
