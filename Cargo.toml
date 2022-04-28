@@ -97,4 +97,4 @@ opt-level = 3
 opt-level = 3
 
 [workspace]
-members = ["crates/*"]
+members = ["crates/*", "examples/*"]
