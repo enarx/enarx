@@ -236,7 +236,7 @@ $ cargo +nightly build --release --target=wasm32-wasi
 
 Assuming you did install the `enarx` binary and have it in your `$PATH`, you can
 now run the WebAssembly program in an Enarx keep.
-```sh:kvm-helloworld;
+```sh:helloworld-git;
 $ enarx run target/wasm32-wasi/release/hello-world.wasm
 ```
 ```console
@@ -250,7 +250,7 @@ If you want to suppress the debug output, add `2>/dev/null`.
 `enarx` will probe the machine it is running on in an attempt to deduce an
 appropriate deployment backend. To see what backends are supported on your
 system, run:
-```sh:kvm-backend,sgx-backend,snp-backend;
+```sh:git;
 $ enarx info
 ```
 You can manually select a backend with the `--backend` option, or by
