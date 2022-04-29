@@ -1,14 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use super::{Config, Loader, Mapper};
+use super::Config;
 
 use std::convert::TryInto;
 
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, Error, Result};
 use goblin::elf::{header::*, note::NoteIterator, program_header::*, Elf};
 use mmarinus::{perms, Map};
 use primordial::Page;
-use sallyport::elf;
 
 use std::ops::Range;
 
@@ -137,13 +136,15 @@ impl<'a> Binary<'a> {
 
 impl<T: Mapper> Loader for T {
     fn load(shim: impl AsRef<[u8]>, exec: impl AsRef<[u8]>) -> Result<Self::Output> {
+        use sallyport::elf;
+
         // Parse the ELF files.
         let sbin = Binary::new(shim.as_ref())?;
         let ebin = Binary::new(exec.as_ref())?;
 
         // Find the offset for loading the code.
         let slot = sbin
-            .headers(sallyport::elf::pt::EXEC)
+            .headers(elf::pt::EXEC)
             .next()
             .ok_or_else(|| anyhow!("Shim is missing the executable slot!"))?
             .vm_range();
@@ -197,4 +198,20 @@ impl<T: Mapper> Loader for T {
 
         loader.try_into()
     }
+}
+
+pub(crate) trait Mapper: Sized + TryFrom<Self::Config, Error = Error> {
+    type Config: Config;
+    type Output: TryFrom<Self, Error = Error>;
+
+    fn map(
+        &mut self,
+        pages: Map<perms::ReadWrite>,
+        to: usize,
+        with: <Self::Config as Config>::Flags,
+    ) -> Result<()>;
+}
+
+pub(crate) trait Loader: Mapper {
+    fn load(shim: impl AsRef<[u8]>, exec: impl AsRef<[u8]>) -> Result<Self::Output>;
 }

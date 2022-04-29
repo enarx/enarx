@@ -1,26 +1,23 @@
 // SPDX-License-Identifier: Apache-2.0
 use std::fs;
 use std::os::unix::fs::FileTypeExt;
-use std::path::{Path, PathBuf};
 
 const AESM_SOCKET: &str = "/var/run/aesmd/aesm.socket";
 
-fn create(path: &Path) {
-    match std::fs::create_dir(&path) {
-        Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {}
-        Err(e) => {
-            eprintln!("Can't create {:#?} : {:#?}", path, e);
-            std::process::exit(1);
+#[cfg(feature = "backend-sgx")]
+fn generate_protos() {
+    use std::path::{Path, PathBuf};
+
+    fn create(path: &Path) {
+        match std::fs::create_dir(&path) {
+            Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {}
+            Err(e) => {
+                eprintln!("Can't create {:#?} : {:#?}", path, e);
+                std::process::exit(1);
+            }
+            Ok(_) => {}
         }
-        Ok(_) => {}
     }
-}
-
-fn main() {
-    println!("cargo:rerun-if-env-changed=OUT_DIR");
-
-    // FIXME: this exists to work around https://github.com/rust-lang/cargo/issues/10527
-    println!("cargo:rerun-if-changed=crates/");
 
     let out_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap());
     let out_dir_proto = out_dir.join("protos");
@@ -36,6 +33,16 @@ fn main() {
         })
         .run()
         .expect("Protobuf codegen failed");
+}
+
+fn main() {
+    println!("cargo:rerun-if-env-changed=OUT_DIR");
+
+    // FIXME: this exists to work around https://github.com/rust-lang/cargo/issues/10527
+    println!("cargo:rerun-if-changed=crates/");
+
+    #[cfg(feature = "backend-sgx")]
+    generate_protos();
 
     if std::path::Path::new("/dev/sgx_enclave").exists()
         && fs::metadata("/dev/sgx_enclave")
