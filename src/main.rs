@@ -10,9 +10,12 @@
 mod backend;
 mod cli;
 mod exec;
+
+#[cfg(feature = "backend-sgx")]
 mod protobuf;
 
 use backend::{Backend, Command};
+#[cfg(feature = "load-binary")]
 use mmarinus::{perms, Map, Private};
 
 use std::fs::File;
@@ -43,6 +46,11 @@ fn main() -> Result<()> {
 
     match opts.cmd {
         cli::Command::Info(info) => info.display(),
+        #[cfg(not(feature = "load-binary"))]
+        cli::Command::Exec(_) => {
+            anyhow::bail!("exec option not supported")
+        }
+        #[cfg(feature = "load-binary")]
         cli::Command::Exec(exec) => {
             let backend = exec.backend.pick()?;
             let binary = Map::load(&exec.binpath, Private, perms::Read)?;

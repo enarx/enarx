@@ -12,7 +12,9 @@ pub mod sgx;
 #[cfg(feature = "backend-nil")]
 pub mod nil;
 
+#[cfg(feature = "load-binary")]
 mod binary;
+
 #[cfg(any(
     feature = "backend-sgx",
     feature = "backend-sev",
@@ -20,38 +22,27 @@ mod binary;
 ))]
 mod probe;
 
-use binary::Binary;
+#[cfg(feature = "load-binary")]
+use binary::{Binary, Loader, Mapper};
 
-use std::convert::TryFrom;
 use std::sync::Arc;
 
-use anyhow::{Error, Result};
+use anyhow::Result;
 use libc::c_int;
-use mmarinus::{perms, Map};
 use once_cell::sync::Lazy;
 use serde::ser::{Serialize, SerializeStruct, Serializer};
 
-trait Config: Sized {
+#[cfg(not(feature = "load-binary"))]
+#[allow(dead_code)]
+pub struct Binary<'a> {
+    phantom: std::marker::PhantomData<&'a ()>,
+}
+
+pub(crate) trait Config: Sized {
     type Flags;
 
     fn flags(flags: u32) -> Self::Flags;
     fn new(shim: &Binary<'_>, exec: &Binary<'_>) -> Result<Self>;
-}
-
-trait Mapper: Sized + TryFrom<Self::Config, Error = Error> {
-    type Config: Config;
-    type Output: TryFrom<Self, Error = Error>;
-
-    fn map(
-        &mut self,
-        pages: Map<perms::ReadWrite>,
-        to: usize,
-        with: <Self::Config as Config>::Flags,
-    ) -> Result<()>;
-}
-
-trait Loader: Mapper {
-    fn load(shim: impl AsRef<[u8]>, exec: impl AsRef<[u8]>) -> Result<Self::Output>;
 }
 
 pub trait Backend: Sync + Send {
