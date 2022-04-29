@@ -9,8 +9,8 @@
 
 mod backend;
 mod cli;
+mod exec;
 mod protobuf;
-mod workldr;
 
 use backend::{Backend, Command};
 use mmarinus::{perms, Map, Private};
@@ -68,7 +68,7 @@ fn main() -> Result<()> {
             // is just here to make them break earlier, and with less mystery.
             assert!(open_fd == 3, "module got unexpected fd {}", open_fd);
 
-            let configfile = match run.workldr.wasmcfgfile.as_ref() {
+            let configfile = match run.exec.wasmcfgfile.as_ref() {
                 Some(name) => {
                     let file = File::open(name)?;
                     let fd = file.as_raw_fd();
@@ -81,20 +81,15 @@ fn main() -> Result<()> {
 
             // TODO: pass open_fd (or its contents) into the keep.
             let backend = run.backend.pick()?;
+            let exec = run.exec.pick(backend)?;
 
-            let workldr = match backend.name() {
-                #[cfg(feature = "backend-nil")]
-                "nil" => &backend::nil::NilWorkldr as &dyn crate::workldr::Workldr,
-
-                _ => run.workldr.pick()?,
-            };
             #[cfg(not(feature = "gdb"))]
             let gdblisten = None;
 
             #[cfg(feature = "gdb")]
             let gdblisten = Some(run.gdblisten);
 
-            let exit_code = keep_exec(backend, backend.shim(), workldr.exec(), gdblisten)?;
+            let exit_code = keep_exec(backend, backend.shim(), exec.exec(), gdblisten)?;
             drop(configfile);
             drop(modfile);
             std::process::exit(exit_code);
