@@ -61,6 +61,7 @@ vdso = { version = "0.2", optional = true, default-features = false }
 x86_64 = { version = "0.14.9", optional = true, default-features = false }
 
 # binary dependencies
+[target.'cfg(all(target_os = "linux", target_arch = "x86_64"))'.dependencies]
 # FIXME: The enarx-exec-wasmtime-bin crate should be merged with enarx-exec-wasmtime again, see https://github.com/enarx/enarx/issues/1798
 enarx-exec-wasmtime-bin = { version = "0.4.0", path = "crates/exec-wasmtime-bin", artifact = "bin", target = "x86_64-unknown-linux-musl", default-features = false }
 enarx-shim-kvm = { version = "0.4.0", path = "crates/shim-kvm", artifact = "bin", target = "x86_64-unknown-none", default-features = false }
@@ -76,10 +77,11 @@ tempfile = { version = "3.3.0", default-features = false }
 wat = { version = "1.0", default-features = false }
 
 # binary dependencies
+wasm_rust_tests  = { path = "tests/wasm/wasm_rust_tests", artifact = "bin", target = "wasm32-wasi", default-features = false }
+[target.'cfg(all(target_os = "linux", target_arch = "x86_64"))'.dev-dependencies]
 rust_exec_tests = { path = "tests/rust_exec_tests", artifact = "bin", target = "x86_64-unknown-linux-musl", default-features = false }
 rust_syscall_tests = { path = "tests/rust_syscall_tests", artifact = "bin", target = "x86_64-unknown-none", default-features = false }
 sev_attestation = { path = "tests/sev_attestation", artifact = "bin", target = "x86_64-unknown-linux-musl", default-features = false }
-wasm_rust_tests  = { path = "tests/wasm/wasm_rust_tests", artifact = "bin", target = "wasm32-wasi", default-features = false }
 
 [profile.dev]
 strip = true

@@ -21,7 +21,7 @@ use const_oid::db::rfc5280::{
     ID_CE_BASIC_CONSTRAINTS, ID_CE_EXT_KEY_USAGE, ID_CE_KEY_USAGE, ID_KP_CLIENT_AUTH,
     ID_KP_SERVER_AUTH,
 };
-use rustix::rand;
+use getrandom::getrandom;
 
 impl Loader<Requested> {
     fn steward(&self, url: &Url) -> Result<Vec<Vec<u8>>> {
@@ -59,7 +59,7 @@ impl Loader<Requested> {
         .to_vec()?;
 
         let mut serial: [u8; 32] = [0u8; 32];
-        rand::getrandom(&mut serial, rand::GetRandomFlags::RANDOM)?;
+        getrandom(&mut serial)?;
 
         // Create the certificate body.
         let tbs = TbsCertificate {
