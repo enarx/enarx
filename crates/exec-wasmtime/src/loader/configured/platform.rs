@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use std::arch::asm;
 use std::io::{ErrorKind, Result};
-use std::ptr::{null, null_mut};
 
 use const_oid::ObjectIdentifier;
 
@@ -35,7 +33,16 @@ pub struct Platform(Technology, usize);
 impl Platform {
     const SYS_GETATT: usize = 0xEA01;
 
+    #[cfg(not(all(target_os = "linux", target_arch = "x86_64")))]
+    fn get_att(_nonce: Option<&[u8]>, _buf: Option<&mut [u8]>) -> Result<Self> {
+        Ok(Self(Technology::Kvm, 0))
+    }
+
+    #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
     fn get_att(nonce: Option<&[u8]>, mut buf: Option<&mut [u8]>) -> Result<Self> {
+        use std::arch::asm;
+        use std::ptr::{null, null_mut};
+
         const ENOSYS: isize = -(libc::ENOSYS as isize);
         const EPERM: isize = -(libc::EPERM as isize);
 
