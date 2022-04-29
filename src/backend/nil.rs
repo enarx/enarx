@@ -1,22 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::workldr::Workldr;
-
 use std::sync::{Arc, RwLock};
 
 use anyhow::{bail, Result};
-
-pub struct NilWorkldr;
-
-impl Workldr for NilWorkldr {
-    fn name(&self) -> &'static str {
-        "nil"
-    }
-
-    fn exec(&self) -> &'static [u8] {
-        &[]
-    }
-}
 
 pub struct Backend;
 
@@ -95,9 +81,7 @@ impl super::Thread for Thread {
 #[cfg(test)]
 mod test {
     use super::Backend;
-    use crate::backend::nil::NilWorkldr;
     use crate::backend::Backend as _;
-    use crate::workldr::Workldr;
 
     #[test]
     fn coverage() {
@@ -107,8 +91,5 @@ mod test {
         assert!(backend.have());
         assert!(backend.data().is_empty());
         assert!(backend.hash(&[], &[]).unwrap().is_empty());
-        let workldr = NilWorkldr;
-        assert_eq!(workldr.name(), "nil");
-        assert!(workldr.exec().is_empty());
     }
 }
