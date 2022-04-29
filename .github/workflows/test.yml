@@ -65,6 +65,18 @@ jobs:
           - name: gdb
             flag: --features=gdb
 
+  macos:
+    name: enarx MacOS
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Setup Rust toolchain
+        run: rustup show
+      - uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --no-default-features --features=backend-nil --test wasmldr_tests
+
   bindeps:
     name: ${{ matrix.crate.name }} nightly ${{ matrix.profile.name }}
     runs-on: ubuntu-20.04
