@@ -109,7 +109,7 @@ impl TryFrom<u64> for TeeTech {
 ///
 /// Overwrite the only location in musl, which uses the `arch_prctl` syscall
 #[no_mangle]
-pub extern "C" fn __set_thread_area(p: *mut std::ffi::c_void) -> std::ffi::c_int {
+pub extern "C" fn __set_thread_area(p: *mut core::ffi::c_void) -> core::ffi::c_int {
     let mut rax: usize = 0;
     if unsafe { core::arch::x86_64::__cpuid(7).ebx } & 1 == 1 {
         unsafe {
