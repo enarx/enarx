@@ -3,6 +3,7 @@
 use super::{run_test, write_tcp};
 use crate::integration_tests::recv_udp;
 
+use core::ffi::{c_char, c_int};
 use libc::{
     self, in_addr, iovec, pollfd, sockaddr, sockaddr_in, timespec, timeval, utsname, SYS_accept,
     SYS_accept4, SYS_bind, SYS_clock_getres, SYS_clock_gettime, SYS_close, SYS_fcntl, SYS_fstat,
@@ -16,7 +17,7 @@ use libc::{
     SOL_SOCKET, SO_RCVTIMEO, SO_REUSEADDR, STDERR_FILENO, STDIN_FILENO, STDOUT_FILENO,
 };
 use std::env::temp_dir;
-use std::ffi::{c_char, c_int, CString};
+use std::ffi::CString;
 use std::fs::{File, OpenOptions};
 use std::io::{Read, Seek, Write};
 use std::mem::{size_of, transmute};
