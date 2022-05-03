@@ -126,35 +126,6 @@ impl<'a> Write for Handler<'a> {
 }
 
 impl guest::Handler for Handler<'_> {
-    fn sally(&mut self) -> sallyport::Result<()> {
-        // prevent earlier writes from being moved beyond this point
-        core::sync::atomic::compiler_fence(core::sync::atomic::Ordering::Release);
-
-        unsafe {
-            // Safety: Enclave exit and re-enter should have left all registers intact.
-            asm!("syscall");
-        }
-
-        // prevent later reads from being moved before this point
-        core::sync::atomic::compiler_fence(core::sync::atomic::Ordering::Acquire);
-
-        Ok(())
-    }
-
-    fn block(&self) -> &[usize] {
-        self.block
-    }
-
-    fn block_mut(&mut self) -> &mut [usize] {
-        self.block
-    }
-
-    fn thread_local_storage(&mut self) -> &mut ThreadLocalStorage {
-        static mut TLS: ThreadLocalStorage = ThreadLocalStorage::new();
-        // FIXME: proper TLS implementation https://github.com/enarx/enarx/issues/1476
-        unsafe { &mut TLS }
-    }
-
     fn arch_prctl(
         &mut self,
         _platform: &impl Platform,
@@ -163,6 +134,14 @@ impl guest::Handler for Handler<'_> {
     ) -> sallyport::Result<()> {
         debugln!(self, "arch_prctl should have never been called");
         Err(ENOSYS)
+    }
+
+    fn block(&self) -> &[usize] {
+        self.block
+    }
+
+    fn block_mut(&mut self) -> &mut [usize] {
+        self.block
     }
 
     fn brk(
@@ -194,6 +173,42 @@ impl guest::Handler for Handler<'_> {
         _advice: c_int,
     ) -> sallyport::Result<()> {
         Ok(())
+    }
+
+    fn mmap(
+        &mut self,
+        _platform: &impl Platform,
+        addr: Option<NonNull<c_void>>,
+        length: c_size_t,
+        prot: c_int,
+        flags: c_int,
+        fd: c_int,
+        offset: off_t,
+    ) -> sallyport::Result<NonNull<c_void>> {
+        let addr = addr.map(|v| v.as_ptr() as usize).unwrap_or(0);
+
+        if addr != 0
+            || length == 0
+            || fd != -1
+            || offset != 0
+            || flags != MAP_PRIVATE | MAP_ANONYMOUS
+        {
+            return Err(ENOTSUP);
+        }
+
+        if prot != 0 && !is_prot_allowed(prot) {
+            return Err(EACCES);
+        }
+
+        let length = Offset::from_items((length + Page::SIZE - 1) / Page::SIZE);
+        let access = Access::from_bits_truncate(prot as usize);
+        let mut heap = HEAP.write();
+        if let Some(addr) = heap.mmap(None, length, access) {
+            self.accept_mmap(Region::new(addr, addr + length), prot);
+            Ok(NonNull::new(addr.raw() as *mut c_void).unwrap())
+        } else {
+            Err(ENOMEM)
+        }
     }
 
     fn mprotect(
@@ -253,42 +268,6 @@ impl guest::Handler for Handler<'_> {
         Ok(())
     }
 
-    fn mmap(
-        &mut self,
-        _platform: &impl Platform,
-        addr: Option<NonNull<c_void>>,
-        length: c_size_t,
-        prot: c_int,
-        flags: c_int,
-        fd: c_int,
-        offset: off_t,
-    ) -> sallyport::Result<NonNull<c_void>> {
-        let addr = addr.map(|v| v.as_ptr() as usize).unwrap_or(0);
-
-        if addr != 0
-            || length == 0
-            || fd != -1
-            || offset != 0
-            || flags != MAP_PRIVATE | MAP_ANONYMOUS
-        {
-            return Err(ENOTSUP);
-        }
-
-        if prot != 0 && !is_prot_allowed(prot) {
-            return Err(EACCES);
-        }
-
-        let length = Offset::from_items((length + Page::SIZE - 1) / Page::SIZE);
-        let access = Access::from_bits_truncate(prot as usize);
-        let mut heap = HEAP.write();
-        if let Some(addr) = heap.mmap(None, length, access) {
-            self.accept_mmap(Region::new(addr, addr + length), prot);
-            Ok(NonNull::new(addr.raw() as *mut c_void).unwrap())
-        } else {
-            Err(ENOMEM)
-        }
-    }
-
     fn munmap(
         &mut self,
         _platform: &impl Platform,
@@ -337,6 +316,27 @@ impl guest::Handler for Handler<'_> {
             .unwrap_or_else(|_| self.attacked());
 
         Ok(())
+    }
+
+    fn sally(&mut self) -> sallyport::Result<()> {
+        // prevent earlier writes from being moved beyond this point
+        core::sync::atomic::compiler_fence(core::sync::atomic::Ordering::Release);
+
+        unsafe {
+            // Safety: Enclave exit and re-enter should have left all registers intact.
+            asm!("syscall");
+        }
+
+        // prevent later reads from being moved before this point
+        core::sync::atomic::compiler_fence(core::sync::atomic::Ordering::Acquire);
+
+        Ok(())
+    }
+
+    fn thread_local_storage(&mut self) -> &mut ThreadLocalStorage {
+        static mut TLS: ThreadLocalStorage = ThreadLocalStorage::new();
+        // FIXME: proper TLS implementation https://github.com/enarx/enarx/issues/1476
+        unsafe { &mut TLS }
     }
 }
 
