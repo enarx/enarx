@@ -11,21 +11,21 @@ fn default_port() -> u16 {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Name(String);
+pub struct FileName(String);
 
-impl From<String> for Name {
+impl From<String> for FileName {
     fn from(value: String) -> Self {
         Self(value)
     }
 }
 
-impl From<&str> for Name {
+impl From<&str> for FileName {
     fn from(value: &str) -> Self {
         Self(value.into())
     }
 }
 
-impl Deref for Name {
+impl Deref for FileName {
     type Target = str;
 
     fn deref(&self) -> &Self::Target {
@@ -33,7 +33,7 @@ impl Deref for Name {
     }
 }
 
-impl<'de> Deserialize<'de> for Name {
+impl<'de> Deserialize<'de> for FileName {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
@@ -84,20 +84,20 @@ impl Default for Config {
 #[serde(tag = "kind")]
 pub enum File {
     #[serde(rename = "null")]
-    Null { name: Option<Name> },
+    Null { name: Option<FileName> },
 
     #[serde(rename = "stdin")]
-    Stdin { name: Option<Name> },
+    Stdin { name: Option<FileName> },
 
     #[serde(rename = "stdout")]
-    Stdout { name: Option<Name> },
+    Stdout { name: Option<FileName> },
 
     #[serde(rename = "stderr")]
-    Stderr { name: Option<Name> },
+    Stderr { name: Option<FileName> },
 
     #[serde(rename = "listen")]
     Listen {
-        name: Name,
+        name: FileName,
 
         #[serde(default = "default_port")]
         port: u16,
@@ -108,7 +108,7 @@ pub enum File {
 
     #[serde(rename = "connect")]
     Connect {
-        name: Option<Name>,
+        name: Option<FileName>,
 
         #[serde(default = "default_port")]
         port: u16,
