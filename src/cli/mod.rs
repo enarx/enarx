@@ -63,26 +63,3 @@ impl BackendOptions {
         .map(|b| &**b)
     }
 }
-
-//
-// Options & shared setup code for the exec
-//
-use crate::exec::{Exec, EXECS};
-
-#[derive(Args, Debug)]
-pub struct ExecOptions {
-    #[clap(long, env = "ENARX_WASMCFGFILE")]
-    pub wasmcfgfile: Option<String>,
-    // FUTURE: Path to an external exec binary
-}
-
-impl ExecOptions {
-    pub fn pick(&self, backend: &dyn Backend) -> Result<&dyn Exec> {
-        EXECS
-            .deref()
-            .iter()
-            .find(|w| w.with_backend(backend))
-            .ok_or_else(|| anyhow!("No supported exec found"))
-            .map(|b| &**b)
-    }
-}
