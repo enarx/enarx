@@ -31,14 +31,9 @@ use std::path::PathBuf;
 
 /// The Arguments
 #[derive(Debug)]
-pub struct Args {
-    /// The WASM Module
-    #[clap(short, long, value_name = "MODULE", parse(from_os_str))]
-    pub module: Option<PathBuf>,
-
-    /// The Enarx config file
-    #[clap(short, long, value_name = "CONFIG", parse(from_os_str))]
-    pub config: Option<PathBuf>,
+pub enum Args {
+    Remote(String),
+    Local { wasm: RawFd, conf: Option<RawFd> },
 }
 
 /// Execute
