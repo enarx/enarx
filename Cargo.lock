@@ -1517,9 +1517,9 @@ dependencies = [
 
 [[package]]
 name = "rcrt1"
-version = "2.2.0"
+version = "2.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "063bfa166b68f87b2625d5cdacb056ffe5a673d82742ba92c080d53d274e312e"
+checksum = "4f8a99a72ca3e4288ba1beac8418e6602a4d519efaecdc5844370b02cbd980e3"
 dependencies = [
  "goblin",
  "libc",
