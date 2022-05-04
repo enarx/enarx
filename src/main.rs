@@ -19,11 +19,14 @@ use backend::{Backend, Command};
 use mmarinus::{perms, Map, Private};
 
 use std::fs::File;
+use std::ops::Deref;
 use std::os::unix::io::AsRawFd;
 
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use clap::Parser;
 use log::info;
+
+use crate::exec::EXECS;
 
 // This defines the toplevel `enarx` CLI
 #[derive(Parser, Debug)]
@@ -76,7 +79,7 @@ fn main() -> Result<()> {
             // is just here to make them break earlier, and with less mystery.
             assert!(open_fd == 3, "module got unexpected fd {}", open_fd);
 
-            let configfile = match run.exec.wasmcfgfile.as_ref() {
+            let configfile = match run.wasmcfgfile.as_ref() {
                 Some(name) => {
                     let file = File::open(name)?;
                     let fd = file.as_raw_fd();
@@ -89,7 +92,12 @@ fn main() -> Result<()> {
 
             // TODO: pass open_fd (or its contents) into the keep.
             let backend = run.backend.pick()?;
-            let exec = run.exec.pick(backend)?;
+            let exec = EXECS
+                .deref()
+                .iter()
+                .find(|w| w.with_backend(backend))
+                .ok_or_else(|| anyhow!("No supported exec found"))
+                .map(|b| &**b)?;
 
             #[cfg(not(feature = "gdb"))]
             let gdblisten = None;

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use super::{BackendOptions, ExecOptions};
+use super::BackendOptions;
 
 use std::{fmt::Debug, path::PathBuf};
 
@@ -12,8 +12,8 @@ pub struct Options {
     #[clap(flatten)]
     pub backend: BackendOptions,
 
-    #[clap(flatten)]
-    pub exec: ExecOptions,
+    #[clap(long, env = "ENARX_WASMCFGFILE")]
+    pub wasmcfgfile: Option<String>,
 
     /// Path of the WebAssembly module to run
     #[clap(value_name = "MODULE", parse(from_os_str))]
