@@ -27,11 +27,10 @@ use std::os::unix::prelude::AsRawFd;
 //   * logging should be turned on at "debug" level, output goes to stderr
 //
 
-use clap::Parser;
 use std::path::PathBuf;
 
 /// The Arguments
-#[derive(Parser, Debug)]
+#[derive(Debug)]
 pub struct Args {
     /// The WASM Module
     #[clap(short, long, value_name = "MODULE", parse(from_os_str))]
@@ -43,7 +42,7 @@ pub struct Args {
 }
 
 /// Execute
-pub fn execute(args: Args) -> anyhow::Result<()> {
+pub fn execute() -> anyhow::Result<()> {
     // KEEP-CONFIG HACK: we've inherited stdio and the shim sets
     // "RUST_LOG=debug", so this should make logging go to stderr.
     // FUTURE: we should have a keep-provided debug channel where we can
