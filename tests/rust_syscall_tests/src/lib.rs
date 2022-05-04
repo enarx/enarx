@@ -1,6 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 #![no_std]
 
+pub mod io;
+mod macros;
+
+pub use macros::*;
+
 pub use sallyport::libc;
 
 use core::arch::asm;
@@ -10,113 +15,76 @@ pub type Result<T> = core::result::Result<T, i32>;
 #[macro_export]
 macro_rules! startup {
     () => {
-        #[no_mangle]
-        #[naked]
-        pub unsafe extern "sysv64" fn _start() -> ! {
-            /// rcrt1.o replacement
-            ///
-            /// This function searches the AUX entries in the initial stack, which are after
-            /// the argc/argv entries. It uses the AUX entries `AT_PHDR`, `AT_PHENT` and `AT_PHNUM`
-            /// to search its own elf headers for the `_DYNAMIC` header. With the address of the
-            /// `_DYNAMIC` header and the value of the `_DYNAMIC` symbol in `dynv` the offset can be
-            /// calculated from the elf sections to the real address the elf binary was loaded to and
-            /// `rcrt1::dyn_reloc()` can be called to correct the global offset tables.
-            ///
-            /// Because the global offset tables are not yet corrected, this function is very fragile.
-            /// No function (even rust's internal `memset()` for variables initialization) which requires
-            /// lookup in the global offset tables is allowed.
-            unsafe fn rcrt(dynv: *const u64, sp: *const usize) -> ! {
-                use goblin::elf64::program_header::{ProgramHeader, PT_DYNAMIC};
-                const AT_PHDR: usize = 3;
-                const AT_PHENT: usize = 4;
-                const AT_PHNUM: usize = 5;
+        rcrt1::x86_64_linux_startup!(
+            fn _start() -> ! {
+                use $crate::{exit, Termination};
 
-                // skip the argc/argv entries on the stack
-                let argc: usize = *sp;
-                let argv = sp.add(1);
-                let mut i = argc + 1;
-                while *argv.add(i) != 0 {
-                    i += 1;
-                }
-                let auxv_ptr = argv.add(i + 1);
-
-
-                // search the AUX entries
-                let mut phnum: usize = 0;
-                let mut phentsize: usize = 0;
-                let mut ph: usize = 0;
-
-                let mut i = 0;
-                while *auxv_ptr.add(i) != 0 {
-                    match *auxv_ptr.add(i) {
-                        AT_PHDR => ph = *auxv_ptr.add(i + 1),
-                        AT_PHENT => phentsize = *auxv_ptr.add(i + 1),
-                        AT_PHNUM => phnum = *auxv_ptr.add(i + 1),
-                        _ => {},
-                    }
-                    if ph != 0 && phentsize != 0 && phnum != 0 {
-                        // found all we need
-                        break;
-                    }
-                    i += 2;
-                }
-
-                let mut ph = ph as *const ProgramHeader;
-                let mut i = phnum;
-
-                while i != 0 {
-                    // Search all ELF program headers for the `_DYNAMIC` section
-                    if (*ph).p_type == PT_DYNAMIC {
-                        // calculate the offset, where the elf binary got loaded
-                        let base = dynv as u64 - (*ph).p_vaddr;
-
-                        // calling `rcrt1::dyn_reloc()` directly in rust would use
-                        // the lookup tables, which are not yet initialized by
-                        // rcrt1::dyn_reloc()`, so use assembly.
-                        core::arch::asm!(
-                            "call   {RELOC}",
-
-                            RELOC = sym rcrt1::dyn_reloc,
-                            in("rdi") dynv,
-                            in("rsi") base,
-
-                            clobber_abi("sysv64")
-                        );
-
-                        // Now call the real `main()`
-                        let retval = match main() {
-                            Ok(()) => 0,
-                            Err(e) => e,
-                        };
-
-                        // exit and never return
-                        $crate::exit(retval)
-                    }
-                    ph = (ph as usize + phentsize) as *const ProgramHeader;
-                    i -= 1;
-                }
-
-                // Fail horribly, if we ever reach this point
-                unreachable!();
+                exit(main().report().to_i32())
             }
-
-            // Call `rcrt` with the absolute address of the `_DYNAMIC` section
-            // and the stack pointer
-            core::arch::asm!(
-                "lea    rdi, [rip + _DYNAMIC]",
-                "mov    rsi, rsp",
-                "jmp   {RCRT}",
-
-                RCRT = sym rcrt,
-                options(noreturn)
-            );
-        }
+        );
 
         #[panic_handler]
-        fn panic(_info: &core::panic::PanicInfo<'_>) -> ! {
-            loop {}
+        fn panic(info: &core::panic::PanicInfo<'_>) -> ! {
+            use $crate::{eprintln, exit};
+            eprintln!("{}\n", info);
+            exit(255)
         }
     };
+}
+
+/// Termination
+pub trait Termination {
+    /// Is called to get the representation of the value as status code.
+    /// This status code is returned to the operating system.
+    fn report(self) -> ExitCode;
+}
+
+impl Termination for () {
+    #[inline]
+    fn report(self) -> ExitCode {
+        ExitCode::SUCCESS.report()
+    }
+}
+
+impl Termination for ExitCode {
+    #[inline]
+    fn report(self) -> ExitCode {
+        self
+    }
+}
+
+impl<E: core::fmt::Debug> Termination for core::result::Result<(), E> {
+    fn report(self) -> ExitCode {
+        match self {
+            Ok(()) => ().report(),
+            Err(err) => {
+                eprintln!("Error: {:?}", err);
+                ExitCode::FAILURE.report()
+            }
+        }
+    }
+}
+
+/// The ExitCode
+pub struct ExitCode(i32);
+
+impl ExitCode {
+    pub const SUCCESS: ExitCode = ExitCode(0);
+    pub const FAILURE: ExitCode = ExitCode(1);
+}
+
+impl ExitCode {
+    #[inline]
+    pub fn to_i32(self) -> i32 {
+        self.0
+    }
+}
+
+impl From<u8> for ExitCode {
+    /// Construct an exit code from an arbitrary u8 value.
+    fn from(code: u8) -> Self {
+        ExitCode(code as _)
+    }
 }
 
 #[derive(Default)]
