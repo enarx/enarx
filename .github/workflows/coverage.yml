@@ -37,7 +37,7 @@ jobs:
           - name: nil
             path: .
             host: [ self-hosted, linux ]
-            flags: --no-default-features --features=backend-nil --test wasmldr_tests --bin enarx
+            flags: --no-default-features --features=backend-nil --test enarx_wasm_tests --bin enarx
           - name: exec-wasmtime
             path: ./crates/exec-wasmtime
             host: [ self-hosted, linux ]

@@ -1,0 +1,8 @@
+[package]
+name = "enarx_exec_tests"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+
+[dependencies]
+libc = { version = "0.2.102", default-features = false }

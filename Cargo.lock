@@ -577,6 +577,9 @@ dependencies = [
  "enarx-exec-wasmtime-bin",
  "enarx-shim-kvm",
  "enarx-shim-sgx",
+ "enarx_exec_tests",
+ "enarx_syscall_tests",
+ "enarx_wasm_tests",
  "env_logger",
  "gdbstub 0.5.0",
  "goblin",
@@ -594,8 +597,6 @@ dependencies = [
  "protobuf",
  "protobuf-codegen-pure",
  "rand",
- "rust_exec_tests",
- "rust_syscall_tests",
  "sallyport",
  "semver",
  "serde",
@@ -607,7 +608,6 @@ dependencies = [
  "tempfile",
  "ureq",
  "vdso",
- "wasm_rust_tests",
  "wat",
  "x86_64",
 ]
@@ -699,6 +699,26 @@ dependencies = [
  "x86_64",
  "xsave",
 ]
+
+[[package]]
+name = "enarx_exec_tests"
+version = "0.1.0"
+dependencies = [
+ "libc",
+]
+
+[[package]]
+name = "enarx_syscall_tests"
+version = "0.1.0"
+dependencies = [
+ "goblin",
+ "rcrt1",
+ "sallyport",
+]
+
+[[package]]
+name = "enarx_wasm_tests"
+version = "0.1.0"
 
 [[package]]
 name = "env_logger"
@@ -1613,22 +1633,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "rust_exec_tests"
-version = "0.1.0"
-dependencies = [
- "libc",
-]
-
-[[package]]
-name = "rust_syscall_tests"
-version = "0.1.0"
-dependencies = [
- "goblin",
- "rcrt1",
- "sallyport",
-]
-
-[[package]]
 name = "rustc-demangle"
 version = "0.1.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1765,9 +1769,9 @@ dependencies = [
 
 [[package]]
 name = "serde_json"
-version = "1.0.80"
+version = "1.0.81"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f972498cf015f7c0746cac89ebe1d6ef10c293b94175a243a2d9442c163d9944"
+checksum = "9b7ce2b32a1aed03c558dc61a5cd328f15aff2dbc17daad8fb8af04d2100e15c"
 dependencies = [
  "itoa",
  "ryu",
@@ -1803,7 +1807,6 @@ name = "sev_attestation"
 version = "0.1.0"
 dependencies = [
  "sallyport",
- "testaso",
 ]
 
 [[package]]
@@ -2278,10 +2281,6 @@ name = "wasm-bindgen-shared"
 version = "0.2.80"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d554b7f530dee5964d9a9468d95c1f8b8acae4f282807e7d27d4b03099a46744"
-
-[[package]]
-name = "wasm_rust_tests"
-version = "0.1.0"
 
 [[package]]
 name = "wasmparser"
