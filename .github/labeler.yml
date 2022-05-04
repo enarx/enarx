@@ -19,8 +19,9 @@ intel sgx:
 
 wasm:
 - crates/exec-wasmtime/**/*
-- tests/wasm/**/*
-- tests/wasmldr_tests.rs
+- crates/exec-wasmtime-bin/**/*
+- tests/crates/enarx_wasm_tests/**/*
+- tests/enarx_wasm_tests.rs
 
 client:
 - src/cli/**/*

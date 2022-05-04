@@ -21,18 +21,18 @@ updates:
   schedule:
     interval: "daily"
 - package-ecosystem: "cargo"
-  directory: "tests/rust_exec_tests"
+  directory: "tests/crates/enarx_exec_tests"
   schedule:
     interval: "daily"
 - package-ecosystem: "cargo"
-  directory: "tests/rust_syscall_tests"
+  directory: "tests/crates/enarx_syscall_tests"
   schedule:
     interval: "daily"
 - package-ecosystem: "cargo"
-  directory: "tests/sev_attestation"
+  directory: "tests/crates/sev_attestation"
   schedule:
     interval: "daily"
 - package-ecosystem: "cargo"
-  directory: "tests/wasm/wasm_rust_tests"
+  directory: "tests/crates/enarx_wasm_tests"
   schedule:
     interval: "daily"
