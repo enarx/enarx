@@ -579,7 +579,7 @@ dependencies = [
  "enarx-shim-sgx",
  "env_logger",
  "gdbstub 0.5.0",
- "goblin 0.5.1",
+ "goblin",
  "iocuddle",
  "kvm-bindings",
  "kvm-ioctls",
@@ -666,7 +666,7 @@ dependencies = [
  "crt0stack",
  "gdbstub 0.5.0",
  "gdbstub_arch",
- "goblin 0.5.1",
+ "goblin",
  "linked_list_allocator",
  "lset",
  "nbytes",
@@ -688,7 +688,7 @@ dependencies = [
  "crt0stack",
  "gdbstub 0.5.0",
  "gdbstub_arch",
- "goblin 0.5.1",
+ "goblin",
  "mmledger",
  "noted",
  "primordial",
@@ -853,23 +853,13 @@ dependencies = [
 
 [[package]]
 name = "goblin"
-version = "0.4.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "32401e89c6446dcd28185931a01b1093726d0356820ac744023e6850689bf926"
-dependencies = [
- "plain",
- "scroll 0.10.2",
-]
-
-[[package]]
-name = "goblin"
 version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c955ab4e0ad8c843ea653a3d143048b87490d9be56bd7132a435c2407846ac8f"
 dependencies = [
  "log",
  "plain",
- "scroll 0.11.0",
+ "scroll",
 ]
 
 [[package]]
@@ -1527,11 +1517,11 @@ dependencies = [
 
 [[package]]
 name = "rcrt1"
-version = "1.0.0"
+version = "2.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "600700255f80d582e1e37170d7a5b458cdc9c88a17d90b0ced5ed2d3f3ec4cab"
+checksum = "063bfa166b68f87b2625d5cdacb056ffe5a673d82742ba92c080d53d274e312e"
 dependencies = [
- "goblin 0.4.3",
+ "goblin",
  "libc",
 ]
 
@@ -1633,7 +1623,7 @@ dependencies = [
 name = "rust_syscall_tests"
 version = "0.1.0"
 dependencies = [
- "goblin 0.5.1",
+ "goblin",
  "rcrt1",
  "sallyport 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
@@ -1695,7 +1685,7 @@ name = "sallyport"
 version = "0.4.0"
 dependencies = [
  "gdbstub 0.6.1",
- "goblin 0.5.1",
+ "goblin",
  "libc",
  "serial_test",
  "testaso",
@@ -1707,7 +1697,7 @@ version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "77d32884a5700fb9298473bb829536f523437523f410793ff3d64531e17b3927"
 dependencies = [
- "goblin 0.5.1",
+ "goblin",
 ]
 
 [[package]]
@@ -1715,12 +1705,6 @@ name = "scopeguard"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d29ab0c6d3fc0ee92fe66e2d99f700eab17a8d57d1c1d3b748380fb20baa78cd"
-
-[[package]]
-name = "scroll"
-version = "0.10.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fda28d4b4830b807a8b43f7b0e6b5df875311b3e7621d84577188c175b6ec1ec"
 
 [[package]]
 name = "scroll"
@@ -2171,7 +2155,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7b6282a689cf2bdba1d1d0f73425894165549ab60ca2cd181580786592cbc9db"
 dependencies = [
  "crt0stack",
- "goblin 0.5.1",
+ "goblin",
 ]
 
 [[package]]
