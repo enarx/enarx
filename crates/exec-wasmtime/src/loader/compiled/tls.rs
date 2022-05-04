@@ -281,7 +281,7 @@ impl WasiFile for Listener {
     }
 
     async fn write_vectored<'a>(&mut self, bufs: &[std::io::IoSlice<'a>]) -> Result<u64, Error> {
-        Ok(bufs.iter().map(|b| b.len()).sum::<usize>() as _)
+        Ok(bufs.iter().map(|b| b.len() as u64).sum())
     }
 
     async fn write_vectored_at<'a>(
@@ -289,7 +289,7 @@ impl WasiFile for Listener {
         bufs: &[std::io::IoSlice<'a>],
         _offset: u64,
     ) -> Result<u64, Error> {
-        Ok(bufs.iter().map(|b| b.len()).fold(0, |a, x| a + x as u64))
+        Ok(bufs.iter().map(|b| b.len() as u64).sum())
     }
 
     async fn peek(&mut self, _buf: &mut [u8]) -> Result<u64, Error> {
