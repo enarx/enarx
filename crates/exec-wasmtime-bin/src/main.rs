@@ -6,8 +6,7 @@
 #![warn(rust_2018_idioms)]
 #![feature(core_ffi_c)]
 
-use clap::Parser;
-use enarx_exec_wasmtime::{execute, Args};
+use enarx_exec_wasmtime::execute;
 
 /// Set FSBASE
 ///
@@ -38,5 +37,5 @@ pub extern "C" fn __set_thread_area(p: *mut core::ffi::c_void) -> core::ffi::c_i
 fn main() -> anyhow::Result<()> {
     env_logger::Builder::from_default_env().init();
 
-    execute(Args::parse())
+    execute()
 }
