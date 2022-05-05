@@ -32,7 +32,7 @@ wasmtime = { version = "0.36", features = ["cranelift", "pooling-allocator"], de
 wasmtime-wasi = { version = "0.36", features = ["sync"], default-features = false }
 wiggle = { version = "0.36", default-features = false }
 webpki-roots = { version = "0.22.2", default-features = false }
-x509 = { package = "x509-cert", version = "0.0.2", features = ["std"], default-features = false }
+x509-cert = { version = "0.0.2", features = ["std"], default-features = false }
 zeroize = { version = "1.5.4", features = ["alloc"], default-features = false }
 
 [dev-dependencies]
