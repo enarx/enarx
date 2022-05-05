@@ -10,12 +10,12 @@ use anyhow::{anyhow, Result};
 use pkcs8::PrivateKeyInfo;
 use rustls::{cipher_suite::*, kx_group::*, version::TLS13, *};
 use url::Url;
-use x509::der::asn1::{BitString, UIntBytes};
-use x509::der::{Decodable, Encodable};
-use x509::ext::pkix::{BasicConstraints, ExtendedKeyUsage, KeyUsage, KeyUsages};
-use x509::name::RdnSequence;
-use x509::time::Validity;
-use x509::{Certificate, PkiPath, TbsCertificate};
+use x509_cert::der::asn1::{BitString, UIntBytes};
+use x509_cert::der::{Decodable, Encodable};
+use x509_cert::ext::pkix::{BasicConstraints, ExtendedKeyUsage, KeyUsage, KeyUsages};
+use x509_cert::name::RdnSequence;
+use x509_cert::time::Validity;
+use x509_cert::{Certificate, PkiPath, TbsCertificate};
 
 use const_oid::db::rfc5280::{
     ID_CE_BASIC_CONSTRAINTS, ID_CE_EXT_KEY_USAGE, ID_CE_KEY_USAGE, ID_KP_CLIENT_AUTH,
@@ -63,7 +63,7 @@ impl Loader<Requested> {
 
         // Create the certificate body.
         let tbs = TbsCertificate {
-            version: x509::Version::V3,
+            version: x509_cert::Version::V3,
             serial_number: UIntBytes::new(&serial)?,
             signature: pki.signs_with()?,
             issuer: RdnSequence::from_der(&rdns)?,
@@ -73,17 +73,17 @@ impl Loader<Requested> {
             issuer_unique_id: None,
             subject_unique_id: None,
             extensions: Some(vec![
-                x509::ext::Extension {
+                x509_cert::ext::Extension {
                     extn_id: ID_CE_KEY_USAGE,
                     critical: true,
                     extn_value: &ku,
                 },
-                x509::ext::Extension {
+                x509_cert::ext::Extension {
                     extn_id: ID_CE_BASIC_CONSTRAINTS,
                     critical: true,
                     extn_value: &bc,
                 },
-                x509::ext::Extension {
+                x509_cert::ext::Extension {
                     extn_id: ID_CE_EXT_KEY_USAGE,
                     critical: false,
                     extn_value: &eu,

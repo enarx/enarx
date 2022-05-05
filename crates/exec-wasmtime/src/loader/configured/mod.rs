@@ -14,9 +14,9 @@ use anyhow::Result;
 use const_oid::{db::rfc5912::SECP_256_R_1, db::rfc5912::SECP_384_R_1, AssociatedOid};
 use pkcs8::PrivateKeyInfo;
 use sha2::{Digest, Sha256, Sha384};
-use x509::der::{asn1::BitString, Any, Decodable, Encodable};
-use x509::request::{CertReq, CertReqInfo, ExtensionReq};
-use x509::{attr::Attribute, ext::Extension, name::RdnSequence};
+use x509_cert::der::{asn1::BitString, Any, Decodable, Encodable};
+use x509_cert::request::{CertReq, CertReqInfo, ExtensionReq};
+use x509_cert::{attr::Attribute, ext::Extension, name::RdnSequence};
 
 impl Loader<Configured> {
     pub fn make_csr(pki: &PrivateKeyInfo<'_>, exts: Vec<Extension<'_>>) -> Result<Vec<u8>> {
@@ -32,7 +32,7 @@ impl Loader<Configured> {
 
         // Create a certification request information structure.
         let cri = CertReqInfo {
-            version: x509::request::Version::V1,
+            version: x509_cert::request::Version::V1,
             attributes: vec![att].try_into()?,
             subject: RdnSequence::default(),
             public_key: pki.public_key()?,
