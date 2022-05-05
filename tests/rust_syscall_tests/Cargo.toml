@@ -7,4 +7,4 @@ license = "Apache-2.0"
 [dependencies]
 goblin = { version = "0.5", features = ["elf64"], default-features = false }
 rcrt1 = { version = "2.2.0", default-features = false }
-sallyport = { version = "0.4.0", default-features = false }
+sallyport = { path = "../../crates/sallyport", default-features = false }
