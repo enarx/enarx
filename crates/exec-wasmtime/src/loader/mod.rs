@@ -17,6 +17,11 @@ mod connected;
 mod pki;
 mod requested;
 
+use crate::Package;
+
+use super::config::Config;
+use super::Args;
+
 use std::sync::Arc;
 
 use rustls::{ClientConfig, ServerConfig};
@@ -24,42 +29,38 @@ use wasi_common::WasiCtx;
 use wasmtime::{Linker, Store, Val};
 use zeroize::Zeroizing;
 
-use crate::config::Config;
-
 /// The first state, indicating successful configuration
 pub struct Configured {
-    config: Config,
+    args: Args,
 }
 
 /// The second state, indicating that a CSR has been generated
 pub struct Requested {
-    config: Config,
+    args: Args,
     prvkey: Zeroizing<Vec<u8>>,
     crtreq: Vec<u8>,
 }
 
 /// The third state, indicating receipt of the certificate
 pub struct Attested {
-    config: Config,
     srvcfg: Arc<ServerConfig>,
     cltcfg: Arc<ClientConfig>,
+    package: Package,
 }
 
-/// The fourth state, indicating receipt of the WASM module
+/// The fourth state, indicating receipt of the WASM module and configuration
 pub struct Acquired {
-    config: Config,
     srvcfg: Arc<ServerConfig>,
     cltcfg: Arc<ClientConfig>,
-
+    config: Config,
     webasm: Vec<u8>,
 }
 
 /// The fifth state, indicating compilation of the WASM module
 pub struct Compiled {
-    config: Config,
     srvcfg: Arc<ServerConfig>,
     cltcfg: Arc<ClientConfig>,
-
+    config: Config,
     wstore: Store<WasiCtx>,
     linker: Linker<WasiCtx>,
 }
@@ -117,9 +118,9 @@ impl Loader<Acquired> {
     }
 }
 
-impl From<Config> for Loader<Configured> {
-    fn from(config: Config) -> Self {
-        Self(Configured { config })
+impl From<Args> for Loader<Configured> {
+    fn from(args: Args) -> Self {
+        Self(Configured { args })
     }
 }
 

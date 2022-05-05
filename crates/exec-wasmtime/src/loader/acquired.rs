@@ -30,10 +30,9 @@ impl Loader<Acquired> {
         linker.module(&mut wstore, "", &module)?;
 
         Ok(Loader(Compiled {
-            config: self.0.config,
             srvcfg: self.0.srvcfg,
             cltcfg: self.0.cltcfg,
-
+            config: self.0.config,
             wstore,
             linker,
         }))

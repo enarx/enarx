@@ -87,7 +87,7 @@ impl Loader<Configured> {
         let req = Self::make_csr(&pki, ext)?;
 
         Ok(Loader(Requested {
-            config: self.0.config,
+            args: self.0.args,
             prvkey: raw,
             crtreq: req,
         }))

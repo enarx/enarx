@@ -105,7 +105,7 @@ impl Loader<Requested> {
 
     pub fn next(self) -> Result<Loader<Attested>> {
         // If the user supplied
-        let certs = match self.0.config.steward.as_ref() {
+        let certs = match self.0.args.steward.as_ref() {
             Some(url) => self.steward(url)?,
             None => self.selfsigned()?,
         }
@@ -150,7 +150,7 @@ impl Loader<Requested> {
             .with_single_cert(certs, PrivateKey(self.0.prvkey.deref().clone()))?;
 
         Ok(Loader(Attested {
-            config: self.0.config,
+            package: self.0.args.package,
             srvcfg: Arc::new(srvcfg),
             cltcfg: Arc::new(cltcfg),
         }))

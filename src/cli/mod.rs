@@ -3,7 +3,7 @@
 mod exec;
 mod info;
 mod log;
-mod run;
+pub mod run;
 #[cfg(feature = "backend-sgx")]
 pub mod sgx;
 #[cfg(feature = "backend-sev")]
