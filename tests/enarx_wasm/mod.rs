@@ -282,7 +282,7 @@ fn check_tcp() {
         buffer
     });
 
-    let bin = env!("CARGO_BIN_FILE_ENARX_WASM_TESTS_check_fd");
+    let bin = env!("CARGO_BIN_FILE_ENARX_WASM_TESTS_check_tcp");
     let bin_args = ["--wasmcfgfile", file.path().to_str().unwrap()];
     run_wasm_test(bin, bin_args.as_slice(), 0, None, None, None);
 
