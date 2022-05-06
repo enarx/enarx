@@ -54,7 +54,7 @@ protobuf = { version = "2.22", optional = true, default-features = false }
 rand = { version = "0.8", optional = true, features = ["std", "std_rng"], default-features = false }
 sallyport = { version = "0.4.0", optional = true, path = "crates/sallyport", default-features = false }
 semver = { version = "1.0", optional = true, default-features = false }
-sgx = { version = "0.4.1", optional = true, features = ["rcrypto"], default-features = false }
+sgx = { version = "0.5.0", optional = true, features = ["rcrypto"], default-features = false }
 static_assertions = { version = "1.1.0", optional = true, default-features = false }
 ureq = { version = "2.4.0", optional = true, default-features = false }
 vdso = { version = "0.2", optional = true, default-features = false }
