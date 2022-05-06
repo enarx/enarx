@@ -75,7 +75,7 @@ jobs:
       - uses: actions-rs/cargo@v1
         with:
           command: test
-          args: --no-default-features --features=backend-nil --test enarx_wasm_tests
+          args: --no-default-features --features=backend-nil --test integration
 
   bindeps:
     name: ${{ matrix.crate.name }} nightly ${{ matrix.profile.name }}

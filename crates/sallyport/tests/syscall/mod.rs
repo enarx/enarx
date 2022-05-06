@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use super::{run_test, write_tcp};
-use crate::integration_tests::recv_udp;
+use super::{recv_udp, run_test, write_tcp};
 
 use core::ffi::{c_char, c_int};
 use libc::{

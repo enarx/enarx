@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
+use super::{check_output, CRATE, KEEP_BIN, OUT_DIR, TEST_BINS_OUT, TIMEOUT_SECS};
+
 use process_control::{ChildExt, Control, Output};
 use serial_test::serial;
 use tempfile::NamedTempFile;
@@ -10,8 +12,6 @@ use std::path::Path;
 use std::process::{Command, Stdio};
 use std::thread;
 use std::time;
-
-use crate::common::{check_output, CRATE, KEEP_BIN, OUT_DIR, TEST_BINS_OUT, TIMEOUT_SECS};
 
 fn create(path: &Path) {
     match std::fs::create_dir(&path) {

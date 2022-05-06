@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
-use crate::common::run_test;
+
+use super::run_test;
 
 use std::io::Read;
 use std::mem::{size_of, MaybeUninit};
