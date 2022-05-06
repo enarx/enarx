@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
+use super::{assert_eq_slices, run_test};
+
 use std::fs;
 use std::io::{Read, Write};
 use std::os::unix::ffi::OsStrExt;
@@ -10,8 +12,6 @@ use std::time::Duration;
 use serial_test::serial;
 use std::sync::Arc;
 use tempfile::Builder;
-
-use crate::common::{assert_eq_slices, run_test};
 
 #[test]
 #[serial]

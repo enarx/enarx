@@ -1,6 +1,36 @@
 // SPDX-License-Identifier: Apache-2.0
 
-#![allow(dead_code)]
+#![cfg(all(not(miri), not(feature = "gdb")))]
+
+#[cfg(all(
+    target_os = "linux",
+    target_arch = "x86_64",
+    any(
+        feature = "backend-kvm",
+        feature = "backend-sev",
+        feature = "backend-sgx"
+    )
+))]
+mod exec;
+
+#[cfg(all(
+    target_os = "linux",
+    target_arch = "x86_64",
+    any(
+        feature = "backend-kvm",
+        feature = "backend-sev",
+        feature = "backend-sgx"
+    )
+))]
+mod syscall;
+
+#[cfg(any(
+    feature = "backend-kvm",
+    feature = "backend-nil",
+    feature = "backend-sev",
+    feature = "backend-sgx"
+))]
+mod wasm;
 
 use process_control::{ChildExt, Control, Output};
 use std::io::{stderr, Write};

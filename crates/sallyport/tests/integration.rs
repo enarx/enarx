@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
-pub mod enarxcall;
-pub mod gdbcall;
-pub mod syscall;
+#![feature(c_size_t, core_ffi_c)]
+
+mod enarxcall;
+mod gdbcall;
+mod syscall;
 
 use core::ffi::{c_int, c_size_t, c_ulong, c_void};
 use core::slice;
