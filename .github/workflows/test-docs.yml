@@ -38,7 +38,7 @@ jobs:
           - name: centos7
           - name: centos8
         context:
-          - name: "git,helloworld,helloworld-git"
+          - name: "git,helloworld"
           - name: "crates,helloworld"
         document:
           - name: "docs/Install.md"
