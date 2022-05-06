@@ -236,7 +236,7 @@ $ cargo +nightly build --release --target=wasm32-wasi
 
 Assuming you did install the `enarx` binary and have it in your `$PATH`, you can
 now run the WebAssembly program in an Enarx keep.
-```sh:helloworld-git;
+```sh:helloworld;
 $ enarx run target/wasm32-wasi/release/hello-world.wasm
 ```
 ```console
