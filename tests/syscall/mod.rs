@@ -137,7 +137,7 @@ fn get_att() {
     run_test(bin, 0, None, None, None);
 }
 
-#[cfg(feature = "backend-sgx")]
+#[cfg(enarx_with_shim)]
 #[cfg_attr(any(not(host_can_test_sgx), not(host_can_test_attestation)), ignore)]
 #[test]
 #[serial]

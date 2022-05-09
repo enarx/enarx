@@ -21,11 +21,7 @@
 // might need to examine the workload and determine which Exec is
 // the right one to use. But first... we gotta make exec-wasmtime work.
 
-#[cfg(any(
-    feature = "backend-sgx",
-    feature = "backend-sev",
-    feature = "backend-kvm"
-))]
+#[cfg(enarx_with_shim)]
 pub mod exec_wasmtime;
 
 use crate::Backend;
@@ -72,13 +68,8 @@ impl Exec for NilExec {
 
 pub static EXECS: Lazy<Vec<Box<dyn Exec>>> = Lazy::new(|| {
     vec![
-        #[cfg(any(
-            feature = "backend-sgx",
-            feature = "backend-sev",
-            feature = "backend-kvm"
-        ))]
+        #[cfg(enarx_with_shim)]
         Box::new(exec_wasmtime::WasmExec),
-        #[cfg(feature = "backend-nil")]
         Box::new(NilExec),
     ]
 });

@@ -1,28 +1,23 @@
 // SPDX-License-Identifier: Apache-2.0
 
-#[cfg(feature = "backend-kvm")]
+#[cfg(enarx_with_shim)]
 pub mod kvm;
 
-#[cfg(feature = "backend-sev")]
+#[cfg(enarx_with_shim)]
 pub mod sev;
 
-#[cfg(feature = "backend-sgx")]
+#[cfg(enarx_with_shim)]
 pub mod sgx;
 
-#[cfg(feature = "backend-nil")]
 pub mod nil;
 
-#[cfg(feature = "load-binary")]
+#[cfg(enarx_with_shim)]
 mod binary;
 
-#[cfg(any(
-    feature = "backend-sgx",
-    feature = "backend-sev",
-    feature = "backend-kvm"
-))]
+#[cfg(enarx_with_shim)]
 mod probe;
 
-#[cfg(feature = "load-binary")]
+#[cfg(enarx_with_shim)]
 use binary::{Binary, Loader, Mapper};
 
 use std::sync::Arc;
@@ -32,7 +27,7 @@ use libc::c_int;
 use once_cell::sync::Lazy;
 use serde::ser::{Serialize, SerializeStruct, Serializer};
 
-#[cfg(not(feature = "load-binary"))]
+#[cfg(not(enarx_with_shim))]
 #[allow(dead_code)]
 pub struct Binary<'a> {
     phantom: std::marker::PhantomData<&'a ()>,
@@ -109,13 +104,12 @@ pub enum Command {
 
 pub static BACKENDS: Lazy<Vec<Box<dyn Backend>>> = Lazy::new(|| {
     vec![
-        #[cfg(feature = "backend-sgx")]
+        #[cfg(enarx_with_shim)]
         Box::new(sgx::Backend),
-        #[cfg(feature = "backend-sev")]
+        #[cfg(enarx_with_shim)]
         Box::new(sev::Backend),
-        #[cfg(feature = "backend-kvm")]
+        #[cfg(enarx_with_shim)]
         Box::new(kvm::Backend),
-        #[cfg(feature = "backend-nil")]
         Box::new(nil::Backend),
     ]
 });

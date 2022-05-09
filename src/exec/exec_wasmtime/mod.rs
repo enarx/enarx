@@ -12,7 +12,7 @@ impl crate::exec::Exec for WasmExec {
 
     #[inline]
     fn exec(&self) -> &'static [u8] {
-        include_bytes!(env!("CARGO_BIN_FILE_ENARX_EXEC_WASMTIME_BIN"))
+        include_bytes!(env!("CARGO_BIN_FILE_ENARX_EXEC_WASMTIME"))
     }
 
     fn with_backend(&self, backend: &dyn Backend) -> bool {
@@ -31,7 +31,7 @@ pub(crate) mod test {
         let wasmldr = Box::new(WasmExec);
         assert_eq!(
             wasmldr.exec(),
-            include_bytes!(env!("CARGO_BIN_FILE_ENARX_EXEC_WASMTIME_BIN"))
+            include_bytes!(env!("CARGO_BIN_FILE_ENARX_EXEC_WASMTIME"))
         );
     }
 }

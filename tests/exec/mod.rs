@@ -75,7 +75,6 @@ fn unix_echo() {
     handle.join().unwrap();
 }
 
-#[cfg(feature = "backend-sev")]
 #[test]
 #[cfg_attr(not(host_can_test_sev), ignore)]
 #[serial]
