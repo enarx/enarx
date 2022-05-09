@@ -10,67 +10,71 @@
 mod config;
 mod loader;
 
-use config::Config;
 use loader::Loader;
+use url::Url;
 
-use std::fs::File;
 use std::io::Read;
 use std::mem::forget;
-use std::os::unix::io::FromRawFd;
-use std::os::unix::prelude::AsRawFd;
+use std::os::unix::io::{FromRawFd, RawFd};
+use std::os::unix::net::UnixStream;
 
-// v0.1.0 KEEP-CONFIG HACK
-// We don't yet have a well-defined way to pass runtime configuration from
-// the frontend/CLI into the keep, so the keep configuration is pre-defined:
-//   * the .wasm module is open on fd3 and gets no arguments or env vars
-//   * stdin, stdout, and stderr are enabled and should go to fd 0,1,2
-//   * logging should be turned on at "debug" level, output goes to stderr
-//
+use anyhow::Context;
+use serde::{Deserialize, Serialize};
 
-use std::path::PathBuf;
+/// Name of package entrypoint file
+pub const PACKAGE_ENTRYPOINT: &str = "main.wasm";
+
+/// Name of package config file
+pub const PACKAGE_CONFIG: &str = "Enarx.toml";
+
+/// Package to execute
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields, tag = "t", content = "c")]
+pub enum Package {
+    /// Remote URL to fetch package from
+    Remote(Url),
+
+    /// Local package
+    Local {
+        /// Open WASM module file descriptor
+        wasm: RawFd,
+        /// Optional open config file descriptor
+        conf: Option<RawFd>,
+    },
+}
 
 /// The Arguments
-#[derive(Debug)]
-pub enum Args {
-    Remote(String),
-    Local { wasm: RawFd, conf: Option<RawFd> },
+// NOTE: `repr(C)` is required, otherwise `toml` serialization fails with `values must be emitted before tables`
+#[derive(Debug, Deserialize, Serialize)]
+#[repr(C)]
+pub struct Args {
+    /// Package
+    pub package: Package,
 }
 
 /// Execute
 pub fn execute() -> anyhow::Result<()> {
-    // KEEP-CONFIG HACK: we've inherited stdio and the shim sets
-    // "RUST_LOG=debug", so this should make logging go to stderr.
-    // FUTURE: we should have a keep-provided debug channel where we can
-    // (safely, securely) send logs. Might need our own logger for that..
-    let mut config = match (args.module, args.config) {
-        (Some(module), Some(config)) => {
-            let module = File::open(&module).expect("unable to open file");
-            let config = File::open(&config).expect("unable to open file");
-            assert_eq!(3, module.as_raw_fd());
-            forget(module); // Leak fd 3.
-            config
-        }
+    // This is the FD of a Unix socket on which the host will send the TOML-encoded execution arguments
+    // and shutdown the write half of it immediately after.
+    // TODO: Use the write half of the socket to write logs/errors to the host
+    let mut host = unsafe { UnixStream::from_raw_fd(3) };
 
-        (None, None) => unsafe { File::from_raw_fd(4) },
-        _ => panic!("this configuration is unsupported"),
-    };
-
-    let mut buffer = String::new();
-    let config: Config = match config.read_to_string(&mut buffer) {
-        Ok(..) => toml::from_str(&buffer)?,
-        Err(..) => Config::default(),
-    };
+    let mut args = String::new();
+    host.read_to_string(&mut args)
+        .context("failed to read arguments")?;
+    let args = toml::from_str::<Args>(&args).context("failed to decode arguments")?;
 
     // Step through the state machine.
-    let configured = Loader::from(config);
+    let configured = Loader::from(args);
     let requested = configured.next()?;
     let attested = requested.next()?;
-    let acquired = attested.next()?;
-    let compiled = acquired.next()?;
+    let compiled = attested.next()?;
     let connected = compiled.next()?;
     let completed = connected.next()?;
-
     drop(completed);
+
+    // The FD is managed by the host or its parent.
+    forget(host);
     Ok(())
 }
 

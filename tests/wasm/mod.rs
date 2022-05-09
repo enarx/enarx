@@ -2,16 +2,17 @@
 
 use super::{check_output, CRATE, KEEP_BIN, OUT_DIR, TEST_BINS_OUT, TIMEOUT_SECS};
 
-use process_control::{ChildExt, Control, Output};
-use serial_test::serial;
-use tempfile::NamedTempFile;
-
 use std::io::{stderr, Read, Write};
-use std::net::{self, TcpStream};
+use std::net::{Ipv4Addr, TcpListener, TcpStream};
 use std::path::Path;
 use std::process::{Command, Stdio};
-use std::thread;
 use std::time;
+use std::{fs, thread};
+
+use process_control::{ChildExt, Control, Output};
+use serial_test::serial;
+use tempfile::tempdir;
+use url::Url;
 
 fn create(path: &Path) {
     match std::fs::create_dir(&path) {
@@ -24,34 +25,17 @@ fn create(path: &Path) {
     }
 }
 
-pub fn enarx_run<'a>(
-    wasm: &str,
-    bin_args: impl Into<Option<&'a [&'a str]>>,
+fn enarx<'a>(
+    cmd: impl FnOnce(&mut Command) -> &mut Command,
     input: impl Into<Option<&'a [u8]>>,
 ) -> Output {
-    let bin_args = bin_args.into();
-
-    let wasm_path = Path::new(CRATE)
-        .join(OUT_DIR)
-        .join(TEST_BINS_OUT)
-        .join(wasm);
-
-    let mut child = Command::new(&KEEP_BIN);
-    let mut child = child
+    let mut child = cmd(Command::new(&KEEP_BIN)
         .current_dir(CRATE)
-        .arg("run")
-        .arg(wasm_path)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
-        .stderr(Stdio::piped());
-
-    if let Some(args) = bin_args {
-        child = child.args(args);
-    }
-
-    let mut child = child
-        .spawn()
-        .unwrap_or_else(|e| panic!("failed to run `{}`: {:#?}", wasm, e));
+        .stderr(Stdio::piped()))
+    .spawn()
+    .unwrap_or_else(|e| panic!("failed to execute command: {:#?}", e));
 
     let input_thread = if let Some(input) = input.into() {
         let mut stdin = child.stdin.take().unwrap();
@@ -70,24 +54,45 @@ pub fn enarx_run<'a>(
         .time_limit(time::Duration::from_secs(TIMEOUT_SECS))
         .terminate_for_timeout()
         .wait()
-        .unwrap_or_else(|e| panic!("failed to run `{}`: {:#?}", wasm, e))
-        .unwrap_or_else(|| panic!("process `{}` timed out", wasm));
+        .unwrap_or_else(|e| panic!("failed to run command: {:#?}", e))
+        .unwrap_or_else(|| panic!("process timed out"));
 
     if let Some(input_thread) = input_thread {
         if let Err(_) = input_thread.join() {
             let _unused = stderr().write_all(&output.stderr);
-            panic!("failed to provide input for process `{}`", wasm)
+            panic!("failed to provide input for process")
         }
     }
 
     assert!(
         output.status.code().is_some(),
-        "process `{}` terminated by signal {:?}",
-        wasm,
+        "process terminated by signal {:?}",
         output.status.signal()
     );
 
     output
+}
+
+pub fn enarx_run<'a>(
+    wasm: &Path,
+    conf: Option<&Path>,
+    input: impl Into<Option<&'a [u8]>>,
+) -> Output {
+    enarx(
+        |cmd| {
+            let cmd = cmd.arg("run").arg(wasm);
+            if let Some(conf) = conf {
+                cmd.args(vec!["--wasmcfgfile", conf.to_str().unwrap()])
+            } else {
+                cmd
+            }
+        },
+        input,
+    )
+}
+
+pub fn enarx_deploy<'a>(url: &Url, input: impl Into<Option<&'a [u8]>>) -> Output {
+    enarx(|cmd| cmd.arg("deploy").arg(url.as_str()), input)
 }
 
 fn compile(wasm: &str) {
@@ -120,32 +125,90 @@ fn compile(wasm: &str) {
     std::fs::write(&wasm, &bin).unwrap_or_else(|_| panic!("failed to write {:?}", &wasm));
 }
 
+const DEFAULT_CONFIG: &str = r#"[[files]]
+kind = "stdin"
+
+[[files]]
+kind = "stdout"
+
+[[files]]
+kind = "stderr""#;
+
 fn run_wasm_test<'a>(
     wasm: &str,
-    bin_args: impl Into<Option<&'a [&'a str]>>,
+    conf: Option<&'a str>,
     status: i32,
     input: impl Into<Option<&'a [u8]>>,
     expected_stdout: impl Into<Option<&'a [u8]>>,
     expected_stderr: impl Into<Option<&'a [u8]>>,
-) -> Output {
-    let output = enarx_run(wasm, bin_args, input);
-    check_output(&output, status, expected_stdout, expected_stderr);
-    output
+) {
+    let input = input.into();
+    let expected_stdout = expected_stdout.into();
+    let expected_stderr = expected_stderr.into();
+
+    let wasm = Path::new(CRATE)
+        .join(OUT_DIR)
+        .join(TEST_BINS_OUT)
+        .join(wasm);
+
+    if conf.is_none() {
+        check_output(
+            &enarx_run(&wasm, None, input),
+            status,
+            expected_stdout,
+            expected_stderr,
+        );
+
+        check_output(
+            &enarx_deploy(
+                &Url::from_file_path(&wasm).expect("failed to construct a URL from path"),
+                input,
+            ),
+            status,
+            expected_stdout,
+            expected_stderr,
+        );
+
+        // TODO: Test execution from a remote HTTP(S) URL
+    }
+
+    let pkg = tempdir().expect("failed to create temporary package directory");
+    let pkg_wasm = pkg.path().join("main.wasm");
+    let pkg_conf = pkg.path().join("Enarx.toml");
+
+    fs::copy(wasm, &pkg_wasm).expect("failed to copy WASM module");
+    fs::write(&pkg_conf, &conf.unwrap_or(DEFAULT_CONFIG)).expect("failed to write config");
+
+    check_output(
+        &enarx_run(pkg_wasm.as_path(), Some(pkg_conf.as_path()), input),
+        status,
+        expected_stdout,
+        expected_stderr,
+    );
+
+    check_output(
+        &enarx_deploy(
+            &Url::from_file_path(pkg.path()).expect("failed to construct a URL from package path"),
+            input,
+        ),
+        status,
+        expected_stdout,
+        expected_stderr,
+    )
+
+    // TODO: Test execution from a remote HTTP(S) URL
 }
 
 fn run_wat_test<'a>(
     wasm: &str,
-    bin_args: impl Into<Option<&'a [&'a str]>>,
+    conf: Option<&'a str>,
     status: i32,
     input: impl Into<Option<&'a [u8]>>,
     expected_stdout: impl Into<Option<&'a [u8]>>,
     expected_stderr: impl Into<Option<&'a [u8]>>,
-) -> Output {
+) {
     compile(wasm);
-
-    let output = enarx_run(wasm, bin_args, input);
-    check_output(&output, status, expected_stdout, expected_stderr);
-    output
+    run_wasm_test(wasm, conf, status, input, expected_stdout, expected_stderr);
 }
 
 #[test]
@@ -190,102 +253,96 @@ fn no_export() {
 #[test]
 #[serial]
 fn echo() {
-    let mut input: Vec<u8> = Vec::with_capacity(2 * 1024 * 1024);
-
+    let mut input: Vec<_> = Vec::with_capacity(2 * 1024 * 1024);
     for i in 0..input.capacity() {
         input.push(i as _);
     }
     let input = input.as_slice();
 
-    let bin = env!("CARGO_BIN_FILE_ENARX_WASM_TESTS_echo");
-    run_wasm_test(bin, None, 0, input, input, None);
+    const WASM: &str = env!("CARGO_BIN_FILE_ENARX_WASM_TESTS_echo");
+    run_wasm_test(WASM, None, 0, input, input, None);
 }
 
 #[test]
 #[serial]
 fn memspike() {
-    let bin = env!("CARGO_BIN_FILE_ENARX_WASM_TESTS_memspike");
-    run_wasm_test(bin, None, 0, None, None, None);
+    const WASM: &str = env!("CARGO_BIN_FILE_ENARX_WASM_TESTS_memspike");
+    run_wasm_test(WASM, None, 0, None, None, None);
 }
 
 #[test]
 #[serial]
 fn memory_stress_test() {
-    let bin = env!("CARGO_BIN_FILE_ENARX_WASM_TESTS_memory_stress_test");
-    run_wasm_test(bin, None, 0, None, None, None);
+    const WASM: &str = env!("CARGO_BIN_FILE_ENARX_WASM_TESTS_memory_stress_test");
+    run_wasm_test(WASM, None, 0, None, None, None);
 }
 
 #[test]
 #[serial]
 fn zerooneone() {
-    let input = b"Good morning, that's a nice tnetennba.\n0118 999 881 999 119 725 3\n";
-
-    let bin = env!("CARGO_BIN_FILE_ENARX_WASM_TESTS_zerooneone");
-    let output = b"Tbbq zbeavat, gung'f n avpr gargraaon.\n0118 999 881 999 119 725 3\n";
-    run_wasm_test(bin, None, 0, input.as_slice(), output.as_slice(), None);
+    const WASM: &str = env!("CARGO_BIN_FILE_ENARX_WASM_TESTS_zerooneone");
+    const INPUT: &str = r#"Good morning, that's a nice tnetennba.
+0118 999 881 999 119 725 3
+"#;
+    const OUTPUT: &str = r#"Tbbq zbeavat, gung'f n avpr gargraaon.
+0118 999 881 999 119 725 3
+"#;
+    run_wasm_test(WASM, None, 0, INPUT.as_bytes(), OUTPUT.as_bytes(), None);
 }
 
 #[test]
 #[serial]
 fn check_tcp() {
-    const MSG: &str = "one\ntwo\nthree\n";
-    const CFG: &str = r#"
-        [[files]]
-        kind = "stdin"
+    const MSG: &str = r#"one
+two
+three
+"#;
+    const CFG: &str = r#"[[files]]
+kind = "stdin"
 
-        [[files]]
-        kind = "stdout"
+[[files]]
+kind = "stdout"
 
-        [[files]]
-        kind = "stderr"
+[[files]]
+kind = "stderr"
 
-        [[files]]
-        kind = "listen"
-        prot = "tcp"
-        port = @@LPORT@@
-        name = "LISTEN"
+[[files]]
+kind = "listen"
+prot = "tcp"
+port = @@LPORT@@
+name = "LISTEN"
 
-        [[files]]
-        kind = "connect"
-        prot = "tcp"
-        host = "127.0.0.1"
-        port = @@CPORT@@
-        name = "CONNECT"
-    "#;
+[[files]]
+kind = "connect"
+prot = "tcp"
+host = "127.0.0.1"
+port = @@CPORT@@
+name = "CONNECT""#;
 
     // Create listening sockets (allocate a port).
-    let listen = net::TcpListener::bind("127.0.0.1:0").unwrap();
-    let connect = net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let listen = TcpListener::bind((Ipv4Addr::UNSPECIFIED, 0)).unwrap();
+    let connect = TcpListener::bind((Ipv4Addr::UNSPECIFIED, 0)).unwrap();
     let lport = listen.local_addr().unwrap().port();
     let cport = connect.local_addr().unwrap().port();
     drop(connect);
 
-    // Write the config.
-    let cfg = CFG
-        .replace("@@LPORT@@", &cport.to_string())
-        .replace("@@CPORT@@", &lport.to_string());
-    let mut file = NamedTempFile::new().unwrap();
-    file.write_all(cfg.as_bytes()).unwrap();
-    file.flush().unwrap();
-
     // Spawn the IO thread.
-    let background = thread::spawn(move || {
+    thread::spawn(move || loop {
         let mut output = listen.accept().unwrap().0;
         output.write_all(MSG.as_bytes()).unwrap();
         drop(output);
 
-        let mut input = TcpStream::connect(("127.0.0.1", cport)).unwrap();
+        let mut input = TcpStream::connect((Ipv4Addr::LOCALHOST, cport)).unwrap();
         let mut buffer = String::new();
         input.read_to_string(&mut buffer).unwrap();
         drop(input);
 
-        buffer
+        assert_eq!(MSG, buffer)
     });
 
-    let bin = env!("CARGO_BIN_FILE_ENARX_WASM_TESTS_check_tcp");
-    let bin_args = ["--wasmcfgfile", file.path().to_str().unwrap()];
-    run_wasm_test(bin, bin_args.as_slice(), 0, None, None, None);
-
-    let output = background.join().unwrap();
-    assert_eq!(MSG, &output);
+    const WASM: &str = env!("CARGO_BIN_FILE_ENARX_WASM_TESTS_check_tcp");
+    let cfg = CFG
+        .replace("@@LPORT@@", &cport.to_string())
+        .replace("@@CPORT@@", &lport.to_string());
+    run_wasm_test(WASM, Some(cfg.as_str()), 0, None, None, None);
 }

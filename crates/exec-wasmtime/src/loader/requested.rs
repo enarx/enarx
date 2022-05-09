@@ -1,14 +1,25 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use super::{pki::PrivateKeyInfoExt, Attested, Loader, Requested};
+use super::super::config::Config;
+use super::super::{Package, PACKAGE_CONFIG, PACKAGE_ENTRYPOINT};
+use super::pki::PrivateKeyInfoExt;
+use super::{Attested, Loader, Requested};
 
+use std::io::Read;
+use std::ops::Deref;
+use std::os::unix::prelude::FromRawFd;
+use std::sync::Arc;
 use std::time::Duration;
-use std::{io::Read, ops::Deref, sync::Arc};
 
-use anyhow::{anyhow, Result};
-
+use anyhow::{anyhow, bail, ensure, Context, Result};
+use const_oid::db::rfc5280::{
+    ID_CE_BASIC_CONSTRAINTS, ID_CE_EXT_KEY_USAGE, ID_CE_KEY_USAGE, ID_KP_CLIENT_AUTH,
+    ID_KP_SERVER_AUTH,
+};
+use getrandom::getrandom;
 use pkcs8::PrivateKeyInfo;
 use rustls::{cipher_suite::*, kx_group::*, version::TLS13, *};
+use ureq::Response;
 use url::Url;
 use x509_cert::der::asn1::{BitString, UIntBytes};
 use x509_cert::der::{Decodable, Encodable};
@@ -17,11 +28,55 @@ use x509_cert::name::RdnSequence;
 use x509_cert::time::Validity;
 use x509_cert::{Certificate, PkiPath, TbsCertificate};
 
-use const_oid::db::rfc5280::{
-    ID_CE_BASIC_CONSTRAINTS, ID_CE_EXT_KEY_USAGE, ID_CE_KEY_USAGE, ID_KP_CLIENT_AUTH,
-    ID_KP_SERVER_AUTH,
-};
-use getrandom::getrandom;
+/// Maximum size of WASM module in bytes
+const MAX_WASM_SIZE: u64 = 10_000_000;
+
+const DRAWBRIDGE_DIRECTORY_MEDIA_TYPE: &str = "application/vnd.drawbridge.directory.v1+json";
+const TOML_MEDIA_TYPE: &str = "application/toml";
+const WASM_MEDIA_TYPE: &str = "application/wasm";
+
+fn get(url: impl AsRef<str>) -> Result<Response> {
+    let url = url.as_ref();
+    ureq::get(url)
+        .call()
+        .with_context(|| format!("failed to GET `{url}`"))
+}
+
+fn get_typed(typ: &str, url: impl AsRef<str>) -> Result<Response> {
+    get(url).and_then(|res| {
+        let ct = res.content_type();
+        ensure!(
+            ct == typ,
+            format!("expected media type `{typ}`, got `{ct}`")
+        );
+        Ok(res)
+    })
+}
+
+fn response_into_wasm(res: Response) -> Result<Vec<u8>> {
+    // TODO: Initialize with capacity of Content-Length if set.
+    let mut wasm = Vec::new();
+    res.into_reader()
+        .take(MAX_WASM_SIZE)
+        .read_to_end(&mut wasm)
+        .context("failed to read WASM module contents")?;
+    // TODO: Verify Content-Digest
+    Ok(wasm)
+}
+
+fn get_drawbridge_directory(url: impl AsRef<str>) -> Result<(Vec<u8>, String)> {
+    let url = url.as_ref().trim_end_matches('/');
+    let wasm = get_typed(WASM_MEDIA_TYPE, format!("{url}/{PACKAGE_ENTRYPOINT}"))
+        .context(format!("failed to fetch `{PACKAGE_ENTRYPOINT}`"))
+        .and_then(response_into_wasm)?;
+
+    let conf = get_typed(TOML_MEDIA_TYPE, format!("{url}/{PACKAGE_CONFIG}"))
+        .context(format!("failed to fetch `{PACKAGE_CONFIG}`"))?
+        // TODO: Verify Content-Digest
+        .into_string()?;
+
+    Ok((wasm, conf))
+}
 
 impl Loader<Requested> {
     fn steward(&self, url: &Url) -> Result<Vec<Vec<u8>>> {
@@ -104,8 +159,47 @@ impl Loader<Requested> {
     }
 
     pub fn next(self) -> Result<Loader<Attested>> {
-        // If the user supplied
-        let certs = match self.0.config.steward.as_ref() {
+        // TODO: First acquire the Steward URL and then pull the WASM module after attestation.
+        let (webasm, config) = match self.0.package {
+            Package::Remote(ref url) => {
+                let res = get(url.as_str())?;
+                match res.content_type() {
+                    WASM_MEDIA_TYPE => response_into_wasm(res).map(|webasm| (webasm, None))?,
+                    DRAWBRIDGE_DIRECTORY_MEDIA_TYPE => get_drawbridge_directory(url.as_str())
+                        .map(|(webasm, config)| (webasm, Some(config)))?,
+                    typ => bail!("unsupported content type: {typ}"),
+                }
+            }
+            Package::Local { wasm, conf } => {
+                let mut webasm = Vec::new();
+                // SAFETY: This FD was passed to us by the host and we trust that we have exclusive
+                // access to it.
+                unsafe { std::fs::File::from_raw_fd(wasm) }
+                    .read_to_end(&mut webasm)
+                    .context("failed to read WASM module")?;
+
+                let config = if let Some(conf) = conf {
+                    let mut config = String::new();
+                    // SAFETY: This FD was passed to us by the host and we trust that we have exclusive
+                    // access to it.
+                    unsafe { std::fs::File::from_raw_fd(conf) }
+                        .read_to_string(&mut config)
+                        .context("failed to read config")?;
+                    Some(config)
+                } else {
+                    None
+                };
+                (webasm, config)
+            }
+        };
+        let config: Config = if let Some(ref config) = config {
+            toml::from_str(config).context("failed to parse config")?
+        } else {
+            Default::default()
+        };
+
+        // If specified in the config
+        let certs = match config.steward.as_ref() {
             Some(url) => self.steward(url)?,
             None => self.selfsigned()?,
         }
@@ -150,9 +244,10 @@ impl Loader<Requested> {
             .with_single_cert(certs, PrivateKey(self.0.prvkey.deref().clone()))?;
 
         Ok(Loader(Attested {
-            config: self.0.config,
             srvcfg: Arc::new(srvcfg),
             cltcfg: Arc::new(cltcfg),
+            config,
+            webasm,
         }))
     }
 }

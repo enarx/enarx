@@ -38,6 +38,8 @@ log = { version = "0.4", default-features = false }
 once_cell = { version = "1.10.0", features = ["std"], default-features = false }
 serde = { version = "1.0.136", features = ["derive"], default-features = false }
 serde_json = { version = "1.0.79", features = ["std"], default-features = false }
+toml = { version = "0.5.9", default-features = false }
+url = { version = "2.2.2", default-features = false }
 
 # optional dependencies
 const-default = { version = "1.0", optional = true, features = ["derive"], default-features = false }

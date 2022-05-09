@@ -67,13 +67,7 @@ struct Thread;
 
 impl super::Thread for Thread {
     fn enter(&mut self, _gdblisten: &Option<String>) -> Result<super::Command> {
-        use enarx_exec_wasmtime::{execute, Args};
-
-        let args = Args {
-            module: None,
-            config: None,
-        };
-        execute(args)?;
+        enarx_exec_wasmtime::execute()?;
         Ok(super::Command::Exit(0))
     }
 }

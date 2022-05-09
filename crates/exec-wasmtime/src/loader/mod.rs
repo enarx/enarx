@@ -9,13 +9,15 @@
 //!
 //! The types are defined in sequential order.
 
-mod acquired;
 mod attested;
 mod compiled;
 mod configured;
 mod connected;
 mod pki;
 mod requested;
+
+use super::config::Config;
+use super::{Args, Package};
 
 use std::sync::Arc;
 
@@ -24,42 +26,31 @@ use wasi_common::WasiCtx;
 use wasmtime::{Linker, Store, Val};
 use zeroize::Zeroizing;
 
-use crate::config::Config;
-
 /// The first state, indicating successful configuration
 pub struct Configured {
-    config: Config,
+    args: Args,
 }
 
 /// The second state, indicating that a CSR has been generated
 pub struct Requested {
-    config: Config,
+    package: Package,
     prvkey: Zeroizing<Vec<u8>>,
     crtreq: Vec<u8>,
 }
 
-/// The third state, indicating receipt of the certificate
+/// The third state, indicating receipt of the configuration, certificate, WASM module and configuration
 pub struct Attested {
-    config: Config,
     srvcfg: Arc<ServerConfig>,
     cltcfg: Arc<ClientConfig>,
-}
-
-/// The fourth state, indicating receipt of the WASM module
-pub struct Acquired {
     config: Config,
-    srvcfg: Arc<ServerConfig>,
-    cltcfg: Arc<ClientConfig>,
-
     webasm: Vec<u8>,
 }
 
 /// The fifth state, indicating compilation of the WASM module
 pub struct Compiled {
-    config: Config,
     srvcfg: Arc<ServerConfig>,
     cltcfg: Arc<ClientConfig>,
-
+    config: Config,
     wstore: Store<WasiCtx>,
     linker: Linker<WasiCtx>,
 }
@@ -77,7 +68,7 @@ pub struct Completed {
 
 pub struct Loader<T>(T);
 
-impl Loader<Acquired> {
+impl Loader<Attested> {
     #[cfg(test)]
     pub fn run(module: &[u8]) -> anyhow::Result<Vec<Val>> {
         use rustls::{server::ResolvesServerCert, RootCertStore};
@@ -103,23 +94,23 @@ impl Loader<Acquired> {
             .with_root_certificates(RootCertStore::empty())
             .with_no_client_auth();
 
-        let acquired = Self(Acquired {
-            config: Config::default(),
+        let attested = Self(Attested {
             srvcfg: Arc::new(srvcfg),
             cltcfg: Arc::new(cltcfg),
+            config: Default::default(),
             webasm: module.to_vec(),
         });
 
-        let compiled = acquired.next()?;
+        let compiled = attested.next()?;
         let connected = compiled.next()?;
         let completed = connected.next()?;
         Ok(completed.into())
     }
 }
 
-impl From<Config> for Loader<Configured> {
-    fn from(config: Config) -> Self {
-        Self(Configured { config })
+impl From<Args> for Loader<Configured> {
+    fn from(args: Args) -> Self {
+        Self(Configured { args })
     }
 }
 
