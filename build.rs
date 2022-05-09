@@ -1,10 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
-use std::fs;
+
+#[cfg(all(target_os = "linux", target_arch = "x86_64"))]
 use std::os::unix::fs::FileTypeExt;
 
-const AESM_SOCKET: &str = "/var/run/aesmd/aesm.socket";
-
-#[cfg(feature = "backend-sgx")]
+#[cfg(all(target_os = "linux", target_arch = "x86_64"))]
 fn generate_protos() {
     use std::path::{Path, PathBuf};
 
@@ -37,32 +36,41 @@ fn generate_protos() {
 
 fn main() {
     println!("cargo:rerun-if-env-changed=OUT_DIR");
-
     // FIXME: this exists to work around https://github.com/rust-lang/cargo/issues/10527
     println!("cargo:rerun-if-changed=crates/");
 
-    #[cfg(feature = "backend-sgx")]
+    #[cfg(all(target_os = "linux", target_arch = "x86_64",))]
+    println!("cargo:rustc-cfg=enarx_with_shim");
+
+    #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
     generate_protos();
 
+    #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
     if std::path::Path::new("/dev/sgx_enclave").exists()
-        && fs::metadata("/dev/sgx_enclave")
+        && std::fs::metadata("/dev/sgx_enclave")
             .unwrap()
             .file_type()
             .is_char_device()
     {
+        const AESM_SOCKET: &str = "/var/run/aesmd/aesm.socket";
+
         println!("cargo:rustc-cfg=host_can_test_sgx");
 
         if (!cfg!(feature = "disable-sgx-attestation"))
             && std::path::Path::new(AESM_SOCKET).exists()
-            && fs::metadata(AESM_SOCKET).unwrap().file_type().is_socket()
+            && std::fs::metadata(AESM_SOCKET)
+                .unwrap()
+                .file_type()
+                .is_socket()
         {
             println!("cargo:rustc-cfg=host_can_test_attestation");
         }
     }
 
+    #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
     if std::path::Path::new("/dev/sev").exists() {
         // Not expected to fail, as the file exists.
-        let metadata = fs::metadata("/dev/sev").unwrap();
+        let metadata = std::fs::metadata("/dev/sev").unwrap();
         let file_type = metadata.file_type();
 
         if file_type.is_char_device() {

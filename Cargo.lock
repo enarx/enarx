@@ -574,7 +574,6 @@ dependencies = [
  "const-default",
  "dirs",
  "enarx-exec-wasmtime",
- "enarx-exec-wasmtime-bin",
  "enarx-shim-kvm",
  "enarx-shim-sgx",
  "enarx_exec_tests",
@@ -644,17 +643,6 @@ dependencies = [
  "wiggle",
  "x509-cert",
  "zeroize",
-]
-
-[[package]]
-name = "enarx-exec-wasmtime-bin"
-version = "0.4.0"
-dependencies = [
- "anyhow",
- "clap",
- "enarx-exec-wasmtime",
- "env_logger",
- "libc",
 ]
 
 [[package]]

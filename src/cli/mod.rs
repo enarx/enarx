@@ -5,9 +5,9 @@ mod exec;
 mod info;
 mod log;
 pub mod run;
-#[cfg(feature = "backend-sgx")]
+#[cfg(enarx_with_shim)]
 pub mod sgx;
-#[cfg(feature = "backend-sev")]
+#[cfg(enarx_with_shim)]
 pub mod snp;
 
 use anyhow::{anyhow, Result};
@@ -24,10 +24,10 @@ pub enum Command {
     Exec(exec::Options),
     Run(run::Options),
     Deploy(deploy::Options),
-    #[cfg(feature = "backend-sev")]
+    #[cfg(enarx_with_shim)]
     #[clap(subcommand)]
     Snp(snp::Command),
-    #[cfg(feature = "backend-sgx")]
+    #[cfg(enarx_with_shim)]
     #[clap(subcommand)]
     Sgx(sgx::Command),
 }

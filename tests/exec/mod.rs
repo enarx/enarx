@@ -75,11 +75,15 @@ fn unix_echo() {
     handle.join().unwrap();
 }
 
-#[cfg(feature = "backend-sev")]
 #[test]
 #[cfg_attr(not(host_can_test_sev), ignore)]
 #[serial]
 fn rust_sev_attestation() {
+    if let Ok(backend) = std::env::var("ENARX_BACKEND") {
+        if backend != "sev" {
+            return;
+        }
+    }
     let bin = env!("CARGO_BIN_FILE_SEV_ATTESTATION_sev_attestation");
     run_test(bin, 0, None, None, None);
 }

@@ -25,19 +25,16 @@ jobs:
           - name: sev
             path: .
             host: [ self-hosted, linux, sev-snp ]
-            flags: --no-default-features --features=backend-sev
           - name: sgx
             path: .
             host: [ self-hosted, linux, sgx ]
-            flags: --no-default-features --features=backend-sgx
           - name: kvm
             path: .
             host: [ self-hosted, linux ]
-            flags: --no-default-features --features=backend-kvm
           - name: nil
             path: .
             host: [ self-hosted, linux ]
-            flags: --no-default-features --features=backend-nil --test integration --bin enarx
+            flags: "--test integration --bin enarx -- wasm::"
           - name: exec-wasmtime
             path: ./crates/exec-wasmtime
             host: [ self-hosted, linux ]
@@ -71,7 +68,7 @@ jobs:
         run: cargo install --git https://github.com/haraldh/cargo-llvm-cov/ --branch target_rustflags --bin cargo-llvm-cov cargo-llvm-cov
 
       - name: Run cargo-llvm-cov
-        run: cargo llvm-cov ${{ matrix.crate.flags }} --target x86_64-unknown-linux-gnu --manifest-path ${{ matrix.crate.path }}/Cargo.toml --lcov --output-path lcov.info
+        run: cargo llvm-cov --target x86_64-unknown-linux-gnu --manifest-path ${{ matrix.crate.path }}/Cargo.toml --lcov --output-path lcov.info ${{ matrix.crate.flags }}
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v2
