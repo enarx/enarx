@@ -1,3 +1,5 @@
+cargo-features = ["profile-rustflags"]
+
 [package]
 name = "enarx"
 version = "0.4.0"
@@ -92,6 +94,18 @@ codegen-units = 1
 lto = true
 opt-level = "s"
 strip = true
+
+[profile.dev.package.enarx-shim-kvm]
+rustflags = ["-C", "linker=gcc"]
+
+[profile.release.package.enarx-shim-kvm]
+rustflags = ["-C", "linker=gcc"]
+
+[profile.dev.package.enarx-shim-sgx]
+rustflags = ["-C", "linker=gcc"]
+
+[profile.release.package.enarx-shim-sgx]
+rustflags = ["-C", "linker=gcc"]
 
 [profile.dev.package.rcrt1]
 opt-level = 3

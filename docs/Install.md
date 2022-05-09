@@ -191,7 +191,7 @@ Rust version nightly-2022-04-11 is required when installing Enarx 0.4.0 from cra
 
 ```sh:crates;
 $ rustup toolchain install nightly-2022-04-11 -t x86_64-unknown-linux-musl,x86_64-unknown-linux-gnu,x86_64-unknown-none
-$ CARGO_TARGET_X86_64_UNKNOWN_NONE_RUSTFLAGS="-C linker=gcc" cargo +nightly-2022-04-11 -Z bindeps install --bin enarx --version 0.4.0 -- enarx
+$ cargo +nightly-2022-04-11 -Z bindeps install --version 0.4.0
 ```
 
 ### Install from Nix
