@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
+pub mod deploy;
 mod exec;
 mod info;
 mod log;
-mod run;
+pub mod run;
 #[cfg(feature = "backend-sgx")]
 pub mod sgx;
 #[cfg(feature = "backend-sev")]
@@ -22,6 +23,7 @@ pub enum Command {
     #[clap(hide = true)]
     Exec(exec::Options),
     Run(run::Options),
+    Deploy(deploy::Options),
     #[cfg(feature = "backend-sev")]
     #[clap(subcommand)]
     Snp(snp::Command),

@@ -3,22 +3,19 @@
 use super::BackendOptions;
 
 use std::fmt::Debug;
-use std::path::PathBuf;
 
 use clap::Args;
+use url::Url;
 
-/// Run a WebAssembly module inside an Enarx Keep.
+/// Run an Enarx package inside an Enarx Keep.
 #[derive(Args, Debug)]
 pub struct Options {
     #[clap(flatten)]
     pub backend: BackendOptions,
 
-    #[clap(long, env = "ENARX_WASMCFGFILE")]
-    pub wasmcfgfile: Option<PathBuf>,
-
-    /// Path of the WebAssembly module to run
-    #[clap(value_name = "MODULE", parse(from_os_str))]
-    pub module: PathBuf,
+    /// URL of the package to run.
+    #[clap(value_name = "PACKAGE")]
+    pub package: Url,
 
     /// gdb options
     #[cfg(feature = "gdb")]

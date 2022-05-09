@@ -60,6 +60,7 @@ pub struct Config {
     pub files: Vec<File>,
 
     #[serde(default)]
+    /// Optional Steward URL
     pub steward: Option<Url>,
 }
 
@@ -75,7 +76,7 @@ impl Default for Config {
             env: HashMap::new(),
             args: vec![],
             files,
-            steward: None,
+            steward: None, // TODO: Default to a deployed Steward instance
         }
     }
 }
