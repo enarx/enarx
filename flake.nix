@@ -73,7 +73,7 @@
             ENARX_PREBUILT_shim-sgx = "${shimSgx}/bin/shim-sgx";
             ENARX_PREBUILT_exec-wasmtime = "${execWasmtime}/bin/exec-wasmtime";
 
-            CARGO_BUILD_TARGET = "x86_64-unknown-linux-gnu";
+            CARGO_BUILD_TARGET = "x86_64-unknown-linux-musl";
 
             doCheck = true;
             preCheck = ''
