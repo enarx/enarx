@@ -108,3 +108,22 @@ impl crate::backend::Backend for Backend {
         Ok(Vec::new())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    #[cfg_attr(debug_assertions, ignore)]
+    fn shim_kvm_binary_size() {
+        use crate::backend::Backend;
+
+        let max_shim_size = 500_000;
+        let shim = super::Backend.shim();
+        if shim.len() > max_shim_size {
+            panic!(
+                "shim size should be less than {} bytes, but is {} bytes",
+                max_shim_size,
+                shim.len()
+            );
+        }
+    }
+}
