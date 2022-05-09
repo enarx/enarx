@@ -2,34 +2,12 @@
 
 #![cfg(all(not(miri), not(feature = "gdb")))]
 
-#[cfg(all(
-    target_os = "linux",
-    target_arch = "x86_64",
-    any(
-        feature = "backend-kvm",
-        feature = "backend-sev",
-        feature = "backend-sgx"
-    )
-))]
+#[cfg(enarx_with_shim)]
 mod exec;
 
-#[cfg(all(
-    target_os = "linux",
-    target_arch = "x86_64",
-    any(
-        feature = "backend-kvm",
-        feature = "backend-sev",
-        feature = "backend-sgx"
-    )
-))]
+#[cfg(enarx_with_shim)]
 mod syscall;
 
-#[cfg(any(
-    feature = "backend-kvm",
-    feature = "backend-nil",
-    feature = "backend-sev",
-    feature = "backend-sgx"
-))]
 mod wasm;
 
 use process_control::{ChildExt, Control, Output};

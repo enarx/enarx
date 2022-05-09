@@ -12,12 +12,7 @@ categories = ["os", "os::linux-apis", "network-programming", "hardware-support"]
 exclude = [".github/"]
 
 [features]
-default = ["backend-kvm", "backend-sev", "backend-sgx", "backend-nil"]
-backend-kvm = ["dep:const-default", "dep:iocuddle", "dep:kvm-bindings", "dep:kvm-ioctls", "dep:lset", "dep:rand", "dep:x86_64", "load-binary"]
-backend-sev = ["dep:ureq", "dep:nbytes", "backend-kvm"]
-backend-sgx = ["dep:iocuddle", "dep:protobuf", "dep:sgx", "dep:ureq", "dep:vdso", "dep:x86_64", "load-binary"]
-backend-nil = []
-load-binary = ["dep:goblin", "dep:mmarinus", "dep:primordial", "dep:sallyport", "dep:semver", "dep:static_assertions"]
+default = []
 
 # non-default features
 gdb = ["gdbstub", "enarx-shim-kvm/gdb", "enarx-shim-sgx/gdb"]
@@ -42,30 +37,30 @@ toml = { version = "0.5.9", default-features = false }
 url = { version = "2.2.2", default-features = false }
 
 # optional dependencies
-const-default = { version = "1.0", optional = true, features = ["derive"], default-features = false }
 gdbstub = { version = "0.5.0", optional = true, features = ["std"], default-features = false }
-goblin = { version = "0.5", optional = true, features = ["elf64", "elf32", "std", "endian_fd"], default-features = false }
-iocuddle = { version = "0.1.1", optional = true, default-features = false }
-kvm-bindings = { version = "0.5", optional = true, default-features = false }
-kvm-ioctls = { version = "0.11", optional = true, default-features = false }
-lset = { version = "0.3", optional = true, default-features = false }
-mmarinus = { version = "0.4.0", optional = true, default-features = false }
-nbytes = { version = "0.1", optional = true, default-features = false }
-primordial = { version = "0.5", optional = true, features = ["alloc"], default-features = false }
-protobuf = { version = "2.22", optional = true, default-features = false }
-rand = { version = "0.8", optional = true, features = ["std", "std_rng"], default-features = false }
-sallyport = { version = "0.4.0", optional = true, path = "crates/sallyport", default-features = false }
-semver = { version = "1.0", optional = true, default-features = false }
-sgx = { version = "0.5.0", optional = true, features = ["rcrypto"], default-features = false }
-static_assertions = { version = "1.1.0", optional = true, default-features = false }
-ureq = { version = "2.4.0", optional = true, default-features = false }
-vdso = { version = "0.2", optional = true, default-features = false }
-x86_64 = { version = "0.14.9", optional = true, default-features = false }
+
+[target.'cfg(all(target_os = "linux", target_arch = "x86_64"))'.dependencies]
+const-default = { version = "1.0", features = ["derive"], default-features = false }
+goblin = { version = "0.5", features = ["elf64", "elf32", "std", "endian_fd"], default-features = false }
+iocuddle = { version = "0.1.1", default-features = false }
+kvm-bindings = { version = "0.5", default-features = false }
+kvm-ioctls = { version = "0.11", default-features = false }
+lset = { version = "0.3", default-features = false }
+mmarinus = { version = "0.4.0", default-features = false }
+nbytes = { version = "0.1", default-features = false }
+primordial = { version = "0.5", features = ["alloc"], default-features = false }
+protobuf = { version = "2.22", default-features = false }
+rand = { version = "0.8", features = ["std", "std_rng"], default-features = false }
+sallyport = { version = "0.4.0", path = "crates/sallyport", default-features = false }
+semver = { version = "1.0", default-features = false }
+sgx = { version = "0.5.0", features = ["rcrypto"], default-features = false }
+static_assertions = { version = "1.1.0", default-features = false }
+ureq = { version = "2.4.0", default-features = false }
+vdso = { version = "0.2", default-features = false }
+x86_64 = { version = "0.14.9", default-features = false }
 
 # binary dependencies
-[target.'cfg(all(target_os = "linux", target_arch = "x86_64"))'.dependencies]
-# FIXME: The enarx-exec-wasmtime-bin crate should be merged with enarx-exec-wasmtime again, see https://github.com/enarx/enarx/issues/1798
-enarx-exec-wasmtime-bin = { version = "0.4.0", path = "crates/exec-wasmtime-bin", artifact = "bin", target = "x86_64-unknown-linux-musl", default-features = false }
+enarx-exec-wasmtime = { version = "0.4.0", path = "crates/exec-wasmtime", artifact = "bin", target = "x86_64-unknown-linux-musl", default-features = false }
 enarx-shim-kvm = { version = "0.4.0", path = "crates/shim-kvm", artifact = "bin", target = "x86_64-unknown-none", default-features = false }
 enarx-shim-sgx = { version = "0.4.0", path = "crates/shim-sgx", artifact = "bin", target = "x86_64-unknown-none", default-features = false }
 

@@ -11,7 +11,7 @@ mod backend;
 mod cli;
 mod exec;
 
-#[cfg(feature = "backend-sgx")]
+#[cfg(enarx_with_shim)]
 mod protobuf;
 
 use backend::{Backend, Command};
@@ -34,7 +34,7 @@ use enarx_exec_wasmtime::{Args, Package, PACKAGE_CONFIG, PACKAGE_ENTRYPOINT};
 use anyhow::{anyhow, bail, Context, Result};
 use clap::Parser;
 use log::info;
-#[cfg(feature = "load-binary")]
+#[cfg(enarx_with_shim)]
 use mmarinus::{perms, Map, Private};
 
 // This defines the toplevel `enarx` CLI
@@ -128,11 +128,11 @@ fn main() -> Result<()> {
 
     match opts.cmd {
         cli::Command::Info(info) => info.display(),
-        #[cfg(not(feature = "load-binary"))]
+        #[cfg(not(enarx_with_shim))]
         cli::Command::Exec(_) => {
             anyhow::bail!("exec option not supported")
         }
-        #[cfg(feature = "load-binary")]
+        #[cfg(enarx_with_shim)]
         cli::Command::Exec(exec) => {
             let backend = exec.backend.pick()?;
             let binary = Map::load(&exec.binpath, Private, perms::Read)?;
@@ -243,9 +243,9 @@ fn main() -> Result<()> {
             };
             std::process::exit(code);
         }
-        #[cfg(feature = "backend-sev")]
+        #[cfg(enarx_with_shim)]
         cli::Command::Snp(cmd) => cli::snp::run(cmd),
-        #[cfg(feature = "backend-sgx")]
+        #[cfg(enarx_with_shim)]
         cli::Command::Sgx(cmd) => cli::sgx::run(cmd),
     }
 }

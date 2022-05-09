@@ -137,11 +137,15 @@ fn get_att() {
     run_test(bin, 0, None, None, None);
 }
 
-#[cfg(feature = "backend-sgx")]
 #[cfg_attr(any(not(host_can_test_sgx), not(host_can_test_attestation)), ignore)]
 #[test]
 #[serial]
 fn sgx_get_att_quote() {
+    if let Ok(backend) = std::env::var("ENARX_BACKEND") {
+        if backend != "sgx" {
+            return;
+        }
+    }
     let bin = env!("CARGO_BIN_FILE_ENARX_SYSCALL_TESTS_sgx_get_att_quote");
     run_test(bin, 0, None, None, None);
 }
