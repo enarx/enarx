@@ -18,6 +18,7 @@
 
         rust = fenix.packages."${system}".fromToolchainFile {
           file = "${self}/rust-toolchain.toml";
+          sha256 = "sha256-Miyx2cevxtP/Ia2HB9HVN6Z5eT8ITFcoQFvgiK7jVTY=";
         };
       in
       {
