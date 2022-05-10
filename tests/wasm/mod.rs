@@ -217,11 +217,18 @@ fn zerooneone() {
 #[serial]
 fn check_tcp() {
     let wasm = wasm_path(env!("CARGO_BIN_FILE_ENARX_WASM_TESTS_check_tcp"));
-    const MSG: &str = r#"one
-two
-three
-"#;
-    const CFG: &str = r#"[[files]]
+
+    // Create listening sockets (allocate a port).
+    let listen = TcpListener::bind((Ipv4Addr::UNSPECIFIED, 0)).unwrap();
+    let lport = listen.local_addr().unwrap().port();
+    let cport = TcpListener::bind((Ipv4Addr::UNSPECIFIED, 0))
+        .unwrap()
+        .local_addr()
+        .unwrap()
+        .port();
+
+    let conf = format!(
+        r#"[[files]]
 kind = "stdin"
 
 [[files]]
@@ -233,38 +240,28 @@ kind = "stderr"
 [[files]]
 kind = "listen"
 prot = "tcp"
-port = @@LPORT@@
+port = {cport}
 name = "LISTEN"
 
 [[files]]
 kind = "connect"
 prot = "tcp"
 host = "127.0.0.1"
-port = @@CPORT@@
-name = "CONNECT""#;
-
-    // Create listening sockets (allocate a port).
-    let listen = TcpListener::bind((Ipv4Addr::UNSPECIFIED, 0)).unwrap();
-    let connect = TcpListener::bind((Ipv4Addr::UNSPECIFIED, 0)).unwrap();
-    let lport = listen.local_addr().unwrap().port();
-    let cport = connect.local_addr().unwrap().port();
-    drop(connect);
-
-    let cfg = CFG
-        .replace("@@LPORT@@", &cport.to_string())
-        .replace("@@CPORT@@", &lport.to_string());
+port = {lport}
+name = "CONNECT""#
+    );
 
     let pkg = tempdir().expect("failed to create temporary package directory");
     let pkg_wasm = pkg.path().join("main.wasm");
     let pkg_conf = pkg.path().join("Enarx.toml");
 
     fs::copy(wasm, &pkg_wasm).expect("failed to copy WASM module");
-    fs::write(&pkg_conf, &cfg).expect("failed to write config");
+    fs::write(&pkg_conf, &conf).expect("failed to write config");
 
     // Spawn the IO thread.
     thread::spawn(move || loop {
         let mut output = listen.accept().unwrap().0;
-        output.write_all(MSG.as_bytes()).unwrap();
+        output.write_all(b"test").unwrap();
         drop(output);
 
         let mut input = TcpStream::connect((Ipv4Addr::LOCALHOST, cport)).unwrap();
@@ -272,7 +269,7 @@ name = "CONNECT""#;
         input.read_to_string(&mut buffer).unwrap();
         drop(input);
 
-        assert_eq!(MSG, buffer)
+        assert_eq!("test\n", buffer)
     });
 
     check_output(&enarx_run(&pkg_wasm, Some(&pkg_conf), None), 0, None, None);
