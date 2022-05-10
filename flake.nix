@@ -68,7 +68,13 @@
 
             CARGO_BUILD_TARGET = "x86_64-unknown-linux-musl";
 
-            doCheck = true;
+            doCheck = false;
+            preCheck = ''
+              if [[ ! -e /dev/kvm ]]; then
+                header "No KVM support, running only unit tests"
+                export cargo_test_options="$cargo_test_options --bins --test integration -- wasm::"
+              fi
+            '';
           };
 
         defaultPackage = self.packages.${system}.enarx;
