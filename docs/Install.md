@@ -2,9 +2,9 @@
 
 ## Introduction
 
-Enarx currently has support for Intel SGX and AMD SEV-SNP. Please check the [Requirements](#requirements).
+Enarx currently has support for Keeps running in Intel SGX and AMD SEV-SNP TEEs (Trusted Execution Environments). Please check the [Requirements](#requirements).  There is also support for application development using a "nil" backend which provides the same runtime, but no security isolation, and can run on a variety of Linux, Mac and Raspberry Pi systems.
 
-In the [Initial Setup](#initial-setup) section, you'll find instructions on how to install dependencies for Fedora, CentOS/Stream, and Debian/Ubuntu, including Rust and the toolchains.
+In the [Initial Setup](#initial-setup) section, you'll find instructions on how to install dependencies for the various supported architectures and distributions. These dependencies include Rust and the toolchains.
 
 Next, you'll find instructions on how to [install Enarx](#installing-enarx) from crates.io, GitHub, or Nix.
 
@@ -14,14 +14,15 @@ Finally, in the [Running Enarx](#running-enarx) section, you'll build and run yo
 
 ### Recommended hardware
 
-Enarx requires specific hardware to run, namely a CPU with a supported Trusted Execution Environment. Currently, Enarx has support for Intel SGX and AMD SEV-SNP.
+* Enarx requires specific hardware to run Keeps in a TEE instance, namely a CPU with a supported Trusted Execution Environment. Currently, Enarx Keeps are supported with ["Intel SGX"](#Setting-up-an-SGX-machine) and [AMD SEV-SNP](#Setting-up-an-SEV-SNP-machine).
+* For development purposes, we provide the ["nil" backend](#Requirements-for-the-“nil”-backend), which does not require special hardware, or even a system running Linux.
+
+### Setting up an SGX machine
+Enarx requires SGX2 (SGX with EDMM) support.
 
 For Intel, our recommendation would be the 3rd Gen Intel Xeon Scalable Ice Lake. This [article](https://www.servethehome.com/3rd-gen-intel-xeon-scalable-ice-lake-sku-list-and-value-analysis/) provides a comprehensive analysis of the different models. The 5318Y or 5318S provide good value.
 
-For AMD our recommendation would be the EPYC 7003 Milan. This [article](https://www.servethehome.com/amd-epyc-7003-milan-sku-list-and-value-analysis/) offers an analysis of the different models. The 7313 seems like a good value.
-
-### Setting up an SGX machine
-- Run a recent kernel with SGX support compiled in
+- You must run a Linux kernel with patches applied from this repository tree: https://github.com/enarx/linux/tree/sgx
 - Set the SGX device node permissions
 
 ```sh:sgx;
@@ -33,22 +34,11 @@ EOF
 ```
 
 
-#### Hardware requirements for SGX
-- Is there IPMI support?
-  - There is a similar technology called Intel AMT ([ref1](http://blog.dustinkirkland.com/2013/12/why-i-returned-all-of-my-i3-intel-nucs.html), [ref2](https://www.intel.com/content/www/us/en/support/articles/000026592/technologies.html)) that is present on NUCs with `i5` Ivy Bridge processors. 
-  - Running an [AMT check](https://github.com/mjg59/mei-amt-check) produces the result `Error: Management Engine refused connection. This probably means you don't have AMT`
-- Are there other NUC models that support SGX2?
-- Are SGX features accessible from a VM?
-  - There is some [experimental support](https://01.org/intel-software-guard-extensions/sgx-virtualization) for this
-
 ### Setting up an SEV-SNP machine
-- install an [SEV-SNP patched kernel](https://github.com/AMDESE/linux/tree/sev-snp-part2-v5)
+#### Hardware requirements for SEV
+For AMD our recommendation would be the EPYC 7003 Milan. This [article](https://www.servethehome.com/amd-epyc-7003-milan-sku-list-and-value-analysis/) offers an analysis of the different models.
 
-```sh:snp;ID=fedora
-$ sudo dnf copr enable -y harald/kernel-snp 
-$ sudo dnf install -y kernel{,-core,-modules}-5.14.0-0.rc2.28.sev.snp.part2.v5.fc34.x86_64
-```
-
+- You must run a Linux kernel with patches applied from this repository tree: https://github.com/AMDESE/linux/tree/sev-snp-part2-v6
 - Update the machine to the latest BIOS and/or install the [latest firmware](https://developer.amd.com/sev/):
 
 ```sh:snp;
@@ -73,7 +63,22 @@ $ sudo bash -c "echo '* - memlock 8388608' > /etc/security/limits.d/sev.conf"
 $ sudo bash -c "echo 'options kvm_amd sev=1' > /etc/modprobe.d/kvm-amd.conf"
 ```
 
-### Requirements for KVM as a backend
+
+
+### Requirements for the "nil" backend
+
+The `nil` backend does not require any special hardware, but any of the architectures supported by the `wasmtime` crate. These are currently:
+
+* `aarch64-apple-darwin`
+* `x86_64-apple-darwin`
+* `aarch64-unknown-linux-gnu`
+* `aarch64-unknown-linux-musl`
+* `x86_64-unknown-linux-gnu`
+* `x86_64-unknown-linux-musl`
+
+This includes 64-bit Raspberry Pi and Apple M1.
+
+### Requirements for KVM as a backend (alternative to "nil" backend)
 
 KVM (Kernel-based Virtual Machine) is a full virtualization solution for Linux on x86 hardware containing virtualization extensions (Intel VT or AMD-V). It consists of a loadable kernel module, kvm.ko, that provides the core virtualization infrastructure and a processor specific module, kvm-intel.ko or kvm-amd.ko.
 
@@ -98,10 +103,13 @@ kvm 	      10   1 kvm_amd
 ```
 
 ## Initial Setup
+Please choose one of the following:
+* [Linux x86_64](#Linux-x86_64-Install-Dependencies)
+* [64-bit Arm: (Raspberry Pi or Apple M1) and Apple x86_64](#64-bit-Arm-build-dependencies-Raspberry-Pi-or-Apple-M1-and-Apple-x86_64)
 
-### Install Dependencies
+### Linux x86_64 Install Dependencies
 
-Please find instructions for each Linux distribution below:
+Please find instructions for your Linux distribution:
 
 #### Fedora
 
@@ -164,11 +172,16 @@ Failure to do so might result in weird failures at runtime.
 
 :::
 
+### 64-bit Arm build dependencies: (Raspberry Pi or Apple M1) and Apple x86_64
+
+The architectures support development only, using the "nil" backend, so you only need to install the Rust toolchain.
+
 ### Install Rust
 ```sh
 $ curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- --default-toolchain nightly -y
 $ source $HOME/.cargo/env
 ```
+
 ## Installing Enarx
 
 You can install Enarx from GitHub, crates.io, or Nix.
@@ -260,17 +273,20 @@ setting the `ENARX_BACKEND` environment variable:
 $ enarx run --backend=sgx target/wasm32-wasi/release/hello-world.wasm
 $ ENARX_BACKEND=sgx enarx run target/wasm32-wasi/release/hello-world.wasm
 ```
-##### Note about KVM backend
 
-`enarx` will look for the kvm driver loaded by the kernel and will be ready to use if it's found. Linux kernel
-automatically loads the kvm module if the virtualization feature is enabled by the hardware. The status of whether or not
-enarx was able to find the driver can be checked with the command `enarx info`. If the output shows the driver for kvm is available, you are ready to use enarx using kvm backend.
+##### Note about backends
+`enarx` will look for backends in the following order, and use the first which it finds:
+1. SGX or SEV-SNP
+2. KVM
+3. "nil"
 
-When you execute the `enarx run` command, enarx tries to automatically select the appropriate driver, and kvm is automatically selected if it's the only backend available. But if you want to specifically use the kvm backend you can pass the `kvm` as a parameter to `--backend` option, or set the `ENARX_BACKEND` environment variable as `kvm`:
+The status of whether or not enarx was able to find the driver can be checked with the command `enarx info`. If the output shows any of the backends with a green "tick" or "checkmark", you are ready to use enarx with that backend.
 
-```sh:kvm-helloworld;
-$ enarx run --backend=kvm target/wasm32-wasi/release/hello-world.wasm
-$ ENARX_BACKEND=kvm enarx run target/wasm32-wasi/release/hello-world.wasm
+When you execute the `enarx run` command, enarx tries to automatically select the appropriate backend. But if you want to specifically use the another supported backend you can pass the backend name ("sgx", "sev", "kvm" or "nil") as a parameter to `--backend` option, or set the `ENARX_BACKEND` environment variable with the name:
+
+```sh:nil-helloworld;
+$ enarx run --backend=nil target/wasm32-wasi/release/hello-world.wasm
+$ ENARX_BACKEND=nil enarx run target/wasm32-wasi/release/hello-world.wasm
 ```
 
 ## Conclusion
