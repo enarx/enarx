@@ -1,6 +1,6 @@
 [package]
 name = "enarx"
-version = "0.4.0"
+version = "0.5.0"
 edition = "2021"
 description = "Tools for deploying WebAssembly into Enarx Keeps"
 authors = ["The Enarx Project Developers"]
@@ -26,7 +26,7 @@ bitflags = { version = "1.2", default-features = false }
 clap = { version = "3.1", features = ["env", "derive", "std"], default-features = false }
 colorful = { version = "0.2", default-features = false }
 dirs = { version = "4.0", default-features = false }
-enarx-exec-wasmtime = { version = "0.4.0", path = "crates/exec-wasmtime", default-features = false }
+enarx-exec-wasmtime = { version = "0.5.0", path = "crates/exec-wasmtime", default-features = false }
 env_logger = { version = "0.9", default-features = false }
 libc = { version = "0.2", default-features = false }
 log = { version = "0.4", default-features = false }
@@ -51,7 +51,7 @@ nbytes = { version = "0.1", default-features = false }
 primordial = { version = "0.5", features = ["alloc"], default-features = false }
 protobuf = { version = "2.22", default-features = false }
 rand = { version = "0.8", features = ["std", "std_rng"], default-features = false }
-sallyport = { version = "0.4.0", path = "crates/sallyport", default-features = false }
+sallyport = { version = "0.5.0", path = "crates/sallyport", default-features = false }
 semver = { version = "1.0", default-features = false }
 sgx = { version = "0.5.0", features = ["rcrypto"], default-features = false }
 static_assertions = { version = "1.1.0", default-features = false }
@@ -60,9 +60,9 @@ vdso = { version = "0.2", default-features = false }
 x86_64 = { version = "0.14.9", default-features = false }
 
 # binary dependencies
-enarx-exec-wasmtime = { version = "0.4.0", path = "crates/exec-wasmtime", artifact = "bin", target = "x86_64-unknown-linux-musl", default-features = false }
-enarx-shim-kvm = { version = "0.4.0", path = "crates/shim-kvm", artifact = "bin", target = "x86_64-unknown-none", default-features = false }
-enarx-shim-sgx = { version = "0.4.0", path = "crates/shim-sgx", artifact = "bin", target = "x86_64-unknown-none", default-features = false }
+enarx-exec-wasmtime = { version = "0.5.0", path = "crates/exec-wasmtime", artifact = "bin", target = "x86_64-unknown-linux-musl", default-features = false }
+enarx-shim-kvm = { version = "0.5.0", path = "crates/shim-kvm", artifact = "bin", target = "x86_64-unknown-none", default-features = false }
+enarx-shim-sgx = { version = "0.5.0", path = "crates/shim-sgx", artifact = "bin", target = "x86_64-unknown-none", default-features = false }
 
 [build-dependencies]
 protobuf-codegen-pure = { version = "2.27", default-features = false }
