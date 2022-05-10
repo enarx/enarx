@@ -10,85 +10,65 @@
 
   outputs = { self, nixpkgs, fenix, flake-utils, ... }:
     # NOTE: musl is only supported on Linux.
-    with flake-utils.lib; eachSystem [ system.x86_64-linux ] (system:
-      let
-        pkgs = nixpkgs.legacyPackages.${system};
+    with flake-utils.lib; eachSystem [ system.x86_64-linux ]
+      (system:
+        let
+          pkgs = nixpkgs.legacyPackages.${system};
 
-        rust = fenix.packages."${system}".fromToolchainFile {
-          file = "${self}/rust-toolchain.toml";
-        };
-      in
-      {
-        devShell = pkgs.mkShell.override { stdenv = pkgs.stdenvNoCC; } {
-          buildInputs = (with pkgs; [
-            gcc11
-            musl
-          ]) ++ [
-            rust
-          ];
+          cargoToml = builtins.fromTOML (builtins.readFile "${self}/Cargo.toml");
+          cargoLock = builtins.readFile "${self}/Cargo.lock";
 
-          shellHook = ''
-            unset NIX_LDFLAGS_FOR_TARGET
-            unset NIX_CFLAGS_COMPILE_FOR_TARGET
-          '';
-        };
+          CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_LINKER = with pkgs.pkgsMusl.stdenv; "${cc}/bin/${cc.targetPrefix}gcc";
+        in
+        {
+          defaultPackage =
+            let
+              rust = with fenix.packages.${system};
+                combine [
+                  minimal.cargo
+                  minimal.rustc
+                  targets.x86_64-unknown-linux-musl.latest.rust-std
+                  targets.x86_64-unknown-none.latest.rust-std
+                ];
 
-        packages.enarx =
-          let
-            src = nixpkgs.lib.cleanSource self;
-
-            pkgsCross = import nixpkgs {
-              inherit system;
-              crossSystem.config = "x86_64-unknown-linux-musl";
-            };
-
-            # Common base derivation to build Enarx crates
-            buildEnarxPackage = pkgs: extraAttrs:
-              let
-                cargoToml = with builtins; fromTOML (readFile "${src}/Cargo.toml");
-                buildPackage = (pkgs.makeRustPlatform {
-                  cargo = rust;
+              rustPlatform = pkgs.pkgsStatic.makeRustPlatform
+                {
                   rustc = rust;
-                }).buildRustPackage;
-              in
-              buildPackage ({
-                inherit (cargoToml.package) name version;
+                  cargo = rust;
+                };
+            in
+            rustPlatform.buildRustPackage {
+              inherit (cargoToml.package) name version;
+              inherit CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_LINKER;
 
-                cargoLock.lockFile = "${extraAttrs.src}/Cargo.lock";
-              } // extraAttrs);
+              src = pkgs.nix-gitignore.gitignoreRecursiveSource [ ] self;
+              cargoLock.lockFileContents = cargoLock;
 
-            # Enarx internal static dependencies
-            buildEnarxInternalPackage = src: buildEnarxPackage pkgsCross {
-              inherit src;
+              depsBuildBuild = [ pkgs.stdenv.cc ];
 
-              stripAllFlags = [ "--strip-unneeded" ];
-              stripAllList = [ "bin" ];
+              CARGO_BUILD_TARGET = "x86_64-unknown-linux-musl";
+              CARGO_BUILD_RUSTFLAGS = "-C target-feature=+crt-static";
+
+              postPatch = ''
+                patchShebangs ./helper
+              '';
+
+              doCheck = true;
             };
-            shimKvm = buildEnarxInternalPackage ./crates/shim-kvm;
-            shimSgx = buildEnarxInternalPackage ./crates/shim-sgx;
-            execWasmtime = buildEnarxInternalPackage ./crates/exec-wasmtime;
-          in
-          buildEnarxPackage pkgs {
-            inherit src;
 
-            postPatch = ''
-              patchShebangs ./helper
-            '';
+          devShell =
+            let
+              rust = fenix.packages.${system}.fromToolchainFile {
+                file = "${self}/rust-toolchain.toml";
+              };
+            in
+            pkgs.mkShell {
+              inherit CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_LINKER;
 
-            ENARX_PREBUILT_shim-kvm = "${shimKvm}/bin/shim-kvm";
-            ENARX_PREBUILT_shim-sgx = "${shimSgx}/bin/shim-sgx";
-            ENARX_PREBUILT_exec-wasmtime = "${execWasmtime}/bin/exec-wasmtime";
-
-            doCheck = true;
-            preCheck = ''
-              if [[ ! -e /dev/kvm ]]; then
-                header "No KVM support, running only unit tests"
-                export cargo_test_options="$cargo_test_options --bins"
-              fi
-            '';
-          };
-
-        defaultPackage = self.packages.${system}.enarx;
-      }
-    );
+              buildInputs = [
+                rust
+              ];
+            };
+        }
+      );
 }
