@@ -21,7 +21,9 @@
           CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_LINKER = with pkgs.pkgsMusl.stdenv; "${cc}/bin/${cc.targetPrefix}gcc";
         in
         {
-          defaultPackage =
+          defaultPackage = self.packages.${system}.enarx;
+
+          packages =
             let
               rust = with fenix.packages.${system};
                 combine [
@@ -37,23 +39,31 @@
                   cargo = rust;
                 };
             in
-            rustPlatform.buildRustPackage {
-              inherit (cargoToml.package) name version;
-              inherit CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_LINKER;
+            {
+              enarx = rustPlatform.buildRustPackage {
+                inherit (cargoToml.package) name version;
+                inherit CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_LINKER;
 
-              src = pkgs.nix-gitignore.gitignoreRecursiveSource [ ] self;
-              cargoLock.lockFileContents = cargoLock;
+                src = pkgs.nix-gitignore.gitignoreRecursiveSource [ ] self;
+                cargoLock.lockFileContents = cargoLock;
 
-              depsBuildBuild = [ pkgs.stdenv.cc ];
+                depsBuildBuild = [ pkgs.stdenv.cc ];
 
-              CARGO_BUILD_TARGET = "x86_64-unknown-linux-musl";
-              CARGO_BUILD_RUSTFLAGS = "-C target-feature=+crt-static";
+                CARGO_BUILD_TARGET = "x86_64-unknown-linux-musl";
+                CARGO_BUILD_RUSTFLAGS = "-C target-feature=+crt-static";
 
-              postPatch = ''
-                patchShebangs ./helper
-              '';
+                postPatch = ''
+                  patchShebangs ./helper
+                '';
 
-              doCheck = true;
+                doCheck = true;
+              };
+
+              enarx-docker = pkgs.dockerTools.buildImage {
+                name = "${cargoToml.package.name}-docker";
+                tag = "${cargoToml.package.version}";
+                config.Cmd = [ "${self.packages.${system}.enarx}/bin/enarx" ];
+              };
             };
 
           devShell =
