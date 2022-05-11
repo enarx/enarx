@@ -150,5 +150,7 @@ jobs:
     steps:
     - uses: actions/checkout@v2.4.0
     - uses: cachix/install-nix-action@v16
+    - run: nix build -L '.#enarx-static'
     - run: nix run -L '.#enarx-static' info
+    - run: ./result/bin/enarx info
     - run: nix build -L '.#enarx-docker'
