@@ -58,33 +58,38 @@
                     patchShebangs ./helper
                   '';
                 } // extraArgs);
-            in
-            {
-              "${cargoToml.package.name}" = buildPackage pkgs { };
 
-              "${cargoToml.package.name}-static" = buildPackage pkgs.pkgsStatic rec {
-                CARGO_BUILD_TARGET = "x86_64-unknown-linux-musl";
-                CARGO_BUILD_RUSTFLAGS = "-C target-feature=+crt-static";
-                CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_LINKER = with pkgs.pkgsMusl.stdenv; "${cc}/bin/${cc.targetPrefix}gcc";
+              dynamicBin = buildPackage pkgs { };
 
-                depsBuildBuild = [ pkgs.stdenv.cc ];
+              staticBin = buildPackage pkgs.pkgsStatic
+                rec {
+                  CARGO_BUILD_TARGET = "x86_64-unknown-linux-musl";
+                  CARGO_BUILD_RUSTFLAGS = "-C target-feature=+crt-static";
+                  CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_LINKER = with pkgs.pkgsMusl.stdenv; "${cc}/bin/${cc.targetPrefix}gcc";
 
-                postBuild = ''
-                  ldd target/${CARGO_BUILD_TARGET}/release/${cargoToml.package.name} | grep -q 'statically linked' || (echo "binary is not statically linked"; exit 1)
-                '';
+                  depsBuildBuild = [ pkgs.stdenv.cc ];
 
-                meta.mainProgram = cargoToml.package.name;
-              };
+                  postBuild = ''
+                    ldd target/${CARGO_BUILD_TARGET}/release/${cargoToml.package.name} | grep -q 'statically linked' || (echo "binary is not statically linked"; exit 1)
+                  '';
 
-              "${cargoToml.package.name}-docker" = pkgs.dockerTools.buildImage {
+                  meta.mainProgram = cargoToml.package.name;
+                };
+
+              ociImage = pkgs.dockerTools.buildImage {
                 inherit (cargoToml.package) name;
                 tag = cargoToml.package.version;
                 runAsRoot = ''
-                  install -D "${self.packages.${system}."${cargoToml.package.name}-static"}/bin/${cargoToml.package.name}" "/bin/${cargoToml.package.name}"
+                  install -D "${staticBin}/bin/${cargoToml.package.name}" "/bin/${cargoToml.package.name}"
                 '';
                 config.Cmd = [ cargoToml.package.name ];
                 config.Env = [ "PATH=/bin" ];
               };
+            in
+            {
+              "${cargoToml.package.name}" = dynamicBin;
+              "${cargoToml.package.name}-static" = staticBin;
+              "${cargoToml.package.name}-docker" = ociImage;
             };
 
           devShell =
