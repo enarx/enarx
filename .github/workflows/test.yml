@@ -131,6 +131,13 @@ jobs:
           - name: release
             flag: --release
 
+  nix-check:
+    runs-on: ubuntu-20.04
+    steps:
+    - uses: actions/checkout@v2
+    - uses: cachix/install-nix-action@v17
+    - run: nix flake check --impure
+
   nix-develop:
     runs-on: ubuntu-20.04
     steps:
