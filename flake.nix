@@ -79,11 +79,11 @@
               ociImage = pkgs.dockerTools.buildImage {
                 inherit (cargoToml.package) name;
                 tag = cargoToml.package.version;
-                runAsRoot = ''
-                  install -D "${staticBin}/bin/${cargoToml.package.name}" "/bin/${cargoToml.package.name}"
-                '';
+                contents = [
+                  staticBin
+                ];
                 config.Cmd = [ cargoToml.package.name ];
-                config.Env = [ "PATH=/bin" ];
+                config.Env = [ "PATH=${staticBin}/bin" ];
               };
             in
             {
