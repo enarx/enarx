@@ -9,8 +9,12 @@
   inputs.nixpkgs.url = github:NixOS/nixpkgs/nixos-unstable;
 
   outputs = { self, nixpkgs, fenix, flake-utils, ... }:
-    # NOTE: musl is only supported on Linux.
-    with flake-utils.lib; eachSystem [ system.x86_64-linux ]
+    with flake-utils.lib; eachSystem [
+      system.aarch64-darwin
+      system.aarch64-linux
+      system.x86_64-darwin
+      system.x86_64-linux
+    ]
       (system:
         let
           pkgs = nixpkgs.legacyPackages.${system};
@@ -35,7 +39,7 @@
                 rustc = rust;
                 cargo = rust;
               }).buildRustPackage
-                ({
+                (extraArgs // {
                   inherit (cargoToml.package) name version;
 
                   src = pkgs.nix-gitignore.gitignoreRecursiveSource [
@@ -57,17 +61,24 @@
                   postPatch = ''
                     patchShebangs ./helper
                   '';
-                } // extraArgs);
 
-              dynamicBin = buildPackage pkgs { };
+                  buildInputs = pkgs.lib.optional pkgs.stdenv.isDarwin
+                    pkgs.darwin.apple_sdk.frameworks.Security;
+                });
+
+              dynamicBin = buildPackage pkgs {
+                cargoTestFlags = [ "wasm::" ];
+              };
 
               staticBin = buildPackage pkgs.pkgsStatic
                 rec {
-                  CARGO_BUILD_TARGET = "x86_64-unknown-linux-musl";
                   CARGO_BUILD_RUSTFLAGS = "-C target-feature=+crt-static";
+                  CARGO_BUILD_TARGET = "x86_64-unknown-linux-musl";
                   CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_LINKER = with pkgs.pkgsMusl.stdenv; "${cc}/bin/${cc.targetPrefix}gcc";
 
-                  depsBuildBuild = [ pkgs.stdenv.cc ];
+                  depsBuildBuild = [
+                    pkgs.stdenv.cc
+                  ];
 
                   postBuild = ''
                     ldd target/${CARGO_BUILD_TARGET}/release/${cargoToml.package.name} | grep -q 'statically linked' || (echo "binary is not statically linked"; exit 1)
@@ -88,6 +99,7 @@
             in
             {
               "${cargoToml.package.name}" = dynamicBin;
+            } // pkgs.lib.optionalAttrs (system == flake-utils.lib.system.x86_64-linux) {
               "${cargoToml.package.name}-static" = staticBin;
               "${cargoToml.package.name}-docker" = ociImage;
             };
