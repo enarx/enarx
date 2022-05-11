@@ -69,6 +69,10 @@
 
                 depsBuildBuild = [ pkgs.stdenv.cc ];
 
+                postBuild = ''
+                  ldd target/${CARGO_BUILD_TARGET}/release/${name} | grep -q 'statically linked' || (echo "binary is not statically linked"; exit 1)
+                '';
+
                 meta.mainProgram = name;
               };
 
