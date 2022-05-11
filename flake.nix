@@ -60,9 +60,9 @@
                 } // extraArgs);
             in
             {
-              "${name}" = buildPackage pkgs { };
+              "${cargoToml.package.name}" = buildPackage pkgs { };
 
-              "${name}-static" = buildPackage pkgs.pkgsStatic rec {
+              "${cargoToml.package.name}-static" = buildPackage pkgs.pkgsStatic rec {
                 CARGO_BUILD_TARGET = "x86_64-unknown-linux-musl";
                 CARGO_BUILD_RUSTFLAGS = "-C target-feature=+crt-static";
                 CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_LINKER = with pkgs.pkgsMusl.stdenv; "${cc}/bin/${cc.targetPrefix}gcc";
@@ -70,19 +70,19 @@
                 depsBuildBuild = [ pkgs.stdenv.cc ];
 
                 postBuild = ''
-                  ldd target/${CARGO_BUILD_TARGET}/release/${name} | grep -q 'statically linked' || (echo "binary is not statically linked"; exit 1)
+                  ldd target/${CARGO_BUILD_TARGET}/release/${cargoToml.package.name} | grep -q 'statically linked' || (echo "binary is not statically linked"; exit 1)
                 '';
 
-                meta.mainProgram = name;
+                meta.mainProgram = cargoToml.package.name;
               };
 
-              "${name}-docker" = pkgs.dockerTools.buildImage {
-                inherit name;
-                tag = version;
+              "${cargoToml.package.name}-docker" = pkgs.dockerTools.buildImage {
+                inherit (cargoToml.package) name;
+                tag = cargoToml.package.version;
                 runAsRoot = ''
-                  install -D "${self.packages.${system}."${name}-static"}/bin/${name}" "/bin/${name}"
+                  install -D "${self.packages.${system}."${cargoToml.package.name}-static"}/bin/${cargoToml.package.name}" "/bin/${cargoToml.package.name}"
                 '';
-                config.Cmd = [ "enarx" ];
+                config.Cmd = [ cargoToml.package.name ];
                 config.Env = [ "PATH=/bin" ];
               };
             };
