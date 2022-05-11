@@ -38,7 +38,19 @@
                 ({
                   inherit (cargoToml.package) name version;
 
-                src = pkgs.nix-gitignore.gitignoreRecursiveSource [ ] self;
+                  src = pkgs.nix-gitignore.gitignoreRecursiveSource [
+                    "*.nix"
+                    "*.yml"
+                    "/.github"
+                    "/docs"
+                    "/README-DEBUG.md"
+                    "/SECURITY.md"
+                    "deny.toml"
+                    "flake.lock"
+                    "LICENSE"
+                    "rust-toolchain.toml"
+                  ]
+                    self;
 
                   cargoLock.lockFileContents = builtins.readFile "${self}/Cargo.lock";
 
