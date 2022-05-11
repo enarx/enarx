@@ -76,10 +76,14 @@
                 meta.mainProgram = name;
               };
 
-              enarx-docker = pkgs.dockerTools.buildImage {
-                name = "${cargoToml.package.name}-docker";
-                tag = "${cargoToml.package.version}";
-                config.Cmd = [ "${self.packages.${system}.enarx}/bin/enarx" ];
+              "${name}-docker" = pkgs.dockerTools.buildImage {
+                inherit name;
+                tag = version;
+                runAsRoot = ''
+                  install -D "${self.packages.${system}."${name}-static"}/bin/${name}" "/bin/${name}"
+                '';
+                config.Cmd = [ "enarx" ];
+                config.Env = [ "PATH=/bin" ];
               };
             };
 
