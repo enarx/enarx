@@ -146,7 +146,7 @@ jobs:
     - run: nix develop -L --ignore-environment --impure -c cargo test 'wasm::'
 
   nix-dynamic:
-    runs-on: ubuntu-20.04
+    runs-on: macos-latest
     steps:
     - uses: actions/checkout@v2
     - uses: cachix/install-nix-action@v17
