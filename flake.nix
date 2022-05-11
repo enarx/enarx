@@ -16,12 +16,9 @@
           pkgs = nixpkgs.legacyPackages.${system};
 
           cargoToml = builtins.fromTOML (builtins.readFile "${self}/Cargo.toml");
-          cargoLock = builtins.readFile "${self}/Cargo.lock";
-
-          CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_LINKER = with pkgs.pkgsMusl.stdenv; "${cc}/bin/${cc.targetPrefix}gcc";
         in
         {
-          defaultPackage = self.packages.${system}.enarx;
+          defaultPackage = self.packages.${system}.${cargoToml.package.name};
 
           packages =
             let
@@ -29,34 +26,38 @@
                 combine [
                   minimal.cargo
                   minimal.rustc
+                  targets.wasm32-wasi.latest.rust-std # required for tests
                   targets.x86_64-unknown-linux-musl.latest.rust-std
                   targets.x86_64-unknown-none.latest.rust-std
                 ];
 
-              rustPlatform = pkgs.pkgsStatic.makeRustPlatform
-                {
-                  rustc = rust;
-                  cargo = rust;
-                };
-            in
-            {
-              enarx = rustPlatform.buildRustPackage {
-                inherit (cargoToml.package) name version;
-                inherit CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_LINKER;
+              buildPackage = pkgs: extraArgs: (pkgs.makeRustPlatform {
+                rustc = rust;
+                cargo = rust;
+              }).buildRustPackage
+                ({
+                  inherit (cargoToml.package) name version;
 
                 src = pkgs.nix-gitignore.gitignoreRecursiveSource [ ] self;
-                cargoLock.lockFileContents = cargoLock;
+
+                  cargoLock.lockFileContents = builtins.readFile "${self}/Cargo.lock";
+
+                  postPatch = ''
+                    patchShebangs ./helper
+                  '';
+                } // extraArgs);
+            in
+            {
+              "${name}" = buildPackage pkgs { };
+
+              "${name}-static" = buildPackage pkgs.pkgsStatic rec {
+                CARGO_BUILD_TARGET = "x86_64-unknown-linux-musl";
+                CARGO_BUILD_RUSTFLAGS = "-C target-feature=+crt-static";
+                CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_LINKER = with pkgs.pkgsMusl.stdenv; "${cc}/bin/${cc.targetPrefix}gcc";
 
                 depsBuildBuild = [ pkgs.stdenv.cc ];
 
-                CARGO_BUILD_TARGET = "x86_64-unknown-linux-musl";
-                CARGO_BUILD_RUSTFLAGS = "-C target-feature=+crt-static";
-
-                postPatch = ''
-                  patchShebangs ./helper
-                '';
-
-                doCheck = true;
+                meta.mainProgram = name;
               };
 
               enarx-docker = pkgs.dockerTools.buildImage {
@@ -73,8 +74,6 @@
               };
             in
             pkgs.mkShell {
-              inherit CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_LINKER;
-
               buildInputs = [
                 rust
               ];
