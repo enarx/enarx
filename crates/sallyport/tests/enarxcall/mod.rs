@@ -63,20 +63,20 @@ fn mem_info() {
 }
 
 #[test]
-fn remove_sgx_pages() {
+fn mprotect_host() {
     run_test(2, [0xff; 16], move |_, _, handler| {
         assert_eq!(
-            handler.remove_sgx_pages(NonNull::new(0x7f8af78eb000 as *mut _).unwrap(), 4096),
+            handler.mprotect_host(NonNull::new(0x7f8af78eb000 as *mut _).unwrap(), 4096, 0),
             Err(ENOSYS)
         );
     })
 }
 
 #[test]
-fn reset_sgx_permissions() {
+fn remove_sgx_pages() {
     run_test(2, [0xff; 16], move |_, _, handler| {
         assert_eq!(
-            handler.reset_sgx_permissions(NonNull::new(0x7f8af78eb000 as *mut _).unwrap(), 4096),
+            handler.remove_sgx_pages(NonNull::new(0x7f8af78eb000 as *mut _).unwrap(), 4096),
             Err(ENOSYS)
         );
     })

@@ -1061,21 +1061,18 @@ pub trait Handler {
         self.execute(enarxcall::MemInfo)?
     }
 
+    /// Notify the host about `mprotect()`.
+    #[inline]
+    fn mprotect_host(&mut self, addr: NonNull<c_void>, length: usize, prot: c_int) -> Result<()> {
+        self.execute(enarxcall::MprotectHost { addr, length, prot })?
+    }
+
     /// Within an address range inside the enclave, ask host to remove pages
     /// from the enclave. Pages must be trimmed before this operation is
     /// applied.
     #[inline]
     fn remove_sgx_pages(&mut self, addr: NonNull<c_void>, length: usize) -> Result<()> {
         self.execute(enarxcall::RemoveSgxPages { addr, length })?
-    }
-
-    /// Within an address range inside the enclave, ask host to reset
-    /// permissions to 'read'. Address and length must be page-aligned.  Shim
-    /// must validate and acknowledge the changes with ENCLU[EACCEPT], in order
-    /// for them to take effect.
-    #[inline]
-    fn reset_sgx_permissions(&mut self, addr: NonNull<c_void>, length: usize) -> Result<()> {
-        self.execute(enarxcall::ResetSgxPermissions { addr, length })?
     }
 
     /// Within an address range inside the enclave, ask host to set page type to
