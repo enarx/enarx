@@ -143,6 +143,10 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - uses: cachix/install-nix-action@v17
+    - uses: cachix/cachix-action@v10
+      with:
+        name: enarx
+        authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
     - run: nix develop -L --ignore-environment --impure -c cargo test 'wasm::'
 
   nix-dynamic:
@@ -150,6 +154,10 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - uses: cachix/install-nix-action@v17
+    - uses: cachix/cachix-action@v10
+      with:
+        name: enarx
+        authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
     - run: nix run -L . info
 
   nix-static:
@@ -157,6 +165,10 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - uses: cachix/install-nix-action@v17
+    - uses: cachix/cachix-action@v10
+      with:
+        name: enarx
+        authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
     - run: nix build -L '.#enarx-static'
     - run: nix run -L '.#enarx-static' info
     - run: ./result/bin/enarx info
