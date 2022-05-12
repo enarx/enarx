@@ -109,6 +109,58 @@ impl<'a> Handler<'a> {
                 .unwrap_or_else(|_| self.attacked());
         }
     }
+
+    fn mprotect_unlocked(
+        &mut self,
+        heap: &mut Heap,
+        addr_in: NonNull<c_void>,
+        length_in: c_size_t,
+        prot: c_int,
+    ) -> sallyport::Result<()> {
+        let addr = addr_in.as_ptr() as usize;
+        // TODO: Simplify:
+        let pages = ((length_in + Page::SIZE - 1) & !(Page::SIZE - 1)) / Page::SIZE;
+
+        if addr & 0xfff != 0 || pages == 0 {
+            return Err(EINVAL);
+        }
+
+        if !is_prot_allowed(prot) {
+            return Err(EACCES);
+        }
+
+        let addr = Address::new(addr);
+        let length = Offset::from_items(pages);
+
+        if heap.contains(addr, length) == None {
+            return Err(ENOMEM);
+        }
+
+        self.mprotect_host(addr_in, length.bytes(), prot)?;
+
+        for i in 0..pages {
+            let virt_addr = VirtAddr::new((addr.raw() + i * Page::SIZE) as u64);
+            // Safety: The address is guaranteed to be page aligned, because
+            // `addr` was checked to be page aligned and only a multiple of
+            // pages was added.
+            let page_addr = unsafe { PageAddr::from_start_address_unchecked(virt_addr) };
+
+            // TODO: https://github.com/enarx/enarx/issues/1892
+            Class::Regular
+                .info(Flags::READ | Flags::RESTRICTED)
+                .accept(page_addr)
+                .unwrap_or_else(|_| self.attacked());
+
+            Class::Regular
+                .info(Flags::from_bits_truncate(prot as u8))
+                .extend(page_addr);
+        }
+
+        let access = Access::from_bits_truncate(prot as usize);
+        heap.mmap(Some(addr), length, access);
+
+        Ok(())
+    }
 }
 
 impl<'a> Write for Handler<'a> {
@@ -199,58 +251,13 @@ impl guest::Handler for Handler<'_> {
     fn mprotect(
         &mut self,
         _platform: &impl Platform,
-        addr_in: NonNull<c_void>,
-        length_in: c_size_t,
+        addr: NonNull<c_void>,
+        len: c_size_t,
         prot: c_int,
     ) -> sallyport::Result<()> {
-        let addr = addr_in.as_ptr() as usize;
-        let pages = ((length_in + Page::SIZE - 1) & !(Page::SIZE - 1)) / Page::SIZE;
-
-        if addr & 0xfff != 0 || pages == 0 {
-            return Err(EINVAL);
-        }
-
-        if !is_prot_allowed(prot) {
-            return Err(EACCES);
-        }
-
-        let addr = Address::new(addr);
-        let length = Offset::from_items(pages);
-
         let mut heap = HEAP.write();
 
-        if heap.contains(addr, length) == None {
-            return Err(ENOMEM);
-        }
-
-        // TODO: Change the backend to zero the permissions instead of
-        // restricting them to 'read' (SGX2 series v4 issue).
-        self.reset_sgx_permissions(addr_in, length.bytes())
-            .unwrap_or_else(|_| self.attacked());
-
-        for i in 0..pages {
-            let virt_addr = VirtAddr::new((addr.raw() + i * Page::SIZE) as u64);
-            // # Safety
-            //
-            // The address must be page aligned.
-            let page_addr = unsafe { PageAddr::from_start_address_unchecked(virt_addr) };
-
-            // TODO: Remove `Flags::READ | ` when possible (SGX2 series v4
-            // issue)
-            Class::Regular
-                .info(Flags::READ | Flags::RESTRICTED)
-                .accept(page_addr)
-                .unwrap_or_else(|_| self.attacked());
-
-            Class::Regular
-                .info(Flags::from_bits_truncate(prot as u8))
-                .extend(page_addr);
-        }
-
-        let access = Access::from_bits_truncate(prot as usize);
-        heap.mmap(Some(addr), length, access);
-
-        Ok(())
+        self.mprotect_unlocked(&mut heap, addr, len, prot)
     }
 
     fn mmap(

@@ -6,7 +6,7 @@ use crate::guest::alloc::{Allocator, Collector};
 use crate::item::enarxcall::Number;
 use crate::Result;
 
-use core::ffi::c_void;
+use core::ffi::{c_int, c_void};
 use core::ptr::NonNull;
 
 /// Trait implemented by allocatable Enarx calls, which are passed through directly to the host and do
@@ -101,6 +101,25 @@ impl PassthroughAlloc for MemInfo {
     }
 }
 
+/// Notify the host to prepare memory for the guest to handle
+/// [Mprotect](crate::guest::call::syscall::Mprotect).
+pub struct MprotectHost {
+    pub addr: NonNull<c_void>,
+    pub length: usize,
+    pub prot: c_int,
+}
+
+impl PassthroughAlloc for MprotectHost {
+    const NUM: Number = Number::MprotectHost;
+
+    type Argv = Argv<3>;
+    type Ret = ();
+
+    fn stage(self) -> Self::Argv {
+        Argv([self.addr.as_ptr() as _, self.length, self.prot as _])
+    }
+}
+
 /// Within an address range inside the enclave, ask host to remove pages
 /// from the enclave. Pages must be trimmed before this operation is
 /// applied.
@@ -111,26 +130,6 @@ pub struct RemoveSgxPages {
 
 impl PassthroughAlloc for RemoveSgxPages {
     const NUM: Number = Number::RemoveSgxPages;
-
-    type Argv = Argv<2>;
-    type Ret = ();
-
-    fn stage(self) -> Self::Argv {
-        Argv([self.addr.as_ptr() as _, self.length])
-    }
-}
-
-/// Within an address range inside the enclave, ask host to reset
-/// permissions to 'read'. Address and length must be page-aligned.  Shim
-/// must validate and acknowledge the changes with ENCLU[EACCEPT], in order
-/// for them to take effect.
-pub struct ResetSgxPermissions {
-    pub addr: NonNull<c_void>,
-    pub length: usize,
-}
-
-impl PassthroughAlloc for ResetSgxPermissions {
-    const NUM: Number = Number::ResetSgxPermissions;
 
     type Argv = Argv<2>;
     type Ret = ();

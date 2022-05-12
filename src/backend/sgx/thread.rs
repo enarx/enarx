@@ -17,6 +17,7 @@ use std::sync::Arc;
 
 use crate::backend::sgx::attestation::get_quote_size;
 use anyhow::{Context, Result};
+use libc::{EINVAL, PROT_READ};
 use sallyport::host::{deref_aligned, deref_slice};
 use sallyport::item;
 use sallyport::item::enarxcall::sgx::{Report, TargetInfo};
@@ -160,6 +161,39 @@ fn sgx_enarxcall<'a>(
         }
 
         item::Enarxcall {
+            num: item::enarxcall::Number::MprotectHost,
+            argv: [addr, len, prot, ..],
+            ret,
+            ..
+        } => {
+            let mem_end = keep.mem.addr() + keep.mem.size();
+            let end = *addr + *len;
+
+            // Check that the span is within the enclave address range:
+            if *addr < keep.mem.addr() || end > mem_end {
+                *ret = EINVAL as _;
+                return Ok(None);
+            }
+
+            // Safety: the parameters have been verified to be within the shim's
+            // address range.
+            if unsafe { libc::mprotect(*addr as _, *len, *prot as i32) } != 0 {
+                *ret = (-io::Error::last_os_error().raw_os_error().unwrap()) as _;
+                return Ok(None);
+            }
+
+            // TODO: https://github.com/enarx/enarx/issues/1892
+            let mut parameters =
+                RestrictPermissions::new(*addr - keep.mem.addr(), *len, PROT_READ as _);
+            ENCLAVE_RESTRICT_PERMISSIONS
+                .ioctl(&mut keep.enclave.try_clone().unwrap(), &mut parameters)
+                .context("ENCLAVE_RESTRICT_PERMISSIONS failed")?;
+
+            *ret = 0;
+            Ok(None)
+        }
+
+        item::Enarxcall {
             num: item::enarxcall::Number::RemoveSgxPages,
             argv: [addr, length, ..],
             ret,
@@ -169,23 +203,6 @@ fn sgx_enarxcall<'a>(
             ENCLAVE_REMOVE_PAGES
                 .ioctl(&mut keep.enclave.try_clone().unwrap(), &mut parameters)
                 .context("ENCLAVE_REMOVE_PAGES failed")?;
-            *ret = 0;
-            Ok(None)
-        }
-
-        item::Enarxcall {
-            num: item::enarxcall::Number::ResetSgxPermissions,
-            argv: [addr, length, ..],
-            ret,
-            ..
-        } => {
-            // TODO: Once SGX2 v5 series is out, reset permissions to zero
-            // instead. Resetting  to 'read' is just a workaround for v4
-            // ioctl's.
-            let mut parameters = RestrictPermissions::new(*addr - keep.mem.addr(), *length, 1);
-            ENCLAVE_RESTRICT_PERMISSIONS
-                .ioctl(&mut keep.enclave.try_clone().unwrap(), &mut parameters)
-                .context("ENCLAVE_RESTRICT_PERMISSIONS failed")?;
             *ret = 0;
             Ok(None)
         }
