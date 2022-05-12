@@ -1,0 +1,59 @@
+name: nix
+
+on:
+  pull_request:
+    paths:
+    - '**.nix'
+    - '.cargo/**'
+    - 'Cargo.lock'
+    - 'Cargo.toml'
+    - 'flake.lock'
+    - 'rust-toolchain.toml'
+  push:
+    paths:
+    - '**.nix'
+    - '.cargo/**'
+    - 'Cargo.lock'
+    - 'Cargo.toml'
+    - 'flake.lock'
+    - 'rust-toolchain.toml'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-20.04
+    steps:
+    - uses: actions/checkout@v2
+    - uses: cachix/install-nix-action@v17
+    - run: nix flake check --impure
+
+  run:
+    strategy:
+      matrix:
+        os: [ ubuntu-20.04 macos-11 ]
+    runs-on: ${{ matrix.os }}
+    steps:
+    - uses: actions/checkout@v2
+    - uses: cachix/install-nix-action@v17
+    - uses: cachix/cachix-action@v10
+      with:
+        name: enarx
+        authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
+    - run: nix run -L . info
+
+  develop:
+    strategy:
+      matrix:
+        os: [ ubuntu-20.04 macos-11 ]
+    runs-on: ${{ matrix.os }}
+    steps:
+    - uses: actions/checkout@v2
+    - uses: cachix/install-nix-action@v17
+    - uses: cachix/cachix-action@v10
+      with:
+        name: enarx
+        authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
+    - run: nix develop -L --ignore-environment --impure -c cargo test 'wasm::'

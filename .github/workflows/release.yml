@@ -1,0 +1,109 @@
+name: release
+
+on:
+  pull_request:
+    branches:
+    - main
+  push:
+    branches:
+    - main
+    tags:
+    - "v*.*.*"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        platform:
+        - os: macos-11
+          target: x86_64-apple-darwin
+          nix: x86_64-darwin
+
+        - os: ubuntu-20.04
+          target: x86_64-unknown-linux-musl
+          nix: x86_64-linux
+
+        # TODO: Enable aarch64
+
+    runs-on: ${{ matrix.platform.os }}
+    steps:
+    - uses: actions/checkout@v2
+    - uses: cachix/install-nix-action@v17
+    - uses: cachix/cachix-action@v10
+      with:
+        name: enarx
+        authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
+    - name: Pre-build setup
+      run: ${{ matrix.platform.setup }}
+
+    - run: nix build -L ${{ matrix.platform.buildArgs }} '.#packages.${{ matrix.platform.nix }}.enarx-static'
+    - run: nix run --inputs-from . 'nixpkgs#coreutils' -- --coreutils-prog=ginstall -p ./result/bin/enarx "enarx-${{ matrix.platform.target }}"
+    - uses: actions/upload-artifact@v3
+      with:
+        name: enarx-${{ matrix.platform.target }}
+        path: enarx-${{ matrix.platform.target }}
+
+    - run: nix build -L ${{ matrix.platform.buildArgs }} '.#packages.${{ matrix.platform.nix }}.enarx-static-oci'
+    - run: nix run --inputs-from . 'nixpkgs#coreutils' -- --coreutils-prog=ginstall -p ./result "enarx-${{ matrix.platform.target }}-oci"
+    - uses: actions/upload-artifact@v3
+      with:
+        name: enarx-${{ matrix.platform.target }}-oci
+        path: enarx-${{ matrix.platform.target }}-oci
+
+  test-bin:
+    needs: build
+    strategy:
+      matrix:
+        platform:
+        - os: macos-11
+          target: x86_64-apple-darwin
+
+        - os: ubuntu-20.04
+          target: x86_64-unknown-linux-musl
+
+        # TODO: Enable aarch64
+
+    runs-on: ${{ matrix.platform.os }}
+    steps:
+    - uses: actions/download-artifact@v3
+      with:
+        name: enarx-${{ matrix.platform.target }}
+    - run: chmod +x ./enarx-${{ matrix.platform.target }}
+    - run: ./enarx-${{ matrix.platform.target }} info
+
+  test-oci:
+    needs: build
+    strategy:
+      matrix:
+        platform:
+        - os: ubuntu-20.04
+          target: x86_64-unknown-linux-musl
+
+        # TODO: Enable aarch64 and MacOS
+
+    runs-on: ${{ matrix.platform.os }}
+    steps:
+    - uses: actions/download-artifact@v3
+      with:
+        name: enarx-${{ matrix.platform.target }}-oci
+    - run: docker load < enarx-${{ matrix.platform.target }}-oci
+    # TODO: Attempt to run `enarx info` within the loaded container
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/') && github.event_name == 'push'
+    needs: [ build, test-bin, test-oci ]
+    runs-on: ubuntu-20.04
+    steps:
+    - uses: actions/download-artifact@v3
+    - uses: softprops/action-gh-release@v1
+      with:
+        draft: true
+        files: |
+          enarx-x86_64-apple-darwin
+          enarx-x86_64-apple-darwin-oci
+          enarx-x86_64-unknown-linux-musl
+          enarx-x86_64-unknown-linux-musl-oci
