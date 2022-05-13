@@ -1073,12 +1073,10 @@ pub trait Handler {
         self.execute(enarxcall::MprotectHost { addr, length, prot })?
     }
 
-    /// Within an address range inside the enclave, ask host to remove pages
-    /// from the enclave. Pages must be trimmed before this operation is
-    /// applied.
+    /// Notify the host about `munmap()`.
     #[inline]
-    fn remove_sgx_pages(&mut self, addr: NonNull<c_void>, length: usize) -> Result<()> {
-        self.execute(enarxcall::RemoveSgxPages { addr, length })?
+    fn munmap_host(&mut self, addr: NonNull<c_void>, length: usize) -> Result<()> {
+        self.execute(enarxcall::MunmapHost { addr, length })?
     }
 
     /// Within an address range inside the enclave, ask host to set page type to

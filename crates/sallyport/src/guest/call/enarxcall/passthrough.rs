@@ -139,16 +139,15 @@ impl PassthroughAlloc for MprotectHost {
     }
 }
 
-/// Within an address range inside the enclave, ask host to remove pages
-/// from the enclave. Pages must be trimmed before this operation is
-/// applied.
-pub struct RemoveSgxPages {
+/// Notify the host to prepare memory for the guest to handle
+/// [Munmap](crate::guest::call::syscall::Munmap).
+pub struct MunmapHost {
     pub addr: NonNull<c_void>,
     pub length: usize,
 }
 
-impl PassthroughAlloc for RemoveSgxPages {
-    const NUM: Number = Number::RemoveSgxPages;
+impl PassthroughAlloc for MunmapHost {
+    const NUM: Number = Number::MunmapHost;
 
     type Argv = Argv<2>;
     type Ret = ();

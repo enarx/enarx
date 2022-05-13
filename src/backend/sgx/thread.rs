@@ -223,15 +223,30 @@ fn sgx_enarxcall<'a>(
         }
 
         item::Enarxcall {
-            num: item::enarxcall::Number::RemoveSgxPages,
-            argv: [addr, length, ..],
+            num: item::enarxcall::Number::MunmapHost,
+            argv: [addr, len, ..],
             ret,
             ..
         } => {
-            let mut parameters = RemovePages::new(*addr - keep.mem.addr(), *length);
+            let mem_end = keep.mem.addr() + keep.mem.size();
+            let end = *addr + *len;
+
+            // Check that the span is within the enclave address range:
+            if *addr < keep.mem.addr() || end > mem_end {
+                panic!("munmap() is out of range");
+            }
+
+            // Safety: the parameters have been sanity checked before, that only
+            // enclave memory is unmapped.
+            unsafe {
+                libc::munmap(*addr as *mut _, *len);
+            }
+
+            let mut parameters = RemovePages::new(*addr - keep.mem.addr(), *len);
             ENCLAVE_REMOVE_PAGES
                 .ioctl(&mut keep.enclave.try_clone().unwrap(), &mut parameters)
                 .context("ENCLAVE_REMOVE_PAGES failed")?;
+
             *ret = 0;
             Ok(None)
         }
