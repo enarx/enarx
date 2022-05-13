@@ -38,7 +38,7 @@ use core::mem::size_of;
 use core::ptr::read_unaligned;
 use core::ptr::NonNull;
 
-use mmledger::{Access, Region};
+use mmledger::Access;
 use primordial::{Address, Offset, Page};
 use sallyport::guest::Handler as _;
 use sallyport::guest::{self, Platform, ThreadLocalStorage};
@@ -67,7 +67,7 @@ pub static HEAP: Lazy<RwLock<Heap>> = Lazy::new(|| {
     RwLock::new(Heap::new(Address::new(start), Address::new(end)))
 });
 
-// For `Handler::accept_mmap()`
+// For `Handler::mmap_guest()`
 static ZERO: Page = Page::zeroed();
 
 fn is_prot_allowed(prot: c_int) -> bool {
@@ -82,13 +82,8 @@ pub struct Handler<'a> {
 
 impl<'a> Handler<'a> {
     /// Acknowledge pages committed by the host with ENCLS[EAUG].
-    fn accept_mmap(&mut self, region: Region, prot: c_int) {
-        assert!(region.start < region.end);
-
-        // TODO: Remove ` | PROT_READ` when possible. It's only done  because
-        // some of the ioctl's in the v4 of the SGX2 series check for it.
-        let flags = Flags::from_bits_truncate((prot | PROT_READ) as u8);
-        let length = region.end - region.start;
+    fn mmap_guest(&mut self, addr: Address<usize, Page>, length: Offset<usize, Page>, prot: c_int) {
+        let flags = Flags::from_bits_truncate(prot as u8);
 
         let zero_virt_addr = VirtAddr::new(ZERO.as_ptr() as u64);
         // # Safety
@@ -97,7 +92,7 @@ impl<'a> Handler<'a> {
         let zero_page_addr = unsafe { PageAddr::from_start_address_unchecked(zero_virt_addr) };
 
         for i in 0..length.items() {
-            let virt_addr = VirtAddr::new((region.start.raw() + i * Page::SIZE) as u64);
+            let virt_addr = VirtAddr::new((addr.raw() + i * Page::SIZE) as u64);
             // # Safety
             //
             // The address must be page aligned.
@@ -158,6 +153,55 @@ impl<'a> Handler<'a> {
 
         let access = Access::from_bits_truncate(prot as usize);
         heap.mmap(Some(addr), length, access);
+
+        Ok(())
+    }
+
+    fn munmap_unlocked(
+        &mut self,
+        heap: &mut Heap,
+        addr_in: NonNull<c_void>,
+        length_in: c_size_t,
+    ) -> sallyport::Result<()> {
+        let addr = addr_in.as_ptr() as usize;
+        let pages = ((length_in + Page::SIZE - 1) & !(Page::SIZE - 1)) / Page::SIZE;
+
+        if addr & 0xfff != 0 || pages == 0 {
+            return Err(EINVAL);
+        }
+
+        let addr = Address::new(addr);
+        let length = Offset::from_items(pages);
+
+        if heap.contains(addr, length) == None {
+            return Ok(());
+        }
+
+        // Process the ledger first, before doing anything else, because it can
+        // legitly fail when running out of resources.
+        heap.munmap(addr, length).map_err(|_| ENOMEM)?;
+
+        // On the other hand, failing in any of these operations is expected to
+        // crash the enclave because it is due either to a software bug, or a
+        // malicious host.
+        self.trim_sgx_pages(addr_in, length.bytes())
+            .unwrap_or_else(|_| self.attacked());
+
+        for i in 0..pages {
+            let virt_addr = VirtAddr::new((addr.raw() + i * Page::SIZE) as u64);
+            // # Safety
+            //
+            // The address must be page aligned.
+            let page_addr = unsafe { PageAddr::from_start_address_unchecked(virt_addr) };
+
+            Class::Trimmed
+                .info(Flags::MODIFIED)
+                .accept(page_addr)
+                .unwrap_or_else(|_| self.attacked());
+        }
+
+        self.remove_sgx_pages(addr_in, length.bytes())
+            .unwrap_or_else(|_| self.attacked());
 
         Ok(())
     }
@@ -232,7 +276,12 @@ impl guest::Handler for Handler<'_> {
         let addr = heap.brk(addr);
 
         if addr > max {
-            self.accept_mmap(Region::new(max, addr), PROT_READ | PROT_WRITE);
+            self.mmap_host(
+                NonNull::new(max.raw() as *mut _).unwrap(),
+                addr.raw() - max.raw(),
+                PROT_READ | PROT_WRITE,
+            )?;
+            self.mmap_guest(max, addr - max, PROT_READ | PROT_WRITE);
         }
 
         Ok(NonNull::new(addr.raw() as *mut _).unwrap())
@@ -264,19 +313,17 @@ impl guest::Handler for Handler<'_> {
         &mut self,
         _platform: &impl Platform,
         addr: Option<NonNull<c_void>>,
-        length: c_size_t,
+        len: c_size_t,
         prot: c_int,
         flags: c_int,
         fd: c_int,
         offset: off_t,
     ) -> sallyport::Result<NonNull<c_void>> {
         let addr = addr.map(|v| v.as_ptr() as usize).unwrap_or(0);
+        // TODO: https://github.com/enarx/enarx/issues/1892
+        let prot = prot | PROT_READ;
 
-        if addr != 0
-            || length == 0
-            || fd != -1
-            || offset != 0
-            || flags != MAP_PRIVATE | MAP_ANONYMOUS
+        if addr != 0 || len == 0 || fd != -1 || offset != 0 || flags != MAP_PRIVATE | MAP_ANONYMOUS
         {
             return Err(ENOTSUP);
         }
@@ -285,12 +332,31 @@ impl guest::Handler for Handler<'_> {
             return Err(EACCES);
         }
 
-        let length = Offset::from_items((length + Page::SIZE - 1) / Page::SIZE);
+        let length = Offset::from_items((len + Page::SIZE - 1) / Page::SIZE);
         let access = Access::from_bits_truncate(prot as usize);
         let mut heap = HEAP.write();
+
         if let Some(addr) = heap.mmap(None, length, access) {
-            self.accept_mmap(Region::new(addr, addr + length), prot);
-            Ok(NonNull::new(addr.raw() as *mut c_void).unwrap())
+            let ret = NonNull::new(addr.raw() as *mut c_void).unwrap();
+
+            self.mmap_host(
+                NonNull::new(addr.raw() as *mut _).unwrap(),
+                length.bytes(),
+                PROT_READ | PROT_WRITE,
+            )?;
+            self.mmap_guest(addr, length, prot);
+
+            // If the previous operations succeeded, the virtual memory area
+            // (VMA) is already RW.
+            if prot != PROT_READ | PROT_WRITE {
+                self.mprotect_unlocked(&mut heap, ret, length.bytes() as c_size_t, prot)
+                    .or_else(|e| {
+                        self.munmap_unlocked(&mut heap, ret, length.bytes())
+                            .and(Err(e))
+                    })?;
+            }
+
+            Ok(ret)
         } else {
             Err(ENOMEM)
         }
@@ -299,51 +365,12 @@ impl guest::Handler for Handler<'_> {
     fn munmap(
         &mut self,
         _platform: &impl Platform,
-        addr_in: NonNull<c_void>,
-        length_in: c_size_t,
+        addr: NonNull<c_void>,
+        length: c_size_t,
     ) -> sallyport::Result<()> {
-        let addr = addr_in.as_ptr() as usize;
-        let pages = ((length_in + Page::SIZE - 1) & !(Page::SIZE - 1)) / Page::SIZE;
-
-        if addr & 0xfff != 0 || pages == 0 {
-            return Err(EINVAL);
-        }
-
-        let addr = Address::new(addr);
-        let length = Offset::from_items(pages);
-
         let mut heap = HEAP.write();
-        if heap.contains(addr, length) == None {
-            return Ok(());
-        }
 
-        // Process the ledger first, before doing anything else, because it can
-        // legitly fail when running out of resources.
-        heap.munmap(addr, length).map_err(|_| ENOMEM)?;
-
-        // On the other hand, failing in any of these operations is expected to
-        // crash the enclave because it is due either to a software bug, or a
-        // malicious host.
-        self.trim_sgx_pages(addr_in, length.bytes())
-            .unwrap_or_else(|_| self.attacked());
-
-        for i in 0..pages {
-            let virt_addr = VirtAddr::new((addr.raw() + i * Page::SIZE) as u64);
-            // # Safety
-            //
-            // The address must be page aligned.
-            let page_addr = unsafe { PageAddr::from_start_address_unchecked(virt_addr) };
-
-            Class::Trimmed
-                .info(Flags::MODIFIED)
-                .accept(page_addr)
-                .unwrap_or_else(|_| self.attacked());
-        }
-
-        self.remove_sgx_pages(addr_in, length.bytes())
-            .unwrap_or_else(|_| self.attacked());
-
-        Ok(())
+        self.munmap_unlocked(&mut heap, addr, length)
     }
 }
 
