@@ -200,7 +200,7 @@ impl<'a> Handler<'a> {
                 .unwrap_or_else(|_| self.attacked());
         }
 
-        self.remove_sgx_pages(addr_in, length.bytes())
+        self.munmap_host(addr_in, length.bytes())
             .unwrap_or_else(|_| self.attacked());
 
         Ok(())

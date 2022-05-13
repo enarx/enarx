@@ -63,8 +63,8 @@ pub enum Number {
     /// Notify the host about `mprotect()`.
     MprotectHost = 0x08,
 
-    /// Remove SGX pages call number.
-    RemoveSgxPages = 0x09,
+    /// Notify the host about `munmap()`.
+    MunmapHost = 0x09,
 
     /// Trim SGX pages call number.
     TrimSgxPages = 0x10,
