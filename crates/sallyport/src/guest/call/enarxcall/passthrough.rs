@@ -102,6 +102,25 @@ impl PassthroughAlloc for MemInfo {
 }
 
 /// Notify the host to prepare memory for the guest to handle
+/// [Mmap](crate::guest::call::syscall::Mmap).
+pub struct MmapHost {
+    pub addr: NonNull<c_void>,
+    pub length: usize,
+    pub prot: c_int,
+}
+
+impl PassthroughAlloc for MmapHost {
+    const NUM: Number = Number::MmapHost;
+
+    type Argv = Argv<3>;
+    type Ret = ();
+
+    fn stage(self) -> Self::Argv {
+        Argv([self.addr.as_ptr() as _, self.length, self.prot as _])
+    }
+}
+
+/// Notify the host to prepare memory for the guest to handle
 /// [Mprotect](crate::guest::call::syscall::Mprotect).
 pub struct MprotectHost {
     pub addr: NonNull<c_void>,

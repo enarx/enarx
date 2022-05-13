@@ -63,6 +63,16 @@ fn mem_info() {
 }
 
 #[test]
+fn mmap_host() {
+    run_test(2, [0xff; 16], move |_, _, handler| {
+        assert_eq!(
+            handler.mmap_host(NonNull::new(0x7f8af78eb000 as *mut _).unwrap(), 4096, 0),
+            Err(ENOSYS)
+        );
+    })
+}
+
+#[test]
 fn mprotect_host() {
     run_test(2, [0xff; 16], move |_, _, handler| {
         assert_eq!(

@@ -1061,6 +1061,12 @@ pub trait Handler {
         self.execute(enarxcall::MemInfo)?
     }
 
+    /// Notify the host about `mmmap()`.
+    #[inline]
+    fn mmap_host(&mut self, addr: NonNull<c_void>, length: usize, prot: c_int) -> Result<()> {
+        self.execute(enarxcall::MmapHost { addr, length, prot })?
+    }
+
     /// Notify the host about `mprotect()`.
     #[inline]
     fn mprotect_host(&mut self, addr: NonNull<c_void>, length: usize, prot: c_int) -> Result<()> {

@@ -3,6 +3,7 @@
 use super::attestation::{get_attestation_key_id, get_key_size, get_quote, get_target_info};
 #[cfg(feature = "gdb")]
 use crate::backend::execute_gdb;
+use crate::backend::sgx::attestation::get_quote_size;
 use crate::backend::sgx::ioctls::*;
 use crate::backend::Command;
 
@@ -10,14 +11,14 @@ use std::arch::asm;
 use std::arch::x86_64::CpuidResult;
 use std::io;
 use std::iter;
-use std::mem::{size_of, MaybeUninit};
+use std::mem::{forget, size_of, MaybeUninit};
 #[cfg(feature = "gdb")]
 use std::net::TcpStream;
 use std::sync::Arc;
 
-use crate::backend::sgx::attestation::get_quote_size;
 use anyhow::{Context, Result};
 use libc::{EINVAL, PROT_READ};
+use mmarinus::{perms, Map, Shared};
 use sallyport::host::{deref_aligned, deref_slice};
 use sallyport::item;
 use sallyport::item::enarxcall::sgx::{Report, TargetInfo};
@@ -157,6 +158,34 @@ fn sgx_enarxcall<'a>(
             let akid = get_attestation_key_id().context("error obtaining attestation key id")?;
             *ret = get_quote_size(akid).context("error getting quote size")?;
 
+            Ok(None)
+        }
+
+        item::Enarxcall {
+            num: item::enarxcall::Number::MmapHost,
+            argv: [addr, len, prot, ..],
+            ret,
+            ..
+        } => {
+            // Safety: an `mmap()` call is pointed to a file descriptor of the
+            // created enclave, and can therefore only affect the memory
+            // mappings within the address range given to ENCLAVE_CREATE.
+            match unsafe {
+                Map::bytes(*len)
+                    .onto(*addr)
+                    .from(&mut keep.enclave.try_clone().unwrap(), 0)
+                    .with_kind(Shared)
+                    .with(perms::Unknown(*prot as i32))
+            } {
+                Ok(map) => {
+                    // Skip `drop()`. The VMA's ownership has been moved to the shim.
+                    forget(map);
+                    *ret = 0;
+                }
+                Err(err) => {
+                    *ret = (-err.err.raw_os_error().unwrap()) as usize;
+                }
+            };
             Ok(None)
         }
 

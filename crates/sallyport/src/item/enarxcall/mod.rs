@@ -57,14 +57,17 @@ pub enum Number {
     /// SNP VCEK request call number.
     GetSnpVcek = 0x06,
 
+    /// Notify the host about `mmap()`.
+    MmapHost = 0x07,
+
     /// Notify the host about `mprotect()`.
-    MprotectHost = 0x07,
+    MprotectHost = 0x08,
 
     /// Remove SGX pages call number.
-    RemoveSgxPages = 0x08,
+    RemoveSgxPages = 0x09,
 
     /// Trim SGX pages call number.
-    TrimSgxPages = 0x09,
+    TrimSgxPages = 0x10,
 }
 
 #[cfg(test)]
