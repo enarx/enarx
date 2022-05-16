@@ -4,7 +4,6 @@ pub use snp::firmware::Firmware;
 
 use super::kvm::mem::Region;
 use super::kvm::{Keep, KeepPersonality};
-use super::probe::common::system_info;
 use super::Loader;
 use crate::cli::snp::get_vcek_reader;
 use data::{
@@ -92,7 +91,6 @@ impl super::Backend for Backend {
 
     fn data(&self) -> Vec<super::Datum> {
         let mut data = vec![
-            system_info(),
             dev_sev(),
             sev_enabled_in_kernel(),
             dev_sev_readable(),
