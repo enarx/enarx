@@ -30,10 +30,26 @@ pub fn kvm_version() -> Datum {
     }
 }
 
-pub const CPUIDS: &[CpuId] = &[CpuId {
-    name: "CPU",
-    leaf: 0x80000000,
-    subl: 0x00000000,
-    func: |res| CpuId::cpu_identifier(res, None),
-    vend: None,
-}];
+pub const CPUIDS: &[CpuId] = &[
+    CpuId {
+        name: "CPU",
+        leaf: 0x80000000,
+        subl: 0x00000000,
+        func: |res| CpuId::cpu_identifier(res, None),
+        vend: None,
+    },
+    CpuId {
+        name: " CPU supports FSGSBASE instructions",
+        leaf: 0x00000007,
+        subl: 0x00000000,
+        func: |res| (res.ebx & 0x1 != 0, None),
+        vend: None,
+    },
+    CpuId {
+        name: " CPU supports RDRAND instruction",
+        leaf: 0x00000001,
+        subl: 0x00000000,
+        func: |res| (res.ecx & (1 << 30) != 0, None),
+        vend: None,
+    },
+];

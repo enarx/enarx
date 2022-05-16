@@ -12,7 +12,6 @@ use crate::usermode::usermode;
 use core::convert::TryFrom;
 use core::sync::atomic::{AtomicBool, Ordering};
 
-use crate::hostcall::CPU_HAS_FSGSBASE;
 use crt0stack::{self, Builder, Entry};
 use goblin::elf::header::header64::Header;
 use goblin::elf::header::ELFMAG;
@@ -173,7 +172,7 @@ fn crt0setup(
         Entry::PHnum(header.e_phnum as _),
         Entry::HwCap(hwcap as _),
         // FSGSBASE flag is 1 << 1
-        Entry::HwCap2(if *CPU_HAS_FSGSBASE { 2 } else { 0 }),
+        Entry::HwCap2(2),
         Entry::Random(rand),
         Entry::Entry(ph_entry.as_u64() as _),
     ] {

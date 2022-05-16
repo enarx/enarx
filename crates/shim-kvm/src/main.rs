@@ -478,7 +478,7 @@ pub unsafe extern "sysv64" fn _start() -> ! {
         _ENARX_PML4 = const 0xFFE0_1000u32, // Can't use `sym` because linker does not recognize absolute addresses
         _ENARX_CPUID = const 0xFFE0_2000u32, // Can't use `sym` because linker does not recognize absolute addresses
         SEV_GHCB_MSR = const 0xC001_0130u32,
-        CR4_FLAGS = const (Cr4Flags::PHYSICAL_ADDRESS_EXTENSION.bits() | Cr4Flags::OSFXSR.bits() | Cr4Flags::OSXMMEXCPT_ENABLE.bits() | Cr4Flags::OSXSAVE.bits()),
+        CR4_FLAGS = const (Cr4Flags::FSGSBASE.bits() | Cr4Flags::PHYSICAL_ADDRESS_EXTENSION.bits() | Cr4Flags::OSFXSR.bits() | Cr4Flags::OSXMMEXCPT_ENABLE.bits() | Cr4Flags::OSXSAVE.bits()),
         PROTECTED_MODE_ENABLE = const Cr0Flags::PROTECTED_MODE_ENABLE.bits(),
         CR0_PAGING = const Cr0Flags::PAGING.bits(),
 
