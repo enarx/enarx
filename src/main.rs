@@ -37,8 +37,16 @@ use log::info;
 #[cfg(enarx_with_shim)]
 use mmarinus::{perms, Map, Private};
 
-// This defines the toplevel `enarx` CLI
+/// Tool to deploy WebAssembly into Enarx Keeps
+///
+/// Enarx is a tool for running Webassembly inside an Enarx Keep
+/// - that is a hardware isolated environment using technologies
+/// such as Intel SGX or AMD SEV.
+///
+/// For more information about the project and the technology used
+/// visit the Enarx Project home page https://enarx.dev/.
 #[derive(Parser, Debug)]
+#[clap(version)]
 struct Options {
     /// Logging options
     #[clap(flatten)]
