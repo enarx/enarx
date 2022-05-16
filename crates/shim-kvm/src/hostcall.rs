@@ -7,33 +7,31 @@ use crate::debug::_enarx_asm_triple_fault;
 use crate::eprintln;
 use crate::exec::{BRK_LINE, NEXT_MMAP_RWLOCK};
 use crate::paging::SHIM_PAGETABLE;
-use crate::random::{random, CPU_HAS_RDRAND};
 use crate::snp::attestation::{asn1_encode_report_vcek, SnpReportResponseData};
 use crate::snp::ghcb::{GHCB, GHCB_EXT, SNP_ATTESTATION_LEN_MAX};
-use crate::snp::{cpuid, snp_active};
+use crate::snp::snp_active;
 use crate::spin::{RacyCell, RwLocked};
 
 use const_default::ConstDefault;
-use core::ffi::{c_int, c_size_t, c_uint, c_ulong, c_void};
+use core::ffi::{c_int, c_size_t, c_ulong, c_void};
 use core::mem::size_of;
 use core::ops::{Deref, DerefMut};
 use core::ptr::NonNull;
 use core::slice;
 
-use sallyport::guest::syscall::Getrandom;
 use sallyport::guest::{self, Handler, Platform, ThreadLocalStorage};
 use sallyport::item::enarxcall::sev::TECH;
 use sallyport::item::syscall;
 use sallyport::libc::{
-    off_t, EAGAIN, EFAULT, EINVAL, EIO, EMSGSIZE, ENOMEM, GRND_NONBLOCK, GRND_RANDOM,
-    MAP_ANONYMOUS, MAP_PRIVATE, PROT_EXEC, PROT_WRITE,
+    off_t, EAGAIN, EFAULT, EINVAL, EIO, EMSGSIZE, ENOMEM, MAP_ANONYMOUS, MAP_PRIVATE, PROT_EXEC,
+    PROT_WRITE,
 };
 use sallyport::util::ptr::is_aligned_non_null;
 use sallyport::{libc, KVM_SYSCALL_TRIGGER_PORT};
 use spinning::Lazy;
 use x86_64::instructions::port::Port;
+use x86_64::instructions::segmentation::{Segment64, FS, GS};
 use x86_64::instructions::tlb::flush_all;
-use x86_64::registers::model_specific::{FsBase, GsBase};
 use x86_64::structures::paging::{Page, PageTableFlags, Size4KiB};
 use x86_64::{align_up, VirtAddr};
 
@@ -67,9 +65,6 @@ pub static SNP_VCEK: Lazy<Result<&[u8], c_int>> = Lazy::new(|| {
         Ok(&buffer_mut[..vcek_len])
     }
 });
-
-/// Flag, if the CPU supports FSGSBASE
-pub static CPU_HAS_FSGSBASE: Lazy<bool> = Lazy::new(|| cpuid(7).ebx & 1 == 1);
 
 /// Host file descriptor
 #[derive(Copy, Clone)]
@@ -303,31 +298,31 @@ impl Handler for HostCall<'_> {
         code: c_int,
         addr: c_ulong,
     ) -> sallyport::Result<()> {
-        if *CPU_HAS_FSGSBASE {
-            panic!("arch_prctl should not have been called")
-        }
-
         match code {
             syscall::ARCH_SET_FS => {
                 // FIXME: check `addr` value
-                FsBase::write(VirtAddr::new(addr));
+                unsafe {
+                    FS::write_base(VirtAddr::new(addr));
+                }
                 eprintln!("SC> arch_prctl(ARCH_SET_FS, {:#x}) = 0", addr);
                 Ok(())
             }
             syscall::ARCH_GET_FS => {
                 let addr: &mut u64 = platform.validate_mut(addr as _)?;
-                *addr = FsBase::read().as_u64();
+                *addr = FS::read_base().as_u64();
                 Ok(())
             }
             syscall::ARCH_SET_GS => {
                 // FIXME: check `addr` value
-                GsBase::write(VirtAddr::new(addr));
+                unsafe {
+                    GS::write_base(VirtAddr::new(addr));
+                }
                 eprintln!("SC> arch_prctl(ARCH_SET_GS, {:#x}) = 0", addr);
                 Ok(())
             }
             syscall::ARCH_GET_GS => {
                 let addr: &mut u64 = platform.validate_mut(addr as _)?;
-                *addr = GsBase::read().as_u64();
+                *addr = GS::read_base().as_u64();
                 Ok(())
             }
             x => {
@@ -543,21 +538,6 @@ impl Handler for HostCall<'_> {
             .unmap_memory(VirtAddr::from_ptr(addr.as_ptr()), length);
 
         Ok(())
-    }
-
-    fn getrandom(&mut self, buf: &mut [u8], flags: c_uint) -> sallyport::Result<c_size_t> {
-        if flags & !(GRND_NONBLOCK | GRND_RANDOM) != 0 {
-            return Err(EINVAL);
-        }
-
-        if *CPU_HAS_RDRAND {
-            self.execute(Getrandom { buf, flags })?
-        } else {
-            for chunk in buf.chunks_mut(size_of::<u64>()) {
-                chunk.copy_from_slice(&random().to_ne_bytes()[..chunk.len()]);
-            }
-            Ok(buf.len())
-        }
     }
 }
 
