@@ -7,12 +7,18 @@ use std::io::{IoSlice, IoSliceMut, Read, Write};
 use std::sync::Arc;
 
 use cap_std::net::{TcpListener as CapListener, TcpStream as CapStream};
+#[cfg(windows)]
+use io_extras::os::windows::AsRawHandleOrSocket;
+#[cfg(unix)]
 use io_lifetimes::{AsFd, AsFilelike};
+
 use rustls::{ClientConfig, ClientConnection, Connection, ServerConfig, ServerConnection};
+#[cfg(unix)]
 use system_interface::fs::GetSetFdFlags;
 use system_interface::io::IsReadWrite;
 use wasi_common::file::{FdFlags, FileType};
 use wasi_common::{Context, Error, ErrorExt, ErrorKind, WasiFile};
+#[cfg(unix)]
 use wasmtime_wasi::net::from_sysif_fdflags;
 
 fn errmap(error: std::io::Error) -> Error {
@@ -135,9 +141,15 @@ impl WasiFile for Stream {
         Ok(FileType::SocketStream)
     }
 
+    #[cfg(unix)]
     async fn get_fdflags(&mut self) -> Result<FdFlags, Error> {
         let fdflags = self.tcp.as_filelike().get_fd_flags()?;
         Ok(from_sysif_fdflags(fdflags))
+    }
+
+    #[cfg(windows)]
+    async fn get_fdflags(&mut self) -> Result<FdFlags, Error> {
+        Ok(FdFlags::empty())
     }
 
     async fn set_fdflags(&mut self, fdflags: FdFlags) -> Result<(), Error> {
@@ -194,8 +206,14 @@ impl WasiFile for Stream {
         }
     }
 
+    #[cfg(unix)]
     fn pollable(&self) -> Option<rustix::fd::BorrowedFd<'_>> {
         Some(self.tcp.as_fd())
+    }
+
+    #[cfg(windows)]
+    fn pollable(&self) -> Option<io_extras::os::windows::RawHandleOrSocket> {
+        Some(self.tcp.as_raw_handle_or_socket())
     }
 }
 
@@ -222,8 +240,14 @@ impl WasiFile for Listener {
         self
     }
 
+    #[cfg(unix)]
     fn pollable(&self) -> Option<rustix::fd::BorrowedFd<'_>> {
         Some(self.listener.as_fd())
+    }
+
+    #[cfg(windows)]
+    fn pollable(&self) -> Option<io_extras::os::windows::RawHandleOrSocket> {
+        Some(self.listener.as_raw_handle_or_socket())
     }
 
     async fn sock_accept(&mut self, fdflags: FdFlags) -> Result<Box<dyn WasiFile>, Error> {
@@ -249,9 +273,15 @@ impl WasiFile for Listener {
         Ok(FileType::SocketStream)
     }
 
+    #[cfg(unix)]
     async fn get_fdflags(&mut self) -> Result<FdFlags, Error> {
         let fdflags = self.listener.as_filelike().get_fd_flags()?;
         Ok(from_sysif_fdflags(fdflags))
+    }
+
+    #[cfg(windows)]
+    async fn get_fdflags(&mut self) -> Result<FdFlags, Error> {
+        Ok(FdFlags::empty())
     }
 
     async fn set_fdflags(&mut self, fdflags: FdFlags) -> Result<(), Error> {

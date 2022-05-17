@@ -7,6 +7,8 @@ use super::{Attested, Loader, Requested};
 
 use std::io::Read;
 use std::ops::Deref;
+
+#[cfg(unix)]
 use std::os::unix::prelude::FromRawFd;
 use std::sync::Arc;
 use std::time::Duration;
@@ -158,7 +160,7 @@ impl Loader<Requested> {
         Ok(vec![crt.to_vec()?])
     }
 
-    pub fn next(self) -> Result<Loader<Attested>> {
+    pub fn next(mut self) -> Result<Loader<Attested>> {
         // TODO: First acquire the Steward URL and then pull the WASM module after attestation.
         let (webasm, config) = match self.0.package {
             Package::Remote(ref url) => {
@@ -170,21 +172,29 @@ impl Loader<Requested> {
                     typ => bail!("unsupported content type: {typ}"),
                 }
             }
-            Package::Local { wasm, conf } => {
+            Package::Local {
+                ref mut wasm,
+                ref mut conf,
+            } => {
                 let mut webasm = Vec::new();
                 // SAFETY: This FD was passed to us by the host and we trust that we have exclusive
                 // access to it.
-                unsafe { std::fs::File::from_raw_fd(wasm) }
-                    .read_to_end(&mut webasm)
+                #[cfg(unix)]
+                let mut wasm = unsafe { std::fs::File::from_raw_fd(*wasm) };
+
+                wasm.read_to_end(&mut webasm)
                     .context("failed to read WASM module")?;
 
-                let config = if let Some(conf) = conf {
+                let config = if let Some(conf) = conf.as_mut() {
                     let mut config = String::new();
                     // SAFETY: This FD was passed to us by the host and we trust that we have exclusive
                     // access to it.
-                    unsafe { std::fs::File::from_raw_fd(conf) }
-                        .read_to_string(&mut config)
+                    #[cfg(unix)]
+                    let mut conf = unsafe { std::fs::File::from_raw_fd(*conf) };
+
+                    conf.read_to_string(&mut config)
                         .context("failed to read config")?;
+
                     Some(config)
                 } else {
                     None

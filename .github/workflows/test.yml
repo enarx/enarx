@@ -77,6 +77,18 @@ jobs:
           command: test
           args: --test integration
 
+  windows:
+    name: enarx Windows
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Setup Rust toolchain
+        run: rustup show
+      - uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --test integration
+
   bindeps:
     name: ${{ matrix.crate.name }} nightly ${{ matrix.profile.name }}
     runs-on: ubuntu-20.04

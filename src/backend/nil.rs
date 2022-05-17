@@ -3,8 +3,16 @@
 use std::sync::{Arc, RwLock};
 
 use anyhow::{bail, Result};
+#[cfg(windows)]
+use enarx_exec_wasmtime::Args;
 
+#[cfg(unix)]
+#[derive(Default)]
 pub struct Backend;
+
+#[cfg(windows)]
+#[derive(Default)]
+pub struct Backend(RwLock<Option<Args>>);
 
 impl crate::backend::Backend for Backend {
     #[inline]
@@ -36,9 +44,15 @@ impl crate::backend::Backend for Backend {
             bail!("The nil backend cannot be called with an executable!")
         }
 
+        #[cfg(unix)]
         let thread = Thread;
 
-        Ok(Arc::new(RwLock::new(Keep(vec![Box::new(thread)]))))
+        #[cfg(windows)]
+        let thread = Thread(self.0.write().unwrap().take());
+
+        let ret = Arc::new(RwLock::new(Keep(vec![Box::new(thread)])));
+
+        Ok(ret)
     }
 
     #[inline]
@@ -53,6 +67,11 @@ impl crate::backend::Backend for Backend {
 
         Ok(Vec::new())
     }
+
+    #[cfg(windows)]
+    fn set_args(&self, args: Args) {
+        self.0.write().unwrap().replace(args);
+    }
 }
 
 struct Keep(Vec<Box<dyn super::Thread>>);
@@ -63,11 +82,20 @@ impl super::Keep for RwLock<Keep> {
     }
 }
 
+#[cfg(unix)]
 struct Thread;
+
+#[cfg(windows)]
+struct Thread(Option<Args>);
 
 impl super::Thread for Thread {
     fn enter(&mut self, _gdblisten: &Option<String>) -> Result<super::Command> {
+        #[cfg(unix)]
         enarx_exec_wasmtime::execute()?;
+
+        #[cfg(windows)]
+        enarx_exec_wasmtime::execute_with_args(self.0.take().unwrap())?;
+
         Ok(super::Command::Exit(0))
     }
 }
@@ -79,7 +107,7 @@ mod test {
 
     #[test]
     fn coverage() {
-        let backend = Backend;
+        let backend = Backend::default();
         assert_eq!(backend.name(), "nil");
         assert!(backend.shim().is_empty());
         assert!(backend.have());
