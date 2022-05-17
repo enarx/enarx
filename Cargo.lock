@@ -622,6 +622,7 @@ dependencies = [
  "const-oid 0.9.0",
  "env_logger",
  "getrandom",
+ "io-extras",
  "io-lifetimes",
  "libc",
  "pkcs8 0.9.0-pre.1",

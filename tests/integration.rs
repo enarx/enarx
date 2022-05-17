@@ -86,6 +86,7 @@ pub fn keepldr_exec<'a>(bin: impl Into<PathBuf>, input: impl Into<Option<&'a [u8
         }
     }
 
+    #[cfg(unix)]
     assert!(
         output.status.code().is_some(),
         "process `{}` terminated by signal {:?}",

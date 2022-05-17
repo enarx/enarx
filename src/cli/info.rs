@@ -6,9 +6,9 @@ use crate::Backend;
 
 use std::fmt::{self, Formatter};
 use std::ops::Deref;
-use std::{ffi::CStr, io, mem::MaybeUninit, os::raw::c_char, str::Utf8Error};
 
 use clap::Args;
+#[cfg(unix)]
 use libc::{uname, utsname};
 use serde::Serialize;
 
@@ -23,7 +23,7 @@ pub struct Options {
 #[derive(Serialize)]
 struct Info<'a> {
     version: &'static str,
-    uname: String,
+    system_info: String,
     backends: &'a Vec<Box<dyn Backend>>,
 }
 
@@ -48,7 +48,7 @@ impl fmt::Display for Info<'_> {
         let backends = self.backends;
 
         writeln!(f, "Enarx version {}", self.version)?;
-        writeln!(f, "System Info: {}", self.uname)?;
+        writeln!(f, "System Info: {}", self.system_info)?;
 
         for backend in backends {
             let data = backend.data();
@@ -82,35 +82,48 @@ impl Options {
     pub fn display(self) -> Result<()> {
         let backends = BACKENDS.deref();
 
-        fn system_info_string(mut utsname: utsname) -> Result<String, Utf8Error> {
-            fn array_to_str<const N: usize>(
-                array: &'_ mut [c_char; N],
-            ) -> Result<&'_ str, Utf8Error> {
-                array[N - 1] = 0;
-                unsafe { CStr::from_ptr(array.as_ptr()) }.to_str()
-            }
-
-            Ok(format!(
-                "{} {} {} {}",
-                array_to_str(&mut utsname.sysname)?,
-                array_to_str(&mut utsname.release)?,
-                array_to_str(&mut utsname.version)?,
-                array_to_str(&mut utsname.machine)?,
-            ))
+        #[cfg(windows)]
+        fn get_system_info() -> String {
+            // FIXME
+            "Windows".into()
         }
 
-        let mut utsname = MaybeUninit::uninit();
+        #[cfg(unix)]
+        fn get_system_info() -> String {
+            use std::{ffi::CStr, io, mem::MaybeUninit, os::raw::c_char, str::Utf8Error};
 
-        let uname_str = if unsafe { uname(utsname.as_mut_ptr()) } != 0 {
-            format!("[{}]", io::Error::last_os_error())
-        } else {
-            system_info_string(unsafe { utsname.assume_init() })
-                .unwrap_or_else(|e| format!("[utf8 error: {}]", e))
-        };
+            fn utsname_to_string(mut utsname: utsname) -> Result<String, Utf8Error> {
+                fn array_to_str<const N: usize>(
+                    array: &'_ mut [c_char; N],
+                ) -> Result<&'_ str, Utf8Error> {
+                    array[N - 1] = 0;
+                    unsafe { CStr::from_ptr(array.as_ptr()) }.to_str()
+                }
+
+                Ok(format!(
+                    "{} {} {} {}",
+                    array_to_str(&mut utsname.sysname)?,
+                    array_to_str(&mut utsname.release)?,
+                    array_to_str(&mut utsname.version)?,
+                    array_to_str(&mut utsname.machine)?,
+                ))
+            }
+
+            let mut utsname = MaybeUninit::uninit();
+
+            let uname_str = if unsafe { uname(utsname.as_mut_ptr()) } != 0 {
+                format!("[{}]", io::Error::last_os_error())
+            } else {
+                utsname_to_string(unsafe { utsname.assume_init() })
+                    .unwrap_or_else(|e| format!("[utf8 error: {}]", e))
+            };
+
+            uname_str
+        }
 
         let info = Info {
             version: env!("CARGO_PKG_VERSION"),
-            uname: uname_str,
+            system_info: get_system_info(),
             backends,
         };
         if self.json {

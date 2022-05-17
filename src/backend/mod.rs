@@ -23,6 +23,8 @@ use binary::{Binary, Loader, Mapper};
 use std::sync::Arc;
 
 use anyhow::Result;
+#[cfg(windows)]
+use enarx_exec_wasmtime::Args;
 use libc::c_int;
 use once_cell::sync::Lazy;
 use serde::ser::{Serialize, SerializeStruct, Serializer};
@@ -60,6 +62,10 @@ pub trait Backend: Sync + Send {
     fn have(&self) -> bool {
         !self.data().iter().fold(false, |e, d| e | !d.pass)
     }
+
+    #[cfg(windows)]
+    /// set wasmtime args directly
+    fn set_args(&self, _args: Args) {}
 }
 
 impl Serialize for dyn Backend {
@@ -110,7 +116,7 @@ pub static BACKENDS: Lazy<Vec<Box<dyn Backend>>> = Lazy::new(|| {
         Box::new(sev::Backend),
         #[cfg(enarx_with_shim)]
         Box::new(kvm::Backend),
-        Box::new(nil::Backend),
+        Box::new(nil::Backend::default()),
     ]
 });
 

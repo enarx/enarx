@@ -20,19 +20,15 @@ use exec::EXECS;
 
 use std::borrow::Borrow;
 use std::fs::{self, File};
-use std::io::Write;
-use std::iter::empty;
-use std::net::Shutdown;
-use std::os::unix::io::AsRawFd;
-use std::os::unix::net::UnixStream;
+#[cfg(unix)]
+use std::os::unix::io::{AsRawFd, IntoRawFd};
 use std::path::PathBuf;
-use std::thread;
+#[cfg(unix)]
 use std::time::Duration;
-
-use enarx_exec_wasmtime::{Args, Package, PACKAGE_CONFIG, PACKAGE_ENTRYPOINT};
 
 use anyhow::{anyhow, bail, Context, Result};
 use clap::Parser;
+use enarx_exec_wasmtime::{Args, Package, PACKAGE_CONFIG, PACKAGE_ENTRYPOINT};
 use log::info;
 #[cfg(enarx_with_shim)]
 use mmarinus::{perms, Map, Private};
@@ -58,6 +54,7 @@ struct Options {
 }
 
 /// Write timeout for writing the arguments to exec-wasmtime.
+#[cfg(unix)]
 const ARG_WRITE_TIMEOUT: Duration = Duration::new(60, 0);
 
 fn open_package(
@@ -81,12 +78,36 @@ fn open_package(
 /// SAFETY: Panics if next free FD number is not equal to 3.
 /// In other words, callers must either close all files opened at runtime before calling this
 /// function or ensure that no such operations have taken place.
-fn run_package<I: Iterator<Item = File>>(
+#[cfg(windows)]
+fn run_package(
     backend: &dyn Backend,
     exec: impl AsRef<[u8]>,
     gdblisten: Option<String>,
-    package: impl FnOnce() -> Result<(Package, I)>,
+    package: impl FnOnce() -> Result<Package>,
 ) -> Result<i32> {
+    let package = package()?;
+    let args = Args { package };
+    backend.set_args(args);
+    let exit_code = keep_exec(backend, backend.shim(), exec, gdblisten)?;
+    Ok(exit_code)
+}
+
+/// Runs a package.
+/// SAFETY: Panics if next free FD number is not equal to 3.
+/// In other words, callers must either close all files opened at runtime before calling this
+/// function or ensure that no such operations have taken place.
+#[cfg(unix)]
+fn run_package(
+    backend: &dyn Backend,
+    exec: impl AsRef<[u8]>,
+    gdblisten: Option<String>,
+    package: impl FnOnce() -> Result<Package>,
+) -> Result<i32> {
+    use std::io::Write;
+    use std::net::Shutdown;
+    use std::os::unix::net::UnixStream;
+    use std::thread;
+
     let (exec_sock, mut host_sock) =
         UnixStream::pair().context("failed to create a Unix socket pair")?;
 
@@ -96,7 +117,7 @@ fn run_package<I: Iterator<Item = File>>(
         "exec-wasmtime expects the Unix socket to be at FD 3"
     );
 
-    let (package, _files) = package()?;
+    let package = package()?;
     let args =
         toml::to_vec(&Args { package }).context("failed to encode exec-wasmtime arguments")?;
 
@@ -167,6 +188,22 @@ fn main() -> Result<()> {
                 .find(|w| w.with_backend(backend))
                 .ok_or_else(|| anyhow!("no supported exec found"))
                 .map(|b| b.exec())?;
+
+            let get_pkg = || {
+                let (wasm, conf) = open_package(module, wasmcfgfile)?;
+
+                #[cfg(unix)]
+                let pkg = Package::Local {
+                    wasm: wasm.into_raw_fd(),
+                    conf: conf.map(|conf| conf.into_raw_fd()),
+                };
+
+                #[cfg(windows)]
+                let pkg = Package::Local { wasm, conf };
+
+                Ok(pkg)
+            };
+
             let code = run_package(
                 backend,
                 exec,
@@ -174,16 +211,7 @@ fn main() -> Result<()> {
                 None,
                 #[cfg(feature = "gdb")]
                 Some(gdblisten),
-                || {
-                    let (wasm, conf) = open_package(module, wasmcfgfile)?;
-                    Ok((
-                        Package::Local {
-                            wasm: wasm.as_raw_fd(),
-                            conf: conf.as_ref().map(|conf| conf.as_raw_fd()),
-                        },
-                        vec![wasm].into_iter().chain(conf),
-                    ))
-                },
+                get_pkg,
             )?;
             std::process::exit(code);
         }
@@ -229,23 +257,30 @@ fn main() -> Result<()> {
                             path.display()
                         )
                     };
-                    run_package(backend, exec, gdblisten, || {
+
+                    let get_pkg = || {
                         let (wasm, conf) = open_package(wasm, conf)?;
-                        Ok((
-                            Package::Local {
-                                wasm: wasm.as_raw_fd(),
-                                conf: conf.as_ref().map(|conf| conf.as_raw_fd()),
-                            },
-                            vec![wasm].into_iter().chain(conf),
-                        ))
-                    })?
+
+                        #[cfg(unix)]
+                        let pkg = Package::Local {
+                            wasm: wasm.into_raw_fd(),
+                            conf: conf.map(|conf| conf.into_raw_fd()),
+                        };
+
+                        #[cfg(windows)]
+                        let pkg = Package::Local { wasm, conf };
+
+                        Ok(pkg)
+                    };
+
+                    run_package(backend, exec, gdblisten, get_pkg)?
                 }
 
                 // The WASM module and config will be downloaded from a remote by exec-wasmtime
                 // TODO: Disallow `http` or guard by an `--insecure` flag
-                "http" | "https" => run_package(backend, exec, gdblisten, || {
-                    Ok((Package::Remote(package), empty()))
-                })?,
+                "http" | "https" => {
+                    run_package(backend, exec, gdblisten, || Ok(Package::Remote(package)))?
+                }
 
                 s => bail!("unsupported scheme: {}", s),
             };

@@ -53,6 +53,7 @@ fn enarx<'a>(
         }
     }
 
+    #[cfg(unix)]
     assert!(
         output.status.code().is_some(),
         "process terminated by signal {:?}",

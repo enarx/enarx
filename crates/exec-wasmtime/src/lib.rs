@@ -13,12 +13,10 @@ mod loader;
 use loader::Loader;
 use url::Url;
 
-use std::io::Read;
-use std::mem::forget;
+#[cfg(unix)]
 use std::os::unix::io::{FromRawFd, RawFd};
-use std::os::unix::net::UnixStream;
 
-use anyhow::Context;
+#[cfg(unix)]
 use serde::{Deserialize, Serialize};
 
 /// Name of package entrypoint file
@@ -28,6 +26,7 @@ pub const PACKAGE_ENTRYPOINT: &str = "main.wasm";
 pub const PACKAGE_CONFIG: &str = "Enarx.toml";
 
 /// Package to execute
+#[cfg(unix)]
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields, tag = "t", content = "c")]
 pub enum Package {
@@ -43,9 +42,26 @@ pub enum Package {
     },
 }
 
+/// Package to execute
+#[cfg(windows)]
+#[derive(Debug)]
+pub enum Package {
+    /// Remote URL to fetch package from
+    Remote(Url),
+
+    /// Local package
+    Local {
+        /// Open WASM module file
+        wasm: std::fs::File,
+        /// Optional open config file
+        conf: Option<std::fs::File>,
+    },
+}
+
 /// The Arguments
 // NOTE: `repr(C)` is required, otherwise `toml` serialization fails with `values must be emitted before tables`
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug)]
+#[cfg_attr(unix, derive(Deserialize, Serialize))]
 #[repr(C)]
 pub struct Args {
     /// Package
@@ -53,17 +69,7 @@ pub struct Args {
 }
 
 /// Execute
-pub fn execute() -> anyhow::Result<()> {
-    // This is the FD of a Unix socket on which the host will send the TOML-encoded execution arguments
-    // and shutdown the write half of it immediately after.
-    // TODO: Use the write half of the socket to write logs/errors to the host
-    let mut host = unsafe { UnixStream::from_raw_fd(3) };
-
-    let mut args = String::new();
-    host.read_to_string(&mut args)
-        .context("failed to read arguments")?;
-    let args = toml::from_str::<Args>(&args).context("failed to decode arguments")?;
-
+pub fn execute_with_args(args: Args) -> anyhow::Result<()> {
     // Step through the state machine.
     let configured = Loader::from(args);
     let requested = configured.next()?;
@@ -72,9 +78,35 @@ pub fn execute() -> anyhow::Result<()> {
     let connected = compiled.next()?;
     let completed = connected.next()?;
     drop(completed);
+    Ok(())
+}
+
+#[cfg(unix)]
+/// Execute
+///
+/// with configuration read from file descriptor 3.
+pub fn execute() -> anyhow::Result<()> {
+    use anyhow::Context;
+    use std::io::Read;
+    use std::mem::forget;
+    use std::os::unix::net::UnixStream;
+
+    // This is the FD of a Unix socket on which the host will send the TOML-encoded execution arguments
+    // and shutdown the write half of it immediately after.
+    // TODO: Use the write half of the socket to write logs/errors to the host
+    let mut host = unsafe { UnixStream::from_raw_fd(3) };
+
+    let mut args = String::new();
+    host.read_to_string(&mut args)
+        .context("failed to read arguments")?;
 
     // The FD is managed by the host or its parent.
     forget(host);
+
+    let args = toml::from_str::<Args>(&args).context("failed to decode arguments")?;
+
+    execute_with_args(args)?;
+
     Ok(())
 }
 
