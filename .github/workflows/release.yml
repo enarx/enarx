@@ -1,6 +1,7 @@
 name: release
 
 on:
+  workflow_dispatch:
   pull_request:
     branches:
     - main
@@ -19,17 +20,19 @@ jobs:
     strategy:
       matrix:
         platform:
-        - os: macos-11
+        - host: macos-latest
           target: x86_64-apple-darwin
           nix: x86_64-darwin
 
-        - os: ubuntu-20.04
+        - host: ubuntu-20.04
           target: x86_64-unknown-linux-musl
           nix: x86_64-linux
 
-        # TODO: Enable aarch64
+        - host: aarch64-apple-darwin
+          target: aarch64-apple-darwin
+          nix: aarch64-darwin
 
-    runs-on: ${{ matrix.platform.os }}
+    runs-on: ${{ matrix.platform.host }}
     steps:
     - uses: actions/checkout@v2
     - uses: cachix/install-nix-action@v17
@@ -54,20 +57,61 @@ jobs:
         name: enarx-${{ matrix.platform.target }}-oci
         path: enarx-${{ matrix.platform.target }}-oci
 
-  test-bin:
+  windows-build:
+    name: enarx Windows build
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Setup Rust toolchain
+        run: rustup show
+      - uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --release
+      - uses: actions/upload-artifact@v3
+        with:
+          name: enarx-x86_64-windows
+          path: target/release/enarx.exe
+
+  universal-binary:
     needs: build
+    runs-on: macos-latest
+    steps:
+    - uses: actions/download-artifact@v3
+      with:
+        name: enarx-aarch64-apple-darwin
+    - uses: actions/download-artifact@v3
+      with:
+        name: enarx-x86_64-apple-darwin
+    - run: lipo -create ./enarx-aarch64-apple-darwin ./enarx-x86_64-apple-darwin -output ./enarx-universal-darwin
+    - uses: actions/upload-artifact@v3
+      with:
+        name: enarx-universal-darwin
+        path: enarx-universal-darwin
+
+  test-bin:
+    needs: universal-binary
     strategy:
       matrix:
         platform:
-        - os: macos-11
+        - host: macos-latest
           target: x86_64-apple-darwin
 
-        - os: ubuntu-20.04
+        - host: ubuntu-20.04
           target: x86_64-unknown-linux-musl
+
+        - host: aarch64-apple-darwin
+          target: aarch64-apple-darwin
+
+        - host: macos-latest
+          target: universal-darwin
+
+        - host: aarch64-apple-darwin
+          target: universal-darwin
 
         # TODO: Enable aarch64
 
-    runs-on: ${{ matrix.platform.os }}
+    runs-on: ${{ matrix.platform.host }}
     steps:
     - uses: actions/download-artifact@v3
       with:
@@ -75,17 +119,26 @@ jobs:
     - run: chmod +x ./enarx-${{ matrix.platform.target }}
     - run: ./enarx-${{ matrix.platform.target }} info
 
+  test-windows:
+    needs: windows-build
+    runs-on: windows-latest
+    steps:
+    - uses: actions/download-artifact@v3
+      with:
+        name: enarx-x86_64-windows
+    - run: .\enarx.exe info
+  
   test-oci:
     needs: build
     strategy:
       matrix:
         platform:
-        - os: ubuntu-20.04
+        - host: ubuntu-20.04
           target: x86_64-unknown-linux-musl
 
         # TODO: Enable aarch64 and MacOS
 
-    runs-on: ${{ matrix.platform.os }}
+    runs-on: ${{ matrix.platform.host }}
     steps:
     - uses: actions/download-artifact@v3
       with:
@@ -95,7 +148,7 @@ jobs:
 
   release:
     if: startsWith(github.ref, 'refs/tags/') && github.event_name == 'push'
-    needs: [ build, test-bin, test-oci ]
+    needs: [ build, test-bin, test-oci, test-windows ]
     runs-on: ubuntu-20.04
     steps:
     - uses: actions/download-artifact@v3
@@ -103,7 +156,11 @@ jobs:
       with:
         draft: true
         files: |
+          enarx-aarch64-apple-darwin
+          enarx-aarch64-apple-darwin-oci
+          enarx-x86_64-windows
           enarx-x86_64-apple-darwin
           enarx-x86_64-apple-darwin-oci
           enarx-x86_64-unknown-linux-musl
           enarx-x86_64-unknown-linux-musl-oci
+          enarx-universal-darwin
