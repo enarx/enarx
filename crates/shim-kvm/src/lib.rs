@@ -1,5 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
-
+#![cfg(any(
+    all(test, target_arch = "x86_64", target_os = "linux"),
+    target_vendor = "unknown"
+))]
 //! The SEV shim
 //!
 //! This crate contains the system/kernel that handles the syscalls (and cpuid instructions)

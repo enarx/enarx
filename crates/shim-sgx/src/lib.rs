@@ -1,5 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
-
+#![cfg(any(
+    all(test, target_arch = "x86_64", target_os = "linux"),
+    target_vendor = "unknown"
+))]
 //! The SGX shim
 //!
 //! This crate contains the system that traps the syscalls (and cpuid
