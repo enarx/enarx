@@ -75,7 +75,7 @@ jobs:
       - uses: actions-rs/cargo@v1
         with:
           command: test
-          args: --test integration
+          args: --workspace
 
   windows:
     name: enarx Windows
@@ -87,7 +87,7 @@ jobs:
       - uses: actions-rs/cargo@v1
         with:
           command: test
-          args: --test integration
+          args: --workspace
 
   bindeps:
     name: ${{ matrix.crate.name }} nightly ${{ matrix.profile.name }}

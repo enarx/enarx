@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-
+#![cfg(all(target_arch = "x86_64", target_os = "linux"))]
 #![doc = include_str!("../README.md")]
 #![deny(missing_docs)]
 #![deny(clippy::all)]
