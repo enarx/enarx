@@ -76,7 +76,7 @@ fn unix_echo() {
 }
 
 #[test]
-#[cfg_attr(not(host_can_test_sev), ignore)]
+#[cfg_attr(not(host_can_test_sev), ignore = "Backend does not support SEV-SNP")]
 #[serial]
 fn rust_sev_attestation() {
     if let Ok(backend) = std::env::var("ENARX_BACKEND") {

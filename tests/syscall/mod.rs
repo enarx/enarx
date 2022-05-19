@@ -129,7 +129,10 @@ fn read_udp() {
     run_test(bin, 0, input, input, None);
 }
 
-#[cfg_attr(not(host_can_test_attestation), ignore)]
+#[cfg_attr(
+    not(host_can_test_attestation),
+    ignore = "Backend does not support attestation"
+)]
 #[test]
 #[serial]
 fn get_att() {
@@ -137,7 +140,10 @@ fn get_att() {
     run_test(bin, 0, None, None, None);
 }
 
-#[cfg_attr(any(not(host_can_test_sgx), not(host_can_test_attestation)), ignore)]
+#[cfg_attr(
+    any(not(host_can_test_sgx), not(host_can_test_attestation)),
+    ignore = "Backend does not support SGX2"
+)]
 #[test]
 #[serial]
 fn sgx_get_att_quote() {
