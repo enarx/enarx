@@ -3,7 +3,8 @@
 //! The SEV shim
 //!
 //! Contains the startup code and the main function.
-
+#![cfg_attr(coverage, feature(no_coverage))]
+#![cfg_attr(coverage, no_coverage)]
 #![no_std]
 #![deny(clippy::all)]
 #![deny(clippy::integer_arithmetic)]

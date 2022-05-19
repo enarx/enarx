@@ -2,6 +2,8 @@
 
 //! Interrupt handling
 
+#![cfg_attr(coverage, no_coverage)]
+
 #[cfg(feature = "dbg")]
 use crate::debug::{interrupt_trace, print_stack_trace};
 #[cfg(any(debug_assertions, feature = "dbg"))]
@@ -126,6 +128,7 @@ macro_rules! declare_interrupt {
 
     ($name:ident => $push_or_exchange:literal, { $code:block }, $($id:ident: $t:ty),*) => {
         #[naked]
+        #[cfg_attr(coverage, no_coverage)]
         unsafe extern "sysv64" fn $name() -> ! {
             extern "sysv64" fn inner ( $($id: $t,)* ) {
                 $code

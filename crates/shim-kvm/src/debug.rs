@@ -2,6 +2,8 @@
 
 //! Debug functions
 
+#![cfg_attr(coverage, no_coverage)]
+
 use core::arch::asm;
 
 use x86_64::instructions::tables::lidt;

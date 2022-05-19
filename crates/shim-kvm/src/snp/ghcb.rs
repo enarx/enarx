@@ -248,6 +248,7 @@ fn ghcb_msr_make_page_shared(page_virt: VirtAddr) {
 ///
 /// # Safety
 /// Unknown request codes can trigger exceptions
+#[cfg_attr(coverage, no_coverage)]
 #[inline(always)]
 pub unsafe fn vmgexit_msr(request_code: u64, value: u64, expected_response: u64) -> u64 {
     let val = request_code | value;
@@ -307,6 +308,7 @@ impl<'a> GhcbHandle<'a> {
     ///
     /// # Safety
     /// undefined behaviour if not everything is setup according to the GHCB protocol
+    #[cfg_attr(coverage, no_coverage)]
     unsafe fn vmgexit(
         &mut self,
         exit_code: u64,

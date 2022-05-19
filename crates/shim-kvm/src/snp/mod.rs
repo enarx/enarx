@@ -64,6 +64,7 @@ pub enum PvalidateSize {
 ///   a #GP(0) exception.
 /// - VMPL or CPL not zero will result in a #GP(0) exception.
 #[inline(always)]
+#[cfg_attr(coverage, no_coverage)]
 pub fn pvalidate(addr: VirtAddr, size: PvalidateSize, validated: bool) -> Result<bool, Error> {
     let rmp_changed: u32;
     let ret: u64;

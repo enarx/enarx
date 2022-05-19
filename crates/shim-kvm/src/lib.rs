@@ -11,6 +11,7 @@
 #![deny(missing_docs)]
 #![feature(asm_const, asm_sym, c_size_t, core_ffi_c, naked_functions)]
 #![warn(rust_2018_idioms)]
+#![cfg_attr(coverage, feature(no_coverage))]
 
 use crate::snp::cpuid_page::CpuidPage;
 
