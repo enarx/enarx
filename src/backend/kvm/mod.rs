@@ -111,7 +111,7 @@ impl crate::backend::Backend for Backend {
 #[cfg(test)]
 mod tests {
     #[test]
-    #[cfg_attr(debug_assertions, ignore)]
+    #[cfg_attr(debug_assertions, ignore = "debug_assertions active")]
     fn shim_kvm_binary_size() {
         use crate::backend::Backend;
 

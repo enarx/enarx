@@ -301,7 +301,10 @@ mod tests {
     use super::*;
 
     #[test]
-    #[cfg_attr(not(all(host_can_test_sgx, host_can_test_attestation)), ignore)]
+    #[cfg_attr(
+        not(all(host_can_test_sgx, host_can_test_attestation)),
+        ignore = "CPU does not support SGX2 or attestation not possible"
+    )]
     fn request_target_info() {
         assert_eq!(std::path::Path::new(AESM_SOCKET).exists(), true);
 
