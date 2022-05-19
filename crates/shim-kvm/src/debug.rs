@@ -19,6 +19,7 @@ use crate::snp::snp_active;
 ///
 /// This function causes a triple fault!
 #[inline(never)]
+#[cfg_attr(any(coverage, coverage_nightly), no_coverage)]
 pub unsafe fn _early_debug_panic(reason: u64, value: u64) -> ! {
     let mut rbp: u64;
 
@@ -56,6 +57,7 @@ pub unsafe fn _early_debug_panic(reason: u64, value: u64) -> ! {
 ///
 /// This function causes a triple fault!
 #[inline(never)]
+#[cfg_attr(any(coverage, coverage_nightly), no_coverage)]
 pub unsafe fn _enarx_asm_triple_fault() -> ! {
     let mut rbp: u64;
 
@@ -74,6 +76,7 @@ pub unsafe fn _enarx_asm_triple_fault() -> ! {
 /// Load an invalid DescriptorTablePointer with no base and limit and
 /// provoke an #UD, which will lead to a triple fault
 #[inline(always)]
+#[cfg_attr(any(coverage, coverage_nightly), no_coverage)]
 unsafe fn _inline_ud2_triple_fault(frames: [u64; 16]) -> ! {
     _load_invalid_idt();
 
@@ -101,6 +104,7 @@ unsafe fn _inline_ud2_triple_fault(frames: [u64; 16]) -> ! {
 
 /// Load an invalid DescriptorTablePointer with no base and limit
 #[inline(always)]
+#[cfg_attr(any(coverage, coverage_nightly), no_coverage)]
 unsafe fn _load_invalid_idt() {
     let dtp = DescriptorTablePointer {
         limit: 0,
@@ -119,6 +123,7 @@ unsafe fn backtrace(_rbp: u64) -> [u64; 16] {
 #[cfg(feature = "dbg")]
 /// Produce a backtrace from a frame pointer
 #[inline(always)]
+#[cfg_attr(any(coverage, coverage_nightly), no_coverage)]
 unsafe fn backtrace(mut rbp: u64) -> [u64; 16] {
     use core::mem::size_of;
 
@@ -151,6 +156,7 @@ unsafe fn backtrace(mut rbp: u64) -> [u64; 16] {
 #[cfg(feature = "dbg")]
 #[inline(never)]
 /// print a stack trace from a stack frame pointer
+#[cfg_attr(any(coverage, coverage_nightly), no_coverage)]
 pub fn print_stack_trace() {
     let mut rbp: usize;
 
@@ -161,6 +167,7 @@ pub fn print_stack_trace() {
 }
 
 #[cfg(feature = "dbg")]
+#[cfg_attr(any(coverage, coverage_nightly), no_coverage)]
 unsafe fn stack_trace_from_rbp(mut rbp: usize) {
     use crate::exec::EXEC_VIRT_ADDR;
     use crate::paging::SHIM_PAGETABLE;
@@ -228,6 +235,7 @@ unsafe fn stack_trace_from_rbp(mut rbp: usize) {
 }
 
 #[cfg(feature = "dbg")]
+#[cfg_attr(any(coverage, coverage_nightly), no_coverage)]
 pub(crate) fn interrupt_trace(stack_frame: &crate::interrupts::ExtendedInterruptStackFrame) {
     use crate::exec::EXEC_VIRT_ADDR;
 

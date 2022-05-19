@@ -26,6 +26,7 @@ struct X8664DoubleReturn {
 /// # Safety
 ///
 /// This function is not be called from rust.
+#[cfg_attr(any(coverage, coverage_nightly), no_coverage)]
 #[naked]
 pub unsafe extern "sysv64" fn _syscall_enter() -> ! {
     // TaskStateSegment.privilege_stack_table[0]
