@@ -11,11 +11,11 @@ coverage:
       shim-kvm:
         paths: [ "crates/shim-kvm" ]
         target: auto  # auto compares coverage to the previous base commit
-        threshold: 0.05%  # the leniency in hitting the target
+        threshold: 5%  # the leniency in hitting the target
       shim-sgx:
         paths: [ "crates/shim-sgx" ]
         target: auto  # auto compares coverage to the previous base commit
-        threshold: 0.05%  # the leniency in hitting the target
+        threshold: 5%  # the leniency in hitting the target
       sallyport:
         paths: [ "crates/sallyport" ]
         target: auto  # auto compares coverage to the previous base commit
@@ -32,12 +32,10 @@ coverage:
       default: false
       shim-kvm:
         paths: [ "crates/shim-kvm" ]
-        target: auto  # auto compares coverage to the previous base commit
-        threshold: 0.05%  # the leniency in hitting the target
+        target: 0
       shim-sgx:
         paths: [ "crates/shim-sgx" ]
-        target: auto  # auto compares coverage to the previous base commit
-        threshold: 0.05%  # the leniency in hitting the target
+        target: 0
       sallyport:
         paths: [ "crates/sallyport" ]
         target: auto  # auto compares coverage to the previous base commit
