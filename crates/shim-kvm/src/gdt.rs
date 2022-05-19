@@ -2,6 +2,8 @@
 
 //! Global Descriptor Table init
 
+#![cfg_attr(any(coverage, coverage_nightly), no_coverage)]
+
 use crate::shim_stack::{init_stack_with_guard, GuardedStack};
 use crate::syscall::_syscall_enter;
 

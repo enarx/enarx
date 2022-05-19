@@ -2,6 +2,8 @@
 
 //! Interrupt handling
 
+#![cfg_attr(any(coverage, coverage_nightly), no_coverage)]
+
 #[cfg(feature = "dbg")]
 use crate::debug::{interrupt_trace, print_stack_trace};
 #[cfg(any(debug_assertions, feature = "dbg"))]
@@ -126,6 +128,7 @@ macro_rules! declare_interrupt {
 
     ($name:ident => $push_or_exchange:literal, { $code:block }, $($id:ident: $t:ty),*) => {
         #[naked]
+        #[cfg_attr(any(coverage, coverage_nightly), no_coverage)]
         unsafe extern "sysv64" fn $name() -> ! {
             extern "sysv64" fn inner ( $($id: $t,)* ) {
                 $code
@@ -240,6 +243,7 @@ declare_interrupt!(
 );
 
 /// The global IDT
+#[cfg_attr(any(coverage, coverage_nightly), no_coverage)]
 pub static IDT: Lazy<InterruptDescriptorTable> = Lazy::new(|| {
     let mut idt = InterruptDescriptorTable::new();
     unsafe {
@@ -255,6 +259,7 @@ pub static IDT: Lazy<InterruptDescriptorTable> = Lazy::new(|| {
 });
 
 /// Initialize the IDT
+#[cfg_attr(any(coverage, coverage_nightly), no_coverage)]
 pub fn init() {
     #[cfg(debug_assertions)]
     eprintln!("interrupts::init");
@@ -265,6 +270,7 @@ pub fn init() {
 mod debug {
     use super::*;
 
+    #[cfg_attr(any(coverage, coverage_nightly), no_coverage)]
     pub(crate) fn idt_add_debug_exception_handlers(idt: &mut InterruptDescriptorTable) {
         unsafe {
             let virt = VirtAddr::new_unsafe(divide_error_handler as usize as u64);

@@ -12,6 +12,7 @@ use const_default::ConstDefault;
 ///
 /// Because the caller can give any `entry_point` and `stack_pointer`
 /// including 0, this function is unsafe.
+#[cfg_attr(any(coverage, coverage_nightly), no_coverage)]
 pub unsafe fn usermode(ip: u64, sp: u64) -> ! {
     static XSAVE: xsave::XSave = <xsave::XSave as ConstDefault>::DEFAULT;
 
