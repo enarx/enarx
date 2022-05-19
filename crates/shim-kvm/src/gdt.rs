@@ -38,17 +38,20 @@ pub const SHIM_EX_STACK_SIZE: u64 = {
     }
 };
 
-/// The initial shim stack
-pub static INITIAL_STACK: Lazy<GuardedStack> = Lazy::new(|| {
+#[cfg_attr(any(coverage, coverage_nightly), no_coverage)]
+fn lazy_initial_stack() -> GuardedStack {
     init_stack_with_guard(
         VirtAddr::new(SHIM_STACK_START),
         SHIM_STACK_SIZE,
         PageTableFlags::empty(),
     )
-});
+}
 
-/// The global TSS
-pub static TSS: Lazy<TaskStateSegment> = Lazy::new(|| {
+/// The initial shim stack
+pub static INITIAL_STACK: Lazy<GuardedStack> = Lazy::new(lazy_initial_stack);
+
+#[cfg_attr(any(coverage, coverage_nightly), no_coverage)]
+fn lazy_tss() -> TaskStateSegment {
     let mut tss = TaskStateSegment::new();
 
     tss.privilege_stack_table[0] = INITIAL_STACK.pointer;
@@ -88,7 +91,10 @@ pub static TSS: Lazy<TaskStateSegment> = Lazy::new(|| {
     }
 
     tss
-});
+}
+
+/// The global TSS
+pub static TSS: Lazy<TaskStateSegment> = Lazy::new(lazy_tss);
 
 /// The Selectors used in the GDT setup
 pub struct Selectors {
@@ -104,8 +110,8 @@ pub struct Selectors {
     pub tss: SegmentSelector,
 }
 
-/// The global GDT
-pub static GDT: Lazy<(GlobalDescriptorTable, Selectors)> = Lazy::new(|| {
+#[cfg_attr(any(coverage, coverage_nightly), no_coverage)]
+fn lazy_gdt() -> (GlobalDescriptorTable, Selectors) {
     let mut gdt = GlobalDescriptorTable::new();
 
     // `syscall` loads segments from STAR MSR assuming a data_segment follows `kernel_code_segment`
@@ -131,7 +137,10 @@ pub static GDT: Lazy<(GlobalDescriptorTable, Selectors)> = Lazy::new(|| {
     };
 
     (gdt, selectors)
-});
+}
+
+/// The global GDT
+pub static GDT: Lazy<(GlobalDescriptorTable, Selectors)> = Lazy::new(lazy_gdt);
 
 /// Initialize the GDT
 ///
@@ -139,6 +148,7 @@ pub static GDT: Lazy<(GlobalDescriptorTable, Selectors)> = Lazy::new(|| {
 ///
 /// `unsafe` because the caller has to ensure it is only called once
 /// and in a single-threaded context.
+#[cfg_attr(any(coverage, coverage_nightly), no_coverage)]
 pub unsafe fn init() {
     #[cfg(debug_assertions)]
     crate::eprintln!("init_gdt");

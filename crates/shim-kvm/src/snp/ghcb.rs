@@ -215,6 +215,7 @@ enum GhcbError {
 }
 
 /// make a page shared with the GHCB MSR Protocol
+#[cfg_attr(any(coverage, coverage_nightly), no_coverage)]
 fn ghcb_msr_make_page_shared(page_virt: VirtAddr) {
     // const SNP_PAGE_STATE_PRIVATE: u64 = 1;
     const SNP_PAGE_STATE_SHARED: u64 = 2;
@@ -248,6 +249,7 @@ fn ghcb_msr_make_page_shared(page_virt: VirtAddr) {
 ///
 /// # Safety
 /// Unknown request codes can trigger exceptions
+#[cfg_attr(any(coverage, coverage_nightly), no_coverage)]
 #[inline(always)]
 pub unsafe fn vmgexit_msr(request_code: u64, value: u64, expected_response: u64) -> u64 {
     let val = request_code | value;
@@ -272,17 +274,21 @@ pub struct GhcbHandle<'a> {
     ghcb: &'a mut Ghcb,
 }
 
-/// The global Enarx guest hypervisor communication block - GHCB
-pub static GHCB: Lazy<RwLocked<GhcbHandle<'_>>> = Lazy::new(|| {
+#[cfg_attr(any(coverage, coverage_nightly), no_coverage)]
+fn lazy_ghcb() -> RwLocked<GhcbHandle<'static>> {
     #[link_section = ".ghcb"]
     static GHCB: RacyCell<Ghcb> = RacyCell::new(<Ghcb as ConstDefault>::DEFAULT);
 
     // Safety: The above static `RacyCell` can only be accessed via the `RwLocked handle.
     let ghcb_mut_ref = unsafe { &mut *GHCB.get() };
     RwLocked::<GhcbHandle<'_>>::new(GhcbHandle::new(ghcb_mut_ref))
-});
+}
+
+/// The global Enarx guest hypervisor communication block - GHCB
+pub static GHCB: Lazy<RwLocked<GhcbHandle<'_>>> = Lazy::new(lazy_ghcb);
 
 impl<'a> GhcbHandle<'a> {
+    #[cfg_attr(any(coverage, coverage_nightly), no_coverage)]
     fn new(ghcb: &'a mut Ghcb) -> Self {
         let ghcb_virt = VirtAddr::from_ptr(ghcb);
 
@@ -307,6 +313,7 @@ impl<'a> GhcbHandle<'a> {
     ///
     /// # Safety
     /// undefined behaviour if not everything is setup according to the GHCB protocol
+    #[cfg_attr(any(coverage, coverage_nightly), no_coverage)]
     unsafe fn vmgexit(
         &mut self,
         exit_code: u64,
@@ -372,6 +379,7 @@ impl<'a> GhcbHandle<'a> {
     }
 
     /// clear all bits in the valid offset bitfield
+    #[cfg_attr(any(coverage, coverage_nightly), no_coverage)]
     pub fn invalidate(&mut self) {
         self.ghcb.save_area.sw_exit_code = 0;
         self.ghcb
@@ -392,6 +400,7 @@ impl<'a> GhcbHandle<'a> {
 
 impl RwLocked<GhcbHandle<'_>> {
     /// GHCB IOIO_PROT
+    #[cfg_attr(any(coverage, coverage_nightly), no_coverage)]
     pub fn do_io_out(&self, portnumber: u16, value: u16) {
         const IOIO_TYPE_OUT: u64 = 0;
         const IOIO_DATA_16: u64 = 1 << 5;
@@ -422,6 +431,7 @@ impl RwLocked<GhcbHandle<'_>> {
     }
 
     /// turn physical pages to decrypted / shared
+    #[cfg_attr(any(coverage, coverage_nightly), no_coverage)]
     pub fn set_memory_shared(&self, virt_addr: VirtAddr, npages: usize) {
         const SVM_VMGEXIT_PSC: u64 = 0x80000010;
 
@@ -506,6 +516,7 @@ impl RwLocked<GhcbHandle<'_>> {
     ///
     /// # Safety
     /// undefined behaviour, if the parameters don't follow the GHCB protocol
+    #[cfg_attr(any(coverage, coverage_nightly), no_coverage)]
     pub unsafe fn guest_req(&self, req_gpa: PhysAddr, resp_gpa: PhysAddr) -> Result<(), u64> {
         const SVM_VMGEXIT_GUEST_REQUEST: u64 = 0x80000011;
 
@@ -531,6 +542,7 @@ impl RwLocked<GhcbHandle<'_>> {
     ///
     /// # Safety
     /// undefined behaviour, if the parameters don't follow the GHCB protocol
+    #[cfg_attr(any(coverage, coverage_nightly), no_coverage)]
     pub unsafe fn guest_req_ext(
         &self,
         data_gpa: PhysAddr,
@@ -583,21 +595,25 @@ impl Default for GhcbExtHandle {
     }
 }
 
+#[cfg_attr(any(coverage, coverage_nightly), no_coverage)]
+fn lazy_ghcb_ext() -> Locked<&'static mut GhcbExtHandle> {
+    static GHCBEXTHANDLE: RacyCell<GhcbExtHandle> =
+        RacyCell::new(<GhcbExtHandle as ConstDefault>::DEFAULT);
+
+    let ghcb_ext_handle_mut = unsafe { &mut (*GHCBEXTHANDLE.get()) };
+    ghcb_ext_handle_mut.init();
+    Locked::<&mut GhcbExtHandle>::new(ghcb_ext_handle_mut)
+}
+
 /// The global Enarx GHCB Ext
 ///
 /// # Safety
 /// `GHCB_EXT` is the only way to get an instance of the static `GHCBEXTHANDLE`.
 /// It is guarded by `RwLocked`.
-pub static GHCB_EXT: Lazy<Locked<&mut GhcbExtHandle>> = Lazy::new(|| unsafe {
-    static GHCBEXTHANDLE: RacyCell<GhcbExtHandle> =
-        RacyCell::new(<GhcbExtHandle as ConstDefault>::DEFAULT);
-
-    let ghcb_ext_handle_mut = &mut (*GHCBEXTHANDLE.get());
-    ghcb_ext_handle_mut.init();
-    Locked::<&mut GhcbExtHandle>::new(ghcb_ext_handle_mut)
-});
+pub static GHCB_EXT: Lazy<Locked<&mut GhcbExtHandle>> = Lazy::new(lazy_ghcb_ext);
 
 impl GhcbExtHandle {
+    #[cfg_attr(any(coverage, coverage_nightly), no_coverage)]
     fn init(&mut self) {
         let request_virt = VirtAddr::from_ptr(&self.request);
 
@@ -608,6 +624,7 @@ impl GhcbExtHandle {
         GHCB.set_memory_shared(response_virt, 1);
     }
 
+    #[cfg_attr(any(coverage, coverage_nightly), no_coverage)]
     unsafe fn guest_req(&mut self) -> Result<(), u64> {
         let req_gpa =
             PhysAddr::new((VirtAddr::from_ptr(&self.request) - SHIM_VIRT_OFFSET).as_u64());
