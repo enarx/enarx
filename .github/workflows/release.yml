@@ -146,9 +146,12 @@ jobs:
     - run: docker load < enarx-${{ matrix.platform.target }}-oci
     # TODO: Attempt to run `enarx info` within the loaded container
 
+  Regenerate-BOM:
+    uses: ./.github/workflows/sbom_manifest_action.yml
+
   release:
     if: startsWith(github.ref, 'refs/tags/') && github.event_name == 'push'
-    needs: [ build, test-bin, test-oci, test-windows ]
+    needs: [ build, test-bin, test-oci, test-windows, Regenerate-BOM ]
     runs-on: ubuntu-20.04
     steps:
     - uses: actions/download-artifact@v3
