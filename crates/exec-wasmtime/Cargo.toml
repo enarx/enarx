@@ -30,7 +30,7 @@ wasi-common = { version = "0.36", default-features = false }
 wasmtime = { version = "0.36", features = ["cranelift", "pooling-allocator"], default-features = false }
 wasmtime-wasi = { version = "0.36", features = ["sync"], default-features = false }
 webpki-roots = { version = "0.22.2", default-features = false }
-wiggle = { version = "0.36", default-features = false }
+wiggle = { version = "0.37", default-features = false }
 x509-cert = { version = "0.0.2", features = ["std"], default-features = false }
 zeroize = { version = "1.5.4", features = ["alloc"], default-features = false }
 

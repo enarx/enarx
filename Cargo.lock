@@ -641,7 +641,7 @@ dependencies = [
  "wasmtime-wasi",
  "wat",
  "webpki-roots",
- "wiggle",
+ "wiggle 0.37.0",
  "x509-cert",
  "zeroize",
 ]
@@ -2185,7 +2185,7 @@ dependencies = [
  "rustix",
  "thiserror",
  "tracing",
- "wiggle",
+ "wiggle 0.36.0",
  "winapi",
 ]
 
@@ -2399,7 +2399,7 @@ dependencies = [
  "wasi-cap-std-sync",
  "wasi-common",
  "wasmtime",
- "wiggle",
+ "wiggle 0.36.0",
 ]
 
 [[package]]
@@ -2472,7 +2472,21 @@ dependencies = [
  "thiserror",
  "tracing",
  "wasmtime",
- "wiggle-macro",
+ "wiggle-macro 0.36.0",
+]
+
+[[package]]
+name = "wiggle"
+version = "0.37.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "799e618e90d9f3d6d76943d9f2903c609b62f2ab5d16dedcff4816d38db726dd"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "bitflags",
+ "thiserror",
+ "tracing",
+ "wiggle-macro 0.37.0",
 ]
 
 [[package]]
@@ -2491,6 +2505,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "wiggle-generate"
+version = "0.37.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "534d70579cd9aca243e94eeb14a348dbc9ae87e7758ffebfdd4bb4a98d59b9b0"
+dependencies = [
+ "anyhow",
+ "heck 0.4.0",
+ "proc-macro2",
+ "quote",
+ "shellexpand",
+ "syn",
+ "witx",
+]
+
+[[package]]
 name = "wiggle-macro"
 version = "0.36.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2499,7 +2528,19 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
- "wiggle-generate",
+ "wiggle-generate 0.36.0",
+]
+
+[[package]]
+name = "wiggle-macro"
+version = "0.37.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "87216b1f58eeee44a6385de39e8c03190c209942cfa34344c9ba69426f146d8d"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+ "wiggle-generate 0.37.0",
 ]
 
 [[package]]
