@@ -62,13 +62,12 @@ jobs:
           rustup show
           rustup component add llvm-tools-preview
 
-      # Use this special version until https://github.com/haraldh/cargo-llvm-cov/commit/a16a14be4a8f2b522f44eed54231b1022e174906
-      # is upstream or in our own enarx repo. It is needed because of our bindeps and enclaves.
+      # TODO: remove this git dependency when cargo-llvm-cov has issued a new release
       - name: Install cargo-llvm-cov
-        run: cargo install --git https://github.com/haraldh/cargo-llvm-cov/ --branch target_rustflags --bin cargo-llvm-cov cargo-llvm-cov
+        run: cargo install --git https://github.com/taiki-e/cargo-llvm-cov/ --rev 6db3a020609073a9bfd5cdd9bbe2f7816057a4e1 cargo-llvm-cov
 
       - name: Run cargo-llvm-cov
-        run: cargo llvm-cov --target x86_64-unknown-linux-gnu --manifest-path ${{ matrix.crate.path }}/Cargo.toml --lcov --output-path lcov.info ${{ matrix.crate.flags }}
+        run: cargo llvm-cov --coverage-target-only --target x86_64-unknown-linux-gnu --manifest-path ${{ matrix.crate.path }}/Cargo.toml --lcov --output-path lcov.info ${{ matrix.crate.flags }}
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v3
