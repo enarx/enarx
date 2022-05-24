@@ -62,9 +62,8 @@ jobs:
           rustup show
           rustup component add llvm-tools-preview
 
-      # TODO: remove this git dependency when cargo-llvm-cov has issued a new release
       - name: Install cargo-llvm-cov
-        run: cargo install --git https://github.com/taiki-e/cargo-llvm-cov/ --rev 6db3a020609073a9bfd5cdd9bbe2f7816057a4e1 cargo-llvm-cov
+        run: cargo install --version 0.4.1 cargo-llvm-cov
 
       - name: Run cargo-llvm-cov
         run: cargo llvm-cov --coverage-target-only --target x86_64-unknown-linux-gnu --manifest-path ${{ matrix.crate.path }}/Cargo.toml --lcov --output-path lcov.info ${{ matrix.crate.flags }}
