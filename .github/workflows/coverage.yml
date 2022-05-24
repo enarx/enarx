@@ -30,14 +30,14 @@ jobs:
             host: [ self-hosted, linux, sgx ]
           - name: kvm
             path: .
-            host: [ self-hosted, linux ]
+            host: [ self-hosted, linux, x64 ]
           - name: nil
             path: .
             host: ubuntu-20.04
             flags: "--test integration --bin enarx -- wasm::"
           - name: exec-wasmtime
             path: ./crates/exec-wasmtime
-            host: [ self-hosted, linux ]
+            host: [ self-hosted, linux, x64 ]
           - name: shim-kvm
             path: ./crates/shim-kvm
             host: [ self-hosted, linux, sev-snp ]
@@ -46,7 +46,7 @@ jobs:
             host: [ self-hosted, linux, sgx ]
           - name: sallyport
             path: ./crates/sallyport
-            host: [ self-hosted, linux ]
+            host: [ self-hosted, linux, x64 ]
 
     steps:
       - run: sudo apt -o Acquire::Retries=3 update
