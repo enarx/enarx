@@ -9,7 +9,9 @@ set -e
 #
 
 # The crates we plan on releasing
-readonly CRATES=(sallyport enarx-shim-kvm enarx-shim-sgx enarx-exec-wasmtime enarx-exec-wasmtime-bin enarx)
+readonly CRATES_REG_TARGETS=(sallyport enarx-exec-wasmtime)
+readonly CRATES_UNKNOWN_NONE=(enarx-shim-kvm enarx-shim-sgx)
+readonly CRATES=( "${CRATES_REG_TARGETS[@]}" "${CRATES_UNKNOWN_NONE[@]}" enarx )
 
 # The enarx team-maintained dependencies we want to update
 readonly DEPS=(crt0stack flagset iocuddle lset mmarinus mmledger nbytes noted primordial rcrt1 sgx vdso xsave)
@@ -17,7 +19,7 @@ readonly DEPS=(crt0stack flagset iocuddle lset mmarinus mmledger nbytes noted pr
 # Constants for release testing container images
 readonly IMAGE_PREFIX="registry.gitlab.com/enarx/misc-testing/"
 readonly IMAGES=(ubuntu debian centos7 centos8 fedora)
-readonly IMAGE_SUFFIX="-base:2022-05-06T04-13-41Z"
+readonly IMAGE_SUFFIX="-base:latest"
 
 # E2E/Install documentation contexts used in docs/Install.md to test on container images (test plans)
 readonly CONTEXTS=("crates,helloworld" "git,helloworld")
@@ -26,9 +28,10 @@ readonly CONTEXTS=("crates,helloworld" "git,helloworld")
 # Flags
 #
 
-readonly CLEANUP="${CLEANUP:-false}" # Delete cloned repo, mock registry and stop process repository after build
-readonly CONFIRM="${CONFIRM:-true}"  # Should we confirm on each step (some steps cannot be skipped)
-readonly DRYRUN="${DRYRUN:-true}"    # Do not make any external facing changes
+readonly CLEANUP="${CLEANUP:-false}"  # Delete cloned repo, mock registry and stop process repository after build
+readonly CONFIRM="${CONFIRM:-true}"   # Should we confirm on each step (some steps cannot be skipped)
+readonly DRYRUN="${DRYRUN:-true}"     # Do not make any external facing changes
+readonly GIT_REPO="${GIT_REPO:-NONE}" # Git repository URL of user's fork of enarx repo
 
 # WARNING: could fail due to interdependencies of bindep crates
 readonly DR_PUBLISH="${DR_PUBLISH:-false}" # Determines if we should do a crate dry-run publish
@@ -63,7 +66,11 @@ checkout_repository() {
     REPO_PATH="file://${REPO_DIR}"
 
     cd "$REPO_DIR"
-    read -p "Provide git repository URL for user's fork: " -r FORK_URL
+    if [[ "$GIT_REPO" == "NONE" ]]; then
+        read -p "Provide git repository URL for user's fork: " -r FORK_URL
+    else
+        FORK_URL="$GIT_REPO"
+    fi
     git clone "$FORK_URL" .
     git remote add upstream https://github.com/enarx/enarx.git >/dev/null 2>&1
     git fetch --all --tags >/dev/null 2>&1
@@ -74,6 +81,7 @@ checkout_repository() {
 # Sets up a mock registry for testing
 setup_mock_registry() {
     REGISTRY_PATH="$(realpath "$(mktemp -d --suffix='-registry')")"
+    chmod a+rwx -R "${REGISTRY_PATH}"
     MOCKED_REGISTRY="mocked"
     CARGO_REGISTRIES_MOCKED_INDEX="file://${REGISTRY_PATH}"
     CARGO_REGISTRIES_MOCKED_TOKEN="${MOCKED_REGISTRY}token"
@@ -197,12 +205,12 @@ mock_publish() {
     local registry="$1"
 
     enable_mock "${registry}"
-    for i in sallyport enarx-exec-wasmtime enarx-exec-wasmtime-bin; do
+    for i in "${CRATES_REG_TARGETS[@]}"; do
         shout "Publishing mock crate ${i}..."
         cargo publish --allow-dirty --registry "${registry}" -p "$i"
         sleep 2
     done
-    for i in enarx-shim-kvm enarx-shim-sgx; do
+    for i in "${CRATES_UNKNOWN_NONE[@]}"; do
         shout "Publishing mock crate ${i}..."
         cargo publish --registry "${registry}" -p "$i" --allow-dirty --target x86_64-unknown-none
         sleep 2
@@ -251,12 +259,12 @@ publish() {
 
     # Dry run for publish (see note at beginning of script)
     if [[ "${DR_PUBLISH}" == "true" ]]; then
-        for i in sallyport enarx-exec-wasmtime enarx-exec-wasmtime-bin; do
+        for i in "${CRATES_REG_TARGETS[@]}"; do
             echo -e "\n\nDry-run publishing ${i}..."
             cargo publish -p "$i" --dry-run --token "${token}"
             sleep 2
         done
-        for i in enarx-shim-kvm enarx-shim-sgx; do
+        for i in "${CRATES_UNKNOWN_NONE[@]}"; do
             echo -e "\n\nDry-run publishing ${i}..."
             cargo publish -p "$i" --dry-run --token "${token}" --target x86_64-unknown-none
             sleep 2
@@ -265,13 +273,12 @@ publish() {
         cargo publish -p enarx --dry-run --token "${token}"
         should_continue "true"
     fi
-
-    for i in sallyport enarx-exec-wasmtime enarx-exec-wasmtime-bin; do
+    for i in "${CRATES_REG_TARGETS[@]}"; do
         echo -e "\n\nPublishing ${i}..."
         cargo publish -p "$i" --token "${token}"
         sleep 2
     done
-    for i in enarx-shim-kvm enarx-shim-sgx; do
+    for i in "${CRATES_UNKNOWN_NONE[@]}"; do
         echo -e "\n\nPublishing ${i}..."
         cargo publish -p "$i" --target x86_64-unknown-none --token "${token}"
         sleep 2
