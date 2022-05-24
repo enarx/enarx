@@ -94,14 +94,8 @@ jobs:
     strategy:
       matrix:
         platform:
-        - host: macos-latest
-          target: x86_64-apple-darwin
-
         - host: ubuntu-20.04
           target: x86_64-unknown-linux-musl
-
-        - host: aarch64-apple-darwin
-          target: aarch64-apple-darwin
 
         - host: macos-latest
           target: universal-darwin
@@ -159,10 +153,8 @@ jobs:
       with:
         draft: true
         files: |
-          enarx-aarch64-apple-darwin
           enarx-aarch64-apple-darwin-oci
           enarx-x86_64-windows
-          enarx-x86_64-apple-darwin
           enarx-x86_64-apple-darwin-oci
           enarx-x86_64-unknown-linux-musl
           enarx-x86_64-unknown-linux-musl-oci
