@@ -18,7 +18,8 @@ extern crate rcrt1;
 use core::arch::asm;
 
 use enarx_shim_sgx::{
-    entry, handler, ATTR, BLOCK_SIZE, ENARX_EXEC_START, ENARX_SHIM_ADDRESS, ENCL_SIZE_BITS, MISC,
+    entry, handler, shim_address, ATTR, BLOCK_SIZE, ENARX_EXEC_START, ENARX_SHIM_ADDRESS,
+    ENCL_SIZE, ENCL_SIZE_BITS, MISC,
 };
 
 #[panic_handler]
@@ -249,17 +250,33 @@ pub unsafe extern "sysv64" fn _start() -> ! {
 }
 
 unsafe extern "C" fn main(
-    port: &mut [usize; BLOCK_SIZE / core::mem::size_of::<usize>()],
+    block: &mut [usize; BLOCK_SIZE / core::mem::size_of::<usize>()],
     ssas: &mut [StateSaveArea; 3],
     cssa: usize,
 ) {
-    ssas[cssa].extra[0] = 1; // Enable exceptions
+    // Enable exceptions:
+    ssas[cssa].extra[0] = 1;
+
+    // As host is a separate application from the shim, all the data coming from
+    // it needs to be validated explicitly.  Thus, check that the Sallyport
+    // block is outside the shim address space:
+    let block_start = block.as_ptr() as usize;
+    let block_end = block_start + BLOCK_SIZE;
+    let shim_start = shim_address();
+    let shim_end = shim_start + ENCL_SIZE;
+
+    if (block_start >= shim_start && block_start < shim_end)
+        || (block_end > shim_start && block_end <= shim_end)
+    {
+        panic!();
+    }
 
     match cssa {
         0 => entry::entry(&ENARX_EXEC_START as *const u8 as _),
-        1 => handler::Handler::handle(&mut ssas[0], port.as_mut_slice()),
+        1 => handler::Handler::handle(&mut ssas[0], block.as_mut_slice()),
         n => handler::Handler::finish(&mut ssas[n - 1]),
     }
 
-    ssas[cssa].extra[0] = 0; // Disable exceptions
+    // Disable exceptions:
+    ssas[cssa].extra[0] = 0;
 }
