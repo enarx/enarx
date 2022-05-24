@@ -12,7 +12,7 @@ use x86_64::registers::{
 };
 
 /// Setup and check SSE relevant stuff
-#[cfg_attr(any(coverage, coverage_nightly), no_coverage)]
+#[cfg_attr(coverage, no_coverage)]
 pub fn init_sse() {
     const XSAVE_SUPPORTED_BIT: u32 = 1 << 26;
     let xsave_supported = (cpuid_count(1, 0).ecx & XSAVE_SUPPORTED_BIT) != 0;

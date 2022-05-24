@@ -10,7 +10,7 @@
 #![warn(rust_2018_idioms)]
 #![no_main]
 #![feature(asm_const, asm_sym, naked_functions)]
-#![cfg_attr(any(coverage, coverage_nightly), feature(no_coverage))]
+#![cfg_attr(coverage, feature(no_coverage))]
 
 #[allow(unused_extern_crates)]
 extern crate rcrt1;
@@ -57,7 +57,7 @@ static INITIAL_SHIM_STACK: [Page; INITIAL_STACK_PAGES] = [Page::zeroed(); INITIA
 /// This function is unsafe, because the caller has to ensure a 16 byte
 /// aligned usable stack.
 #[allow(clippy::integer_arithmetic)]
-#[cfg_attr(any(coverage, coverage_nightly), no_coverage)]
+#[cfg_attr(coverage, no_coverage)]
 unsafe fn switch_shim_stack(ip: extern "sysv64" fn() -> !, sp: u64) -> ! {
     debug_assert_eq!(sp % 16, 0);
 
@@ -79,7 +79,7 @@ unsafe fn switch_shim_stack(ip: extern "sysv64" fn() -> !, sp: u64) -> ! {
 ///
 /// # Safety
 /// Do not call from Rust.
-#[cfg_attr(any(coverage, coverage_nightly), no_coverage)]
+#[cfg_attr(coverage, no_coverage)]
 unsafe extern "sysv64" fn _pre_main(c_bit_mask: u64) -> ! {
     C_BIT_MASK.store(c_bit_mask, Ordering::Relaxed);
 
@@ -93,7 +93,7 @@ unsafe extern "sysv64" fn _pre_main(c_bit_mask: u64) -> ! {
 }
 
 /// The main function for the shim with stack setup
-#[cfg_attr(any(coverage, coverage_nightly), no_coverage)]
+#[cfg_attr(coverage, no_coverage)]
 extern "sysv64" fn main() -> ! {
     unsafe { gdt::init() };
     sse::init_sse();
@@ -109,7 +109,7 @@ extern "sysv64" fn main() -> ! {
 /// if it can't print the panic and exit normally with an error code.
 #[panic_handler]
 #[cfg(not(test))]
-#[cfg_attr(any(coverage, coverage_nightly), no_coverage)]
+#[cfg_attr(coverage, no_coverage)]
 fn panic(_info: &core::panic::PanicInfo<'_>) -> ! {
     use core::sync::atomic::AtomicBool;
     use enarx_shim_kvm::debug::_enarx_asm_triple_fault;
@@ -183,7 +183,7 @@ macro_rules! correct_table_c_bit {
 #[no_mangle]
 #[naked]
 #[link_section = ".reset"]
-#[cfg_attr(any(coverage, coverage_nightly), no_coverage)]
+#[cfg_attr(coverage, no_coverage)]
 pub unsafe extern "sysv64" fn _start() -> ! {
     asm!(
         ".set reset_vector_page, 0xFFFFF000",

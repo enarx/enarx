@@ -38,7 +38,7 @@ pub const SHIM_EX_STACK_SIZE: u64 = {
     }
 };
 
-#[cfg_attr(any(coverage, coverage_nightly), no_coverage)]
+#[cfg_attr(coverage, no_coverage)]
 fn lazy_initial_stack() -> GuardedStack {
     init_stack_with_guard(
         VirtAddr::new(SHIM_STACK_START),
@@ -50,7 +50,7 @@ fn lazy_initial_stack() -> GuardedStack {
 /// The initial shim stack
 pub static INITIAL_STACK: Lazy<GuardedStack> = Lazy::new(lazy_initial_stack);
 
-#[cfg_attr(any(coverage, coverage_nightly), no_coverage)]
+#[cfg_attr(coverage, no_coverage)]
 fn lazy_tss() -> TaskStateSegment {
     let mut tss = TaskStateSegment::new();
 
@@ -110,7 +110,7 @@ pub struct Selectors {
     pub tss: SegmentSelector,
 }
 
-#[cfg_attr(any(coverage, coverage_nightly), no_coverage)]
+#[cfg_attr(coverage, no_coverage)]
 fn lazy_gdt() -> (GlobalDescriptorTable, Selectors) {
     let mut gdt = GlobalDescriptorTable::new();
 
@@ -148,7 +148,7 @@ pub static GDT: Lazy<(GlobalDescriptorTable, Selectors)> = Lazy::new(lazy_gdt);
 ///
 /// `unsafe` because the caller has to ensure it is only called once
 /// and in a single-threaded context.
-#[cfg_attr(any(coverage, coverage_nightly), no_coverage)]
+#[cfg_attr(coverage, no_coverage)]
 pub unsafe fn init() {
     #[cfg(debug_assertions)]
     crate::eprintln!("init_gdt");
