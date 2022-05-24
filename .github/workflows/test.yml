@@ -36,7 +36,7 @@ jobs:
         backend:
           - {name: sev, host: [self-hosted, linux, sev-snp]}
           - {name: sgx, host: [self-hosted, linux, sgx]}
-          - {name: kvm, host: [self-hosted, linux]}
+          - {name: kvm, host: [self-hosted, linux, x64]}
         profile:
           - name: debug
           - name: debug with dbg
