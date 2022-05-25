@@ -68,10 +68,31 @@ jobs:
         with:
           command: build
           args: --release
+      - name: Add cargo-wix subcommand
+        uses: actions-rs/cargo@v1
+        with:
+          command: install
+          args: cargo-wix --version 0.3.1
+      - name: Create output directory
+        run: mkdir output
+      - name: Copy files to output
+        run: |
+          cp target\release\enarx.exe output\
+          cp LICENSE output\
+          cp README.md output\
+      - name: Create msi with wix
+        uses: actions-rs/cargo@v1
+        with:
+          command: wix
+          args: --no-build --nocapture -I release\windows\main.wxs --output target\wix\enarx-windows.msi
       - uses: actions/upload-artifact@v3
         with:
           name: enarx-x86_64-windows
-          path: target/release/enarx.exe
+          path: target\release\enarx.exe
+      - uses: actions/upload-artifact@v3
+        with:
+          name: enarx-x86_64-windows-msi
+          path: target\wix\enarx-windows.msi
 
   universal-binary:
     needs: build
@@ -121,7 +142,7 @@ jobs:
       with:
         name: enarx-x86_64-windows
     - run: .\enarx.exe info
-  
+
   test-oci:
     needs: build
     strategy:
@@ -149,12 +170,16 @@ jobs:
     runs-on: ubuntu-20.04
     steps:
     - uses: actions/download-artifact@v3
+    - name: Display structure of downloaded files
+      run: ls -R
     - uses: softprops/action-gh-release@v1
       with:
         draft: true
+        prerelease: true
         files: |
           enarx-aarch64-apple-darwin-oci
           enarx-x86_64-windows
+          enarx-x86_64-windows-msi
           enarx-x86_64-apple-darwin-oci
           enarx-x86_64-unknown-linux-musl
           enarx-x86_64-unknown-linux-musl-oci

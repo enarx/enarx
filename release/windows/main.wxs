@@ -1,0 +1,128 @@
+<?xml version='1.0' encoding='windows-1252'?>
+<!--
+  Copyright (C) 2022 Enarx Project.
+
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+-->
+
+<?if $(var.Platform) = x64 ?>
+    <?define Win64 = "yes" ?>
+    <?define PlatformProgramFilesFolder = "ProgramFiles64Folder" ?>
+<?else ?>
+  <?define Win64 = "no" ?>
+  <?define PlatformProgramFilesFolder = "ProgramFilesFolder" ?>
+<?endif ?>
+<Wix xmlns='http://schemas.microsoft.com/wix/2006/wi'>
+    <Product
+        Id='*'
+        Name='enarx'
+        UpgradeCode='82D756D2-19FA-4F09-B10F-64942E89F364'
+        Manufacturer='The Enarx Project'
+        Language='1033'
+        Codepage='1252'
+        Version='$(var.Version)'>
+        <Package Id='*'
+            Keywords='Installer'
+            Description='Confidential Computing with WebAssembly'
+            Manufacturer='The Enarx Project'
+            InstallerVersion='450'
+            Languages='1033'
+            Compressed='yes'
+            InstallScope='perMachine'
+            SummaryCodepage='1252'
+            Platform='$(var.Platform)'/>
+        <MajorUpgrade
+            Schedule='afterInstallInitialize'
+            DowngradeErrorMessage='A newer version of [ProductName] is already installed. Setup will now exit.'/>
+        <Media Id='1' Cabinet='media1.cab' EmbedCab='yes' DiskPrompt='CD-ROM #1'/>
+        <Property Id='DiskPrompt' Value='enarx Installation'/>
+        <Directory Id='TARGETDIR' Name='SourceDir'>
+            <Directory Id='$(var.PlatformProgramFilesFolder)' Name='PFiles'>
+                <Directory Id='APPLICATIONFOLDER' Name='enarx'>
+                    <Component Id='License' Guid='*' Win64='$(var.Win64)'>
+                        <File Id='LicenseFile'
+                            Name='License.rtf'
+                            DiskId='1'
+                            Source='release\windows\License.rtf'
+                            KeyPath='yes'/>
+                    </Component>
+                    <Directory Id='Bin' Name='bin'>
+                        <Component Id='Path' Guid='378865E1-B76E-4E46-ADF3-B0048AC01E0B' Win64='$(var.Win64)' KeyPath='yes'>
+                            <Environment
+                                Id='PATH'
+                                Name='PATH'
+                                Value='[Bin]'
+                                Permanent='no'
+                                Part='last'
+                                Action='set'
+                                System='yes'/>
+                        </Component>
+                        <Component Id='binary0' Guid='*' Win64='$(var.Win64)'>
+                            <File
+                                Id='exe0'
+                                Name='enarx.exe'
+                                DiskId='1'
+                                Source='target\$(var.Profile)\enarx.exe'
+                                KeyPath='yes'/>
+                        </Component>
+                        <Component Id='binary1' Guid='*' Win64='$(var.Win64)'>
+                            <File
+                                Id='exe1'
+                                Name='README.md'
+                                DiskId='1'
+                                Source='output\README.md'
+                                KeyPath='yes'/>
+                        </Component>
+                        <Component Id='binary2' Guid='*' Win64='$(var.Win64)'>
+                            <File
+                                Id='exe2'
+                                Name='LICENSE'
+                                DiskId='1'
+                                Source='output\LICENSE'
+                                KeyPath='yes'/>
+                        </Component>
+                    </Directory>
+                </Directory>
+            </Directory>
+        </Directory>
+
+        <Feature
+            Id='Binaries'
+            Title='Application'
+            Description='Installs all binaries and the license.'
+            Level='1'
+            ConfigurableDirectory='APPLICATIONFOLDER'
+            AllowAdvertise='no'
+            Display='expand'
+            Absent='disallow'>
+            <ComponentRef Id='License'/>
+            <ComponentRef Id='binary0'/>
+            <ComponentRef Id='binary1'/>
+            <ComponentRef Id='binary2'/>
+            <Feature
+                Id='Environment'
+                Title='PATH Environment Variable'
+                Description='Add the install location of the [ProductName] executable to the PATH system environment variable. This allows the [ProductName] executable to be called from any location.'
+                Level='1'
+                Absent='allow'>
+                <ComponentRef Id='Path'/>
+            </Feature>
+        </Feature>
+        <SetProperty Id='ARPINSTALLLOCATION' Value='[APPLICATIONFOLDER]' After='CostFinalize'/>
+        <Property Id='ARPHELPLINK' Value='https://enarx.dev/docs/Start/Introduction'/>
+        <UI>
+            <UIRef Id='WixUI_FeatureTree'/>
+        </UI>
+        <WixVariable Id='WixUILicenseRtf' Value='release\windows\License.rtf'/>
+    </Product>
+</Wix>
