@@ -32,6 +32,10 @@ jobs:
           target: aarch64-apple-darwin
           nix: aarch64-darwin
 
+        - host: ARM64
+          target: aarch64-unknown-linux-musl
+          nix: aarch64-linux
+
     runs-on: ${{ matrix.platform.host }}
     steps:
     - uses: actions/checkout@v2
@@ -103,7 +107,9 @@ jobs:
         - host: aarch64-apple-darwin
           target: universal-darwin
 
-        # TODO: Enable aarch64
+        - host: ARM64
+          target: aarch64-unknown-linux-musl
+          nix: aarch64-linux
 
     runs-on: ${{ matrix.platform.host }}
     steps:
@@ -130,7 +136,10 @@ jobs:
         - host: ubuntu-20.04
           target: x86_64-unknown-linux-musl
 
-        # TODO: Enable aarch64 and MacOS
+        - host: ARM64
+          target: aarch64-unknown-linux-musl
+
+        # TODO: Enable MacOS
 
     runs-on: ${{ matrix.platform.host }}
     steps:
@@ -154,6 +163,8 @@ jobs:
         draft: true
         files: |
           enarx-aarch64-apple-darwin-oci
+          enarx-aarch64-unknown-linux-musl
+          enarx-aarch64-unknown-linux-musl-oci          
           enarx-x86_64-windows
           enarx-x86_64-apple-darwin-oci
           enarx-x86_64-unknown-linux-musl
