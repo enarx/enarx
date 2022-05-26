@@ -53,28 +53,28 @@ $ ./helper/parse-trace.sh <shim> [<exec>]
 
 `parse-trace.sh` needs `addr2line` from `binutils`, so make sure that is installed.
 
-To find the shim with the debug info and not stripped run this:
+In order to select one of the built shim-kvm artifacts, run this:
 
 ```console
-$ find target -wholename '*linux-musl/*/shim-kvm'
+$ find target \
+  \( -perm -u=x -o -perm -g=x -o -perm -o=x \) \
+  -wholename "*debug*bin/enarx_shim_kvm*"
 ```
 
-Then choose either the `debug` or `release`, depending with which version the panic occurred.
+Then, you can pick a shim to e.g. an (unexported) shell variable, and
+progress further with your debugging session.
 
-## Examples
+Now, let's go through a couple of examples, with `SHIM` containing
+the path to the target shim binary.
 
-### From a File
+Parsing traceback from a file:
 ```console
-$ ./helper/parse-trace.sh \
-  target/debug/build/*/out/internal/shim-kvm/x86_64-unknown-linux-musl/debug/shim-kvm \
-  < traceback.txt
+$ ./helper/parse-trace.sh $SHIM < traceback.txt
 ```
 
-### Pipe
-
+Reading traceback from pipe:
 ```console
-$ cargo run -- exec <exec> |& ./helper/parse-trace.sh \
-  target/debug/build/*/out/internal/shim-kvm/x86_64-unknown-linux-musl/debug/shim-kvm 
+$ cargo run -- exec <exec> |& ./helper/parse-trace.sh $SHIM
 ```
 
 ## GDB
