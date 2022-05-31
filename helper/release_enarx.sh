@@ -18,7 +18,8 @@ readonly DEPS=(crt0stack flagset iocuddle lset mmarinus mmledger nbytes noted pr
 
 # Constants for release testing container images
 readonly IMAGE_PREFIX="registry.gitlab.com/enarx/misc-testing/"
-readonly IMAGES=(ubuntu debian centos7 centos8 fedora)
+readonly IMAGES_THOROUGH=(ubuntu debian centos7 centos8 fedora)
+readonly IMAGES_FAST=(debian)
 readonly IMAGE_SUFFIX="-base:latest"
 
 # E2E/Install documentation contexts used in docs/Install.md to test on container images (test plans)
@@ -30,11 +31,12 @@ readonly CONTEXTS=("crates,helloworld" "git,helloworld")
 
 readonly CLEANUP="${CLEANUP:-false}"  # Delete cloned repo, mock registry and stop process repository after build
 readonly CONFIRM="${CONFIRM:-true}"   # Should we confirm on each step (some steps cannot be skipped)
-readonly DRYRUN="${DRYRUN:-true}"     # Do not make any external facing changes
+readonly DRYRUN="${DRYRUN:-true}"     # Do not make any external facing changes. Warning: DRYRUN set to false will disable CLEANUP.
 readonly GIT_REPO="${GIT_REPO:-NONE}" # Git repository URL of user's fork of enarx repo
+readonly FAST="${FAST:-false}"        # Should we be fast or thorough when conducting pre-release tests
 
-# WARNING: could fail due to interdependencies of bindep crates
-readonly DR_PUBLISH="${DR_PUBLISH:-false}" # Determines if we should do a crate dry-run publish
+readonly SKIP_TESTS="${SKIP_TESTS:-false}" # Skip tests and jump directly to release. THIS IS NOT RECOMMENDED.
+
 
 #
 # Globals
@@ -47,6 +49,8 @@ export REGISTRY_PID=""
 export MOCKED_REGISTRY=""
 export CARGO_REGISTRIES_MOCKED_INDEX=""
 export CARGO_REGISTRIES_MOCKED_TOKEN=""
+export IMAGES=""
+
 
 #
 # Initial setup
@@ -208,12 +212,14 @@ mock_publish() {
     for i in "${CRATES_REG_TARGETS[@]}"; do
         shout "Publishing mock crate ${i}..."
         cargo publish --allow-dirty --registry "${registry}" -p "$i"
-        sleep 2
+        echo -e "\nSuccessfully published ${i}, sleeping for 10 seconds..."
+        sleep 10
     done
     for i in "${CRATES_UNKNOWN_NONE[@]}"; do
         shout "Publishing mock crate ${i}..."
         cargo publish --registry "${registry}" -p "$i" --allow-dirty --target x86_64-unknown-none
-        sleep 2
+        echo -e "\nSuccessfully published ${i}, sleeping for 10 seconds..."
+        sleep 10
     done
     cargo publish --registry "${registry}" -p enarx --allow-dirty
 }
@@ -257,31 +263,17 @@ publish() {
     local token
     read -p "Provide token for crates.io: " -r token
 
-    # Dry run for publish (see note at beginning of script)
-    if [[ "${DR_PUBLISH}" == "true" ]]; then
-        for i in "${CRATES_REG_TARGETS[@]}"; do
-            echo -e "\n\nDry-run publishing ${i}..."
-            cargo publish -p "$i" --dry-run --token "${token}"
-            sleep 2
-        done
-        for i in "${CRATES_UNKNOWN_NONE[@]}"; do
-            echo -e "\n\nDry-run publishing ${i}..."
-            cargo publish -p "$i" --dry-run --token "${token}" --target x86_64-unknown-none
-            sleep 2
-        done
-        echo -e "\n\nDry-run publishing enarx..."
-        cargo publish -p enarx --dry-run --token "${token}"
-        should_continue "true"
-    fi
     for i in "${CRATES_REG_TARGETS[@]}"; do
         echo -e "\n\nPublishing ${i}..."
         cargo publish -p "$i" --token "${token}"
-        sleep 2
+        echo -e "\nSuccessfully published ${i}, sleeping for 60 seconds..."
+        sleep 60
     done
     for i in "${CRATES_UNKNOWN_NONE[@]}"; do
         echo -e "\n\nPublishing ${i}..."
         cargo publish -p "$i" --target x86_64-unknown-none --token "${token}"
-        sleep 2
+        echo -e "\nSuccessfully published ${i}, sleeping for 60 seconds..."
+        sleep 60
     done
     echo -e "\n\nPublishing enarx..."
     cargo publish -p enarx --token "${token}"
@@ -324,8 +316,12 @@ on_exit() {
             teardown_mock_registry
         fi
         echo "Mock registry torn down"
-        rm -rf "${REPO_DIR}"
-        echo "Publish registry deleted"
+        if [[ "${DRYRUN}" == "true" ]]; then
+            rm -rf "${REPO_DIR}"
+            echo "Publish repository deleted"
+        else
+            echo "Publish repository not deleted due to DRYRUN set to 'false'"
+        fi
     else
         echo "Repository path: ${REPO_DIR}"
         if [[ "${MOCK_ON}" == "true" ]]; then
@@ -343,9 +339,19 @@ on_exit() {
 }
 trap on_exit EXIT
 
+
+if [[ "$FAST" == "true" ]]; then
+    echo -e "Warning: FAST=true environment variable set, will only test with single image."
+    IMAGES=( "${IMAGES_FAST[@]}" )
+else
+    shout "FAST=true environment variable not set, will test with all images. This will take up to 90 minutes for the entire process"
+    IMAGES=( "${IMAGES_THOROUGH[@]}" )
+fi
+
 if [[ "$DRYRUN" == "true" ]]; then
     shout "Warning: DRYRUN environment variable set, no changes will be made. This process will take a long time."
 fi
+
 
 # Stage 1: Setup
 old_version=$(get_version)
@@ -382,26 +388,32 @@ clean
 echo "Building..."
 build
 
-# Stage 5: Dry run publish/install from mock registry
-shout "Running E2E tests"
-echo -e "Publishing crates to mock registry...\n\n"
-mock_publish "${MOCKED_REGISTRY}"
-echo -e "Installing and testing mock crate!\n\n"
-crate_install_test
-echo -e "Removing mock registry references!\n\n"
-disable_mock
-echo -e "Tearing down mock registry"
-teardown_mock_registry
 
-git --no-pager diff
-should_continue
+if [[ "$SKIP_TESTS" == "true" ]]; then
+    shout "Warning: SKIP_TESTS environment variable set, no tests will be run. This is VERY dangerous."
+    should_continue "true"
+else
+    # Stage 5: Dry run publish/install from mock registry
+    shout "Running E2E tests"
+    echo -e "Publishing crates to mock registry...\n\n"
+    mock_publish "${MOCKED_REGISTRY}"
+    echo -e "Installing and testing mock crate!\n\n"
+    crate_install_test
+    echo -e "Removing mock registry references!\n\n"
+    disable_mock
+    echo -e "Tearing down mock registry"
+    teardown_mock_registry
 
-# Stage 6: Sanity check build
-shout "Running final sanity check after removing testing changes"
-clean
-build
-echo "About to create commit for release and create PR."
-git status
+    git --no-pager diff
+    should_continue
+
+    # Stage 6: Sanity check build
+    shout "Running final sanity check after removing testing changes"
+    clean
+    build
+    echo "About to create commit for release and create PR."
+    git status
+fi
 
 if [[ "$DRYRUN" == "false" ]]; then
     shout "About to create commit for release and create PR. Bellow are the changes to be comitted:"
@@ -412,7 +424,7 @@ if [[ "$DRYRUN" == "false" ]]; then
     # Stage 7: Release PR
     shout "Pushing changes to fork"
     echo "NOTE: ensure git is configured with gpg for signing"
-    git commit -asS -m "chore(release): Release v${NEW_VERSION}"
+    git commit -asS -m "chore(release): release v${NEW_VERSION}"
     git push origin "release/${NEW_VERSION}"
 
     echo "About to create PR for release"
@@ -448,13 +460,6 @@ if [[ "$DRYRUN" == "false" ]]; then
     shout "Check if we can install the new packages"
     crate_install_test
     should_continue "true"
-
-    # Stage 11: GitHub draft release
-    shout "Creating draft GitHub release"
-    read -p "What's the name of the release (castle name): " -r RELEASE_TITLE
-    gh release create -d -p --generate-notes -t "${RELEASE_TITLE}" -R enarx/enarx "v${NEW_VERSION}"
-    echo "Please update the release notes on the GitHub release page and publish!"
-    echo "After this please follow documentation on triggering Netlify documentation build+publish."
 else
     echo "Dry run complete."
 fi
