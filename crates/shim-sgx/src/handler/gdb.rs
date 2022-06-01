@@ -75,7 +75,7 @@ impl<'a> super::Handler<'a> {
         let mut buf = [0; 4096];
         debugln!(self, "Starting GDB session...");
         debugln!(self, "symbol-file -o {:#x} <shim>", shim_address());
-        debugln!(self, "symbol-file -o {:#x} <exec>", unsafe {
+        debugln!(self, "add-symbol-file -o {:#x} <exec>", unsafe {
             &ENARX_EXEC_START as *const u8 as u64
         });
 
