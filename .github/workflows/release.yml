@@ -28,9 +28,9 @@ jobs:
           target: x86_64-unknown-linux-musl
           nix: x86_64-linux
 
-        - host: aarch64-apple-darwin
-          target: aarch64-apple-darwin
-          nix: aarch64-darwin
+        # - host: aarch64-apple-darwin
+        #   target: aarch64-apple-darwin
+        #   nix: aarch64-darwin
 
     runs-on: ${{ matrix.platform.host }}
     steps:
@@ -94,24 +94,25 @@ jobs:
           name: enarx-x86_64-windows-msi
           path: target\wix\enarx-windows.msi
 
-  universal-binary:
-    needs: build
-    runs-on: macos-latest
-    steps:
-    - uses: actions/download-artifact@v3
-      with:
-        name: enarx-aarch64-apple-darwin
-    - uses: actions/download-artifact@v3
-      with:
-        name: enarx-x86_64-apple-darwin
-    - run: lipo -create ./enarx-aarch64-apple-darwin ./enarx-x86_64-apple-darwin -output ./enarx-universal-darwin
-    - uses: actions/upload-artifact@v3
-      with:
-        name: enarx-universal-darwin
-        path: enarx-universal-darwin
+  # universal-binary:
+  #   needs: build
+  #   runs-on: macos-latest
+  #   steps:
+  #   - uses: actions/download-artifact@v3
+  #     with:
+  #       name: enarx-aarch64-apple-darwin
+  #   - uses: actions/download-artifact@v3
+  #     with:
+  #       name: enarx-x86_64-apple-darwin
+  #   - run: lipo -create ./enarx-aarch64-apple-darwin ./enarx-x86_64-apple-darwin -output ./enarx-universal-darwin
+  #   - uses: actions/upload-artifact@v3
+  #     with:
+  #       name: enarx-universal-darwin
+  #       path: enarx-universal-darwin
 
   test-bin:
-    needs: universal-binary
+    needs: build
+    # needs: universal-binary
     strategy:
       matrix:
         platform:
@@ -119,10 +120,10 @@ jobs:
           target: x86_64-unknown-linux-musl
 
         - host: macos-latest
-          target: universal-darwin
+          target: x86_64-apple-darwin
 
-        - host: aarch64-apple-darwin
-          target: universal-darwin
+        # - host: aarch64-apple-darwin
+        #   target: universal-darwin
 
         # TODO: Enable aarch64
 
@@ -177,10 +178,10 @@ jobs:
         draft: true
         prerelease: true
         files: |
-          enarx-aarch64-apple-darwin-oci
           enarx-x86_64-windows
           enarx-x86_64-windows-msi
+          enarx-x86_64-apple-darwin
           enarx-x86_64-apple-darwin-oci
           enarx-x86_64-unknown-linux-musl
           enarx-x86_64-unknown-linux-musl-oci
-          enarx-universal-darwin
+        # enarx-universal-darwin
