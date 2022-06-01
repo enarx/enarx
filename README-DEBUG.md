@@ -167,89 +167,57 @@ $3 = (*mut fn ()) 0x7f434efddbf9 <wasmldr::main+25>
 
 ### SGX
 
-Find the "shim" of the TEE. Normally this is `shim-sgx`:
-```console
-$ find target -wholename '*linux-musl/*/shim-sgx'
-target/debug/build/enarx-f0e8a07172ba3be9/out/internal/shim-sgx/x86_64-unknown-linux-musl/debug/shim-sgx
+Before starting the debugging session, make sure you are in the project root
+directory, and make a debug build with the `gdb` feature flag:
+
+```
+cargo build --features gdb
 ```
 
-Find the "exec" of the TEE. Normally this is `wasmldr`:
+First, an appropriate shim binary for the debugging session must be found. An
+existing shim can be selected by issuing:
+
 ```console
-$ find target -wholename '*linux-musl/*/wasmldr'
-target/debug/build/enarx-f0e8a07172ba3be9/out/internal/wasmldr/x86_64-unknown-linux-musl/debug/wasmldr
+$ find target \
+  \( -perm -u=x -o -perm -g=x -o -perm -o=x \) \
+  -wholename "*debug*bin/enarx_shim_sgx*"
 ```
 
-Start the TEE:
+`wasmtime` is contained to the shim but it is embedded as an anonymous blob.
+Therefore, the matching ELF-file of `wasmtime`  must be also found.  An existing
+`wasmtime` binary can be selected by issuing:
 
 ```console
-$ ./target/debug/enarx run ~/git/zerooneone/target/wasm32-wasi/debug/zerooneone.wasm
+$ find target \
+  \( -perm -u=x -o -perm -g=x -o -perm -o=x \) \
+  -wholename "*debug*bin/enarx_exec_wasmtime*"
+```
+
+Now, let's go through an example, starting at the point when the target binaries
+have been already selected.  The next step would be to find out the virtual
+addresses for the symbol resolution, so that GDB will know how to base the
+relocation correctly.
+
+Shim's virtual address is visible in `/proc/<pid>/maps`.  Just look up for the
+entry with `/dev/sgx_enclave` mapped.  Theoretically it is possible that this is
+not the same as shim's base address, as the host could have simply unmapped some
+pages from the head.
+
+Likewise, as dictated by `crates/shim-sgx/layout.ld`,  `wasmtime` is probably
+placed at the offset `0x40000000`.  For example, if shim's address is
+`0x7fcf00000000`, then `wasmtime` is likely located at `0x7fcf00400000`.
+
+To overcome this issue, `enarx`, when built with the `gdb` feature, will print
+out the correct addresses to the console before it starts to wait for GDB:
+
+```console
+$ ./target/debug/enarx run <wasm-file>
 […]
 Starting GDB session...
 symbol-file -o 0x7fcf00000000 <shim>
-symbol-file -o 0x7fcf00400000 <exec>
+add-symbol-file -o 0x7fcf00400000 <exec>
 Waiting for a GDB connection on "localhost:23456"...
 ```
 
-You can set the listen address with `--gdblisten <address>`.
-
-Now connect with `gdb` from another terminal and load the symbols from the debug executables as mentioned by the output
-with the offsets mentioned. Note: the offsets can vary for every run due to address space layout randomization (ASLR).
-
-```console
-$ gdb
-[…]
-
-(gdb) symbol-file -o 0x7fcf00400000 target/debug/build/enarx-f0e8a07172ba3be9/out/internal/wasmldr/x86_64-unknown-linux-musl/debug/wasmldr
-Reading symbols from target/debug/build/enarx-f0e8a07172ba3be9/out/internal/wasmldr/x86_64-unknown-linux-musl/debug/wasmldr...
-warning: Missing auto-load script at offset 0 in section .debug_gdb_scripts
-of file /home/harald/git/enarx/enarx/target/debug/build/enarx-f0e8a07172ba3be9/out/internal/wasmldr/x86_64-unknown-linux-musl/debug/wasmldr.
-Use `info auto-load python-scripts [REGEXP]' to list them.
-
-(gdb) target remote localhost:23456
-Remote debugging using localhost:23456
-[…]
-0x00007f434ee83cc9 in _start ()
-```
-
-The current execution is stopped in the "exec" executable at the ELF entry point `_start`. You can now start debugging the "exec".
-
-NOTE: stepping does not work (yet) in SGX.
-
-```console
-(gdb) br wasmldr::main
-Breakpoint 1 at 0x7fcf007368cb: file src/main.rs, line 72.
-(gdb) cont
-Continuing.
-
-Breakpoint 1, wasmldr::main () at src/main.rs:72
-72	    env_logger::Builder::from_default_env().init();
-(gdb) list
-67	fn main() {
-68	    // KEEP-CONFIG HACK: we've inherited stdio and the shim sets
-69	    // "RUST_LOG=debug", so this should make logging go to stderr.
-70	    // FUTURE: we should have a keep-provided debug channel where we can
-71	    // (safely, securely) send logs. Might need our own logger for that..
-72	    env_logger::Builder::from_default_env().init();
-73	
-74	    info!("version {} starting up", env!("CARGO_PKG_VERSION"));
-75	
-76	    warn!("🌭DEV-ONLY BUILD, NOT FOR PRODUCTION USE🌭");
-(gdb) br workload::run
-Breakpoint 2 at 0x7fcf005f6c64: file src/workload.rs, line 81.
-(gdb) cont
-Continuing.
-
-Breakpoint 2, wasmldr::workload::run<alloc::string::String, alloc::string::String, alloc::vec::Vec<u8, alloc::alloc::Global>, alloc::vec::Vec<alloc::string::String, alloc::alloc::Global>, alloc::vec::Vec<(alloc::string::String, alloc::string::String), alloc::alloc::Global>> (bytes=..., args=..., envs=...) at src/workload.rs:81
-81	    debug!("configuring wasmtime engine");
-(gdb) list
-76	pub fn run<T: AsRef<str>, U: AsRef<str>>(
-77	    bytes: impl AsRef<[u8]>,
-78	    args: impl IntoIterator<Item = T>,
-79	    envs: impl IntoIterator<Item = (U, U)>,
-80	) -> Result<Box<[wasmtime::Val]>> {
-81	    debug!("configuring wasmtime engine");
-82	    let mut config = wasmtime::Config::new();
-83	    // Support module-linking (https://github.com/webassembly/module-linking)
-84	    config.wasm_module_linking(true);
-85	    // module-linking requires multi-memory
-```
+`enarx` command-line supports `--gdblisten <address>`, when compiled with `gdb`
+feature, if a different listen address is preferred over 23456.
