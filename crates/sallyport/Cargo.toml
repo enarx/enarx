@@ -10,12 +10,12 @@ keywords = ["enarx", "syscall"]
 categories = ["no-std"]
 
 [features]
-doc = ["gdbstub"]
+doc = ["dep:gdbstub"]
 
 [dependencies]
 goblin = { version = "0.5", features = ["elf64"], default-features = false }
 
-# optional features
+# optional dependencies
 gdbstub = { version = "0.6", optional = true, default-features = false }
 
 [dev-dependencies]
