@@ -8,7 +8,7 @@ repository = "https://github.com/enarx/sallyport"
 license = "Apache-2.0"
 
 [features]
-gdb = ["gdbstub", "gdbstub_arch", "dbg"]
+gdb = ["dep:gdbstub", "dep:gdbstub_arch", "dbg"]
 dbg = []
 
 [dependencies]

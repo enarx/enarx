@@ -15,7 +15,7 @@ exclude = [".github/"]
 default = []
 
 # non-default features
-gdb = ["gdbstub", "enarx-shim-kvm/gdb", "enarx-shim-sgx/gdb"]
+gdb = ["dep:gdbstub", "enarx-shim-kvm/gdb", "enarx-shim-sgx/gdb"]
 dbg = [ "enarx-shim-kvm/dbg", "enarx-shim-sgx/dbg" ]
 disable-sgx-attestation = ["enarx-shim-sgx/disable-sgx-attestation"]
 
