@@ -104,8 +104,8 @@ kvm 	      10   1 kvm_amd
 
 ## Initial Setup
 Please choose one of the following:
-* [Linux x86_64](#Linux-x86_64-Install-Dependencies)
-* [64-bit Arm: (Raspberry Pi or Apple M1) and Apple x86_64](#64-bit-Arm-build-dependencies-Raspberry-Pi-or-Apple-M1-and-Apple-x86_64)
+* [Linux x86_64](#linux-x86_64-install-dependencies)
+* [64-bit Arm: (Raspberry Pi or Apple M1) and Apple x86_64](#64-bit-arm-build-dependencies-raspberry-pi-or-apple-m1-and-apple-x86_64)
 
 ### Linux x86_64 Install Dependencies
 
@@ -115,14 +115,14 @@ Please find instructions for your Linux distribution:
 
 ```sh:ID=fedora
 $ sudo dnf update -y
-$ sudo dnf install -y git curl gcc pkg-config openssl-devel musl-gcc
+$ sudo dnf install -y git curl gcc musl-gcc
 ```
 
 #### CentOS 8 / Stream
 ```sh:CPE_NAME="cpe:/o:centos:centos:8"
 $ sudo dnf install -y dnf-plugins-core
 $ sudo dnf copr -y enable ngompa/musl-libc
-$ sudo dnf install -y git curl gcc-toolset-11 openssl-devel musl-gcc
+$ sudo dnf install -y git curl gcc-toolset-11 musl-gcc
 $ source "/opt/rh/gcc-toolset-11/enable"
 ```
 :::note
@@ -145,7 +145,7 @@ and then:
 ```sh:CPE_NAME="cpe:/o:centos:centos:7"
 $ sudo yum install -y yum-plugin-copr    
 $ sudo yum copr -y enable ngompa/musl-libc
-$ sudo yum install -y git curl devtoolset-11 openssl-devel musl-gcc
+$ sudo yum install -y git curl devtoolset-11 musl-gcc
 $ source "/opt/rh/devtoolset-11/enable"
 ```
 
@@ -160,7 +160,7 @@ to source that file prior to building `enarx`.
 #### Debian / Ubuntu
 ```sh:ID=debian ID=ubuntu
 $ sudo apt update
-$ sudo apt install -y git curl gcc pkg-config libssl-dev musl-tools python3-minimal
+$ sudo apt install -y git curl gcc musl-tools python3-minimal
 ```
 
 :::tip
@@ -172,7 +172,7 @@ Failure to do so might result in weird failures at runtime.
 
 :::
 
-### 64-bit Arm build dependencies: (Raspberry Pi or Apple M1) and Apple x86_64
+### 64-bit Arm build dependencies: (Raspberry Pi 4 or Apple M1) and Apple x86_64
 
 The architectures support development only, using the "nil" backend, so you only need to install the Rust toolchain.
 
@@ -190,8 +190,6 @@ You can install Enarx from GitHub, crates.io, or Nix.
 ```sh:git;
 $ git clone https://github.com/enarx/enarx
 $ cd enarx/
-$ cargo build
-
 $ cargo install --bin enarx --path ./
 ```
 ### Install from crates.io
@@ -278,7 +276,7 @@ $ ENARX_BACKEND=sgx enarx run target/wasm32-wasi/release/hello-world.wasm
 `enarx` will look for backends in the following order, and use the first which it finds:
 1. SGX or SEV-SNP
 2. KVM
-3. "nil"
+3. "nil" (a debug/developer backend without TEEs, isolation or any additional security guarentees)
 
 The status of whether or not enarx was able to find the driver can be checked with the command `enarx info`. If the output shows any of the backends with a green "tick" or "checkmark", you are ready to use enarx with that backend.
 
