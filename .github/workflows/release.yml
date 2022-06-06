@@ -16,25 +16,19 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build:
+  build-x86_64:
     strategy:
       matrix:
         platform:
         - host: macos-latest
           target: x86_64-apple-darwin
           nix: x86_64-darwin
-
         - host: ubuntu-20.04
           target: x86_64-unknown-linux-musl
           nix: x86_64-linux
-
-        # - host: aarch64-apple-darwin
-        #   target: aarch64-apple-darwin
-        #   nix: aarch64-darwin
-
     runs-on: ${{ matrix.platform.host }}
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
     - uses: cachix/install-nix-action@v17
     - uses: cachix/cachix-action@v10
       with:
@@ -57,11 +51,45 @@ jobs:
         name: enarx-${{ matrix.platform.target }}-oci
         path: enarx-${{ matrix.platform.target }}-oci
 
-  windows-build:
+  build-aarch64:
+    strategy:
+      matrix:
+        platform:
+        - host: ARM64
+          target: aarch64-unknown-linux-musl
+        - host: aarch64-apple-darwin
+          target: aarch64-apple-darwin
+    runs-on: ${{ matrix.platform.host }}
+    steps:
+      - uses: actions/checkout@v3
+      - name: Get rust toolchain snapshot version
+        id: toolchain_version
+        run: echo "::set-output name=toolchain_version::$(grep channel  rust-toolchain.toml | cut -d\" -f 2)"
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ steps.toolchain_version.outputs.toolchain_version }}
+          target: ${{ matrix.platform.target }}
+          profile: minimal
+      - name: Setup Rust toolchain
+        run: >
+            rustup override unset || :
+            && rustup show
+      - uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --release --target ${{ matrix.platform.target }}
+      - name: Rename artifact
+        run: mv target/${{ matrix.platform.target }}/release/enarx enarx-${{ matrix.platform.target }}
+      - uses: actions/upload-artifact@v3
+        with:
+          name: enarx-${{ matrix.platform.target }}
+          path: enarx-${{ matrix.platform.target }}
+
+  build-windows:
     name: enarx Windows build
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Setup Rust toolchain
         run: rustup show
       - uses: actions-rs/cargo@v1
@@ -84,49 +112,47 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: wix
-          args: --no-build --nocapture -I release\windows\main.wxs --output target\wix\enarx-windows.msi
+          args: --no-build --nocapture -I release\windows\main.wxs --output target\wix\enarx-x86_64-windows.msi
+      - name: Rename artifact
+        run: copy target\release\enarx.exe target\release\enarx-x86_64-windows.exe
       - uses: actions/upload-artifact@v3
         with:
           name: enarx-x86_64-windows
-          path: target\release\enarx.exe
+          path: target\release\enarx-x86_64-windows.exe
       - uses: actions/upload-artifact@v3
         with:
           name: enarx-x86_64-windows-msi
-          path: target\wix\enarx-windows.msi
+          path: target\wix\enarx-x86_64-windows.msi
 
-  # universal-binary:
-  #   needs: build
-  #   runs-on: macos-latest
-  #   steps:
-  #   - uses: actions/download-artifact@v3
-  #     with:
-  #       name: enarx-aarch64-apple-darwin
-  #   - uses: actions/download-artifact@v3
-  #     with:
-  #       name: enarx-x86_64-apple-darwin
-  #   - run: lipo -create ./enarx-aarch64-apple-darwin ./enarx-x86_64-apple-darwin -output ./enarx-universal-darwin
-  #   - uses: actions/upload-artifact@v3
-  #     with:
-  #       name: enarx-universal-darwin
-  #       path: enarx-universal-darwin
+  build-darwin-universal-binary:
+    needs: [ build-x86_64, build-aarch64 ]
+    runs-on: macos-latest
+    steps:
+    - uses: actions/download-artifact@v3
+      with:
+        name: enarx-aarch64-apple-darwin
+    - uses: actions/download-artifact@v3
+      with:
+        name: enarx-x86_64-apple-darwin
+    - run: lipo -create ./enarx-aarch64-apple-darwin ./enarx-x86_64-apple-darwin -output ./enarx-universal-darwin
+    - uses: actions/upload-artifact@v3
+      with:
+        name: enarx-universal-darwin
+        path: enarx-universal-darwin
 
   test-bin:
-    needs: build
-    # needs: universal-binary
+    needs: [ build-x86_64, build-aarch64, build-darwin-universal-binary ]
     strategy:
       matrix:
         platform:
         - host: ubuntu-20.04
           target: x86_64-unknown-linux-musl
-
         - host: macos-latest
-          target: x86_64-apple-darwin
-
-        # - host: aarch64-apple-darwin
-        #   target: universal-darwin
-
-        # TODO: Enable aarch64
-
+          target: universal-darwin
+        - host: aarch64-apple-darwin
+          target: universal-darwin
+        - host: ARM64
+          target: aarch64-unknown-linux-musl
     runs-on: ${{ matrix.platform.host }}
     steps:
     - uses: actions/download-artifact@v3
@@ -136,16 +162,16 @@ jobs:
     - run: ./enarx-${{ matrix.platform.target }} info
 
   test-windows:
-    needs: windows-build
+    needs: build-windows
     runs-on: windows-latest
     steps:
     - uses: actions/download-artifact@v3
       with:
         name: enarx-x86_64-windows
-    - run: .\enarx.exe info
+    - run: .\enarx-x86_64-windows.exe info
 
   test-oci:
-    needs: build
+    needs: build-x86_64
     strategy:
       matrix:
         platform:
@@ -162,12 +188,11 @@ jobs:
     - run: docker load < enarx-${{ matrix.platform.target }}-oci
     # TODO: Attempt to run `enarx info` within the loaded container
 
-  Regenerate-BOM:
-    uses: ./.github/workflows/sbom_manifest_action.yml
+  # TODO: redevelop SBOM generation per issue #1954
 
   release:
     if: startsWith(github.ref, 'refs/tags/') && github.event_name == 'push'
-    needs: [ build, test-bin, test-oci, test-windows, Regenerate-BOM ]
+    needs: [ build-x86_64, test-bin, test-oci, test-windows ]
     runs-on: ubuntu-20.04
     steps:
     - uses: actions/download-artifact@v3
@@ -178,10 +203,10 @@ jobs:
         draft: true
         prerelease: true
         files: |
-          enarx-x86_64-windows
-          enarx-x86_64-windows-msi
-          enarx-x86_64-apple-darwin
+          enarx-x86_64-windows.exe
+          enarx-x86_64-windows.msi
           enarx-x86_64-apple-darwin-oci
           enarx-x86_64-unknown-linux-musl
           enarx-x86_64-unknown-linux-musl-oci
-        # enarx-universal-darwin
+          enarx-aarch64-unknown-linux-musl
+          enarx-universal-darwin
