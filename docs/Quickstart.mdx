@@ -1,0 +1,98 @@
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+# Quick Installation
+
+This is the quick installation guide for Enarx. The goal is to help you get started using Enarx right away for development/debugging purposes.
+
+:::note
+To ensure that you are going to execute your application in a [Trusted Execution Environment](https://enarx.dev/docs/Start/TEE), please refer to the [complete installation guide](https://enarx.dev/docs/Install).
+:::
+
+<Tabs>
+  <TabItem value="windows" label="Windows">
+
+Before installing Enarx, we'll install PowerShell (Windows' command line) and winget (Windows' package manager) from the Microsoft Store.
+
+Click on the Start menu, type `store`, and open Microsoft Store.
+
+In the search bar, type `powershell` and click on the `Get` button to install PowerShell.
+
+Do the same for winget. Type `winget` in the search bar, and click on the `Get` button to install winget.
+
+Open PowerShell from the Start menu and type `winget install Enarx` to install Enarx.
+
+![windows install enarx](https://enarx.dev/img/install/win_install_enarx.png?raw=true)
+
+Let's download a WebAssembly file (`hello-word.wasm`) to test it:
+
+`iwr https://enarx.dev/hello-world.wasm -OutFile hello-world.wasm`
+
+Now run it using the `enarx run` command:
+
+`enarx run hello-world.wasm`
+
+![windows enarx info and run](https://enarx.dev/img/install/win_enarx_run.png?raw=true)
+
+  </TabItem>
+  <TabItem value="macos" label="macOS">
+
+We'll install Enarx using Homebrew, an open-source macOS package manager:
+
+https://brew.sh/
+
+Type the following command in the macOS terminal to install Homebrew:
+
+`/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"`
+
+![mac install brew](https://enarx.dev/img/install/mac_brew.png?raw=true)
+
+To install Enarx, simply type:
+
+`brew install enarx`
+
+![mac install enarx](https://enarx.dev/img/install/mac_install_enarx.png?raw=true)
+
+Let's download a WebAssembly file (`hello-word.wasm`) to test it:
+
+`curl https://enarx.dev/hello-world.wasm -o hello-world.wasm`
+
+Now run it using the `enarx run` command:
+
+`enarx run hello-world.wasm`
+
+![mac enarx](https://enarx.dev/img/install/mac_enarx_run.png?raw=true)
+
+  </TabItem>
+  <TabItem value="linux" label="Linux">
+
+You can download the Enarx binary by typing the following command in the terminal:
+
+`wget https://github.com/enarx/enarx/releases/download/v0.5.2/enarx-x86_64-unknown-linux-musl`
+
+![linux wget](https://enarx.dev/img/install/linux_wget.png?raw=true)
+
+:::note
+The `enarx-x86_64-unknown-linux-musl` binary supports only the "nil" backend, and does not use a Trusted Execution Environment (TEE) to run the Wasm application.
+:::
+
+Now type the following to install Enarx:
+
+`sudo install -m 4711 -o root enarx-x86_64-unknown-linux-musl /usr/bin/enarx`
+
+![linux install enarx](https://enarx.dev/img/install/linux_install_enarx.png?raw=true)
+
+Let's download a WebAssembly file (`hello-word.wasm`) to test it:
+
+`wget https://enarx.dev/hello-world.wasm`
+
+Now run it using the `enarx run` command:
+
+`enarx run hello-world.wasm`
+
+![linux enarx run and info](https://enarx.dev/img/install/linux_enarx_run.png?raw=true)
+
+  </TabItem>
+</Tabs>
+
+What's next? Learn how you can compile your application to WebAssembly from various programming languages by studying the [WebAssembly Guide](https://enarx.dev/docs/WebAssembly/Introduction).
