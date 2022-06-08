@@ -28,7 +28,7 @@ Do the same for winget. Type `winget` in the search bar, and click on the `Get` 
 
 Open PowerShell from the Start menu and type `winget install Enarx` to install Enarx.
 
-![windows install enarx](https://enarx.dev/img/install/win_install_enarx.png?raw=true)
+![windows install enarx](/img/install/win_install_enarx.png)
 
 To test `enarx` we should download a sample WebAssembly file (`hello-word.wasm`):
 
@@ -38,7 +38,7 @@ Now run it using the `enarx run` command:
 
 `enarx run hello-world.wasm`
 
-![windows enarx info and run](https://enarx.dev/img/install/win_enarx_run.png?raw=true)
+![windows enarx info and run](/img/install/win_enarx_run.png)
 
   </TabItem>
   <TabItem value="macos" label="macOS">
@@ -59,13 +59,13 @@ Type the following command in the macOS terminal to install [Homebrew](https://b
 
 `/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"`
 
-![mac install brew](https://enarx.dev/img/install/mac_brew.png?raw=true)
+![mac install brew](/img/install/mac_brew.png)
 
-To install Enarx, simply type:
+To install Enarx from the [Enarx tap](https://github.com/enarx/homebrew-enarx), simply type:
 
-`brew install enarx`
+`brew install enarx/enarx/enarx`
 
-![mac install enarx](https://enarx.dev/img/install/mac_install_enarx.png?raw=true)
+![mac install enarx tap](/img/install/mac_install_enarx_tap.png)
 
 To test `enarx` we should download a sample WebAssembly file (`hello-word.wasm`):
 
@@ -75,7 +75,7 @@ Now run it using the `enarx run` command:
 
 `enarx run hello-world.wasm`
 
-![mac enarx](https://enarx.dev/img/install/mac_enarx_run.png?raw=true)
+![mac enarx](/img/install/mac_enarx_run.png)
 
   </TabItem>
   <TabItem value="linux" label="Linux">
@@ -86,7 +86,7 @@ Download the appropriate Enarx binary (in the case below, we are downloading for
 
 `wget https://github.com/enarx/enarx/releases/download/v0.5.1/enarx-x86_64-unknown-linux-musl`
 
-![linux wget](https://enarx.dev/img/install/linux_wget.png?raw=true)
+![linux wget](/img/install/linux_wget.png)
 
 :::note
 The `enarx-aarch64-unknown-linux-musl` binary supports only the "nil" backend, and does not use a Trusted Execution Environment (TEE) to run the Wasm application, unlike the `enarx-x86_64-unknown-linux-musl` binary.
@@ -96,7 +96,7 @@ Now type the following to install Enarx:
 
 `sudo install -m 4755 -o root enarx-x86_64-unknown-linux-musl /usr/bin/enarx`
 
-![linux install enarx](https://enarx.dev/img/install/linux_install_enarx.png?raw=true)
+![linux install enarx](/img/install/linux_install_enarx.png)
 
 To test `enarx` we should download a sample WebAssembly file (`hello-word.wasm`):
 
@@ -106,7 +106,7 @@ Now run it using the `enarx run` command:
 
 `enarx run hello-world.wasm`
 
-![linux enarx run and info](https://enarx.dev/img/install/linux_enarx_run.png?raw=true)
+![linux enarx run and info](/img/install/linux_enarx_run.png)
 
   </TabItem>
 </Tabs>
