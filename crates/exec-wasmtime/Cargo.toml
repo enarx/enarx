@@ -27,7 +27,7 @@ toml = { version = "0.5.9", default-features = false }
 ureq = { version = "2.4.0", features = ["tls"], default-features = false }
 url = { version = "2.2.2", features = ["serde"], default-features = false }
 wasi-common = { version = "0.37", default-features = false }
-wasmtime = { version = "0.37", features = ["cranelift", "pooling-allocator"], default-features = false }
+wasmtime = { version = "0.38", features = ["cranelift", "pooling-allocator"], default-features = false }
 wasmtime-wasi = { version = "0.37", features = ["sync"], default-features = false }
 webpki-roots = { version = "0.22.2", default-features = false }
 wiggle = { version = "0.37", default-features = false }
