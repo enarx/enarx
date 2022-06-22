@@ -446,6 +446,10 @@ impl<'a> Handler<'a> {
             return Ok([0, 0]);
         }
 
+        let mut target_info = TargetInfo::default();
+
+        self.get_sgx_target_info(&mut target_info)?;
+
         let quote_size = self.get_sgx_quote_size()?;
 
         if buf == 0 {
@@ -472,10 +476,6 @@ impl<'a> Handler<'a> {
         };
 
         let buf = platform.validate_slice_mut::<u8>(buf, buf_len)?;
-
-        let mut target_info = TargetInfo::default();
-
-        self.get_sgx_target_info(&mut target_info)?;
 
         // Generate Report
         let report: Report = target_info.enclu_ereport(&ReportData(hash));
