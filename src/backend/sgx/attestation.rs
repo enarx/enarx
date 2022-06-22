@@ -25,6 +25,123 @@ const AESM_REQUEST_TIMEOUT: u32 = 1_000_000;
 const SGX_KEY_ID_SIZE: u32 = 256;
 const SGX_REPORT_SIZE: usize = 432;
 
+#[repr(u32)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+pub enum AesmError {
+    UnexpectedError,
+    NoDeviceError,
+    ParameterError,
+    EpidblobError,
+    EpidRevokedError,
+    GetLicensetokenError,
+    SessionInvalid,
+    MaxNumSessionReached,
+    PsdaUnavailable,
+    EphSessionFailed,
+    LongTermPairingFailed,
+    NetworkError,
+    NetworkBusyError,
+    ProxySettingAssist,
+    FileAccessError,
+    SgxProvisionFailed,
+    ServiceStopped,
+    Busy,
+    BackendServerBusy,
+    UpdateAvailable,
+    OutOfMemoryError,
+    MsgError,
+    ThreadError,
+    SgxDeviceNotAvailable,
+    EnableSgxDeviceFailed,
+    PlatformInfoBlobInvalidSig,
+    ServiceNotAvailable,
+    KdfMismatch,
+    OutOfEpc,
+    ServiceUnavailable,
+    UnrecognizedPlatform,
+    EcdsaIdMismatch,
+    PathnameBufferOverflowError,
+    ErrorStoredKey,
+    PubKeyIdMismatch,
+    InvalidPceSigScheme,
+    AttKeyBlobError,
+    UnsupportedAttKeyId,
+    UnsupportedLoadingPolicy,
+    InterfaceUnavailable,
+    PlatformLibUnavailable,
+    AttKeyNotInitialized,
+    AttKeyCertDataInvalid,
+    NoPlatformCertData,
+    ErrorReport,
+    EnclaveLost,
+    InvalidReport,
+    EnclaveLoadError,
+    UnableToGenerateQeReport,
+    KeyCertificationError,
+    ConfigUnsupported,
+    Unknown(u32),
+}
+
+impl From<u32> for AesmError {
+    fn from(n: u32) -> AesmError {
+        use self::AesmError::*;
+        match n {
+            1 => UnexpectedError,
+            2 => NoDeviceError,
+            3 => ParameterError,
+            4 => EpidblobError,
+            5 => EpidRevokedError,
+            6 => GetLicensetokenError,
+            7 => SessionInvalid,
+            8 => MaxNumSessionReached,
+            9 => PsdaUnavailable,
+            10 => EphSessionFailed,
+            11 => LongTermPairingFailed,
+            12 => NetworkError,
+            13 => NetworkBusyError,
+            14 => ProxySettingAssist,
+            15 => FileAccessError,
+            16 => SgxProvisionFailed,
+            17 => ServiceStopped,
+            18 => Busy,
+            19 => BackendServerBusy,
+            20 => UpdateAvailable,
+            21 => OutOfMemoryError,
+            22 => MsgError,
+            23 => ThreadError,
+            24 => SgxDeviceNotAvailable,
+            25 => EnableSgxDeviceFailed,
+            26 => PlatformInfoBlobInvalidSig,
+            27 => ServiceNotAvailable,
+            28 => KdfMismatch,
+            29 => OutOfEpc,
+            30 => ServiceUnavailable,
+            31 => UnrecognizedPlatform,
+            32 => EcdsaIdMismatch,
+            33 => PathnameBufferOverflowError,
+            34 => ErrorStoredKey,
+            35 => PubKeyIdMismatch,
+            36 => InvalidPceSigScheme,
+            37 => AttKeyBlobError,
+            38 => UnsupportedAttKeyId,
+            39 => UnsupportedLoadingPolicy,
+            40 => InterfaceUnavailable,
+            41 => PlatformLibUnavailable,
+            42 => AttKeyNotInitialized,
+            43 => AttKeyCertDataInvalid,
+            44 => NoPlatformCertData,
+            45 => ErrorReport,
+            46 => EnclaveLost,
+            47 => InvalidReport,
+            48 => EnclaveLoadError,
+            49 => UnableToGenerateQeReport,
+            50 => KeyCertificationError,
+            51 => ConfigUnsupported,
+            _ => Unknown(n),
+        }
+    }
+}
+
 struct AesmTransaction(Request);
 
 impl Deref for AesmTransaction {
@@ -94,7 +211,7 @@ fn get_key_id_num() -> Result<u32, Error> {
             ErrorKind::Other,
             format!(
                 "Received error code {:?} in GetSupportedAttKeyIDNum",
-                res.get_errorCode()
+                AesmError::from(res.get_errorCode())
             ),
         ));
     }
@@ -119,7 +236,10 @@ fn get_key_ids(num_key_ids: u32) -> Result<Vec<Vec<u8>>, Error> {
     if res.get_errorCode() != 0 {
         return Err(Error::new(
             ErrorKind::InvalidData,
-            format!("GetSupportedAttKeyIDs: error: {:?}", res.get_errorCode()),
+            format!(
+                "GetSupportedAttKeyIDs: error: {:?}",
+                AesmError::from(res.get_errorCode())
+            ),
         ));
     }
 
@@ -187,7 +307,10 @@ pub fn get_target_info(akid: Vec<u8>, size: usize, out_buf: &mut [u8]) -> Result
     if res.get_errorCode() != 0 {
         return Err(Error::new(
             ErrorKind::InvalidData,
-            format!("InitQuoteExRequest: error: {:?}", res.get_errorCode()),
+            format!(
+                "InitQuoteExRequest: error: {:?}",
+                AesmError::from(res.get_errorCode())
+            ),
         ));
     }
 
@@ -226,7 +349,10 @@ pub fn get_key_size(akid: Vec<u8>) -> Result<usize, Error> {
     if res.get_errorCode() != 0 {
         return Err(Error::new(
             ErrorKind::InvalidData,
-            format!("InitQuoteEx error: {:?}", res.get_errorCode()),
+            format!(
+                "InitQuoteEx error: {:?}",
+                AesmError::from(res.get_errorCode())
+            ),
         ));
     }
 
@@ -249,7 +375,10 @@ pub fn get_quote_size(akid: Vec<u8>) -> Result<usize, Error> {
     if res.get_errorCode() != 0 {
         return Err(Error::new(
             ErrorKind::InvalidData,
-            format!("GetQuoteSizeEx error: {:?}", res.get_errorCode()),
+            format!(
+                "GetQuoteSizeEx error: {:?}",
+                AesmError::from(res.get_errorCode())
+            ),
         ));
     }
 
@@ -275,7 +404,10 @@ pub fn get_quote(report: &[u8], akid: Vec<u8>, out_buf: &mut [u8]) -> Result<usi
     if res.get_errorCode() != 0 {
         return Err(Error::new(
             ErrorKind::InvalidData,
-            format!("GetQuoteEx error: {:?}", res.get_errorCode()),
+            format!(
+                "GetQuoteEx error: {:?}",
+                AesmError::from(res.get_errorCode())
+            ),
         ));
     }
 
