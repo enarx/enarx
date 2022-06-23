@@ -136,9 +136,9 @@
           };
         in
         {
-          defaultPackage = dynamicBin;
-
           packages = {
+            default = dynamicBin;
+
             "${cargo.toml.package.name}" = dynamicBin;
             "${cargo.toml.package.name}-static" = staticBin;
             "${cargo.toml.package.name}-static-oci" = buildImage staticBin;
@@ -156,7 +156,7 @@
             "${cargo.toml.package.name}-x86_64-unknown-linux-musl-oci" = buildImage x86_64LinuxMuslBin;
           };
 
-          devShell = pkgs.mkShell {
+          devShells.default = pkgs.mkShell {
             buildInputs = [
               (fenix.packages.${system}.fromToolchainFile {
                 file = "${self}/rust-toolchain.toml";
