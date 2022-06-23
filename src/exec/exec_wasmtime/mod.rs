@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::Backend;
+use crate::backend::Backend;
 
 pub struct WasmExec;
 

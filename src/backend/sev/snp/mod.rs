@@ -32,6 +32,7 @@ macro_rules! impl_const_id {
 
 pub mod firmware;
 pub mod launch;
+pub mod vcek;
 
 use std::fmt::{Debug, Display, Formatter};
 use std::{error, io};
