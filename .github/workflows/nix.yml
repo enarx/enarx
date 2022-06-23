@@ -30,6 +30,13 @@ jobs:
     - uses: cachix/install-nix-action@v17
     - run: nix flake check --impure
 
+  fmt:
+    runs-on: ubuntu-20.04
+    steps:
+    - uses: actions/checkout@v2
+    - uses: cachix/install-nix-action@v17
+    - run: nix fmt
+
   run:
     strategy:
       matrix:
