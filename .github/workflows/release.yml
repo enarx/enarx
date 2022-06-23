@@ -196,8 +196,34 @@ jobs:
     runs-on: ubuntu-20.04
     steps:
     - uses: actions/download-artifact@v3
-    - name: Display structure of downloaded files
-      run: ls -R
+      with:
+        name: enarx-x86_64-windows.exe
+    - uses: actions/download-artifact@v3
+      with:
+        name: enarx-x86_64-windows.msi
+
+    - uses: actions/download-artifact@v3
+      with:
+        name: enarx-x86_64-apple-darwin
+    - uses: actions/download-artifact@v3
+      with:
+        name: enarx-x86_64-apple-darwin-oci
+
+    - uses: actions/download-artifact@v3
+      with:
+        name: enarx-x86_64-unknown-linux-musl
+    - uses: actions/download-artifact@v3
+      with:
+        name: enarx-x86_64-unknown-linux-musl-oci
+
+    - uses: actions/download-artifact@v3
+      with:
+        name: enarx-aarch64-unknown-linux-musl
+
+    - uses: actions/download-artifact@v3
+      with:
+        name: enarx-universal-darwin
+
     - uses: softprops/action-gh-release@v1
       with:
         draft: true
@@ -205,6 +231,7 @@ jobs:
         files: |
           enarx-x86_64-windows.exe
           enarx-x86_64-windows.msi
+          enarx-x86_64-apple-darwin
           enarx-x86_64-apple-darwin-oci
           enarx-x86_64-unknown-linux-musl
           enarx-x86_64-unknown-linux-musl-oci
