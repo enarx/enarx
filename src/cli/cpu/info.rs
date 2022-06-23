@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::backend::BACKENDS;
-use crate::cli::Result;
-use crate::Backend;
+use crate::backend::{Backend, BACKENDS};
 
 use std::fmt::{self, Formatter};
 use std::ops::Deref;
@@ -18,6 +16,64 @@ pub struct Options {
     #[clap(short, long)]
     /// Emit JSON rather than human-readable output
     json: bool,
+}
+
+impl Options {
+    pub fn execute(self) -> anyhow::Result<()> {
+        let backends = BACKENDS.deref();
+
+        #[cfg(windows)]
+        fn get_system_info() -> String {
+            // FIXME
+            "Windows".into()
+        }
+
+        #[cfg(unix)]
+        fn get_system_info() -> String {
+            use std::{ffi::CStr, io, mem::MaybeUninit, os::raw::c_char, str::Utf8Error};
+
+            fn utsname_to_string(mut utsname: utsname) -> anyhow::Result<String, Utf8Error> {
+                fn array_to_str<const N: usize>(
+                    array: &'_ mut [c_char; N],
+                ) -> anyhow::Result<&'_ str, Utf8Error> {
+                    array[N - 1] = 0;
+                    unsafe { CStr::from_ptr(array.as_ptr()) }.to_str()
+                }
+
+                Ok(format!(
+                    "{} {} {} {}",
+                    array_to_str(&mut utsname.sysname)?,
+                    array_to_str(&mut utsname.release)?,
+                    array_to_str(&mut utsname.version)?,
+                    array_to_str(&mut utsname.machine)?,
+                ))
+            }
+
+            let mut utsname = MaybeUninit::uninit();
+
+            let uname_str = if unsafe { uname(utsname.as_mut_ptr()) } != 0 {
+                format!("[{}]", io::Error::last_os_error())
+            } else {
+                utsname_to_string(unsafe { utsname.assume_init() })
+                    .unwrap_or_else(|e| format!("[utf8 error: {}]", e))
+            };
+
+            uname_str
+        }
+
+        let info = Info {
+            version: env!("CARGO_PKG_VERSION"),
+            system_info: get_system_info(),
+            backends,
+        };
+        if self.json {
+            println!("{}", serde_json::to_string_pretty(&info)?);
+        } else {
+            println!("{}", info);
+        }
+
+        Ok(())
+    }
 }
 
 #[derive(Serialize)]
@@ -77,67 +133,8 @@ impl fmt::Display for Info<'_> {
     }
 }
 
-impl Options {
-    /// Display nicely-formatted info about each backend
-    pub fn display(self) -> Result<()> {
-        let backends = BACKENDS.deref();
-
-        #[cfg(windows)]
-        fn get_system_info() -> String {
-            // FIXME
-            "Windows".into()
-        }
-
-        #[cfg(unix)]
-        fn get_system_info() -> String {
-            use std::{ffi::CStr, io, mem::MaybeUninit, os::raw::c_char, str::Utf8Error};
-
-            fn utsname_to_string(mut utsname: utsname) -> Result<String, Utf8Error> {
-                fn array_to_str<const N: usize>(
-                    array: &'_ mut [c_char; N],
-                ) -> Result<&'_ str, Utf8Error> {
-                    array[N - 1] = 0;
-                    unsafe { CStr::from_ptr(array.as_ptr()) }.to_str()
-                }
-
-                Ok(format!(
-                    "{} {} {} {}",
-                    array_to_str(&mut utsname.sysname)?,
-                    array_to_str(&mut utsname.release)?,
-                    array_to_str(&mut utsname.version)?,
-                    array_to_str(&mut utsname.machine)?,
-                ))
-            }
-
-            let mut utsname = MaybeUninit::uninit();
-
-            let uname_str = if unsafe { uname(utsname.as_mut_ptr()) } != 0 {
-                format!("[{}]", io::Error::last_os_error())
-            } else {
-                utsname_to_string(unsafe { utsname.assume_init() })
-                    .unwrap_or_else(|e| format!("[utf8 error: {}]", e))
-            };
-
-            uname_str
-        }
-
-        let info = Info {
-            version: env!("CARGO_PKG_VERSION"),
-            system_info: get_system_info(),
-            backends,
-        };
-        if self.json {
-            println!("{}", serde_json::to_string_pretty(&info)?);
-        } else {
-            println!("{}", info);
-        }
-
-        Ok(())
-    }
-}
-
 #[test]
 fn test_info() {
-    Options { json: true }.display().unwrap();
-    Options { json: false }.display().unwrap();
+    Options { json: true }.execute().unwrap();
+    Options { json: false }.execute().unwrap();
 }

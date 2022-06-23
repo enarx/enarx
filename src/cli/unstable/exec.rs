@@ -30,3 +30,23 @@ pub struct Options {
     #[clap(long, default_value = "localhost:23456")]
     pub gdblisten: String,
 }
+
+#[cfg(enarx_with_shim)]
+impl Options {
+    pub fn execute(self) -> anyhow::Result<()> {
+        use crate::exec::keep_exec;
+        use mmarinus::{perms, Map, Private};
+
+        let backend = self.backend.pick()?;
+        let binary = Map::load(&self.binpath, Private, perms::Read)?;
+
+        #[cfg(not(feature = "gdb"))]
+        let gdblisten = None;
+
+        #[cfg(feature = "gdb")]
+        let gdblisten = Some(self.gdblisten);
+
+        let exit_code = keep_exec(backend, backend.shim(), binary, gdblisten)?;
+        std::process::exit(exit_code);
+    }
+}

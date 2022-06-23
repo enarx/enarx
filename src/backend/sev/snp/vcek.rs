@@ -7,73 +7,22 @@ use std::io::{self, ErrorKind, Read, Seek};
 use std::os::unix::fs::OpenOptionsExt;
 use std::path::PathBuf;
 
-use anyhow::{anyhow, Context, Result};
-use clap::Subcommand;
+use anyhow::{anyhow, Context};
 
-/// SNP-specific functionality
-#[derive(Subcommand, Debug)]
-pub enum Command {
-    /// SNP VCEK related commands
-    #[clap(subcommand)]
-    Vcek(VcekCommand),
-}
-
-#[derive(Subcommand, Debug)]
-pub enum VcekCommand {
-    /// Print the VCEK certificate for this platform to stdout in PEM format
-    Show,
-    /// Print the VCEK certificate cache file used by the `show` command
-    ShowFile,
-    /// Download the VCEK certificate for this platform and save it to a cache file in `/var/cache/amd-sev/`
-    /// or `$XDG_CACHE_HOME` or `$HOME/.cache/`
-    Update,
-}
-
-enum UpdateMode {
+pub enum UpdateMode {
     ReadOnly,
     ReadWrite,
 }
 
-pub fn run(cmd: Command) -> Result<()> {
-    match cmd {
-        Command::Vcek(VcekCommand::Show) => {
-            let mut reader = get_vcek_reader()?;
-            io::copy(&mut reader, &mut io::stdout())?;
-            Ok(())
-        }
-        Command::Vcek(VcekCommand::ShowFile) => {
-            match get_vcek_reader_with_paths(paths(), UpdateMode::ReadOnly) {
-                Ok((path, _)) => {
-                    println!("{:?}", path);
-                    Ok(())
-                }
-                Err(e) => {
-                    if matches!(
-                        e.downcast_ref::<io::Error>().map(io::Error::kind),
-                        Some(ErrorKind::NotFound)
-                    ) {
-                        eprintln!("No cache file found.");
-                        Ok(())
-                    } else {
-                        Err(e)
-                    }
-                }
-            }
-        }
-        Command::Vcek(VcekCommand::Update) => {
-            // try to write to the system level path first and fallback to home dir
-            let mut paths = paths();
-            paths.reverse();
-            get_vcek_reader_with_paths(paths, UpdateMode::ReadWrite)?;
-            Ok(())
-        }
-    }
+/// Return a reader, which provides the VCEK
+pub fn get_vcek_reader() -> anyhow::Result<Box<dyn Read>> {
+    get_vcek_reader_with_paths(paths(), UpdateMode::ReadWrite).map(|(_, r)| r)
 }
 
-/// append the `amd-sev` subdir
-fn append_rest(mut path: PathBuf) -> PathBuf {
-    path.push("amd-sev");
-    path
+/// Returns the list of search paths in order that they
+/// will be searched for the VCEK.
+pub fn paths() -> Vec<PathBuf> {
+    vec![home(), sys()].into_iter().flatten().collect()
 }
 
 /// Returns the "user-level" search path for the SEV
@@ -93,22 +42,17 @@ fn sys() -> Option<PathBuf> {
     }
 }
 
-/// Returns the list of search paths in order that they
-/// will be searched for the VCEK.
-fn paths() -> Vec<PathBuf> {
-    vec![home(), sys()].into_iter().flatten().collect()
-}
-
-/// Return a reader, which provides the VCEK
-pub fn get_vcek_reader() -> Result<Box<dyn Read>> {
-    get_vcek_reader_with_paths(paths(), UpdateMode::ReadWrite).map(|(_, r)| r)
+/// append the `amd-sev` subdir
+fn append_rest(mut path: PathBuf) -> PathBuf {
+    path.push("amd-sev");
+    path
 }
 
 /// Returns a reader, which provides the VCEK searching the provided paths
-fn get_vcek_reader_with_paths(
+pub fn get_vcek_reader_with_paths(
     paths: Vec<PathBuf>,
     mode: UpdateMode,
-) -> Result<(PathBuf, Box<dyn Read>)> {
+) -> anyhow::Result<(PathBuf, Box<dyn Read>)> {
     let (url, path) = get_vcek_url_path()?;
 
     get_or_write(
@@ -125,7 +69,7 @@ fn get_vcek_reader_with_paths(
     )
 }
 
-fn get_vcek_url_path() -> Result<(String, String)> {
+fn get_vcek_url_path() -> anyhow::Result<(String, String)> {
     // Get the platform information.
     let mut sev = Firmware::open().context("failed to open /dev/sev")?;
     let id = sev.identifier().context("failed to query identifier")?;
@@ -151,9 +95,9 @@ fn get_vcek_url_path() -> Result<(String, String)> {
 fn get_or_write(
     paths: Vec<PathBuf>,
     name: String,
-    contents: impl Fn() -> Result<Box<dyn Read>>,
+    contents: impl Fn() -> anyhow::Result<Box<dyn Read>>,
     mode: UpdateMode,
-) -> Result<(PathBuf, Box<dyn Read>)> {
+) -> anyhow::Result<(PathBuf, Box<dyn Read>)> {
     // Fast path, try to read from any location first
     for base in &paths {
         let mut path_locked = base.clone();
@@ -259,14 +203,13 @@ fn get_or_write(
 mod tests {
     use super::{get_or_write, UpdateMode};
 
-    use anyhow::Result;
     use std::io::{self, ErrorKind, Read};
     use std::path::PathBuf;
     use std::thread;
     use tempfile::tempdir;
 
     #[test]
-    fn test_get_or_write() -> Result<()> {
+    fn test_get_or_write() -> anyhow::Result<()> {
         let mut join_handles = Vec::new();
         let tmp_dir = tempdir()?;
         let tmp_dir2 = tempdir()?;
@@ -306,7 +249,7 @@ mod tests {
     }
 
     #[test]
-    fn test_empty_cache_path() -> Result<()> {
+    fn test_empty_cache_path() -> anyhow::Result<()> {
         let res = get_or_write(
             vec![PathBuf::from(
                 "/proc/ENOENT DIRECTORY SHOULD NOT EXIST AND NOT BE ABLE TO CREATE/",

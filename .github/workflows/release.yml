@@ -159,7 +159,7 @@ jobs:
       with:
         name: enarx-${{ matrix.platform.target }}
     - run: chmod +x ./enarx-${{ matrix.platform.target }}
-    - run: ./enarx-${{ matrix.platform.target }} info
+    - run: ./enarx-${{ matrix.platform.target }} cpu info
 
   test-windows:
     needs: build-windows
@@ -168,7 +168,7 @@ jobs:
     - uses: actions/download-artifact@v3
       with:
         name: enarx-x86_64-windows
-    - run: .\enarx-x86_64-windows.exe info
+    - run: .\enarx-x86_64-windows.exe cpu info
 
   test-oci:
     needs: build-x86_64
@@ -186,7 +186,7 @@ jobs:
       with:
         name: enarx-${{ matrix.platform.target }}-oci
     - run: docker load < enarx-${{ matrix.platform.target }}-oci
-    # TODO: Attempt to run `enarx info` within the loaded container
+    # TODO: Attempt to run `enarx cpu info` within the loaded container
 
   # TODO: redevelop SBOM generation per issue #1954
 

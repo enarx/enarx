@@ -1,11 +1,18 @@
 // SPDX-License-Identifier: Apache-2.0
 
+pub mod snp;
+
 pub use snp::firmware::Firmware;
+
+mod builder;
+mod cpuid_page;
+mod data;
+
+use snp::vcek::get_vcek_reader;
 
 use super::kvm::mem::Region;
 use super::kvm::{Keep, KeepPersonality};
 use super::Loader;
-use crate::cli::snp::get_vcek_reader;
 use data::{
     dev_kvm, dev_sev, dev_sev_readable, dev_sev_writable, has_reasonable_memlock_rlimit,
     kvm_version, sev_enabled_in_kernel, CPUIDS,
@@ -20,11 +27,6 @@ use kvm_ioctls::VmFd;
 use sallyport::host::deref_slice;
 use sallyport::item::enarxcall::Payload;
 use sallyport::item::{self, Item};
-
-mod builder;
-mod cpuid_page;
-mod data;
-mod snp;
 
 struct SnpKeepPersonality {
     // Must be kept open for the VM to talk to the SEV Firmware
