@@ -2,8 +2,12 @@
 
 mod cpu;
 mod deploy;
+mod package;
+mod repo;
 mod run;
+mod tree;
 mod unstable;
+mod user;
 
 use crate::backend::{Backend, BACKENDS};
 
@@ -53,6 +57,14 @@ enum Subcommands {
     #[clap(subcommand)]
     Cpu(cpu::Subcommands),
     #[clap(subcommand, hide = true)]
+    Package(package::Subcommands),
+    #[clap(subcommand, hide = true)]
+    Repo(repo::Subcommands),
+    #[clap(subcommand, hide = true)]
+    Tree(tree::Subcommands),
+    #[clap(subcommand, hide = true)]
+    User(user::Subcommands),
+    #[clap(subcommand, hide = true)]
     Unstable(unstable::Subcommands),
 }
 
@@ -62,6 +74,10 @@ impl Subcommands {
             Self::Run(cmd) => cmd.execute(),
             Self::Deploy(cmd) => cmd.execute(),
             Self::Cpu(subcmd) => subcmd.dispatch(),
+            Self::Package(subcmd) => subcmd.dispatch(),
+            Self::Repo(subcmd) => subcmd.dispatch(),
+            Self::Tree(subcmd) => subcmd.dispatch(),
+            Self::User(subcmd) => subcmd.dispatch(),
             Self::Unstable(subcmd) => subcmd.dispatch(),
         }
     }
