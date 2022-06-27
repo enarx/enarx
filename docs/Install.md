@@ -284,7 +284,7 @@ If you want to suppress the debug output, add `2>/dev/null`.
 appropriate deployment backend. To see what backends are supported on your
 system, run:
 ```sh:git;
-$ enarx info
+$ enarx cpu info
 ```
 You can manually select a backend with the `--backend` option, or by
 setting the `ENARX_BACKEND` environment variable:
@@ -300,7 +300,7 @@ $ ENARX_BACKEND=sgx enarx run target/wasm32-wasi/release/hello-world.wasm
 2. KVM
 3. "nil" (a debug/developer backend without TEEs, isolation or any additional security guarentees)
 
-The status of whether or not enarx was able to find the driver can be checked with the command `enarx info`. If the output shows any of the backends with a green "tick" or "checkmark", you are ready to use enarx with that backend.
+The status of whether or not enarx was able to find the driver can be checked with the command `enarx cpu info`. If the output shows any of the backends with a green "tick" or "checkmark", you are ready to use enarx with that backend.
 
 When you execute the `enarx run` command, enarx tries to automatically select the appropriate backend. But if you want to specifically use the another supported backend you can pass the backend name ("sgx", "sev", "kvm" or "nil") as a parameter to `--backend` option, or set the `ENARX_BACKEND` environment variable with the name:
 
