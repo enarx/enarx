@@ -106,7 +106,7 @@ fn map_elf(app_virt_start: VirtAddr) -> &'static Header {
         debug_assert_eq!(ph.p_align, Page::<Size4KiB>::SIZE);
 
         ALLOCATOR
-            .write()
+            .lock()
             .map_memory(
                 map_from,
                 map_to,

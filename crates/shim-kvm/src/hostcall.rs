@@ -360,7 +360,7 @@ impl Handler for HostCall<'_> {
 
                 // unmap the rest
                 ALLOCATOR
-                    .write()
+                    .lock()
                     .unmap_memory(VirtAddr::new(addr_u64_aligned), len as usize)
                     .unwrap();
 
@@ -382,7 +382,7 @@ impl Handler for HostCall<'_> {
                 let len = addr_u64_aligned.checked_sub(brk_line.end.as_u64()).unwrap();
 
                 ALLOCATOR
-                    .write()
+                    .lock()
                     .allocate_and_map_memory(
                         brk_line.end,
                         len as usize,
@@ -446,7 +446,7 @@ impl Handler for HostCall<'_> {
                 let len_aligned = align_up(length as _, Page::<Size4KiB>::SIZE) as _;
 
                 let mem_slice = ALLOCATOR
-                    .write()
+                    .lock()
                     .allocate_and_map_memory(
                         virt_addr,
                         len_aligned,
@@ -530,11 +530,13 @@ impl Handler for HostCall<'_> {
         addr: NonNull<c_void>,
         length: c_size_t,
     ) -> sallyport::Result<()> {
+        eprintln!("SC> munmap({:#?}, {}) = 0", addr, length);
+
         let addr: &[u8] = platform.validate_slice(addr.as_ptr() as _, length)?;
 
         // It is not an error if the indicated range does not contain any mapped pages.
         let _ = ALLOCATOR
-            .write()
+            .lock()
             .unmap_memory(VirtAddr::from_ptr(addr.as_ptr()), length);
 
         Ok(())

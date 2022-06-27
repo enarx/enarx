@@ -17,7 +17,7 @@ array-const-fn-init = { version = "0.1", default-features = false }
 const-default = { version = "1.0", features = ["derive"], default-features = false }
 crt0stack = { version = "0.1", default-features = false }
 goblin = { version = "0.5", features = ["elf64"], default-features = false }
-linked_list_allocator = { version = "0.9.1", default-features = false }
+linked_list_allocator = { version = "0.10.1", default-features = false }
 lset = { version = "0.3", default-features = false }
 nbytes = { version = "0.1", default-features = false }
 noted = { version = "1.0.0", default-features = false }

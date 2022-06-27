@@ -21,7 +21,7 @@ pub fn init_stack_with_guard(
     stack_size: u64,
     extra_flags: PageTableFlags,
 ) -> GuardedStack {
-    let mut allocator = ALLOCATOR.write();
+    let mut allocator = ALLOCATOR.lock();
 
     // guard page
     allocator
