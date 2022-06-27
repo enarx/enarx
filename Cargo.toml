@@ -28,8 +28,10 @@ colorful = { version = "0.2", default-features = false }
 dirs = { version = "4.0", default-features = false }
 enarx-exec-wasmtime = { version = "0.5.1", path = "crates/exec-wasmtime", default-features = false }
 env_logger = { version = "0.9", default-features = false }
+keyring = { version = "1.1.2", default-features = false }
 libc = { version = "0.2", default-features = false }
 log = { version = "0.4", default-features = false }
+oauth2 = { version = "4.2.0", default-features = false, features = ["ureq"] }
 once_cell = { version = "1.11.0", features = ["std"], default-features = false }
 serde = { version = "1.0.136", features = ["derive"], default-features = false }
 serde_json = { version = "1.0.79", features = ["std"], default-features = false }
