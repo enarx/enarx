@@ -7,7 +7,7 @@ use crate::exec::NEXT_MMAP_RWLOCK;
 use crate::hostcall::{HostCall, SHIM_LOCAL_STORAGE};
 use crate::paging::SHIM_PAGETABLE;
 use crate::snp::{get_cbit_mask, pvalidate, snp_active, PvalidateSize};
-use crate::spin::RwLocked;
+use crate::spin::Locked;
 
 use core::alloc::{GlobalAlloc, Layout};
 use core::cmp::{max, min};
@@ -41,8 +41,8 @@ use x86_64::{align_down, align_up, PhysAddr, VirtAddr};
 pub struct Page2MiB([u8; bytes![2; MiB]]);
 
 /// The global EnarxAllocator RwLock
-pub static ALLOCATOR: Lazy<RwLocked<EnarxAllocator>> =
-    Lazy::new(|| RwLocked::<EnarxAllocator>::new(unsafe { EnarxAllocator::new() }));
+pub static ALLOCATOR: Lazy<Locked<EnarxAllocator>> =
+    Lazy::new(|| Locked::new(unsafe { EnarxAllocator::new() }));
 
 /// The allocator
 ///
@@ -543,15 +543,15 @@ fn shim_virt_to_enc_phys<T>(p: *mut T) -> PhysAddr {
     PhysAddr::new(virt.as_u64().checked_sub(SHIM_VIRT_OFFSET).unwrap() | get_cbit_mask())
 }
 
-unsafe impl GlobalAlloc for RwLocked<EnarxAllocator> {
+unsafe impl GlobalAlloc for Locked<EnarxAllocator> {
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
-        let mut this = self.write();
+        let mut this = self.lock();
         this.try_alloc(layout)
             .map_or(core::ptr::null_mut(), |p| p.as_ptr())
     }
 
     unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
-        let mut this = self.write();
+        let mut this = self.lock();
         this.deallocate(ptr, layout);
     }
 }

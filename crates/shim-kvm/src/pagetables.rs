@@ -128,7 +128,7 @@ pub fn smash(addr: VirtAddr) -> Result<(), Error> {
                 let page = Page::<Size2MiB>::containing_address(addr);
                 let new_pagetable: &mut PageTable = unsafe {
                     &mut *(ALLOCATOR
-                        .write()
+                        .lock()
                         .try_alloc(Layout::from_size_align_unchecked(
                             size_of::<PageTable>(),
                             Page::<Size4KiB>::SIZE as _,
@@ -178,7 +178,7 @@ pub fn smash(addr: VirtAddr) -> Result<(), Error> {
                 let page = Page::<Size1GiB>::containing_address(addr);
                 let new_pagetable: &mut PageTable = unsafe {
                     &mut *(ALLOCATOR
-                        .write()
+                        .lock()
                         .try_alloc(Layout::from_size_align_unchecked(
                             size_of::<PageTable>(),
                             Page::<Size4KiB>::SIZE as _,
