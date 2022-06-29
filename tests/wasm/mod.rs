@@ -243,6 +243,7 @@ kind = "listen"
 prot = "tcp"
 port = {cport}
 name = "LISTEN"
+addr = "0.0.0.0"
 
 [[files]]
 kind = "connect"
