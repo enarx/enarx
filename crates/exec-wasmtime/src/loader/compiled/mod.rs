@@ -8,8 +8,6 @@ use null::Null;
 use super::{Compiled, Connected, Loader};
 use crate::config::{File, Protocol};
 
-use std::net::Ipv4Addr;
-
 use anyhow::Result;
 use cap_std::net::{TcpListener, TcpStream};
 use wasi_common::{file::FileCaps, WasiFile};
@@ -47,13 +45,15 @@ impl Loader<Compiled> {
                 File::Stdout { .. } => (Box::new(stdout()), FileCaps::all()),
                 File::Stderr { .. } => (Box::new(stderr()), FileCaps::all()),
 
-                File::Listen { port, prot, .. } => {
+                File::Listen {
+                    addr, port, prot, ..
+                } => {
                     let caps = FileCaps::FILESTAT_GET
                         | FileCaps::FDSTAT_SET_FLAGS
                         | FileCaps::POLL_READWRITE
                         | FileCaps::READ;
 
-                    let tcp = std::net::TcpListener::bind((Ipv4Addr::UNSPECIFIED, *port))?;
+                    let tcp = std::net::TcpListener::bind((addr.as_str(), *port))?;
                     let tcp = TcpListener::from_std(tcp);
                     match prot {
                         Protocol::Tcp => (wasmtime_wasi::net::Socket::from(tcp).into(), caps),

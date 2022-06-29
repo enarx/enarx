@@ -6,8 +6,12 @@ use std::{collections::HashMap, ops::Deref};
 use serde::{de::Error as _, Deserialize, Deserializer};
 use url::Url;
 
-fn default_port() -> u16 {
+const fn default_port() -> u16 {
     443
+}
+
+fn default_addr() -> String {
+    "::".into()
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -105,6 +109,9 @@ pub enum File {
 
         #[serde(default)]
         prot: Protocol,
+
+        #[serde(default = "default_addr")]
+        addr: String,
     },
 
     #[serde(rename = "connect")]
@@ -188,14 +195,15 @@ mod test {
                 File::Listen {
                     name: "X".into(),
                     port: 9000,
-                    prot: Protocol::Tcp
+                    prot: Protocol::Tcp,
+                    addr: default_addr()
                 },
                 File::Stdout { name: None },
                 File::Null { name: None },
                 File::Stderr { name: None },
                 File::Connect {
                     name: None,
-                    port: 443,
+                    port: default_port(),
                     prot: Protocol::Tls,
                     host: "google.com".into(),
                 },
