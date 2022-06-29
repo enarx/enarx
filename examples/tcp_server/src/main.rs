@@ -39,7 +39,7 @@ fn main() -> io::Result<()> {
         println!("Using preopened socket FD 3");
         println!("You can connect to the server using `nc`:");
         match stdlistener.local_addr() {
-            Ok(a) => println!(" $ nc {} {}", a.ip().to_string(), a.port()),
+            Ok(a) => println!(" $ nc {} {}", a.ip(), a.port()),
             Err(_) => println!(" $ nc <IP> <PORT>"),
         }
         println!("You'll see our welcome message and anything you type will be printed here.");

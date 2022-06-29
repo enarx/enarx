@@ -6,7 +6,7 @@ use core::marker::PhantomData;
 pub const MAX_ERRNO: c_int = 4096;
 pub const ERRNO_START: usize = usize::MAX - MAX_ERRNO as usize;
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[repr(transparent)]
 pub struct Result<T>(usize, PhantomData<T>);
 

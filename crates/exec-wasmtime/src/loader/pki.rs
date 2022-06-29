@@ -78,7 +78,7 @@ impl<'a> PrivateKeyInfoExt for PrivateKeyInfo<'a> {
                     subject_public_key: pk,
                 })
             }
-            _ => return Err(anyhow!("unsupported")),
+            _ => Err(anyhow!("unsupported")),
         }
     }
 
@@ -86,7 +86,7 @@ impl<'a> PrivateKeyInfoExt for PrivateKeyInfo<'a> {
         match self.algorithm.oids()? {
             (ECPK, Some(P256)) => Ok(ES256),
             (ECPK, Some(P384)) => Ok(ES384),
-            _ => return Err(anyhow!("unsupported")),
+            _ => Err(anyhow!("unsupported")),
         }
     }
 

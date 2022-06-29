@@ -6,7 +6,7 @@ use core::ffi::c_int;
 use core::mem::size_of;
 
 /// Payload of an [`Item`](super::Item) of [`Kind::Syscall`](super::Kind::Syscall).
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[repr(C, align(8))]
 pub struct Payload {
     pub num: usize,

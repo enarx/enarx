@@ -9,7 +9,7 @@ use core::marker::PhantomData;
 use core::ptr::NonNull;
 
 /// Reference to an allocated input segment.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct InRef<'a, T: ?Sized> {
     pub(super) ptr: NonNull<T>,
 

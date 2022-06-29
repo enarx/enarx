@@ -18,7 +18,7 @@ use std::fmt::Debug;
 ///
 /// The underlying SEV platform behaves like a state machine and can
 /// only perform certain actions while it is in certain states.
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 #[non_exhaustive]
 #[repr(u8)]
 pub enum State {
@@ -111,7 +111,7 @@ impl std::fmt::LowerHex for Identifier {
 }
 
 /// Information regarding the SEV-SNP platform's TCB version.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct TcbStatus {
     /// Installed TCB version.
     pub platform_version: TcbVersion,
@@ -121,7 +121,7 @@ pub struct TcbStatus {
 }
 
 /// Information regarding the SEV-SNP platform's current status.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Status {
     /// The build information.
     pub build: Build,
@@ -163,7 +163,7 @@ impl std::fmt::Display for Build {
 /// TcbVersion represents the version of the firmware.
 ///
 /// (Chapter 2.2; Table 3)
-#[derive(Clone, Debug, Default, PartialEq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 #[repr(C)]
 pub struct TcbVersion {
     /// Current bootloader version.

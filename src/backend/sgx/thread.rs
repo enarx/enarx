@@ -52,7 +52,9 @@ impl super::super::Keep for super::Keep {
             .lookup("__vdso_sgx_enter_enclave")
             .expect("__vdso_sgx_enter_enclave not found");
 
-        let tcs = match self.tcs.write().unwrap().pop() {
+        let tcs = self.tcs.write().unwrap().pop();
+
+        let tcs = match tcs {
             Some(tcs) => tcs,
             None => return Ok(None),
         };

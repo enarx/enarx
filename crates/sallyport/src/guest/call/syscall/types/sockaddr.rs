@@ -137,7 +137,7 @@ impl<'a> Collect for CommittedSockaddrOutput<'a> {
     }
 }
 
-#[derive(Clone, Copy, Debug, Default, PartialEq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 #[allow(non_snake_case)]
 pub struct MremapFlags {
     pub FIXED: Option<NonNull<c_void>>,

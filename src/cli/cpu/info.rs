@@ -51,14 +51,12 @@ impl Options {
 
             let mut utsname = MaybeUninit::uninit();
 
-            let uname_str = if unsafe { uname(utsname.as_mut_ptr()) } != 0 {
+            if unsafe { uname(utsname.as_mut_ptr()) } != 0 {
                 format!("[{}]", io::Error::last_os_error())
             } else {
                 utsname_to_string(unsafe { utsname.assume_init() })
                     .unwrap_or_else(|e| format!("[utf8 error: {}]", e))
-            };
-
-            uname_str
+            }
         }
 
         let info = Info {
