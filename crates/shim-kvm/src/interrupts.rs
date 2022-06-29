@@ -241,7 +241,6 @@ declare_interrupt!(
 );
 
 /// The global IDT
-#[cfg_attr(coverage, no_coverage)]
 pub static IDT: Lazy<InterruptDescriptorTable> = Lazy::new(|| {
     let mut idt = InterruptDescriptorTable::new();
     unsafe {
