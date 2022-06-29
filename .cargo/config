@@ -11,3 +11,4 @@ rustflags = ["-C", "target-feature=+crt-static"]
 
 [unstable]
 bindeps = true
+sparse-registry = true
