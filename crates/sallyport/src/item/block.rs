@@ -6,7 +6,7 @@ use core::convert::TryInto;
 use core::mem::{align_of, size_of};
 
 /// Untrusted `sallyport` block.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 #[repr(transparent)]
 pub struct Block<'a>(&'a mut [usize]);
 

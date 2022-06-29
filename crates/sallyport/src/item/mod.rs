@@ -38,7 +38,7 @@ pub(super) const LARGEST_PAYLOAD_SIZE: usize = {
 pub(super) const LARGEST_ITEM_SIZE: usize = size_of::<Header>() + LARGEST_PAYLOAD_SIZE;
 
 /// `sallyport` item kind.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[repr(usize)]
 pub enum Kind {
     End = 0x00,
@@ -64,7 +64,7 @@ impl TryFrom<usize> for Kind {
 }
 
 /// `sallyport` item header.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[repr(C, align(8))]
 pub struct Header {
     pub size: usize,
@@ -72,7 +72,7 @@ pub struct Header {
 }
 
 /// `sallyport` item.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum Item<'a> {
     Syscall(&'a mut Syscall, &'a mut [u8]),
     Gdbcall(&'a mut Gdbcall, &'a mut [u8]),

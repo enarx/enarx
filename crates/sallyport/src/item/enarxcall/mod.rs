@@ -14,7 +14,7 @@ use core::mem::size_of;
 pub const SYS_GETATT: i64 = 0xEA01;
 
 /// Payload of an [`Item`](super::Item) of [`Kind::Enarxcall`](super::Kind::Enarxcall).
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[repr(C, align(8))]
 pub struct Payload {
     pub num: Number,
@@ -32,7 +32,7 @@ impl From<&mut [usize; USIZE_COUNT]> for &mut Payload {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[repr(usize)]
 /// Number of an [`Item`](super::Item) of [`Kind::Enarxcall`](super::Kind::Enarxcall).
 pub enum Number {

@@ -10,7 +10,7 @@ use core::ops::Range;
 use core::ptr::NonNull;
 
 /// Reference to an allocated output segment.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct OutRef<'a, T: ?Sized> {
     pub(super) ptr: NonNull<T>,
 

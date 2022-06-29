@@ -2,7 +2,7 @@
 
 use crate::NULL;
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Argv<const N: usize>(pub [usize; N]);
 
 impl<const N: usize> From<Argv<N>> for [usize; N] {

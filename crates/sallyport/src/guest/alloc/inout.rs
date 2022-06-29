@@ -8,7 +8,7 @@ use core::ops::{Deref, DerefMut};
 use core::ptr::NonNull;
 
 /// Reference to an allocated input-output segment.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 #[repr(transparent)]
 pub struct InOutRef<'a, T: ?Sized>(InRef<'a, T>);
 
