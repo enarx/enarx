@@ -19,7 +19,7 @@ jobs:
       - uses: actions-rs/toolchain@v1
         with:
           target: x86_64-unknown-linux-musl
-          toolchain: nightly
+          toolchain: nightly-2022-06-28
           profile: minimal
       - name: Setup Rust toolchain
         run: >
