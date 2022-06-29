@@ -42,7 +42,7 @@ jobs:
       with:
         name: enarx
         authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
-    - run: nix run -L . info
+    - run: nix run -L . cpu info
 
   develop:
     strategy:
