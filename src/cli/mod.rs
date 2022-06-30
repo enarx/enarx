@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
-mod cpu;
 mod deploy;
 mod package;
+mod platform;
 mod repo;
 mod run;
 mod tree;
@@ -55,7 +55,7 @@ enum Subcommands {
     Run(run::Options),
     Deploy(deploy::Options),
     #[clap(subcommand)]
-    Cpu(cpu::Subcommands),
+    Platform(platform::Subcommands),
     #[clap(subcommand, hide = true)]
     Package(package::Subcommands),
     #[clap(subcommand, hide = true)]
@@ -73,7 +73,7 @@ impl Subcommands {
         match self {
             Self::Run(cmd) => cmd.execute(),
             Self::Deploy(cmd) => cmd.execute(),
-            Self::Cpu(subcmd) => subcmd.dispatch(),
+            Self::Platform(subcmd) => subcmd.dispatch(),
             Self::Package(subcmd) => subcmd.dispatch(),
             Self::Repo(subcmd) => subcmd.dispatch(),
             Self::Tree(subcmd) => subcmd.dispatch(),
