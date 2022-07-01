@@ -3,15 +3,19 @@
 mod info;
 mod login;
 mod logout;
+mod register;
 
 use clap::Subcommand;
 
-/// Commands for working with user accounts on an Enarx package host.
+/// Commands for working with users on an Enarx package host.
 #[derive(Subcommand, Debug)]
 pub enum Subcommands {
+    #[clap(hide = true)]
     Info(info::Options),
     Login(login::Options),
+    #[clap(hide = true)]
     Logout(logout::Options),
+    Register(register::Options),
 }
 
 impl Subcommands {
@@ -20,6 +24,7 @@ impl Subcommands {
             Self::Info(cmd) => cmd.execute(),
             Self::Login(cmd) => cmd.execute(),
             Self::Logout(cmd) => cmd.execute(),
+            Self::Register(cmd) => cmd.execute(),
         }
     }
 }

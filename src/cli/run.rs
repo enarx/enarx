@@ -6,9 +6,9 @@ use crate::exec::{open_package, run_package, EXECS};
 use std::fmt::Debug;
 #[cfg(unix)]
 use std::os::unix::io::IntoRawFd;
-use std::path::PathBuf;
 
 use anyhow::anyhow;
+use camino::Utf8PathBuf;
 use clap::Args;
 use enarx_exec_wasmtime::Package;
 
@@ -19,11 +19,11 @@ pub struct Options {
     pub backend: BackendOptions,
 
     #[clap(long, env = "ENARX_WASMCFGFILE")]
-    pub wasmcfgfile: Option<PathBuf>,
+    pub wasmcfgfile: Option<Utf8PathBuf>,
 
     /// Path of the WebAssembly module to run
-    #[clap(value_name = "MODULE", parse(from_os_str))]
-    pub module: PathBuf,
+    #[clap(value_name = "MODULE")]
+    pub module: Utf8PathBuf,
 
     /// gdb options
     #[cfg(feature = "gdb")]

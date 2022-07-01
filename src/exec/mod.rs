@@ -26,7 +26,7 @@ pub mod exec_wasmtime;
 
 use crate::backend::{Backend, Command};
 
-use std::borrow::Borrow;
+use std::convert::Into;
 use std::fs::File;
 #[cfg(unix)]
 use std::os::unix::io::AsRawFd;
@@ -105,15 +105,15 @@ pub fn keep_exec(
 }
 
 pub fn open_package(
-    wasm: impl Borrow<PathBuf>,
-    conf: Option<impl Borrow<PathBuf>>,
+    wasm: impl Into<PathBuf>,
+    conf: Option<impl Into<PathBuf>>,
 ) -> Result<(File, Option<File>)> {
-    let wasm = wasm.borrow();
-    let wasm = File::open(wasm)
+    let wasm = wasm.into();
+    let wasm = File::open(&wasm)
         .with_context(|| format!("failed to open WASM module at `{}`", wasm.display()))?;
     if let Some(conf) = conf {
-        let conf = conf.borrow();
-        let conf = File::open(conf)
+        let conf = conf.into();
+        let conf = File::open(&conf)
             .with_context(|| format!("failed to open package config at `{}`", conf.display()))?;
         Ok((wasm, Some(conf)))
     } else {

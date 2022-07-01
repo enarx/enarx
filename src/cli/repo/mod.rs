@@ -13,9 +13,11 @@ use clap::Subcommand;
 pub enum Subcommands {
     Info(info::Options),
     Register(register::Options),
+    #[clap(hide = true)]
     Search(search::Options),
+    #[clap(hide = true)]
     Yank(yank::Options),
-    #[clap(subcommand)]
+    #[clap(subcommand, hide = true)]
     Token(token::Subcommands),
 }
 

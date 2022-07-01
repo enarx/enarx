@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::cli::BackendOptions;
+use crate::drawbridge::parse_tag;
 use crate::exec::{open_package, run_package, EXECS};
 
 use std::fmt::Debug;
@@ -21,7 +22,7 @@ pub struct Options {
 
     /// URL of the package to run.
     #[clap(value_name = "PACKAGE")]
-    pub package: Url,
+    pub package: String,
 
     /// gdb options
     #[cfg(feature = "gdb")]
@@ -52,6 +53,12 @@ impl Options {
 
         #[cfg(feature = "gdb")]
         let gdblisten = Some(gdblisten);
+
+        let (host, user, repo, tag) = parse_tag(&package)?;
+        let addr = format!("https://{host}/api/v0.1.0/{user}/{repo}/_tag/{tag}/tree");
+        let package: Url = addr
+            .parse()
+            .with_context(|| format!("Failed to parse URL: {addr}"))?;
 
         let code = match package.scheme() {
             "file" => {

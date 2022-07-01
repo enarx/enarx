@@ -11,8 +11,10 @@ use clap::Subcommand;
 #[derive(Subcommand, Debug)]
 pub enum Subcommands {
     Info(info::Options),
+    #[clap(hide = true)]
     Fetch(fetch::Options),
     Publish(publish::Options),
+    #[clap(hide = true)]
     Yank(yank::Options),
 }
 

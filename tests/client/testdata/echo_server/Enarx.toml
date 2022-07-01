@@ -1,0 +1,14 @@
+[[files]]
+kind = "stdin"
+
+[[files]]
+kind = "stdout"
+
+[[files]]
+kind = "stderr"
+
+[[files]]
+kind = "listen"
+prot = "tls"
+port = 9000
+name = "TEST_TCP_LISTEN"

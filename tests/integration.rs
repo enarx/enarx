@@ -2,6 +2,9 @@
 
 #![cfg(all(not(miri), not(feature = "gdb")))]
 
+#[cfg(not(windows))]
+mod client;
+
 #[cfg(enarx_with_shim)]
 mod exec;
 
