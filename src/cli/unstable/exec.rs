@@ -2,8 +2,7 @@
 
 use crate::cli::BackendOptions;
 
-use std::path::PathBuf;
-
+use camino::Utf8PathBuf;
 use clap::Args;
 
 /// Execute a (static, PIE) binary inside an Enarx Keep.
@@ -23,7 +22,7 @@ pub struct Options {
 
     /// Binary to load and run inside the keep
     #[clap(value_name = "BINARY")]
-    pub binpath: PathBuf,
+    pub binpath: Utf8PathBuf,
 
     /// gdb options
     #[cfg(feature = "gdb")]

@@ -8,7 +8,7 @@ mod snp;
 
 use clap::Subcommand;
 
-/// Commands for supported trusted execution environments.
+/// Commands for configuration of trusted execution environments.
 #[derive(Subcommand, Debug)]
 pub enum Subcommands {
     Info(info::Options),

@@ -23,17 +23,22 @@ disable-sgx-attestation = ["enarx-shim-sgx/disable-sgx-attestation"]
 anyhow = { version = "1.0.56", features = ["std"], default-features = false }
 atty = { version = "0.2", default-features = false }
 bitflags = { version = "1.2", default-features = false }
+camino = { version = "1.0.9", default-features = false }
 clap = { version = "3.1", features = ["env", "derive", "std"], default-features = false }
 colorful = { version = "0.2", default-features = false }
 dirs = { version = "4.0", default-features = false }
+drawbridge-client = { package = "tiedcrossing-client", version = "0.1.0", default-features = false }
 enarx-exec-wasmtime = { version = "0.5.1", path = "crates/exec-wasmtime", default-features = false }
 enarx-config = { version = "0.1", path = "crates/enarx-config", default-features = false }
 env_logger = { version = "0.9", default-features = false }
 keyring = { version = "1.1.2", default-features = false }
 libc = { version = "0.2", default-features = false }
 log = { version = "0.4", default-features = false }
-oauth2 = { version = "4.2.0", default-features = false, features = ["ureq"] }
+oauth2 = { version = "4.2.2", default-features = false, features = ["ureq"] }
 once_cell = { version = "1.11.0", features = ["std"], default-features = false }
+openidconnect = { version = "2.3.2", features = ["ureq"], default-features = false }
+rustls = { version = "0.20.6", default-features = false }
+rustls-pemfile = { version = "1.0.0", default-features = false }
 serde = { version = "1.0.136", features = ["derive"], default-features = false }
 serde_json = { version = "1.0.79", features = ["std"], default-features = false }
 toml = { version = "0.5.9", default-features = false }
@@ -78,10 +83,19 @@ wat = { version = "1.0", default-features = false }
 
 # binary dependencies
 enarx_wasm_tests  = { path = "tests/crates/enarx_wasm_tests", artifact = "bin", target = "wasm32-wasi", default-features = false }
+
 [target.'cfg(all(target_os = "linux", target_arch = "x86_64"))'.dev-dependencies]
 enarx_exec_tests = { path = "tests/crates/enarx_exec_tests", artifact = "bin", target = "x86_64-unknown-linux-musl", default-features = false }
 enarx_syscall_tests = { path = "tests/crates/enarx_syscall_tests", artifact = "bin", target = "x86_64-unknown-none", default-features = false }
 sev_attestation = { path = "tests/crates/sev_attestation", artifact = "bin", target = "x86_64-unknown-linux-musl", default-features = false }
+
+[target.'cfg(not(windows))'.dev-dependencies]
+async-h1 = { version = "2.3.3", default-features = false }
+async-std = { version = "1.11.0", default-features = false, features = ["attributes"] }
+drawbridge-server = { version = "0.1.0", default-features = false }
+futures = { version = "0.3.21", default-features = false }
+http-types = { version = "2.12.0", default-features = false }
+openidconnect = { version = "2.3.1", default-features = false }
 
 [profile.dev]
 strip = true

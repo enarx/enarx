@@ -56,13 +56,13 @@ enum Subcommands {
     Deploy(deploy::Options),
     #[clap(subcommand)]
     Platform(platform::Subcommands),
-    #[clap(subcommand, hide = true)]
+    #[clap(subcommand)]
     Package(package::Subcommands),
-    #[clap(subcommand, hide = true)]
+    #[clap(subcommand)]
     Repo(repo::Subcommands),
     #[clap(subcommand, hide = true)]
     Tree(tree::Subcommands),
-    #[clap(subcommand, hide = true)]
+    #[clap(subcommand)]
     User(user::Subcommands),
     #[clap(subcommand, hide = true)]
     Unstable(unstable::Subcommands),

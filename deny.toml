@@ -16,6 +16,7 @@ allow = [
     "MPL-2.0",
     "OpenSSL",
     "Zlib",
+    "AGPL-3.0",
 ]
 # Lint level for licenses considered copyleft
 copyleft = "deny"

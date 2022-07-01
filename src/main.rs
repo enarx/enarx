@@ -9,6 +9,7 @@
 
 mod backend;
 mod cli;
+mod drawbridge;
 mod exec;
 #[cfg(enarx_with_shim)]
 mod protobuf;
