@@ -9,7 +9,7 @@ repository = "https://github.com/enarx/enarx"
 license = "Apache-2.0"
 keywords = ["sgx", "sev", "kvm", "tee"]
 categories = ["os", "os::linux-apis", "network-programming", "hardware-support"]
-exclude = [".github/"]
+exclude = [".github/", "docs/", "tests/"]
 
 [features]
 default = []
