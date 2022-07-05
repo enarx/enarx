@@ -9,6 +9,10 @@ updates:
   schedule:
     interval: "daily"
 - package-ecosystem: "cargo"
+  directory: "crates/enarx-config"
+  schedule:
+    interval: "daily"
+- package-ecosystem: "cargo"
   directory: "crates/shim-kvm"
   schedule:
     interval: "daily"

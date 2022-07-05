@@ -35,6 +35,9 @@ jobs:
             path: .
             host: ubuntu-20.04
             flags: "--test integration --bin enarx -- wasm::"
+          - name: enarx-config
+            path: ./crates/enarx-config
+            host: [ self-hosted, linux, x64 ]
           - name: exec-wasmtime
             path: ./crates/exec-wasmtime
             host: [ self-hosted, linux, x64 ]

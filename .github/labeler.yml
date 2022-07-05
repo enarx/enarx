@@ -31,3 +31,6 @@ testing:
 
 sallyport:
 - crates/sallyport/**/*
+
+config:
+- crates/enarx-config/**/*

@@ -1,6 +1,6 @@
 codecov:
   notify:
-    after_n_builds: 8 # adjust to the number of jobs in .github/workflows/coverage.yml
+    after_n_builds: 9 # adjust to the number of jobs in .github/workflows/coverage.yml
     require_ci_to_pass: false
     wait_for_ci: false
 
@@ -22,6 +22,10 @@ coverage:
         threshold: 0.05%  # the leniency in hitting the target
       exec-wasmtime:
         paths: [ "crates/exec-wasmtime" ]
+        target: auto  # auto compares coverage to the previous base commit
+        threshold: 0.05%  # the leniency in hitting the target
+      enarx-config:
+        paths: [ "crates/enarx-config" ]
         target: auto  # auto compares coverage to the previous base commit
         threshold: 0.05%  # the leniency in hitting the target
       enarx:
