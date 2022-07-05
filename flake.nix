@@ -6,7 +6,7 @@
   inputs.flake-compat.flake = false;
   inputs.flake-compat.url = github:edolstra/flake-compat;
   inputs.flake-utils.url = github:numtide/flake-utils;
-  inputs.nixpkgs.url = github:NixOS/nixpkgs/nixos-unstable;
+  inputs.nixpkgs.url = github:profianinc/nixpkgs;
 
   outputs = { self, nixpkgs, fenix, flake-utils, ... }:
     with flake-utils.lib.system; flake-utils.lib.eachSystem [
