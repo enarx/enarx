@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 
-#![cfg(any(unix, target_os = "wasm32-wasi"))]
+#![cfg(any(unix, target_os = "wasi"))]
 
 // modified version of https://github.com/tokio-rs/mio/blob/master/examples/tcp_server.rs
 
