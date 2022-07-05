@@ -6,10 +6,10 @@ mod tls;
 use null::Null;
 
 use super::{Compiled, Connected, Loader};
-use crate::config::{File, Protocol};
 
 use anyhow::Result;
 use cap_std::net::{TcpListener, TcpStream};
+use enarx_config::{File, Protocol};
 use wasi_common::{file::FileCaps, WasiFile};
 use wasmtime::AsContextMut;
 use wasmtime_wasi::stdio::{stderr, stdin, stdout};

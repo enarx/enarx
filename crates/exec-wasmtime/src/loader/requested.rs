@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use super::super::config::Config;
 use super::super::{Package, PACKAGE_CONFIG, PACKAGE_ENTRYPOINT};
 use super::pki::PrivateKeyInfoExt;
 use super::{Attested, Loader, Requested};
@@ -18,6 +17,7 @@ use const_oid::db::rfc5280::{
     ID_CE_BASIC_CONSTRAINTS, ID_CE_EXT_KEY_USAGE, ID_CE_KEY_USAGE, ID_KP_CLIENT_AUTH,
     ID_KP_SERVER_AUTH,
 };
+use enarx_config::Config;
 use getrandom::getrandom;
 use pkcs8::PrivateKeyInfo;
 use rustls::{cipher_suite::*, kx_group::*, version::TLS13, *};

@@ -16,11 +16,11 @@ mod connected;
 mod pki;
 mod requested;
 
-use super::config::Config;
 use super::{Args, Package};
 
 use std::sync::Arc;
 
+use enarx_config::Config;
 use rustls::{ClientConfig, ServerConfig};
 use wasi_common::WasiCtx;
 use wasmtime::{Linker, Store, Val};

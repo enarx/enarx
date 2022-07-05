@@ -103,6 +103,7 @@ jobs:
       fail-fast: false
       matrix:
         crate:
+          - { name: enarx-config, path: crates/enarx-config }
           - { name: exec-wasmtime, path: crates/exec-wasmtime }
           - { name: shim-kvm, path: crates/shim-kvm }
           - { name: shim-sgx, path: crates/shim-sgx }

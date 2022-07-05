@@ -1,0 +1,20 @@
+[package]
+name = "enarx-config"
+version = "0.1.0"
+edition = "2021"
+description = "Configuration for a WASI application in an Enarx Keep"
+authors = ["The Enarx Project Developers"]
+homepage = "https://enarx.dev/"
+repository = "https://github.com/enarx/enarx_config"
+license = "Apache-2.0"
+keywords = ["enarx"]
+categories = ["config"]
+exclude = [".github/"]
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"], default-features = false }
+url = { version = "2.2.2", features = ["serde"], default-features = false }
+
+[dev-dependencies]
+toml = { version = "0.5.9", default-features = false }

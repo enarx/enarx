@@ -27,6 +27,7 @@ clap = { version = "3.1", features = ["env", "derive", "std"], default-features 
 colorful = { version = "0.2", default-features = false }
 dirs = { version = "4.0", default-features = false }
 enarx-exec-wasmtime = { version = "0.5.1", path = "crates/exec-wasmtime", default-features = false }
+enarx-config = { version = "0.1", path = "crates/enarx-config", default-features = false }
 env_logger = { version = "0.9", default-features = false }
 keyring = { version = "1.1.2", default-features = false }
 libc = { version = "0.2", default-features = false }

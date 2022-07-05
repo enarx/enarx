@@ -736,6 +736,7 @@ dependencies = [
  "colorful",
  "const-default",
  "dirs",
+ "enarx-config",
  "enarx-exec-wasmtime",
  "enarx-shim-kvm",
  "enarx-shim-sgx",
@@ -779,12 +780,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "enarx-config"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "toml",
+ "url",
+]
+
+[[package]]
 name = "enarx-exec-wasmtime"
 version = "0.5.1"
 dependencies = [
  "anyhow",
  "cap-std",
  "const-oid 0.9.0",
+ "enarx-config",
  "env_logger",
  "getrandom",
  "io-extras",
