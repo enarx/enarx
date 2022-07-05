@@ -9,7 +9,7 @@ set -e
 #
 
 # The crates we plan on releasing
-readonly CRATES_REG_TARGETS=(sallyport enarx-exec-wasmtime)
+readonly CRATES_REG_TARGETS=(enarx-config sallyport enarx-exec-wasmtime)
 readonly CRATES_UNKNOWN_NONE=(enarx-shim-kvm enarx-shim-sgx)
 readonly CRATES=( "${CRATES_REG_TARGETS[@]}" "${CRATES_UNKNOWN_NONE[@]}" enarx )
 
@@ -79,6 +79,7 @@ checkout_repository() {
     git remote add upstream https://github.com/enarx/enarx.git >/dev/null 2>&1
     git fetch --all --tags >/dev/null 2>&1
     git checkout -b "release/${version}" upstream/main >/dev/null 2>&1
+
     realpath "${REPO_DIR}"
 }
 
@@ -100,7 +101,7 @@ setup_mock_registry() {
 build() {
     time cargo build --release
     echo -e "\n\n\n"
-    time cargo run --release info
+    time cargo run --release platform info
     echo -e "\n\n\n"
     time cargo test
     echo -e "\n\n\n"
