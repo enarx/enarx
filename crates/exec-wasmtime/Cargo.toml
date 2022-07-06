@@ -1,6 +1,6 @@
 [package]
 name = "enarx-exec-wasmtime"
-version = "0.5.1"
+version = "0.6.0"
 edition = "2021"
 description = "Enarx WebAssembly Loader"
 authors = ["The Enarx Project Developers"]
@@ -10,7 +10,7 @@ license = "Apache-2.0"
 [dependencies]
 anyhow = { version = "1.0", default-features = false }
 const-oid = { version = "0.9.0", default-features = false }
-enarx-config = { path = "../enarx-config", version = "0.1", default-features = false }
+enarx-config = { path = "../enarx-config", version = "0.6", default-features = false }
 env_logger = { version = "0.9", default-features = false }
 getrandom = { version = "0.2.6", features = ["rdrand"], default-features = false }
 libc = { version = "0.2.126", default-features = false }
