@@ -114,3 +114,14 @@ Connection closed
 
 To modify the port and listen address see the `Enarx.toml` file in the
 example directory.
+
+### Transparent TLS
+
+Enarx automatically wraps the TCP connection in a TLS session, if you change the `proto` field in the `Enarx.toml` from `tcp` to `tls`.
+In this case you can connect to the echo server via `openssl`
+
+```
+$ openssl s_client -connect 127.0.0.1:9000
+```
+
+Enter your messages manually, and to end the connection enter `ctrl-d` or `Q`.
