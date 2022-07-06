@@ -5,7 +5,7 @@
 // modified version of https://github.com/tokio-rs/mio/blob/master/examples/tcp_server.rs
 
 use std::collections::HashMap;
-use std::io::{self, Read, Write};
+use std::io::{self, stdout, Read, Write};
 #[cfg(unix)]
 use std::os::unix::io::FromRawFd;
 #[cfg(target_os = "wasi")]
@@ -74,23 +74,29 @@ fn main() -> io::Result<()> {
                         }
                         Err(e) => {
                             // If it was any other kind of error, something went
-                            // wrong and we terminate with an error.
-                            return Err(e);
+                            eprintln!("accept: Error {e:#?}");
+                            break;
                         }
                     };
 
                     println!("Accepted connection from: {}", address);
-
                     let token = next(&mut unique_token);
                     poll.registry()
                         .register(&mut connection, token, Interest::WRITABLE)?;
 
                     connections.insert(token, connection);
+                    let _e = stdout().flush();
                 },
                 token => {
                     // Maybe received an event for a TCP connection.
                     let done = if let Some(connection) = connections.get_mut(&token) {
-                        handle_connection_event(poll.registry(), connection, event)?
+                        match handle_connection_event(poll.registry(), connection, event) {
+                            Err(e) => {
+                                eprintln!("Error {e:#?} handling connection.");
+                                true
+                            }
+                            Ok(done) => done,
+                        }
                     } else {
                         // Sporadic events happen, we can safely ignore them.
                         false
@@ -100,6 +106,7 @@ fn main() -> io::Result<()> {
                             poll.registry().deregister(&mut connection)?;
                         }
                     }
+                    let _e = stdout().flush();
                 }
             }
         }
@@ -120,11 +127,10 @@ fn handle_connection_event(
 ) -> io::Result<bool> {
     if event.is_writable() {
         // We can (maybe) write to the connection.
-        match connection.write(DATA) {
+        match connection.write_all(DATA) {
             // We want to write the entire `DATA` buffer in a single go. If we
             // write less we'll return a short write error (same as
             // `io::Write::write_all` does).
-            Ok(n) if n < DATA.len() => return Err(io::ErrorKind::WriteZero.into()),
             Ok(_) => {
                 // After we've written something we'll reregister the connection
                 // to only respond to readable events.
