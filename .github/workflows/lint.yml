@@ -28,6 +28,7 @@ jobs:
           - {name: enarx-config, path: crates/enarx-config/Cargo.toml}
           - {name: exec-wasmtime, path: crates/exec-wasmtime/Cargo.toml}
           - {name: sallyport, path: crates/sallyport/Cargo.toml}
+          - {name: tcp_server, path: examples/tcp_server/Cargo.toml}
 
   clippy:
     name: cargo clippy (${{ matrix.crate.name }})
@@ -63,6 +64,9 @@ jobs:
           - name: sallyport
             path: crates/sallyport/Cargo.toml
             target: --target=x86_64-unknown-none
+          - name: tcp_server
+            path: examples/tcp_server/Cargo.toml
+            target: --target=wasm32-wasi
 
   deny:
     name: cargo deny
