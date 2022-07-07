@@ -5,6 +5,9 @@ mod util;
 use util::{enarx, run};
 
 use std::env;
+use std::path::Path;
+
+use tempfile::Builder;
 
 /// Just a nice wrapper over `format!` for testing CLI invocations
 macro_rules! cmd {
@@ -16,7 +19,7 @@ macro_rules! cmd {
 #[async_std::test]
 async fn full() {
     run(|oidc_addr, db_addr| {
-        env::set_var("ENARX_CA_BUNDLE", "tests/client/testdata/ca.crt");
+        env::set_var("ENARX_CA_BUNDLE", concat!(env!("CARGO_MANIFEST_DIR"), "/tests/client/testdata/ca.crt"));
         env::set_var("ENARX_INSECURE_AUTH_TOKEN", "test-token");
 
         // test for failure when looking up a user that does not exist
@@ -75,7 +78,7 @@ async fn full() {
         let cmd = cmd!(
             "enarx package publish
             {db_addr}/testuser/publicrepo:0.1.0
-            tests/client/testdata/echo_server"
+            {}/tests/client/testdata/echo_server", env!("CARGO_MANIFEST_DIR")
         );
         assert_eq!(cmd.success, true);
 
@@ -90,4 +93,15 @@ async fn full() {
         // TODO: fetch package
     })
     .await;
+}
+
+#[test]
+fn test_config_init() {
+    let tmpdir = Builder::new().prefix("test_config_init").tempdir().unwrap();
+    env::set_current_dir(tmpdir.path()).unwrap();
+    let cmd = cmd!("enarx config init");
+    assert_eq!(cmd.success, true);
+    let cmd = cmd!("enarx config init");
+    assert_eq!(cmd.success, false);
+    assert_eq!(Path::new("Enarx.toml").exists(), true);
 }

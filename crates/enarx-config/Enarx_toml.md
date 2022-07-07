@@ -14,7 +14,9 @@ All elements are optional.
 #### Example
 
 ```toml
-env = { "FOO" = "foo", "BAR" = "bar" }
+[env]
+VAR1 = "var1"
+VAR2 = "var2"
 ```
 
 ### `args`
@@ -24,7 +26,10 @@ env = { "FOO" = "foo", "BAR" = "bar" }
 #### Example
 
 ```toml
-args = [ "arg1", "arg2" ]
+args = [
+     "--argument1",
+     "--argument2=foo"
+]
 ```
 
 ### `steward`
@@ -89,9 +94,20 @@ The default value is `443`.
 
 ## Example
 ```toml
-env = { "VAR1" = "var1", "VAR2" = "var2" }
-args = [ "--argument1", "--argument2=foo" ]
+# Configuration for a WASI application in an Enarx Keep
 
+# Arguments
+args = [
+     "--argument1",
+     "--argument2=foo"
+]
+
+# Environment variables
+[env]
+VAR1 = "var1"
+VAR2 = "var2"
+
+# Pre-opened file descriptors
 [[files]]
 kind = "null"
 
@@ -101,16 +117,18 @@ kind = "stdout"
 [[files]]
 kind = "stderr"
 
+# A listen socket
 [[files]]
 name = "LISTEN"
 kind = "listen"
-prot = "tls"
+prot = "tls" # or prot = "tcp"
 port = 12345
 
+# An outgoing connected socket
 [[files]]
 name = "CONNECT"
 kind = "connect"
-prot = "tcp"
+prot = "tcp" # or prot = "tls"
 host = "127.0.0.1"
 port = 23456
 ```

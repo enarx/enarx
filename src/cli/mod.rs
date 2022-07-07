@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
+mod config;
 mod deploy;
 mod package;
 mod platform;
@@ -55,6 +56,8 @@ enum Subcommands {
     Run(run::Options),
     Deploy(deploy::Options),
     #[clap(subcommand)]
+    Config(config::Subcommands),
+    #[clap(subcommand)]
     Platform(platform::Subcommands),
     #[clap(subcommand)]
     Package(package::Subcommands),
@@ -72,6 +75,7 @@ impl Subcommands {
     fn dispatch(self) -> anyhow::Result<()> {
         match self {
             Self::Run(cmd) => cmd.execute(),
+            Self::Config(subcmd) => subcmd.dispatch(),
             Self::Deploy(cmd) => cmd.execute(),
             Self::Platform(subcmd) => subcmd.dispatch(),
             Self::Package(subcmd) => subcmd.dispatch(),
