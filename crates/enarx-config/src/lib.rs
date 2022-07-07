@@ -10,8 +10,52 @@
 
 use std::{collections::HashMap, ops::Deref};
 
-use serde::{de::Error as _, Deserialize, Deserializer, Serialize};
+use serde::ser::SerializeStruct;
+use serde::{de::Error as _, Deserialize, Deserializer, Serialize, Serializer};
 use url::Url;
+
+/// Configuration file template
+pub const CONFIG_TEMPLATE: &str = r#"## Configuration for a WASI application in an Enarx Keep
+
+## Arguments
+# args = [
+#      "--argument1",
+#      "--argument2=foo"
+# ]
+
+## Steward
+# steward = "https://steward.example.com"
+
+## Environment variables
+# [env]
+# VAR1 = "var1"
+# VAR2 = "var2"
+
+## Pre-opened file descriptors
+[[files]]
+kind = "stdin"
+
+[[files]]
+kind = "stdout"
+
+[[files]]
+kind = "stderr"
+
+## A listen socket
+# [[files]]
+# name = "LISTEN"
+# kind = "listen"
+# prot = "tls" # or prot = "tcp"
+# port = 12345
+
+## An outgoing connected socket
+# [[files]]
+# name = "CONNECT"
+# kind = "connect"
+# prot = "tls" # or prot = "tcp"
+# host = "127.0.0.1"
+# port = 23456
+"#;
 
 const fn default_port() -> u16 {
     443
@@ -84,27 +128,46 @@ impl<'de> Deserialize<'de> for FileName {
 ///
 /// let config: Config = toml::from_str(CONFIG).unwrap();
 /// ```
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
 pub struct Config {
     /// The environment variables to provide to the application
     #[serde(default)]
-    #[serde(skip_serializing_if = "HashMap::is_empty")]
     pub env: HashMap<String, String>,
 
     /// The arguments to provide to the application
     #[serde(default)]
-    #[serde(skip_serializing_if = "Vec::is_empty")]
     pub args: Vec<String>,
 
     /// The array of pre-opened file descriptors
     #[serde(default)]
-    #[serde(skip_serializing_if = "Vec::is_empty")]
     pub files: Vec<File>,
 
     /// An optional Steward URL
     #[serde(default)]
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub steward: Option<Url>,
+}
+
+// TOML requires the `Vec`s to be serialized last, so manually implement `Serialize`
+impl Serialize for Config {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut s = serializer.serialize_struct("Config", 4)?;
+        if !self.args.is_empty() {
+            s.serialize_field("args", &self.args).unwrap();
+        }
+        if self.steward.is_some() {
+            s.serialize_field("steward", &self.steward).unwrap();
+        }
+        if !self.env.is_empty() {
+            s.serialize_field("env", &self.env).unwrap();
+        }
+        if !self.files.is_empty() {
+            s.serialize_field("files", &self.files).unwrap();
+        }
+        s.end()
+    }
 }
 
 impl Default for Config {
@@ -307,5 +370,19 @@ mod test {
             err.to_string(),
             "invalid value for `name` contains ':' for key `files` at line 2 column 9"
         );
+    }
+
+    #[test]
+    fn check_template() {
+        let cfg_str = CONFIG_TEMPLATE
+            .lines()
+            .map(|l| l.trim_start_matches("# "))
+            .collect::<Vec<_>>()
+            .join("\n");
+
+        let cfg: Config = toml::from_str(&cfg_str).unwrap();
+        let cfg_str = toml::to_string(&cfg).unwrap();
+        let cfg2: Config = toml::from_str(&cfg_str).unwrap();
+        assert_eq!(cfg, cfg2);
     }
 }
