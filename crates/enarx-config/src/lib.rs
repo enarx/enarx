@@ -10,7 +10,7 @@
 
 use std::{collections::HashMap, ops::Deref};
 
-use serde::{de::Error as _, Deserialize, Deserializer};
+use serde::{de::Error as _, Deserialize, Deserializer, Serialize};
 use url::Url;
 
 const fn default_port() -> u16 {
@@ -21,7 +21,7 @@ fn default_addr() -> String {
     "::".into()
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 /// Name assigned to a file descriptor
 ///
 /// This is used to export the `FD_NAMES` environment variable,
@@ -84,22 +84,26 @@ impl<'de> Deserialize<'de> for FileName {
 ///
 /// let config: Config = toml::from_str(CONFIG).unwrap();
 /// ```
-#[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Config {
     /// The environment variables to provide to the application
     #[serde(default)]
+    #[serde(skip_serializing_if = "HashMap::is_empty")]
     pub env: HashMap<String, String>,
 
     /// The arguments to provide to the application
     #[serde(default)]
+    #[serde(skip_serializing_if = "Vec::is_empty")]
     pub args: Vec<String>,
 
     /// The array of pre-opened file descriptors
     #[serde(default)]
+    #[serde(skip_serializing_if = "Vec::is_empty")]
     pub files: Vec<File>,
 
     /// An optional Steward URL
     #[serde(default)]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub steward: Option<Url>,
 }
 
@@ -121,7 +125,7 @@ impl Default for Config {
 }
 
 /// Parameters for a pre-opened file descriptor
-#[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind")]
 pub enum File {
     /// File descriptor of `/dev/null`
@@ -205,7 +209,7 @@ impl File {
 }
 
 /// Protocol to use for a connection
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Deserialize)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Protocol {
     /// Transparently wrap the TCP connection with the TLS protocol
     #[serde(rename = "tls")]
@@ -275,6 +279,8 @@ mod test {
                 },
             ]
         );
+
+        let _cfg_str = toml::to_string(&cfg).unwrap();
     }
 
     #[test]
