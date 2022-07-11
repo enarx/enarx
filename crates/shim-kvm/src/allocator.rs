@@ -290,6 +290,9 @@ impl EnarxAllocator {
             let p = self.alloc_pages(size);
 
             if let Ok(p) = p {
+                unsafe {
+                    core::ptr::write_bytes(p.as_ptr(), 0, size);
+                }
                 return (p.as_ptr(), size);
             }
 
