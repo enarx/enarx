@@ -459,12 +459,10 @@ impl Handler for HostCall<'_> {
                         eprintln!("SC> mmap(0, {}, …) = ENOMEM", length);
                         ENOMEM
                     })?;
-                eprintln!("SC> mmap(0, {}, …) = {:#?}", length, mem_slice.as_ptr());
-                unsafe {
-                    core::ptr::write_bytes(mem_slice.as_mut_ptr(), 0, length);
-                }
-                *NEXT_MMAP_RWLOCK.write().deref_mut() = virt_addr + (len_aligned as u64);
 
+                eprintln!("SC> mmap(0, {}, …) = {:#?}", length, mem_slice.as_ptr());
+
+                *NEXT_MMAP_RWLOCK.write().deref_mut() = virt_addr + (len_aligned as u64);
                 Ok(NonNull::new(mem_slice.as_mut_ptr() as *mut c_void).unwrap())
             }
             (addr, ..) => {
