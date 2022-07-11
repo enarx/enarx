@@ -1,10 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
 
+use std::borrow::Borrow;
+use std::ffi::OsStr;
 use std::fs::File;
+use std::io::{stderr, Write};
+use std::process::{Command, Stdio};
 use std::str::FromStr;
+use std::thread::spawn;
 use std::time::Duration;
 
-use anyhow::Context;
+use anyhow::{bail, Context};
 use camino::Utf8PathBuf;
 use drawbridge_client::types::{RepositoryContext, TagContext, UserContext};
 use drawbridge_client::Client;
@@ -94,23 +99,41 @@ fn parse_user(slug: &str) -> (String, &str) {
     (host.to_string(), user)
 }
 
-pub fn get_token(provided_token: Option<String>) -> anyhow::Result<String> {
-    let token = match provided_token {
-        Some(token) => token,
-        None => keyring::Entry::new("enarx", "oidc_domain")
+pub fn get_token(
+    provided_token: &Option<impl AsRef<str>>,
+    helper: &Option<impl AsRef<OsStr>>,
+) -> anyhow::Result<String> {
+    if let Some(token) = provided_token {
+        Ok(token.as_ref().into())
+    } else if let Some(helper) = helper {
+        let output = Command::new(helper)
+            .arg("show")
+            .output()
+            .context("Failed to execute credential helper")?;
+        stderr()
+            .write_all(&output.stderr)
+            .context("Failed to write stderr")?;
+        if output.status.success() {
+            String::from_utf8(output.stdout).context("Credential helper stdout is not valid UTF-8")
+        } else if let Some(code) = output.status.code() {
+            bail!("Credential helper failed with exit code {code}")
+        } else {
+            bail!("Credential helper was killed")
+        }
+    } else {
+        keyring::Entry::new("enarx", "oidc_domain")
             .get_password()
-            .context("Failed to read credentials from keyring")?,
-    };
-
-    Ok(token)
+            .context("Failed to read credentials from keyring")
+    }
 }
 
 pub fn client(
-    host: String,
-    insecure_token: Option<String>,
-    ca_bundle: Option<Utf8PathBuf>,
+    host: &str,
+    insecure_token: &Option<String>,
+    ca_bundle: &Option<Utf8PathBuf>,
+    helper: &Option<impl AsRef<OsStr>>,
 ) -> anyhow::Result<Client> {
-    let token = get_token(insecure_token)?;
+    let token = get_token(insecure_token, helper)?;
 
     let url = format!("https://{host}");
 
@@ -147,7 +170,12 @@ pub fn client(
     Ok(cl)
 }
 
-pub fn login(oidc_domain: Url, oidc_client_id: String) -> anyhow::Result<String> {
+pub fn login(
+    oidc_domain: &impl Borrow<Url>,
+    oidc_client_id: String,
+    helper: &Option<impl AsRef<OsStr>>,
+) -> anyhow::Result<String> {
+    let oidc_domain = oidc_domain.borrow();
     let dev_auth_url = DeviceAuthorizationUrl::new(format!("{oidc_domain}oauth/device/code"))
         .context("Failed to construct device authorization URL")?;
     let auth_url = AuthUrl::new(format!("{oidc_domain}authorize"))
@@ -188,9 +216,36 @@ pub fn login(oidc_domain: Url, oidc_client_id: String) -> anyhow::Result<String>
 
     // TODO: graceful timeout, so that users are not forced to Ctrl+C if the server errors
     let secret = res.access_token().secret();
-    keyring::Entry::new("enarx", "oidc_domain")
-        .set_password(secret)
-        .context("Failed to save user credentials")?;
+    if let Some(helper) = helper {
+        let mut helper = Command::new(helper)
+            .stdin(Stdio::piped())
+            .arg("insert")
+            .spawn()
+            .context("Failed to spawn credential helper command")?;
+        let mut stdin = helper.stdin.take().context("Failed to open stdin")?;
+        let secret = secret.clone();
+        spawn(move || {
+            stdin
+                .write_all(secret.as_bytes())
+                .context("Failed to write secret to credential helper stdin")
+        })
+        .join()
+        .expect("Failed to join stdin pipe thread")?;
+        let output = helper
+            .wait()
+            .context("Failed to wait for credential helper to exit")?;
+        if !output.success() {
+            if let Some(code) = output.code() {
+                bail!("Credential helper failed with exit code {code}")
+            } else {
+                bail!("Credential helper was killed")
+            }
+        }
+    } else {
+        keyring::Entry::new("enarx", "oidc_domain")
+            .set_password(secret)
+            .context("Failed to save user credentials")?;
+    }
     println!("Credentials saved locally.");
 
     Ok(secret.to_string())

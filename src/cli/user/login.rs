@@ -2,6 +2,8 @@
 
 use crate::drawbridge::login;
 
+use std::ffi::OsString;
+
 use clap::Args;
 use oauth2::url::Url;
 
@@ -12,16 +14,19 @@ pub struct Options {
     oidc_domain: Url,
     #[clap(long, default_value = "4NuaJxkQv8EZBeJKE56R57gKJbxrTLG2")]
     oidc_client_id: String,
+    #[clap(long, env = "ENARX_CREDENTIAL_HELPER")]
+    credential_helper: Option<OsString>,
 }
 
 impl Options {
     pub fn execute(self) -> anyhow::Result<()> {
         let Self {
-            oidc_domain,
+            ref oidc_domain,
             oidc_client_id,
+            ref credential_helper,
         } = self;
 
-        login(oidc_domain, oidc_client_id)?;
+        login(oidc_domain, oidc_client_id, credential_helper)?;
 
         println!("Login successful.");
 

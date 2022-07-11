@@ -2,6 +2,8 @@
 
 use crate::drawbridge::{client, get_token, login, UserSpec};
 
+use std::ffi::OsString;
+
 use anyhow::Context;
 use camino::Utf8PathBuf;
 use clap::Args;
@@ -19,6 +21,8 @@ pub struct Options {
     ca_bundle: Option<Utf8PathBuf>,
     #[clap(long, env = "ENARX_INSECURE_AUTH_TOKEN")]
     insecure_auth_token: Option<String>,
+    #[clap(long, env = "ENARX_CREDENTIAL_HELPER")]
+    credential_helper: Option<OsString>,
     #[clap(long, default_value = "https://auth.profian.com/")]
     oidc_domain: Url,
     #[clap(long, default_value = "4NuaJxkQv8EZBeJKE56R57gKJbxrTLG2")]
@@ -28,25 +32,38 @@ pub struct Options {
 
 impl Options {
     pub fn execute(self) -> anyhow::Result<()> {
+        let Self {
+            ref ca_bundle,
+            ref insecure_auth_token,
+            ref oidc_domain,
+            oidc_client_id,
+            ref spec,
+            ref credential_helper,
+        } = self;
+
         // If we don't find a token saved locally, initiate an interactive login
-        let token = match get_token(self.insecure_auth_token.clone()) {
+        let token = match get_token(insecure_auth_token, credential_helper) {
             Ok(token) => token,
-            _ => login(self.oidc_domain.clone(), self.oidc_client_id.clone())?,
+            _ => login(oidc_domain, oidc_client_id.clone(), credential_helper)?,
         };
 
-        let cl = client(self.spec.host, Some(token.clone()), self.ca_bundle)?;
-        let user = cl.user(&self.spec.ctx);
+        let cl = client(
+            &spec.host,
+            &Some(token.clone()),
+            ca_bundle,
+            credential_helper,
+        )?;
+        let user = cl.user(&spec.ctx);
 
         let provider_metadata = CoreProviderMetadata::discover(
-            &IssuerUrl::new(self.oidc_domain.to_string())
-                .context("Failed to construct issuer URL")?,
+            &IssuerUrl::new(oidc_domain.to_string()).context("Failed to construct issuer URL")?,
             http_client,
         )
         .context("Failed to discover provider metadata")?;
 
         let oidc_client = CoreClient::from_provider_metadata(
             provider_metadata,
-            ClientId::new(self.oidc_client_id),
+            ClientId::new(oidc_client_id),
             None,
         )
         .set_auth_type(AuthType::RequestBody);
