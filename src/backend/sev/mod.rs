@@ -34,13 +34,14 @@ struct SnpKeepPersonality {
 }
 
 impl KeepPersonality for SnpKeepPersonality {
-    fn map(vm_fd: &mut VmFd, region: &Region) -> std::io::Result<()> {
+    fn map(vm_fd: &mut VmFd, region: &Region) -> io::Result<()> {
         let memory_region = kvm_enc_region {
             addr: region.backing().as_ptr() as _,
             size: region.backing().len() as _,
         };
-        vm_fd.register_enc_memory_region(&memory_region).unwrap();
-        Ok(())
+        vm_fd
+            .register_enc_memory_region(&memory_region)
+            .map_err(|e| io::Error::from_raw_os_error(e.errno()))
     }
     fn enarxcall<'a>(
         &mut self,
