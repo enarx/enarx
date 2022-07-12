@@ -3,70 +3,59 @@
 use crate::backend::sev::Firmware;
 
 use std::fs::{self, remove_file};
-use std::io::{self, ErrorKind, Read, Seek};
+use std::io::{self, ErrorKind, Read};
 use std::os::unix::fs::OpenOptionsExt;
 use std::path::PathBuf;
 
 use anyhow::{anyhow, Context};
 
-pub enum UpdateMode {
-    ReadOnly,
-    ReadWrite,
-}
-
-/// Return a reader, which provides the VCEK
+/// Return a reader, which provides the VCEK certificate
 pub fn get_vcek_reader() -> anyhow::Result<Box<dyn Read>> {
-    get_vcek_reader_with_paths(paths(), UpdateMode::ReadWrite).map(|(_, r)| r)
+    get_vcek_reader_with_path(sev_cache_dir()?).map(|(_, r)| r)
 }
 
-/// Returns the list of search paths in order that they
-/// will be searched for the VCEK.
-pub fn paths() -> Vec<PathBuf> {
-    vec![home(), sys()].into_iter().flatten().collect()
-}
-
-/// Returns the "user-level" search path for the SEV
-/// certificate chain (`$XDG_CACHE_HOME` or `$HOME/.cache` with the `amd-sev` subdir).
-fn home() -> Option<PathBuf> {
-    dirs::cache_dir().map(append_rest)
+/// Update the global VCEK cache file
+pub fn vcek_write() -> anyhow::Result<()> {
+    vcek_write_with_path(sev_cache_dir()?)?;
+    Ok(())
 }
 
 /// Returns the "system-level" search path for the SEV
 /// certificate chain (`/var/cache/amd-sev`).
-fn sys() -> Option<PathBuf> {
-    let sys = PathBuf::from("/var/cache");
+pub fn sev_cache_dir() -> anyhow::Result<PathBuf> {
+    const CACHE_DIR: &str = "/var/cache";
+
+    let mut sys = PathBuf::from(CACHE_DIR);
     if sys.exists() && sys.is_dir() {
-        Some(append_rest(sys))
+        sys.push("amd-sev");
+        Ok(sys)
     } else {
-        None
+        Err(io::Error::from(ErrorKind::NotFound))
+            .with_context(|| format!("Directory `{CACHE_DIR}` does not exist!"))
     }
 }
 
-/// append the `amd-sev` subdir
-fn append_rest(mut path: PathBuf) -> PathBuf {
-    path.push("amd-sev");
-    path
+/// Returns a reader and a path, which provides the VCEK certificate
+pub fn get_vcek_reader_with_path(cache_dir: PathBuf) -> anyhow::Result<(PathBuf, Box<dyn Read>)> {
+    let (_, path) = get_vcek_url_path()?;
+
+    read(cache_dir, path)
 }
 
-/// Returns a reader, which provides the VCEK searching the provided paths
-pub fn get_vcek_reader_with_paths(
-    paths: Vec<PathBuf>,
-    mode: UpdateMode,
-) -> anyhow::Result<(PathBuf, Box<dyn Read>)> {
+/// Write the VCEK certificate to a cache directory
+///
+/// Downloads the certificate from the standard URL, and stores it in the provided directory.
+/// Returns the path, where it has been stored.
+pub fn vcek_write_with_path(cache_dir: PathBuf) -> anyhow::Result<PathBuf> {
     let (url, path) = get_vcek_url_path()?;
 
-    get_or_write(
-        paths,
-        path,
-        || {
-            let call = ureq::get(&url)
-                .call()
-                .context(format!("Error getting vcek from URL {}", &url))?;
-            let reader = call.into_reader();
-            Ok(Box::new(reader))
-        },
-        mode,
-    )
+    write(cache_dir, path, || {
+        let call = ureq::get(&url)
+            .call()
+            .with_context(|| format!("Error getting vcek from URL {}", &url))?;
+        let reader = call.into_reader();
+        Ok(Box::new(reader))
+    })
 }
 
 fn get_vcek_url_path() -> anyhow::Result<(String, String)> {
@@ -91,117 +80,90 @@ fn get_vcek_url_path() -> anyhow::Result<(String, String)> {
     Ok((url, path))
 }
 
-// get a cached file, or write the file with the reader provided by the contents function
-fn get_or_write(
-    paths: Vec<PathBuf>,
+// read the cached file
+fn read(cache_dir: PathBuf, name: String) -> anyhow::Result<(PathBuf, Box<dyn Read>)> {
+    let mut path_locked = cache_dir.clone();
+    path_locked.push(name.clone() + ".lck");
+
+    let mut path = cache_dir;
+    path.push(&name);
+
+    let mut retries = 100;
+
+    while retries > 0 {
+        let file =
+            fs::File::open(&path).with_context(|| format!("Error reading `{}`", path.display()))?;
+
+        if !path_locked.exists() {
+            // no write in progress
+            return Ok((path, Box::new(file)));
+        }
+
+        // sleep, write may be in progress
+        std::thread::sleep(std::time::Duration::from_millis(200));
+        retries -= 1;
+    }
+
+    Err(io::Error::from(ErrorKind::InvalidData))
+        .with_context(|| format!("Potential stale lock file {:?}", &path_locked))
+}
+
+// write the file with the reader provided by the contents function
+fn write(
+    cache_dir: PathBuf,
     name: String,
     contents: impl Fn() -> anyhow::Result<Box<dyn Read>>,
-    mode: UpdateMode,
-) -> anyhow::Result<(PathBuf, Box<dyn Read>)> {
-    // Fast path, try to read from any location first
-    for base in &paths {
-        let mut path_locked = base.clone();
-        path_locked.push(name.clone() + ".lck");
+) -> anyhow::Result<PathBuf> {
+    // ignore error, error is handled in lock file creation
+    let _ = fs::create_dir_all(&cache_dir);
 
-        let mut path = base.clone();
-        path.push(&name);
+    let mut path_locked = cache_dir.clone();
+    path_locked.push(name.clone() + ".lck");
 
-        if let Ok(file) = fs::File::open(&path) {
-            if !path_locked.exists() {
-                // no write in progress
-                return Ok((path, Box::new(file)));
-            }
-        }
+    let mut path = cache_dir;
+    path.push(&name);
+
+    if path.exists() {
+        return Ok(path);
     }
 
-    if matches!(mode, UpdateMode::ReadWrite) {
-        // Nothing found, try to create a cache file, which may collide with other instances doing so also
-        for base in paths {
-            // ignore error, error is handled in lock file creation
-            let _ = fs::create_dir_all(&base);
+    let _lock = fs::OpenOptions::new()
+        .mode(0o644)
+        .write(true)
+        .create_new(true)
+        .open(&path_locked)
+        .with_context(|| format!("Error creating lockfile {}", path_locked.display()))?;
 
-            let mut path_locked = base.clone();
-            path_locked.push(name.clone() + ".lck");
+    let mut file = fs::OpenOptions::new()
+        .mode(0o644)
+        .write(true)
+        .read(true)
+        .create_new(true)
+        .open(&path)
+        .with_context(|| format!("Error creating {}", path.display()))
+        .map_err(|err| {
+            let _ = remove_file(&path_locked);
+            err
+        })?;
 
-            let mut path = base.clone();
-            path.push(&name);
+    let _ = contents()
+        .and_then(|mut contents| {
+            io::copy(&mut contents, &mut file).with_context(|| format!("Error writing {:?}", &path))
+        })
+        .map_err(|e| {
+            let _ = remove_file(&path);
+            let _ = remove_file(&path_locked);
+            e
+        })?;
 
-            let mut retries = 100;
+    let _ = remove_file(&path_locked);
 
-            while retries > 0 {
-                match fs::OpenOptions::new()
-                    .mode(0o644)
-                    .write(true)
-                    .create_new(true)
-                    .open(&path_locked)
-                {
-                    Err(e) if e.kind() == ErrorKind::AlreadyExists => {
-                        // sleep, write may be in progress
-                        std::thread::sleep(std::time::Duration::from_millis(200));
-                        retries -= 1;
-                        continue;
-                    }
-                    Err(e) if e.kind() == ErrorKind::PermissionDenied => {
-                        if let Ok(file) = fs::File::open(&path) {
-                            return Ok((path, Box::new(file)));
-                        }
-                        break;
-                    }
-                    Ok(lock) => {
-                        match fs::File::open(&path) {
-                            Ok(file) => {
-                                drop(lock);
-                                let _ = remove_file(&path_locked);
-                                return Ok((path, Box::new(file)));
-                            }
-                            Err(e) if e.kind() == ErrorKind::NotFound => {
-                                // write the file ourselves
-                                if let Ok(mut file) = fs::OpenOptions::new()
-                                    .mode(0o644)
-                                    .write(true)
-                                    .read(true)
-                                    .create_new(true)
-                                    .open(&path)
-                                {
-                                    let res = contents().and_then(|mut contents| {
-                                        io::copy(&mut contents, &mut file)
-                                            .context(format!("Error writing {:?}", &path))
-                                    });
-                                    if let Err(e) = res {
-                                        drop(file);
-                                        let _ = remove_file(&path_locked);
-                                        return Err(e);
-                                    }
-                                    let _ = remove_file(&path_locked);
-                                    file.rewind()
-                                        .context(format!("Error rewinding {:?}", &path))?;
-                                    return Ok((path, Box::new(file)));
-                                }
-                                let _ = remove_file(&path_locked);
-                                break;
-                            }
-                            Err(_) => {
-                                let _ = remove_file(&path_locked);
-                                break;
-                            }
-                        }
-                    }
-                    Err(_) => break,
-                }
-            }
-            if retries == 0 {
-                return Err(io::Error::from(ErrorKind::NotFound))
-                    .context(format!("Potential stale lock file {:?}", &path_locked));
-            }
-        }
-    }
-
-    Err(io::Error::from(ErrorKind::NotFound).into())
+    Ok(path)
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{get_or_write, UpdateMode};
+    use super::{read, write};
 
     use std::io::{self, ErrorKind, Read};
     use std::path::PathBuf;
@@ -209,36 +171,57 @@ mod tests {
     use tempfile::tempdir;
 
     #[test]
-    fn test_get_or_write() -> anyhow::Result<()> {
+    fn test_write() -> anyhow::Result<()> {
         let mut join_handles = Vec::new();
         let tmp_dir = tempdir()?;
-        let tmp_dir2 = tempdir()?;
 
-        let mut file_path = tmp_dir.path().to_path_buf();
+        let tmp_dir_path = tmp_dir.path().to_path_buf();
+
+        let mut file_path = tmp_dir_path.clone();
         file_path.push("test");
+
+        let file_path_write = file_path.clone();
+
+        join_handles.push(thread::spawn(move || {
+            thread::sleep(std::time::Duration::from_millis(500));
+            let path = write(tmp_dir_path.clone(), "test".to_string(), || {
+                Ok(Box::new(b"test test".as_slice()))
+            })
+            .unwrap();
+            assert_eq!(file_path_write, path);
+        }));
 
         for _ in 1..10 {
             let tmp_dir_path = tmp_dir.path().to_path_buf();
-            let tmp_dir_path2 = tmp_dir2.path().to_path_buf();
             let file_path = file_path.clone();
             join_handles.push(thread::spawn(move || {
-                let (path, mut r) = get_or_write(
-                    vec![
-                        PathBuf::from(
-                            "/proc/ENOENT DIRECTORY SHOULD NOT EXIST AND NOT BE ABLE TO CREATE/",
-                        ),
-                        tmp_dir_path,
-                        tmp_dir_path2,
-                    ],
-                    "test".to_string(),
-                    || Ok(Box::new(b"test test".as_slice())),
-                    UpdateMode::ReadWrite,
-                )
-                .unwrap();
-                let mut buffer = String::new();
-                r.read_to_string(&mut buffer).unwrap();
-                assert_eq!(buffer, "test test");
-                assert_eq!(file_path, path);
+                let mut retries = 10;
+
+                while retries > 0 {
+                    match read(tmp_dir_path.clone(), "test".to_string()) {
+                        Err(e)
+                            if matches!(
+                                e.downcast_ref::<io::Error>().map(io::Error::kind),
+                                Some(io::ErrorKind::NotFound)
+                            ) =>
+                        {
+                            // sleep, write is in progress
+                            thread::sleep(std::time::Duration::from_millis(100));
+                            retries -= 1;
+                            continue;
+                        }
+                        Ok((path, mut r)) => {
+                            assert_eq!(file_path, path);
+                            let mut buffer = String::new();
+                            r.read_to_string(&mut buffer).unwrap();
+                            assert_eq!(buffer, "test test");
+                            break;
+                        }
+                        Err(e) => panic!("{e}"),
+                    }
+                }
+
+                assert!(retries > 0);
             }));
         }
 
@@ -249,16 +232,15 @@ mod tests {
     }
 
     #[test]
-    fn test_empty_cache_path() -> anyhow::Result<()> {
-        let res = get_or_write(
-            vec![PathBuf::from(
-                "/proc/ENOENT DIRECTORY SHOULD NOT EXIST AND NOT BE ABLE TO CREATE/",
-            )],
+    fn test_invalid_cache_path() -> anyhow::Result<()> {
+        let res = write(
+            PathBuf::from("/proc/ENOENT DIRECTORY SHOULD NOT EXIST AND NOT BE ABLE TO CREATE/"),
             "test".to_string(),
             || Ok(Box::new(b"test test".as_slice())),
-            UpdateMode::ReadOnly,
         );
         let error = res.err().unwrap();
+
+        dbg!(&error);
 
         assert!(matches!(
             error.downcast_ref::<io::Error>().map(io::Error::kind),
