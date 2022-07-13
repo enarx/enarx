@@ -115,10 +115,15 @@ fn sgx_enarxcall<'a>(
                     .map_err(io::Error::from_raw_os_error)
                     .context("sgx_enarxcall deref")?
             };
-
-            let akid = get_attestation_key_id().context("error obtaining attestation key id")?;
-            let pkeysize = get_key_size(akid.clone()).context("error obtaining key size")?;
-            *ret = get_target_info(akid, pkeysize, out_buf).context("error getting target info")?;
+            let akid = get_attestation_key_id().context(
+                "Error obtaining attestation key id. Check your aesmd / pccs service installation.",
+            )?;
+            let pkeysize = get_key_size(akid.clone()).context(
+                "Error obtaining key size. Check your aesmd / pccs service installation.",
+            )?;
+            *ret = get_target_info(akid, pkeysize, out_buf).context(
+                "Error getting target info. Check your aesmd / pccs service installation.",
+            )?;
 
             Ok(None)
         }
@@ -146,8 +151,11 @@ fn sgx_enarxcall<'a>(
                     .context("sgx_enarxcall deref")?
             };
 
-            let akid = get_attestation_key_id().context("error obtaining attestation key id")?;
-            *ret = get_quote(report_buf, akid, quote_buf).context("error getting quote")?;
+            let akid = get_attestation_key_id().context(
+                "Error obtaining attestation key id. Check your aesmd / pccs service installation.",
+            )?;
+            *ret = get_quote(report_buf, akid, quote_buf)
+                .context("Error getting quote. Check your aesmd / pccs service installation.")?;
 
             Ok(None)
         }
@@ -157,8 +165,12 @@ fn sgx_enarxcall<'a>(
             ret,
             ..
         } => {
-            let akid = get_attestation_key_id().context("error obtaining attestation key id")?;
-            *ret = get_quote_size(akid).context("error getting quote size")?;
+            let akid = get_attestation_key_id().context(
+                "Error obtaining attestation key id. Check your aesmd / pccs service installation.",
+            )?;
+            *ret = get_quote_size(akid).context(
+                "Error getting quote size. Check your aesmd / pccs service installation.",
+            )?;
 
             Ok(None)
         }
