@@ -105,8 +105,9 @@ impl fmt::Display for Info<'_> {
         writeln!(f, "System Info: {}", self.system_info)?;
 
         for backend in backends {
-            let data = backend.data();
-            let pass = data.iter().all(|x| x.pass);
+            let mut data = backend.data();
+            data.extend(backend.config());
+            let pass = backend.have() && backend.configured();
             let icon = get_icon(is_atty, pass);
 
             writeln!(f, "{} Backend: {}", icon, backend.name())?;

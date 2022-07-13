@@ -97,6 +97,10 @@ impl crate::backend::Backend for Backend {
         data
     }
 
+    fn config(&self) -> Vec<super::Datum> {
+        vec![]
+    }
+
     #[inline]
     fn keep(&self, shim: &[u8], exec: &[u8]) -> Result<Arc<dyn super::Keep>> {
         builder::Builder::load(shim, exec)

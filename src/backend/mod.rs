@@ -52,6 +52,9 @@ pub trait Backend: Sync + Send {
     /// The tests that show platform support for the backend
     fn data(&self) -> Vec<Datum>;
 
+    /// The tests that show machine configuration support for the backend
+    fn config(&self) -> Vec<Datum>;
+
     /// Create a keep instance
     fn keep(&self, shim: &[u8], exec: &[u8]) -> Result<Arc<dyn Keep>>;
 
@@ -61,6 +64,11 @@ pub trait Backend: Sync + Send {
     /// Whether or not the platform has support for this keep type
     fn have(&self) -> bool {
         !self.data().iter().fold(false, |e, d| e | !d.pass)
+    }
+
+    /// Whether or not the machine is correctly configured for this keep type
+    fn configured(&self) -> bool {
+        !self.config().iter().fold(false, |e, d| e | !d.pass)
     }
 
     #[cfg(windows)]
@@ -108,14 +116,58 @@ pub enum Command {
     Exit(c_int),
 }
 
+struct NotSupportedBackend(&'static str);
+
+impl Backend for NotSupportedBackend {
+    fn name(&self) -> &'static str {
+        self.0
+    }
+
+    fn shim(&self) -> &'static [u8] {
+        &[]
+    }
+
+    fn data(&self) -> Vec<Datum> {
+        vec![]
+    }
+
+    fn config(&self) -> Vec<Datum> {
+        vec![]
+    }
+
+    #[inline]
+    fn have(&self) -> bool {
+        false
+    }
+
+    #[inline]
+    fn configured(&self) -> bool {
+        false
+    }
+
+    fn keep(&self, _shim: &[u8], _exec: &[u8]) -> Result<Arc<dyn Keep>> {
+        unimplemented!()
+    }
+
+    fn hash(&self, _shim: &[u8], _exec: &[u8]) -> Result<Vec<u8>> {
+        unimplemented!()
+    }
+}
+
 pub static BACKENDS: Lazy<Vec<Box<dyn Backend>>> = Lazy::new(|| {
     vec![
         #[cfg(enarx_with_shim)]
         Box::new(sgx::Backend),
+        #[cfg(not(enarx_with_shim))]
+        Box::new(NotSupportedBackend("sgx")),
         #[cfg(enarx_with_shim)]
         Box::new(sev::Backend),
+        #[cfg(not(enarx_with_shim))]
+        Box::new(NotSupportedBackend("sev")),
         #[cfg(enarx_with_shim)]
         Box::new(kvm::Backend),
+        #[cfg(not(enarx_with_shim))]
+        Box::new(NotSupportedBackend("kvm")),
         Box::new(nil::Backend::default()),
     ]
 });

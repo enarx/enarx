@@ -14,7 +14,7 @@ use crate::backend::{Backend, BACKENDS};
 use std::ops::Deref;
 use std::str::FromStr;
 
-use anyhow::anyhow;
+use anyhow::{anyhow, bail};
 use clap::{Args, Parser, Subcommand};
 use log::info;
 
@@ -96,15 +96,24 @@ pub struct BackendOptions {
 impl BackendOptions {
     pub fn pick(&self) -> anyhow::Result<&dyn Backend> {
         if let Some(ref name) = self.backend {
-            BACKENDS
-                .deref()
-                .iter()
-                .find(|b| b.have() && b.name() == name)
-                .ok_or_else(|| anyhow!("Keep backend {:?} is unsupported.", name))
+            match BACKENDS.deref().iter().find(|b| b.name() == name) {
+                None => {
+                    bail!("Keep backend identifier {:?} is unknown.", name)
+                }
+                Some(backend) => {
+                    if !backend.have() {
+                        bail!("Keep backend {:?} is not available on this platform.", name)
+                    }
+                    if !backend.configured() {
+                        bail!("Keep backend {:?} is available on this platform, but the machine is misconfigured. Please check with `enarx platform info`.", name)
+                    }
+                    Ok(backend)
+                }
+            }
         } else {
             BACKENDS.deref().iter().find(|b| b.have()).ok_or_else(|| {
                 anyhow!(
-                    "No supported backend found. Please check your machine with `$ enarx info`."
+                    "No supported backend found. Please check your machine with `$ enarx platform info`."
                 )
             })
         }
