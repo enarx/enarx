@@ -89,6 +89,19 @@ fn rust_sev_attestation() {
 }
 
 #[test]
+#[cfg_attr(not(host_can_test_sgx), ignore = "Backend does not support SGX")]
+#[serial]
+fn rust_sgx_attestation() {
+    if let Ok(backend) = std::env::var("ENARX_BACKEND") {
+        if backend != "sgx" {
+            return;
+        }
+    }
+    let bin = env!("CARGO_BIN_FILE_ENARX_EXEC_TESTS_sgx_attestation");
+    run_test(bin, 0, None, None, None);
+}
+
+#[test]
 #[serial]
 fn memspike() {
     let bin = env!("CARGO_BIN_FILE_ENARX_EXEC_TESTS_memspike");
