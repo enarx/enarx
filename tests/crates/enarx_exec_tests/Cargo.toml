@@ -6,3 +6,4 @@ license = "Apache-2.0"
 
 [dependencies]
 libc = { version = "0.2.102", default-features = false }
+sallyport = { path = "../../../crates/sallyport", default-features = false }
