@@ -448,7 +448,9 @@ mod tests {
 
         let mut output = [1u8; SGX_TI_SIZE];
 
-        let akid = get_attestation_key_id().expect("error obtaining attestation key id");
+        let akid = get_attestation_key_id().expect(
+            "Error obtaining attestation key id. Check your aesmd / pccs service installation.",
+        );
         let pkeysize = get_key_size(akid.clone()).expect("error obtaining key size");
         assert_eq!(
             get_target_info(akid, pkeysize, &mut output).unwrap(),
