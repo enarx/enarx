@@ -250,31 +250,37 @@ fn get_key_ids(num_key_ids: u32) -> Result<Vec<Vec<u8>>, Error> {
         .collect())
 }
 
+pub fn get_algorithm_id(key_id: &[u8]) -> u32 {
+    const ALGORITHM_OFFSET: usize = 154;
+
+    if key_id.len() < ALGORITHM_OFFSET + 4 {
+        return u32::MAX;
+    }
+
+    let mut bytes: [u8; 4] = Default::default();
+    bytes.copy_from_slice(&key_id[ALGORITHM_OFFSET..ALGORITHM_OFFSET + 4]);
+    u32::from_le_bytes(bytes)
+}
+
 /// Gets Att Key ID
 pub fn get_attestation_key_id() -> Result<Vec<u8>, Error> {
+    const SGX_QL_ALG_ECDSA_P256: u32 = 2;
+
     let num_key_ids = get_key_id_num()?;
-    if num_key_ids != 1 {
-        return Err(Error::new(
-            ErrorKind::Other,
-            format!("Unexpected number of key IDs: {} != 1", num_key_ids),
-        ));
+
+    if num_key_ids == 0 {
+        return Err(Error::new(ErrorKind::Other, "No attestation key IDs"));
     }
 
     let key_ids = get_key_ids(num_key_ids)?;
 
-    if key_ids.len() != 1 {
-        return Err(Error::new(
-            ErrorKind::Other,
-            format!(
-                "GeSupportedAttKeyIDs: invalid count: {} != 1",
-                key_ids.len()
-            ),
-        ));
-    }
+    // Select the ECDSA key that will be used later, if ECDSA is not supported the key id is still present - https://github.com/intel/linux-sgx/issues/536
+    let ecdsa_key_id = key_ids
+        .into_iter()
+        .find(|id| SGX_QL_ALG_ECDSA_P256 == get_algorithm_id(id))
+        .expect("ECDSA attestation key not available.");
 
-    let akid = key_ids.get(0).unwrap().clone();
-
-    Ok(akid)
+    Ok(ecdsa_key_id)
 }
 
 /// Fills the Target Info of the QE into the output buffer specified and
