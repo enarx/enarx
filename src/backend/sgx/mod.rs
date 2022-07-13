@@ -47,7 +47,7 @@ impl crate::backend::Backend for Backend {
     }
 
     fn data(&self) -> Vec<super::Datum> {
-        let mut data = vec![data::dev_sgx_enclave(), data::aesm_socket()];
+        let mut data = vec![data::dev_sgx_enclave()];
 
         data.extend(data::CPUIDS.iter().map(|c| c.into()));
 
@@ -55,6 +55,10 @@ impl crate::backend::Backend for Backend {
         data.push(data::epc_size(max));
 
         data
+    }
+
+    fn config(&self) -> Vec<super::Datum> {
+        vec![data::aesm_socket()]
     }
 
     #[inline]

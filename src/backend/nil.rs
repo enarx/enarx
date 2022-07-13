@@ -30,7 +30,15 @@ impl crate::backend::Backend for Backend {
         true
     }
 
+    #[inline]
+    fn configured(&self) -> bool {
+        true
+    }
+
     fn data(&self) -> Vec<super::Datum> {
+        vec![]
+    }
+    fn config(&self) -> Vec<super::Datum> {
         vec![]
     }
 

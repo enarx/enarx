@@ -93,17 +93,17 @@ impl super::Backend for Backend {
     }
 
     fn data(&self) -> Vec<super::Datum> {
-        let mut data = vec![
-            dev_sev(),
-            sev_enabled_in_kernel(),
-            dev_sev_readable(),
-            dev_sev_writable(),
-            dev_kvm(),
-            kvm_version(),
-            has_reasonable_memlock_rlimit(),
-        ];
+        let mut data = vec![dev_sev(), sev_enabled_in_kernel(), dev_kvm(), kvm_version()];
         data.extend(CPUIDS.iter().map(|c| c.into()));
         data
+    }
+
+    fn config(&self) -> Vec<super::Datum> {
+        vec![
+            dev_sev_readable(),
+            dev_sev_writable(),
+            has_reasonable_memlock_rlimit(),
+        ]
     }
 
     #[inline]
