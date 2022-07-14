@@ -84,7 +84,7 @@ fn rust_sev_attestation() {
             return;
         }
     }
-    let bin = env!("CARGO_BIN_FILE_SEV_ATTESTATION_sev_attestation");
+    let bin = env!("CARGO_BIN_FILE_ENARX_EXEC_TESTS_sev_attestation");
     run_test(bin, 0, None, None, None);
 }
 

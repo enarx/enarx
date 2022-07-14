@@ -33,10 +33,6 @@ updates:
   schedule:
     interval: "daily"
 - package-ecosystem: "cargo"
-  directory: "tests/crates/sev_attestation"
-  schedule:
-    interval: "daily"
-- package-ecosystem: "cargo"
   directory: "tests/crates/enarx_wasm_tests"
   schedule:
     interval: "daily"
