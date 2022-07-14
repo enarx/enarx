@@ -162,6 +162,7 @@ bump_version() {
     sd -- 'nightly-\d+-\d+-\d+' "${rust_toolchain_version}" docs/Install.md
     sd -- 'Enarx\s+\d+\.\d+\.\d+-?\w*\.?\d?' "Enarx ${version}" docs/Install.md
     sd -- '--version \d+\.\d+\.\d+-?\w*\.?\d?' "--version ${version}" docs/Install.md
+    sd -- 'v\d+.\d+.\d+-?\w*\.?\d?' "v${version}" docs/Quickstart.mdx
 }
 
 #
