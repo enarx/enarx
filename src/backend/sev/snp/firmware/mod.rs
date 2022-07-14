@@ -183,6 +183,8 @@ pub struct TcbVersion {
 #[cfg(test)]
 mod test {
     use super::*;
+    use std::mem::size_of;
+    use testaso::testaso;
 
     #[test]
     fn test_vcek_url() {
@@ -205,5 +207,19 @@ mod test {
         };
 
         assert_eq!(URL, id.vcek_url(&tcb));
+    }
+
+    #[test]
+    fn test_tcbversion() {
+        assert_eq!(size_of::<TcbVersion>(), size_of::<u64>())
+    }
+
+    testaso! {
+        struct TcbVersion: 1, 8 => {
+            bootloader: 0,
+            tee: 1,
+            snp: 6,
+            microcode: 7
+        }
     }
 }

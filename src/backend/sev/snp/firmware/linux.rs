@@ -57,7 +57,7 @@ impl<'a> GetId<'a> {
 /// Query the SEV-SNP platform status.
 ///
 /// (Chapter 8.3; Table 38)
-#[derive(Default)]
+#[derive(Default, Debug)]
 #[repr(C)]
 struct SnpPlatformStatus {
     /// The firmware API version (major.minor)
@@ -168,5 +168,24 @@ impl Firmware {
 impl AsRawFd for Firmware {
     fn as_raw_fd(&self) -> RawFd {
         self.0.as_raw_fd()
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use testaso::testaso;
+
+    testaso! {
+        struct SnpPlatformStatus: 4, 32 => {
+            version: 0,
+            state: 2,
+            is_rmp_init: 3,
+            build_id: 4,
+            mask_chip_id: 8,
+            guest_count: 12,
+            platform_tcb_version: 16,
+            reported_tcb_version: 24
+        }
     }
 }
