@@ -1,4 +1,4 @@
-# The Enarx.toml configuration file
+# Configure Enarx.toml
 
 With the `Enarx.toml` configuration file, environment variables, arguments and pre-opened file descriptors
 can be passed to the WASM application.
