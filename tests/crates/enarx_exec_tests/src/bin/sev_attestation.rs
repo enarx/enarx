@@ -2,15 +2,37 @@
 
 #![feature(core_ffi_c)]
 
+use enarx_exec_tests::musl_fsbase_fix;
+
 use std::arch::asm;
 use std::convert::TryFrom;
 use std::mem::size_of;
 
 use sallyport::item::enarxcall::SYS_GETATT;
-use sallyport::item::syscall::ARCH_SET_FS;
-use sallyport::libc::SYS_arch_prctl;
+
+musl_fsbase_fix!();
 
 pub const MAX_AUTHTAG_LEN: usize = 32;
+
+/// TcbVersion represents the version of the firmware.
+///
+/// (Chapter 2.2; Table 3)
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[repr(C)]
+pub struct TcbVersion {
+    /// Current bootloader version.
+    /// SVN of PSP bootloader.
+    pub bootloader: u8,
+    /// Current PSP OS version.
+    /// SVN of PSP operating system.
+    pub tee: u8,
+    pub _reserved: [u8; 4],
+    /// Version of the SNP firmware.
+    /// Security Version Number (SVN) of SNP firmware.
+    pub snp: u8,
+    /// Lowest current patch level of all the cores.
+    pub microcode: u8,
+}
 
 #[repr(C)]
 pub struct SnpGuestMsgHdr {
@@ -53,7 +75,7 @@ struct SnpReportData {
     pub image_id: [u8; 16],
     pub vmpl: u32,
     pub sig_algo: u32,
-    pub current_tcb: u64,
+    pub current_tcb: TcbVersion,
     pub plat_info: u64,
     pub author_key_en: u32,
     rsvd1: u32,
@@ -64,10 +86,10 @@ struct SnpReportData {
     pub author_key_digest: [u8; 48],
     pub report_id: [u8; 32],
     pub report_id_ma: [u8; 32],
-    pub reported_tcb: u64,
+    pub reported_tcb: TcbVersion,
     rsvd2: [u8; 24],
     pub chip_id: [u8; 64],
-    pub committed_tcb: u64,
+    pub committed_tcb: TcbVersion,
     pub current_build: u8,
     pub current_minor: u8,
     pub current_major: u8,
@@ -103,31 +125,6 @@ impl TryFrom<u64> for TeeTech {
             _ => Err(TryFromIntError(())),
         }
     }
-}
-
-/// Set FSBASE
-///
-/// Overwrite the only location in musl, which uses the `arch_prctl` syscall
-#[no_mangle]
-pub extern "C" fn __set_thread_area(p: *mut core::ffi::c_void) -> core::ffi::c_int {
-    let mut rax: usize = 0;
-    if unsafe { core::arch::x86_64::__cpuid(7).ebx } & 1 == 1 {
-        unsafe {
-            std::arch::asm!("wrfsbase {}", in(reg) p);
-        }
-    } else {
-        unsafe {
-            std::arch::asm!(
-            "syscall",
-            inlateout("rax")  SYS_arch_prctl => rax,
-            in("rdi") ARCH_SET_FS,
-            in("rsi") p,
-            lateout("rcx") _, // clobbered
-            lateout("r11") _, // clobbered
-            );
-        }
-    }
-    rax as _
 }
 
 pub fn get_att_syscall(
@@ -284,7 +281,10 @@ fn get_att(mut nonce: [u8; 64]) -> std::io::Result<()> {
     assert_eq!(report.version, 2);
     assert_eq!(nonce, report.report_data);
 
+    eprintln!("report_buf: {:?}", report_buf);
+
     eprintln!("report: {:?}", report);
+
     eprintln!("vcek: {:?}", vcek_buf);
     Ok(())
 }

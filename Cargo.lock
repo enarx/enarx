@@ -1093,7 +1093,6 @@ dependencies = [
  "serde",
  "serde_json",
  "serial_test",
- "sev_attestation",
  "sgx",
  "static_assertions",
  "tempfile",
@@ -3002,13 +3001,6 @@ dependencies = [
  "quote",
  "rustversion",
  "syn",
-]
-
-[[package]]
-name = "sev_attestation"
-version = "0.1.0"
-dependencies = [
- "sallyport",
 ]
 
 [[package]]

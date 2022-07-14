@@ -88,7 +88,6 @@ enarx_wasm_tests  = { path = "tests/crates/enarx_wasm_tests", artifact = "bin", 
 [target.'cfg(all(target_os = "linux", target_arch = "x86_64"))'.dev-dependencies]
 enarx_exec_tests = { path = "tests/crates/enarx_exec_tests", artifact = "bin", target = "x86_64-unknown-linux-musl", default-features = false }
 enarx_syscall_tests = { path = "tests/crates/enarx_syscall_tests", artifact = "bin", target = "x86_64-unknown-none", default-features = false }
-sev_attestation = { path = "tests/crates/sev_attestation", artifact = "bin", target = "x86_64-unknown-linux-musl", default-features = false }
 
 [target.'cfg(not(windows))'.dev-dependencies]
 async-h1 = { version = "2.3.3", default-features = false }
