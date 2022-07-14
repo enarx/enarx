@@ -63,7 +63,7 @@ jobs:
       - uses: actions-rs/toolchain@v1
         with:
           target: x86_64-unknown-linux-gnu
-          toolchain: nightly-2022-06-28
+          toolchain: nightly-2022-07-14
           profile: minimal
           components: llvm-tools-preview
 
