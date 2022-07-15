@@ -162,6 +162,7 @@
                 (fenix.packages.${system}.fromToolchainFile {
                   file = "${self}/rust-toolchain.toml";
                 })
+                pkgs.lcov
               ]
               ++ pkgs.lib.optional (system == x86_64-linux || system == aarch64-linux) pkgs.musl;
           };
