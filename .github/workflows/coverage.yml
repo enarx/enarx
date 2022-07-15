@@ -55,11 +55,10 @@ jobs:
       - run: sudo apt -o Acquire::Retries=3 update
       - run: sudo apt -o Acquire::Retries=3 install -y musl-tools lcov
       - uses: actions/checkout@v2
+      - run: cp rust-toolchain.toml rust-toolchain
       - uses: actions-rs/toolchain@v1
         with:
-          target: x86_64-unknown-linux-gnu
-          toolchain: nightly-2022-06-28
-          profile: minimal
+          default: true
       - name: Setup Rust toolchain
         run: |
           rustup show
