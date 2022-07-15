@@ -10,11 +10,14 @@ jobs:
   main:
     name: enarx ${{ matrix.backend.name }} nightly ${{ matrix.profile.name }}
     runs-on: ${{ matrix.backend.host }}
+    container:
+      image: nixos/nix
+      volumes:
+        - /dev:/dev
     env:
         ENARX_BACKEND: ${{ matrix.backend.name }}
     steps:
       - uses: actions/checkout@v2
-      - uses: cachix/install-nix-action@v17
       - uses: cachix/cachix-action@v10
         with:
           name: enarx
