@@ -54,19 +54,24 @@ jobs:
     steps:
       - run: sudo apt -o Acquire::Retries=3 update
       - run: sudo apt -o Acquire::Retries=3 install -y musl-tools lcov
+      - name: Cleanup working directory
+        run: rm -fr * $HOME/.cargo $HOME/.rustup
       - uses: actions/checkout@v2
+
+      - name: Install rustup
+        run: curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain nightly-2022-06-28 -y
       - uses: actions-rs/toolchain@v1
         with:
           target: x86_64-unknown-linux-gnu
           toolchain: nightly-2022-06-28
           profile: minimal
-      - name: Setup Rust toolchain
-        run: |
-          rustup show
-          rustup component add llvm-tools-preview
+          components: llvm-tools-preview
 
       - name: Install cargo-llvm-cov
-        run: cargo install --version 0.4.1 cargo-llvm-cov
+        run: > 
+          curl -LsSf 'https://github.com/taiki-e/cargo-llvm-cov/releases/download/v0.4.9/cargo-llvm-cov-x86_64-unknown-linux-musl.tar.gz' 
+          | tar xzf - 
+          && mv cargo-llvm-cov $HOME/.cargo/bin
 
       - name: Run cargo-llvm-cov
         run: cargo llvm-cov --coverage-target-only --target x86_64-unknown-linux-gnu --manifest-path ${{ matrix.crate.path }}/Cargo.toml --lcov --output-path lcov.info ${{ matrix.crate.flags }}
