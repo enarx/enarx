@@ -157,11 +157,13 @@
           };
 
           devShell = pkgs.mkShell {
-            buildInputs = [
-              (fenix.packages.${system}.fromToolchainFile {
-                file = "${self}/rust-toolchain.toml";
-              })
-            ];
+            buildInputs =
+              [
+                (fenix.packages.${system}.fromToolchainFile {
+                  file = "${self}/rust-toolchain.toml";
+                })
+              ]
+              ++ pkgs.lib.optional (system == x86_64-linux || system == aarch64-linux) pkgs.musl;
           };
         }
       );
