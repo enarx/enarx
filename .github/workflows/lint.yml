@@ -12,8 +12,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - name: Setup Rust toolchain
-        run: rustup show
+      - uses: cachix/install-nix-action@v17
+      - uses: cachix/cachix-action@v10
+        with:
+          name: enarx
+          authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
+      - run: nix profile install --impure '.#devShell.x86_64-linux'
       - uses: actions-rs/cargo@v1
         with:
           command: fmt
@@ -34,11 +38,13 @@ jobs:
     name: cargo clippy (${{ matrix.crate.name }})
     runs-on: ubuntu-20.04
     steps:
-      - run: sudo apt -o Acquire::Retries=3 update
-      - run: sudo apt -o Acquire::Retries=3 install -y musl-tools
       - uses: actions/checkout@v2
-      - name: Setup Rust toolchain
-        run: rustup show
+      - uses: cachix/install-nix-action@v17
+      - uses: cachix/cachix-action@v10
+        with:
+          name: enarx
+          authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
+      - run: nix profile install --impure '.#devShell.x86_64-linux'
       - uses: actions-rs/cargo@v1
         with:
           command: clippy
