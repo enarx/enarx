@@ -8,6 +8,7 @@ use anyhow::Context;
 use camino::Utf8PathBuf;
 use clap::Args;
 use drawbridge_client::types::{RepositoryConfig, TagName};
+use oauth2::url::Url;
 use serde::Serialize;
 
 #[derive(Serialize)]
@@ -21,6 +22,8 @@ struct RepoInfo {
 pub struct Options {
     #[clap(long, env = "ENARX_CA_BUNDLE")]
     ca_bundle: Option<Utf8PathBuf>,
+    #[clap(long, default_value = "https://auth.profian.com/")]
+    oidc_domain: Url,
     #[clap(long, env = "ENARX_INSECURE_AUTH_TOKEN")]
     insecure_auth_token: Option<String>,
     #[clap(long, env = "ENARX_CREDENTIAL_HELPER")]
@@ -32,6 +35,7 @@ impl Options {
     pub fn execute(self) -> anyhow::Result<()> {
         let cl = client(
             &self.spec.host,
+            &self.oidc_domain,
             &self.insecure_auth_token,
             &self.ca_bundle,
             &self.credential_helper,
