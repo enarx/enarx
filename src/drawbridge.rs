@@ -9,7 +9,7 @@ use std::str::FromStr;
 use std::thread::spawn;
 use std::time::Duration;
 
-use anyhow::{bail, Context};
+use anyhow::{anyhow, bail, Context};
 use camino::Utf8PathBuf;
 use drawbridge_client::types::{RepositoryContext, TagContext, UserContext};
 use drawbridge_client::Client;
@@ -100,14 +100,20 @@ fn parse_user(slug: &str) -> (String, &str) {
 }
 
 pub fn get_token(
+    oidc_domain: &impl Borrow<Url>,
     provided_token: &Option<impl AsRef<str>>,
     helper: &Option<impl AsRef<OsStr>>,
 ) -> anyhow::Result<String> {
+    let oidc_domain = oidc_domain
+        .borrow()
+        .host_str()
+        .ok_or_else(|| anyhow!("invalid OpenID Connect domain"))?;
     if let Some(token) = provided_token {
         Ok(token.as_ref().into())
     } else if let Some(helper) = helper {
         let output = Command::new(helper)
             .arg("show")
+            .arg(oidc_domain)
             .output()
             .context("Failed to execute credential helper")?;
         stderr()
@@ -121,7 +127,7 @@ pub fn get_token(
             bail!("Credential helper was killed")
         }
     } else {
-        keyring::Entry::new("enarx", "oidc_domain")
+        keyring::Entry::new("enarx", oidc_domain)
             .get_password()
             .context("Failed to read credentials from keyring")
     }
@@ -129,11 +135,12 @@ pub fn get_token(
 
 pub fn client(
     host: &str,
+    oidc_domain: &impl Borrow<Url>,
     insecure_token: &Option<String>,
     ca_bundle: &Option<Utf8PathBuf>,
     helper: &Option<impl AsRef<OsStr>>,
 ) -> anyhow::Result<Client> {
-    let token = get_token(insecure_token, helper)?;
+    let token = get_token(oidc_domain, insecure_token, helper)?;
 
     let url = format!("https://{host}");
 
@@ -215,11 +222,16 @@ pub fn login(
         .context("Failed to exchange device code for a token")?;
 
     // TODO: graceful timeout, so that users are not forced to Ctrl+C if the server errors
+    let oidc_domain = oidc_domain
+        .borrow()
+        .host_str()
+        .ok_or_else(|| anyhow!("invalid OpenID Connect domain"))?;
     let secret = res.access_token().secret();
     if let Some(helper) = helper {
         let mut helper = Command::new(helper)
             .stdin(Stdio::piped())
             .arg("insert")
+            .arg(oidc_domain)
             .spawn()
             .context("Failed to spawn credential helper command")?;
         let mut stdin = helper.stdin.take().context("Failed to open stdin")?;
@@ -242,7 +254,7 @@ pub fn login(
             }
         }
     } else {
-        keyring::Entry::new("enarx", "oidc_domain")
+        keyring::Entry::new("enarx", oidc_domain)
             .set_password(secret)
             .context("Failed to save user credentials")?;
     }
