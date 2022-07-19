@@ -7,7 +7,6 @@ use crate::Result;
 use core::alloc::Layout;
 use core::marker::PhantomData;
 use core::mem::{align_of, size_of};
-use core::ptr::addr_of_mut;
 use core::ptr::NonNull;
 
 pub(crate) mod phase {
@@ -76,29 +75,41 @@ impl<'a> Alloc<'a, phase::Init> {
 }
 
 impl<'a> Alloc<'a, phase::Stage> {
-    /// Allocates a memory region of `layout.size()` bytes with padding required to ensure alignment
-    /// and returns a tuple of non-null pointer and byte offset of start of that aligned region on success.
+    /// Allocates a memory region of `layout.size()` bytes with padding required to ensure
+    /// alignment and returns a tuple of non-null pointer and byte offset of start of that aligned
+    /// region on success.
     #[inline]
     fn allocate_layout(&mut self, layout: Layout) -> Result<(NonNull<[u8]>, usize)> {
         let free = self.ptr.len();
         let pad_size = self.ptr.cast::<u8>().as_ptr().align_offset(layout.align());
         let layout_size = layout.size();
+
         if free < pad_size.checked_add(layout_size).ok_or(EOVERFLOW)? {
             return Err(ENOMEM);
         }
 
-        let ptr = unsafe { addr_of_mut!((*(self.ptr.as_ptr()))[pad_size..]) };
-        let offset = self.offset + pad_size;
-        *self = Self {
-            ptr: unsafe { NonNull::new_unchecked(addr_of_mut!((*(ptr))[layout_size..])) },
-            offset: offset + layout_size,
+        let raw_slice = self.ptr.as_ptr();
 
+        // SAFETY: we know raw_slice is nonnull, and we know pad_size is in-bounds
+        let padded_raw_slice = unsafe { raw_slice.get_unchecked_mut(pad_size..) };
+
+        // SAFETY: we know padded_raw_slice is nonnull, and we know layout_size is in-bounds
+        let new_region = unsafe { padded_raw_slice.get_unchecked_mut(..layout_size) };
+
+        // SAFETY: we know padded_raw_slice is nonnull, and we know layout_size is in-bounds
+        let remainder = unsafe { padded_raw_slice.get_unchecked_mut(layout_size..) };
+
+        let offset = self.offset + pad_size;
+
+        *self = Self {
+            // SAFETY: we know remainder is nonnull
+            ptr: unsafe { NonNull::new_unchecked(remainder) },
+            offset: offset + layout_size,
             phase: PhantomData,
         };
-        Ok((
-            unsafe { NonNull::new_unchecked(addr_of_mut!((*(ptr))[..layout_size])) },
-            offset,
-        ))
+
+        // SAFETY: we know new_region is nonnull
+        Ok((unsafe { NonNull::new_unchecked(new_region) }, offset))
     }
 
     #[inline]
