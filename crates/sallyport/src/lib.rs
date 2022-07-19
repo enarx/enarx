@@ -11,6 +11,7 @@
 #![feature(core_ffi_c)]
 #![feature(c_size_t)]
 #![feature(nonnull_slice_from_raw_parts)]
+#![feature(slice_ptr_get)]
 #![feature(slice_ptr_len)]
 
 pub mod elf;
