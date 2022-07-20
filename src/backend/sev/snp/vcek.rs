@@ -183,7 +183,7 @@ mod tests {
         let file_path_write = file_path.clone();
 
         join_handles.push(thread::spawn(move || {
-            thread::sleep(std::time::Duration::from_millis(500));
+            thread::sleep(std::time::Duration::from_millis(200));
             let path = write(tmp_dir_path.clone(), "test".to_string(), || {
                 Ok(Box::new(b"test test".as_slice()))
             })
@@ -195,7 +195,7 @@ mod tests {
             let tmp_dir_path = tmp_dir.path().to_path_buf();
             let file_path = file_path.clone();
             join_handles.push(thread::spawn(move || {
-                let mut retries = 10;
+                let mut retries = 100;
 
                 while retries > 0 {
                     match read(tmp_dir_path.clone(), "test".to_string()) {
