@@ -28,7 +28,7 @@ impl super::super::Mapper for Hasher {
         to: usize,
         with: (SecInfo, bool),
     ) -> anyhow::Result<()> {
-        self.0.load(&*pages, to, with.0, with.1).unwrap();
+        self.0.load(&pages, to, with.0, with.1).unwrap();
         Ok(())
     }
 }
