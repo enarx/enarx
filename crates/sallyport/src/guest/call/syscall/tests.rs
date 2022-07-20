@@ -10,7 +10,7 @@ use crate::item::syscall;
 use crate::libc::socklen_t;
 use crate::NULL;
 
-use core::mem::size_of;
+use core::mem::{size_of, transmute};
 use libc::{SYS_exit, SYS_recvfrom, AF_INET, ENOSYS};
 
 fn assert_call<'a, K: kind::Kind, T: Call<'a, K>, const N: usize>(
@@ -22,9 +22,18 @@ fn assert_call<'a, K: kind::Kind, T: Call<'a, K>, const N: usize>(
     T::Collected: core::fmt::Debug + core::cmp::PartialEq,
 {
     let mut buf = [0usize; N];
-    let buf_ptr = &mut buf as *mut [usize; N];
 
     let mut alloc = Alloc::new(&mut buf).stage();
+
+    // Alloc stores a `NonNull<[u8]>` view of the underlying `[usize; N]` buffer.
+    // Before it starts advancing the pointer to the buffer by handing out allocations,
+    // we grab a copy of the original address, extract the raw pointer to the `*mut u8` buffer,
+    // and transmute that to a `*mut [usize; N]` so we can test the buffer contents.
+    // The reason that we do this dance after the Alloc has been constructed rather than
+    // stash a pointer to the original buffer is to keep Miri happy.
+    // Specifically, this avoids ever aliasing any `&mut T`, and preserves pointer provenance.
+    let buf_ptr: *mut [usize; N] = unsafe { transmute(alloc.ptr.as_mut_ptr()) };
+
     let call = call.stage(&mut alloc).unwrap();
 
     let alloc = alloc.commit();
