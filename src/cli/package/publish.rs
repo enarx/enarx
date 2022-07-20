@@ -3,8 +3,9 @@
 use crate::drawbridge::{client, TagSpec};
 
 use std::ffi::OsString;
+use std::fs::read_dir;
 
-use anyhow::Context;
+use anyhow::{bail, Context};
 use camino::Utf8PathBuf;
 use clap::Args;
 use oauth2::url::Url;
@@ -33,6 +34,26 @@ impl Options {
             &self.ca_bundle,
             &self.credential_helper,
         )?;
+
+        // TODO: this logic should live in Drawbridge, so that it can be reused for the server
+        if self.path.is_file() {
+            self.path
+                .file_name()
+                .filter(|&name| name == "main.wasm")
+                .with_context(|| format!("Invalid file name: {}", self.path))?;
+        } else {
+            for entry in read_dir(self.path.clone())? {
+                let path = entry?.path();
+                if path.is_file() {
+                    path.file_name()
+                        .filter(|&name| name == "main.wasm" || name == "Enarx.toml")
+                        .with_context(|| format!("Invalid file name: {}", path.display()))?;
+                } else {
+                    bail!("Publishing nested directories is not supported")
+                }
+            }
+        }
+
         let tag = cl.tag(&self.spec.ctx);
         let (_tag_created, _tree_created) = tag
             .create_from_path_unsigned(self.path)
