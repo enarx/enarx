@@ -19,7 +19,9 @@ macro_rules! cmd {
 #[async_std::test]
 async fn full() {
     run(|oidc_addr, db_addr| {
-        env::set_var("ENARX_CA_BUNDLE", concat!(env!("CARGO_MANIFEST_DIR"), "/tests/client/testdata/ca.crt"));
+        let workspace_dir = env!("CARGO_MANIFEST_DIR");
+
+        env::set_var("ENARX_CA_BUNDLE", format!("{workspace_dir}/tests/client/testdata/ca.crt"));
         env::set_var("ENARX_INSECURE_AUTH_TOKEN", "test-token");
 
         // test for failure when looking up a user that does not exist
@@ -74,23 +76,48 @@ async fn full() {
         let cmd = cmd!("enarx package info {db_addr}/testuser/publicrepo:0.1.0");
         assert_eq!(cmd.success, false);
 
-        // test for success when publishing a public package
+        // test for failure when publishing an invalid file as a public package
         let cmd = cmd!(
             "enarx package publish
-            {db_addr}/testuser/publicrepo:0.1.0
-            {}/tests/client/testdata/echo_server", env!("CARGO_MANIFEST_DIR")
+            {db_addr}/testuser/publicrepo:0.0.0
+            {workspace_dir}/tests/client/testdata/generate.sh"
+        );
+        assert_eq!(cmd.success, false);
+
+        // test for failure when publishing an invalid directory as a public package
+        let cmd = cmd!(
+            "enarx package publish
+            {db_addr}/testuser/publicrepo:0.0.0
+            {workspace_dir}/tests/client/testdata"
+        );
+        assert_eq!(cmd.success, false);
+
+        // test for success when publishing a main.wasm file as a public package
+        let cmd = cmd!(
+            "enarx package publish
+            {db_addr}/testuser/publicrepo:1.0.0
+            {workspace_dir}/tests/client/testdata/echo_server/main.wasm"
+        );
+        assert_eq!(cmd.success, true);
+
+        // test for success when publishing a directory as a public package
+        let cmd = cmd!(
+            "enarx package publish
+            {db_addr}/testuser/publicrepo:2.0.0
+            {workspace_dir}/tests/client/testdata/echo_server"
         );
         assert_eq!(cmd.success, true);
 
         // test for success when looking up a public package that exists
-        let cmd = cmd!("enarx package info {db_addr}/testuser/publicrepo:0.1.0");
+        let cmd = cmd!("enarx package info {db_addr}/testuser/publicrepo:2.0.0");
         assert_eq!(cmd.output, "{\n  \"digest\": {\n    \"sha-224\": \"HSRr+vfp1r69/lJB9eUKLTpccgTXYZFCdlSvlA==\",\n    \"sha-256\": \"irAVZO3vtGXX24YSQIOz7Rtxp1the9NFG8/uFaOHNM8=\",\n    \"sha-384\": \"ZKgWsUvFmIbCvM2neDBioWn2JVQ4Ytpx1YAU/x5LiMyWl5fvWBA8rDpMd0GyFLAY\",\n    \"sha-512\": \"37aldu7b1JJlXhj2crJ3lvmy5ZQ15QcWKPzbmwez0bAZjE7gke/zqGcFvKiMLKiB17ba0F+/D05Xvtwss35Vmw==\"\n  },\n  \"length\": 709,\n  \"type\": \"application/vnd.drawbridge.directory.v1+json\"\n}\n");
 
         // test for success when fetching tags from a non-empty public repo
         let cmd = cmd!("enarx repo info {db_addr}/testuser/publicrepo");
-        assert_eq!(cmd.output, "{\n  \"config\": {\n    \"public\": true\n  },\n  \"tags\": [\n    \"0.1.0\"\n  ]\n}\n");
+        assert_eq!(cmd.success, true);
 
         // TODO: fetch package
+        // TODO: deploy package
     })
     .await;
 }
