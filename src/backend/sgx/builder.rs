@@ -101,13 +101,13 @@ impl super::super::Mapper for Builder {
         );
 
         // Update the enclave.
-        let mut ap = AddPages::new(&*pages, to, &with.0, with.1);
+        let mut ap = AddPages::new(&pages, to, &with.0, with.1);
         ENCLAVE_ADD_PAGES
             .ioctl(&mut self.file, &mut ap)
             .context("Failed to add pages to SGX enclave")?;
 
         // Update the hasher.
-        self.hash.load(&*pages, to, with.0, with.1).unwrap();
+        self.hash.load(&pages, to, with.0, with.1).unwrap();
 
         // Save permissions fixups for later.
         let mut addr = self.mmap.addr() + to;
