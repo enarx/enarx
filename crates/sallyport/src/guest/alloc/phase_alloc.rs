@@ -26,7 +26,7 @@ pub(crate) mod phase {
 #[derive(Debug)]
 pub struct Alloc<'a, Phase> {
     /// Write-only pointer to memory location, where next object will be allocated.
-    ptr: NonNull<[u8]>,
+    pub(crate) ptr: NonNull<[u8]>,
     /// Byte offset of the next allocated ptr object within allocation buffer.
     offset: usize,
 
