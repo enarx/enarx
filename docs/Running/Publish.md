@@ -34,6 +34,9 @@ In the above example, `your_username` is the username that you registered previo
 
 Before you can publish, you will first need to [compile your application to WebAssembly](../WebAssembly/Introduction). At the end of this process you will have a file with the `.wasm` file extension. Rename this file to `main.wasm` and place it in the same directory as a properly configured [`Enarx.toml`](Enarx_toml).
 
+<!--- TODO: Remove this requirement once https://github.com/profianinc/drawbridge/issues/244 is resolved -->
+**NOTE**: Currently Enarx.toml and main.wasm need to be the only files in the directory.
+
 Once you have a directory containing a `main.wasm` and an `Enarx.toml`, we can *publish* this directory to the package host with the `enarx package publish` command, as shown here:
 
 ```
