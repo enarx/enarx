@@ -5,7 +5,6 @@
 #![deny(missing_docs)]
 #![deny(clippy::all)]
 #![warn(rust_2018_idioms)]
-#![feature(core_ffi_c)]
 
 mod loader;
 

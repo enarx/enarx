@@ -1,7 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 
-#![feature(core_ffi_c)]
-
 use enarx_exec_tests::musl_fsbase_fix;
 
 musl_fsbase_fix!();
