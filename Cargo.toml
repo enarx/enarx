@@ -114,5 +114,5 @@ opt-level = 3
 opt-level = 3
 
 [workspace]
-members = ["crates/*", "examples/*"]
+members = ["crates/*"]
 exclude = ["tests/crates"]

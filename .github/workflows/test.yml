@@ -90,24 +90,6 @@ jobs:
           command: test
           args: --workspace
 
-  wasi-examples:
-    name: ${{ matrix.crate.name }} nightly ${{ matrix.profile.name }}
-    runs-on: ubuntu-20.04
-    steps:
-      - uses: actions/checkout@v2
-      - name: Setup Rust toolchain
-        run: rustup show
-      - run: cargo build ${{ matrix.profile.flag }} --target wasm32-wasi --manifest-path ${{ matrix.crate.path }}/Cargo.toml
-    strategy:
-      fail-fast: false
-      matrix:
-        crate:
-          - { name: tcp_server, path: examples/tcp_server }
-        profile:
-          - name: debug
-          - name: release
-            flag: --release
-
   bindeps:
     name: ${{ matrix.crate.name }} nightly ${{ matrix.profile.name }}
     runs-on: ubuntu-20.04
