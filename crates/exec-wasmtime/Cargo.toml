@@ -31,17 +31,17 @@ zeroize = { version = "1.5.4", features = ["alloc"], default-features = false }
 # The dependencies are pinned, because:
 # - traits and types must fit the ones used in wasmtime
 # - we don't want to be notified by dependabot, if there is no new version of wasmtime
-wasmtime = { version = "0.38.1", features = ["cranelift", "pooling-allocator"], default-features = false }
-cap-std = { version = "=0.24.3", default-features = false }
-io-lifetimes = { version = "=0.5.3", default-features = false }
-rustix = { version = "=0.33.7", features = ["std"], default-features = false }
-system-interface = { version = "=0.20.0", default-features = false }
-wasi-common = { version = "=0.38.1", default-features = false }
-wasmtime-wasi = { version = "=0.38.1", features = ["sync"], default-features = false }
-wiggle = { version = "=0.38.1", default-features = false }
+wasmtime = { version = "0.39.0", features = ["cranelift", "pooling-allocator"], default-features = false }
+cap-std = { version = "=0.25.2", default-features = false }
+io-lifetimes = { version = "=0.7.2", default-features = false }
+rustix = { version = "=0.35.7", features = ["std"], default-features = false }
+system-interface = { version = "=0.21.0", default-features = false }
+wasi-common = { version = "=0.39.0", default-features = false }
+wasmtime-wasi = { version = "=0.39.0", features = ["sync"], default-features = false }
+wiggle = { version = "=0.39.0", default-features = false }
 
 [target.'cfg(windows)'.dependencies]
-io-extras = { version = "=0.13.2", default-features = false }
+io-extras = { version = "=0.15.0", default-features = false }
 
 [dev-dependencies]
 wat = { version = "1.0", default-features = false }
