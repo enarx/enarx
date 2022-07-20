@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 #![cfg(all(target_arch = "x86_64", target_os = "linux", not(miri)))]
-#![feature(c_size_t, core_ffi_c)]
+#![feature(c_size_t)]
 
 mod enarxcall;
 mod gdbcall;

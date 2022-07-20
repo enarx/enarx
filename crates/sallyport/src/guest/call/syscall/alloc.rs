@@ -17,7 +17,7 @@ use core::ffi::c_long;
 /// # Examples
 ///
 /// ```rust
-/// # #![feature(c_size_t, core_ffi_c)]
+/// # #![feature(c_size_t)]
 /// use sallyport::guest::alloc::{Allocator, Collector, Output};
 /// use sallyport::guest::call::types::Argv;
 /// use sallyport::guest::syscall::Alloc;

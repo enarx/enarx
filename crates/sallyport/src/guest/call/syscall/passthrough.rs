@@ -21,7 +21,6 @@ use core::ffi::{c_int, c_long};
 ///
 /// # Example
 /// ```rust
-/// # #![feature(core_ffi_c)]
 /// use sallyport::guest::call::types::Argv;
 /// use sallyport::guest::syscall::PassthroughAlloc;
 /// use sallyport::Result;
