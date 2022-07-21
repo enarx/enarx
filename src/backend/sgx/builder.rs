@@ -5,6 +5,7 @@ use super::ioctls::*;
 
 use std::convert::TryFrom;
 use std::fs::{File, OpenOptions};
+use std::io::prelude::*;
 use std::sync::{Arc, RwLock};
 
 use anyhow::{Context, Error, Result};
@@ -133,7 +134,21 @@ impl TryFrom<Builder> for Arc<dyn super::super::Keep> {
         let hash = builder.hash.finish();
         let author = Author::new(0, 0);
         let body = builder.cnfg.parameters.body(hash);
-        let key = RS256PrivateKey::generate(3).context("Failed to create RSA key")?;
+        let key = if let Ok(key) = std::env::var("ENARX_TEST_SGX_KEY_FILE")
+            .map_err(Error::new)
+            .and_then(|test_key_file| File::open(test_key_file).map_err(Error::new))
+            .and_then(|mut f| {
+                let mut buffer = String::new();
+                f.read_to_string(&mut buffer).map_err(Error::new)?;
+                Ok(buffer)
+            })
+            .and_then(|keystr| RS256PrivateKey::from_pem(&keystr).map_err(Error::new))
+        {
+            key
+        } else {
+            RS256PrivateKey::generate(3).context("Failed to create RSA key")?
+        };
+
         let signature =
             Signature::new(&key, author, body).context("Failed to create RSA signature")?;
 

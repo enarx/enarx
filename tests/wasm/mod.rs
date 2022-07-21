@@ -19,6 +19,10 @@ fn enarx<'a>(
 ) -> Output {
     let mut child = cmd(Command::new(&KEEP_BIN)
         .current_dir(CRATE)
+        .env(
+            "ENARX_TEST_SGX_KEY_FILE",
+            CRATE.to_string() + "/tests/sgx-test.key",
+        )
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped()))
