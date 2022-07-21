@@ -54,6 +54,10 @@ pub fn keepldr_exec<'a>(bin: impl Into<PathBuf>, input: impl Into<Option<&'a [u8
     let bin: PathBuf = bin.into();
     let mut child = Command::new(KEEP_BIN)
         .current_dir(CRATE)
+        .env(
+            "ENARX_TEST_SGX_KEY_FILE",
+            CRATE.to_string() + "/tests/sgx-test.key",
+        )
         .arg("unstable")
         .arg("exec")
         .arg(&bin)
