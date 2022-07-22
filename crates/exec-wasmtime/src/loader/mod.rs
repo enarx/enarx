@@ -51,19 +51,25 @@ pub struct Compiled {
     srvcfg: Arc<ServerConfig>,
     cltcfg: Arc<ClientConfig>,
     config: Config,
-    wstore: Store<WasiCtx>,
-    linker: Linker<WasiCtx>,
+    wstore: Store<WasmContext>,
+    linker: Linker<WasmContext>,
 }
 
 /// The sixth state, indicating connection of all sockets
 pub struct Connected {
-    wstore: Store<WasiCtx>,
-    linker: Linker<WasiCtx>,
+    wstore: Store<WasmContext>,
+    linker: Linker<WasmContext>,
 }
 
 /// The final state, indicating completion of the workload
 pub struct Completed {
     values: Vec<Val>,
+}
+
+/// The Wasmtime & Wasi-Crypto context
+pub struct WasmContext {
+    wasi: WasiCtx,
+    wasi_crypto: wasmtime_wasi_crypto::WasiCryptoCtx,
 }
 
 pub struct Loader<T>(T);

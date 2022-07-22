@@ -21,20 +21,20 @@ impl Loader<Compiled> {
 
         // Set up environment variables.
         for (k, v) in self.0.config.env.iter() {
-            ctx.push_env(k, v)?;
+            ctx.wasi.push_env(k, v)?;
         }
 
         // Set up the arguments.
-        ctx.push_arg("main.wasm")
+        ctx.wasi.push_arg("main.wasm")
             .context("failed to push argv[0]")?;
         for arg in self.0.config.args.iter() {
-            ctx.push_arg(arg).context("failed to push argument")?;
+            ctx.wasi.push_arg(arg).context("failed to push argument")?;
         }
 
         // Set up the file descriptor environment variables.
         let names: Vec<_> = self.0.config.files.iter().map(|f| f.name()).collect();
-        ctx.push_env("FD_COUNT", &names.len().to_string())?;
-        ctx.push_env("FD_NAMES", &names.join(":"))?;
+        ctx.wasi.push_env("FD_COUNT", &names.len().to_string())?;
+        ctx.wasi.push_env("FD_NAMES", &names.join(":"))?;
 
         // Set up all the file descriptors.
         for (fd, file) in self.0.config.files.iter().enumerate() {
@@ -87,7 +87,7 @@ impl Loader<Compiled> {
             }
 
             // Insert the file.
-            ctx.insert_file(fd.try_into().unwrap(), file, caps);
+            ctx.wasi.insert_file(fd.try_into().unwrap(), file, caps);
         }
 
         Ok(Loader(Connected {

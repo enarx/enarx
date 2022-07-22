@@ -4,6 +4,7 @@ use super::{Attested, Compiled, Loader};
 
 use anyhow::Result;
 use wasmtime_wasi::WasiCtxBuilder;
+use crate::loader::WasmContext;
 
 impl Loader<Attested> {
     pub fn next(self) -> Result<Loader<Compiled>> {
@@ -19,11 +20,15 @@ impl Loader<Attested> {
         let engine = wasmtime::Engine::new(&config)?;
 
         // Set up the linker and add WASI.
-        let mut linker = wasmtime::Linker::new(&engine);
-        wasmtime_wasi::add_to_linker(&mut linker, |s| s)?;
+        let mut linker = wasmtime::Linker::<WasmContext>::new(&engine);
+        wasmtime_wasi::add_to_linker(&mut linker, |cx| &mut cx.wasi)?;
+        wasmtime_wasi_crypto::add_to_linker(&mut linker, |cx| &mut cx.wasi_crypto)?;
 
         // Create the store.
-        let mut wstore = wasmtime::Store::new(&engine, WasiCtxBuilder::new().build());
+        let mut wstore = wasmtime::Store::new(&engine, WasmContext{
+            wasi: WasiCtxBuilder::new().build(),
+            wasi_crypto: wasmtime_wasi_crypto::WasiCryptoCtx::new()
+        });
 
         // Compile and link the module.
         let module = wasmtime::Module::from_binary(&engine, &self.0.webasm)?;
