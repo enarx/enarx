@@ -7,7 +7,7 @@ use null::Null;
 
 use super::{Compiled, Connected, Loader};
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use cap_std::net::{TcpListener, TcpStream};
 use enarx_config::{File, Protocol};
 use wasi_common::{file::FileCaps, WasiFile};
@@ -25,8 +25,10 @@ impl Loader<Compiled> {
         }
 
         // Set up the arguments.
+        ctx.push_arg("main.wasm")
+            .context("failed to push argv[0]")?;
         for arg in self.0.config.args.iter() {
-            ctx.push_arg(arg)?;
+            ctx.push_arg(arg).context("failed to push argument")?;
         }
 
         // Set up the file descriptor environment variables.
