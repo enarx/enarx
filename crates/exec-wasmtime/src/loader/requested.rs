@@ -23,8 +23,8 @@ use pkcs8::PrivateKeyInfo;
 use rustls::{cipher_suite::*, kx_group::*, version::TLS13, *};
 use ureq::Response;
 use url::Url;
-use x509_cert::der::asn1::{BitString, UIntBytes};
-use x509_cert::der::{Decodable, Encodable};
+use x509_cert::der::asn1::{BitStringRef, UIntRef};
+use x509_cert::der::{Decode, Encode};
 use x509_cert::ext::pkix::{BasicConstraints, ExtendedKeyUsage, KeyUsage, KeyUsages};
 use x509_cert::name::RdnSequence;
 use x509_cert::time::Validity;
@@ -97,7 +97,7 @@ impl Loader<Requested> {
 
         // Decode the certificate chain.
         let path = PkiPath::from_der(&body)?;
-        path.0.iter().rev().map(|c| Ok(c.to_vec()?)).collect()
+        path.iter().rev().map(|c| Ok(c.to_vec()?)).collect()
     }
 
     fn selfsigned(&self) -> Result<Vec<Vec<u8>>> {
@@ -121,7 +121,7 @@ impl Loader<Requested> {
         // Create the certificate body.
         let tbs = TbsCertificate {
             version: x509_cert::Version::V3,
-            serial_number: UIntBytes::new(&serial)?,
+            serial_number: UIntRef::new(&serial)?,
             signature: pki.signs_with()?,
             issuer: RdnSequence::from_der(&rdns)?,
             validity: Validity::from_now(Duration::from_secs(60 * 60 * 24 * 365))?,
@@ -154,7 +154,7 @@ impl Loader<Requested> {
         let crt = Certificate {
             tbs_certificate: tbs,
             signature_algorithm: alg,
-            signature: BitString::from_bytes(&sig)?,
+            signature: BitStringRef::from_bytes(&sig)?,
         };
 
         Ok(vec![crt.to_vec()?])
