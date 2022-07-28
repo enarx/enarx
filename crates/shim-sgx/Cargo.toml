@@ -1,6 +1,6 @@
 [package]
 name = "enarx-shim-sgx"
-version = "0.6.1"
+version = "0.6.2"
 edition = "2021"
 description = "Enarx SGX shim"
 authors = ["The Enarx Project Developers"]
@@ -20,7 +20,7 @@ mmledger = { version = "0.3.0", default-features = false }
 noted = { version = "1.0.0", default-features = false }
 primordial = { version = "0.5.0", features = ["const-default"], default-features = false }
 rcrt1 = { version = "2.4.0", default-features = false }
-sallyport = { version = "0.6.1", path = "../sallyport", default-features = false }
+sallyport = { version = "0.6.2", path = "../sallyport", default-features = false }
 sgx = { version = "0.5.0", default-features = false }
 spinning = { version = "0.1", default-features = false }
 x86_64 = { version = "0.14.9", default-features = false }
