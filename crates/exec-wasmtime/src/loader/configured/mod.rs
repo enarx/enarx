@@ -15,8 +15,8 @@ use const_oid::AssociatedOid;
 use pkcs8::PrivateKeyInfo;
 use sha2::{Digest, Sha256, Sha384};
 use x509_cert::attr::Attribute;
-use x509_cert::der::asn1::BitString;
-use x509_cert::der::{Any, Decodable, Encodable};
+use x509_cert::der::asn1::BitStringRef;
+use x509_cert::der::{AnyRef, Decode, Encode};
 use x509_cert::ext::Extension;
 use x509_cert::name::RdnSequence;
 use x509_cert::request::{CertReq, CertReqInfo, ExtensionReq};
@@ -27,7 +27,7 @@ impl Loader<Configured> {
         let req = ExtensionReq::from(exts).to_vec()?;
 
         // Embed the extension requests in an attribute.
-        let any = Any::from_der(&req)?;
+        let any = AnyRef::from_der(&req)?;
         let att = Attribute {
             oid: ExtensionReq::OID,
             values: vec![any].try_into()?,
@@ -46,7 +46,7 @@ impl Loader<Configured> {
         let req = CertReq {
             info: cri,
             algorithm: pki.signs_with()?,
-            signature: BitString::from_bytes(sig.as_ref())?,
+            signature: BitStringRef::from_bytes(sig.as_ref())?,
         };
 
         Ok(req.to_vec()?)

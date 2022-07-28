@@ -24,7 +24,7 @@ toml = { version = "0.5.9", default-features = false }
 ureq = { version = "2.4.0", features = ["tls"], default-features = false }
 url = { version = "2.2.2", features = ["serde"], default-features = false }
 webpki-roots = { version = "0.22.2", default-features = false }
-x509-cert = { version = "0.0.2", features = ["std"], default-features = false }
+x509-cert = { version = "0.1.0", features = ["std"], default-features = false }
 zeroize = { version = "1.5.4", features = ["alloc"], default-features = false }
 
 # wasmtime and its pinned dependencies

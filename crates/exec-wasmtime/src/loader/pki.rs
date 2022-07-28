@@ -6,7 +6,7 @@ use pkcs8::{AlgorithmIdentifier, ObjectIdentifier, PrivateKeyInfo, SubjectPublic
 use zeroize::Zeroizing;
 
 use sec1::EcPrivateKey;
-use x509_cert::der::{Decodable, Encodable};
+use x509_cert::der::{Decode, Encode};
 
 use const_oid::db::rfc5912::{
     ECDSA_WITH_SHA_256, ECDSA_WITH_SHA_384, ID_EC_PUBLIC_KEY as ECPK, SECP_256_R_1 as P256,
