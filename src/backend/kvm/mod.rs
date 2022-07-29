@@ -8,6 +8,7 @@ use mem::Region;
 
 use std::sync::Arc;
 
+use crate::backend::Signatures;
 use anyhow::Result;
 use kvm_bindings::bindings::kvm_userspace_memory_region;
 use kvm_ioctls::Kvm;
@@ -102,8 +103,13 @@ impl crate::backend::Backend for Backend {
     }
 
     #[inline]
-    fn keep(&self, shim: &[u8], exec: &[u8]) -> Result<Arc<dyn super::Keep>> {
-        builder::Builder::load(shim, exec)
+    fn keep(
+        &self,
+        shim: &[u8],
+        exec: &[u8],
+        signatures: Option<Signatures>,
+    ) -> Result<Arc<dyn super::Keep>> {
+        builder::Builder::load(shim, exec, signatures)
     }
 
     #[inline]

@@ -20,9 +20,12 @@ mod probe;
 #[cfg(enarx_with_shim)]
 use binary::{Binary, Loader, Mapper};
 
+use std::fs::File;
+use std::io::Read;
 use std::sync::Arc;
 
-use anyhow::Result;
+use anyhow::{bail, Context, Result};
+use camino::Utf8PathBuf;
 #[cfg(windows)]
 use enarx_exec_wasmtime::Args;
 use libc::c_int;
@@ -35,11 +38,87 @@ pub struct Binary<'a> {
     phantom: std::marker::PhantomData<&'a ()>,
 }
 
+pub const SIGNATURES_VERSION: &str = env!("CARGO_PKG_VERSION");
+
+#[derive(Default, Debug, serde::Deserialize, serde::Serialize)]
+pub struct SevSignature {
+    pub id_block: Vec<u8>,
+    pub id_auth: Vec<u8>,
+}
+
+#[derive(Debug, serde::Deserialize, serde::Serialize)]
+pub struct Signatures {
+    pub version: String,
+    pub sev: SevSignature,
+    pub sgx: Vec<u8>,
+}
+
+impl Default for Signatures {
+    fn default() -> Self {
+        Self {
+            version: SIGNATURES_VERSION.into(),
+            sev: SevSignature::default(),
+            sgx: vec![],
+        }
+    }
+}
+
+impl Signatures {
+    pub fn load(path: Option<Utf8PathBuf>) -> anyhow::Result<Option<Self>> {
+        match path {
+            None => Ok(None),
+            Some(path) => {
+                let mut file = File::open(path).context("Failed to open hashes file")?;
+                let mut buffer = String::new();
+                file.read_to_string(&mut buffer)?;
+                let ret = serde_json::from_str::<Signatures>(&buffer)
+                    .context("serde_json")
+                    .map(Some);
+                if let Ok(Some(Signatures { ref version, .. })) = ret {
+                    if version != SIGNATURES_VERSION {
+                        bail!(
+                            "Signature file version {} does not match current version {}",
+                            version,
+                            SIGNATURES_VERSION
+                        );
+                    }
+                }
+                ret
+            }
+        }
+    }
+}
+
+/// A trait for types that can be serialized and deserialized to/from a byte slice.
+///
+/// # Safety
+///
+/// Behavior is undefined if Self is initialized with bytes, which do not represent a valid state.
+pub unsafe trait ByteSized: Sized {
+    /// The constant default value.
+    const SIZE: usize = std::mem::size_of::<Self>();
+
+    /// Create Self from a byte slice.
+    fn from_bytes(bytes: &[u8]) -> Option<Self> {
+        if bytes.len() != Self::SIZE {
+            return None;
+        }
+
+        Some(unsafe { (bytes.as_ptr() as *const _ as *const Self).read_unaligned() })
+    }
+
+    fn as_bytes(&self) -> &[u8] {
+        // SAFETY: This is safe because we know that the pointer is non-null and the length is correct
+        // and u8 does not need any alignment.
+        unsafe { core::slice::from_raw_parts(self as *const _ as *const u8, Self::SIZE) }
+    }
+}
+
 pub(crate) trait Config: Sized {
     type Flags;
 
     fn flags(flags: u32) -> Self::Flags;
-    fn new(shim: &Binary<'_>, exec: &Binary<'_>) -> Result<Self>;
+    fn new(shim: &Binary<'_>, exec: &Binary<'_>, signatures: Option<Signatures>) -> Result<Self>;
 }
 
 pub trait Backend: Sync + Send {
@@ -56,7 +135,12 @@ pub trait Backend: Sync + Send {
     fn config(&self) -> Vec<Datum>;
 
     /// Create a keep instance
-    fn keep(&self, shim: &[u8], exec: &[u8]) -> Result<Arc<dyn Keep>>;
+    fn keep(
+        &self,
+        shim: &[u8],
+        exec: &[u8],
+        signatures: Option<Signatures>,
+    ) -> Result<Arc<dyn Keep>>;
 
     /// Hash the inputs
     fn hash(&self, shim: &[u8], exec: &[u8]) -> Result<Vec<u8>>;
@@ -145,7 +229,12 @@ impl Backend for NotSupportedBackend {
         false
     }
 
-    fn keep(&self, _shim: &[u8], _exec: &[u8]) -> Result<Arc<dyn Keep>> {
+    fn keep(
+        &self,
+        _shim: &[u8],
+        _exec: &[u8],
+        _signatures: Option<Signatures>,
+    ) -> Result<Arc<dyn Keep>> {
         unimplemented!()
     }
 
@@ -269,9 +358,8 @@ pub(super) unsafe fn execute_gdb(
         } => {
             let stream = gdb_fd.as_mut().unwrap();
 
-            let res = stream
-                .read()
-                .map_err(|e| e.raw_os_error().unwrap_or(libc::EINVAL));
+            let res =
+                Connection::read(stream).map_err(|e| e.raw_os_error().unwrap_or(libc::EINVAL));
 
             *ret = match res {
                 Ok(n) => n as usize,

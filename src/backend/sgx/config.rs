@@ -2,6 +2,7 @@
 
 use std::num::NonZeroU32;
 
+use crate::backend::Signatures;
 use anyhow::{anyhow, Result};
 use goblin::elf::program_header::{PF_R, PF_W, PF_X};
 use sallyport::elf;
@@ -11,6 +12,7 @@ use sgx::parameters::{Masked, Parameters};
 #[derive(Debug)]
 pub struct Config {
     pub parameters: Parameters,
+    pub signatures: Option<Signatures>,
     pub ssap: NonZeroU32,
     pub size: usize,
     pub sallyport_block_size: u64,
@@ -45,7 +47,11 @@ impl super::super::Config for Config {
         (si, m)
     }
 
-    fn new(shim: &super::super::Binary<'_>, _exec: &super::super::Binary<'_>) -> Result<Self> {
+    fn new(
+        shim: &super::super::Binary<'_>,
+        _exec: &super::super::Binary<'_>,
+        signatures: Option<Signatures>,
+    ) -> Result<Self> {
         unsafe {
             let params: Parameters = Parameters {
                 misc: Masked {
@@ -91,6 +97,7 @@ impl super::super::Config for Config {
                 size: 1 << bits,
                 ssap,
                 sallyport_block_size,
+                signatures,
             })
         }
     }

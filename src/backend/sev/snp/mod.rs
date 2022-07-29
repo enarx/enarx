@@ -32,6 +32,7 @@ macro_rules! impl_const_id {
 
 pub mod firmware;
 pub mod launch;
+pub mod sign;
 pub mod vcek;
 
 use std::fmt::{Debug, Display, Formatter};
@@ -273,6 +274,19 @@ impl std::fmt::Display for Version {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}.{}", self.major, self.minor)
     }
+}
+
+/// Enclave creation parameters
+///
+/// This type is not specified in the AMD documentation and exists for
+/// convenience in manipulating sets of configuration.
+#[repr(C)]
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
+pub struct Parameters {
+    pub policy: u64,
+    pub family_id: [u8; 16],
+    pub image_id: [u8; 16],
+    pub guest_svn: u32,
 }
 
 #[cfg(test)]

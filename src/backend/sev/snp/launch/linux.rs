@@ -7,6 +7,7 @@
 use super::super::{Error, Indeterminate};
 use super::{Finish, Start, Update};
 
+use crate::backend::sev::snp::launch::{IdAuth, IdBlock};
 use iocuddle::{Group, Ioctl, WriteRead};
 use std::marker::PhantomData;
 use std::os::raw::c_ulong;
@@ -133,7 +134,7 @@ pub struct LaunchStart<'a> {
 impl From<Start<'_>> for LaunchStart<'_> {
     fn from(start: Start<'_>) -> Self {
         Self {
-            policy: start.policy.into(),
+            policy: start.policy,
             ma_uaddr: if let Some(addr) = start.ma_uaddr {
                 addr.as_ptr() as u64
             } else {
@@ -224,26 +225,34 @@ pub struct LaunchFinish<'a> {
 
 impl From<Finish<'_, '_>> for LaunchFinish<'_> {
     fn from(finish: Finish<'_, '_>) -> Self {
-        let id_block = if let Some(addr) = finish.id_block {
-            addr.as_ptr() as u64
-        } else {
-            0
-        };
-
-        let id_auth = if let Some(addr) = finish.id_auth {
-            addr.as_ptr() as u64
-        } else {
-            0
-        };
-
         Self {
-            id_block_uaddr: id_block,
-            id_auth_uaddr: id_auth,
-            id_block_en: finish.id_block.is_some().into(),
-            auth_key_en: finish.id_auth.is_some().into(),
+            id_block_uaddr: finish
+                .id_block_n_auth
+                .map(|(block, _)| block as *const IdBlock as u64)
+                .unwrap_or(0),
+            id_auth_uaddr: finish
+                .id_block_n_auth
+                .map(|(_, auth)| auth as *const IdAuth as u64)
+                .unwrap_or(0),
+            id_block_en: finish.id_block_n_auth.is_some().into(),
+            auth_key_en: finish.auth_key_en.into(),
             host_data: finish.host_data,
             pad: [0u8; 6],
             _phantom: PhantomData,
         }
     }
 }
+
+/// SHA-384 of the Linux kernel VMSA, for an unmodified VCPU
+///
+/// The contents of the VMSA, which was used in `KVM_SNP_LAUNCH_FINISH` in the final launch update with page type VMSA.
+///
+/// # WARNING
+/// This could change in any kernel version, but there is no other workaround at the moment.
+///
+/// A real fix would be a KVM_SNP_LAUNCH_FINISH_WITH_RESET_VECTOR ioctl, with a well-defined VMSA page contents.
+pub const SEV_SNP_VMSA_SHA384: [u8; 48] = [
+    242, 150, 129, 234, 78, 108, 210, 8, 181, 220, 115, 97, 177, 151, 18, 182, 194, 113, 247, 187,
+    250, 103, 79, 153, 66, 190, 175, 127, 71, 49, 98, 212, 142, 95, 100, 3, 17, 10, 72, 80, 61, 36,
+    68, 55, 240, 160, 163, 53,
+];

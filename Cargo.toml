@@ -37,6 +37,7 @@ log = { version = "0.4", default-features = false }
 oauth2 = { version = "4.2.2", default-features = false, features = ["ureq"] }
 once_cell = { version = "1.11.0", features = ["std"], default-features = false }
 openidconnect = { version = "2.3.2", features = ["ureq"], default-features = false }
+ring = { version = "0.16.20", features = ["std"] }
 rustls = { version = "0.20.6", default-features = false }
 rustls-pemfile = { version = "1.0.0", default-features = false }
 serde = { version = "1.0.136", features = ["derive"], default-features = false }
@@ -56,6 +57,8 @@ kvm-ioctls = { version = "0.11", default-features = false }
 lset = { version = "0.3", default-features = false }
 mmarinus = { version = "0.4.0", default-features = false }
 nbytes = { version = "0.1", default-features = false }
+p384 = { version = "0.11.1", features = ["std", "pem", "ecdsa"], default-features = false }
+pkcs8 = { version = "0.9.0", features = ["std", "pem"] }
 primordial = { version = "0.5", features = ["alloc"], default-features = false }
 protobuf = { version = "2.22", default-features = false }
 rand = { version = "0.8", features = ["std", "std_rng"], default-features = false }

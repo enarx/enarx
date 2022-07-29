@@ -24,7 +24,7 @@
 #[cfg(enarx_with_shim)]
 pub mod exec_wasmtime;
 
-use crate::backend::{Backend, Command};
+use crate::backend::{Backend, Command, Signatures};
 
 use std::convert::Into;
 use std::fs::File;
@@ -92,9 +92,10 @@ pub fn keep_exec(
     backend: &dyn Backend,
     shim: impl AsRef<[u8]>,
     exec: impl AsRef<[u8]>,
+    signatures: Option<Signatures>,
     _gdblisten: Option<String>,
 ) -> anyhow::Result<libc::c_int> {
-    let keep = backend.keep(shim.as_ref(), exec.as_ref())?;
+    let keep = backend.keep(shim.as_ref(), exec.as_ref(), signatures)?;
     let mut thread = keep.clone().spawn()?.unwrap();
     loop {
         match thread.enter(&_gdblisten)? {
@@ -129,13 +130,14 @@ pub fn open_package(
 pub fn run_package(
     backend: &dyn Backend,
     exec: impl AsRef<[u8]>,
+    _signatures: Option<Signatures>,
     gdblisten: Option<String>,
     package: impl FnOnce() -> Result<Package>,
 ) -> Result<i32> {
     let package = package()?;
     let args = ExecArgs { package };
     backend.set_args(args);
-    let exit_code = keep_exec(backend, backend.shim(), exec, gdblisten)?;
+    let exit_code = keep_exec(backend, backend.shim(), exec, None, gdblisten)?;
     Ok(exit_code)
 }
 
@@ -147,6 +149,7 @@ pub fn run_package(
 pub fn run_package(
     backend: &dyn Backend,
     exec: impl AsRef<[u8]>,
+    signatures: Option<Signatures>,
     gdblisten: Option<String>,
     package: impl FnOnce() -> Result<Package>,
 ) -> Result<i32> {
@@ -188,7 +191,7 @@ pub fn run_package(
             .context("failed to shutdown read half of host's socket")
     });
 
-    let exit_code = keep_exec(backend, backend.shim(), exec, gdblisten)?;
+    let exit_code = keep_exec(backend, backend.shim(), exec, signatures, gdblisten)?;
     exec_io
         .join()
         .expect("failed to join exec-wasmtime I/O thread")?;

@@ -10,10 +10,12 @@ pub mod linux;
 #[cfg(target_os = "linux")]
 use linux::*;
 
-use super::Version;
+use crate::backend::sev::snp::sign::{PublicKey, Signature};
+use crate::backend::ByteSized;
 
 use std::io::Result;
 use std::marker::PhantomData;
+use std::mem::size_of;
 use std::os::unix::io::AsRawFd;
 
 use bitflags::bitflags;
@@ -118,59 +120,6 @@ impl<V: AsRawFd> Launcher<Started, V> {
     }
 }
 
-bitflags! {
-    /// Configurable SNP Policy options.
-    #[derive(Default)]
-    pub struct PolicyFlags: u16 {
-        /// Enable if SMT is enabled in the host machine.
-        const SMT = 1;
-
-        /// If enabled, association with a migration agent is allowed.
-        const MIGRATE_MA = 1 << 2;
-
-        /// If enabled, debugging is allowed.
-        const DEBUG = 1 << 3;
-    }
-}
-
-/// Describes a policy that the AMD Secure Processor will
-/// enforce.
-#[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
-pub struct Policy {
-    /// The various policy optons are encoded as bit flags.
-    pub flags: PolicyFlags,
-
-    /// The desired minimum platform firmware version.
-    pub minfw: Version,
-}
-
-impl From<Policy> for u64 {
-    fn from(policy: Policy) -> u64 {
-        let mut val: u64 = 0;
-
-        let minor_version = u64::from(policy.minfw.minor);
-        let mut major_version = u64::from(policy.minfw.major);
-
-        /*
-         * According to the SNP firmware spec, bit 1 of the policy flags is reserved and must
-         * always be set to 1. Rather than passing this responsibility off to callers, set this bit
-         * every time an ioctl is issued to the kernel.
-         */
-        let flags = policy.flags.bits | 0b10;
-        let mut flags_64 = u64::from(flags);
-
-        major_version <<= 8;
-        flags_64 <<= 16;
-
-        val |= minor_version;
-        val |= major_version;
-        val |= flags_64;
-        val &= 0x00FFFFFF;
-
-        val
-    }
-}
-
 /// Encapsulates the various data needed to begin the launch process.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Start<'a> {
@@ -178,7 +127,7 @@ pub struct Start<'a> {
     pub(crate) ma_uaddr: Option<&'a [u8]>,
 
     /// Describes a policy that the AMD Secure Processor will enforce.
-    pub(crate) policy: Policy,
+    pub(crate) policy: u64,
 
     /// Indicates that this launch flow is launching an IMI for the purpose of guest-assisted migration.
     pub(crate) imi_en: bool,
@@ -280,11 +229,11 @@ pub enum PageType {
 /// Encapsulates the data needed to complete a guest launch.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct Finish<'a, 'b> {
-    /// The userspace address of the encrypted region.
-    pub(crate) id_block: Option<&'a [u8]>,
+    /// The userspace address of the authentication information of the ID block and auth.
+    pub(crate) id_block_n_auth: Option<(&'a IdBlock, &'b IdAuth)>,
 
-    /// The userspace address of the authentication information of the ID block.
-    pub(crate) id_auth: Option<&'b [u8]>,
+    /// Indicates that the author key is present in the ID authentication information structure.
+    pub(crate) auth_key_en: bool,
 
     /// Opaque host-supplied data to describe the guest. The firmware does not interpret this
     /// value.
@@ -294,14 +243,138 @@ pub struct Finish<'a, 'b> {
 impl<'a, 'b> Finish<'a, 'b> {
     /// Encapsulate all data needed for the SNP_LAUNCH_FINISH ioctl.
     pub fn new(
-        id_block: Option<&'a [u8]>,
-        id_auth: Option<&'b [u8]>,
+        id_block_n_auth: Option<(&'a IdBlock, &'b IdAuth)>,
+        auth_key_en: bool,
         host_data: [u8; KVM_SEV_SNP_FINISH_DATA_SIZE],
     ) -> Self {
         Self {
-            id_block,
-            id_auth,
+            id_block_n_auth,
+            auth_key_en,
             host_data,
+        }
+    }
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub struct IdBlock {
+    pub launch_digest: [u8; 48],
+    pub family_id: [u8; 16],
+    pub image_id: [u8; 16],
+    pub version: u32, // must be 1 for this ABI
+    pub guest_svn: u32,
+    pub policy: u64,
+}
+
+impl Default for IdBlock {
+    fn default() -> Self {
+        Self {
+            launch_digest: [0u8; 48],
+            family_id: [0u8; 16],
+            image_id: [0u8; 16],
+            version: 1,
+            guest_svn: 0,
+            policy: 0,
+        }
+    }
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[repr(C)]
+pub struct IdAuth {
+    pub id_key_algo: u32,
+    pub auth_key_algo: u32,
+    pub rsvd1: [u8; 56], // must be zero
+    pub id_block_sig: Signature,
+    pub id_key: PublicKey,
+    pub rsvd2: [u8; 60], // must be zero
+    pub id_key_sig: Signature,
+    pub author_key: PublicKey,
+    pub rsvd3: [u8; 892], // must be zero
+}
+
+impl Default for IdAuth {
+    fn default() -> Self {
+        Self {
+            id_key_algo: 0,
+            auth_key_algo: 0,
+            rsvd1: [0u8; 56],
+            id_block_sig: Signature::default(),
+            id_key: PublicKey::default(),
+            rsvd2: [0u8; 60],
+            id_key_sig: Signature::default(),
+            author_key: PublicKey::default(),
+            rsvd3: [0u8; 892],
+        }
+    }
+}
+
+// SAFETY: IdBlock is a C struct with no UD states and pointers.
+unsafe impl ByteSized for IdBlock {}
+
+// SAFETY: IdAuth is a C struct with no UD states and pointers.
+unsafe impl ByteSized for IdAuth {}
+
+#[derive(Debug)]
+#[repr(C)]
+pub struct PageInfo {
+    pub digest_cur: [u8; 48],
+    pub contents: [u8; 48],
+    pub length: u16,
+    pub page_type: u8,
+    pub imi_page: u8,
+    pub vmpl3_perms: VmplPerms,
+    pub vmpl2_perms: VmplPerms,
+    pub vmpl1_perms: VmplPerms,
+    pub rsvd: u8,
+    pub gpa: u64,
+}
+
+impl Default for PageInfo {
+    fn default() -> Self {
+        Self {
+            digest_cur: [0u8; 48],
+            contents: [0u8; 48],
+            length: size_of::<Self>() as _,
+            page_type: 0,
+            imi_page: 0,
+            vmpl3_perms: VmplPerms::empty(),
+            vmpl2_perms: VmplPerms::empty(),
+            vmpl1_perms: VmplPerms::empty(),
+            rsvd: 0,
+            gpa: 0,
+        }
+    }
+}
+
+// SAFETY: PageInfo is a C struct with no UD states and pointers.
+unsafe impl ByteSized for PageInfo {}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    use testaso::testaso;
+    testaso! {
+        struct IdBlock: 8, 96 => {
+            launch_digest: 0,
+            family_id: 48,
+            image_id: 64,
+            version: 80,
+            guest_svn: 84,
+            policy: 88
+        }
+
+        struct IdAuth: 4, 4096 => {
+            id_key_algo: 0,
+            auth_key_algo: 4,
+            rsvd1: 8,
+            id_block_sig: 64,
+            id_key: 576,
+            rsvd2: 1604,
+            id_key_sig: 1664,
+            author_key: 2176,
+            rsvd3: 3204
         }
     }
 }

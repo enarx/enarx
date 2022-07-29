@@ -1,24 +1,35 @@
 // SPDX-License-Identifier: Apache-2.0
 
+use super::config::Config;
+
 use std::convert::TryFrom;
 
 use anyhow::{Error, Result};
 use mmarinus::{perms, Map};
+use sgx::crypto::rcrypto::S256Digest;
 use sgx::page::SecInfo;
+use sgx::signature::Body;
+use sgx::signature::Hasher as SgxHasher;
 
-pub struct Hasher(sgx::signature::Hasher<sgx::crypto::rcrypto::S256Digest>);
+pub struct Hasher {
+    digest: SgxHasher<S256Digest>,
+    cnfg: Config,
+}
 
-impl TryFrom<super::config::Config> for Hasher {
+impl TryFrom<Config> for Hasher {
     type Error = Error;
 
     #[inline]
-    fn try_from(config: super::config::Config) -> Result<Self> {
-        Ok(Self(sgx::signature::Hasher::new(config.size, config.ssap)))
+    fn try_from(config: Config) -> Result<Self> {
+        Ok(Self {
+            digest: sgx::signature::Hasher::new(config.size, config.ssap),
+            cnfg: config,
+        })
     }
 }
 
 impl super::super::Mapper for Hasher {
-    type Config = super::config::Config;
+    type Config = Config;
     type Output = Vec<u8>;
 
     #[inline]
@@ -28,7 +39,7 @@ impl super::super::Mapper for Hasher {
         to: usize,
         with: (SecInfo, bool),
     ) -> anyhow::Result<()> {
-        self.0.load(&pages, to, with.0, with.1).unwrap();
+        self.digest.load(&pages, to, with.0, with.1).unwrap();
         Ok(())
     }
 }
@@ -38,6 +49,15 @@ impl TryFrom<Hasher> for Vec<u8> {
 
     #[inline]
     fn try_from(hasher: Hasher) -> Result<Self> {
-        Ok(hasher.0.finish().into())
+        let body = hasher.cnfg.parameters.body(hasher.digest.finish());
+
+        // Safety: We know that the body is sized and u8 does not need alignment.
+        Ok(unsafe {
+            core::slice::from_raw_parts(
+                &body as *const _ as *const u8,
+                core::mem::size_of::<Body>(),
+            )
+        }
+        .to_vec())
     }
 }

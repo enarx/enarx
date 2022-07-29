@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
+use crate::backend::Signatures;
 use crate::cli::BackendOptions;
 use crate::exec::{open_package, run_package, EXECS};
 
@@ -25,6 +26,10 @@ pub struct Options {
     #[clap(value_name = "MODULE")]
     pub module: Utf8PathBuf,
 
+    /// Path of the signature file to use.
+    #[clap(long, value_name = "SIGNATURES")]
+    pub signatures: Option<Utf8PathBuf>,
+
     /// gdb options
     #[cfg(feature = "gdb")]
     #[clap(long, default_value = "localhost:23456")]
@@ -37,6 +42,7 @@ impl Options {
             backend,
             wasmcfgfile,
             module,
+            signatures,
             #[cfg(feature = "gdb")]
             gdblisten,
         } = self;
@@ -46,6 +52,8 @@ impl Options {
             .find(|w| w.with_backend(backend))
             .ok_or_else(|| anyhow!("no supported exec found"))
             .map(|b| b.exec())?;
+
+        let signatures = Signatures::load(signatures)?;
 
         let get_pkg = || {
             let (wasm, conf) = open_package(module, wasmcfgfile)?;
@@ -65,6 +73,7 @@ impl Options {
         let code = run_package(
             backend,
             exec,
+            signatures,
             #[cfg(not(feature = "gdb"))]
             None,
             #[cfg(feature = "gdb")]

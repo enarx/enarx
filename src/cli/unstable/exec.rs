@@ -45,7 +45,7 @@ impl Options {
         #[cfg(feature = "gdb")]
         let gdblisten = Some(self.gdblisten);
 
-        let exit_code = keep_exec(backend, backend.shim(), binary, gdblisten)?;
+        let exit_code = keep_exec(backend, backend.shim(), binary, None, gdblisten)?;
         std::process::exit(exit_code);
     }
 }

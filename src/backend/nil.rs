@@ -2,6 +2,7 @@
 
 use std::sync::{Arc, RwLock};
 
+use crate::backend::Signatures;
 use anyhow::{bail, Result};
 #[cfg(windows)]
 use enarx_exec_wasmtime::Args;
@@ -43,7 +44,12 @@ impl crate::backend::Backend for Backend {
     }
 
     #[inline]
-    fn keep(&self, shim: &[u8], exec: &[u8]) -> Result<Arc<dyn super::Keep>> {
+    fn keep(
+        &self,
+        shim: &[u8],
+        exec: &[u8],
+        _signatures: Option<Signatures>,
+    ) -> Result<Arc<dyn super::Keep>> {
         if !shim.is_empty() {
             bail!("The nil backend cannot be called with a shim!")
         }

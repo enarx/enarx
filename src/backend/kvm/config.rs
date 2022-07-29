@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 
+use crate::backend::Signatures;
 use anyhow::{anyhow, Result};
 use goblin::elf64::program_header::PT_LOAD;
 use sallyport::elf::{self, pf::kvm::SALLYPORT};
 
 pub struct Config {
     pub sallyport_block_size: usize,
+    pub signatures: Option<Signatures>,
 }
 
 impl super::super::Config for Config {
@@ -15,7 +17,11 @@ impl super::super::Config for Config {
         flags
     }
 
-    fn new(shim: &super::super::Binary<'_>, _exec: &super::super::Binary<'_>) -> Result<Self> {
+    fn new(
+        shim: &super::super::Binary<'_>,
+        _exec: &super::super::Binary<'_>,
+        signatures: Option<Signatures>,
+    ) -> Result<Self> {
         let sallyport_headers = shim.headers(PT_LOAD).filter(|p| p.p_flags & SALLYPORT != 0);
 
         if sallyport_headers.count() != 1 {
@@ -29,6 +35,7 @@ impl super::super::Config for Config {
 
         Ok(Self {
             sallyport_block_size,
+            signatures,
         })
     }
 }

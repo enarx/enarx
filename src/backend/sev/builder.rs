@@ -6,14 +6,15 @@ use super::snp::launch::*;
 
 use super::SnpKeepPersonality;
 use crate::backend::kvm::builder::kvm_try_from_builder;
-use crate::backend::kvm::config::Config;
 use crate::backend::kvm::mem::Region;
+use crate::backend::sev::config::Config;
+use crate::backend::ByteSized;
 
 use std::convert::TryFrom;
 use std::sync::{Arc, RwLock};
 use std::{thread, time};
 
-use anyhow::{Context, Error};
+use anyhow::{anyhow, Context, Error};
 use kvm_ioctls::Kvm;
 use mmarinus::{perms, Map};
 use primordial::Page;
@@ -60,10 +61,10 @@ fn retry<O>(func: impl Fn() -> anyhow::Result<O>) -> anyhow::Result<O> {
     }
 }
 
-impl TryFrom<super::super::kvm::config::Config> for Builder {
+impl TryFrom<super::config::Config> for Builder {
     type Error = Error;
 
-    fn try_from(config: super::super::kvm::config::Config) -> anyhow::Result<Self> {
+    fn try_from(config: super::config::Config) -> anyhow::Result<Self> {
         let (kvm_fd, launcher) = retry(|| {
             // try to open /dev/sev and start the Launcher several times
 
@@ -79,11 +80,7 @@ impl TryFrom<super::super::kvm::config::Config> for Builder {
         })?;
 
         let start = Start {
-            policy: Policy {
-                flags: PolicyFlags::SMT,
-                ..Default::default()
-            },
-            gosvw: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16],
+            policy: config.parameters.policy,
             ..Default::default()
         };
 
@@ -100,7 +97,7 @@ impl TryFrom<super::super::kvm::config::Config> for Builder {
 }
 
 impl super::super::Mapper for Builder {
-    type Config = super::super::kvm::config::Config;
+    type Config = super::config::Config;
     type Output = Arc<dyn super::super::Keep>;
 
     fn map(
@@ -169,7 +166,7 @@ impl super::super::Mapper for Builder {
         } else {
             let update = Update::new(
                 to as u64 >> 12,
-                &pages,
+                pages.as_ref(),
                 false,
                 PageType::Normal,
                 (dp, dp, dp),
@@ -189,27 +186,47 @@ impl super::super::Mapper for Builder {
 impl TryFrom<Builder> for Arc<dyn super::super::Keep> {
     type Error = Error;
 
-    fn try_from(mut builder: Builder) -> anyhow::Result<Self> {
-        let vcpu_fd = kvm_try_from_builder(
-            &builder.sallyports,
-            &mut builder.kvm_fd,
-            builder.launcher.as_mut(),
-        )?;
+    fn try_from(builder: Builder) -> anyhow::Result<Self> {
+        let Builder {
+            mut config,
+            mut kvm_fd,
+            mut launcher,
+            regions,
+            sallyports,
+        } = builder;
 
-        let finish = Finish::new(None, None, [0u8; 32]);
+        let sallyport_block_size = config.sallyport_block_size;
+        let signatures = config.signatures.take();
 
-        let (vm_fd, sev_fd) = builder
-            .launcher
+        let id_block;
+        let id_auth;
+
+        let vcpu_fd = kvm_try_from_builder(&sallyports, &mut kvm_fd, launcher.as_mut())?;
+
+        let finish = if let Some(signatures) = signatures {
+            let sig_blob = signatures.sev;
+
+            id_auth = IdAuth::from_bytes(&sig_blob.id_auth)
+                .ok_or_else(|| anyhow!("Invalid SEV signature IdAuth blob size."))?;
+            id_block = IdBlock::from_bytes(&sig_blob.id_block)
+                .ok_or_else(|| anyhow!("Invalid SEV signature IdBlock blob size."))?;
+
+            Finish::new(Some((&id_block, &id_auth)), true, [0u8; 32])
+        } else {
+            Finish::new(None, false, [0u8; 32])
+        };
+
+        let (vm_fd, sev_fd) = launcher
             .finish(finish)
             .context("SNP Launcher finish failed")?;
 
         Ok(Arc::new(RwLock::new(super::Keep::<SnpKeepPersonality> {
-            kvm_fd: builder.kvm_fd,
+            kvm_fd,
             vm_fd,
             cpu_fds: vec![vcpu_fd],
-            regions: builder.regions,
-            sallyport_block_size: builder.config.sallyport_block_size,
-            sallyports: builder.sallyports,
+            regions,
+            sallyport_block_size,
+            sallyports,
             personality: SnpKeepPersonality { _sev_fd: sev_fd },
         })))
     }

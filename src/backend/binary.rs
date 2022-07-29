@@ -9,6 +9,7 @@ use goblin::elf::{header::*, note::NoteIterator, program_header::*, Elf};
 use mmarinus::{perms, Map};
 use primordial::Page;
 
+use crate::backend::Signatures;
 use std::ops::Range;
 
 #[derive(Clone, Debug)]
@@ -135,7 +136,11 @@ impl<'a> Binary<'a> {
 }
 
 impl<T: Mapper> Loader for T {
-    fn load(shim: impl AsRef<[u8]>, exec: impl AsRef<[u8]>) -> Result<Self::Output> {
+    fn load(
+        shim: impl AsRef<[u8]>,
+        exec: impl AsRef<[u8]>,
+        signatures: Option<Signatures>,
+    ) -> Result<Self::Output> {
         use sallyport::elf;
 
         // Parse the ELF files.
@@ -167,7 +172,7 @@ impl<T: Mapper> Loader for T {
         }
 
         // Parse the config and create a builder.
-        let mut loader: Self = Self::Config::new(&sbin, &ebin)?.try_into()?;
+        let mut loader: Self = Self::Config::new(&sbin, &ebin, signatures)?.try_into()?;
 
         // Get an array of all final segment locations (relocated).
         let ssegs: Vec<Segment<'_>> = sbin.segments(0).collect();
@@ -213,5 +218,9 @@ pub(crate) trait Mapper: Sized + TryFrom<Self::Config, Error = Error> {
 }
 
 pub(crate) trait Loader: Mapper {
-    fn load(shim: impl AsRef<[u8]>, exec: impl AsRef<[u8]>) -> Result<Self::Output>;
+    fn load(
+        shim: impl AsRef<[u8]>,
+        exec: impl AsRef<[u8]>,
+        signatures: Option<Signatures>,
+    ) -> Result<Self::Output>;
 }
