@@ -29,16 +29,28 @@ use core::arch::asm;
 use core::mem::size_of;
 use core::sync::atomic::Ordering;
 
+use enarx_shim_kvm::snp::launch::{Policy, PolicyFlags, Version};
 use noted::noted;
 use primordial::Page;
 use rcrt1::dyn_reloc;
 use sallyport::{elf::note, REQUIRES};
 use x86_64::registers::control::{Cr0Flags, Cr4Flags, EferFlags};
 
+const POLICY: u64 = Policy {
+    flags: PolicyFlags::SMT,
+    minfw: Version { major: 0, minor: 0 },
+}
+.as_u64();
+
 noted! {
     static NOTE_ENARX_SALLYPORT<note::NAME, note::REQUIRES, [u8; REQUIRES.len()]> = REQUIRES;
 
     static NOTE_BLOCK_SIZE<note::NAME, note::BLOCK_SIZE, u64> = BLOCK_SIZE as u64;
+
+    static NOTE_SVN<note::NAME, note::snp::SVN, u32> = 1;
+    static NOTE_POLICY<note::NAME, note::snp::POLICY, u64> = POLICY;
+    static NOTE_FAMILY_ID<note::NAME, note::snp::FAMILY_ID, [u8; 16]> = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1];
+    static NOTE_IMAGE_ID<note::NAME, note::snp::IMAGE_ID, [u8; 16]> = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1];
 }
 
 #[cfg(not(debug_assertions))]

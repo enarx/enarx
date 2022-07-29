@@ -14,6 +14,7 @@ use crate::snp::Error::{FailInput, FailSizeMismatch, Unknown};
 pub mod attestation;
 pub mod cpuid_page;
 pub mod ghcb;
+pub mod launch;
 pub mod secrets_page;
 
 /// The C-Bit mask indicating encrypted physical addresses
