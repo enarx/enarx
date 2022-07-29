@@ -81,4 +81,19 @@ pub mod note {
         /// Attributes Mask (u128)
         pub const ATTRMASK: u32 = 0x73677815;
     }
+
+    /// SEV-SNP ELF Notes
+    pub mod snp {
+        /// SEV-SNP Policy flags (u64)
+        pub const POLICY: u32 = 0x73677822;
+
+        /// SEV-SNP Family ID [u8; 16]
+        pub const FAMILY_ID: u32 = 0x73677823;
+
+        /// SEV-SNP Image ID [u8; 16]
+        pub const IMAGE_ID: u32 = 0x73677824;
+
+        /// SEV-SNP Guest SVN (u32)
+        pub const SVN: u32 = 0x73677825;
+    }
 }
