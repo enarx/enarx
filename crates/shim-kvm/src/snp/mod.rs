@@ -68,7 +68,7 @@ pub enum PvalidateSize {
 pub fn pvalidate(addr: VirtAddr, size: PvalidateSize, validated: bool) -> Result<bool, Error> {
     let rmp_changed: u32;
     let ret: u64;
-    let flag: u32 = if validated { 1 } else { 0 };
+    let flag: u32 = validated.into();
 
     // pvalidate and output the carry bit in edx
     // return value in rax
