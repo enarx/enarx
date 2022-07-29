@@ -52,7 +52,9 @@ $ sudo chown root:root /lib/firmware/amd/amd_sev_fam19h_model0xh.sbin
 - Set SEV device node permissions
 
 ```sh:snp;
-$ sudo bash -c "echo 'KERNEL=="sev", MODE="0666"' > /etc/udev/rules.d/50-sev.rules"
+$ sudo bash -c "cat > /etc/udev/rules.d/50-sev.rules" <<EOF
+KERNEL=="sev", MODE="0666"
+EOF
 ```
 - Increase the memlock limit for SEV keeps (need to pin a large number of pages)
 
