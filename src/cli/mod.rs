@@ -6,6 +6,8 @@ mod package;
 mod platform;
 mod repo;
 mod run;
+#[cfg(enarx_with_shim)]
+mod sign;
 mod tree;
 mod unstable;
 mod user;
@@ -63,6 +65,9 @@ enum Subcommands {
     Package(package::Subcommands),
     #[clap(subcommand)]
     Repo(repo::Subcommands),
+    #[cfg(enarx_with_shim)]
+    #[clap(hide = true)]
+    Sign(sign::Options),
     #[clap(subcommand, hide = true)]
     Tree(tree::Subcommands),
     #[clap(subcommand)]
@@ -80,6 +85,8 @@ impl Subcommands {
             Self::Platform(subcmd) => subcmd.dispatch(),
             Self::Package(subcmd) => subcmd.dispatch(),
             Self::Repo(subcmd) => subcmd.dispatch(),
+            #[cfg(enarx_with_shim)]
+            Self::Sign(cmd) => cmd.execute(),
             Self::Tree(subcmd) => subcmd.dispatch(),
             Self::User(subcmd) => subcmd.dispatch(),
             Self::Unstable(subcmd) => subcmd.dispatch(),

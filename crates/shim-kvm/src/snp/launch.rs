@@ -67,6 +67,7 @@ impl Policy {
         val |= minor_version;
         val |= major_version;
         val |= flags_64;
+        // mask out all the other invalid bits per SEV-SNP firmware specification
         val &= 0x00FFFFFF;
 
         val

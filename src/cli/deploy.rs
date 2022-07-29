@@ -9,7 +9,9 @@ use std::fs;
 #[cfg(unix)]
 use std::os::unix::io::IntoRawFd;
 
+use crate::backend::Signatures;
 use anyhow::{anyhow, bail, Context};
+use camino::Utf8PathBuf;
 use clap::Args;
 use enarx_exec_wasmtime::{Package, PACKAGE_CONFIG, PACKAGE_ENTRYPOINT};
 use url::Url;
@@ -24,6 +26,10 @@ pub struct Options {
     #[clap(value_name = "PACKAGE")]
     pub package: String,
 
+    /// Path of the signature file to use.
+    #[clap(long, value_name = "SIGNATURES")]
+    pub signatures: Option<Utf8PathBuf>,
+
     /// gdb options
     #[cfg(feature = "gdb")]
     #[clap(long, default_value = "localhost:23456")]
@@ -35,6 +41,7 @@ impl Options {
         let Self {
             backend,
             package,
+            signatures,
             #[cfg(feature = "gdb")]
             gdblisten,
         } = self;
@@ -53,6 +60,8 @@ impl Options {
 
         #[cfg(feature = "gdb")]
         let gdblisten = Some(gdblisten);
+
+        let signatures = Signatures::load(signatures)?;
 
         let (host, user, repo, tag) = parse_tag(&package)?;
         let addr = format!("https://{host}/api/v0.1.0/{user}/{repo}/_tag/{tag}/tree");
@@ -97,14 +106,14 @@ impl Options {
                     Ok(pkg)
                 };
 
-                run_package(backend, exec, gdblisten, get_pkg)?
+                run_package(backend, exec, signatures, gdblisten, get_pkg)?
             }
 
             // The WASM module and config will be downloaded from a remote by exec-wasmtime
             // TODO: Disallow `http` or guard by an `--insecure` flag
-            "http" | "https" => {
-                run_package(backend, exec, gdblisten, || Ok(Package::Remote(package)))?
-            }
+            "http" | "https" => run_package(backend, exec, signatures, gdblisten, || {
+                Ok(Package::Remote(package))
+            })?,
 
             s => bail!("unsupported scheme: {}", s),
         };

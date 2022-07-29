@@ -38,7 +38,10 @@ use x86_64::registers::control::{Cr0Flags, Cr4Flags, EferFlags};
 
 const POLICY: u64 = Policy {
     flags: PolicyFlags::SMT,
-    minfw: Version { major: 0, minor: 0 },
+    minfw: Version {
+        major: 1,
+        minor: 51,
+    },
 }
 .as_u64();
 
@@ -49,8 +52,8 @@ noted! {
 
     static NOTE_SVN<note::NAME, note::snp::SVN, u32> = 1;
     static NOTE_POLICY<note::NAME, note::snp::POLICY, u64> = POLICY;
-    static NOTE_FAMILY_ID<note::NAME, note::snp::FAMILY_ID, [u8; 16]> = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1];
-    static NOTE_IMAGE_ID<note::NAME, note::snp::IMAGE_ID, [u8; 16]> = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1];
+    static NOTE_FAMILY_ID<note::NAME, note::snp::FAMILY_ID, [u8; 16]> = [0; 16];
+    static NOTE_IMAGE_ID<note::NAME, note::snp::IMAGE_ID, [u8; 16]> = [0; 16];
 }
 
 #[cfg(not(debug_assertions))]

@@ -21,7 +21,7 @@ fn enarx<'a>(
         .current_dir(CRATE)
         .env(
             "ENARX_TEST_SGX_KEY_FILE",
-            CRATE.to_string() + "/tests/sgx-test.key",
+            CRATE.to_string() + "/tests/data/sgx-test.key",
         )
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
@@ -66,6 +66,7 @@ fn enarx<'a>(
     output
 }
 
+#[cfg(not(enarx_with_shim))]
 pub fn enarx_run<'a>(
     wasm: &Path,
     conf: Option<&Path>,
@@ -82,6 +83,60 @@ pub fn enarx_run<'a>(
         },
         input,
     )
+}
+
+#[cfg(enarx_with_shim)]
+pub fn enarx_run<'a>(
+    wasm: &Path,
+    conf: Option<&Path>,
+    input: impl Into<Option<&'a [u8]>>,
+) -> Output {
+    let tmpdir = tempdir().expect("failed to create temporary package directory");
+
+    let out = enarx(
+        |cmd| {
+            cmd.args(vec![
+                "sign",
+                "--sgx-key",
+                "tests/data/sgx-test.key",
+                "--sev-key",
+                "tests/data/sev-id.key",
+                "--sev-author-key",
+                "tests/data/sev-author.key",
+            ])
+        },
+        None,
+    );
+
+    if !out.status.success() {
+        eprintln!(
+            "failed to sign package: {}",
+            String::from_utf8_lossy(&out.stderr)
+        );
+        return out;
+    }
+
+    let signature_file_path = tmpdir.path().join("sig.json");
+    fs::write(&signature_file_path, &out.stdout).expect("failed to write signature file");
+
+    let ret = enarx(
+        |cmd| {
+            let cmd = cmd
+                .arg("run")
+                .arg(wasm)
+                .args(vec!["--signatures", signature_file_path.to_str().unwrap()]);
+            if let Some(conf) = conf {
+                cmd.args(vec!["--wasmcfgfile", conf.to_str().unwrap()])
+            } else {
+                cmd
+            }
+        },
+        input,
+    );
+
+    tmpdir.close().unwrap();
+
+    ret
 }
 
 //pub fn enarx_deploy<'a>(url: &Url, input: impl Into<Option<&'a [u8]>>) -> Output {

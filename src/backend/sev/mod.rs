@@ -5,8 +5,10 @@ pub mod snp;
 pub use snp::firmware::Firmware;
 
 mod builder;
+mod config;
 mod cpuid_page;
 mod data;
+mod hasher;
 
 use snp::vcek::get_vcek_reader;
 
@@ -21,6 +23,7 @@ use data::{
 use std::io;
 use std::sync::Arc;
 
+use crate::backend::Signatures;
 use anyhow::{bail, Context, Result};
 use kvm_bindings::bindings::kvm_enc_region;
 use kvm_ioctls::VmFd;
@@ -107,12 +110,17 @@ impl super::Backend for Backend {
     }
 
     #[inline]
-    fn keep(&self, shim: &[u8], exec: &[u8]) -> Result<Arc<dyn super::Keep>> {
-        builder::Builder::load(shim, exec)
+    fn keep(
+        &self,
+        shim: &[u8],
+        exec: &[u8],
+        signatures: Option<Signatures>,
+    ) -> Result<Arc<dyn super::Keep>> {
+        builder::Builder::load(shim, exec, signatures)
     }
 
     #[inline]
-    fn hash(&self, _shim: &[u8], _exec: &[u8]) -> Result<Vec<u8>> {
-        Ok(Vec::new())
+    fn hash(&self, shim: &[u8], exec: &[u8]) -> Result<Vec<u8>> {
+        hasher::Hasher::load(shim, exec, None)
     }
 }

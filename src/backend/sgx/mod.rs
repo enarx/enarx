@@ -13,6 +13,7 @@ use super::Loader;
 use anyhow::Result;
 use mmarinus::{perms, Map};
 
+use crate::backend::Signatures;
 use std::arch::x86_64::__cpuid_count;
 use std::fs::File;
 use std::sync::{Arc, RwLock};
@@ -62,13 +63,18 @@ impl crate::backend::Backend for Backend {
     }
 
     #[inline]
-    fn keep(&self, shim: &[u8], exec: &[u8]) -> Result<Arc<dyn super::Keep>> {
-        builder::Builder::load(shim, exec)
+    fn keep(
+        &self,
+        shim: &[u8],
+        exec: &[u8],
+        signatures: Option<Signatures>,
+    ) -> Result<Arc<dyn super::Keep>> {
+        builder::Builder::load(shim, exec, signatures)
     }
 
     #[inline]
     fn hash(&self, shim: &[u8], exec: &[u8]) -> Result<Vec<u8>> {
-        hasher::Hasher::load(shim, exec)
+        hasher::Hasher::load(shim, exec, None)
     }
 }
 
