@@ -97,9 +97,6 @@ futures = { version = "0.3.21", default-features = false }
 http-types = { version = "2.12.0", default-features = false }
 openidconnect = { version = "2.3.1", default-features = false }
 
-[profile.dev]
-strip = true
-
 [profile.release]
 incremental = false
 codegen-units = 1
