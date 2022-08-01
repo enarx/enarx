@@ -15,9 +15,7 @@ use core::arch::asm;
 use core::mem::size_of;
 use core::ptr;
 
-use aes_gcm::AeadInPlace;
-use aes_gcm::NewAead;
-use aes_gcm::{Aes256Gcm, Key, Nonce, Tag};
+use aes_gcm::{AeadInPlace, Aes256Gcm, KeyInit, Nonce, Tag};
 use const_default::ConstDefault;
 use sallyport::libc::EINVAL;
 use spinning::Lazy;
@@ -668,8 +666,7 @@ impl GhcbExtHandle {
 
         let vmpck0 = SECRETS.get_vmpck0();
 
-        let key = Key::from_slice(&vmpck0);
-        let cipher = Aes256Gcm::new(key);
+        let cipher = Aes256Gcm::new_from_slice(&vmpck0).unwrap();
 
         let mut seqno_nonce = [0u8; 12];
         seqno_nonce[0..8].copy_from_slice(unsafe {
@@ -730,8 +727,7 @@ impl GhcbExtHandle {
         }
 
         let vmpck0 = SECRETS.get_vmpck0();
-        let key = Key::from_slice(&vmpck0);
-        let cipher = Aes256Gcm::new(key);
+        let cipher = Aes256Gcm::new_from_slice(&vmpck0).unwrap();
 
         let mut seqno_nonce = [0u8; 12];
         seqno_nonce[0..8].copy_from_slice(unsafe {
@@ -846,9 +842,8 @@ mod test {
 
     #[test]
     fn test_gcm() {
-        use aes_gcm::AeadInPlace;
-        use aes_gcm::NewAead;
-        use aes_gcm::{Aes256Gcm, Key, Nonce, Tag};
+        use aes_gcm::{AeadInPlace, Aes256Gcm, KeyInit, Nonce, Tag};
+
         use std::mem::size_of;
 
         let mut request = <SnpGuestMsg as ConstDefault>::DEFAULT;
@@ -868,8 +863,7 @@ mod test {
             186, 126, 75, 217, 65, 119, 135, 183, 107, 152, 18, 248, 41,
         ];
 
-        let key = Key::from_slice(&vmpck0);
-        let cipher = Aes256Gcm::new(key);
+        let cipher = Aes256Gcm::new_from_slice(&vmpck0).unwrap();
 
         let mut seqno_nonce = [0u8; 12];
         let msg_seqno_ptr = &request.hdr.msg_seqno as *const _ as *const u8;

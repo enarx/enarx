@@ -1,5 +1,9 @@
 [target.x86_64-unknown-none]
-rustflags = ["-C", "linker=gcc"]
+rustflags = [
+    "-C", "linker=gcc",
+    "--cfg", "polyval_force_soft",
+    "--cfg", "aes_force_soft",
+]
 
 [target.x86_64-pc-windows-msvc]
 rustflags = ["-C", "target-feature=+crt-static"]
