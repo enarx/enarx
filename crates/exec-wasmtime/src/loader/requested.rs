@@ -31,7 +31,7 @@ use x509_cert::time::Validity;
 use x509_cert::{Certificate, PkiPath, TbsCertificate};
 
 /// Maximum size of WASM module in bytes
-const MAX_WASM_SIZE: u64 = 10_000_000;
+const MAX_WASM_SIZE: u64 = 100_000_000;
 
 const DRAWBRIDGE_DIRECTORY_MEDIA_TYPE: &str = "application/vnd.drawbridge.directory.v1+json";
 const TOML_MEDIA_TYPE: &str = "application/toml";
