@@ -12,7 +12,7 @@ gdb = ["dep:gdbstub", "dep:gdbstub_arch", "dbg"]
 dbg = []
 
 [dependencies]
-aes-gcm = { version = "0.9", features = ["force-soft"], default-features = false }
+aes-gcm = { version = "0.10", features = ["force-soft"], default-features = false }
 array-const-fn-init = { version = "0.1", default-features = false }
 const-default = { version = "1.0", features = ["derive"], default-features = false }
 crt0stack = { version = "0.1", default-features = false }
