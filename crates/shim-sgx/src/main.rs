@@ -8,6 +8,7 @@
 #![no_std]
 #![feature(asm_const, asm_sym, naked_functions)]
 #![deny(clippy::all)]
+#![cfg_attr(not(test), deny(clippy::integer_arithmetic))]
 #![deny(missing_docs)]
 #![warn(rust_2018_idioms)]
 #![no_main]
@@ -261,9 +262,9 @@ unsafe extern "C" fn main(
     // it needs to be validated explicitly.  Thus, check that the Sallyport
     // block is outside the shim address space:
     let block_start = block.as_ptr() as usize;
-    let block_end = block_start + BLOCK_SIZE;
+    let block_end = block_start.checked_add(BLOCK_SIZE).unwrap();
     let shim_start = shim_address();
-    let shim_end = shim_start + ENCL_SIZE;
+    let shim_end = shim_start.checked_add(ENCL_SIZE).unwrap();
 
     if (block_start >= shim_start && block_start < shim_end)
         || (block_end > shim_start && block_end <= shim_end)
@@ -274,6 +275,7 @@ unsafe extern "C" fn main(
     match cssa {
         0 => entry::entry(&ENARX_EXEC_START as *const u8 as _),
         1 => handler::Handler::handle(&mut ssas[0], block.as_mut_slice()),
+        #[allow(clippy::integer_arithmetic)]
         n => handler::Handler::finish(&mut ssas[n - 1]),
     }
 

@@ -92,7 +92,11 @@ impl<'a> Handler<'a> {
         let zero_page_addr = unsafe { PageAddr::from_start_address_unchecked(zero_virt_addr) };
 
         for i in 0..length.items() {
-            let virt_addr = VirtAddr::new((addr.raw() + i * Page::SIZE) as u64);
+            let virt_addr = VirtAddr::new(
+                addr.raw()
+                    .checked_add(Page::SIZE.checked_mul(i).unwrap())
+                    .unwrap() as u64,
+            );
             // # Safety
             //
             // The address must be page aligned.
@@ -113,8 +117,14 @@ impl<'a> Handler<'a> {
         prot: c_int,
     ) -> sallyport::Result<()> {
         let addr = addr_in.as_ptr() as usize;
+
         // TODO: Simplify:
-        let pages = ((length_in + Page::SIZE - 1) & !(Page::SIZE - 1)) / Page::SIZE;
+        #[allow(clippy::integer_arithmetic)]
+        let pages = if length_in > (c_size_t::MAX - Page::SIZE) {
+            (c_size_t::MAX - Page::SIZE) / Page::SIZE
+        } else {
+            ((length_in + Page::SIZE - 1) & !(Page::SIZE - 1)) / Page::SIZE
+        };
 
         if addr & 0xfff != 0 || pages == 0 {
             return Err(EINVAL);
@@ -134,7 +144,11 @@ impl<'a> Handler<'a> {
         self.mprotect_host(addr_in, length.bytes(), prot)?;
 
         for i in 0..pages {
-            let virt_addr = VirtAddr::new((addr.raw() + i * Page::SIZE) as u64);
+            let virt_addr = VirtAddr::new(
+                addr.raw()
+                    .checked_add(Page::SIZE.checked_mul(i).unwrap())
+                    .unwrap() as u64,
+            );
             // Safety: The address is guaranteed to be page aligned, because
             // `addr` was checked to be page aligned and only a multiple of
             // pages was added.
@@ -164,7 +178,13 @@ impl<'a> Handler<'a> {
         length_in: c_size_t,
     ) -> sallyport::Result<()> {
         let addr = addr_in.as_ptr() as usize;
-        let pages = ((length_in + Page::SIZE - 1) & !(Page::SIZE - 1)) / Page::SIZE;
+
+        #[allow(clippy::integer_arithmetic)]
+        let pages = if length_in > (c_size_t::MAX - Page::SIZE) {
+            (c_size_t::MAX - Page::SIZE) / Page::SIZE
+        } else {
+            ((length_in + Page::SIZE - 1) & !(Page::SIZE - 1)) / Page::SIZE
+        };
 
         if addr & 0xfff != 0 || pages == 0 {
             return Err(EINVAL);
@@ -188,7 +208,11 @@ impl<'a> Handler<'a> {
             .unwrap_or_else(|_| self.attacked());
 
         for i in 0..pages {
-            let virt_addr = VirtAddr::new((addr.raw() + i * Page::SIZE) as u64);
+            let virt_addr = VirtAddr::new(
+                addr.raw()
+                    .checked_add(Page::SIZE.checked_mul(i).unwrap())
+                    .unwrap() as u64,
+            );
             // # Safety
             //
             // The address must be page aligned.
@@ -213,9 +237,12 @@ impl<'a> Write for Handler<'a> {
         let len = buf.len();
         let mut written = 0;
         while written < len {
-            written += self
-                .write(STDERR_FILENO, &buf[written..])
-                .map_err(|_| core::fmt::Error)? as usize;
+            written = written
+                .checked_add(
+                    self.write(STDERR_FILENO, &buf[written..])
+                        .map_err(|_| core::fmt::Error)? as usize,
+                )
+                .unwrap();
         }
         Ok(())
     }
@@ -266,6 +293,7 @@ impl guest::Handler for Handler<'_> {
         _platform: &impl Platform,
         addr: Option<NonNull<c_void>>,
     ) -> sallyport::Result<NonNull<c_void>> {
+        #[allow(clippy::integer_arithmetic)]
         let addr = Address::<usize, Page>::new(
             addr.map(|v| (v.as_ptr() as usize + Page::SIZE - 1) & !(Page::SIZE - 1))
                 .unwrap_or(0),
@@ -278,7 +306,7 @@ impl guest::Handler for Handler<'_> {
         if addr > max {
             self.mmap_host(
                 NonNull::new(max.raw() as *mut _).unwrap(),
-                addr.raw() - max.raw(),
+                addr.raw().checked_sub(max.raw()).unwrap(),
                 PROT_READ | PROT_WRITE,
             )?;
             self.mmap_guest(max, addr - max, PROT_READ | PROT_WRITE);
@@ -332,7 +360,11 @@ impl guest::Handler for Handler<'_> {
             return Err(EACCES);
         }
 
-        let length = Offset::from_items((len + Page::SIZE - 1) / Page::SIZE);
+        let length = Offset::from_items(
+            (len.checked_add(Page::SIZE.checked_sub(1).unwrap()).unwrap())
+                .checked_div(Page::SIZE)
+                .unwrap(),
+        );
         let access = Access::from_bits_truncate(prot as usize);
         let mut heap = HEAP.write();
 
@@ -384,7 +416,7 @@ impl<'a> Handler<'a> {
         if let Some(Vector::InvalidOpcode) = ssa.vector() {
             if let OP_SYSCALL | OP_CPUID = unsafe { read_unaligned(ssa.gpr.rip as _) } {
                 // Skip the instruction.
-                ssa.gpr.rip += 2;
+                ssa.gpr.rip = ssa.gpr.rip.checked_add(2).unwrap();
                 return;
             }
         }
@@ -503,6 +535,7 @@ impl<'a> Handler<'a> {
                     self.ssa.gpr.r10 as _,
                 );
                 match ret {
+                    #[allow(clippy::integer_arithmetic)]
                     Err(e) => self.ssa.gpr.rax = -e as u64,
                     Ok([rax, rdx]) => {
                         self.ssa.gpr.rax = rax as u64;
@@ -528,6 +561,7 @@ impl<'a> Handler<'a> {
                     ],
                 );
                 match ret {
+                    #[allow(clippy::integer_arithmetic)]
                     Err(e) => self.ssa.gpr.rax = -e as u64,
                     Ok([rax, _]) => {
                         self.ssa.gpr.rax = rax as u64;
@@ -537,7 +571,7 @@ impl<'a> Handler<'a> {
             },
         };
 
-        self.ssa.gpr.rip += 2;
+        self.ssa.gpr.rip = self.ssa.gpr.rip.checked_add(2).unwrap();
 
         debug!(self, "= {}\n", self.ssa.gpr.rax as isize);
     }
@@ -578,7 +612,7 @@ impl<'a> Handler<'a> {
             self.ssa.gpr.rdx.clone()
         );
 
-        self.ssa.gpr.rip += 2;
+        self.ssa.gpr.rip = self.ssa.gpr.rip.checked_add(2).unwrap();
     }
 
     /// Print a stack trace using the SSA registers.
@@ -592,6 +626,7 @@ impl<'a> Handler<'a> {
     ///
     /// This can be used with `addr2line` and the executable with debug info
     /// to get the function name and line number.
+    #[allow(clippy::integer_arithmetic)]
     unsafe fn print_rip(&mut self, rip: u64) {
         let enarx_exec_start = &ENARX_EXEC_START as *const _ as u64;
         let enarx_exec_end = &ENARX_EXEC_END as *const _ as u64;
@@ -608,6 +643,7 @@ impl<'a> Handler<'a> {
     }
 
     /// Print a stack trace with the old `rbp` stack frame pointers
+    #[allow(clippy::integer_arithmetic)]
     unsafe fn print_stack_trace(&mut self, rip: u64, mut rbp: u64) {
         // TODO: parse the elf and actually find the text sections.
         let encl_start = self as *const _ as u64 / ENCL_SIZE as u64 * ENCL_SIZE as u64;

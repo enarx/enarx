@@ -38,7 +38,7 @@ fn crt0setup<'a>(
     off: *const (),
 ) -> Result<Handle<'a>, OutOfSpace> {
     let rand = unsafe { core::mem::transmute([random(), random()]) };
-    let phdr = off as u64 + hdr.e_phoff;
+    let phdr = hdr.e_phoff.checked_add(off as u64).unwrap();
 
     // Set the arguments
     let mut builder = Builder::new(crt0);
@@ -102,7 +102,7 @@ pub unsafe fn entry(offset: *const ()) -> ! {
         Ok(handle) => handle,
     };
 
-    let entry = offset as u64 + hdr.e_entry;
+    let entry = hdr.e_entry.checked_add(offset as u64).unwrap();
 
     #[cfg(feature = "gdb")]
     crate::handler::gdb::set_bp(entry);

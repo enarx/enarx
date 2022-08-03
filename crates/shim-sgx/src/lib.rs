@@ -11,6 +11,7 @@
 #![cfg_attr(not(test), no_std)]
 #![feature(c_size_t)]
 #![deny(clippy::all)]
+#![cfg_attr(not(test), deny(clippy::integer_arithmetic))]
 #![deny(missing_docs)]
 #![warn(rust_2018_idioms)]
 

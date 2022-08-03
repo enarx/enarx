@@ -66,9 +66,9 @@ impl<'a> super::Handler<'a> {
         debugln!(self, "rip = {:#x}", regs.rip);
 
         let block_start = self.block.as_ptr() as usize;
-        let block_range = block_start..block_start + BLOCK_SIZE;
+        let block_range = block_start..block_start.checked_add(BLOCK_SIZE).unwrap();
         let ssa_start = self.ssa as *const _ as usize;
-        let ssa_range = ssa_start..ssa_start + size_of::<StateSaveArea>();
+        let ssa_range = ssa_start..ssa_start.checked_add(size_of::<StateSaveArea>()).unwrap();
 
         let mut target = GdbTarget::new(regs, block_range, ssa_range);
 
@@ -271,7 +271,13 @@ impl SingleThreadOps for GdbTarget {
         let end_addr = start_addr
             .checked_add(data.len())
             .ok_or(TargetError::NonFatal)?;
-        let length = Offset::from_items((end_addr - start_addr) / Page::SIZE);
+        let length = Offset::from_items(
+            end_addr
+                .checked_sub(start_addr)
+                .unwrap()
+                .checked_div(Page::SIZE)
+                .unwrap(),
+        );
         let heap = HEAP.read();
         let readable = heap
             .contains(Address::new(start_addr), length)
@@ -300,7 +306,13 @@ impl SingleThreadOps for GdbTarget {
             .ok_or(TargetError::Fatal(GdbTargetError::WriteMemoryOutOfRange(
                 start_addr as _,
             )))?;
-        let length = Offset::from_items((end_addr - start_addr) / Page::SIZE);
+        let length = Offset::from_items(
+            end_addr
+                .checked_sub(start_addr)
+                .unwrap()
+                .checked_div(Page::SIZE)
+                .unwrap(),
+        );
         let heap = HEAP.read();
         let writable = heap
             .contains(Address::new(start_addr), length)
