@@ -110,6 +110,18 @@ opt-level = 3
 [profile.dev.package.num-bigint-dig]
 opt-level = 3
 
+[profile.release.package.enarx-exec-wasmtime]
+overflow-checks = true
+
+[profile.release.package.enarx-shim-kvm]
+overflow-checks = true
+
+[profile.release.package.enarx-shim-sgx]
+overflow-checks = true
+
+[profile.release.package.sallyport]
+overflow-checks = true
+
 [workspace]
 members = ["crates/*"]
 exclude = ["tests/crates"]
