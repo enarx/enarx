@@ -1,16 +1,19 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::backend::sev::snp::launch::{IdAuth, IdBlock};
+use crate::backend::sev::snp::sign::Signature as IdSignature;
 use crate::backend::ByteSized;
 use crate::backend::{Backend, SevSignature, Signatures, BACKENDS};
 use crate::exec::EXECS;
 
 use std::fmt::Debug;
 use std::fs::File;
-use std::io::Read;
+use std::io::prelude::*;
+use std::io::{stdout, Read};
 use std::mem::size_of;
 use std::ops::Deref;
 
+use crate::backend::sev::snp::sign::PublicKey;
 use anyhow::{anyhow, bail, Context, Result};
 use camino::Utf8PathBuf;
 use clap::Args;
@@ -40,11 +43,15 @@ pub struct Options {
 
     /// SEV P-384 private key in PEM form
     #[clap(long)]
-    sev_author_key: Utf8PathBuf,
+    sev_id_key_signature: Utf8PathBuf,
 
     /// SEV P-384 private key in PEM form
     #[clap(long)]
-    sev_key: Utf8PathBuf,
+    sev_id_key: Utf8PathBuf,
+
+    /// File path to write the signature
+    #[clap(long)]
+    out: Option<Utf8PathBuf>,
 }
 
 fn sign_sgx(body_bytes: &[u8], sgx_key: &RS256PrivateKey) -> Result<Vec<u8>> {
@@ -57,11 +64,7 @@ fn sign_sgx(body_bytes: &[u8], sgx_key: &RS256PrivateKey) -> Result<Vec<u8>> {
     Ok(sig.as_bytes().to_vec())
 }
 
-fn sign_sev(
-    id_block_bytes: &[u8],
-    sev_key: &SigningKey,
-    sev_author_key: &SigningKey,
-) -> Result<SevSignature> {
+fn sign_sev(id_block_bytes: &[u8], sev_key: &SigningKey, signature: &[u8]) -> Result<SevSignature> {
     if id_block_bytes.len() != size_of::<IdBlock>() {
         bail!("Invalid length of SEV input data");
     }
@@ -94,29 +97,10 @@ fn sign_sev(
     id_auth.id_key.component.r[..r.len()].copy_from_slice(&r);
     id_auth.id_key.component.s[..s.len()].copy_from_slice(&s);
 
-    // FIXME: import id_auth.id_key_sig from file
-    // Sign the SEV signing key with the SEV author key. This will be removed in the future.
-    let sig = sev_author_key.sign(id_auth.id_key.as_bytes());
-    // The r and s values have to be in little-endian order.
-    let r = sig.r().as_ref().to_le_bytes();
-    let s = sig.s().as_ref().to_le_bytes();
-    // and are zero extended to the size of the components in the IdAuth struct.
-    id_auth.id_key_sig.component.r[..r.as_slice().len()].copy_from_slice(r.as_slice());
-    id_auth.id_key_sig.component.s[..s.as_slice().len()].copy_from_slice(s.as_slice());
-
-    // FIXME: import id_auth.author_key from file
-    // get the coordinates of the public key of the SEV author key.
-    let verifying_key: EncodedPoint = sev_author_key.verifying_key().to_encoded_point(false);
-    let (mut r, mut s) = match verifying_key.coordinates() {
-        Coordinates::Uncompressed { x, y } => (x.to_vec(), y.to_vec()),
-        _ => bail!("Invalid verifying key"),
-    };
-    // The r and s values have to be in little-endian order.
-    r.reverse();
-    s.reverse();
-    // and are zero extended to the size of the components in the IdAuth struct.
-    id_auth.author_key.component.r[..r.len()].copy_from_slice(&r);
-    id_auth.author_key.component.s[..s.len()].copy_from_slice(&s);
+    id_auth.id_key_sig = IdSignature::from_bytes(&signature[..size_of::<IdSignature>()])
+        .context("Failed to parse signature")?;
+    id_auth.author_key = PublicKey::from_bytes(&signature[size_of::<IdSignature>()..])
+        .context("Failed to parse author public key")?;
 
     Ok(SevSignature {
         id_block: id_block_bytes.to_vec(),
@@ -130,27 +114,24 @@ impl Options {
             File::open(&self.sgx_key).context("Failed to open SGX private key file")?;
         let mut buffer = String::new();
         sgx_key_file.read_to_string(&mut buffer)?;
-        let sgx_key = RS256PrivateKey::from_pem(&buffer)?;
+        let sgx_key = RS256PrivateKey::from_pem(&buffer).context("Failed to import SGX key")?;
         Ok(sgx_key)
     }
 
-    fn load_sev_keys(&self) -> Result<(SigningKey, SigningKey)> {
-        // FIXME: do not import sev_author at all
-        let mut sev_author_key_file =
-            File::open(&self.sev_author_key).context("Failed to open SEV private key file")?;
-        let mut buffer = String::new();
-        sev_author_key_file.read_to_string(&mut buffer)?;
-        let sev_author_key =
-            SigningKey::from_pkcs8_pem(&buffer).context("Failed to parse SEV private key")?;
-
+    fn load_sev_key(&self) -> Result<(SigningKey, Vec<u8>)> {
         let mut sev_key_file =
-            File::open(&self.sev_key).context("Failed to open SEV private key file")?;
+            File::open(&self.sev_id_key).context("Failed to open SEV private key file")?;
         let mut buffer = String::new();
         sev_key_file.read_to_string(&mut buffer)?;
         let sev_key =
-            SigningKey::from_pkcs8_pem(&buffer).context("Failed to parse SEV private key")?;
+            SigningKey::from_pkcs8_pem(&buffer).context("Failed to import SEV private key")?;
 
-        Ok((sev_key, sev_author_key))
+        let mut sev_id_key_signature_file = File::open(&self.sev_id_key_signature)
+            .context("Failed to open SEV id key signature")?;
+        let mut sev_id_key_signature = vec![];
+        sev_id_key_signature_file.read_to_end(&mut sev_id_key_signature)?;
+
+        Ok((sev_key, sev_id_key_signature))
     }
 
     pub fn execute(self) -> anyhow::Result<()> {
@@ -190,8 +171,8 @@ impl Options {
                     signatures.sgx = signature;
                 }
                 "sev" => {
-                    let (id_key, author_key) = self.load_sev_keys()?;
-                    let signature = sign_sev(&blob, &id_key, &author_key)?;
+                    let (id_key, id_key_signature) = self.load_sev_key()?;
+                    let signature = sign_sev(&blob, &id_key, &id_key_signature)?;
                     signatures.sev = signature;
                 }
                 _ => {
@@ -200,74 +181,27 @@ impl Options {
             };
         }
 
-        println!("{}", serde_json::to_string(&signatures)?);
+        if let Some(path) = self.out {
+            let mut file = File::create(path)?;
+            file.write_all(serde_json::to_string(&signatures)?.as_bytes())?;
+        } else {
+            stdout().write_all(serde_json::to_string(&signatures)?.as_bytes())?;
+        }
         Ok(())
     }
 }
 
 #[cfg(test)]
 mod test {
+    use crate::cli::key::sev::sign::sign_id_sev_key;
     use crate::cli::sign::{sign_sev, sign_sgx};
     use p384::ecdsa::SigningKey;
     use p384::pkcs8::DecodePrivateKey;
     use sgx::crypto::{rcrypto::*, *};
 
-    const SGX_KEY: &str = r#"-----BEGIN RSA PRIVATE KEY-----
-MIIG5AIBAAKCAYEAz6h6Nfxc5g28M0VK38l0xQ6C0AytkoSQM3K8CczRGTIWlAPr
-yKOty+kjIft0qk2VXzfKNxHx4jqCEiDsm3Mjj/UYrdrTbrFBr1Ao8/KsY0ECkoIa
-92o27nhjZPp1wM6w/yKJFOdFqyovpxi+X9eMwmKCsgDnfAC3kjJOlHxz0FmKsMsK
-cH1FSVTwDWLsqFWLIYmHX7lHARibwPUsUTzp3s2v5tpSI8cPeAnXsATwYtp/oF2V
-JT7tpi9YRWFUDarVypFcYeph2yBpS9/N2T1F1CSedXXJMdbbRSvzA+udbAblKU+N
-nrUtUORcUmXpgAvk+62sWlDlAIq+jz0DsLMg4go5a7/d6Ai9+xszrlDRged2itzT
-5wDIRwJGx1CyiZJvPrp2Za2qnT9l+c5Q9hQz/kNVPcDit+kMYcy5u/LIhFtVjPMf
-q+3LjUujLNYZwQPlntAbCQCOb2ryjE1FySEKprT0bh5kv+a4k7teWi/jvWhEqFpD
-Tf9240/qh9gzD1zLAgEDAoIBgQCKcFF5UuiZXn13g4c/26MuCayKsx5hrbV3odKx
-MzYQzA8NV/KFwnPdRhdr/PhxiQ4/eobPYUvsJwFha0hnohe1ThBz5zefINZ04BtN
-THLs1gG3AWdPnCSe+uzt/E6AictUwbC4mi5yHB/EuymVOl3W7FchVe+oAHphdt8N
-qE01kQcgh1xK/i4w40qzl0hwOQdrsQTqe4SrZb0rTh2LffE/M8qZ5uFtL1+lW+Ug
-A0rskapq6Q4Y1J5uyjrY641eceKo9SX4H2AiEV16WBZBUb21iu7D8yjP8RUzMyAX
-T0uggSdQqElcHH10Jr9ooeanCuRkCOsROsnVyQWaTPdUGDitNYIjdq9c4XNxa3oJ
-NWe/6jVAuEva4lE97059PjA+xhjsslffhSZEvSkdUQtT/Pz2FZE7pMbFXvWWM2t2
-AIoF1UYySW8N3nvXEc8bVO/ZDS7KLnMHM+PA/wvfed7eYxyjwPBjDLBGEUeVKfzj
-sb49uC1u3/jAqt3bDIDNW6xuunsCgcEA5tHlylGcnAl8B0kPjIHv6jP7sCpsAEXd
-n1j1TV8wocaR0TZ1U0Ggc5BfxKvEYPJOuQsS7NKC9ldGNidS9QHvPAQO6FF6KiiZ
-t6J4XOW8jQ0ZBg0UoWhq6DQkpnrNzzn/cyI2YmUXyc9i4T2NY6IfZgB0dz6ijpgB
-hf8KizWYvFMk6cginPmFxyR9WlzLaeLgkkuvwpAZQx0z338N0Kmx4C/hLrVD5VHF
-W8JxsWynxSfnl++x/PYDg4Aext9Hsa7FAoHBAOZPvaNptQv84Q0SnOrAuVmgPJ9e
-n/mnXdkGTZOVe1l+mF8cqkFI0K8Z3XDHSySJP6yVONOmM0mF7/GiPb2M3KI15048
-XLKN9xlXhEOa+VT7DaO7TX1E44HnLGT4nFwvSmiMvDQA2WxURWyXMpR2mScihu0L
-FgFCmnqAjf+8YL9IR1e81nomjAOMbyl55pGNPt0+vruin4rPLN2XaarirdDjqqrW
-GHF7B9g58VM4npusGOoanDAJJpc9CozvaLeWTwKBwQCZ4UPcNmhoBlKvhgpdq/VG
-zVJ1cZ1Vg+kU5fjeP3XBLwvgzvjiK8BNCuqDHS2V9t8mB2HzNwH5j4QkGjdOAUoo
-ArSa4PwcGxElFvromSheCLtZXg3A8EdFeBhu/Ik00VT3bCRBmLqGikHrfl5CbBTu
-qvhPfxcJuquuqgcHeRB9jMNGhWxoplkvbajm6Ieb7JW23R/XCruCE3fqVLPgcSFA
-H+t0eNfuNoOSgaEg8xqDb++6n8v9+VetABSElNp2dIMCgcEAmYp+bPEjXVNAs2G9
-8dXQ5mrTFOm/+8TpO1mJDQ5SO6m66hMcK4XgdLvo9doyGFt/yGN7N8QiMQP1S8F+
-fl3obCPviX2TIbP6EOUC17ymOKdebSeI/i3tAUTIQ1BoPXTcRbMoIqs7nY2Dnboh
-uE8QxMGvSLIOq4G8UasJVShAf4WE5SiO/BmyrQhKG6aZtl4p6NR/J8G/sd9zPmTx
-HJcei0JxxzlloPyv5Xv2N3sUZ8gQnBG9dVtvD34HCJ+bJQ7fAoHBAMt9M4XOvwpe
-sVQbSiqKoAZR+2oLgKemEku9Twid3mUfiepofg8yDxWYR1KKKNlAAB7LRhIJMRfi
-BfDT0adIF9GYkB0N5WiPTQUs7hN78IS66lVbmazDYF/lYx6HRSBNx6a/Zy3jW+8C
-tuBIkD/7CnXGD7RCsuvmPqno+VmJNuZsLzWOACMLfH61Uh8j9UiCE9Xtq4GyjFVY
-DfC2hemrX470j9IQeuq4dvUzo+WQ/tFgPp026sTPSC3prOYfNsZ47g==
------END RSA PRIVATE KEY-----
-"#;
-
-    const SEV_ID_KEY: &str = r#"-----BEGIN PRIVATE KEY-----
-MIG2AgEAMBAGByqGSM49AgEGBSuBBAAiBIGeMIGbAgEBBDDdDO2CoTJjJrkWD37S
-7PRAjKWvlsp9EYrufQnPrhtsUx6kfVrLMlHN1AxDbhuVyJmhZANiAAQgo1S4VKGv
-y6kOGMD0GyO/S2LWBBp2jHVVxRCW558yFVXkUGqox7r/pRntNkZ9zgMhTRz5Yidn
-aUmspSvc9ngmZ5GRbzjT1UK8Qcvy3QTU0UYNNwm45M+zwR7MugrXpgE=
------END PRIVATE KEY-----
-"#;
-
-    const SEV_AUTHOR_KEY: &str = r#"-----BEGIN PRIVATE KEY-----
-MIG2AgEAMBAGByqGSM49AgEGBSuBBAAiBIGeMIGbAgEBBDB1mcYce2ovkEYZ7M3n
-gjtEnRpVw9CTOQXHR787tgGWF9CqitpqIxlrCjO2cKlKDn2hZANiAAQbf9IynJNh
-3WR8ACpacCe8YV6D8pr4NPT1uZxA+hblDcL/964r+s5hOYn23807Zxa3J0yZvaJO
-PbFowsrBImbTUV3qVqFNZaQq4oem+u20t1Ruivz++pdkKgTSftVeFVE=
------END PRIVATE KEY-----
-"#;
+    const SGX_KEY: &str = include_str!("../../tests/data/sgx-test.key");
+    const SEV_ID_KEY: &str = include_str!("../../tests/data/sev-id.key");
+    const SEV_AUTHOR_KEY: &str = include_str!("../../tests/data/sev-author.key");
 
     const SEV_IN: [u8; 96] = [
         255, 165, 145, 93, 184, 17, 227, 134, 166, 124, 80, 99, 74, 210, 44, 73, 78, 253, 225, 255,
@@ -533,7 +467,9 @@ PbFowsrBImbTUV3qVqFNZaQq4oem+u20t1Ruivz++pdkKgTSftVeFVE=
     fn test_sev_vector() {
         let author_key = SigningKey::from_pkcs8_pem(SEV_AUTHOR_KEY).unwrap();
         let id_key = SigningKey::from_pkcs8_pem(SEV_ID_KEY).unwrap();
-        let out = sign_sev(SEV_IN.as_slice(), &id_key, &author_key).unwrap();
+        let signature = sign_id_sev_key(&author_key, &id_key).unwrap();
+
+        let out = sign_sev(SEV_IN.as_slice(), &id_key, &signature).unwrap();
 
         assert_eq!(SEV_IN.as_slice(), out.id_block.as_slice());
         assert_eq!(SEV_OUT.as_slice(), out.id_auth.as_slice());

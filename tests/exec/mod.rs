@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use super::{assert_eq_slices, run_test};
+use super::{assert_eq_slices, enarx, run_test, run_test_signed};
 
+use std::ffi::OsStr;
 use std::fs;
 use std::io::{Read, Write};
 use std::os::unix::ffi::OsStrExt;
@@ -85,7 +86,43 @@ fn rust_sev_attestation() {
         }
     }
     let bin = env!("CARGO_BIN_FILE_ENARX_EXEC_TESTS_sev_attestation");
-    run_test(bin, 0, None, None, None);
+    let mut exp_out = vec![];
+    exp_out.extend_from_slice(b"ID_KEY_DIGEST = ".as_slice());
+    exp_out.extend_from_slice(
+        enarx(
+            |cmd| {
+                cmd.args(vec![
+                    OsStr::new("key"),
+                    OsStr::new("sev"),
+                    OsStr::new("digest"),
+                    OsStr::new("tests/data/sev-id.key"),
+                ])
+            },
+            None,
+        )
+        .stdout
+        .as_slice(),
+    );
+    exp_out.push(b'\n');
+    exp_out.extend_from_slice(b"AUTHOR_KEY_DIGEST = ".as_slice());
+    exp_out.extend_from_slice(
+        enarx(
+            |cmd| {
+                cmd.args(vec![
+                    OsStr::new("key"),
+                    OsStr::new("sev"),
+                    OsStr::new("digest"),
+                    OsStr::new("tests/data/sev-author.key"),
+                ])
+            },
+            None,
+        )
+        .stdout
+        .as_slice(),
+    );
+    exp_out.push(b'\n');
+
+    run_test_signed(bin, 0, None, exp_out.as_slice(), None);
 }
 
 #[test]
@@ -98,7 +135,8 @@ fn rust_sgx_attestation() {
         }
     }
     let bin = env!("CARGO_BIN_FILE_ENARX_EXEC_TESTS_sgx_attestation");
-    run_test(bin, 0, None, None, None);
+    let exp_out = b"MRSIGNER = 298037d88782e022e019b3020745b78aa40ed95c77da4bf7f3253d3a44c4fd7e\n";
+    run_test_signed(bin, 0, None, exp_out.as_slice(), None);
 }
 
 #[test]

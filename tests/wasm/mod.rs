@@ -1,70 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use super::{check_output, CRATE, KEEP_BIN, OUT_DIR, TEST_BINS_OUT, TIMEOUT_SECS};
+use super::{check_output, enarx, CRATE, OUT_DIR, TEST_BINS_OUT};
 
-use std::io::{stderr, Read, Write};
+use std::io::{Read, Write};
 use std::net::{Ipv4Addr, TcpListener, TcpStream};
 use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
-use std::time;
 use std::{fs, thread};
 
-use process_control::{ChildExt, Control, Output};
+use process_control::Output;
 use serial_test::serial;
 use tempfile::tempdir;
-
-fn enarx<'a>(
-    cmd: impl FnOnce(&mut Command) -> &mut Command,
-    input: impl Into<Option<&'a [u8]>>,
-) -> Output {
-    let mut child = cmd(Command::new(&KEEP_BIN)
-        .current_dir(CRATE)
-        .env(
-            "ENARX_TEST_SGX_KEY_FILE",
-            CRATE.to_string() + "/tests/data/sgx-test.key",
-        )
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped()))
-    .spawn()
-    .unwrap_or_else(|e| panic!("failed to execute command: {:#?}", e));
-
-    let input_thread = if let Some(input) = input.into() {
-        let mut stdin = child.stdin.take().unwrap();
-        let input = input.to_vec();
-        Some(std::thread::spawn(move || {
-            stdin
-                .write_all(&input)
-                .expect("failed to write stdin to child");
-        }))
-    } else {
-        None
-    };
-
-    let output = child
-        .controlled_with_output()
-        .time_limit(time::Duration::from_secs(TIMEOUT_SECS))
-        .terminate_for_timeout()
-        .wait()
-        .unwrap_or_else(|e| panic!("failed to run command: {:#?}", e))
-        .unwrap_or_else(|| panic!("process timed out"));
-
-    if let Some(input_thread) = input_thread {
-        if let Err(_) = input_thread.join() {
-            let _unused = stderr().write_all(&output.stderr);
-            panic!("failed to provide input for process")
-        }
-    }
-
-    #[cfg(unix)]
-    assert!(
-        output.status.code().is_some(),
-        "process terminated by signal {:?}",
-        output.status.signal()
-    );
-
-    output
-}
 
 #[cfg(not(enarx_with_shim))]
 pub fn enarx_run<'a>(
@@ -91,18 +36,23 @@ pub fn enarx_run<'a>(
     conf: Option<&Path>,
     input: impl Into<Option<&'a [u8]>>,
 ) -> Output {
+    use std::ffi::OsStr;
+
     let tmpdir = tempdir().expect("failed to create temporary package directory");
+    let signature_file_path = tmpdir.path().join("sig.json");
 
     let out = enarx(
         |cmd| {
             cmd.args(vec![
-                "sign",
-                "--sgx-key",
-                "tests/data/sgx-test.key",
-                "--sev-key",
-                "tests/data/sev-id.key",
-                "--sev-author-key",
-                "tests/data/sev-author.key",
+                OsStr::new("sign"),
+                OsStr::new("--sgx-key"),
+                OsStr::new("tests/data/sgx-test.key"),
+                OsStr::new("--sev-id-key"),
+                OsStr::new("tests/data/sev-id.key"),
+                OsStr::new("--sev-id-key-signature"),
+                OsStr::new("tests/data/sev-id-key-signature.blob"),
+                OsStr::new("--out"),
+                signature_file_path.as_os_str(),
             ])
         },
         None,
@@ -116,15 +66,12 @@ pub fn enarx_run<'a>(
         return out;
     }
 
-    let signature_file_path = tmpdir.path().join("sig.json");
-    fs::write(&signature_file_path, &out.stdout).expect("failed to write signature file");
-
     let ret = enarx(
         |cmd| {
-            let cmd = cmd
-                .arg("run")
-                .arg(wasm)
-                .args(vec!["--signatures", signature_file_path.to_str().unwrap()]);
+            let cmd = cmd.arg("run").arg(wasm).args(vec![
+                OsStr::new("--signatures"),
+                signature_file_path.as_os_str(),
+            ]);
             if let Some(conf) = conf {
                 cmd.args(vec!["--wasmcfgfile", conf.to_str().unwrap()])
             } else {

@@ -7,6 +7,7 @@ use std::convert::TryFrom;
 
 musl_fsbase_fix!();
 
+const MRSIGNER_START: usize = 48 + 128;
 const QUOTE_SIG_START: usize = 436;
 const QE_AUTH_LEN_START: usize = 576;
 const QE_AUTH_LEN_END: usize = 578;
@@ -109,6 +110,10 @@ fn main() -> std::io::Result<()> {
     let (len, tech) = get_att_syscall(Some(&mut nonce[..]), Some(&mut buffer))?;
 
     assert!(matches!(tech, TeeTech::Sgx));
+
+    let bytes = &buffer[MRSIGNER_START..][..32];
+    let out = hex::encode(bytes);
+    println!("MRSIGNER = {}", out);
 
     let bytes = &buffer[QUOTE_SIG_START..len];
 
