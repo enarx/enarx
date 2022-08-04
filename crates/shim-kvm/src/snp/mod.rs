@@ -3,6 +3,7 @@
 //! SNP specific modules and functions
 
 use core::arch::asm;
+use core::mem::size_of;
 use core::sync::atomic::{AtomicU64, Ordering};
 
 use x86_64::VirtAddr;
@@ -89,5 +90,31 @@ pub fn pvalidate(addr: VirtAddr, size: PvalidateSize, validated: bool) -> Result
         1 => Err(FailInput),
         6 => Err(FailSizeMismatch),
         ret => Err(Unknown(ret)),
+    }
+}
+
+/// A trait for types that can be serialized and deserialized to/from a byte slice.
+///
+/// # Safety
+///
+/// Behavior is undefined if Self is initialized with bytes, which do not represent a valid state.
+pub unsafe trait ByteSized: Sized {
+    /// The constant default value.
+    const SIZE: usize = size_of::<Self>();
+
+    /// Create Self from a byte slice.
+    fn from_bytes(bytes: &[u8]) -> Option<Self> {
+        if bytes.len() != Self::SIZE {
+            return None;
+        }
+
+        Some(unsafe { (bytes.as_ptr() as *const _ as *const Self).read_unaligned() })
+    }
+
+    /// Serialize Self to a byte slice.
+    fn as_bytes(&self) -> &[u8] {
+        // SAFETY: This is safe because we know that the pointer is non-null and the length is correct
+        // and u8 does not need any alignment.
+        unsafe { core::slice::from_raw_parts(self as *const _ as *const u8, Self::SIZE) }
     }
 }
