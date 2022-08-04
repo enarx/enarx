@@ -8,7 +8,7 @@ use crate::eprintln;
 use crate::exec::{BRK_LINE, NEXT_MMAP_RWLOCK};
 use crate::paging::SHIM_PAGETABLE;
 use crate::snp::attestation::asn1_encode_report_vcek;
-use crate::snp::ghcb::{GHCB, GHCB_EXT, SNP_ATTESTATION_LEN_MAX};
+use crate::snp::ghcb::{GHCB, GHCB_EXT, SNP_ATTESTATION_LEN_MAX, SNP_KEY_LEN};
 use crate::snp::snp_active;
 use crate::spin::{RacyCell, RwLocked};
 
@@ -177,6 +177,40 @@ impl<'a> HostCall<'a> {
             block_guard: bg,
             tls,
         })
+    }
+
+    /// get an SNP derived key
+    ///
+    /// See https://github.com/enarx/enarx/issues/2110
+    pub fn get_key(
+        &mut self,
+        platform: &impl Platform,
+        buf: usize,
+        buf_len: usize,
+    ) -> Result<usize, c_int> {
+        if !snp_active() {
+            return Ok(0);
+        }
+
+        if buf == 0 {
+            return Ok(SNP_KEY_LEN);
+        }
+
+        if buf_len > isize::MAX as usize {
+            return Err(EINVAL);
+        }
+
+        if buf_len < SNP_KEY_LEN {
+            return Err(EMSGSIZE);
+        }
+
+        let user_buf = platform.validate_slice_mut::<u8>(buf, buf_len)?;
+
+        let u = GHCB_EXT.get_key(1, 0).map_err(|_| EIO)?;
+
+        user_buf[0..SNP_KEY_LEN].copy_from_slice(&u);
+
+        Ok(SNP_KEY_LEN)
     }
 
     /// get an SNP attestation report
