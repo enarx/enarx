@@ -67,7 +67,7 @@ impl Options {
             // TODO: Check the error
             let (host, user, repo, tag) = parse_tag(&package)
                 .with_context(|| format!("failed to parse `{package}` as a Drawbridge slug"))?;
-            format!("https://{host}/api/v0.2.0/{user}/{repo}/_tag/{tag}/tree")
+            format!("https://{host}/api/v0.2.0/{user}/{repo}/_tag/{tag}")
                 .parse()
                 .with_context(|| {
                     format!("failed to construct a URL from Drawbridge slug `{package}`")
@@ -86,8 +86,8 @@ impl Options {
                     (path, None)
                 } else if md.is_dir() {
                     (
-                        path.join(PACKAGE_ENTRYPOINT),
-                        Some(path.join(PACKAGE_CONFIG)),
+                        path.join(PACKAGE_ENTRYPOINT.as_str()),
+                        Some(path.join(PACKAGE_CONFIG.as_str())),
                     )
                 } else {
                     bail!(

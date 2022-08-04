@@ -1036,9 +1036,9 @@ dependencies = [
 
 [[package]]
 name = "drawbridge-client"
-version = "0.2.0"
+version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b53ce45beae33c581ba1eb7fe02cab09c89ae197a89bd30c74f04bad7e360f52"
+checksum = "aec5afee05c21eb69106576929bc2b23872acc39057a7dc836f13712421459dc"
 dependencies = [
  "anyhow",
  "drawbridge-jose",
@@ -1240,12 +1240,14 @@ dependencies = [
  "anyhow",
  "cap-std",
  "const-oid 0.9.0",
+ "drawbridge-client",
  "enarx-config",
  "env_logger",
  "getrandom 0.2.7",
  "io-extras 0.15.0",
  "io-lifetimes 0.7.2",
  "libc",
+ "once_cell",
  "pkcs8 0.9.0",
  "ring",
  "rustix 0.35.7",
@@ -1332,6 +1334,15 @@ dependencies = [
 [[package]]
 name = "enarx_wasm_tests"
 version = "0.1.0"
+
+[[package]]
+name = "encoding_rs"
+version = "0.8.31"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9852635589dc9f9ea1b6fe9f05b50ef208c85c834a562f0c6abb1c475736ec2b"
+dependencies = [
+ "cfg-if 1.0.0",
+]
 
 [[package]]
 name = "enumflags2"
@@ -3719,6 +3730,7 @@ checksum = "b97acb4c28a254fd7a4aeec976c46a7fa404eac4d7c134b30c75144846d7cb8f"
 dependencies = [
  "base64",
  "chunked_transfer",
+ "encoding_rs",
  "flate2",
  "log",
  "once_cell",
