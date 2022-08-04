@@ -38,10 +38,12 @@ oauth2 = { version = "4.2.2", default-features = false, features = ["ureq"] }
 once_cell = { version = "1.11.0", features = ["std"], default-features = false }
 openidconnect = { version = "2.3.2", features = ["ureq"], default-features = false }
 ring = { version = "0.16.20", features = ["std"] }
+rsa = { version = "^0.6.0", default-features = false }
 rustls = { version = "0.20.6", default-features = false }
 rustls-pemfile = { version = "1.0.0", default-features = false }
 serde = { version = "1.0.136", features = ["derive"], default-features = false }
 serde_json = { version = "1.0.79", features = ["std"], default-features = false }
+sha2 = { version = "0.10.2", default-features = false }
 toml = { version = "0.5.9", default-features = false }
 url = { version = "2.2.2", default-features = false }
 
