@@ -16,13 +16,13 @@ use clap::Args;
 use enarx_exec_wasmtime::{Package, PACKAGE_CONFIG, PACKAGE_ENTRYPOINT};
 use url::Url;
 
-/// Run an Enarx package inside an Enarx Keep.
+/// Deploy an Enarx package to an Enarx Keep.
 #[derive(Args, Debug)]
 pub struct Options {
     #[clap(flatten)]
     pub backend: BackendOptions,
 
-    /// URL of the package to run.
+    /// Package slug or a URL to deploy.
     #[clap(value_name = "PACKAGE")]
     pub package: String,
 
@@ -63,11 +63,16 @@ impl Options {
 
         let signatures = Signatures::load(signatures)?;
 
-        let (host, user, repo, tag) = parse_tag(&package)?;
-        let addr = format!("https://{host}/api/v0.1.0/{user}/{repo}/_tag/{tag}/tree");
-        let package: Url = addr
-            .parse()
-            .with_context(|| format!("Failed to parse URL: {addr}"))?;
+        let package: Url = package.parse().or_else(|_| {
+            // TODO: Check the error
+            let (host, user, repo, tag) = parse_tag(&package)
+                .with_context(|| format!("failed to parse `{package}` as a Drawbridge slug"))?;
+            format!("https://{host}/api/v0.2.0/{user}/{repo}/_tag/{tag}/tree")
+                .parse()
+                .with_context(|| {
+                    format!("failed to construct a URL from Drawbridge slug `{package}`")
+                })
+        })?;
 
         let code = match package.scheme() {
             "file" => {
