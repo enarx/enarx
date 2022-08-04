@@ -1253,6 +1253,7 @@ dependencies = [
  "ring",
  "rustix 0.35.7",
  "rustls",
+ "sallyport",
  "sec1",
  "serde",
  "sha2 0.10.2",

@@ -43,5 +43,8 @@ wiggle = { version = "0.39.1", default-features = false }
 [target.'cfg(windows)'.dependencies]
 io-extras = { version = "=0.15.0", default-features = false }
 
+[target.'cfg(all(target_os = "linux", target_arch = "x86_64"))'.dependencies]
+sallyport = { version = "0.6.2", path = "../sallyport", default-features = false }
+
 [dev-dependencies]
 wat = { version = "1.0", default-features = false }
