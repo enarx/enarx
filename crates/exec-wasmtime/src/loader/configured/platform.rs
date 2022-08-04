@@ -31,8 +31,6 @@ impl From<Technology> for ObjectIdentifier {
 pub struct Platform(Technology, usize);
 
 impl Platform {
-    const SYS_GETATT: usize = 0xEA01;
-
     #[cfg(not(all(target_os = "linux", target_arch = "x86_64")))]
     fn get_att(_nonce: Option<&[u8]>, _buf: Option<&mut [u8]>) -> Result<Self> {
         Ok(Self(Technology::Kvm, 0))
@@ -40,6 +38,7 @@ impl Platform {
 
     #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
     fn get_att(nonce: Option<&[u8]>, mut buf: Option<&mut [u8]>) -> Result<Self> {
+        use sallyport::item::enarxcall::SYS_GETATT;
         use std::arch::asm;
         use std::ptr::{null, null_mut};
 
@@ -54,7 +53,7 @@ impl Platform {
                 "syscall",
                 lateout("rax") rax,
                 lateout("rdx") rdx,
-                in("rax") Self::SYS_GETATT,
+                in("rax") SYS_GETATT,
                 in("rdi") nonce.map(|x| x.as_ptr()).unwrap_or_else(null),
                 in("rsi") nonce.map(|x| x.len()).unwrap_or_default(),
                 in("rdx") buf.as_mut().map(|x| x.as_mut_ptr()).unwrap_or_else(null_mut),
