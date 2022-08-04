@@ -8,7 +8,7 @@
 use crate::addr::SHIM_VIRT_OFFSET;
 use crate::pagetables::{clear_c_bit_address_range, smash};
 use crate::snp::secrets_page::SECRETS;
-use crate::snp::{pvalidate, PvalidateSize};
+use crate::snp::{pvalidate, ByteSized, PvalidateSize};
 use crate::spin::{Locked, RacyCell, RwLocked};
 
 use core::arch::asm;
@@ -17,7 +17,7 @@ use core::ptr;
 
 use aes_gcm::{AeadInPlace, Aes256Gcm, KeyInit, Nonce, Tag};
 use const_default::ConstDefault;
-use sallyport::libc::EINVAL;
+use sallyport::libc::{EINVAL, EIO};
 use spinning::Lazy;
 use x86_64::registers::model_specific::Msr;
 use x86_64::structures::paging::{Page, Size4KiB};
@@ -122,6 +122,19 @@ impl Default for SnpGuestMsg {
         <Self as ConstDefault>::DEFAULT
     }
 }
+
+/// Header of the SnpReport Response
+#[repr(C)]
+pub struct SnpReportResponseHeader {
+    /// 0 if valid
+    pub status: u32,
+    /// size of the report after this header
+    pub size: u32,
+    rsvd: [u8; 24],
+}
+
+// SAFETY: SnpReportResponseData is a C struct with no UD states and pointers.
+unsafe impl ByteSized for SnpReportResponseHeader {}
 
 /// GHCB page sizes
 #[derive(Copy, Clone)]
@@ -760,7 +773,12 @@ impl GhcbExtHandle {
 
 impl Locked<&mut GhcbExtHandle> {
     /// Get an attestation report via the GHCB shared page protocol
-    pub fn get_report(&self, version: u8, nonce: &[u8], response: &mut [u8]) -> Result<usize, u64> {
+    pub fn get_report(
+        &self,
+        version: u8,
+        nonce: &[u8],
+        response: &mut [u8],
+    ) -> Result<(usize, usize), i32> {
         if nonce.len() != 64 {
             return Err(EINVAL as _);
         }
@@ -784,7 +802,19 @@ impl Locked<&mut GhcbExtHandle> {
         this.dec_payload(response, SnpMsgType::ReportRsp)
             .expect("decryption failed");
 
-        Ok(this.response.hdr.msg_sz as _)
+        if (this.response.hdr.msg_sz as usize) < size_of::<SnpReportResponseHeader>() {
+            return Err(EIO);
+        }
+
+        let report =
+            SnpReportResponseHeader::from_bytes(&response[..size_of::<SnpReportResponseHeader>()])
+                .ok_or(EIO)?;
+
+        match report.status {
+            0 => Ok((size_of::<SnpReportResponseHeader>(), report.size as _)),
+            0x16 => Err(EIO),
+            _ => panic!("invalid MSG_REPORT_RSP error value {}", report.status),
+        }
     }
 }
 

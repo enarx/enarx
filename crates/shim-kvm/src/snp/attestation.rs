@@ -2,16 +2,6 @@
 
 //! SNP attestation and ASN.1 helper functions
 
-/// Header of the SnpReport Response
-#[repr(C)]
-pub struct SnpReportResponseData {
-    /// 0 if valid
-    pub status: u32,
-    /// size
-    pub size: u32,
-    rsvd: [u8; 24],
-}
-
 /// wraps a chunk with a header returning the total length
 ///
 /// helper function for ASN.1 encoding
