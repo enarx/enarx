@@ -80,7 +80,7 @@ impl FromStr for TagSpec {
 
 pub fn parse_tag(slug: &str) -> anyhow::Result<(String, &str, &str, &str)> {
     let (head, tag) = slug
-        .rsplit_once(&['/', ':'])
+        .rsplit_once(':')
         .with_context(|| format!("Missing `:` in tag specification: {slug}"))?;
     let (host, user, repo) = parse_repo(head)?;
     Ok((host, user, repo, tag))
@@ -88,7 +88,7 @@ pub fn parse_tag(slug: &str) -> anyhow::Result<(String, &str, &str, &str)> {
 
 fn parse_repo(slug: &str) -> anyhow::Result<(String, &str, &str)> {
     let (head, repo) = slug
-        .rsplit_once(&['/', ':'])
+        .rsplit_once('/')
         .with_context(|| format!("Missing `/` in repository specification: {slug}"))?;
     let (host, user) = parse_user(head);
     Ok((host, user, repo))
