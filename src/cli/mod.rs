@@ -2,6 +2,8 @@
 
 mod config;
 mod deploy;
+#[cfg(enarx_with_shim)]
+mod key;
 mod package;
 mod platform;
 mod repo;
@@ -59,6 +61,9 @@ enum Subcommands {
     Deploy(deploy::Options),
     #[clap(subcommand)]
     Config(config::Subcommands),
+    #[cfg(enarx_with_shim)]
+    #[clap(subcommand)]
+    Key(key::Subcommands),
     #[clap(subcommand)]
     Platform(platform::Subcommands),
     #[clap(subcommand)]
@@ -82,6 +87,8 @@ impl Subcommands {
             Self::Run(cmd) => cmd.execute(),
             Self::Config(subcmd) => subcmd.dispatch(),
             Self::Deploy(cmd) => cmd.execute(),
+            #[cfg(enarx_with_shim)]
+            Self::Key(subcmd) => subcmd.dispatch(),
             Self::Platform(subcmd) => subcmd.dispatch(),
             Self::Package(subcmd) => subcmd.dispatch(),
             Self::Repo(subcmd) => subcmd.dispatch(),

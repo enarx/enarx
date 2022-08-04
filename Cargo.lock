@@ -1161,6 +1161,7 @@ dependencies = [
  "futures",
  "gdbstub 0.5.0",
  "goblin",
+ "hex",
  "http-types",
  "iocuddle",
  "keyring",
@@ -1182,6 +1183,7 @@ dependencies = [
  "protobuf-codegen-pure",
  "rand 0.8.5",
  "ring",
+ "rsa",
  "rustls",
  "rustls-pemfile",
  "sallyport",
@@ -1190,6 +1192,7 @@ dependencies = [
  "serde_json",
  "serial_test",
  "sgx",
+ "sha2 0.10.2",
  "static_assertions",
  "tempfile",
  "testaso",
@@ -1297,6 +1300,7 @@ dependencies = [
 name = "enarx_exec_tests"
 version = "0.1.0"
 dependencies = [
+ "hex",
  "libc",
  "sallyport",
 ]
@@ -1766,6 +1770,12 @@ checksum = "897cd85af6387be149f55acf168e41be176a02de7872403aaab184afc2f327e6"
 dependencies = [
  "libc",
 ]
+
+[[package]]
+name = "hex"
+version = "0.4.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7f24254aa9a54b5c858eaee2f5bccdb46aaf0e486a595ed5fd8f86ba55232a70"
 
 [[package]]
 name = "hkdf"

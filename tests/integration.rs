@@ -2,6 +2,8 @@
 
 #![cfg(all(not(miri), not(feature = "gdb")))]
 
+extern crate core;
+
 #[cfg(not(windows))]
 mod client;
 
@@ -13,11 +15,14 @@ mod syscall;
 
 mod wasm;
 
-use process_control::{ChildExt, Control, Output};
+use std::ffi::{OsStr, OsString};
 use std::io::{stderr, Write};
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
-use std::time::Duration;
+use std::time;
+
+use process_control::{ChildExt, Control, Output};
+use tempfile::tempdir;
 
 pub const CRATE: &str = env!("CARGO_MANIFEST_DIR");
 pub const KEEP_BIN: &str = env!("CARGO_BIN_EXE_enarx");
@@ -35,12 +40,14 @@ pub fn assert_eq_slices(expected_output: &[u8], output: &[u8], what: &str) {
         "Expected contents of {} differs",
         what
     );
+
     assert_eq!(
         output.len(),
         expected_output.len(),
         "Expected length of {} differs",
-        what
+        what,
     );
+
     assert_eq!(
         output, expected_output,
         "Expected contents of {} differs",
@@ -48,24 +55,21 @@ pub fn assert_eq_slices(expected_output: &[u8], output: &[u8], what: &str) {
     );
 }
 
-/// Returns a handle to a child process through which output (stdout, stderr) can
-/// be accessed.
-pub fn keepldr_exec<'a>(bin: impl Into<PathBuf>, input: impl Into<Option<&'a [u8]>>) -> Output {
-    let bin: PathBuf = bin.into();
-    let mut child = Command::new(KEEP_BIN)
+fn enarx<'a>(
+    cmd: impl FnOnce(&mut Command) -> &mut Command,
+    input: impl Into<Option<&'a [u8]>>,
+) -> Output {
+    let mut child = cmd(Command::new(&KEEP_BIN)
         .current_dir(CRATE)
         .env(
             "ENARX_TEST_SGX_KEY_FILE",
-            CRATE.to_string() + "/tests/sgx-test.key",
+            CRATE.to_string() + "/tests/data/sgx-test.key",
         )
-        .arg("unstable")
-        .arg("exec")
-        .arg(&bin)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .unwrap_or_else(|e| panic!("failed to run `{}`: {:#?}", bin.display(), e));
+        .stderr(Stdio::piped()))
+    .spawn()
+    .unwrap_or_else(|e| panic!("failed to execute command: {:#?}", e));
 
     let input_thread = if let Some(input) = input.into() {
         let mut stdin = child.stdin.take().unwrap();
@@ -81,28 +85,95 @@ pub fn keepldr_exec<'a>(bin: impl Into<PathBuf>, input: impl Into<Option<&'a [u8
 
     let output = child
         .controlled_with_output()
-        .time_limit(Duration::from_secs(TIMEOUT_SECS))
+        .time_limit(time::Duration::from_secs(TIMEOUT_SECS))
         .terminate_for_timeout()
         .wait()
-        .unwrap_or_else(|e| panic!("failed to run `{}`: {:#?}", bin.display(), e))
-        .unwrap_or_else(|| panic!("process `{}` timed out", bin.display()));
+        .unwrap_or_else(|e| panic!("failed to run command: {:#?}", e))
+        .unwrap_or_else(|| panic!("process timed out"));
 
     if let Some(input_thread) = input_thread {
         if let Err(_) = input_thread.join() {
             let _unused = stderr().write_all(&output.stderr);
-            panic!("failed to provide input for process `{}`", bin.display())
+            panic!("failed to provide input for process")
         }
     }
 
     #[cfg(unix)]
     assert!(
         output.status.code().is_some(),
-        "process `{}` terminated by signal {:?}",
-        bin.display(),
+        "process terminated by signal {:?}",
         output.status.signal()
     );
 
     output
+}
+
+/// Returns a handle to a child process through which output (stdout, stderr) can
+/// be accessed.
+pub fn keepldr_exec_signed<'a>(
+    bin: impl Into<PathBuf>,
+    input: impl Into<Option<&'a [u8]>>,
+) -> Output {
+    let tmpdir = tempdir().expect("failed to create temporary package directory");
+    let signature_file_path = tmpdir.path().join("sig.json");
+    let binpath: OsString = bin.into().into_os_string();
+
+    let out = enarx(
+        |cmd| {
+            cmd.args(vec![
+                OsStr::new("sign"),
+                &binpath,
+                OsStr::new("--sgx-key"),
+                OsStr::new("tests/data/sgx-test.key"),
+                OsStr::new("--sev-id-key"),
+                OsStr::new("tests/data/sev-id.key"),
+                OsStr::new("--sev-id-key-signature"),
+                OsStr::new("tests/data/sev-id-key-signature.blob"),
+                OsStr::new("--out"),
+                signature_file_path.as_os_str(),
+            ])
+        },
+        None,
+    );
+
+    if !out.status.success() {
+        eprintln!(
+            "failed to sign package: {}",
+            String::from_utf8_lossy(&out.stderr)
+        );
+        return out;
+    }
+    let res = enarx(
+        |cmd| {
+            cmd.args(vec![
+                OsStr::new("unstable"),
+                OsStr::new("exec"),
+                OsStr::new("--signatures"),
+                signature_file_path.as_os_str(),
+                &binpath,
+            ])
+        },
+        input,
+    );
+
+    tmpdir.close().unwrap();
+
+    res
+}
+
+/// Returns a handle to a child process through which output (stdout, stderr) can
+/// be accessed.
+pub fn keepldr_exec<'a>(bin: impl Into<PathBuf>, input: impl Into<Option<&'a [u8]>>) -> Output {
+    enarx(
+        |cmd| {
+            cmd.args(vec![
+                OsStr::new("unstable"),
+                OsStr::new("exec"),
+                bin.into().as_os_str(),
+            ])
+        },
+        input,
+    )
 }
 
 pub fn check_output<'a>(
@@ -160,6 +231,20 @@ pub fn run_test<'a>(
     expected_stderr: impl Into<Option<&'a [u8]>>,
 ) -> Output {
     let output = keepldr_exec(bin, input);
+    check_output(&output, status, expected_stdout, expected_stderr);
+    output
+}
+
+/// Returns a handle to a child process through which output (stdout, stderr) can
+/// be accessed.
+pub fn run_test_signed<'a>(
+    bin: impl Into<PathBuf>,
+    status: i32,
+    input: impl Into<Option<&'a [u8]>>,
+    expected_stdout: impl Into<Option<&'a [u8]>>,
+    expected_stderr: impl Into<Option<&'a [u8]>>,
+) -> Output {
+    let output = keepldr_exec_signed(bin, input);
     check_output(&output, status, expected_stdout, expected_stderr);
     output
 }

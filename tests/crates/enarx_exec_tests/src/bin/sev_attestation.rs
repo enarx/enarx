@@ -284,6 +284,18 @@ fn get_att(mut nonce: [u8; 64]) -> std::io::Result<()> {
     eprintln!("report: {:?}", report);
 
     eprintln!("vcek: {:?}", vcek_buf);
+
+    eprintln!("ID_KEY_DIGEST = {}", hex::encode(report.id_key_digest));
+    eprintln!(
+        "AUTHOR_KEY_DIGEST = {}",
+        hex::encode(report.author_key_digest)
+    );
+
+    println!("ID_KEY_DIGEST = {}", hex::encode(report.id_key_digest));
+    println!(
+        "AUTHOR_KEY_DIGEST = {}",
+        hex::encode(report.author_key_digest)
+    );
     Ok(())
 }
 
