@@ -9,9 +9,15 @@ use core::mem::size_of;
 
 /// `get_attestation` syscall number used by the shim.
 ///
-/// See <https://github.com/enarx/enarx-keepldr/issues/31>
+/// See <https://github.com/enarx/enarx/issues/966>
 #[allow(dead_code)]
 pub const SYS_GETATT: i64 = 0xEA01;
+
+/// `get_key` syscall number used by the shim.
+///
+/// See <https://github.com/enarx/enarx/issues/2110>
+#[allow(dead_code)]
+pub const SYS_GETKEY: i64 = 0xEA02;
 
 /// Payload of an [`Item`](super::Item) of [`Kind::Enarxcall`](super::Kind::Enarxcall).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
