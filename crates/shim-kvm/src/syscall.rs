@@ -10,7 +10,7 @@ use core::mem::size_of;
 
 use sallyport::guest;
 use sallyport::guest::Handler;
-use sallyport::item::enarxcall::SYS_GETATT;
+use sallyport::item::enarxcall::{SYS_GETATT, SYS_GETKEY};
 #[cfg(feature = "dbg")]
 use sallyport::libc::{SYS_write, STDERR_FILENO, STDOUT_FILENO};
 use spinning::Lazy;
@@ -135,6 +135,30 @@ extern "sysv64" fn syscall_rust(
     let usermemscope = UserMemScope;
 
     match nr as i64 {
+        SYS_GETKEY => {
+            let ret = h.get_key(&usermemscope, a, b);
+
+            match ret {
+                Err(e) => {
+                    #[cfg(feature = "dbg")]
+                    eprintln!("syscall {} = {}", nr, e.checked_neg().unwrap());
+                    X8664DoubleReturn {
+                        rax: e.checked_neg().unwrap() as _,
+                        // Preserve `rdx` as it is normally not clobbered with a syscall
+                        rdx: orig_rdx as _,
+                    }
+                }
+                Ok(rax) => {
+                    #[cfg(feature = "dbg")]
+                    eprintln!("syscall {} = {}", nr, rax);
+                    X8664DoubleReturn {
+                        rax: rax as _,
+                        // Preserve `rdx` as it is normally not clobbered with a syscall
+                        rdx: orig_rdx as _,
+                    }
+                }
+            }
+        }
         SYS_GETATT => {
             let ret = h.get_attestation(&usermemscope, a, b, c, d);
 

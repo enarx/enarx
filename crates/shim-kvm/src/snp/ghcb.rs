@@ -16,6 +16,7 @@ use core::mem::size_of;
 use core::ptr;
 
 use aes_gcm::{AeadInPlace, Aes256Gcm, KeyInit, Nonce, Tag};
+use bitflags::bitflags;
 use const_default::ConstDefault;
 use sallyport::libc::{EINVAL, EIO};
 use spinning::Lazy;
@@ -56,9 +57,9 @@ enum SnpMsgType {
        TypeInvalid = 0,
        CpuidReq,
        CpuidRsp,
-       KeyReq,
-       KeyRsp,
     */
+    KeyReq = 3,
+    KeyRsp = 4,
     ReportReq = 5,
     ReportRsp = 6,
     /*
@@ -133,7 +134,7 @@ pub struct SnpReportResponseHeader {
     rsvd: [u8; 24],
 }
 
-// SAFETY: SnpReportResponseData is a C struct with no UD states and pointers.
+// SAFETY: SnpReportResponseHeader is a C struct with no UD states and pointers.
 unsafe impl ByteSized for SnpReportResponseHeader {}
 
 /// GHCB page sizes
@@ -771,7 +772,95 @@ impl GhcbExtHandle {
     }
 }
 
+/// SNP derived key length in bytes
+pub const SNP_KEY_LEN: usize = 32;
+
+#[repr(C)]
+struct KeyRsp {
+    /// 0 if valid
+    status: u32,
+    _rsvd: [u8; 28],
+    derived_key: [u8; SNP_KEY_LEN],
+}
+
+#[repr(C)]
+struct KeyReq {
+    root_key_select: u32,
+    _rsvd: u32,
+    guest_field_select: u64,
+    vmpl: u32,
+    guest_svn: u32,
+    tcb_version: u64,
+}
+
+// SAFETY: KeyRsp is a C struct with no UD states and pointers.
+unsafe impl ByteSized for KeyRsp {}
+// SAFETY: KeyReq is a C struct with no UD states and pointers.
+unsafe impl ByteSized for KeyReq {}
+
+bitflags! {
+    /// Indicates which guest-selectable fields will be mixed into the derived key
+    #[derive(Default)]
+    pub struct GuestFieldSelect: u64 {
+        /// Guest policy will be mixed into the key
+        const GUEST_POLICY = 1;
+
+        /// Image ID of the guest will be mixed into the key
+        const IMAGE_ID = 1 << 1;
+
+        /// Family ID of the guest will be mixed into the key
+        const FAMILY_ID = 1 << 2;
+
+        /// Measurement of the guest during launch will be mixed into the key
+        const MEASUREMENT = 1 << 3;
+
+        /// Guest-provided SVN will be mixed into the key
+        const GUEST_SVN = 1 << 4;
+
+        /// Guest-provided TCB_VERSION will be mixed into the key
+        const TCB_VERSION = 1 << 5;
+    }
+}
+
 impl Locked<&mut GhcbExtHandle> {
+    /// Request a derived key
+    pub fn get_key(&self, version: u8, guest_svn: u32) -> Result<[u8; 32], i32> {
+        let mut this = self.lock();
+
+        let key_req = KeyReq {
+            root_key_select: 0,
+            _rsvd: 0,
+            guest_field_select: GuestFieldSelect::GUEST_SVN.bits
+                | GuestFieldSelect::GUEST_POLICY.bits,
+            vmpl: 0,
+            guest_svn,
+            tcb_version: 0,
+        };
+
+        this.request = <SnpGuestMsg as ConstDefault>::DEFAULT;
+
+        let mut request = [0u8; KeyReq::SIZE];
+        let mut response = [0u8; KeyRsp::SIZE];
+
+        request.copy_from_slice(key_req.as_bytes());
+
+        this.enc_payload(version, SnpMsgType::KeyReq, &mut request)
+            .expect("encryption failed");
+
+        unsafe { this.guest_req().expect("request failed") };
+
+        this.dec_payload(&mut response, SnpMsgType::KeyRsp)
+            .expect("decryption failed");
+
+        let key_rsp = KeyRsp::from_bytes(&response).ok_or(EIO)?;
+
+        match key_rsp.status {
+            0 => Ok(key_rsp.derived_key),
+            0x16 => Err(EIO),
+            _ => panic!("invalid MSG_KEY_RSP error value {}", key_rsp.status),
+        }
+    }
+
     /// Get an attestation report via the GHCB shared page protocol
     pub fn get_report(
         &self,
