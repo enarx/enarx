@@ -7,14 +7,13 @@ use crate::debug::_enarx_asm_triple_fault;
 use crate::eprintln;
 use crate::exec::{BRK_LINE, NEXT_MMAP_RWLOCK};
 use crate::paging::SHIM_PAGETABLE;
-use crate::snp::attestation::{asn1_encode_report_vcek, SnpReportResponseData};
+use crate::snp::attestation::asn1_encode_report_vcek;
 use crate::snp::ghcb::{GHCB, GHCB_EXT, SNP_ATTESTATION_LEN_MAX};
 use crate::snp::snp_active;
 use crate::spin::{RacyCell, RwLocked};
 
 use const_default::ConstDefault;
 use core::ffi::{c_int, c_size_t, c_ulong, c_void};
-use core::mem::size_of;
 use core::ops::{Deref, DerefMut};
 use core::ptr::NonNull;
 use core::slice;
@@ -219,26 +218,9 @@ impl<'a> HostCall<'a> {
         let user_buf = platform.validate_slice_mut::<u8>(buf, buf_len)?;
 
         let mut report_buf = [0u8; SNP_ATTESTATION_LEN_MAX];
-        let len = GHCB_EXT
-            .get_report(1, nonce, &mut report_buf)
-            .map_err(|_| EIO)?;
+        let (skip, report_len) = GHCB_EXT.get_report(1, nonce, &mut report_buf)?;
 
-        if len < size_of::<SnpReportResponseData>() {
-            return Err(EIO);
-        }
-
-        let report_ptr = report_buf.as_ptr() as *const SnpReportResponseData;
-        let report = unsafe { report_ptr.read_unaligned() };
-
-        if report.status != 0 {
-            return Err(EIO);
-        }
-
-        // if the unwrap panics, it is totally worthy
-        let report_end = size_of::<SnpReportResponseData>()
-            .checked_add(report.size as usize)
-            .unwrap();
-        let report_data = &report_buf[size_of::<SnpReportResponseData>()..report_end];
+        let report_data = &report_buf[skip..][..report_len];
 
         let len = asn1_encode_report_vcek(user_buf, report_data, vcek).ok_or(EIO)?;
 
