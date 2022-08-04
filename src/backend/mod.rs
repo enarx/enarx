@@ -107,6 +107,7 @@ pub unsafe trait ByteSized: Sized {
         Some(unsafe { (bytes.as_ptr() as *const _ as *const Self).read_unaligned() })
     }
 
+    /// Serialize Self to a byte slice.
     fn as_bytes(&self) -> &[u8] {
         // SAFETY: This is safe because we know that the pointer is non-null and the length is correct
         // and u8 does not need any alignment.
