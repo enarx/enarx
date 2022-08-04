@@ -13,6 +13,7 @@ dbg = []
 disable-sgx-attestation = []
 
 [dependencies]
+bitflags = { version = "1.2", default-features = false }
 const-default = { version = "1.0", default-features = false }
 crt0stack = { version = "0.1", default-features = false }
 goblin = { version = "0.5", features = ["elf64"], default-features = false }

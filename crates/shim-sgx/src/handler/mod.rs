@@ -24,6 +24,7 @@ macro_rules! debugln {
 }
 
 pub(crate) mod gdb;
+pub(crate) mod key;
 pub(crate) mod usermem;
 
 use crate::handler::usermem::UserMemScope;
@@ -43,9 +44,9 @@ use primordial::{Address, Offset, Page};
 use sallyport::guest::Handler as _;
 use sallyport::guest::{self, Platform, ThreadLocalStorage};
 use sallyport::item::enarxcall::sgx::{Report, ReportData, TargetInfo, TECH};
-use sallyport::item::enarxcall::SYS_GETATT;
+use sallyport::item::enarxcall::{SYS_GETATT, SYS_GETKEY};
 use sallyport::libc::{
-    off_t, EACCES, EINVAL, EMSGSIZE, ENOMEM, ENOSYS, ENOTSUP, MAP_ANONYMOUS, MAP_PRIVATE,
+    off_t, EACCES, EINVAL, EIO, EMSGSIZE, ENOMEM, ENOSYS, ENOTSUP, MAP_ANONYMOUS, MAP_PRIVATE,
     PROT_EXEC, PROT_READ, PROT_WRITE, STDERR_FILENO,
 };
 use sgx::page::{Class, Flags};
@@ -434,6 +435,43 @@ impl<'a> Handler<'a> {
         }
     }
 
+    fn get_key(
+        &mut self,
+        platform: &impl Platform,
+        buf: usize,
+        buf_len: usize,
+    ) -> Result<usize, c_int> {
+        if buf == 0 {
+            return Ok(key::SGX_KEY_LEN);
+        }
+
+        if buf_len > isize::MAX as usize {
+            return Err(EINVAL);
+        }
+
+        if buf_len < key::SGX_KEY_LEN {
+            return Err(EMSGSIZE);
+        }
+
+        let buf = platform.validate_slice_mut::<u8>(buf, buf_len)?;
+
+        let key_request = key::Request {
+            name: key::Names::SealKey,
+            policy: key::Policy::MRSIGNER,
+            isvsvn: 0,
+            ..Default::default()
+        };
+
+        let key_response = key_request.enclu_egetkey().map_err(|e| {
+            debugln!(self, "enclu_egetkey: {}", e);
+            EIO
+        })?;
+
+        buf[..key::SGX_KEY_LEN].copy_from_slice(&key_response.key);
+
+        Ok(key::SGX_KEY_LEN)
+    }
+
     fn get_attestation(
         &mut self,
         platform: &impl Platform,
@@ -494,6 +532,16 @@ impl<'a> Handler<'a> {
         let usermemscope = UserMemScope;
 
         match nr as i64 {
+            SYS_GETKEY => {
+                let ret = self.get_key(&usermemscope, self.ssa.gpr.rdi as _, self.ssa.gpr.rsi as _);
+                match ret {
+                    Err(e) => self.ssa.gpr.rax = -e as u64,
+                    Ok(rax) => {
+                        self.ssa.gpr.rax = rax as u64;
+                        self.ssa.gpr.rdx = orig_rdx;
+                    }
+                }
+            }
             SYS_GETATT => {
                 let ret = self.get_attestation(
                     &usermemscope,
