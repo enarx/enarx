@@ -637,7 +637,7 @@ impl GhcbExtHandle {
     }
 
     #[cfg_attr(coverage, no_coverage)]
-    unsafe fn guest_req(&mut self) -> Result<(), u64> {
+    fn guest_req(&mut self) -> Result<(), u64> {
         let req_gpa =
             PhysAddr::new((VirtAddr::from_ptr(&self.request) - SHIM_VIRT_OFFSET).as_u64());
 
@@ -649,7 +649,8 @@ impl GhcbExtHandle {
         // prevent earlier writes from being moved beyond this point
         core::sync::atomic::compiler_fence(core::sync::atomic::Ordering::Release);
 
-        let ret = GHCB.guest_req(req_gpa, resp_gpa);
+        // SAFETY: request and response are valid and mapped to shared memory
+        let ret = unsafe { GHCB.guest_req(req_gpa, resp_gpa) };
 
         // prevent later reads from being moved before this point
         core::sync::atomic::compiler_fence(core::sync::atomic::Ordering::Acquire);
@@ -847,7 +848,7 @@ impl Locked<&mut GhcbExtHandle> {
         this.enc_payload(version, SnpMsgType::KeyReq, &mut request)
             .expect("encryption failed");
 
-        unsafe { this.guest_req().expect("request failed") };
+        this.guest_req().expect("request failed");
 
         this.dec_payload(&mut response, SnpMsgType::KeyRsp)
             .expect("decryption failed");
@@ -886,7 +887,7 @@ impl Locked<&mut GhcbExtHandle> {
         this.enc_payload(version, SnpMsgType::ReportReq, &mut user_data)
             .expect("encryption failed");
 
-        unsafe { this.guest_req().expect("request failed") };
+        this.guest_req().expect("request failed");
 
         this.dec_payload(response, SnpMsgType::ReportRsp)
             .expect("decryption failed");
