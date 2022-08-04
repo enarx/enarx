@@ -17,11 +17,13 @@ use const_oid::db::rfc5280::{
     ID_CE_BASIC_CONSTRAINTS, ID_CE_EXT_KEY_USAGE, ID_CE_KEY_USAGE, ID_KP_CLIENT_AUTH,
     ID_KP_SERVER_AUTH,
 };
+use drawbridge_client::types::{Meta, TagEntry, TreeDirectory, TreeEntry, TreePath};
+use drawbridge_client::{scope, Client, Entity, Node, Scope};
 use enarx_config::Config;
 use getrandom::getrandom;
 use pkcs8::PrivateKeyInfo;
 use rustls::{cipher_suite::*, kx_group::*, version::TLS13, *};
-use ureq::Response;
+use ureq::serde_json;
 use url::Url;
 use x509_cert::der::asn1::{BitStringRef, UIntRef};
 use x509_cert::der::{Decode, Encode};
@@ -32,52 +34,65 @@ use x509_cert::{Certificate, PkiPath, TbsCertificate};
 
 /// Maximum size of WASM module in bytes
 const MAX_WASM_SIZE: u64 = 100_000_000;
+/// Maximum size of Enarx.toml in bytes
+const MAX_CONF_SIZE: u64 = 1_000_000;
+/// Maximum directory size in bytes
+const MAX_DIR_SIZE: u64 = 1_000_000;
 
-const DRAWBRIDGE_DIRECTORY_MEDIA_TYPE: &str = "application/vnd.drawbridge.directory.v1+json";
+/// Maximum size of top-level response body in bytes
+const MAX_TOP_SIZE: u64 = MAX_WASM_SIZE;
+
 const TOML_MEDIA_TYPE: &str = "application/toml";
 const WASM_MEDIA_TYPE: &str = "application/wasm";
 
-fn get(url: impl AsRef<str>) -> Result<Response> {
-    let url = url.as_ref();
-    ureq::get(url)
-        .call()
-        .with_context(|| format!("failed to GET `{url}`"))
-}
-
-fn get_typed(typ: &str, url: impl AsRef<str>) -> Result<Response> {
-    get(url).and_then(|res| {
-        let ct = res.content_type();
-        ensure!(
-            ct == typ,
-            format!("expected media type `{typ}`, got `{ct}`")
-        );
-        Ok(res)
-    })
-}
-
-fn response_into_wasm(res: Response) -> Result<Vec<u8>> {
-    // TODO: Initialize with capacity of Content-Length if set.
-    let mut wasm = Vec::new();
-    res.into_reader()
-        .take(MAX_WASM_SIZE)
-        .read_to_end(&mut wasm)
-        .context("failed to read WASM module contents")?;
-    // TODO: Verify Content-Digest
+fn get_wasm(root: Entity<'_, impl Scope, scope::Node>, entry: &TreeEntry) -> Result<Vec<u8>> {
+    ensure!(
+        entry.meta.mime.essence_str() == WASM_MEDIA_TYPE,
+        "invalid `{}` media type `{}`",
+        *PACKAGE_ENTRYPOINT,
+        entry.meta.mime.essence_str()
+    );
+    let (meta, wasm) = Node::new(root, &PACKAGE_ENTRYPOINT.clone().into())
+        .get_bytes(MAX_WASM_SIZE)
+        .with_context(|| format!("failed to fetch `{}`", *PACKAGE_ENTRYPOINT))?;
+    ensure!(
+        meta == entry.meta,
+        "`{}` metadata does not match directory entry metadata",
+        *PACKAGE_ENTRYPOINT,
+    );
     Ok(wasm)
 }
 
-fn get_drawbridge_directory(url: impl AsRef<str>) -> Result<(Vec<u8>, String)> {
-    let url = url.as_ref().trim_end_matches('/');
-    let wasm = get_typed(WASM_MEDIA_TYPE, format!("{url}/{PACKAGE_ENTRYPOINT}"))
-        .context(format!("failed to fetch `{PACKAGE_ENTRYPOINT}`"))
-        .and_then(response_into_wasm)?;
+fn get_package(
+    root: Entity<'_, impl Scope, scope::Node>,
+    dir: TreeDirectory,
+) -> Result<(Vec<u8>, Option<String>)> {
+    let wasm = dir
+        .get(&PACKAGE_ENTRYPOINT)
+        .ok_or_else(|| anyhow!("directory does not contain `{}`", *PACKAGE_ENTRYPOINT))
+        .and_then(|e| get_wasm(root.clone(), e).context("failed to get Wasm"))?;
 
-    let conf = get_typed(TOML_MEDIA_TYPE, format!("{url}/{PACKAGE_CONFIG}"))
-        .context(format!("failed to fetch `{PACKAGE_CONFIG}`"))?
-        // TODO: Verify Content-Digest
-        .into_string()?;
+    let entry = if let Some(entry) = dir.get(&PACKAGE_CONFIG) {
+        entry
+    } else {
+        return Ok((wasm, None));
+    };
+    ensure!(
+        entry.meta.mime.essence_str() == TOML_MEDIA_TYPE,
+        "invalid `{}` media type `{}`",
+        *PACKAGE_CONFIG,
+        entry.meta.mime.essence_str()
+    );
+    let (meta, conf) = Node::new(root, &PACKAGE_CONFIG.clone().into())
+        .get_string(MAX_CONF_SIZE)
+        .with_context(|| format!("failed to fetch `{}`", *PACKAGE_CONFIG))?;
+    ensure!(
+        meta == entry.meta,
+        "`{}` metadata does not match directory entry metadata",
+        *PACKAGE_CONFIG,
+    );
 
-    Ok((wasm, conf))
+    Ok((wasm, Some(conf)))
 }
 
 impl Loader<Requested> {
@@ -161,15 +176,63 @@ impl Loader<Requested> {
     }
 
     pub fn next(mut self) -> Result<Loader<Attested>> {
-        // TODO: First acquire the Steward URL and then pull the WASM module after attestation.
         let (webasm, config) = match self.0.package {
             Package::Remote(ref url) => {
-                let res = get(url.as_str())?;
-                match res.content_type() {
-                    WASM_MEDIA_TYPE => response_into_wasm(res).map(|webasm| (webasm, None))?,
-                    DRAWBRIDGE_DIRECTORY_MEDIA_TYPE => get_drawbridge_directory(url.as_str())
-                        .map(|(webasm, config)| (webasm, Some(config)))?,
-                    typ => bail!("unsupported content type: {typ}"),
+                let cl = Client::<scope::Unknown>::new_scoped(url.clone())
+                    .context("failed to construct client")?;
+                let top = Entity::new(&cl);
+                let (Meta { size, mime, .. }, mut rdr) = top
+                    .get(MAX_TOP_SIZE)
+                    .with_context(|| format!("failed to fetch top-level URL `{url}`"))?;
+                match mime.essence_str() {
+                    WASM_MEDIA_TYPE => {
+                        ensure!(
+                            size <= MAX_WASM_SIZE,
+                            "Wasm size of `{size}` exceeds the limit of `{MAX_WASM_SIZE}`"
+                        );
+                        let size = size
+                            .try_into()
+                            .with_context(|| format!("failed to convert `{size}` to usize"))?;
+                        let mut wasm = Vec::with_capacity(size);
+                        let n = rdr
+                            .read_to_end(&mut wasm)
+                            .context("failed to fetch workload")?;
+                        ensure!(n == size, "invalid amount of Wasm bytes fetched");
+                        (wasm, None)
+                    }
+                    TreeDirectory::<()>::TYPE => serde_json::from_reader(rdr)
+                        .context("failed to decode response body")
+                        .and_then(|dir| {
+                            get_package(top.clone().scope(), dir).context("failed to fetch package")
+                        })?,
+                    typ => {
+                        let tag = serde_json::from_reader(rdr).with_context(|| format!("failed to decode top-level entity of type `{typ}` as either Wasm module, Drawbridge directory or a tag"))?;
+                        let entry: TreeEntry = match tag {
+                            TagEntry::Unsigned(e) => e,
+                            TagEntry::Signed(_jws) => {
+                                // TODO: Support signed tags
+                                bail!("signed tags are not currently supported")
+                            }
+                        };
+                        let tree = top.child("tree");
+                        let root = Node::new(tree.clone(), &TreePath::ROOT);
+                        match entry.meta.mime.essence_str() {
+                            WASM_MEDIA_TYPE => get_wasm(tree, &entry)
+                                .map(|wasm| (wasm, None))
+                                .context("failed to fetch workload")?,
+                            TreeDirectory::<()>::TYPE => {
+                                let (meta, dir) = root
+                                    .get_json::<TreeDirectory>(MAX_DIR_SIZE)
+                                    .context("failed to get root directory")?;
+                                ensure!(
+                                    meta == entry.meta,
+                                    "directory metadata does not match tag entry metadata"
+                                );
+                                get_package(tree, dir).context("failed to fetch package")?
+                            }
+                            typ => bail!("unsupported root type `{typ}`"),
+                        }
+                    }
                 }
             }
             Package::Local {

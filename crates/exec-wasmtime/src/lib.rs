@@ -8,7 +8,9 @@
 
 mod loader;
 
+use drawbridge_client::types::TreeName;
 use loader::Loader;
+use once_cell::sync::Lazy;
 use url::Url;
 
 #[cfg(unix)]
@@ -18,10 +20,10 @@ use std::os::unix::io::{FromRawFd, RawFd};
 use serde::{Deserialize, Serialize};
 
 /// Name of package entrypoint file
-pub const PACKAGE_ENTRYPOINT: &str = "main.wasm";
+pub static PACKAGE_ENTRYPOINT: Lazy<TreeName> = Lazy::new(|| "main.wasm".parse().unwrap());
 
 /// Name of package config file
-pub const PACKAGE_CONFIG: &str = "Enarx.toml";
+pub static PACKAGE_CONFIG: Lazy<TreeName> = Lazy::new(|| "Enarx.toml".parse().unwrap());
 
 /// Package to execute
 #[cfg(unix)]
