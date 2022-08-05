@@ -64,10 +64,12 @@ impl Options {
         let signatures = Signatures::load(signatures)?;
 
         let package: Url = package.parse().or_else(|_| {
+            use drawbridge_client::API_VERSION;
+
             // TODO: Check the error
             let (host, user, repo, tag) = parse_tag(&package)
                 .with_context(|| format!("failed to parse `{package}` as a Drawbridge slug"))?;
-            format!("https://{host}/api/v0.2.0/{user}/{repo}/_tag/{tag}")
+            format!("https://{host}/api/v{API_VERSION}/{user}/{repo}/_tag/{tag}")
                 .parse()
                 .with_context(|| {
                     format!("failed to construct a URL from Drawbridge slug `{package}`")
