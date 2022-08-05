@@ -77,11 +77,6 @@ jobs:
       matrix:
         crate:
           - {name: enarx, path: ./Cargo.toml}
-          - {name: shim-sgx, path: crates/shim-sgx/Cargo.toml}
-          - {name: shim-kvm, path: crates/shim-kvm/Cargo.toml}
-          - {name: enarx-config, path: crates/enarx-config/Cargo.toml}
-          - {name: exec-wasmtime, path: crates/exec-wasmtime/Cargo.toml}
-          - {name: sallyport, path: crates/sallyport/Cargo.toml}
 
   check-spdx-headers:
     runs-on: ubuntu-latest
