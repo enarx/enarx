@@ -1036,9 +1036,9 @@ dependencies = [
 
 [[package]]
 name = "drawbridge-client"
-version = "0.2.1"
+version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "aec5afee05c21eb69106576929bc2b23872acc39057a7dc836f13712421459dc"
+checksum = "ec3ace08cbd6a394727149861c96190dcd7bd7ff0c6d28196300cbcccc40ebb4"
 dependencies = [
  "anyhow",
  "drawbridge-jose",
@@ -1069,9 +1069,9 @@ dependencies = [
 
 [[package]]
 name = "drawbridge-server"
-version = "0.2.1"
+version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0b016ffc50ae864247d36e4b972c51674e4f7ea4603cfdc6f79a3e2afd5b6098"
+checksum = "351e6de12efcc851440210c36381b4c001d60f9d784d9f3772f6550aec60205f"
 dependencies = [
  "anyhow",
  "async-std",

@@ -27,7 +27,7 @@ camino = { version = "1.0.9", default-features = false }
 clap = { version = "3.1", features = ["env", "derive", "std"], default-features = false }
 colorful = { version = "0.2", default-features = false }
 dirs = { version = "4.0", default-features = false }
-drawbridge-client = { version = "0.2.0", default-features = false }
+drawbridge-client = { version = "0.2.2", default-features = false }
 enarx-exec-wasmtime = { version = "0.6.2", path = "crates/exec-wasmtime", default-features = false }
 enarx-config = { version = "0.6", path = "crates/enarx-config", default-features = false }
 env_logger = { version = "0.9", default-features = false }
@@ -95,7 +95,7 @@ enarx_syscall_tests = { path = "tests/crates/enarx_syscall_tests", artifact = "b
 [target.'cfg(not(windows))'.dev-dependencies]
 async-h1 = { version = "2.3.3", default-features = false }
 async-std = { version = "1.11.0", default-features = false, features = ["attributes"] }
-drawbridge-server = { version = "0.2.1", default-features = false }
+drawbridge-server = { version = "0.2.2", default-features = false }
 futures = { version = "0.3.21", default-features = false }
 http-types = { version = "2.12.0", default-features = false }
 openidconnect = { version = "2.3.1", default-features = false }
