@@ -138,10 +138,14 @@ extern "sysv64" fn syscall_rust(
         SYS_GETKEY => {
             let ret = h.get_key(&usermemscope, a, b);
 
+            #[cfg(feature = "dbg")]
+            eprintln!(
+                "syscall SYS_GETKEY = {}",
+                ret.map_or_else(|e| -e as usize, |v| v)
+            );
+
             match ret {
                 Err(e) => {
-                    #[cfg(feature = "dbg")]
-                    eprintln!("syscall {} = {}", nr, e.checked_neg().unwrap());
                     X8664DoubleReturn {
                         rax: e.checked_neg().unwrap() as _,
                         // Preserve `rdx` as it is normally not clobbered with a syscall
@@ -149,8 +153,6 @@ extern "sysv64" fn syscall_rust(
                     }
                 }
                 Ok(rax) => {
-                    #[cfg(feature = "dbg")]
-                    eprintln!("syscall {} = {}", nr, rax);
                     X8664DoubleReturn {
                         rax: rax as _,
                         // Preserve `rdx` as it is normally not clobbered with a syscall
@@ -162,37 +164,42 @@ extern "sysv64" fn syscall_rust(
         SYS_GETATT => {
             let ret = h.get_attestation(&usermemscope, a, b, c, d);
 
+            #[cfg(feature = "dbg")]
+            eprintln!(
+                "syscall SYS_GETATT = {}",
+                ret.map_or_else(|e| -e as usize, |v| v[0])
+            );
+
             match ret {
                 Err(e) => {
-                    #[cfg(feature = "dbg")]
-                    eprintln!("syscall {} = {}", nr, e.checked_neg().unwrap());
                     X8664DoubleReturn {
                         rax: e.checked_neg().unwrap() as _,
                         // Preserve `rdx` as it is normally not clobbered with a syscall
                         rdx: orig_rdx as _,
                     }
                 }
-                Ok([rax, rdx]) => {
-                    #[cfg(feature = "dbg")]
-                    eprintln!("syscall {} = {}", nr, rax);
-                    X8664DoubleReturn {
-                        rax: rax as _,
-                        rdx: rdx as _,
-                    }
-                }
+                Ok([rax, rdx]) => X8664DoubleReturn {
+                    rax: rax as _,
+                    rdx: rdx as _,
+                },
             }
         }
         _ => {
             let ret = unsafe { h.syscall(&usermemscope, [nr, a, b, c, d, e, f]) };
 
+            #[cfg(feature = "dbg")]
+            if !(nr == SYS_write as usize
+                && (a == STDERR_FILENO as usize || a == STDOUT_FILENO as usize))
+            {
+                eprintln!(
+                    "syscall {} = {}",
+                    nr,
+                    ret.map_or_else(|e| -e as usize, |v| v[0])
+                );
+            }
+
             match ret {
                 Err(e) => {
-                    #[cfg(feature = "dbg")]
-                    if !(nr == SYS_write as usize
-                        && (a == STDERR_FILENO as usize || a == STDOUT_FILENO as usize))
-                    {
-                        eprintln!("syscall {} = {}", nr, e.checked_neg().unwrap());
-                    }
                     X8664DoubleReturn {
                         rax: e.checked_neg().unwrap() as _,
                         // Preserve `rdx` as it is normally not clobbered with a syscall
@@ -200,12 +207,6 @@ extern "sysv64" fn syscall_rust(
                     }
                 }
                 Ok([rax, _]) => {
-                    #[cfg(feature = "dbg")]
-                    if !(nr == SYS_write as usize
-                        && (a == STDERR_FILENO as usize || a == STDOUT_FILENO as usize))
-                    {
-                        eprintln!("syscall {} = {}", nr, rax);
-                    }
                     X8664DoubleReturn {
                         rax: rax as _,
                         // Preserve `rdx` as it is normally not clobbered with a syscall
