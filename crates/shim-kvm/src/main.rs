@@ -5,7 +5,6 @@
 //! Contains the startup code and the main function.
 #![no_std]
 #![deny(clippy::all)]
-#![deny(clippy::integer_arithmetic)]
 #![deny(missing_docs)]
 #![warn(rust_2018_idioms)]
 #![no_main]
