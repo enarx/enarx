@@ -1016,9 +1016,9 @@ dependencies = [
 
 [[package]]
 name = "drawbridge-client"
-version = "0.2.2"
+version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ec3ace08cbd6a394727149861c96190dcd7bd7ff0c6d28196300cbcccc40ebb4"
+checksum = "adbe40b21e887ab184816987590800f56d4e3d74b551325cf8a3ff5124e49b9c"
 dependencies = [
  "anyhow",
  "drawbridge-jose",
