@@ -213,20 +213,20 @@ $ cargo install --locked --bin enarx --path ./
 
 :::note
 
-Rust version nightly-2022-07-19 is required when installing Enarx 0.6.3 from crates.io.
+Rust version nightly-2022-08-10 is required when installing Enarx 0.6.3 from crates.io.
 
 :::
 
 For installing Enarx from crates.io on X86_64 Linux please run:
 ```sh:crates;
-$ rustup toolchain install nightly-2022-07-19 -t x86_64-unknown-linux-musl,x86_64-unknown-linux-gnu,x86_64-unknown-none
-$ CARGO_TARGET_X86_64_UNKNOWN_NONE_RUSTFLAGS="-C linker=gcc --cfg polyval_force_soft --cfg aes_force_soft" cargo +nightly-2022-07-19 -Z bindeps install --locked --bin enarx --version 0.6.3 -- enarx
+$ rustup toolchain install nightly-2022-08-10 -t x86_64-unknown-linux-musl,x86_64-unknown-linux-gnu,x86_64-unknown-none
+$ CARGO_TARGET_X86_64_UNKNOWN_NONE_RUSTFLAGS="-C linker=gcc --cfg polyval_force_soft --cfg aes_force_soft" cargo +nightly-2022-08-10 -Z bindeps install --locked --bin enarx --version 0.6.3 -- enarx
 ```
 
 For installing Enarx from crates.io on non-x86_64 Linux please run:
 ```console
-$ rustup toolchain install nightly-2022-07-19
-$ cargo +nightly-2022-07-19 -Z bindeps install --locked --bin enarx --version 0.6.3 -- enarx
+$ rustup toolchain install nightly-2022-08-10
+$ cargo +nightly-2022-08-10 -Z bindeps install --locked --bin enarx --version 0.6.3 -- enarx
 ```
 
 ### Install from Nix
