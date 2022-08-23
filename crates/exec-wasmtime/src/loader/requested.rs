@@ -17,6 +17,7 @@ use const_oid::db::rfc5280::{
     ID_CE_BASIC_CONSTRAINTS, ID_CE_EXT_KEY_USAGE, ID_CE_KEY_USAGE, ID_KP_CLIENT_AUTH,
     ID_KP_SERVER_AUTH,
 };
+use const_oid::db::rfc5912::{SECP_256_R_1, SECP_384_R_1};
 use drawbridge_client::types::{Meta, TagEntry, TreeDirectory, TreeEntry, TreePath};
 use drawbridge_client::{scope, Client, Entity, Node, Scope};
 use enarx_config::Config;
@@ -25,6 +26,7 @@ use pkcs8::PrivateKeyInfo;
 use rustls::{cipher_suite::*, kx_group::*, version::TLS13, *};
 use ureq::serde_json;
 use url::Url;
+use wasi_crypto::AlgorithmType;
 use x509_cert::der::asn1::{BitStringRef, UIntRef};
 use x509_cert::der::{Decode, Encode};
 use x509_cert::ext::pkix::{BasicConstraints, ExtendedKeyUsage, KeyUsage, KeyUsages};
@@ -289,6 +291,17 @@ impl Loader<Requested> {
             TLS13_AES_128_GCM_SHA256,
             TLS13_CHACHA20_POLY1305_SHA256,
         ];
+
+        // Setup Wasi-Crypto
+        let pki = PrivateKeyInfo::from_der(&self.0.prvkey)?;
+        let algo_str = match pki.algorithm.oid {
+            SECP_384_R_1=> "ECDSA_P384_SHA384",
+            SECP_256_R_1=> "ECDSA_P256_SHA256",
+            _ => return Err(anyhow!("Unknown algorithm"))
+        };
+
+        let wasi_crypto_ctx = wasmtime_wasi_crypto::WasiCryptoCtx::new();
+        wasi_crypto_ctx.keypair_import(AlgorithmType::Signatures, algo_str, blah, wasi_crypto::KeyPairEncoding::Raw);
 
         // Set up the server config.
         let srvcfg = ServerConfig::builder()

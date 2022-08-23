@@ -204,10 +204,11 @@ dependencies = [
 
 [[package]]
 name = "async-io"
-version = "1.7.0"
+version = "1.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e5e18f61464ae81cde0a23e713ae8fd299580c54d697a35820cfd0625b8b0e07"
+checksum = "0ab006897723d9352f63e2b13047177c3982d8d79709d713ce7747a8f19fd1b0"
 dependencies = [
+ "autocfg",
  "concurrent-queue",
  "futures-lite",
  "libc",
@@ -464,9 +465,9 @@ dependencies = [
 
 [[package]]
 name = "bumpalo"
-version = "3.10.0"
+version = "3.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "37ccbd214614c6783386c1af30caf03192f17891059cecc394b4fb119e363de3"
+checksum = "c1ad822118d20d2c234f427000d5acc36eabe1e29a348c89b63dd60b13f28e5d"
 
 [[package]]
 name = "byteorder"
@@ -551,7 +552,7 @@ dependencies = [
  "io-lifetimes 0.7.3",
  "ipnet",
  "maybe-owned",
- "rustix 0.35.8",
+ "rustix 0.35.9",
  "winapi-util",
  "windows-sys",
  "winx 0.33.0",
@@ -577,7 +578,7 @@ dependencies = [
  "io-extras 0.15.0",
  "io-lifetimes 0.7.3",
  "ipnet",
- "rustix 0.35.8",
+ "rustix 0.35.9",
 ]
 
 [[package]]
@@ -588,7 +589,7 @@ checksum = "46a2d284862edf6e431e9ad4e109c02855157904cebaceae6f042b124a1a21e2"
 dependencies = [
  "cap-primitives 0.25.2",
  "once_cell",
- "rustix 0.35.8",
+ "rustix 0.35.9",
  "winx 0.33.0",
 ]
 
@@ -784,9 +785,9 @@ dependencies = [
 
 [[package]]
 name = "cpufeatures"
-version = "0.2.2"
+version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "59a6001667ab124aebae2a495118e11d30984c3a653e99d86d58971708cf5e4b"
+checksum = "1079fb8528d9f9c888b1e8aa651e6e079ade467323d58f75faf1d30b1808f540"
 dependencies = [
  "libc",
 ]
@@ -1204,9 +1205,9 @@ dependencies = [
 
 [[package]]
 name = "either"
-version = "1.7.0"
+version = "1.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3f107b87b6afc2a64fd13cac55fe06d6c8859f12d4b14cbcdd2c67d0976781be"
+checksum = "90e5c1c8368803113bf0c9584fc495a58b86dc8a29edbf8fe877d21d9507e797"
 
 [[package]]
 name = "elliptic-curve"
@@ -1323,7 +1324,7 @@ dependencies = [
  "once_cell",
  "pkcs8 0.9.0",
  "ring",
- "rustix 0.35.8",
+ "rustix 0.35.9",
  "rustls",
  "sallyport",
  "sec1",
@@ -1334,6 +1335,7 @@ dependencies = [
  "ureq",
  "url",
  "wasi-common",
+ "wasi-crypto",
  "wasmtime",
  "wasmtime-wasi",
  "wasmtime-wasi-crypto",
@@ -1552,7 +1554,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a267b6a9304912e018610d53fe07115d8b530b160e85db4d2d3a59f3ddde1aec"
 dependencies = [
  "io-lifetimes 0.7.3",
- "rustix 0.35.8",
+ "rustix 0.35.9",
  "windows-sys",
 ]
 
@@ -1695,9 +1697,9 @@ dependencies = [
 
 [[package]]
 name = "gdbstub"
-version = "0.6.2"
+version = "0.6.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1c1f9371c87c11642ee94dcf92cb48b1484ba250b8e8bff3df71c28651f3f4e7"
+checksum = "32c95766e0414f8bfc1d07055574c621b67739466d6ba516c4fef8e99d30d2e6"
 dependencies = [
  "bitflags",
  "cfg-if 1.0.0",
@@ -2003,9 +2005,9 @@ dependencies = [
 
 [[package]]
 name = "iana-time-zone"
-version = "0.1.45"
+version = "0.1.46"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ef5528d9c2817db4e10cc78f8d4c8228906e5854f389ff6b076cee3572a09d35"
+checksum = "ad2bfd338099682614d3ee3fe0cd72e0b6a41ca6a87f6a74a3bd593c91650501"
 dependencies = [
  "android_system_properties",
  "core-foundation-sys",
@@ -2120,7 +2122,7 @@ checksum = "0d508111813f9af3afd2f92758f77e4ed2cc9371b642112c6a48d22eb73105c5"
 dependencies = [
  "hermit-abi 0.2.5",
  "io-lifetimes 0.7.3",
- "rustix 0.35.8",
+ "rustix 0.35.9",
  "windows-sys",
 ]
 
@@ -3146,9 +3148,9 @@ dependencies = [
 
 [[package]]
 name = "rustix"
-version = "0.35.8"
+version = "0.35.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0d2b64e76b8da597d38473a277e87b91c3747d0cf9922be989e68fc1c046adf9"
+checksum = "72c825b8aa8010eb9ee99b75f05e10180b9278d161583034d7574c9d617aeada"
 dependencies = [
  "bitflags",
  "errno",
@@ -3197,7 +3199,7 @@ checksum = "4501abdff3ae82a1c1b477a17252eb69cee9e66eb915c1abaa4f44d873df9f09"
 name = "sallyport"
 version = "0.6.3"
 dependencies = [
- "gdbstub 0.6.2",
+ "gdbstub 0.6.3",
  "goblin",
  "libc",
  "serial_test",
@@ -3291,9 +3293,9 @@ dependencies = [
 
 [[package]]
 name = "security-framework"
-version = "2.6.1"
+version = "2.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2dc14f172faf8a0194a3aded622712b0de276821addc574fa54fc0a1167e10dc"
+checksum = "2bc1bb97804af6631813c55739f771071e0f2ed33ee20b68c86ec505d906356c"
 dependencies = [
  "bitflags",
  "core-foundation",
@@ -3652,7 +3654,7 @@ dependencies = [
  "cap-fs-ext",
  "cap-std",
  "io-lifetimes 0.7.3",
- "rustix 0.35.8",
+ "rustix 0.35.9",
  "windows-sys",
  "winx 0.33.0",
 ]
@@ -4043,7 +4045,7 @@ dependencies = [
  "io-lifetimes 0.7.3",
  "is-terminal",
  "lazy_static",
- "rustix 0.35.8",
+ "rustix 0.35.9",
  "system-interface",
  "tracing",
  "wasi-common",
@@ -4060,7 +4062,7 @@ dependencies = [
  "cap-rand",
  "cap-std",
  "io-extras 0.15.0",
- "rustix 0.35.8",
+ "rustix 0.35.9",
  "thiserror",
  "tracing",
  "wiggle 0.39.0",
@@ -4263,7 +4265,7 @@ dependencies = [
  "object 0.28.4",
  "region",
  "rustc-demangle",
- "rustix 0.35.8",
+ "rustix 0.35.9",
  "serde",
  "target-lexicon",
  "thiserror",
@@ -4297,7 +4299,7 @@ dependencies = [
  "more-asserts",
  "rand 0.8.5",
  "region",
- "rustix 0.35.8",
+ "rustix 0.35.9",
  "thiserror",
  "wasmtime-environ",
  "wasmtime-jit-debug",

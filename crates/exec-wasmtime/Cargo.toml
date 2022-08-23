@@ -37,6 +37,7 @@ io-lifetimes = { version = "0.7.2", default-features = false }
 rustix = { version = "0.35.7", features = ["std"], default-features = false }
 system-interface = { version = "0.21.0", default-features = false }
 wasi-common = { git = "http://www.github.com/rjzak/wasmtime", branch = "wasmtime39_wasi_crypto_testing" , default-features = false }
+wasi-crypto = { version = "0.1.6", features = ["rcrypto"], default-features = false }
 wasmtime-wasi = { git = "http://www.github.com/rjzak/wasmtime", branch = "wasmtime39_wasi_crypto_testing", features = ["sync"], default-features = false }
 wasmtime-wasi-crypto = { git = "http://www.github.com/rjzak/wasmtime", branch = "wasmtime39_wasi_crypto_testing" }
 wiggle = { version = "0.39.1", default-features = false }
