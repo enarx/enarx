@@ -7,7 +7,8 @@ use anyhow::{anyhow, Result};
 use goblin::elf::program_header::{PF_R, PF_W, PF_X};
 use sallyport::elf;
 use sgx::page::{Class, Flags, SecInfo};
-use sgx::parameters::{Masked, Parameters};
+use sgx::parameters::{Attributes, Masked, Parameters};
+use x86_64::registers::xcontrol::XCr0;
 
 #[derive(Debug)]
 pub struct Config {
@@ -53,6 +54,10 @@ impl super::super::Config for Config {
         signatures: Option<Signatures>,
     ) -> Result<Self> {
         unsafe {
+            let attr_mask: Attributes = shim
+                .note(elf::note::NAME, elf::note::sgx::ATTRMASK)
+                .ok_or_else(|| anyhow!("SGX shim is missing ATTRMASK"))?;
+
             let params: Parameters = Parameters {
                 misc: Masked {
                     data: shim
@@ -63,12 +68,17 @@ impl super::super::Config for Config {
                         .ok_or_else(|| anyhow!("SGX shim is missing MISCMASK"))?,
                 },
                 attr: Masked {
-                    data: shim
-                        .note(elf::note::NAME, elf::note::sgx::ATTR)
-                        .ok_or_else(|| anyhow!("SGX shim is missing ATTR"))?,
-                    mask: shim
-                        .note(elf::note::NAME, elf::note::sgx::ATTRMASK)
-                        .ok_or_else(|| anyhow!("SGX shim is missing ATTRMASK"))?,
+                    data: {
+                        let attr: Attributes = shim
+                            .note(elf::note::NAME, elf::note::sgx::ATTR)
+                            .ok_or_else(|| anyhow!("SGX shim is missing ATTR"))?;
+
+                        // mask the current XCr0 value with the attribute xfrm mask
+                        let xfrm = XCr0::read() & attr_mask.xfrm();
+
+                        Attributes::new(attr.features(), xfrm)
+                    },
+                    mask: attr_mask,
                 },
                 pid: shim
                     .note(elf::note::NAME, elf::note::sgx::PID)
