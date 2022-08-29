@@ -68,7 +68,7 @@ sgx = { version = "0.5.0", features = ["rcrypto"], default-features = false }
 static_assertions = { version = "1.1.0", default-features = false }
 ureq = { version = "2.4.0", default-features = false }
 vdso = { version = "0.2", default-features = false }
-x86_64 = { version = "0.14.9", default-features = false }
+x86_64 = { version = "0.14.9", features = ["instructions"], default-features = false }
 
 # binary dependencies
 enarx-exec-wasmtime = { version = "0.6.3", path = "crates/exec-wasmtime", artifact = "bin", target = "x86_64-unknown-linux-musl", default-features = false }
