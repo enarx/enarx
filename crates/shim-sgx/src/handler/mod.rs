@@ -605,6 +605,9 @@ impl<'a> Handler<'a> {
             self.ssa.gpr.rcx.clone(),
         );
 
+        let leaf = self.ssa.gpr.rax;
+        let subleaf = self.ssa.gpr.rcx;
+
         self.cpuid(
             self.ssa.gpr.rax as _,
             self.ssa.gpr.rcx as _,
@@ -616,6 +619,14 @@ impl<'a> Handler<'a> {
         self.ssa.gpr.rbx = cpuid_result.ebx.into();
         self.ssa.gpr.rcx = cpuid_result.ecx.into();
         self.ssa.gpr.rdx = cpuid_result.edx.into();
+
+        match (leaf, subleaf) {
+            (7, 0) => {
+                // NO AVX2
+                self.ssa.gpr.rbx &= !(1u64 << 5);
+            }
+            _ => {}
+        }
 
         debugln!(
             self,
