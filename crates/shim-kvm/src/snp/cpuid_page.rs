@@ -73,6 +73,12 @@ impl CpuidPage {
     const fn space_size() -> usize {
         4096 - size_of::<CpuidPageEntry>()
     }
+
+    /// Get all entries
+    #[inline]
+    pub fn get_functions(&self) -> &[CpuidFunctionEntry] {
+        &self.entry.functions[..self.entry.count as usize]
+    }
 }
 
 impl ConstDefault for CpuidPage {
@@ -98,14 +104,6 @@ pub enum Error {
     Full,
 }
 
-impl CpuidPage {
-    /// Get all entries
-    #[inline]
-    pub fn get_functions(&self) -> &[CpuidFunctionEntry] {
-        &self.entry.functions[..self.entry.count as usize]
-    }
-}
-
 /// See [`cpuid_count`](cpuid_count).
 #[inline]
 pub fn cpuid(leaf: u32) -> CpuidResult {
@@ -113,8 +111,11 @@ pub fn cpuid(leaf: u32) -> CpuidResult {
 }
 
 /// Returns the result of the `cpuid` instruction for a given `leaf` (`EAX`)
-/// and
-/// `sub_leaf` (`ECX`).
+/// and `sub_leaf` (`ECX`).
+///
+/// If in SEV-SNP mode this function will lookup the return values in the CPUID page.
+///
+/// In case of leaf 1, the osxsave feature bit will be set, if the xsave feature bit is set.
 ///
 /// The highest-supported leaf value is returned by the first tuple argument of
 /// [`__get_cpuid_max(0)`](fn.__get_cpuid_max.html). For leaves containung
@@ -137,9 +138,7 @@ pub fn cpuid(leaf: u32) -> CpuidResult {
 /// [amd64_ref]: http://support.amd.com/TechDocs/24594.pdf
 #[inline]
 pub fn cpuid_count(leaf: u32, sub_leaf: u32) -> CpuidResult {
-    if !snp_active() {
-        unsafe { core::arch::x86_64::__cpuid_count(leaf, sub_leaf) }
-    } else {
+    let mut res = if snp_active() {
         let cpuid = &unsafe { _ENARX_CPUID };
         cpuid
             .get_functions()
@@ -162,7 +161,16 @@ pub fn cpuid_count(leaf: u32, sub_leaf: u32) -> CpuidResult {
                 ecx: 0,
                 edx: 0,
             })
+    } else {
+        unsafe { core::arch::x86_64::__cpuid_count(leaf, sub_leaf) }
+    };
+
+    if leaf == 1 && sub_leaf == 0 && (res.ecx & (1u32 << 26)) != 0 {
+        // set osxsave feature bit, if xsave feature bit is set
+        res.ecx |= 1u32 << 27;
     }
+
+    res
 }
 
 /// Returns the highest-supported `leaf` (`EAX`) and sub-leaf (`ECX`) `cpuid`
