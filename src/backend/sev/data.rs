@@ -5,9 +5,47 @@ pub use crate::backend::kvm::data::{dev_kvm, kvm_version};
 use crate::backend::probe::x86_64::{CpuId, Vendor};
 use crate::backend::Datum;
 
+use crate::backend::sev::snp::vcek::{get_vcek_reader_with_path, sev_cache_dir};
 use std::arch::x86_64::__cpuid_count;
 use std::fs::OpenOptions;
 use std::mem::MaybeUninit;
+
+pub fn has_vcek_cache() -> Datum {
+    let name = "SEV-SNP VCEK key cache file".to_string();
+
+    let cache_dir =
+        match sev_cache_dir().and_then(|p| p.metadata().map(|_| p).map_err(anyhow::Error::from)) {
+            Ok(cache_dir) => cache_dir,
+            Err(e) => {
+                return Datum {
+                    name,
+                    pass: false,
+                    info: Some(e.to_string()),
+                    mesg: Some(
+                        "enarx expects the directory `/var/cache/amd-sev` to exist and be readable"
+                            .to_string(),
+                    ),
+                }
+            }
+        };
+
+    match get_vcek_reader_with_path(cache_dir) {
+        Ok((path, _)) => Datum {
+            name,
+            pass: true,
+            info: path.to_string_lossy().into_owned().into(),
+            mesg: None,
+        },
+        Err(e) => Datum {
+            name,
+            pass: false,
+            info: Some(e.to_string()),
+            mesg: Some(
+                "Run `enarx platform snp vcek update` to generate the cache file.".to_string(),
+            ),
+        },
+    }
+}
 
 pub fn has_reasonable_memlock_rlimit() -> Datum {
     let mut rlimits = MaybeUninit::uninit();
@@ -87,7 +125,7 @@ pub fn dev_sev_readable() -> Datum {
     let opts = OpenOptions::new().read(true).open("/dev/sev");
 
     Datum {
-        name: " /dev/sev is readable by user".into(),
+        name: "/dev/sev is readable by user".into(),
         pass: opts.is_ok(),
         info: None,
         mesg: None,
@@ -98,7 +136,7 @@ pub fn dev_sev_writable() -> Datum {
     let opts = OpenOptions::new().write(true).open("/dev/sev");
 
     Datum {
-        name: " /dev/sev is writable by user".into(),
+        name: "/dev/sev is writable by user".into(),
         pass: opts.is_ok(),
         info: None,
         mesg: None,
