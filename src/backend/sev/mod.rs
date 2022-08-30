@@ -23,6 +23,7 @@ use data::{
 use std::io;
 use std::sync::Arc;
 
+use crate::backend::sev::data::has_vcek_cache;
 use crate::backend::Signatures;
 use anyhow::{bail, Context, Result};
 use kvm_bindings::bindings::kvm_enc_region;
@@ -106,6 +107,7 @@ impl super::Backend for Backend {
             dev_sev_readable(),
             dev_sev_writable(),
             has_reasonable_memlock_rlimit(),
+            has_vcek_cache(),
         ]
     }
 
