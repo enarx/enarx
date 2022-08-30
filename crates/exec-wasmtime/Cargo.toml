@@ -35,7 +35,7 @@ wasmtime = { version = "0.40.0", features = ["cranelift", "pooling-allocator"], 
 cap-std = { version = "0.25.2", default-features = false }
 io-lifetimes = { version = "0.7.2", default-features = false }
 rustix = { version = "0.35.7", features = ["std"], default-features = false }
-system-interface = { version = "0.21.0", default-features = false }
+system-interface = { version = "0.22.0", default-features = false }
 wasi-common = { version = "0.40.0", default-features = false }
 wasmtime-wasi = { version = "0.40.0", features = ["sync"], default-features = false }
 wiggle = { version = "0.40.0", default-features = false }
