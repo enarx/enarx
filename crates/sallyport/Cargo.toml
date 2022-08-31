@@ -20,7 +20,7 @@ gdbstub = { version = "0.6", optional = true, default-features = false }
 
 [dev-dependencies]
 libc = { version = "0.2.126", features = ["extra_traits"], default-features = false }
-serial_test = { version = "0.8", default-features = false }
+serial_test = { version = "0.9", default-features = false }
 testaso = { version = "0.1", default-features = false }
 
 [package.metadata.docs.rs]
