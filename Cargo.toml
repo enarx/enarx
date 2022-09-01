@@ -80,7 +80,7 @@ protobuf-codegen-pure = { version = "2.27", default-features = false }
 
 [dev-dependencies]
 process_control = { version = "3.3", default-features = false }
-serial_test = { version = "0.8", default-features = false }
+serial_test = { version = "0.9", default-features = false }
 testaso = { version = "0.1", default-features = false }
 tempfile = { version = "3.3.0", default-features = false }
 wat = { version = "1.0", default-features = false }
