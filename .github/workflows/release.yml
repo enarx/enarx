@@ -190,11 +190,76 @@ jobs:
 
   # TODO: redevelop SBOM generation per issue #1954
 
-  release:
-    if: startsWith(github.ref, 'refs/tags/') && github.event_name == 'push'
-    needs: [ build-x86_64, test-bin, test-oci, test-windows ]
+  build-rpm:
+    strategy:
+      matrix:
+        architecture:
+        - x86_64
+        - aarch64
+    needs: [ build-x86_64, build-aarch64 ]
     runs-on: ubuntu-20.04
     steps:
+    - uses: actions/checkout@v3
+    - uses: actions/download-artifact@v3
+      with:
+        name: "enarx-${{ matrix.architecture }}-unknown-linux-musl"
+    - id: version
+      run: echo "::set-output name=version::$(cargo metadata --format-version=1 --no-deps | jq '.packages[] | select(.name == "enarx") | .version' --raw-output)"
+    - run: rpmbuild -bb release/linux/rpm/enarx.spec --define "%source_binary `pwd`/enarx-${{ matrix.architecture }}-unknown-linux-musl" --define "%source_license `pwd`/LICENSE" --define "%version ${{ steps.version.outputs.version }}" --define "_rpmdir `pwd`" --target "${{ matrix.architecture }}"
+    # Test the just-built RPM
+    - if: ${{ matrix.architecture.build == 'x86_64' }}
+      run: |
+        sudo rpm -i "${{ matrix.architecture }}/enarx-${{ steps.version.outputs.version }}-1.${{ matrix.architecture }}.rpm"
+        /usr/bin/enarx --version
+    - uses: actions/upload-artifact@v3
+      with:
+        name: "enarx-${{ steps.version.outputs.version }}-1.${{ matrix.architecture }}.rpm"
+        path: "${{ matrix.architecture }}/enarx-${{ steps.version.outputs.version }}-1.${{ matrix.architecture }}.rpm"
+        if-no-files-found: error
+
+  build-deb:
+    strategy:
+      matrix:
+        architecture:
+        - build: x86_64
+          debarch: amd64
+        - build: aarch64
+          debarch: arm64
+    needs: [ build-x86_64, build-aarch64 ]
+    runs-on: ubuntu-20.04
+    steps:
+    - uses: actions/checkout@v3
+    - uses: actions/download-artifact@v3
+      with:
+        name: "enarx-${{ matrix.architecture.build }}-unknown-linux-musl"
+    - id: version
+      run: echo "::set-output name=version::$(cargo metadata --format-version=1 --no-deps | jq '.packages[] | select(.name == "enarx") | .version' --raw-output)"
+    - run: |
+        mkdir -p dpkg dpkg/DEBIAN dpkg/usr/bin
+        cat release/linux/deb/control | sed -e 's/VERSION/${{ steps.version.outputs.version }}/' -e 's/ARCH/${{ matrix.architecture.debarch }}/' > dpkg/DEBIAN/control
+        cp "enarx-${{ matrix.architecture.build }}-unknown-linux-musl" dpkg/usr/bin/enarx
+        chmod +x dpkg/usr/bin/enarx
+        sudo chown root:root dpkg/usr/bin/enarx
+        dpkg-deb --build dpkg
+    # Test the just-built deb
+    - if: ${{ matrix.architecture.build == 'x86_64' }}
+      run: |
+        sudo dpkg -i dpkg.deb
+        /usr/bin/enarx --version
+    - uses: actions/upload-artifact@v3
+      with:
+        name: "enarx_${{ steps.version.outputs.version }}-1_${{ matrix.architecture.debarch }}.deb"
+        path: dpkg.deb
+        if-no-files-found: error
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/') && github.event_name == 'push'
+    needs: [ build-x86_64, test-bin, test-oci, test-windows, build-rpm, build-deb ]
+    runs-on: ubuntu-20.04
+    steps:
+    - uses: actions/checkout@v3
+    - id: version
+      run: echo "::set-output name=version::$(cargo metadata --format-version=1 --no-deps | jq '.packages[] | select(.name == "enarx") | .version' --raw-output)"
     - uses: actions/download-artifact@v3
       with:
         name: enarx-x86_64-windows
@@ -216,6 +281,18 @@ jobs:
     - uses: actions/download-artifact@v3
       with:
         name: enarx-universal-darwin
+    - uses: actions/download-artifact@v3
+      with:
+        name: "enarx_${{ steps.version.outputs.version }}-1_amd64.deb"
+    - uses: actions/download-artifact@v3
+      with:
+        name: "enarx_${{ steps.version.outputs.version }}-1_arm64.deb"
+    - uses: actions/download-artifact@v3
+      with:
+        name: "enarx-${{ steps.version.outputs.version }}-1.x86_64.rpm"
+    - uses: actions/download-artifact@v3
+      with:
+        name: "enarx-${{ steps.version.outputs.version }}-1.aarch64.rpm"
     - uses: softprops/action-gh-release@v1
       with:
         draft: true
@@ -228,3 +305,7 @@ jobs:
           enarx-x86_64-unknown-linux-musl-oci
           enarx-aarch64-unknown-linux-musl
           enarx-universal-darwin
+          enarx_${{ steps.version.outputs.version }}-1_amd64.deb
+          enarx_${{ steps.version.outputs.version }}-1_arm64.deb
+          enarx-${{ steps.version.outputs.version }}-1.x86_64.rpm
+          enarx-${{ steps.version.outputs.version }}-1.aarch64.rpm

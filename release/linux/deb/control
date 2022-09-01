@@ -1,0 +1,5 @@
+Package: enarx
+Version: VERSION
+Maintainer: The Enarx Project
+Architecture: ARCH
+Description: Confidential Computing with WebAssembly
