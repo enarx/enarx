@@ -26,6 +26,10 @@ pub struct Options {
     #[clap(value_name = "MODULE")]
     pub module: Utf8PathBuf,
 
+    /// Start an unsigned Keep
+    #[clap(long)]
+    pub unsigned: bool,
+
     /// Path of the signature file to use.
     #[clap(long, value_name = "SIGNATURES")]
     pub signatures: Option<Utf8PathBuf>,
@@ -42,6 +46,7 @@ impl Options {
             backend,
             wasmcfgfile,
             module,
+            unsigned,
             signatures,
             #[cfg(feature = "gdb")]
             gdblisten,
@@ -53,7 +58,11 @@ impl Options {
             .ok_or_else(|| anyhow!("no supported exec found"))
             .map(|b| b.exec())?;
 
-        let signatures = Signatures::load(signatures)?;
+        let signatures = if unsigned {
+            None
+        } else {
+            Signatures::load(signatures)?
+        };
 
         let get_pkg = || {
             let (wasm, conf) = open_package(module, wasmcfgfile)?;

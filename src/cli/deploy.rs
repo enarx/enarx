@@ -26,6 +26,10 @@ pub struct Options {
     #[clap(value_name = "PACKAGE")]
     pub package: String,
 
+    /// Start an unsigned Keep
+    #[clap(long)]
+    pub unsigned: bool,
+
     /// Path of the signature file to use.
     #[clap(long, value_name = "SIGNATURES")]
     pub signatures: Option<Utf8PathBuf>,
@@ -41,6 +45,7 @@ impl Options {
         let Self {
             backend,
             package,
+            unsigned,
             signatures,
             #[cfg(feature = "gdb")]
             gdblisten,
@@ -61,7 +66,11 @@ impl Options {
         #[cfg(feature = "gdb")]
         let gdblisten = Some(gdblisten);
 
-        let signatures = Signatures::load(signatures)?;
+        let signatures = if unsigned {
+            None
+        } else {
+            Signatures::load(signatures)?
+        };
 
         let package: Url = package.parse().or_else(|_| {
             use drawbridge_client::API_VERSION;
