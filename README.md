@@ -26,7 +26,7 @@ and for a more in-depth look please see our
 ## Using Enarx
 
 For instructions on installing the Enarx command-line tool,
-please see our [Installation Guide](https://enarx.dev/docs/Install).
+please see our [Quick Installation Guide](https://enarx.dev/docs/Quickstart).
 
 For instructions on how to build an application that can be run within Enarx,
 please see our [WebAssembly Guide](https://enarx.dev/docs/WebAssembly/Introduction).
