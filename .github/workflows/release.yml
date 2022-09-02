@@ -124,6 +124,41 @@ jobs:
           name: enarx-x86_64-windows-msi
           path: target\wix\enarx-x86_64-windows.msi
 
+  sign-x86_64:
+    needs: [ build-x86_64 ]
+    runs-on: ubuntu-20.04
+    steps:
+    - uses: actions/download-artifact@v3
+      with:
+        name: enarx-x86_64-unknown-linux-musl
+    - name: Generate the enarx keep signature (no fork)
+      if: ${{ !github.event.pull_request.head.repo.fork }}
+      env:
+        SEV_ID_KEY: ${{ secrets.SEV_ID_KEY }}
+        SEV_ID_KEY_SIGNATURE_BLOB: ${{ secrets.SEV_ID_KEY_SIGNATURE_BLOB }}
+        SGX_KEY: ${{ secrets.SGX_KEY }}
+      run: |
+        base64 --decode <<<${SEV_ID_KEY} | gunzip > sev-id.key
+        base64 --decode <<<${SEV_ID_KEY_SIGNATURE_BLOB} | gunzip > sev-id-key-signature.blob
+        base64 --decode <<<${SGX_KEY} | gunzip > sgx.key
+        chmod +x enarx-x86_64-unknown-linux-musl
+        ./enarx-x86_64-unknown-linux-musl sign --sgx-key sgx.key --sev-id-key sev-id.key --sev-id-key-signature sev-id-key-signature.blob --out enarx-x86_64-unknown-linux-musl.sig
+        rm -f sev-id.key sev-id-key-signature.blob sgx.key
+    - name: Generate the enarx keep signature (fork)
+      if: ${{ github.event.pull_request.head.repo.fork }}
+      run: |
+        chmod +x enarx-x86_64-unknown-linux-musl
+        ./enarx-x86_64-unknown-linux-musl key sgx create --out sgx.key
+        ./enarx-x86_64-unknown-linux-musl key sev create --out sev-author.key
+        ./enarx-x86_64-unknown-linux-musl key sev create --out sev-id.key
+        ./enarx-x86_64-unknown-linux-musl key sev sign --author-key sev-author.key --id-key sev-id.key --out sev-id-key-signature.blob
+        ./enarx-x86_64-unknown-linux-musl sign --sgx-key sgx.key --sev-id-key sev-id.key --sev-id-key-signature sev-id-key-signature.blob --out enarx-x86_64-unknown-linux-musl.sig
+        rm -f sgx.key sev-author.key sev-id.key sev-id-key-signature.blob
+    - uses: actions/upload-artifact@v3
+      with:
+        name: enarx-x86_64-unknown-linux-musl-sig
+        path: enarx-x86_64-unknown-linux-musl.sig
+
   build-darwin-universal-binary:
     needs: [ build-x86_64, build-aarch64 ]
     runs-on: macos-latest
@@ -196,18 +231,29 @@ jobs:
         architecture:
         - x86_64
         - aarch64
-    needs: [ build-x86_64, build-aarch64 ]
+    needs: [ build-x86_64, build-aarch64, sign-x86_64 ]
     runs-on: ubuntu-20.04
     steps:
     - uses: actions/checkout@v3
     - uses: actions/download-artifact@v3
       with:
         name: "enarx-${{ matrix.architecture }}-unknown-linux-musl"
+    - if: ${{ matrix.architecture == 'x86_64' }}
+      uses: actions/download-artifact@v3
+      with:
+        name: "enarx-x86_64-unknown-linux-musl-sig"
     - id: version
       run: echo "::set-output name=version::$(cargo metadata --format-version=1 --no-deps | jq '.packages[] | select(.name == "enarx") | .version' --raw-output)"
-    - run: rpmbuild -bb release/linux/rpm/enarx.spec --define "%source_binary `pwd`/enarx-${{ matrix.architecture }}-unknown-linux-musl" --define "%source_license `pwd`/LICENSE" --define "%version ${{ steps.version.outputs.version }}" --define "_rpmdir `pwd`" --target "${{ matrix.architecture }}"
+    - run: |
+        rpmbuild -bb release/linux/rpm/enarx.spec \
+        --define "%source_binary `pwd`/enarx-${{ matrix.architecture }}-unknown-linux-musl" \
+        --define "%source_sig_x86_64 `pwd`/enarx-x86_64-unknown-linux-musl.sig" \
+        --define "%source_license `pwd`/LICENSE" \
+        --define "%version ${{ steps.version.outputs.version }}" \
+        --define "_rpmdir `pwd`" \
+        --target "${{ matrix.architecture }}"
     # Test the just-built RPM
-    - if: ${{ matrix.architecture.build == 'x86_64' }}
+    - if: ${{ matrix.architecture == 'x86_64' }}
       run: |
         sudo rpm -i "${{ matrix.architecture }}/enarx-${{ steps.version.outputs.version }}-1.${{ matrix.architecture }}.rpm"
         /usr/bin/enarx --version
@@ -225,13 +271,17 @@ jobs:
           debarch: amd64
         - build: aarch64
           debarch: arm64
-    needs: [ build-x86_64, build-aarch64 ]
+    needs: [ build-x86_64, build-aarch64 , sign-x86_64]
     runs-on: ubuntu-20.04
     steps:
     - uses: actions/checkout@v3
     - uses: actions/download-artifact@v3
       with:
         name: "enarx-${{ matrix.architecture.build }}-unknown-linux-musl"
+    - if: ${{ matrix.architecture.build == 'x86_64' }}
+      uses: actions/download-artifact@v3
+      with:
+        name: "enarx-x86_64-unknown-linux-musl-sig"
     - id: version
       run: echo "::set-output name=version::$(cargo metadata --format-version=1 --no-deps | jq '.packages[] | select(.name == "enarx") | .version' --raw-output)"
     - run: |
@@ -240,6 +290,13 @@ jobs:
         cp "enarx-${{ matrix.architecture.build }}-unknown-linux-musl" dpkg/usr/bin/enarx
         chmod +x dpkg/usr/bin/enarx
         sudo chown root:root dpkg/usr/bin/enarx
+    - if: ${{ matrix.architecture.build == 'x86_64' }}
+      run: |
+        mkdir -p dpkg/usr/lib/enarx
+        cp "enarx-x86_64-unknown-linux-musl.sig" dpkg/usr/lib/enarx/enarx.sig
+        chmod 444 dpkg/usr/lib/enarx/enarx.sig
+        sudo chown root:root dpkg/usr/lib/enarx/enarx.sig
+    - run: |
         dpkg-deb --build dpkg
     # Test the just-built deb
     - if: ${{ matrix.architecture.build == 'x86_64' }}
@@ -274,6 +331,9 @@ jobs:
         name: enarx-x86_64-unknown-linux-musl
     - uses: actions/download-artifact@v3
       with:
+        name: enarx-x86_64-unknown-linux-musl-sig
+    - uses: actions/download-artifact@v3
+      with:
         name: enarx-x86_64-unknown-linux-musl-oci
     - uses: actions/download-artifact@v3
       with:
@@ -302,6 +362,7 @@ jobs:
           enarx-x86_64-windows.msi
           enarx-x86_64-apple-darwin-oci
           enarx-x86_64-unknown-linux-musl
+          enarx-x86_64-unknown-linux-musl.sig
           enarx-x86_64-unknown-linux-musl-oci
           enarx-aarch64-unknown-linux-musl
           enarx-universal-darwin
