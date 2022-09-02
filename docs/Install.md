@@ -1,6 +1,6 @@
 # Install Enarx from Source
 
-This installation guide is for installing Enarx from source. For pre-compiled binaries, please reference the quickstart document available [here](Quickstart).
+This installation guide is for installing Enarx from source. For the recommended signed, pre-compiled binaries and packages, please reference the quickstart document available [here](Quickstart).
 
 ## Introduction
 
@@ -8,7 +8,7 @@ Enarx currently has support for Keeps running in Intel SGX and AMD SEV-SNP TEEs 
 
 In the [Initial Setup](#initial-setup) section, you'll find instructions on how to install dependencies for the various supported architectures and distributions. These dependencies include Rust and the toolchains.
 
-Next, you'll find instructions on how to [install Enarx](#installing-enarx) from crates.io, GitHub, or Nix.
+Next, you'll find instructions on how to [install Enarx](#installing-enarx) GitHub, or Nix.
 
 Finally, in the [Running Enarx](#running-enarx) section, you'll build and run your first `Hello World` WebAssembly module in Enarx.
 
@@ -201,32 +201,13 @@ C:\Users\User> rustup_init.exe --default-toolchain nightly -y
 
 ## Installing Enarx
 
-You can install Enarx from GitHub, crates.io, or Nix.
+You can install Enarx from GitHub or Nix.
 
 ### Install from GitHub
 ```sh:git;
 $ git clone https://github.com/enarx/enarx
 $ cd enarx/
 $ cargo install --locked --bin enarx --path ./
-```
-### Install from crates.io
-
-:::note
-
-Rust version nightly-2022-07-19 is required when installing Enarx 0.6.3 from crates.io.
-
-:::
-
-For installing Enarx from crates.io on X86_64 Linux please run:
-```sh:crates;
-$ rustup toolchain install nightly-2022-07-19 -t x86_64-unknown-linux-musl,x86_64-unknown-linux-gnu,x86_64-unknown-none
-$ CARGO_TARGET_X86_64_UNKNOWN_NONE_RUSTFLAGS="-C linker=gcc --cfg polyval_force_soft --cfg aes_force_soft" cargo +nightly-2022-07-19 -Z bindeps install --locked --bin enarx --version 0.6.3 -- enarx
-```
-
-For installing Enarx from crates.io on non-x86_64 Linux please run:
-```console
-$ rustup toolchain install nightly-2022-07-19
-$ cargo +nightly-2022-07-19 -Z bindeps install --locked --bin enarx --version 0.6.3 -- enarx
 ```
 
 ### Install from Nix
