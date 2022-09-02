@@ -169,6 +169,7 @@ pub fn keepldr_exec<'a>(bin: impl Into<PathBuf>, input: impl Into<Option<&'a [u8
             cmd.args(vec![
                 OsStr::new("unstable"),
                 OsStr::new("exec"),
+                OsStr::new("--unsigned"),
                 bin.into().as_os_str(),
             ])
         },

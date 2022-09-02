@@ -24,6 +24,10 @@ pub struct Options {
     #[clap(value_name = "BINARY")]
     pub binpath: Utf8PathBuf,
 
+    /// Start an unsigned Keep
+    #[clap(long)]
+    pub unsigned: bool,
+
     /// Path of the signature file to use.
     #[clap(long, value_name = "SIGNATURES")]
     pub signatures: Option<Utf8PathBuf>,
@@ -42,6 +46,7 @@ impl Options {
         let Self {
             backend,
             binpath,
+            unsigned,
             signatures,
             #[cfg(feature = "gdb")]
             gdblisten,
@@ -53,7 +58,11 @@ impl Options {
         let backend = backend.pick()?;
         let binary = Map::load(&binpath, Private, perms::Read)?;
 
-        let signatures = Signatures::load(signatures)?;
+        let signatures = if unsigned {
+            None
+        } else {
+            Signatures::load(signatures)?
+        };
 
         #[cfg(not(feature = "gdb"))]
         let gdblisten = None;

@@ -22,9 +22,10 @@ use binary::{Binary, Loader, Mapper};
 
 use std::fs::File;
 use std::io::Read;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use anyhow::{bail, Context, Result};
+use anyhow::{bail, Context, Error, Result};
 use camino::Utf8PathBuf;
 #[cfg(windows)]
 use enarx_exec_wasmtime::Args;
@@ -66,26 +67,42 @@ impl Default for Signatures {
 impl Signatures {
     pub fn load(path: Option<Utf8PathBuf>) -> anyhow::Result<Option<Self>> {
         match path {
-            None => Ok(None),
-            Some(path) => {
-                let mut file = File::open(path).context("Failed to open hashes file")?;
-                let mut buffer = String::new();
-                file.read_to_string(&mut buffer)?;
-                let ret = serde_json::from_str::<Signatures>(&buffer)
-                    .context("serde_json")
-                    .map(Some);
-                if let Ok(Some(Signatures { ref version, .. })) = ret {
-                    if version != SIGNATURES_VERSION {
-                        bail!(
-                            "Signature file version {} does not match current version {}",
-                            version,
-                            SIGNATURES_VERSION
-                        );
-                    }
+            None => {
+                // If no path is specified, try to load the system-wide signatures.
+                let path = PathBuf::from("/usr/lib/enarx/enarx.sig");
+                if path.exists() {
+                    Self::load_and_check_file(&path).with_context(|| {
+                        format!(
+                            "Failed to load system-wide signatures from {:?}",
+                            path.display()
+                        )
+                    })
+                } else {
+                    Ok(None)
                 }
-                ret
+            }
+            Some(path) => Self::load_and_check_file(path.as_std_path())
+                .with_context(|| format!("Failed to load signatures from {}", path)),
+        }
+    }
+
+    fn load_and_check_file(path: &Path) -> Result<Option<Signatures>, Error> {
+        let mut file = File::open(path).context("Failed to open signatures file")?;
+        let mut buffer = String::new();
+        file.read_to_string(&mut buffer)?;
+        let ret = serde_json::from_str::<Signatures>(&buffer)
+            .context("serde_json")
+            .map(Some);
+        if let Ok(Some(Signatures { ref version, .. })) = ret {
+            if version != SIGNATURES_VERSION {
+                bail!(
+                    "Signature file version {} does not match current version {}",
+                    version,
+                    SIGNATURES_VERSION
+                );
             }
         }
+        ret
     }
 }
 
