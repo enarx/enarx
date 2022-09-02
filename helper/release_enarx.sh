@@ -2,6 +2,7 @@
 
 set -u
 set -e
+
 # set -x  # Uncomment to debug
 
 #
@@ -23,7 +24,7 @@ readonly IMAGES_FAST=(debian)
 readonly IMAGE_SUFFIX="-base:latest"
 
 # E2E/Install documentation contexts used in docs/Install.md to test on container images (test plans)
-readonly CONTEXTS=("crates,helloworld" "git,helloworld")
+readonly CONTEXTS=("git,helloworld")
 
 #
 # Flags
@@ -81,17 +82,6 @@ checkout_repository() {
     git checkout -b "release/${version}" upstream/main >/dev/null 2>&1
 
     realpath "${REPO_DIR}"
-}
-
-# Sets up a mock registry for testing
-setup_mock_registry() {
-    REGISTRY_PATH="$(realpath "$(mktemp -d --suffix='-registry')")"
-    chmod a+rwx -R "${REGISTRY_PATH}"
-    MOCKED_REGISTRY="mocked"
-    CARGO_REGISTRIES_MOCKED_INDEX="file://${REGISTRY_PATH}"
-    CARGO_REGISTRIES_MOCKED_TOKEN="${MOCKED_REGISTRY}token"
-    cargo-http-registry "${REGISTRY_PATH}" >/dev/null 2>&1 &
-    REGISTRY_PID="$!"
 }
 
 #
@@ -165,69 +155,9 @@ bump_version() {
     sd -- 'v\d+.\d+.\d+-?\w*\.?\d?' "v${version}" docs/Quickstart.mdx
 }
 
-#
-# Mock registry operations
-#
-
-teardown_mock_registry() {
-    kill "${REGISTRY_PID}"
-    rm -rf "${REGISTRY_PATH}"
-    unset REGISTRY_PATH
-    unset REGISTRY_PID
-    unset MOCKED_REGISTRY
-    unset CARGO_REGISTRIES_MOCKED_INDEX
-    unset CARGO_REGISTRIES_MOCKED_TOKEN
-}
-
-# This makes the necessary changes to the code and documentation to enable testing
-enable_mock() {
-    local registry="$1"
-
-    for i in "${CRATES[@]}"; do
-        find crates/ -name "Cargo.toml" -exec sd "$i\s*=\s*\{" "$i = { registry = \"${registry}\", " {} \;
-        sd "$i\s*=\s*\{" "$i = { registry = \"${registry}\", " Cargo.toml
-    done
-    cargo update -w
-    sd -- '--bin enarx --version' "--bin enarx --registry ${registry} --version" docs/Install.md
-    # shellcheck disable=SC2016
-    sd -- 'clone https://github.com/enarx/enarx' "clone ${REPO_PATH} enarx" docs/Install.md
-    MOCK_ON="true"
-}
-
-# Removes temporary changes needed for mocked testing
-disable_mock() {
-    find . -name "Cargo.toml" -exec sd 'registry\s*=\s*"\w+"\s*,\s*' '' {} \;
-    sd -- '--registry\s\w+\s' '' docs/Install.md
-    sd -- "clone ${REPO_PATH} enarx" 'clone https://github.com/enarx/enarx' docs/Install.md
-    MOCK_ON="false"
-}
-
-#
-# Crate manipulation
-#
-
-# Publish against the mock registry previously set up
-mock_publish() {
-    local registry="$1"
-
-    enable_mock "${registry}"
-    for i in "${CRATES_REG_TARGETS[@]}"; do
-        shout "Publishing mock crate ${i}..."
-        cargo publish --allow-dirty --registry "${registry}" -p "$i"
-        echo -e "\nSuccessfully published ${i}, sleeping for 10 seconds..."
-        sleep 10
-    done
-    for i in "${CRATES_UNKNOWN_NONE[@]}"; do
-        shout "Publishing mock crate ${i}..."
-        cargo publish --registry "${registry}" -p "$i" --allow-dirty --target x86_64-unknown-none
-        echo -e "\nSuccessfully published ${i}, sleeping for 10 seconds..."
-        sleep 10
-    done
-    cargo publish --registry "${registry}" -p enarx --allow-dirty
-}
 
 # Run the test suite against configured in the 'Constants' section
-crate_install_test() {
+install_test() {
     # Note: assuming docker is installed, and can be run as current user
     for context in "${CONTEXTS[@]}"; do
         for image in "${IMAGES[@]}"; do
@@ -239,9 +169,6 @@ crate_install_test() {
                     -v "${REPO_DIR}":"${REPO_DIR}":ro \
                     -e CONTEXT="${context}" \
                     -e REGISTRY_PATH="${REGISTRY_PATH}" \
-                    -e MOCKED_REGISTRY="${MOCKED_REGISTRY}" \
-                    -e CARGO_REGISTRIES_MOCKED_INDEX="$CARGO_REGISTRIES_MOCKED_INDEX" \
-                    -e CARGO_REGISTRIES_MOCKED_TOKEN="$CARGO_REGISTRIES_MOCKED_TOKEN" \
                     -e CARGO_NET_GIT_FETCH_WITH_CLI="true" \
                     "${IMAGE_PREFIX}${image}${IMAGE_SUFFIX}"
             else
@@ -254,32 +181,6 @@ crate_install_test() {
     done
 }
 
-# Publish the crates
-publish() {
-    # Fail if code is still in mocked state
-    if [[ "${MOCK_ON}" == "true" ]]; then
-        echo "ERROR: Cannot publish with code refering to mocked registries"
-        exit 1
-    fi
-
-    local token
-    read -p "Provide token for crates.io: " -r token
-
-    for i in "${CRATES_REG_TARGETS[@]}"; do
-        echo -e "\n\nPublishing ${i}..."
-        cargo publish -p "$i" --token "${token}"
-        echo -e "\nSuccessfully published ${i}, sleeping for 60 seconds..."
-        sleep 60
-    done
-    for i in "${CRATES_UNKNOWN_NONE[@]}"; do
-        echo -e "\n\nPublishing ${i}..."
-        cargo publish -p "$i" --target x86_64-unknown-none --token "${token}"
-        echo -e "\nSuccessfully published ${i}, sleeping for 60 seconds..."
-        sleep 60
-    done
-    echo -e "\n\nPublishing enarx..."
-    cargo publish -p enarx --token "${token}"
-}
 
 #
 # Utility functions
@@ -314,10 +215,6 @@ on_exit() {
     shout "Exiting..."
     if [[ "${CLEANUP}" == "true" ]]; then
         echo "Cleaning up:"
-        if [ -n "${CARGO_REGISTRIES_MOCKED_INDEX}" ]; then
-            teardown_mock_registry
-        fi
-        echo "Mock registry torn down"
         if [[ "${DRYRUN}" == "true" ]]; then
             rm -rf "${REPO_DIR}"
             echo "Publish repository deleted"
@@ -326,16 +223,6 @@ on_exit() {
         fi
     else
         echo "Repository path: ${REPO_DIR}"
-        if [[ "${MOCK_ON}" == "true" ]]; then
-            echo "Warning: mock registry references set in code base"
-        fi
-        if [ -n "${CARGO_REGISTRIES_MOCKED_INDEX}" ]; then
-            echo "Mock registry path: ${REGISTRY_PATH}"
-            echo "Mock registry name: ${MOCKED_REGISTRY}"
-            echo "Mock registry PID: ${REGISTRY_PID}"
-            echo "CARGO_REGISTRIES_MOCKED_INDEX=${CARGO_REGISTRIES_MOCKED_INDEX}"
-            echo "CARGO_REGISTRIES_MOCKED_TOKEN=${CARGO_REGISTRIES_MOCKED_TOKEN}"
-        fi
     fi
     set -u
 }
@@ -358,8 +245,7 @@ fi
 # Stage 1: Setup
 old_version=$(get_version)
 echo "Current version: ${old_version}"
-read -p "Enter the new crate version: " -r NEW_VERSION
-setup_mock_registry
+read -p "Enter the new Enarx version: " -r NEW_VERSION
 checkout_repository "${NEW_VERSION}"
 cd "${REPO_DIR}"
 
@@ -397,20 +283,9 @@ if [[ "$SKIP_TESTS" == "true" ]]; then
 else
     # Stage 5: Dry run publish/install from mock registry
     shout "Running E2E tests"
-    echo -e "Publishing crates to mock registry...\n\n"
-    mock_publish "${MOCKED_REGISTRY}"
-    echo -e "Installing and testing mock crate!\n\n"
-    crate_install_test
-    echo -e "Removing mock registry references!\n\n"
-    disable_mock
-    echo -e "Tearing down mock registry"
-    teardown_mock_registry
-
-    git --no-pager diff
-    should_continue
+    install_test
 
     # Stage 6: Sanity check build
-    shout "Running final sanity check after removing testing changes"
     clean
     build
     echo "About to create commit for release and create PR."
@@ -450,18 +325,7 @@ if [[ "$DRYRUN" == "false" ]]; then
     git tag --sign -m "chore(release): release v${NEW_VERSION}" "v${NEW_VERSION}"
     git push upstream "v${NEW_VERSION}"
 
-    # Stage 9: Publish crates
-    shout "Please verify if package manifest looks good prior to publishing:"
-    cargo package --list
-    should_continue "true"
-    echo "Publishing"
-    publish
-    sleep 10
-
-    # Stage 10: Check if can install from released crates
-    shout "Check if we can install the new packages"
-    crate_install_test
-    should_continue "true"
+    shout "Done!"
 else
     echo "Dry run complete."
 fi

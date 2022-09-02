@@ -8,7 +8,7 @@ Enarx currently has support for Keeps running in Intel SGX and AMD SEV-SNP TEEs 
 
 In the [Initial Setup](#initial-setup) section, you'll find instructions on how to install dependencies for the various supported architectures and distributions. These dependencies include Rust and the toolchains.
 
-Next, you'll find instructions on how to [install Enarx](#installing-enarx) GitHub, or Nix.
+Next, you'll find instructions on how to [install Enarx](#installing-enarx) from GitHub or Nix.
 
 Finally, in the [Running Enarx](#running-enarx) section, you'll build and run your first `Hello World` WebAssembly module in Enarx.
 
