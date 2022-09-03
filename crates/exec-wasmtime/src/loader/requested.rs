@@ -300,8 +300,8 @@ impl Loader<Requested> {
             _ => return Err(anyhow!("Unknown algorithm"))
         };
 
-        let wasi_crypto_ctx = wasmtime_wasi_crypto::WasiCryptoCtx::new();
-        wasi_crypto_ctx.keypair_import(AlgorithmType::Signatures, algo_str, blah, wasi_crypto::KeyPairEncoding::Raw);
+        //let wasi_crypto_ctx = wasmtime_wasi_crypto::WasiCryptoCtx::new();
+        //wasi_crypto_ctx.keypair_import(wasi_crypto::AlgorithmType::Signatures, algo_str, blah, wasi_crypto::KeyPairEncoding::Raw);
 
         // Set up the server config.
         let srvcfg = ServerConfig::builder()
