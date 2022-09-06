@@ -47,7 +47,7 @@ There are two ways to install Enarx on macOS, either downloading the binary or u
 
 To download and install the macOS binary, enter in the macOS terminal the following commands:
 
-`curl -L https://github.com/enarx/enarx/releases/download/v0.6.3/enarx-universal-darwin --output enarx`
+`curl -L https://github.com/enarx/enarx/releases/download/v0.6.4/enarx-universal-darwin --output enarx`
 
 `sudo install -m 755 enarx /usr/local/bin/enarx`
 
@@ -80,11 +80,27 @@ Now run it using the `enarx run` command:
   </TabItem>
   <TabItem value="linux" label="Linux">
 
+There are a few ways to install Enarx on Linux, either downloading the binary directlty or by using a package manager.
+
+# RPM Installation
+
+To install the RPM package on Fedora, CentOS, or RHEL, you can use the following command:
+`sudo yum install -y --nogpgcheck https://github.com/enarx/enarx/releases/download/v0.6.4/enarx-0.6.4-1.x86_64.rpm`
+
+# DPKG Installation
+
+To install the DPKG package on Ubuntu or Debian systems, you can use the following command:
+```sh
+wget https://github.com/enarx/enarx/releases/download/v0.6.4/enarx-0.6.4-1_amd64.deb
+sudo dpkg -i enarx-0.6.4-1_amd64.deb
+```
+
+# Binary Installation
 To install Enarx on Linux, you can download the Enarx binary. For `X86_64` architectures (the most common), you would download the `enarx-x86_64-unknown-linux-musl` binary and for `AARCH64` architectures (ARM64 processors) you would download the `enarx-aarch64-unknown-linux-musl` binary.
 
 Download the appropriate Enarx binary (in the case below, we are downloading for `X86_64`):
 
-`wget https://github.com/enarx/enarx/releases/download/v0.6.3/enarx-x86_64-unknown-linux-musl`
+`wget https://github.com/enarx/enarx/releases/download/v0.6.4/enarx-x86_64-unknown-linux-musl`
 
 ![linux wget](/img/install/linux_wget.png)
 
@@ -98,6 +114,13 @@ Now type the following to install Enarx:
 
 ![linux install enarx](/img/install/linux_install_enarx.png)
 
+If you are on the `X86_64` host, it is recommended to also install the signature file:
+```sh
+wget https://github.com/enarx/enarx/releases/download/v0.6.4/enarx-x86_64-unknown-linux-musl.sig
+sudo install -D -m 444 -o root -g root enarx-x86_64-unknown-linux-musl.sig /usr/lib/enarx/enarx.sig
+```
+
+# Test Installation
 To test `enarx` we should download a sample WebAssembly file (`hello-word.wasm`):
 
 `wget https://enarx.dev/hello-world.wasm`
