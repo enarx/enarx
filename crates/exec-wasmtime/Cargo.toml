@@ -1,6 +1,6 @@
 [package]
 name = "enarx-exec-wasmtime"
-version = "0.6.3"
+version = "0.6.4"
 edition = "2021"
 description = "Enarx WebAssembly Loader"
 authors = ["The Enarx Project Developers"]
@@ -44,7 +44,7 @@ wiggle = { version = "0.40.0", default-features = false }
 io-extras = { version = "=0.15.0", default-features = false }
 
 [target.'cfg(all(target_os = "linux", target_arch = "x86_64"))'.dependencies]
-sallyport = { version = "0.6.3", path = "../sallyport", default-features = false }
+sallyport = { version = "0.6.4", path = "../sallyport", default-features = false }
 
 [dev-dependencies]
 wat = { version = "1.0", default-features = false }
