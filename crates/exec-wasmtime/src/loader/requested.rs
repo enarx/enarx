@@ -130,7 +130,9 @@ impl Loader<Requested> {
         }
         .to_vec()?;
 
-        let mut serial: [u8; 32] = [0u8; 32];
+        // Steward uses UUIDs as serial numbers, use 16-octet long serial number to loosely
+        // resemble format used by the Steward.
+        let mut serial = [0u8; 16];
         getrandom(&mut serial)?;
 
         // Create the certificate body.
