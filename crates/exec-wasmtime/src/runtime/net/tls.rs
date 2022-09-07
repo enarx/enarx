@@ -113,15 +113,28 @@ impl From<Stream> for Box<dyn WasiFile> {
 }
 
 impl Stream {
-    pub fn connect(mut tcp: CapStream, name: &str, cfg: Arc<ClientConfig>) -> Result<Self, Error> {
-        // Set up connection.
-        let tls = ClientConnection::new(cfg, name.try_into()?)?;
-        let mut tls = Connection::Client(tls);
+    pub fn connect(
+        tcp: CapStream,
+        name: impl AsRef<str>,
+        cfg: Arc<ClientConfig>,
+    ) -> Result<Self, Error> {
+        let name = name
+            .as_ref()
+            .try_into()
+            .context("failed to construct server name")?;
 
-        // Finish the connection.
-        tls.complete_io(&mut tcp)?;
+        let tls = ClientConnection::new(cfg, name)
+            .context("failed to create a new TLS client connection")
+            .map(Connection::Client)?;
 
-        Ok(Self { tcp, tls })
+        let mut stream = Self {
+            tcp,
+            tls,
+        };
+        stream
+            .complete_io()
+            .context("failed to complete connection I/O")?;
+        Ok(stream)
     }
 
     fn complete_io(&mut self) -> Result<(), Error> {
