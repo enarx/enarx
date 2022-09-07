@@ -21,20 +21,18 @@ use wasi_common::{Context, Error, ErrorExt, ErrorKind, WasiFile};
 #[cfg(unix)]
 use wasmtime_wasi::net::from_sysif_fdflags;
 
-fn errmap(error: std::io::Error) -> Error {
-    use std::io::ErrorKind::*;
-
+fn errmap(error: io::Error) -> Error {
     match error.kind() {
-        WouldBlock => ErrorKind::WouldBlk.into(),
-        InvalidInput => ErrorKind::Inval.into(),
-        Unsupported => ErrorKind::Notsup.into(),
-        InvalidData => ErrorKind::Inval.into(),
+        io::ErrorKind::WouldBlock => ErrorKind::WouldBlk.into(),
+        io::ErrorKind::InvalidInput => ErrorKind::Inval.into(),
+        io::ErrorKind::Unsupported => ErrorKind::Notsup.into(),
+        io::ErrorKind::InvalidData => ErrorKind::Inval.into(),
         _ => Error::from(ErrorKind::Io).context(error),
     }
 }
 
 trait IOAsync {
-    fn complete_io_async<T>(&mut self, io: &mut T) -> Result<(usize, usize), io::Error>
+    fn complete_io_async<T>(&mut self, io: &mut T) -> io::Result<(usize, usize)>
     where
         Self: Sized,
         T: io::Read + io::Write;
@@ -46,7 +44,7 @@ impl IOAsync for Connection {
     /// Based upon [`complete_io`], but with added `flush()` and `WouldBlock` error handling for async connections.
     ///
     /// [`complete_io`]: https://github.com/rustls/rustls/blob/c42c53e13dfc54495cbb62577f6bb58eddf5ff8a/rustls/src/conn.rs#L462-L507
-    fn complete_io_async<T>(&mut self, io: &mut T) -> Result<(usize, usize), io::Error>
+    fn complete_io_async<T>(&mut self, io: &mut T) -> io::Result<(usize, usize)>
     where
         Self: Sized,
         T: io::Read + io::Write,
