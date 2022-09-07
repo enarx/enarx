@@ -249,21 +249,25 @@ impl WasiFile for Listener {
     }
 
     async fn sock_accept(&mut self, fdflags: FdFlags) -> Result<Box<dyn WasiFile>, Error> {
-        // Accept the connection.
         let (tcp, ..) = self.listener.accept()?;
 
-        // Create a new TLS connection.
-        let tls = Connection::Server(
-            ServerConnection::new(self.cfg.clone())
-                .map_err(|e| Error::io().context(e))
-                .context("could not create new TLS connection")?,
-        );
+        let tls = ServerConnection::new(self.cfg.clone())
+            .map_err(|e| Error::io().context(e))
+            .context("could not create new TLS connection")
+            .map(Connection::Server)?;
 
-        tcp.set_nonblocking(false)?;
         let mut stream = Stream { tcp, tls };
-        stream.complete_io()?;
-
-        stream.set_fdflags(fdflags).await?;
+        stream
+            .set_fdflags(FdFlags::empty())
+            .await
+            .context("failed to unset client stream FD flags")?;
+        stream
+            .complete_io()
+            .context("failed to complete connection I/O")?;
+        stream
+            .set_fdflags(fdflags)
+            .await
+            .context("failed to set requested client stream FD flags")?;
         Ok(Box::new(stream))
     }
 
