@@ -104,6 +104,7 @@ impl IOAsync for Connection {
 pub struct Stream {
     tcp: CapStream,
     tls: Connection,
+    nonblocking: bool,
 }
 
 impl From<Stream> for Box<dyn WasiFile> {
@@ -130,6 +131,7 @@ impl Stream {
         let mut stream = Self {
             tcp,
             tls,
+            nonblocking: false, // this is only valid under assumption that this executable has opened the socket
         };
         stream
             .complete_io()
@@ -138,7 +140,11 @@ impl Stream {
     }
 
     fn complete_io(&mut self) -> Result<(), Error> {
-        self.tls.complete_io_async(&mut self.tcp).map_err(errmap)?;
+        if self.nonblocking {
+            self.tls.complete_io_async(&mut self.tcp).map_err(errmap)?;
+        } else {
+            self.tls.complete_io(&mut self.tcp).map_err(errmap)?;
+        }
         Ok(())
     }
 }
@@ -166,39 +172,41 @@ impl WasiFile for Stream {
 
     async fn set_fdflags(&mut self, fdflags: FdFlags) -> Result<(), Error> {
         if fdflags == FdFlags::NONBLOCK {
-            self.tcp.set_nonblocking(true)?;
+            self.tcp
+                .set_nonblocking(true)
+                .context("failed to enable NONBLOCK")?;
+            self.nonblocking = true;
+            Ok(())
         } else if fdflags.is_empty() {
-            self.tcp.set_nonblocking(false)?;
+            self.tcp
+                .set_nonblocking(false)
+                .context("failed to disable NONBLOCK")?;
+            self.nonblocking = false;
+            Ok(())
         } else {
-            return Err(Error::invalid_argument().context("cannot set anything else than NONBLOCK"));
+            Err(Error::invalid_argument().context("cannot set anything else than NONBLOCK"))
         }
-        Ok(())
     }
 
     async fn read_vectored<'a>(&mut self, bufs: &mut [IoSliceMut<'a>]) -> Result<u64, Error> {
-        self.complete_io()?;
-
-        self.tls
-            .reader()
-            .read_vectored(bufs)
-            .map_err(errmap)?
-            .try_into()
-            .map_err(|e| Error::range().context(e))
+        loop {
+            self.complete_io()?;
+            match self.tls.reader().read_vectored(bufs) {
+                Ok(n) => return n.try_into().map_err(|e| Error::range().context(e)),
+                Err(e) if !self.nonblocking && e.kind() == io::ErrorKind::WouldBlock => {}
+                Err(e) => return Err(errmap(e)),
+            }
+        }
     }
 
     async fn write_vectored<'a>(&mut self, bufs: &[IoSlice<'a>]) -> Result<u64, Error> {
-        self.complete_io()?;
-
-        let n = self
-            .tls
-            .writer()
-            .write_vectored(bufs)
-            .map_err(errmap)?
-            .try_into()
-            .map_err(|e| Error::range().context(e))?;
-
-        self.complete_io()?;
-        Ok(n)
+        match self.tls.writer().write_vectored(bufs) {
+            Ok(n) => {
+                self.complete_io()?;
+                n.try_into().map_err(|e| Error::range().context(e))
+            }
+            Err(e) => Err(errmap(e)),
+        }
     }
 
     async fn readable(&self) -> Result<(), Error> {
@@ -270,7 +278,11 @@ impl WasiFile for Listener {
             .context("could not create new TLS connection")
             .map(Connection::Server)?;
 
-        let mut stream = Stream { tcp, tls };
+        let mut stream = Stream {
+            tcp,
+            tls,
+            nonblocking: false,
+        };
         stream
             .set_fdflags(FdFlags::empty())
             .await
