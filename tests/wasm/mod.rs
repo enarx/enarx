@@ -7,6 +7,7 @@ use std::net::{Ipv4Addr, TcpListener, TcpStream};
 use std::path::{Path, PathBuf};
 use std::{fs, thread};
 
+use drawbridge_client::Url;
 use process_control::Output;
 use serial_test::serial;
 use tempfile::tempdir;
@@ -86,9 +87,9 @@ pub fn enarx_run<'a>(
     ret
 }
 
-//pub fn enarx_deploy<'a>(url: &Url, input: impl Into<Option<&'a [u8]>>) -> Output {
-//    enarx(|cmd| cmd.arg("deploy").arg(url.as_str()), input)
-//}
+pub fn enarx_deploy<'a>(url: &Url, input: impl Into<Option<&'a [u8]>>) -> Output {
+    enarx(|cmd| cmd.arg("deploy").arg(url.as_str()), input)
+}
 
 fn wasm_out() -> PathBuf {
     Path::new(CRATE).join(OUT_DIR).join(TEST_BINS_OUT)
@@ -213,8 +214,8 @@ fn zerooneone() {
     check_output(&enarx_run(&wasm, None, INPUT), 0, OUTPUT, None);
 
     // TODO: reinstate these tests with the new `enarx deploy` slug
-    //let url = Url::from_file_path(&wasm).expect("failed to construct a URL from path");
-    //check_output(&enarx_deploy(&url, INPUT), 0, OUTPUT, None);
+    let url = Url::from_file_path(&wasm).expect("failed to construct a URL from path");
+    check_output(&enarx_deploy(&url, INPUT), 0, OUTPUT, None);
 
     // TODO: Test execution from a remote HTTP(S) URL
     // https://github.com/enarx/enarx/issues/1855
@@ -282,9 +283,8 @@ name = "CONNECT""#
 
     check_output(&enarx_run(&pkg_wasm, Some(&pkg_conf), None), 0, None, None);
 
-    // TODO: reinstate these tests with the new `enarx deploy` slug
-    //let url = Url::from_file_path(&pkg).expect("failed to construct a URL from package path");
-    //check_output(&enarx_deploy(&url, None), 0, None, None);
+    let url = Url::from_file_path(&pkg).expect("failed to construct a URL from package path");
+    check_output(&enarx_deploy(&url, None), 0, None, None);
 
     // TODO: Test execution from a remote HTTP(S) URL
     // https://github.com/enarx/enarx/issues/1855
