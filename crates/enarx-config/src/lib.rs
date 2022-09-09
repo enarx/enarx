@@ -42,14 +42,14 @@ kind = "stderr"
 
 ## A listen socket
 # [[files]]
-# name = "LISTEN"
+# name = "listen"
 # kind = "listen"
 # prot = "tls" # or prot = "tcp"
 # port = 12345
 
 ## An outgoing connected socket
 # [[files]]
-# name = "CONNECT"
+# name = "stream"
 # kind = "connect"
 # prot = "tls" # or prot = "tcp"
 # host = "127.0.0.1"
@@ -119,7 +119,7 @@ impl<'de> Deserialize<'de> for FileName {
 /// use enarx_config::Config;
 /// const CONFIG: &str = r#"
 /// [[files]]
-/// name = "LISTEN"
+/// name = "listen"
 /// kind = "listen"
 /// prot = "tls"
 /// port = 12345
