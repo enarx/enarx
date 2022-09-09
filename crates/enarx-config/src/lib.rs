@@ -24,7 +24,7 @@ pub const CONFIG_TEMPLATE: &str = r#"## Configuration for a WASI application in 
 # ]
 
 ## Steward
-# steward = "https://steward.example.com"
+# steward = "https://attest.profian.com"
 
 ## Environment variables
 # [env]

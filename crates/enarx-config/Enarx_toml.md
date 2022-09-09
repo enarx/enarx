@@ -39,7 +39,7 @@ args = [
 #### Example
 
 ```toml
-steward = "https://steward.example.com"
+steward = "https://attest.profian.com"
 ```
 
 ### `files`
