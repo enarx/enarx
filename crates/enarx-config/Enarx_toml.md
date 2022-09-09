@@ -119,14 +119,14 @@ kind = "stderr"
 
 # A listen socket
 [[files]]
-name = "LISTEN"
+name = "listen"
 kind = "listen"
 prot = "tls" # or prot = "tcp"
 port = 12345
 
 # An outgoing connected socket
 [[files]]
-name = "CONNECT"
+name = "connect"
 kind = "connect"
 prot = "tcp" # or prot = "tls"
 host = "127.0.0.1"
@@ -144,4 +144,4 @@ Additionally, five file descriptors are pre-opened:
 
 Additionally, the following environment variables are exported:
 - `FD_COUNT=5`
-- `FD_NAMES=null:stdout:stderr:LISTEN:CONNECT`
+- `FD_NAMES=null:stdout:stderr:listen:connect`
