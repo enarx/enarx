@@ -9,7 +9,7 @@ use super::{Compiled, Connected, Loader};
 
 use anyhow::{Context, Result};
 use cap_std::net::{TcpListener, TcpStream};
-use enarx_config::{File, Protocol};
+use enarx_config::{ConnectFile, File, ListenFile};
 use wasi_common::{file::FileCaps, WasiFile};
 use wasmtime::AsContextMut;
 use wasmtime_wasi::stdio::{stderr, stdin, stdout};
@@ -47,37 +47,41 @@ impl Loader<Compiled> {
                 File::Stdout { .. } => (Box::new(stdout()), FileCaps::all()),
                 File::Stderr { .. } => (Box::new(stderr()), FileCaps::all()),
 
-                File::Listen {
-                    addr, port, prot, ..
-                } => {
-                    let caps = FileCaps::FILESTAT_GET
-                        | FileCaps::FDSTAT_SET_FLAGS
-                        | FileCaps::POLL_READWRITE
-                        | FileCaps::READ;
-
+                File::Listen(
+                    sock @ ListenFile::Tcp { addr, port, .. }
+                    | sock @ ListenFile::Tls { addr, port, .. },
+                ) => {
                     let tcp = std::net::TcpListener::bind((addr.as_str(), *port))?;
                     let tcp = TcpListener::from_std(tcp);
-                    match prot {
-                        Protocol::Tcp => (wasmtime_wasi::net::Socket::from(tcp).into(), caps),
-                        Protocol::Tls => (tls::Listener::new(tcp, srv).into(), caps),
-                    }
+                    (
+                        match sock {
+                            ListenFile::Tcp { .. } => wasmtime_wasi::net::Socket::from(tcp).into(),
+                            ListenFile::Tls { .. } => tls::Listener::new(tcp, srv).into(),
+                        },
+                        FileCaps::FILESTAT_GET
+                            | FileCaps::FDSTAT_SET_FLAGS
+                            | FileCaps::POLL_READWRITE
+                            | FileCaps::READ,
+                    )
                 }
 
-                File::Connect {
-                    host, port, prot, ..
-                } => {
-                    let caps = FileCaps::FILESTAT_GET
-                        | FileCaps::FDSTAT_SET_FLAGS
-                        | FileCaps::POLL_READWRITE
-                        | FileCaps::READ
-                        | FileCaps::WRITE;
-
-                    let tcp = std::net::TcpStream::connect((&**host, *port))?;
+                File::Connect(
+                    sock @ ConnectFile::Tcp { host, port, .. }
+                    | sock @ ConnectFile::Tls { host, port, .. },
+                ) => {
+                    let tcp = std::net::TcpStream::connect((host.as_str(), *port))?;
                     let tcp = TcpStream::from_std(tcp);
-                    match prot {
-                        Protocol::Tcp => (wasmtime_wasi::net::Socket::from(tcp).into(), caps),
-                        Protocol::Tls => (tls::Stream::connect(tcp, host, clt)?.into(), caps),
-                    }
+                    (
+                        match sock {
+                            ConnectFile::Tcp { .. } => wasmtime_wasi::net::Socket::from(tcp).into(),
+                            ConnectFile::Tls { .. } => tls::Stream::connect(tcp, host, clt)?.into(),
+                        },
+                        FileCaps::FILESTAT_GET
+                            | FileCaps::FDSTAT_SET_FLAGS
+                            | FileCaps::POLL_READWRITE
+                            | FileCaps::READ
+                            | FileCaps::WRITE,
+                    )
                 }
             };
 

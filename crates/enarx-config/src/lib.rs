@@ -56,7 +56,11 @@ kind = "stderr"
 # port = 23456
 "#;
 
-const fn default_port() -> u16 {
+const fn default_tcp_port() -> u16 {
+    80
+}
+
+const fn default_tls_port() -> u16 {
     443
 }
 
@@ -149,9 +153,9 @@ pub struct Config {
 impl Default for Config {
     fn default() -> Self {
         let files = vec![
-            File::Stdin { name: None },
-            File::Stdout { name: None },
-            File::Stderr { name: None },
+            File::Stdin(Default::default()),
+            File::Stdout(Default::default()),
+            File::Stderr(Default::default()),
         ];
 
         Self {
@@ -163,41 +167,29 @@ impl Default for Config {
     }
 }
 
-/// Parameters for a pre-opened file descriptor
+/// `/dev/null` file descriptor
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct NullFile {
+    /// Name assigned to the file descriptor
+    name: Option<FileName>,
+}
+
+/// Standard I/O file descriptor
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct StdioFile {
+    /// Name assigned to the file descriptor
+    name: Option<FileName>,
+}
+
+/// File descriptor of a listen socket
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "kind", deny_unknown_fields)]
-pub enum File {
-    /// File descriptor of `/dev/null`
-    #[serde(rename = "null")]
-    Null {
-        /// Name assigned to the file descriptor
-        name: Option<FileName>,
-    },
-
-    /// File descriptor of stdin
-    #[serde(rename = "stdin")]
-    Stdin {
-        /// Name assigned to the file descriptor
-        name: Option<FileName>,
-    },
-
-    /// File descriptor of stdout
-    #[serde(rename = "stdout")]
-    Stdout {
-        /// Name assigned to the file descriptor
-        name: Option<FileName>,
-    },
-
-    /// File descriptor of stderr
-    #[serde(rename = "stderr")]
-    Stderr {
-        /// Name assigned to the file descriptor
-        name: Option<FileName>,
-    },
-
-    /// File descriptor of a TCP listen socket
-    #[serde(rename = "listen")]
-    Listen {
+#[serde(tag = "prot", deny_unknown_fields)]
+pub enum ListenFile {
+    /// TLS listen socket
+    #[serde(rename = "tls")]
+    Tls {
         /// Name assigned to the file descriptor
         name: FileName,
 
@@ -206,17 +198,33 @@ pub enum File {
         addr: String,
 
         /// Port to listen on
-        #[serde(default = "default_port")]
+        #[serde(default = "default_tls_port")]
         port: u16,
-
-        /// Protocol to use
-        #[serde(default)]
-        prot: Protocol,
     },
 
-    /// File descriptor of a TCP stream socket
-    #[serde(rename = "connect")]
-    Connect {
+    /// TCP listen socket
+    #[serde(rename = "tcp")]
+    Tcp {
+        /// Name assigned to the file descriptor
+        name: FileName,
+
+        /// Address to listen on
+        #[serde(default = "default_addr")]
+        addr: String,
+
+        /// Port to listen on
+        #[serde(default = "default_tcp_port")]
+        port: u16,
+    },
+}
+
+/// File descriptor of a stream socket
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "prot", deny_unknown_fields)]
+pub enum ConnectFile {
+    /// TLS stream socket
+    #[serde(rename = "tls")]
+    Tls {
         /// Name assigned to the file descriptor
         name: Option<FileName>,
 
@@ -224,44 +232,67 @@ pub enum File {
         host: String,
 
         /// Port to connect to
-        #[serde(default = "default_port")]
+        #[serde(default = "default_tls_port")]
         port: u16,
-
-        /// Protocol to use
-        #[serde(default)]
-        prot: Protocol,
     },
+
+    /// TCP stream socket
+    #[serde(rename = "tcp")]
+    Tcp {
+        /// Name assigned to the file descriptor
+        name: Option<FileName>,
+
+        /// Host address to connect to
+        host: String,
+
+        /// Port to connect to
+        #[serde(default = "default_tcp_port")]
+        port: u16,
+    },
+}
+
+/// Parameters for a pre-opened file descriptor
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", deny_unknown_fields)]
+pub enum File {
+    /// File descriptor of `/dev/null`
+    #[serde(rename = "null")]
+    Null(NullFile),
+
+    /// File descriptor of stdin
+    #[serde(rename = "stdin")]
+    Stdin(StdioFile),
+
+    /// File descriptor of stdout
+    #[serde(rename = "stdout")]
+    Stdout(StdioFile),
+
+    /// File descriptor of stderr
+    #[serde(rename = "stderr")]
+    Stderr(StdioFile),
+
+    /// File descriptor of a listen socket
+    #[serde(rename = "listen")]
+    Listen(ListenFile),
+
+    /// File descriptor of a stream socket
+    #[serde(rename = "connect")]
+    Connect(ConnectFile),
 }
 
 impl File {
     /// Get the name for a file descriptor
     pub fn name(&self) -> &str {
         match self {
-            Self::Null { name } => name.as_deref().unwrap_or("null"),
-            Self::Stdin { name } => name.as_deref().unwrap_or("stdin"),
-            Self::Stdout { name } => name.as_deref().unwrap_or("stdout"),
-            Self::Stderr { name } => name.as_deref().unwrap_or("stderr"),
-            Self::Listen { name, .. } => name,
-            Self::Connect { name, host, .. } => name.as_deref().unwrap_or(host),
+            Self::Null(NullFile { name }) => name.as_deref().unwrap_or("null"),
+            Self::Stdin(StdioFile { name }) => name.as_deref().unwrap_or("stdin"),
+            Self::Stdout(StdioFile { name }) => name.as_deref().unwrap_or("stdout"),
+            Self::Stderr(StdioFile { name }) => name.as_deref().unwrap_or("stderr"),
+            Self::Listen(ListenFile::Tls { name, .. }) => name,
+            Self::Listen(ListenFile::Tcp { name, .. }) => name,
+            Self::Connect(ConnectFile::Tls { name, host, .. }) => name.as_deref().unwrap_or(host),
+            Self::Connect(ConnectFile::Tcp { name, host, .. }) => name.as_deref().unwrap_or(host),
         }
-    }
-}
-
-/// Protocol to use for a connection
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub enum Protocol {
-    /// Transparently wrap the TCP connection with the TLS protocol
-    #[serde(rename = "tls")]
-    Tls,
-
-    /// Normal TCP connection
-    #[serde(rename = "tcp")]
-    Tcp,
-}
-
-impl Default for Protocol {
-    fn default() -> Self {
-        Self::Tls
     }
 }
 
@@ -291,6 +322,7 @@ mod test {
         [[files]]
         kind = "connect"
         host = "example.com"
+        prot = "tls"
     "#;
 
     #[test]
@@ -300,22 +332,20 @@ mod test {
         assert_eq!(
             cfg.files,
             vec![
-                File::Stdin { name: None },
-                File::Listen {
+                File::Stdin(Default::default()),
+                File::Listen(ListenFile::Tcp {
                     name: "X".into(),
                     port: 9000,
-                    prot: Protocol::Tcp,
                     addr: default_addr()
-                },
-                File::Stdout { name: None },
-                File::Null { name: None },
-                File::Stderr { name: None },
-                File::Connect {
-                    name: None,
-                    port: default_port(),
-                    prot: Protocol::Tls,
+                }),
+                File::Stdout(Default::default()),
+                File::Null(Default::default()),
+                File::Stderr(Default::default()),
+                File::Connect(ConnectFile::Tls {
+                    name: Default::default(),
+                    port: default_tls_port(),
                     host: "example.com".into(),
-                },
+                }),
             ]
         );
 
