@@ -20,15 +20,15 @@ impl Loader<Compiled> {
         let ctx = ctx.data_mut();
 
         // Set up environment variables.
-        for (k, v) in self.0.config.env.iter() {
-            ctx.push_env(k, v)?;
+        for (k, v) in self.0.config.env {
+            ctx.push_env(&k, &v)?;
         }
 
         // Set up the arguments.
         ctx.push_arg("main.wasm")
             .context("failed to push argv[0]")?;
-        for arg in self.0.config.args.iter() {
-            ctx.push_arg(arg).context("failed to push argument")?;
+        for arg in self.0.config.args {
+            ctx.push_arg(&arg).context("failed to push argument")?;
         }
 
         // Set up the file descriptor environment variables.
