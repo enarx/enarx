@@ -124,6 +124,26 @@ impl Default for SnpGuestMsg {
     }
 }
 
+/// SnpReport Request
+#[repr(C)]
+#[derive(Debug, Copy, Clone, ConstDefault)]
+pub struct SnpReportRequest {
+    /// Guest-provided data to be included into the attestation report
+    pub report_data: [u8; 64],
+    /// VMPL
+    pub vmpl: u32,
+    rsvd: [u8; 28],
+}
+
+impl Default for SnpReportRequest {
+    fn default() -> Self {
+        <Self as ConstDefault>::DEFAULT
+    }
+}
+
+// SAFETY: SnpReportRequest is a C struct with no UD states and pointers.
+unsafe impl ByteSized for SnpReportRequest {}
+
 /// Header of the SnpReport Response
 #[repr(C)]
 pub struct SnpReportResponseHeader {
@@ -878,13 +898,15 @@ impl Locked<&mut GhcbExtHandle> {
         }
 
         let mut this = self.lock();
+        let mut report_request = SnpReportRequest::default();
+        report_request.report_data.copy_from_slice(nonce);
 
-        let mut user_data = [0u8; 64];
-        user_data.copy_from_slice(nonce);
+        let mut request = [0u8; SnpReportRequest::SIZE];
+        request.copy_from_slice(report_request.as_bytes());
 
         this.request = <SnpGuestMsg as ConstDefault>::DEFAULT;
 
-        this.enc_payload(version, SnpMsgType::ReportReq, &mut user_data)
+        this.enc_payload(version, SnpMsgType::ReportReq, &mut request)
             .expect("encryption failed");
 
         this.guest_req().expect("request failed");
@@ -893,16 +915,23 @@ impl Locked<&mut GhcbExtHandle> {
             .expect("decryption failed");
 
         if (this.response.hdr.msg_sz as usize) < size_of::<SnpReportResponseHeader>() {
+            eprintln!("invalid report response size  {}", this.response.hdr.msg_sz);
             return Err(EIO);
         }
 
         let report =
             SnpReportResponseHeader::from_bytes(&response[..size_of::<SnpReportResponseHeader>()])
-                .ok_or(EIO)?;
+                .ok_or_else(|| {
+                    eprintln!("invalid report response size from bytes");
+                    EIO
+                })?;
 
         match report.status {
             0 => Ok((size_of::<SnpReportResponseHeader>(), report.size as _)),
-            0x16 => Err(EIO),
+            0x16 => {
+                eprintln!("report request status 0x16");
+                Err(EIO)
+            }
             _ => panic!("invalid MSG_REPORT_RSP error value {}", report.status),
         }
     }
@@ -957,6 +986,12 @@ mod test {
             cur_entry:  0,
             end_entry:  2,
             entries:    8
+        }
+
+        struct SnpReportRequest: 4, 96 => {
+            report_data: 0,
+            vmpl: 64,
+            rsvd: 68
         }
     }
 
