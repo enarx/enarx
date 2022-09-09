@@ -6,62 +6,17 @@
 #![deny(clippy::all)]
 #![warn(rust_2018_idioms)]
 
-mod loader;
+mod runtime;
+mod workload;
 
-use drawbridge_client::types::TreeName;
-use loader::Loader;
-use once_cell::sync::Lazy;
-use url::Url;
+pub use workload::{Package, Workload, PACKAGE_CONFIG, PACKAGE_ENTRYPOINT};
 
-#[cfg(unix)]
-use std::os::unix::io::{FromRawFd, RawFd};
-
-#[cfg(unix)]
-use serde::{Deserialize, Serialize};
-
-/// Name of package entrypoint file
-pub static PACKAGE_ENTRYPOINT: Lazy<TreeName> = Lazy::new(|| "main.wasm".parse().unwrap());
-
-/// Name of package config file
-pub static PACKAGE_CONFIG: Lazy<TreeName> = Lazy::new(|| "Enarx.toml".parse().unwrap());
-
-/// Package to execute
-#[cfg(unix)]
-#[derive(Debug, Deserialize, Serialize)]
-#[serde(deny_unknown_fields, tag = "t", content = "c")]
-pub enum Package {
-    /// Remote URL to fetch package from
-    Remote(Url),
-
-    /// Local package
-    Local {
-        /// Open WASM module file descriptor
-        wasm: RawFd,
-        /// Optional open config file descriptor
-        conf: Option<RawFd>,
-    },
-}
-
-/// Package to execute
-#[cfg(windows)]
-#[derive(Debug)]
-pub enum Package {
-    /// Remote URL to fetch package from
-    Remote(Url),
-
-    /// Local package
-    Local {
-        /// Open WASM module file
-        wasm: std::fs::File,
-        /// Optional open config file
-        conf: Option<std::fs::File>,
-    },
-}
+use runtime::Runtime;
 
 /// The Arguments
 // NOTE: `repr(C)` is required, otherwise `toml` serialization fails with `values must be emitted before tables`
 #[derive(Debug)]
-#[cfg_attr(unix, derive(Deserialize, Serialize))]
+#[cfg_attr(unix, derive(serde::Deserialize, serde::Serialize))]
 #[repr(C)]
 pub struct Args {
     /// Package
@@ -70,25 +25,18 @@ pub struct Args {
 
 /// Execute
 pub fn execute_with_args(args: Args) -> anyhow::Result<()> {
-    // Step through the state machine.
-    let configured = Loader::from(args);
-    let requested = configured.next()?;
-    let attested = requested.next()?;
-    let compiled = attested.next()?;
-    let connected = compiled.next()?;
-    let completed = connected.next()?;
-    drop(completed);
-    Ok(())
+    Runtime::execute(args.package).map(|_| ())
 }
 
-#[cfg(unix)]
 /// Execute
 ///
 /// with configuration read from file descriptor 3.
+#[cfg(unix)]
 pub fn execute() -> anyhow::Result<()> {
     use anyhow::Context;
     use std::io::Read;
     use std::mem::forget;
+    use std::os::unix::io::FromRawFd;
     use std::os::unix::net::UnixStream;
 
     // This is the FD of a Unix socket on which the host will send the TOML-encoded execution arguments
@@ -112,7 +60,15 @@ pub fn execute() -> anyhow::Result<()> {
 
 #[cfg(test)]
 mod test {
-    use crate::loader::Loader;
+    use super::*;
+
+    use std::io::{Seek, Write};
+    #[cfg(unix)]
+    use std::os::unix::prelude::AsRawFd;
+
+    use anyhow::Context;
+    use tempfile::NamedTempFile;
+    use wasmtime::Val;
 
     const NO_EXPORT_WAT: &str = r#"(module
       (memory (export "") 1)
@@ -148,11 +104,24 @@ mod test {
       (data (i32.const 0) "Hello, world!\0a")
     )"#;
 
+    pub fn run(wasm: &[u8]) -> anyhow::Result<Vec<Val>> {
+        let mut file = NamedTempFile::new().context("failed to create module file")?;
+        file.write(wasm).context("failed to write module to file")?;
+        file.rewind().context("failed to rewind file")?;
+        Runtime::execute(Package::Local {
+            #[cfg(unix)]
+            wasm: (&file).as_raw_fd(),
+            #[cfg(windows)]
+            wasm: file.into_file(),
+            conf: None,
+        })
+    }
+
     #[test]
     fn workload_run_return_1() {
         let bytes = wat::parse_str(RETURN_1_WAT).expect("error parsing wat");
 
-        let results: Vec<i32> = Loader::run(&bytes)
+        let results: Vec<i32> = run(&bytes)
             .unwrap()
             .iter()
             .map(wasmtime::Val::unwrap_i32)
@@ -165,7 +134,7 @@ mod test {
     fn workload_run_no_export() {
         let bytes = wat::parse_str(NO_EXPORT_WAT).expect("error parsing wat");
 
-        match Loader::run(&bytes) {
+        match run(&bytes) {
             Err(..) => (),
             _ => panic!("unexpected success"),
         }
@@ -174,7 +143,7 @@ mod test {
     #[test]
     fn workload_run_hello_wasi() {
         let bytes = wat::parse_str(HELLO_WASI_WAT).expect("error parsing wat");
-        let values = Loader::run(&bytes).unwrap();
+        let values = run(&bytes).unwrap();
         assert_eq!(values.len(), 0);
 
         // TODO/FIXME: we need a way to configure WASI stdout so we can capture

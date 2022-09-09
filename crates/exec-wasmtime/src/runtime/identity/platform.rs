@@ -31,6 +31,7 @@ impl From<Technology> for ObjectIdentifier {
 pub struct Platform {
     technology: Technology,
     report_size: usize,
+    #[allow(dead_code)]
     key_size: usize,
 }
 
@@ -132,6 +133,7 @@ impl Platform {
         self.technology
     }
 
+    #[allow(dead_code)]
     pub fn key(&self) -> Result<Vec<u8>> {
         let mut buf = vec![0; self.key_size];
 
