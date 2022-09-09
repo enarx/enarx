@@ -189,7 +189,7 @@ impl Default for Config {
 
 /// Parameters for a pre-opened file descriptor
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "kind")]
+#[serde(tag = "kind", deny_unknown_fields)]
 pub enum File {
     /// File descriptor of `/dev/null`
     #[serde(rename = "null")]
