@@ -10,8 +10,7 @@
 
 use std::{collections::HashMap, ops::Deref};
 
-use serde::ser::SerializeStruct;
-use serde::{de::Error as _, Deserialize, Deserializer, Serialize, Serializer};
+use serde::{de::Error as _, Deserialize, Deserializer, Serialize};
 use url::Url;
 
 /// Configuration file template
@@ -128,11 +127,11 @@ impl<'de> Deserialize<'de> for FileName {
 ///
 /// let config: Config = toml::from_str(CONFIG).unwrap();
 /// ```
-#[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Config {
-    /// The environment variables to provide to the application
+    /// An optional Steward URL
     #[serde(default)]
-    pub env: HashMap<String, String>,
+    pub steward: Option<Url>,
 
     /// The arguments to provide to the application
     #[serde(default)]
@@ -142,32 +141,9 @@ pub struct Config {
     #[serde(default)]
     pub files: Vec<File>,
 
-    /// An optional Steward URL
+    /// The environment variables to provide to the application
     #[serde(default)]
-    pub steward: Option<Url>,
-}
-
-// TOML requires the `Vec`s to be serialized last, so manually implement `Serialize`
-impl Serialize for Config {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        let mut s = serializer.serialize_struct("Config", 4)?;
-        if !self.args.is_empty() {
-            s.serialize_field("args", &self.args).unwrap();
-        }
-        if self.steward.is_some() {
-            s.serialize_field("steward", &self.steward).unwrap();
-        }
-        if !self.env.is_empty() {
-            s.serialize_field("env", &self.env).unwrap();
-        }
-        if !self.files.is_empty() {
-            s.serialize_field("files", &self.files).unwrap();
-        }
-        s.end()
-    }
+    pub env: HashMap<String, String>,
 }
 
 impl Default for Config {
