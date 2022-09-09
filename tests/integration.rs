@@ -16,7 +16,8 @@ mod syscall;
 mod wasm;
 
 use std::ffi::{OsStr, OsString};
-use std::io::{stderr, Write};
+use std::io;
+use std::io::{BufReader, Read, Write};
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
 use std::time;
@@ -55,6 +56,17 @@ pub fn assert_eq_slices(expected_output: &[u8], output: &[u8], what: &str) {
     );
 }
 
+fn tee(r: impl Read, mut w: impl Write) -> io::Result<Vec<u8>> {
+    BufReader::new(r)
+        .bytes()
+        .map(|b| {
+            let b = b?;
+            w.write(&[b])?;
+            Ok(b)
+        })
+        .collect()
+}
+
 fn enarx<'a>(
     cmd: impl FnOnce(&mut Command) -> &mut Command,
     input: impl Into<Option<&'a [u8]>>,
@@ -71,19 +83,21 @@ fn enarx<'a>(
     .spawn()
     .unwrap_or_else(|e| panic!("failed to execute command: {:#?}", e));
 
-    let input_thread = if let Some(input) = input.into() {
+    let stdin = input.into().map(|input| {
         let mut stdin = child.stdin.take().unwrap();
         let input = input.to_vec();
-        Some(std::thread::spawn(move || {
+        std::thread::spawn(move || {
             stdin
                 .write_all(&input)
                 .expect("failed to write stdin to child");
-        }))
-    } else {
-        None
+        })
+    });
+    let stderr = {
+        let stderr = child.stderr.take().unwrap();
+        std::thread::spawn(|| tee(stderr, io::stderr()).expect("failed to copy stderr"))
     };
 
-    let output = child
+    let mut output = child
         .controlled_with_output()
         .time_limit(time::Duration::from_secs(TIMEOUT_SECS))
         .terminate_for_timeout()
@@ -91,12 +105,10 @@ fn enarx<'a>(
         .unwrap_or_else(|e| panic!("failed to run command: {:#?}", e))
         .unwrap_or_else(|| panic!("process timed out"));
 
-    if let Some(input_thread) = input_thread {
-        if let Err(_) = input_thread.join() {
-            let _unused = stderr().write_all(&output.stderr);
-            panic!("failed to provide input for process")
-        }
+    if let Some(stdin) = stdin {
+        stdin.join().expect("failed to provide input for process");
     }
+    output.stderr = stderr.join().expect("failed to collect stderr");
 
     #[cfg(unix)]
     assert!(
@@ -185,11 +197,6 @@ pub fn check_output<'a>(
 ) {
     let expected_stdout = expected_stdout.into();
     let expected_stderr = expected_stderr.into();
-
-    // Output potential error messages
-    if expected_stderr.is_none() && !output.stderr.is_empty() {
-        let _ = std::io::stderr().write_all(&output.stderr);
-    }
 
     if let Some(expected_stdout) = expected_stdout {
         if output.stdout.len() < MAX_ASSERT_ELEMENTS && expected_stdout.len() < MAX_ASSERT_ELEMENTS
