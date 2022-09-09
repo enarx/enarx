@@ -52,7 +52,7 @@ kind = "stderr"
 # name = "stream"
 # kind = "connect"
 # prot = "tls" # or prot = "tcp"
-# host = "127.0.0.1"
+# host = "localhost"
 # port = 23456
 "#;
 
