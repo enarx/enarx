@@ -193,6 +193,8 @@
               (fenix.packages.${system}.fromToolchainFile {
                 file = "${self}/rust-toolchain.toml";
               })
+
+              pkgs.openssl
             ];
           };
         }
