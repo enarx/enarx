@@ -1249,6 +1249,7 @@ dependencies = [
  "serde",
  "sha2 0.10.2",
  "system-interface",
+ "tempfile",
  "toml",
  "ureq",
  "url",

@@ -47,4 +47,5 @@ io-extras = { version = "=0.15.0", default-features = false }
 sallyport = { version = "0.6.4", path = "../sallyport", default-features = false }
 
 [dev-dependencies]
+tempfile = { version = "3.3.0", default-features = false }
 wat = { version = "1.0", default-features = false }
