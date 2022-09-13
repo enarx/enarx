@@ -11,22 +11,24 @@ use crate::libc::{
     uid_t, utsname, Ioctl, SYS_accept, SYS_accept4, SYS_arch_prctl, SYS_bind, SYS_brk,
     SYS_clock_getres, SYS_clock_gettime, SYS_close, SYS_connect, SYS_dup, SYS_dup2, SYS_dup3,
     SYS_epoll_create1, SYS_epoll_ctl, SYS_epoll_pwait, SYS_epoll_wait, SYS_eventfd2, SYS_exit,
-    SYS_exit_group, SYS_fcntl, SYS_fstat, SYS_getegid, SYS_geteuid, SYS_getgid, SYS_getpid,
-    SYS_getrandom, SYS_getsockname, SYS_getuid, SYS_ioctl, SYS_listen, SYS_madvise, SYS_mmap,
-    SYS_mprotect, SYS_mremap, SYS_munmap, SYS_nanosleep, SYS_open, SYS_poll, SYS_read,
+    SYS_exit_group, SYS_fcntl, SYS_fstat, SYS_futex, SYS_getegid, SYS_geteuid, SYS_getgid,
+    SYS_getpid, SYS_getrandom, SYS_getsockname, SYS_getuid, SYS_ioctl, SYS_listen, SYS_madvise,
+    SYS_mmap, SYS_mprotect, SYS_mremap, SYS_munmap, SYS_nanosleep, SYS_open, SYS_poll, SYS_read,
     SYS_readlink, SYS_readv, SYS_recvfrom, SYS_rt_sigaction, SYS_rt_sigprocmask, SYS_sendto,
     SYS_set_tid_address, SYS_setsockopt, SYS_sigaltstack, SYS_socket, SYS_sync, SYS_uname,
-    SYS_write, SYS_writev, EFAULT, EINVAL, ENOSYS, ENOTSUP, FIONBIO, FIONREAD, MAP_ANONYMOUS,
-    MAP_PRIVATE, MREMAP_DONTUNMAP, MREMAP_FIXED, MREMAP_MAYMOVE, PROT_EXEC, PROT_READ, PROT_WRITE,
+    SYS_write, SYS_writev, EFAULT, EINVAL, ENOSYS, ENOTSUP, FIONBIO, FIONREAD, FUTEX_PRIVATE_FLAG,
+    FUTEX_WAIT, FUTEX_WAIT_BITSET, FUTEX_WAKE, MAP_ANONYMOUS, MAP_PRIVATE, MREMAP_DONTUNMAP,
+    MREMAP_FIXED, MREMAP_MAYMOVE, PROT_EXEC, PROT_READ, PROT_WRITE,
 };
 use crate::{item, Result};
 
 use crate::guest::enarxcall::ParkTimeout;
 use core::arch::x86_64::CpuidResult;
-use core::ffi::{c_int, c_size_t, c_uint, c_ulong, c_void};
+use core::ffi::{c_int, c_long, c_size_t, c_uint, c_ulong, c_void};
 use core::mem::size_of;
 use core::ptr::NonNull;
 use core::slice;
+use core::sync::atomic::{AtomicU32, Ordering};
 
 /// Guest request handler.
 pub trait Handler {
@@ -253,6 +255,57 @@ pub trait Handler {
     #[inline]
     fn fstat(&mut self, fd: c_int, statbuf: &mut stat) -> Result<()> {
         self.execute(syscall::Fstat { fd, statbuf })?
+    }
+
+    /// Executes [`futex`](https://man7.org/linux/man-pages/man2/futex.2.html) syscall.
+    fn futex(
+        &mut self,
+        uaddr: &mut AtomicU32,
+        futex_op: c_int,
+        val: u32,
+        timespec: Option<&timespec>,
+        _uaddr2: Option<&mut AtomicU32>,
+        val3: u32,
+    ) -> Result<c_long> {
+        // The `FUTEX_PRIVATE_FLAG` is only interesting,
+        // if the shims would support multiple processes, which they don't.
+        let futex_op = futex_op & !FUTEX_PRIVATE_FLAG;
+
+        match futex_op {
+            FUTEX_WAIT => {
+                let timeout = timespec.map(|timespec| ParkTimeout {
+                    timespec: *timespec,
+                    absolute: false,
+                });
+
+                while uaddr.load(Ordering::Relaxed) == val {
+                    let _ = self.park(timeout.as_ref());
+                }
+                Ok(0)
+            }
+            FUTEX_WAIT_BITSET => {
+                if val3 != !0u32 {
+                    return Err(ENOTSUP);
+                }
+
+                let timeout = timespec.map(|timespec| ParkTimeout {
+                    timespec: *timespec,
+                    absolute: true,
+                });
+
+                while uaddr.load(Ordering::Relaxed) == val {
+                    let _ = self.park(timeout.as_ref());
+                }
+                Ok(0)
+            }
+            FUTEX_WAKE => {
+                // TODO: return the number of woken threads: https://github.com/enarx/enarx/issues/2181
+                // This needs extensive book keeping on the futexes and normally nobody cares about the result.
+                // For now return 1 or 0 in the error case.
+                self.unpark().map(|_| 1).or(Ok(0))
+            }
+            _ => Err(ENOTSUP),
+        }
     }
 
     /// Executes [`getegid`](https://man7.org/linux/man-pages/man2/getegid.2.html) syscall akin to [`libc::getegid`].
@@ -731,6 +784,25 @@ pub trait Handler {
             (SYS_fstat, [fd, statbuf, ..]) => {
                 let statbuf = platform.validate_mut(statbuf)?;
                 self.fstat(fd as _, statbuf).map(|_| [0, 0])
+            }
+            (SYS_futex, [uaddr, futex_op, val, timeout, _uaddr2, val3]) => {
+                let futex_op = i32::try_from(futex_op).map_err(|_| EINVAL)?;
+                let timeout = match futex_op & (!FUTEX_PRIVATE_FLAG) {
+                    FUTEX_WAIT | FUTEX_WAIT_BITSET => {
+                        if timeout != 0 {
+                            platform.validate(timeout).map(Some)?
+                        } else {
+                            None
+                        }
+                    }
+                    FUTEX_WAKE => None,
+                    _ => return Err(ENOTSUP),
+                };
+
+                let uaddr = platform.validate_mut(uaddr)?;
+
+                self.futex(uaddr, futex_op as _, val as _, timeout, None, val3 as _)
+                    .map(|ret| [ret as _, 0])
             }
             (SYS_getegid, ..) => self.getegid().map(|ret| [ret as _, 0]),
             (SYS_geteuid, ..) => self.geteuid().map(|ret| [ret as _, 0]),
