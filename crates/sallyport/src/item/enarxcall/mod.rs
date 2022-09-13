@@ -74,6 +74,15 @@ pub enum Number {
 
     /// Trim SGX pages call number.
     TrimSgxPages = 0x10,
+
+    /// Park the current thread
+    Park = 0x11,
+
+    /// UnPark all parked threads
+    UnPark = 0x12,
+
+    /// Spawn a new thread
+    Spawn = 0x13,
 }
 
 #[cfg(test)]

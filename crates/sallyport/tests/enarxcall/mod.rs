@@ -4,9 +4,11 @@ use super::run_test;
 
 use core::ptr::NonNull;
 use libc::ENOSYS;
+use sallyport::guest::enarxcall::ParkTimeout;
 use std::arch::x86_64::{CpuidResult, __cpuid_count};
 
 use sallyport::guest::Handler;
+use sallyport::libc::timespec;
 
 #[test]
 fn balloon_memory() {
@@ -93,11 +95,39 @@ fn munmap_host() {
 }
 
 #[test]
+fn spawn() {
+    run_test(1, [0xff; 16], move |_, _, handler| {
+        assert_eq!(handler.spawn(), Err(ENOSYS));
+    })
+}
+
+#[test]
+fn park() {
+    run_test(1, [0xff; 16], move |_, _, handler| {
+        let timeout = ParkTimeout {
+            timespec: timespec {
+                tv_sec: 0,
+                tv_nsec: 0,
+            },
+            absolute: false,
+        };
+        assert_eq!(handler.park(Some(&timeout)), Err(ENOSYS));
+    })
+}
+
+#[test]
 fn trim_sgx_pages() {
     run_test(2, [0xff; 16], move |_, _, handler| {
         assert_eq!(
             handler.trim_sgx_pages(NonNull::new(0x7f8af78eb000 as *mut _).unwrap(), 4096),
             Err(ENOSYS)
         );
+    })
+}
+
+#[test]
+fn unpark() {
+    run_test(1, [0xff; 16], move |_, _, handler| {
+        assert_eq!(handler.unpark(), Err(ENOSYS));
     })
 }

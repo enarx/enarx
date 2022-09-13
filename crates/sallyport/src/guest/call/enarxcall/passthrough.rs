@@ -157,6 +157,21 @@ impl PassthroughAlloc for MunmapHost {
     }
 }
 
+/// Spawn a new thread
+#[repr(transparent)]
+pub struct Spawn;
+
+impl PassthroughAlloc for Spawn {
+    const NUM: Number = Number::Spawn;
+
+    type Argv = Argv<0>;
+    type Ret = ();
+
+    fn stage(self) -> Self::Argv {
+        Argv([])
+    }
+}
+
 /// Within an address range inside the enclave, ask host to set page type to
 /// 'trimmed'. Address and length must be page-aligned. Shim must validate
 /// and acknowledge the changes with ENCLU[EACCEPT], in order for them to
@@ -174,5 +189,20 @@ impl PassthroughAlloc for TrimSgxPages {
 
     fn stage(self) -> Self::Argv {
         Argv([self.addr.as_ptr() as _, self.length])
+    }
+}
+
+/// Unpark parked threads
+#[repr(transparent)]
+pub struct UnPark;
+
+impl PassthroughAlloc for UnPark {
+    const NUM: Number = Number::UnPark;
+
+    type Argv = Argv<0>;
+    type Ret = ();
+
+    fn stage(self) -> Self::Argv {
+        Argv([])
     }
 }
