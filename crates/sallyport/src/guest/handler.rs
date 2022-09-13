@@ -21,6 +21,7 @@ use crate::libc::{
 };
 use crate::{item, Result};
 
+use crate::guest::enarxcall::ParkTimeout;
 use core::arch::x86_64::CpuidResult;
 use core::ffi::{c_int, c_size_t, c_uint, c_ulong, c_void};
 use core::mem::size_of;
@@ -1079,6 +1080,18 @@ pub trait Handler {
         self.execute(enarxcall::MunmapHost { addr, length })?
     }
 
+    /// Park the current thread
+    #[inline]
+    fn park(&mut self, timeout: Option<&ParkTimeout>) -> Result<()> {
+        self.execute(enarxcall::Park { timeout })?
+    }
+
+    /// Spawn a new thread
+    #[inline]
+    fn spawn(&mut self) -> Result<()> {
+        self.execute(enarxcall::Spawn)?
+    }
+
     /// Within an address range inside the enclave, ask host to set page type to
     /// 'trimmed'. Address and length must be page-aligned. Shim must validate
     /// and acknowledge the changes with ENCLU[EACCEPT], in order for them to
@@ -1086,5 +1099,11 @@ pub trait Handler {
     #[inline]
     fn trim_sgx_pages(&mut self, addr: NonNull<c_void>, length: usize) -> Result<()> {
         self.execute(enarxcall::TrimSgxPages { addr, length })?
+    }
+
+    /// Unpark all parked threads
+    #[inline]
+    fn unpark(&mut self) -> Result<()> {
+        self.execute(enarxcall::UnPark)?
     }
 }
