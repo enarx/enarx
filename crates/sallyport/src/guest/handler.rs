@@ -8,17 +8,17 @@ use crate::item::enarxcall::sgx;
 use crate::item::syscall::sigaction;
 use crate::libc::{
     clockid_t, epoll_event, gid_t, mode_t, off_t, pid_t, pollfd, sigset_t, stack_t, stat, timespec,
-    uid_t, utsname, Ioctl, SYS_accept, SYS_accept4, SYS_arch_prctl, SYS_bind, SYS_brk,
-    SYS_clock_getres, SYS_clock_gettime, SYS_close, SYS_connect, SYS_dup, SYS_dup2, SYS_dup3,
-    SYS_epoll_create1, SYS_epoll_ctl, SYS_epoll_pwait, SYS_epoll_wait, SYS_eventfd2, SYS_exit,
-    SYS_exit_group, SYS_fcntl, SYS_fstat, SYS_futex, SYS_getegid, SYS_geteuid, SYS_getgid,
-    SYS_getpid, SYS_getrandom, SYS_getsockname, SYS_getuid, SYS_ioctl, SYS_listen, SYS_madvise,
-    SYS_mmap, SYS_mprotect, SYS_mremap, SYS_munmap, SYS_nanosleep, SYS_open, SYS_poll, SYS_read,
-    SYS_readlink, SYS_readv, SYS_recvfrom, SYS_rt_sigaction, SYS_rt_sigprocmask, SYS_sendto,
-    SYS_set_tid_address, SYS_setsockopt, SYS_sigaltstack, SYS_socket, SYS_sync, SYS_uname,
-    SYS_write, SYS_writev, EFAULT, EINVAL, ENOSYS, ENOTSUP, FIONBIO, FIONREAD, FUTEX_PRIVATE_FLAG,
-    FUTEX_WAIT, FUTEX_WAIT_BITSET, FUTEX_WAKE, MAP_ANONYMOUS, MAP_PRIVATE, MREMAP_DONTUNMAP,
-    MREMAP_FIXED, MREMAP_MAYMOVE, PROT_EXEC, PROT_READ, PROT_WRITE,
+    uid_t, utsname, CloneFlags, Ioctl, SYS_accept, SYS_accept4, SYS_arch_prctl, SYS_bind, SYS_brk,
+    SYS_clock_getres, SYS_clock_gettime, SYS_clone, SYS_close, SYS_connect, SYS_dup, SYS_dup2,
+    SYS_dup3, SYS_epoll_create1, SYS_epoll_ctl, SYS_epoll_pwait, SYS_epoll_wait, SYS_eventfd2,
+    SYS_exit, SYS_exit_group, SYS_fcntl, SYS_fstat, SYS_futex, SYS_getegid, SYS_geteuid,
+    SYS_getgid, SYS_getpid, SYS_getrandom, SYS_getsockname, SYS_getuid, SYS_ioctl, SYS_listen,
+    SYS_madvise, SYS_mmap, SYS_mprotect, SYS_mremap, SYS_munmap, SYS_nanosleep, SYS_open, SYS_poll,
+    SYS_read, SYS_readlink, SYS_readv, SYS_recvfrom, SYS_rt_sigaction, SYS_rt_sigprocmask,
+    SYS_sendto, SYS_set_tid_address, SYS_setsockopt, SYS_sigaltstack, SYS_socket, SYS_sync,
+    SYS_uname, SYS_write, SYS_writev, EFAULT, EINVAL, ENOSYS, ENOTSUP, FIONBIO, FIONREAD,
+    FUTEX_PRIVATE_FLAG, FUTEX_WAIT, FUTEX_WAIT_BITSET, FUTEX_WAKE, MAP_ANONYMOUS, MAP_PRIVATE,
+    MREMAP_DONTUNMAP, MREMAP_FIXED, MREMAP_MAYMOVE, PROT_EXEC, PROT_READ, PROT_WRITE,
 };
 use crate::{item, Result};
 
@@ -139,6 +139,16 @@ pub trait Handler {
     fn clock_gettime(&mut self, clockid: clockid_t, tp: &mut timespec) -> Result<()> {
         self.execute(syscall::ClockGettime { clockid, tp })?
     }
+
+    /// Executes [`clone`](https://man7.org/linux/man-pages/man2/clone.2.html) syscall akin to [`libc::clone`].
+    fn clone(
+        &mut self,
+        flags: CloneFlags,
+        stack: NonNull<c_void>,
+        ptid: Option<&AtomicU32>,
+        ctid: Option<&AtomicU32>,
+        tls: NonNull<c_void>,
+    ) -> Result<c_int>;
 
     /// Executes [`close`](https://man7.org/linux/man-pages/man2/close.2.html) syscall akin to [`libc::close`].
     #[inline]
@@ -739,6 +749,26 @@ pub trait Handler {
             (SYS_clock_gettime, [clockid, tp, ..]) => {
                 let tp = platform.validate_mut(tp)?;
                 self.clock_gettime(clockid as _, tp).map(|_| [0, 0])
+            }
+            (SYS_clone, [flags, stack, ptid, ctid, tls, ..]) => {
+                let flags = CloneFlags::from_bits(flags as _).ok_or(EINVAL)?;
+                let stack = NonNull::new(stack as _).ok_or(EFAULT)?;
+                let tls = NonNull::new(tls as _).ok_or(EFAULT)?;
+
+                let ptid = if ptid == 0 {
+                    None
+                } else {
+                    platform.validate(ptid).map(Some)?
+                };
+
+                let ctid = if ctid == 0 {
+                    None
+                } else {
+                    platform.validate(ctid).map(Some)?
+                };
+
+                self.clone(flags, stack, ptid, ctid, tls)
+                    .map(|ret| [ret as _, 0])
             }
             (SYS_close, [fd, ..]) => self.close(fd as _).map(|_| [0, 0]),
             (SYS_connect, [sockfd, addr, addrlen, ..]) => {

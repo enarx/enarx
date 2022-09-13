@@ -175,6 +175,30 @@ pub struct utsname {
 }
 
 pub const AF_INET: c_int = 2;
+pub const CLONE_VM: c_uint = 0x00000100;
+pub const CLONE_FS: c_uint = 0x00000200;
+pub const CLONE_FILES: c_uint = 0x00000400;
+pub const CLONE_SIGHAND: c_uint = 0x00000800;
+pub const CLONE_PIDFD: c_uint = 0x00001000;
+pub const CLONE_PTRACE: c_uint = 0x00002000;
+pub const CLONE_VFORK: c_uint = 0x00004000;
+pub const CLONE_PARENT: c_uint = 0x00008000;
+pub const CLONE_THREAD: c_uint = 0x00010000;
+pub const CLONE_NEWNS: c_uint = 0x00020000;
+pub const CLONE_SYSVSEM: c_uint = 0x00040000;
+pub const CLONE_SETTLS: c_uint = 0x00080000;
+pub const CLONE_PARENT_SETTID: c_uint = 0x00100000;
+pub const CLONE_CHILD_CLEARTID: c_uint = 0x00200000;
+pub const CLONE_DETACHED: c_uint = 0x00400000;
+pub const CLONE_UNTRACED: c_uint = 0x00800000;
+pub const CLONE_CHILD_SETTID: c_uint = 0x01000000;
+pub const CLONE_NEWCGROUP: c_uint = 0x02000000;
+pub const CLONE_NEWUTS: c_uint = 0x04000000;
+pub const CLONE_NEWIPC: c_uint = 0x08000000;
+pub const CLONE_NEWUSER: c_uint = 0x10000000;
+pub const CLONE_NEWPID: c_uint = 0x20000000;
+pub const CLONE_NEWNET: c_uint = 0x40000000;
+pub const CLONE_IO: c_uint = 0x80000000;
 pub const EACCES: c_int = 13;
 pub const EAGAIN: c_int = 11;
 pub const EBADF: c_int = 9;
@@ -245,6 +269,7 @@ pub const SYS_bind: c_long = 49;
 pub const SYS_brk: c_long = 12;
 pub const SYS_clock_getres: c_long = 229;
 pub const SYS_clock_gettime: c_long = 228;
+pub const SYS_clone: c_long = 56;
 pub const SYS_close: c_long = 3;
 pub const SYS_connect: c_long = 42;
 pub const SYS_dup: c_long = 32;
@@ -293,3 +318,34 @@ pub const SYS_uname: c_long = 63;
 pub const SYS_write: c_long = 1;
 pub const SYS_writev: c_long = 20;
 pub const TIOCGWINSZ: Ioctl = 0x5413;
+
+bitflags::bitflags! {
+    #[repr(transparent)]
+    #[derive(Default)]
+    pub struct CloneFlags: c_uint {
+        const VM = CLONE_VM;
+        const FS = CLONE_FS;
+        const FILES = CLONE_FILES;
+        const SIGHAND = CLONE_SIGHAND;
+        const PIDFD = CLONE_PIDFD;
+        const PTRACE = CLONE_PTRACE;
+        const VFORK = CLONE_VFORK;
+        const PARENT = CLONE_PARENT;
+        const THREAD = CLONE_THREAD;
+        const NEWNS = CLONE_NEWNS;
+        const SYSVSEM = CLONE_SYSVSEM;
+        const SETTLS = CLONE_SETTLS;
+        const PARENT_SETTID = CLONE_PARENT_SETTID;
+        const CHILD_CLEARTID = CLONE_CHILD_CLEARTID;
+        const DETACHED = CLONE_DETACHED;
+        const UNTRACED = CLONE_UNTRACED;
+        const CHILD_SETTID = CLONE_CHILD_SETTID;
+        const NEWCGROUP = CLONE_NEWCGROUP;
+        const NEWUTS = CLONE_NEWUTS;
+        const NEWIPC = CLONE_NEWIPC;
+        const NEWUSER = CLONE_NEWUSER;
+        const NEWPID = CLONE_NEWPID;
+        const NEWNET = CLONE_NEWNET;
+        const IO = CLONE_IO;
+    }
+}

@@ -17,13 +17,14 @@ use core::ffi::{c_int, c_size_t, c_ulong, c_void};
 use core::ops::{Deref, DerefMut};
 use core::ptr::NonNull;
 use core::slice;
+use core::sync::atomic::AtomicU32;
 
 use sallyport::guest::{self, Handler, Platform, ThreadLocalStorage};
 use sallyport::item::enarxcall::sev::TECH;
 use sallyport::item::syscall;
 use sallyport::libc::{
-    off_t, EAGAIN, EFAULT, EINVAL, EIO, EMSGSIZE, ENOMEM, MAP_ANONYMOUS, MAP_PRIVATE, PROT_EXEC,
-    PROT_WRITE,
+    off_t, CloneFlags, EAGAIN, EFAULT, EINVAL, EIO, EMSGSIZE, ENOMEM, ENOSYS, MAP_ANONYMOUS,
+    MAP_PRIVATE, PROT_EXEC, PROT_WRITE,
 };
 use sallyport::util::ptr::is_aligned_non_null;
 use sallyport::{libc, KVM_SYSCALL_TRIGGER_PORT};
@@ -420,6 +421,17 @@ impl Handler for HostCall<'_> {
                 Ok(NonNull::new(addr_u64 as _).unwrap())
             }
         }
+    }
+
+    fn clone(
+        &mut self,
+        _flags: CloneFlags,
+        _stack: NonNull<c_void>,
+        _ptid: Option<&AtomicU32>,
+        _ctid: Option<&AtomicU32>,
+        _tls: NonNull<c_void>,
+    ) -> sallyport::Result<c_int> {
+        Err(ENOSYS)
     }
 
     fn madvise(

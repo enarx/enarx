@@ -38,6 +38,7 @@ use core::fmt::Write;
 use core::mem::size_of;
 use core::ptr::read_unaligned;
 use core::ptr::NonNull;
+use core::sync::atomic::AtomicU32;
 
 use mmledger::Access;
 use primordial::{Address, Offset, Page};
@@ -46,8 +47,8 @@ use sallyport::guest::{self, Platform, ThreadLocalStorage};
 use sallyport::item::enarxcall::sgx::{Report, ReportData, TargetInfo, TECH};
 use sallyport::item::enarxcall::{SYS_GETATT, SYS_GETKEY};
 use sallyport::libc::{
-    off_t, EACCES, EINVAL, EIO, EMSGSIZE, ENOMEM, ENOSYS, ENOTSUP, MAP_ANONYMOUS, MAP_PRIVATE,
-    PROT_EXEC, PROT_READ, PROT_WRITE, STDERR_FILENO,
+    off_t, CloneFlags, EACCES, EINVAL, EIO, EMSGSIZE, ENOMEM, ENOSYS, ENOTSUP, MAP_ANONYMOUS,
+    MAP_PRIVATE, PROT_EXEC, PROT_READ, PROT_WRITE, STDERR_FILENO,
 };
 use sgx::page::{Class, Flags};
 use sgx::ssa::StateSaveArea;
@@ -286,6 +287,17 @@ impl guest::Handler for Handler<'_> {
         }
 
         Ok(NonNull::new(addr.raw() as *mut _).unwrap())
+    }
+
+    fn clone(
+        &mut self,
+        _flags: CloneFlags,
+        _stack: NonNull<c_void>,
+        _ptid: Option<&AtomicU32>,
+        _ctid: Option<&AtomicU32>,
+        _tls: NonNull<c_void>,
+    ) -> sallyport::Result<c_int> {
+        Err(ENOSYS)
     }
 
     fn madvise(

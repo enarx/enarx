@@ -2993,6 +2993,7 @@ checksum = "4501abdff3ae82a1c1b477a17252eb69cee9e66eb915c1abaa4f44d873df9f09"
 name = "sallyport"
 version = "0.6.4"
 dependencies = [
+ "bitflags",
  "gdbstub 0.6.2",
  "goblin",
  "libc",

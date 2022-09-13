@@ -12,11 +12,12 @@ use libc::{EINVAL, ENOSYS};
 use std::io::Write;
 use std::net::{TcpStream, ToSocketAddrs, UdpSocket};
 use std::ptr::NonNull;
+use std::sync::atomic::AtomicU32;
 use std::thread;
 
 use sallyport::guest::{Handler, Platform, ThreadLocalStorage};
 use sallyport::item::Block;
-use sallyport::libc::off_t;
+use sallyport::libc::{off_t, CloneFlags};
 use sallyport::util::ptr;
 use sallyport::{host, Result};
 
@@ -88,6 +89,17 @@ impl<const N: usize> Handler for TestHandler<N> {
         _platform: &impl Platform,
         _addr: Option<NonNull<c_void>>,
     ) -> Result<NonNull<c_void>> {
+        Err(ENOSYS)
+    }
+
+    fn clone(
+        &mut self,
+        _flags: CloneFlags,
+        _stack: NonNull<c_void>,
+        _ptid: Option<&AtomicU32>,
+        _ctid: Option<&AtomicU32>,
+        _tls: NonNull<c_void>,
+    ) -> Result<c_int> {
         Err(ENOSYS)
     }
 
