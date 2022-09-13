@@ -78,7 +78,7 @@ pub trait Handler {
     #[inline]
     fn attacked(&mut self) -> ! {
         loop {
-            let _ = self.exit(1);
+            let _ = self.exit_group(1);
         }
     }
 
