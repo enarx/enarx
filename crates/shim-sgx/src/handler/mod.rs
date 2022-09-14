@@ -29,7 +29,7 @@ pub(crate) mod usermem;
 
 use crate::handler::usermem::UserMemScope;
 use crate::heap::Heap;
-use crate::thread::THREAD_SSAS;
+use crate::thread::{THREAD_CLEAR_TID, THREAD_SSAS};
 use crate::{shim_address, DEBUG, ENARX_EXEC_END, ENARX_EXEC_START, ENCL_SIZE};
 
 use core::arch::asm;
@@ -258,6 +258,17 @@ impl guest::Handler for Handler<'_> {
         let mut heap = HEAP.write();
 
         self.munmap_unlocked(&mut heap, addr, length)
+    }
+
+    fn set_tid_address(&mut self, tidptr: &mut c_int) -> sallyport::Result<pid_t> {
+        let tid = self.get_tid();
+        debugln!(
+            self,
+            "[{tid}] set_tid_address at {tidptr:p}",
+            tidptr = tidptr as *const _
+        );
+        THREAD_CLEAR_TID[tid as usize].store(tidptr as *const _ as usize, Ordering::Relaxed);
+        Ok(tid)
     }
 }
 
