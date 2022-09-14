@@ -29,6 +29,7 @@ pub(crate) mod usermem;
 
 use crate::handler::usermem::UserMemScope;
 use crate::heap::Heap;
+use crate::thread::THREAD_SSAS;
 use crate::{shim_address, DEBUG, ENARX_EXEC_END, ENARX_EXEC_START, ENCL_SIZE};
 
 use core::arch::asm;
@@ -38,7 +39,7 @@ use core::fmt::Write;
 use core::mem::size_of;
 use core::ptr::read_unaligned;
 use core::ptr::NonNull;
-use core::sync::atomic::AtomicU32;
+use core::sync::atomic::{AtomicU32, Ordering};
 
 use mmledger::Access;
 use primordial::{Address, Offset, Page};
@@ -47,8 +48,8 @@ use sallyport::guest::{self, Platform, ThreadLocalStorage};
 use sallyport::item::enarxcall::sgx::{Report, ReportData, TargetInfo, TECH};
 use sallyport::item::enarxcall::{SYS_GETATT, SYS_GETKEY};
 use sallyport::libc::{
-    off_t, CloneFlags, EACCES, EINVAL, EIO, EMSGSIZE, ENOMEM, ENOSYS, ENOTSUP, MAP_ANONYMOUS,
-    MAP_PRIVATE, PROT_EXEC, PROT_READ, PROT_WRITE, STDERR_FILENO,
+    off_t, pid_t, CloneFlags, EACCES, EINVAL, EIO, EMSGSIZE, ENOMEM, ENOSYS, ENOTSUP,
+    MAP_ANONYMOUS, MAP_PRIVATE, PROT_EXEC, PROT_READ, PROT_WRITE, STDERR_FILENO,
 };
 use sgx::page::{Class, Flags};
 use sgx::ssa::StateSaveArea;
@@ -408,11 +409,21 @@ impl<'a> Handler<'a> {
         Ok([len, TECH])
     }
 
-    fn handle_syscall(&mut self) {
-        debug!(self, "syscall {} ", self.ssa.gpr.rax as usize);
+    fn get_tid(&mut self) -> pid_t {
+        for (i, val) in THREAD_SSAS.iter().enumerate() {
+            if val.load(Ordering::Relaxed) == self.ssa as *const _ as usize {
+                return i as pid_t;
+            }
+        }
+        panic!("get_tid: SSA not found");
+    }
 
+    fn handle_syscall(&mut self) {
         let orig_rdx = self.ssa.gpr.rdx;
         let nr = self.ssa.gpr.rax as usize;
+
+        let tid = self.get_tid();
+        debugln!(self, "[{tid}] syscall {nr} …");
 
         let usermemscope = UserMemScope;
 
@@ -472,7 +483,7 @@ impl<'a> Handler<'a> {
 
         self.ssa.gpr.rip += 2;
 
-        debug!(self, "= {}\n", self.ssa.gpr.rax as isize);
+        debugln!(self, "[{tid}] syscall {nr} = {}", self.ssa.gpr.rax as isize);
     }
 
     fn handle_cpuid(&mut self) {
