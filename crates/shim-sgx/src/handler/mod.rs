@@ -43,8 +43,7 @@ use core::sync::atomic::{AtomicU32, Ordering};
 
 use mmledger::Access;
 use primordial::{Address, Offset, Page};
-use sallyport::guest::Handler as _;
-use sallyport::guest::{self, Platform, ThreadLocalStorage};
+use sallyport::guest::{self, syscall, Handler as _, Platform, ThreadLocalStorage};
 use sallyport::item::enarxcall::sgx::{Report, ReportData, TargetInfo, TECH};
 use sallyport::item::enarxcall::{SYS_GETATT, SYS_GETKEY};
 use sallyport::libc::{
@@ -172,6 +171,22 @@ impl guest::Handler for Handler<'_> {
         _tls: NonNull<c_void>,
     ) -> sallyport::Result<c_int> {
         Err(ENOSYS)
+    }
+
+    fn exit(&mut self, status: c_int) -> sallyport::Result<()> {
+        let tid = self.get_tid();
+        let addr = THREAD_CLEAR_TID[tid as usize].swap(0, Ordering::Relaxed) as *mut AtomicU32;
+        if !addr.is_null() {
+            debugln!(self, "[{tid}] clear TID at {addr:p}");
+            unsafe { (*addr).store(0, Ordering::Relaxed) };
+            let _ = self.unpark();
+        } else {
+            debugln!(self, "[{tid}] no TID to clear");
+        }
+        THREAD_SSAS[tid as usize].store(0, Ordering::Relaxed);
+        debugln!(self, "[{tid}] exiting with status {status}");
+        let _ = self.execute(syscall::Exit { status });
+        self.attacked()
     }
 
     fn madvise(
