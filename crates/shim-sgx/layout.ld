@@ -11,6 +11,14 @@ PHDRS {
     tcs0 PT_LOAD FLAGS(1 << 20); /* sallyport::elf::pf::sgx::TCS */
     ssa0 PT_LOAD;
 
+    stk1 PT_LOAD;
+    tcs1 PT_LOAD FLAGS(1 << 20); /* sallyport::elf::pf::sgx::TCS */
+    ssa1 PT_LOAD;
+
+    stk2 PT_LOAD;
+    tcs2 PT_LOAD FLAGS(1 << 20); /* sallyport::elf::pf::sgx::TCS */
+    ssa2 PT_LOAD;
+
     exec 0x63400000 FLAGS(0); /* sallyport::elf::pt::EXEC */
 }
 
@@ -60,6 +68,30 @@ SECTIONS {
         . = ALIGN(4K);
     } :tcs0 =0
     .enarx.ssa0 (NOLOAD) : { . += 4K * 3; } :ssa0 =0
+
+    . += 4K;                /* Guard Page */
+    .enarx.stk1 (NOLOAD) : { . += 2M - 4K * 5; } :stk1 =0
+    .enarx.tcs1 : {
+        . += 16;
+        QUAD(ADDR(.enarx.ssa1))   /* OSSA */
+        LONG(0)                   /* CSSA */
+        LONG(3)                   /* NSSA */
+        QUAD(_start)              /* OENTRY */
+        . = ALIGN(4K);
+    } :tcs1 =0
+    .enarx.ssa1 (NOLOAD) : { . += 4K * 3; } :ssa1 =0
+
+    . += 4K;                /* Guard Page */
+    .enarx.stk2 (NOLOAD) : { . += 2M - 4K * 5; } :stk2 =0
+    .enarx.tcs2 : {
+        . += 16;
+        QUAD(ADDR(.enarx.ssa2))   /* OSSA */
+        LONG(0)                   /* CSSA */
+        LONG(3)                   /* NSSA */
+        QUAD(_start)              /* OENTRY */
+        . = ALIGN(4K);
+    } :tcs2 =0
+    .enarx.ssa2 (NOLOAD) : { . += 4K * 3; } :ssa2 =0
 
     /* EXEC */
     . = ALIGN(1M);
