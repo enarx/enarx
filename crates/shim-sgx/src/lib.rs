@@ -17,6 +17,7 @@
 pub mod entry;
 pub mod handler;
 pub mod heap;
+pub mod thread;
 
 use sgx::parameters::{Attributes, Features, MiscSelect, Xfrm};
 
