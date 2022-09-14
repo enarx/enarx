@@ -81,133 +81,6 @@ pub struct Handler<'a> {
     ssa: &'a mut StateSaveArea,
 }
 
-impl<'a> Handler<'a> {
-    /// Acknowledge pages committed by the host with ENCLS[EAUG].
-    fn mmap_guest(&mut self, addr: Address<usize, Page>, length: Offset<usize, Page>, prot: c_int) {
-        let flags = Flags::from_bits_truncate(prot as u8);
-
-        let zero_virt_addr = VirtAddr::new(ZERO.as_ptr() as u64);
-        // # Safety
-        //
-        // The address must be page aligned.
-        let zero_page_addr = unsafe { PageAddr::from_start_address_unchecked(zero_virt_addr) };
-
-        for i in 0..length.items() {
-            let virt_addr = VirtAddr::new((addr.raw() + i * Page::SIZE) as u64);
-            // # Safety
-            //
-            // The address must be page aligned.
-            let page_addr = unsafe { PageAddr::from_start_address_unchecked(virt_addr) };
-
-            Class::Regular
-                .info(flags)
-                .accept_copy(page_addr, zero_page_addr)
-                .unwrap_or_else(|_| self.attacked());
-        }
-    }
-
-    fn mprotect_unlocked(
-        &mut self,
-        heap: &mut Heap,
-        addr_in: NonNull<c_void>,
-        length_in: c_size_t,
-        prot: c_int,
-    ) -> sallyport::Result<()> {
-        let addr = addr_in.as_ptr() as usize;
-        // TODO: Simplify:
-        let pages = ((length_in + Page::SIZE - 1) & !(Page::SIZE - 1)) / Page::SIZE;
-
-        if addr & 0xfff != 0 || pages == 0 {
-            return Err(EINVAL);
-        }
-
-        if !is_prot_allowed(prot) {
-            return Err(EACCES);
-        }
-
-        let addr = Address::new(addr);
-        let length = Offset::from_items(pages);
-
-        if heap.contains(addr, length) == None {
-            return Err(ENOMEM);
-        }
-
-        self.mprotect_host(addr_in, length.bytes(), prot)?;
-
-        for i in 0..pages {
-            let virt_addr = VirtAddr::new((addr.raw() + i * Page::SIZE) as u64);
-            // Safety: The address is guaranteed to be page aligned, because
-            // `addr` was checked to be page aligned and only a multiple of
-            // pages was added.
-            let page_addr = unsafe { PageAddr::from_start_address_unchecked(virt_addr) };
-
-            // TODO: https://github.com/enarx/enarx/issues/1892
-            Class::Regular
-                .info(Flags::READ | Flags::RESTRICTED)
-                .accept(page_addr)
-                .unwrap_or_else(|_| self.attacked());
-
-            Class::Regular
-                .info(Flags::from_bits_truncate(prot as u8))
-                .extend(page_addr);
-        }
-
-        let access = Access::from_bits_truncate(prot as usize);
-        heap.mmap(Some(addr), length, access);
-
-        Ok(())
-    }
-
-    fn munmap_unlocked(
-        &mut self,
-        heap: &mut Heap,
-        addr_in: NonNull<c_void>,
-        length_in: c_size_t,
-    ) -> sallyport::Result<()> {
-        let addr = addr_in.as_ptr() as usize;
-        let pages = ((length_in + Page::SIZE - 1) & !(Page::SIZE - 1)) / Page::SIZE;
-
-        if addr & 0xfff != 0 || pages == 0 {
-            return Err(EINVAL);
-        }
-
-        let addr = Address::new(addr);
-        let length = Offset::from_items(pages);
-
-        if heap.contains(addr, length) == None {
-            return Ok(());
-        }
-
-        // Process the ledger first, before doing anything else, because it can
-        // legitly fail when running out of resources.
-        heap.munmap(addr, length).map_err(|_| ENOMEM)?;
-
-        // On the other hand, failing in any of these operations is expected to
-        // crash the enclave because it is due either to a software bug, or a
-        // malicious host.
-        self.trim_sgx_pages(addr_in, length.bytes())
-            .unwrap_or_else(|_| self.attacked());
-
-        for i in 0..pages {
-            let virt_addr = VirtAddr::new((addr.raw() + i * Page::SIZE) as u64);
-            // # Safety
-            //
-            // The address must be page aligned.
-            let page_addr = unsafe { PageAddr::from_start_address_unchecked(virt_addr) };
-
-            Class::Trimmed
-                .info(Flags::MODIFIED)
-                .accept(page_addr)
-                .unwrap_or_else(|_| self.attacked());
-        }
-
-        self.munmap_host(addr_in, length.bytes())
-            .unwrap_or_else(|_| self.attacked());
-
-        Ok(())
-    }
-}
-
 impl<'a> Write for Handler<'a> {
     fn write_str(&mut self, s: &str) -> core::fmt::Result {
         let buf = s.as_bytes();
@@ -298,18 +171,6 @@ impl guest::Handler for Handler<'_> {
         Ok(())
     }
 
-    fn mprotect(
-        &mut self,
-        _platform: &impl Platform,
-        addr: NonNull<c_void>,
-        len: c_size_t,
-        prot: c_int,
-    ) -> sallyport::Result<()> {
-        let mut heap = HEAP.write();
-
-        self.mprotect_unlocked(&mut heap, addr, len, prot)
-    }
-
     fn mmap(
         &mut self,
         _platform: &impl Platform,
@@ -361,6 +222,18 @@ impl guest::Handler for Handler<'_> {
         } else {
             Err(ENOMEM)
         }
+    }
+
+    fn mprotect(
+        &mut self,
+        _platform: &impl Platform,
+        addr: NonNull<c_void>,
+        len: c_size_t,
+        prot: c_int,
+    ) -> sallyport::Result<()> {
+        let mut heap = HEAP.write();
+
+        self.mprotect_unlocked(&mut heap, addr, len, prot)
     }
 
     fn munmap(
@@ -627,6 +500,131 @@ impl<'a> Handler<'a> {
         );
 
         self.ssa.gpr.rip += 2;
+    }
+
+    /// Acknowledge pages committed by the host with ENCLS[EAUG].
+    fn mmap_guest(&mut self, addr: Address<usize, Page>, length: Offset<usize, Page>, prot: c_int) {
+        let flags = Flags::from_bits_truncate(prot as u8);
+
+        let zero_virt_addr = VirtAddr::new(ZERO.as_ptr() as u64);
+        // # Safety
+        //
+        // The address must be page aligned.
+        let zero_page_addr = unsafe { PageAddr::from_start_address_unchecked(zero_virt_addr) };
+
+        for i in 0..length.items() {
+            let virt_addr = VirtAddr::new((addr.raw() + i * Page::SIZE) as u64);
+            // # Safety
+            //
+            // The address must be page aligned.
+            let page_addr = unsafe { PageAddr::from_start_address_unchecked(virt_addr) };
+
+            Class::Regular
+                .info(flags)
+                .accept_copy(page_addr, zero_page_addr)
+                .unwrap_or_else(|_| self.attacked());
+        }
+    }
+
+    fn mprotect_unlocked(
+        &mut self,
+        heap: &mut Heap,
+        addr_in: NonNull<c_void>,
+        length_in: c_size_t,
+        prot: c_int,
+    ) -> sallyport::Result<()> {
+        let addr = addr_in.as_ptr() as usize;
+        // TODO: Simplify:
+        let pages = ((length_in + Page::SIZE - 1) & !(Page::SIZE - 1)) / Page::SIZE;
+
+        if addr & 0xfff != 0 || pages == 0 {
+            return Err(EINVAL);
+        }
+
+        if !is_prot_allowed(prot) {
+            return Err(EACCES);
+        }
+
+        let addr = Address::new(addr);
+        let length = Offset::from_items(pages);
+
+        if heap.contains(addr, length) == None {
+            return Err(ENOMEM);
+        }
+
+        self.mprotect_host(addr_in, length.bytes(), prot)?;
+
+        for i in 0..pages {
+            let virt_addr = VirtAddr::new((addr.raw() + i * Page::SIZE) as u64);
+            // Safety: The address is guaranteed to be page aligned, because
+            // `addr` was checked to be page aligned and only a multiple of
+            // pages was added.
+            let page_addr = unsafe { PageAddr::from_start_address_unchecked(virt_addr) };
+
+            // TODO: https://github.com/enarx/enarx/issues/1892
+            Class::Regular
+                .info(Flags::READ | Flags::RESTRICTED)
+                .accept(page_addr)
+                .unwrap_or_else(|_| self.attacked());
+
+            Class::Regular
+                .info(Flags::from_bits_truncate(prot as u8))
+                .extend(page_addr);
+        }
+
+        let access = Access::from_bits_truncate(prot as usize);
+        heap.mmap(Some(addr), length, access);
+
+        Ok(())
+    }
+
+    fn munmap_unlocked(
+        &mut self,
+        heap: &mut Heap,
+        addr_in: NonNull<c_void>,
+        length_in: c_size_t,
+    ) -> sallyport::Result<()> {
+        let addr = addr_in.as_ptr() as usize;
+        let pages = ((length_in + Page::SIZE - 1) & !(Page::SIZE - 1)) / Page::SIZE;
+
+        if addr & 0xfff != 0 || pages == 0 {
+            return Err(EINVAL);
+        }
+
+        let addr = Address::new(addr);
+        let length = Offset::from_items(pages);
+
+        if heap.contains(addr, length) == None {
+            return Ok(());
+        }
+
+        // Process the ledger first, before doing anything else, because it can
+        // legitly fail when running out of resources.
+        heap.munmap(addr, length).map_err(|_| ENOMEM)?;
+
+        // On the other hand, failing in any of these operations is expected to
+        // crash the enclave because it is due either to a software bug, or a
+        // malicious host.
+        self.trim_sgx_pages(addr_in, length.bytes())
+            .unwrap_or_else(|_| self.attacked());
+
+        for i in 0..pages {
+            let virt_addr = VirtAddr::new((addr.raw() + i * Page::SIZE) as u64);
+            // # Safety
+            //
+            // The address must be page aligned.
+            let page_addr = unsafe { PageAddr::from_start_address_unchecked(virt_addr) };
+
+            Class::Trimmed
+                .info(Flags::MODIFIED)
+                .accept(page_addr)
+                .unwrap_or_else(|_| self.attacked());
+        }
+
+        self.munmap_host(addr_in, length.bytes())
+            .unwrap_or_else(|_| self.attacked());
+
+        Ok(())
     }
 
     /// Print a stack trace using the SSA registers.
