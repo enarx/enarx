@@ -29,9 +29,10 @@ pub(crate) mod usermem;
 
 use crate::handler::usermem::UserMemScope;
 use crate::heap::Heap;
-use crate::thread::{THREAD_CLEAR_TID, THREAD_SSAS};
+use crate::thread::{
+    NewThread, MAX_THREADS, NEW_THREAD_QUEUE, NUM_THREADS, THREAD_CLEAR_TID, THREAD_SSAS,
+};
 use crate::{shim_address, DEBUG, ENARX_EXEC_END, ENARX_EXEC_START, ENCL_SIZE};
-
 use core::arch::asm;
 use core::arch::x86_64::CpuidResult;
 use core::ffi::{c_int, c_size_t, c_ulong, c_void};
@@ -47,7 +48,7 @@ use sallyport::guest::{self, syscall, Handler as _, Platform, ThreadLocalStorage
 use sallyport::item::enarxcall::sgx::{Report, ReportData, TargetInfo, TECH};
 use sallyport::item::enarxcall::{SYS_GETATT, SYS_GETKEY};
 use sallyport::libc::{
-    off_t, pid_t, CloneFlags, EACCES, EINVAL, EIO, EMSGSIZE, ENOMEM, ENOSYS, ENOTSUP,
+    off_t, pid_t, CloneFlags, EACCES, EAGAIN, EINVAL, EIO, EMSGSIZE, ENOMEM, ENOSYS, ENOTSUP,
     MAP_ANONYMOUS, MAP_PRIVATE, PROT_EXEC, PROT_READ, PROT_WRITE, STDERR_FILENO,
 };
 use sgx::page::{Class, Flags};
@@ -164,13 +165,64 @@ impl guest::Handler for Handler<'_> {
 
     fn clone(
         &mut self,
-        _flags: CloneFlags,
-        _stack: NonNull<c_void>,
-        _ptid: Option<&AtomicU32>,
-        _ctid: Option<&AtomicU32>,
-        _tls: NonNull<c_void>,
+        flags: CloneFlags,
+        stack: NonNull<c_void>,
+        ptid: Option<&AtomicU32>,
+        ctid: Option<&AtomicU32>,
+        tls: NonNull<c_void>,
     ) -> sallyport::Result<c_int> {
-        Err(ENOSYS)
+        if flags
+            != CloneFlags::VM
+                | CloneFlags::FS
+                | CloneFlags::FILES
+                | CloneFlags::SIGHAND
+                | CloneFlags::THREAD
+                | CloneFlags::SYSVSEM
+                | CloneFlags::SETTLS
+                | CloneFlags::PARENT_SETTID
+                | CloneFlags::CHILD_CLEARTID
+                | CloneFlags::DETACHED
+        {
+            return Err(ENOTSUP);
+        }
+
+        let ctid = ctid.ok_or(EINVAL)?;
+        let ptid = ptid.ok_or(EINVAL)?;
+
+        debugln!(
+            self,
+            "clone({flags:?}, stack = {stack:p}, ptid = {ptid:#?}, ctid = {ctid:#?}, tls = {tls:p})",
+            stack = stack.as_ptr(),
+            tls = tls.as_ptr()
+        );
+
+        let child_id = NUM_THREADS.fetch_add(1, Ordering::SeqCst);
+
+        // FIXME: remove, when allocating threads dynamically
+        // https://github.com/enarx/enarx/issues/2200
+        if (child_id as usize) >= MAX_THREADS {
+            return Err(EAGAIN);
+        }
+
+        let mut regs = self.ssa.gpr;
+        regs.rsp = stack.as_ptr() as _;
+        regs.fsbase = tls.as_ptr() as _;
+        debugln!(self, "TO SPAWN {regs:#x?}");
+
+        NEW_THREAD_QUEUE
+            .write()
+            .push(NewThread::Thread((child_id as _, regs)))
+            .unwrap();
+
+        THREAD_CLEAR_TID[child_id as usize].store(ctid as *const _ as _, Ordering::Relaxed);
+
+        ptid.store(child_id as _, Ordering::Relaxed);
+
+        let ret = self.spawn();
+        debugln!(self, "spawn() = {ret:#?}");
+        ret?;
+
+        Ok(child_id)
     }
 
     fn exit(&mut self, status: c_int) -> sallyport::Result<()> {
