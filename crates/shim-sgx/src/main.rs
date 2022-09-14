@@ -16,7 +16,9 @@
 extern crate rcrt1;
 
 use core::arch::asm;
+use core::sync::atomic::Ordering;
 
+use enarx_shim_sgx::thread::{LoadRegsExt, NewThread, NEW_THREAD_QUEUE, THREAD_SSAS};
 use enarx_shim_sgx::{
     entry, handler, shim_address, ATTR, BLOCK_SIZE, ENARX_EXEC_START, ENARX_SHIM_ADDRESS,
     ENCL_SIZE, ENCL_SIZE_BITS, MISC,
@@ -272,7 +274,24 @@ unsafe extern "C" fn main(
     }
 
     match cssa {
-        0 => entry::entry(&ENARX_EXEC_START as *const u8 as _),
+        0 => {
+            let thread = NEW_THREAD_QUEUE.write().pop().unwrap();
+
+            match thread {
+                NewThread::Main => {
+                    // register the main thread
+                    THREAD_SSAS[0].store(ssas as *const _ as usize, Ordering::Relaxed);
+                    // run the executable payload
+                    entry::entry(&ENARX_EXEC_START as *const u8 as _)
+                }
+                NewThread::Thread((tid, regs)) => {
+                    // register the thread
+                    THREAD_SSAS[tid as usize].store(ssas as *const _ as usize, Ordering::Relaxed);
+                    // load the registers
+                    regs.load_registers()
+                }
+            }
+        }
         1 => handler::Handler::handle(&mut ssas[0], block.as_mut_slice()),
         n => handler::Handler::finish(&mut ssas[n - 1]),
     }
