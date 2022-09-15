@@ -31,7 +31,7 @@ use vdso::Symbol;
 pub struct Thread {
     keep: Arc<super::Keep>,
     vdso: &'static Symbol,
-    tcs: *const super::Tcs,
+    tcs: super::Tcs,
     block: Vec<usize>,
     cssa: usize,
     how: usize,

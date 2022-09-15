@@ -20,12 +20,12 @@ use std::sync::{Arc, RwLock};
 
 pub const AESM_SOCKET: &str = "/var/run/aesmd/aesm.socket";
 
-struct Tcs;
+pub type Tcs = usize;
 
 struct Keep {
     sallyport_block_size: u64,
     mem: Map<perms::Unknown>,
-    tcs: RwLock<Vec<*const Tcs>>,
+    tcs: RwLock<Vec<Tcs>>,
     enclave: File,
 }
 
