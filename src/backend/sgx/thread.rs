@@ -3,9 +3,10 @@
 use super::attestation::{get_attestation_key_id, get_key_size, get_quote, get_target_info};
 #[cfg(feature = "gdb")]
 use crate::backend::execute_gdb;
+use crate::backend::parking::THREAD_PARK;
 use crate::backend::sgx::attestation::get_quote_size;
 use crate::backend::sgx::ioctls::*;
-use crate::backend::Command;
+use crate::backend::{Command, Keep};
 
 use std::arch::asm;
 use std::arch::x86_64::CpuidResult;
@@ -17,7 +18,7 @@ use std::net::TcpStream;
 use std::sync::Arc;
 
 use anyhow::{Context, Result};
-use libc::{EINVAL, PROT_READ};
+use libc::{timespec, EAGAIN, EINVAL, PROT_READ};
 use mmarinus::{perms, Map, Shared};
 use sallyport::host::{deref_aligned, deref_slice};
 use sallyport::item;
@@ -25,7 +26,7 @@ use sallyport::item::enarxcall::sgx::{Report, TargetInfo};
 use sallyport::item::{Block, Item};
 use sgx::enclu::{EENTER, EEXIT, ERESUME};
 use sgx::ssa::Vector;
-use tracing::trace;
+use tracing::{error, trace, trace_span};
 use vdso::Symbol;
 
 pub struct Thread {
@@ -84,6 +85,71 @@ fn sgx_enarxcall<'a>(
     keep: Arc<super::Keep>,
 ) -> Result<Option<Item<'a>>> {
     match enarxcall {
+        item::Enarxcall {
+            num: item::enarxcall::Number::Spawn,
+            ret,
+            ..
+        } => {
+            *ret = if let Some(mut thread) = keep.spawn()? {
+                std::thread::spawn(move || {
+                    trace_span!(
+                        "Thread",
+                        id = ?std::thread::current().id()
+                    )
+                    .in_scope(|| loop {
+                        match thread.enter(&None)? {
+                            Command::Continue => (),
+                            Command::Exit(exit_code) => {
+                                drop(thread);
+                                return Ok::<i32, anyhow::Error>(exit_code);
+                            }
+                        }
+                    })
+                });
+                0
+            } else {
+                error!("no more SGX threads available");
+                -EAGAIN as usize
+            };
+
+            Ok(None)
+        }
+        item::Enarxcall {
+            num: item::enarxcall::Number::Park,
+            argv: [val, timeout, ..],
+            ret,
+            ..
+        } => {
+            let timeout = if *timeout != sallyport::NULL {
+                Some(unsafe {
+                    // Safety: `deref_aligned` gives us a pointer to an aligned `timespec` struct.
+                    // We also know, that the resulting pointer is inside the allocated sallyport block, where `data`
+                    // is a subslice of.
+                    (*deref_aligned::<MaybeUninit<timespec>>(data, *timeout, 1)
+                        .map_err(io::Error::from_raw_os_error)
+                        .context("sgx_enarxcall deref")?)
+                    .assume_init()
+                })
+            } else {
+                None
+            };
+
+            *ret = THREAD_PARK
+                .park(*val as _, timeout.as_ref())
+                .map(|v| v as usize)
+                .unwrap_or_else(|e| -e as usize);
+
+            Ok(None)
+        }
+        item::Enarxcall {
+            num: item::enarxcall::Number::UnPark,
+            ret,
+            ..
+        } => {
+            THREAD_PARK.unpark();
+            *ret = 0;
+            Ok(None)
+        }
         item::Enarxcall {
             num: item::enarxcall::Number::Cpuid,
             argv: [leaf, subleaf, cpuid_offset, ..],
