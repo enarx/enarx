@@ -22,10 +22,10 @@ use mmarinus::{perms, Map, Shared};
 use sallyport::host::{deref_aligned, deref_slice};
 use sallyport::item;
 use sallyport::item::enarxcall::sgx::{Report, TargetInfo};
-use sallyport::item::enarxcall::Payload;
 use sallyport::item::{Block, Item};
 use sgx::enclu::{EENTER, EEXIT, ERESUME};
 use sgx::ssa::Vector;
+use tracing::trace;
 use vdso::Symbol;
 
 pub struct Thread {
@@ -75,7 +75,7 @@ impl super::super::Keep for super::Keep {
 }
 
 fn sgx_enarxcall<'a>(
-    enarxcall: &'a mut Payload,
+    enarxcall: &'a mut item::Enarxcall,
     data: &'a mut [u8],
     keep: Arc<super::Keep>,
 ) -> Result<Option<Item<'a>>> {
@@ -383,15 +383,30 @@ impl super::super::Thread for Thread {
                             .context("sallyport::host::execute")?;
                         }
 
-                        // Catch exit and exit_group for a clean shutdown
-                        Item::Syscall(syscall, ..)
-                            if (syscall.num == libc::SYS_exit as usize
-                                || syscall.num == libc::SYS_exit_group as usize) =>
-                        {
-                            if cfg!(feature = "dbg") {
-                                dbg!(&syscall);
-                            }
-                            return Ok(Command::Exit(syscall.argv[0] as _));
+                        // Catch exit for a clean shutdown
+                        Item::Syscall(
+                            item::Syscall {
+                                num,
+                                argv: [code, ..],
+                                ..
+                            },
+                            ..,
+                        ) if (*num == libc::SYS_exit as usize) => {
+                            trace!("exit({code})");
+                            return Ok(Command::Exit(*code as _));
+                        }
+
+                        // Catch exit_group for a clean shutdown
+                        Item::Syscall(
+                            item::Syscall {
+                                num,
+                                argv: [code, ..],
+                                ..
+                            },
+                            ..,
+                        ) if (*num == libc::SYS_exit_group as usize) => {
+                            trace!("exit_group({code})");
+                            std::process::exit(*code as _);
                         }
 
                         Item::Syscall(ref _syscall, ..) => {
