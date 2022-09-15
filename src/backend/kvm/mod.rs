@@ -24,7 +24,7 @@ pub mod data;
 pub mod mem;
 pub mod thread;
 
-pub trait KeepPersonality {
+pub trait KeepPersonality: Send + Sync {
     fn map(_vm_fd: &mut VmFd, _region: &Region) -> std::io::Result<()> {
         Ok(())
     }

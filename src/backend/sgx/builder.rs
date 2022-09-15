@@ -25,7 +25,7 @@ pub struct Builder {
     hash: Hasher<S256Digest>,
     mmap: Map<perms::Unknown>,
     perm: Vec<(*const (), usize, SecInfo)>,
-    tcsp: Vec<*const super::Tcs>,
+    tcsp: Vec<super::Tcs>,
 }
 
 impl TryFrom<super::config::Config> for Builder {
@@ -119,7 +119,7 @@ impl super::super::Mapper for Builder {
         // Keep track of TCS pages.
         if with.0.class() == Class::Tcs {
             for chunk in pages.chunks(Page::SIZE) {
-                self.tcsp.push(addr as *const super::Tcs);
+                self.tcsp.push(addr);
                 addr += chunk.len();
             }
         }

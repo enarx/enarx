@@ -207,7 +207,7 @@ pub trait Keep {
     fn spawn(self: Arc<Self>) -> Result<Option<Box<dyn Thread>>>;
 }
 
-pub trait Thread {
+pub trait Thread: Send {
     /// Enters the keep.
     fn enter(&mut self, gdblisten: &Option<String>) -> Result<Command>;
 }
