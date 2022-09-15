@@ -41,7 +41,11 @@ pub struct Thread {
 
 impl Drop for Thread {
     fn drop(&mut self) {
-        self.keep.tcs.write().unwrap().push(self.tcs)
+        trace!("Dropping thread");
+        // We can't simply enqueue the dropped thread into the array of available
+        // threads, because the old state is not cleared yet.
+        // FIXME: https://github.com/enarx/enarx/issues/2200
+        // self.keep.tcs.write().unwrap().push(self.tcs)
     }
 }
 
