@@ -15,7 +15,7 @@ use sgx::crypto::{rcrypto::*, *};
 use sgx::page::{Class, Flags, SecInfo};
 use sgx::signature::{Author, Hasher, Signature};
 
-use log::trace;
+use tracing::trace;
 
 use crate::backend::ByteSized;
 

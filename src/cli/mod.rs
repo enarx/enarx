@@ -21,7 +21,8 @@ use std::str::FromStr;
 
 use anyhow::{anyhow, bail};
 use clap::{Args, Parser, Subcommand};
-use log::info;
+use tracing::info;
+use tracing_subscriber::{filter::LevelFilter, fmt, prelude::*, EnvFilter};
 
 /// Tool to deploy WebAssembly into Enarx Keeps
 ///
@@ -166,22 +167,25 @@ impl LogOptions {
     /// As with Builder::init(), this will panic if called more than once,
     /// or if another library has already initialized a global logger.
     pub fn init(&self) {
-        let mut builder = env_logger::Builder::new();
-        builder
-            .filter_level(self.verbosity_level())
-            .parse_filters(self.log_filter.as_ref().unwrap_or(&"".to_owned()))
-            .target(self.log_target.into())
+        let env_filter = EnvFilter::builder()
+            .with_default_directive(self.verbosity_level().into())
+            .with_env_var(self.log_filter.as_ref().unwrap_or(&"".to_owned()))
+            .from_env_lossy();
+
+        tracing_subscriber::registry()
+            .with(fmt::layer())
+            .with(env_filter)
             .init();
     }
 
     /// Convert the -vvv.. count into a log level.
-    fn verbosity_level(&self) -> log::LevelFilter {
+    fn verbosity_level(&self) -> LevelFilter {
         match self.verbosity {
-            0 => log::LevelFilter::Error,
-            1 => log::LevelFilter::Warn,
-            2 => log::LevelFilter::Info,
-            3 => log::LevelFilter::Debug,
-            _ => log::LevelFilter::Trace,
+            0 => LevelFilter::ERROR,
+            1 => LevelFilter::WARN,
+            2 => LevelFilter::INFO,
+            3 => LevelFilter::DEBUG,
+            _ => LevelFilter::TRACE,
         }
     }
 }
