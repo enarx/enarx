@@ -22,6 +22,7 @@ use std::str::FromStr;
 use anyhow::{anyhow, bail};
 use clap::{Args, Parser, Subcommand};
 use tracing::info;
+use tracing_subscriber::fmt::format::FmtSpan;
 use tracing_subscriber::{filter::LevelFilter, fmt, prelude::*, EnvFilter};
 
 /// Tool to deploy WebAssembly into Enarx Keeps
@@ -171,8 +172,10 @@ impl LogOptions {
             .with_default_directive(self.verbosity_level().into())
             .parse_lossy(self.log_filter.as_ref().unwrap_or(&"".to_owned()));
 
+        let fmt_layer = fmt::layer().with_span_events(FmtSpan::NEW | FmtSpan::CLOSE);
+
         tracing_subscriber::registry()
-            .with(fmt::layer())
+            .with(fmt_layer)
             .with(env_filter)
             .init();
     }
