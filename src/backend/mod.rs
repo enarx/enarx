@@ -18,6 +18,9 @@ mod binary;
 mod probe;
 
 #[cfg(enarx_with_shim)]
+mod parking;
+
+#[cfg(enarx_with_shim)]
 use binary::{Binary, Loader, Mapper};
 
 use std::fs::File;
