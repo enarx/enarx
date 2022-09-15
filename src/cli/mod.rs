@@ -169,8 +169,7 @@ impl LogOptions {
     pub fn init(&self) {
         let env_filter = EnvFilter::builder()
             .with_default_directive(self.verbosity_level().into())
-            .with_env_var(self.log_filter.as_ref().unwrap_or(&"".to_owned()))
-            .from_env_lossy();
+            .parse_lossy(self.log_filter.as_ref().unwrap_or(&"".to_owned()));
 
         tracing_subscriber::registry()
             .with(fmt::layer())
