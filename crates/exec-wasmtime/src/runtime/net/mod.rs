@@ -4,10 +4,11 @@
 
 pub mod tls;
 
+use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
 use std::ops::Deref;
 use std::sync::Arc;
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use cap_std::net::{TcpListener, TcpStream};
 use enarx_config::{ConnectFile, ListenFile};
 use once_cell::sync::Lazy;
@@ -80,8 +81,17 @@ pub fn connect_file(
     let (host, port) = match &file {
         ConnectFile::Tcp { host, port, .. } | ConnectFile::Tls { host, port, .. } => (host, port),
     };
-    let tcp = std::net::TcpStream::connect((host.as_str(), *port))?;
-    let tcp = TcpStream::from_std(tcp);
+    let tcp = match (host.as_str(), *port) {
+        ("localhost", port) => std::net::TcpStream::connect(SocketAddr::V4(SocketAddrV4::new(
+            Ipv4Addr::LOCALHOST,
+            port,
+        ))),
+        // TODO: Handle DNS in the keep
+        // https://github.com/enarx/enarx/issues/1511
+        addr => std::net::TcpStream::connect(addr),
+    }
+    .map(TcpStream::from_std)
+    .context("failed to connect to endpoint")?;
     let file = match file {
         ConnectFile::Tcp { .. } => wasmtime_wasi::net::Socket::from(tcp).into(),
         ConnectFile::Tls { .. } => {
