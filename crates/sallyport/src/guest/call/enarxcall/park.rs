@@ -7,6 +7,8 @@ use crate::item::enarxcall::Number;
 use crate::libc::timespec;
 use crate::{Result, NULL};
 
+use core::ffi::c_int;
+
 #[derive(Debug, Clone, Copy)]
 pub struct ParkTimeout {
     pub timespec: timespec,
@@ -14,18 +16,19 @@ pub struct ParkTimeout {
 }
 
 pub struct Park<'a> {
+    pub expected_val: c_int,
     pub timeout: Option<&'a ParkTimeout>,
 }
 
 impl<'a> Alloc<'a> for Park<'a> {
     const NUM: Number = Number::Park;
 
-    type Argv = Argv<1>;
-    type Ret = ();
+    type Argv = Argv<2>;
+    type Ret = c_int;
 
     type Staged = Option<Input<'a, ParkTimeout, &'a ParkTimeout>>;
     type Committed = Option<()>;
-    type Collected = Result<()>;
+    type Collected = Result<c_int>;
 
     fn stage(self, alloc: &mut impl Allocator) -> Result<(Self::Argv, Self::Staged)> {
         let (timeout, timeout_offset) = if let Some(timeout) = self.timeout {
@@ -35,7 +38,7 @@ impl<'a> Alloc<'a> for Park<'a> {
         } else {
             (None, NULL)
         };
-        Ok((Argv([timeout_offset]), timeout))
+        Ok((Argv([self.expected_val as _, timeout_offset]), timeout))
     }
 
     fn collect(_: Self::Committed, ret: Result<Self::Ret>, _: &impl Collector) -> Self::Collected {

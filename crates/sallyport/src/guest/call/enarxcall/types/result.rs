@@ -43,3 +43,13 @@ impl From<Result<usize>> for crate::Result<usize> {
         }
     }
 }
+
+impl From<Result<c_int>> for crate::Result<c_int> {
+    #[inline]
+    fn from(res: Result<c_int>) -> Self {
+        match res.0 {
+            errno @ ERRNO_START.. => Err(-(errno as c_int)),
+            ret => Ok(ret as _),
+        }
+    }
+}
