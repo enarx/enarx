@@ -111,7 +111,7 @@ fn park() {
             },
             absolute: false,
         };
-        assert_eq!(handler.park(Some(&timeout)), Err(ENOSYS));
+        assert_eq!(handler.park(0, Some(&timeout)), Err(ENOSYS));
     })
 }
 

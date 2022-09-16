@@ -280,6 +280,7 @@ pub trait Handler {
         // The `FUTEX_PRIVATE_FLAG` is only interesting,
         // if the shims would support multiple processes, which they don't.
         let futex_op = futex_op & !FUTEX_PRIVATE_FLAG;
+        let mut expected_park_val: c_int = 0;
 
         match futex_op {
             FUTEX_WAIT => {
@@ -289,7 +290,7 @@ pub trait Handler {
                 });
 
                 while uaddr.load(Ordering::Relaxed) == val {
-                    let _ = self.park(timeout.as_ref());
+                    expected_park_val = self.park(expected_park_val, timeout.as_ref())?;
                 }
                 Ok(0)
             }
@@ -304,7 +305,7 @@ pub trait Handler {
                 });
 
                 while uaddr.load(Ordering::Relaxed) == val {
-                    let _ = self.park(timeout.as_ref());
+                    expected_park_val = self.park(expected_park_val, timeout.as_ref())?;
                 }
                 Ok(0)
             }
@@ -1183,9 +1184,19 @@ pub trait Handler {
     }
 
     /// Park the current thread
+    ///
+    /// # Arguments
+    /// expected_val: park the thread, as long as the global parking state has this value
+    /// timeout: the maximum time to wait for the thread parker to unpark
+    ///
+    /// # Returns
+    /// the actual value of the global parking state
     #[inline]
-    fn park(&mut self, timeout: Option<&ParkTimeout>) -> Result<()> {
-        self.execute(enarxcall::Park { timeout })?
+    fn park(&mut self, expected_val: c_int, timeout: Option<&ParkTimeout>) -> Result<c_int> {
+        self.execute(enarxcall::Park {
+            expected_val,
+            timeout,
+        })?
     }
 
     /// Spawn a new thread
