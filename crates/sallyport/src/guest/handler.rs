@@ -16,13 +16,12 @@ use crate::libc::{
     SYS_madvise, SYS_mmap, SYS_mprotect, SYS_mremap, SYS_munmap, SYS_nanosleep, SYS_open, SYS_poll,
     SYS_read, SYS_readlink, SYS_readv, SYS_recvfrom, SYS_rt_sigaction, SYS_rt_sigprocmask,
     SYS_sendto, SYS_set_tid_address, SYS_setsockopt, SYS_sigaltstack, SYS_socket, SYS_sync,
-    SYS_uname, SYS_write, SYS_writev, EFAULT, EINVAL, ENOSYS, ENOTSUP, FIONBIO, FIONREAD,
-    FUTEX_PRIVATE_FLAG, FUTEX_WAIT, FUTEX_WAIT_BITSET, FUTEX_WAKE, MAP_ANONYMOUS, MAP_PRIVATE,
-    MREMAP_DONTUNMAP, MREMAP_FIXED, MREMAP_MAYMOVE, PROT_EXEC, PROT_READ, PROT_WRITE,
+    SYS_uname, SYS_write, SYS_writev, CLOCK_MONOTONIC, EFAULT, EINVAL, ENOSYS, ENOTSUP, FIONBIO,
+    FIONREAD, FUTEX_PRIVATE_FLAG, FUTEX_WAIT, FUTEX_WAIT_BITSET, FUTEX_WAKE, MAP_ANONYMOUS,
+    MAP_PRIVATE, MREMAP_DONTUNMAP, MREMAP_FIXED, MREMAP_MAYMOVE, PROT_EXEC, PROT_READ, PROT_WRITE,
 };
 use crate::{item, Result};
 
-use crate::guest::enarxcall::ParkTimeout;
 use core::arch::x86_64::CpuidResult;
 use core::ffi::{c_int, c_long, c_size_t, c_uint, c_ulong, c_void};
 use core::mem::size_of;
@@ -284,11 +283,20 @@ pub trait Handler {
 
         match futex_op {
             FUTEX_WAIT => {
-                let timeout = timespec.map(|timespec| ParkTimeout {
-                    timespec: *timespec,
-                    absolute: false,
-                });
+                let timeout = timespec.map(|t| {
+                    let mut cur_time: timespec = timespec {
+                        tv_sec: 0,
+                        tv_nsec: 0,
+                    };
+                    self.clock_gettime(CLOCK_MONOTONIC, &mut cur_time).unwrap();
 
+                    let mut timeout = *t;
+                    timeout.tv_sec += cur_time.tv_sec;
+                    timeout.tv_nsec += cur_time.tv_nsec;
+                    timeout.tv_sec += (timeout.tv_nsec / 1_000_000_000) as i64;
+                    timeout.tv_nsec %= 1_000_000_000;
+                    timeout
+                });
                 while uaddr.load(Ordering::Relaxed) == val {
                     expected_park_val = self.park(expected_park_val, timeout.as_ref())?;
                 }
@@ -299,13 +307,8 @@ pub trait Handler {
                     return Err(ENOTSUP);
                 }
 
-                let timeout = timespec.map(|timespec| ParkTimeout {
-                    timespec: *timespec,
-                    absolute: true,
-                });
-
                 while uaddr.load(Ordering::Relaxed) == val {
-                    expected_park_val = self.park(expected_park_val, timeout.as_ref())?;
+                    expected_park_val = self.park(expected_park_val, timespec)?;
                 }
                 Ok(0)
             }
@@ -1187,12 +1190,12 @@ pub trait Handler {
     ///
     /// # Arguments
     /// expected_val: park the thread, as long as the global parking state has this value
-    /// timeout: the maximum time to wait for the thread parker to unpark
+    /// timeout: the CLOCK_MONOTONIC time, when to timeout the park operation
     ///
     /// # Returns
     /// the actual value of the global parking state
     #[inline]
-    fn park(&mut self, expected_val: c_int, timeout: Option<&ParkTimeout>) -> Result<c_int> {
+    fn park(&mut self, expected_val: c_int, timeout: Option<&timespec>) -> Result<c_int> {
         self.execute(enarxcall::Park {
             expected_val,
             timeout,
