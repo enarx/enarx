@@ -4,7 +4,6 @@ use super::run_test;
 
 use core::ptr::NonNull;
 use libc::ENOSYS;
-use sallyport::guest::enarxcall::ParkTimeout;
 use std::arch::x86_64::{CpuidResult, __cpuid_count};
 
 use sallyport::guest::Handler;
@@ -104,12 +103,9 @@ fn spawn() {
 #[test]
 fn park() {
     run_test(1, [0xff; 16], move |_, _, handler| {
-        let timeout = ParkTimeout {
-            timespec: timespec {
-                tv_sec: 0,
-                tv_nsec: 0,
-            },
-            absolute: false,
+        let timeout = timespec {
+            tv_sec: 0,
+            tv_nsec: 0,
         };
         assert_eq!(handler.park(0, Some(&timeout)), Err(ENOSYS));
     })

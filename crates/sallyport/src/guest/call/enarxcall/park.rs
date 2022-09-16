@@ -10,14 +10,9 @@ use crate::{Result, NULL};
 use core::ffi::c_int;
 
 #[derive(Debug, Clone, Copy)]
-pub struct ParkTimeout {
-    pub timespec: timespec,
-    pub absolute: bool,
-}
-
 pub struct Park<'a> {
     pub expected_val: c_int,
-    pub timeout: Option<&'a ParkTimeout>,
+    pub timeout: Option<&'a timespec>,
 }
 
 impl<'a> Alloc<'a> for Park<'a> {
@@ -26,7 +21,7 @@ impl<'a> Alloc<'a> for Park<'a> {
     type Argv = Argv<2>;
     type Ret = c_int;
 
-    type Staged = Option<Input<'a, ParkTimeout, &'a ParkTimeout>>;
+    type Staged = Option<Input<'a, timespec, &'a timespec>>;
     type Committed = Option<()>;
     type Collected = Result<c_int>;
 

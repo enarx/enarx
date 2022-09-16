@@ -175,6 +175,7 @@ pub struct utsname {
 }
 
 pub const AF_INET: c_int = 2;
+pub const CLOCK_MONOTONIC: clockid_t = 1;
 pub const CLONE_VM: c_uint = 0x00000100;
 pub const CLONE_FS: c_uint = 0x00000200;
 pub const CLONE_FILES: c_uint = 0x00000400;
