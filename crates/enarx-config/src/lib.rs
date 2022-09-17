@@ -77,15 +77,23 @@ fn default_addr() -> String {
 /// See the [crate] documentation for examples.
 pub struct FileName(String);
 
-impl From<String> for FileName {
-    fn from(value: String) -> Self {
-        Self(value)
+impl TryFrom<String> for FileName {
+    type Error = &'static str;
+
+    fn try_from(name: String) -> Result<Self, Self::Error> {
+        if name.find(':').is_some() {
+            Err("file name must not contain ':'")
+        } else {
+            Ok(Self(name))
+        }
     }
 }
 
-impl From<&str> for FileName {
-    fn from(value: &str) -> Self {
-        Self(value.into())
+impl TryFrom<&str> for FileName {
+    type Error = <FileName as TryFrom<String>>::Error;
+
+    fn try_from(name: &str) -> Result<Self, Self::Error> {
+        String::from(name).try_into()
     }
 }
 
@@ -103,12 +111,7 @@ impl<'de> Deserialize<'de> for FileName {
         D: Deserializer<'de>,
     {
         let name = String::deserialize(deserializer)?;
-
-        if name.contains(':') {
-            return Err(D::Error::custom("invalid value for `name` contains ':'"));
-        }
-
-        Ok(Self(name))
+        name.try_into().map_err(D::Error::custom)
     }
 }
 
@@ -334,7 +337,7 @@ mod test {
             vec![
                 File::Stdin(Default::default()),
                 File::Listen(ListenFile::Tcp {
-                    name: "X".into(),
+                    name: "X".try_into().unwrap(),
                     port: 9000,
                     addr: default_addr()
                 }),
@@ -374,7 +377,7 @@ mod test {
         assert_eq!(err.line_col(), Some((1, 8)));
         assert_eq!(
             err.to_string(),
-            "invalid value for `name` contains ':' for key `files` at line 2 column 9"
+            "file name must not contain ':' for key `files` at line 2 column 9"
         );
     }
 
