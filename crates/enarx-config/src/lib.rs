@@ -8,9 +8,11 @@
 #![deny(clippy::all)]
 #![warn(rust_2018_idioms)]
 
-use std::{collections::HashMap, ops::Deref};
+use std::collections::HashMap;
+use std::ops::Deref;
 
-use serde::{de::Error as _, Deserialize, Deserializer, Serialize};
+use serde::de::Error as _;
+use serde::{Deserialize, Deserializer, Serialize};
 use url::Url;
 
 /// Configuration file template
