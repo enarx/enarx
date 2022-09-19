@@ -31,7 +31,7 @@ impl From<Result<()>> for crate::Result<()> {
     #[inline]
     fn from(res: Result<()>) -> Self {
         match res.0 {
-            errno @ ERRNO_START..=usize::MAX => Err(-(errno as c_int)),
+            errno @ ERRNO_START.. => Err(-(errno as c_int)),
             _ => Ok(()),
         }
     }
@@ -41,7 +41,7 @@ impl From<Result<usize>> for crate::Result<usize> {
     #[inline]
     fn from(res: Result<usize>) -> Self {
         match res.0 {
-            errno @ ERRNO_START..=usize::MAX => Err(-(errno as c_int)),
+            errno @ ERRNO_START.. => Err(-(errno as c_int)),
             ret => Ok(ret),
         }
     }
@@ -51,7 +51,7 @@ impl From<Result<u8>> for crate::Result<u8> {
     #[inline]
     fn from(res: Result<u8>) -> Self {
         match res.0 {
-            errno @ ERRNO_START..=usize::MAX => Err(-(errno as c_int)),
+            errno @ ERRNO_START.. => Err(-(errno as c_int)),
             ret if ret <= u8::MAX as _ => Ok(ret as _),
             _ => Err(EOVERFLOW),
         }
