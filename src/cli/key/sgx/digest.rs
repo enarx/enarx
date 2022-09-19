@@ -32,10 +32,8 @@ fn arr_from_big(value: &BigUint) -> [u8; 384] {
 }
 
 pub fn sgx_key_digest(sgx_key: &RsaPrivateKey) -> anyhow::Result<Vec<u8>> {
-    let modulus = arr_from_big(sgx_key.n());
-
     let mut hasher = Sha256::new();
-    hasher.update(&modulus);
+    hasher.update(arr_from_big(sgx_key.n()));
     let res = hasher.finalize();
     Ok(res.to_vec())
 }

@@ -137,7 +137,7 @@ impl Options {
     pub fn execute(self) -> anyhow::Result<()> {
         use mmarinus::{perms, Map, Private};
         let binary = if let Some(ref path) = self.binpath {
-            Some(Map::load(&path, Private, perms::Read)?)
+            Some(Map::load(path, Private, perms::Read)?)
         } else {
             None
         };
