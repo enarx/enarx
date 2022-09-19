@@ -649,7 +649,7 @@ impl<'a> Handler<'a> {
         let addr = Address::new(addr);
         let length = Offset::from_items(pages);
 
-        if heap.contains(addr, length) == None {
+        if heap.contains(addr, length).is_none() {
             return Err(ENOMEM);
         }
 
@@ -695,7 +695,7 @@ impl<'a> Handler<'a> {
         let addr = Address::new(addr);
         let length = Offset::from_items(pages);
 
-        if heap.contains(addr, length) == None {
+        if heap.contains(addr, length).is_none() {
             return Ok(());
         }
 
