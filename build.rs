@@ -8,7 +8,7 @@ fn generate_protos() {
     use std::path::{Path, PathBuf};
 
     fn create(path: &Path) {
-        match std::fs::create_dir(&path) {
+        match std::fs::create_dir(path) {
             Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {}
             Err(e) => {
                 eprintln!("Can't create {:#?} : {:#?}", path, e);
@@ -24,7 +24,7 @@ fn generate_protos() {
 
     protobuf_codegen_pure::Codegen::new()
         .out_dir(&out_dir_proto)
-        .inputs(&["src/protobuf/aesm-proto.proto"])
+        .inputs(["src/protobuf/aesm-proto.proto"])
         .include("src/protobuf")
         .customize(protobuf_codegen_pure::Customize {
             gen_mod_rs: Some(true),
