@@ -72,18 +72,24 @@ impl Options {
             Signatures::load(signatures)?
         };
 
-        let package: Url = package.parse().or_else(|_| {
-            use drawbridge_client::API_VERSION;
+        let package = match package
+            .parse()
+            .ok()
+            .filter(|url: &Url| !url.cannot_be_a_base())
+        {
+            None => {
+                use drawbridge_client::API_VERSION;
 
-            // TODO: Check the error
-            let (host, user, repo, tag) = parse_tag(&package)
-                .with_context(|| format!("failed to parse `{package}` as a Drawbridge slug"))?;
-            format!("https://{host}/api/v{API_VERSION}/{user}/{repo}/_tag/{tag}")
-                .parse()
-                .with_context(|| {
-                    format!("failed to construct a URL from Drawbridge slug `{package}`")
-                })
-        })?;
+                let (host, user, repo, tag) = parse_tag(&package)
+                    .with_context(|| format!("failed to parse `{package}` as a Drawbridge slug"))?;
+                format!("https://{host}/api/v{API_VERSION}/{user}/{repo}/_tag/{tag}")
+                    .parse()
+                    .with_context(|| {
+                        format!("failed to construct a URL from Drawbridge slug `{package}`")
+                    })?
+            }
+            Some(url) => url,
+        };
 
         let code = match package.scheme() {
             "file" => {
