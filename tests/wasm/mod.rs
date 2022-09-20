@@ -15,7 +15,6 @@ use process_control::Output;
 use rustls::client::{ServerCertVerified, ServerCertVerifier};
 use rustls::version::TLS13;
 use rustls::Certificate;
-use serial_test::serial;
 use tempfile::{tempdir, NamedTempFile};
 
 #[cfg(not(enarx_with_shim))]
@@ -142,7 +141,6 @@ fn compile(wasm: &str) -> PathBuf {
 }
 
 #[test]
-#[serial]
 fn return_1() {
     // This module does, in fact, return 1. But function return values
     // are separate from setting the process exit status code, so
@@ -152,7 +150,6 @@ fn return_1() {
 }
 
 #[test]
-#[serial]
 fn wasi_snapshot1() {
     // This module uses WASI to return the number of commandline args.
     // Since we don't currently do anything with the function return value,
@@ -162,7 +159,6 @@ fn wasi_snapshot1() {
 }
 
 #[test]
-#[serial]
 fn hello_wasi_snapshot1() {
     // This module just prints "Hello, world!" to stdout. Hooray!
     let wasm = compile("hello_wasi_snapshot1.wasm");
@@ -172,7 +168,6 @@ fn hello_wasi_snapshot1() {
 }
 
 #[test]
-#[serial]
 fn no_export() {
     // This module has no exported functions, so we get an error.
     let wasm = compile("no_export.wasm");
@@ -180,7 +175,6 @@ fn no_export() {
 }
 
 #[test]
-#[serial]
 fn echo() {
     let wasm = wasm_path(env!("CARGO_BIN_FILE_ENARX_WASM_TESTS_echo"));
 
@@ -193,21 +187,18 @@ fn echo() {
 }
 
 #[test]
-#[serial]
 fn memspike() {
     let wasm = wasm_path(env!("CARGO_BIN_FILE_ENARX_WASM_TESTS_memspike"));
     check_output(&enarx_run(&wasm, None, None), 0, None, None);
 }
 
 #[test]
-#[serial]
 fn memory_stress_test() {
     let wasm = wasm_path(env!("CARGO_BIN_FILE_ENARX_WASM_TESTS_memory_stress_test"));
     check_output(&enarx_run(&wasm, None, None), 0, None, None);
 }
 
 #[test]
-#[serial]
 fn zerooneone() -> anyhow::Result<()> {
     let wasm = wasm_path(env!("CARGO_BIN_FILE_ENARX_WASM_TESTS_zerooneone"));
     const INPUT: &[u8] = br#"Good morning, that's a nice tnetennba.
@@ -268,7 +259,6 @@ fn assert_stream<T: Read + Write>(mut stream: impl BorrowMut<T>) -> anyhow::Resu
 }
 
 #[test]
-#[serial]
 fn connect_tcp() -> anyhow::Result<()> {
     let wasm = wasm_path(env!("CARGO_BIN_FILE_ENARX_WASM_TESTS_connect"));
 
@@ -313,7 +303,6 @@ name = "stream""#,
 // TODO: Reenable once there's functionality to configure trust anchors in Enarx.toml
 // https://github.com/enarx/enarx/issues/2170 (which requires VFS)
 //#[test]
-//#[serial]
 //fn connect_tls() -> anyhow::Result<()> {
 //    let wasm = wasm_path(env!("CARGO_BIN_FILE_ENARX_WASM_TESTS_connect"));
 //
@@ -408,7 +397,6 @@ fn assert_connect<T: Read + Write>(connect: impl Fn() -> anyhow::Result<T>) -> a
 }
 
 #[test]
-#[serial]
 fn listen_tcp() -> anyhow::Result<()> {
     let wasm = wasm_path(env!("CARGO_BIN_FILE_ENARX_WASM_TESTS_listen"));
 
@@ -481,7 +469,6 @@ impl ServerCertVerifier for NoopCertVerifier {
 }
 
 #[test]
-#[serial]
 fn listen_tls() -> anyhow::Result<()> {
     let wasm = wasm_path(env!("CARGO_BIN_FILE_ENARX_WASM_TESTS_listen"));
 
