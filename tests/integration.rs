@@ -22,6 +22,8 @@ use std::path::PathBuf;
 use std::process::{Command, Stdio};
 use std::time;
 
+use futures::executor::ThreadPool;
+use once_cell::sync::Lazy;
 use process_control::{ChildExt, Control, Output};
 use tempfile::tempdir;
 
@@ -31,6 +33,9 @@ pub const OUT_DIR: &str = env!("OUT_DIR");
 pub const TEST_BINS_OUT: &str = "bin";
 pub const TIMEOUT_SECS: u64 = 60 * 60;
 pub const MAX_ASSERT_ELEMENTS: usize = 100;
+
+pub static EXEC: Lazy<ThreadPool> =
+    Lazy::new(|| ThreadPool::new().expect("failed to initialize thread pool"));
 
 pub fn assert_eq_slices(expected_output: &[u8], output: &[u8], what: &str) {
     let max_len = usize::min(output.len(), expected_output.len());

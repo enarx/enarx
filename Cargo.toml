@@ -101,7 +101,9 @@ enarx_syscall_tests = { path = "tests/crates/enarx_syscall_tests", artifact = "b
 async-h1 = { version = "2.3.3", default-features = false }
 async-std = { version = "1.11.0", default-features = false, features = ["attributes"] }
 drawbridge-server = { version = "0.2.2", default-features = false }
-futures = { version = "0.3.21", default-features = false }
+futures = { version = "0.3.21", default-features = false, features = ["executor", "io-compat", "thread-pool"] }
+futures-rustls = { version = "0.22.2", default-features = false }
+futures-test = { version = "0.3.21", default-features = false, features = ["std"] }
 http-types = { version = "2.12.0", default-features = false }
 openidconnect = { version = "2.3.1", default-features = false }
 

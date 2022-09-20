@@ -1,16 +1,23 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use super::{check_output, enarx, CRATE, OUT_DIR, TEST_BINS_OUT};
+use super::{check_output, enarx, CRATE, EXEC, OUT_DIR, TEST_BINS_OUT};
 
 use std::borrow::BorrowMut;
-use std::io::{BufRead, BufReader, Read, Write};
-use std::net::{Ipv4Addr, TcpListener, TcpStream};
+use std::fs;
+use std::io::Write;
+use std::net::Ipv4Addr;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use std::{fs, thread};
 
 use anyhow::{ensure, Context};
+use async_std::io::WriteExt;
+use async_std::net::{TcpListener, TcpStream};
 use drawbridge_client::Url;
+use futures::io::BufReader;
+use futures::task::SpawnExt;
+use futures::{AsyncBufReadExt, AsyncRead, AsyncWrite, Future};
+use futures_rustls::TlsConnector;
+use futures_test::test;
 use process_control::Output;
 use rustls::client::{ServerCertVerified, ServerCertVerifier};
 use rustls::version::TLS13;
@@ -141,7 +148,7 @@ fn compile(wasm: &str) -> PathBuf {
 }
 
 #[test]
-fn return_1() {
+async fn return_1() {
     // This module does, in fact, return 1. But function return values
     // are separate from setting the process exit status code, so
     // we still expect a return code of '0' here.
@@ -150,7 +157,7 @@ fn return_1() {
 }
 
 #[test]
-fn wasi_snapshot1() {
+async fn wasi_snapshot1() {
     // This module uses WASI to return the number of commandline args.
     // Since we don't currently do anything with the function return value,
     // we don't get any output here, and we expect '0', as above.
@@ -159,7 +166,7 @@ fn wasi_snapshot1() {
 }
 
 #[test]
-fn hello_wasi_snapshot1() {
+async fn hello_wasi_snapshot1() {
     // This module just prints "Hello, world!" to stdout. Hooray!
     let wasm = compile("hello_wasi_snapshot1.wasm");
     const OUTPUT: &[u8] = br#"Hello, world!
@@ -168,14 +175,14 @@ fn hello_wasi_snapshot1() {
 }
 
 #[test]
-fn no_export() {
+async fn no_export() {
     // This module has no exported functions, so we get an error.
     let wasm = compile("no_export.wasm");
     check_output(&enarx_run(&wasm, None, None), 1, None, None);
 }
 
 #[test]
-fn echo() {
+async fn echo() {
     let wasm = wasm_path(env!("CARGO_BIN_FILE_ENARX_WASM_TESTS_echo"));
 
     let mut input: Vec<_> = Vec::with_capacity(2 * 1024 * 1024);
@@ -187,19 +194,19 @@ fn echo() {
 }
 
 #[test]
-fn memspike() {
+async fn memspike() {
     let wasm = wasm_path(env!("CARGO_BIN_FILE_ENARX_WASM_TESTS_memspike"));
     check_output(&enarx_run(&wasm, None, None), 0, None, None);
 }
 
 #[test]
-fn memory_stress_test() {
+async fn memory_stress_test() {
     let wasm = wasm_path(env!("CARGO_BIN_FILE_ENARX_WASM_TESTS_memory_stress_test"));
     check_output(&enarx_run(&wasm, None, None), 0, None, None);
 }
 
 #[test]
-fn zerooneone() -> anyhow::Result<()> {
+async fn zerooneone() -> anyhow::Result<()> {
     let wasm = wasm_path(env!("CARGO_BIN_FILE_ENARX_WASM_TESTS_zerooneone"));
     const INPUT: &[u8] = br#"Good morning, that's a nice tnetennba.
 0118 999 881 999 119 725 3
@@ -241,29 +248,46 @@ kind = "stderr""#;
     Ok(())
 }
 
-fn assert_copy_line(stream: &mut BufReader<impl Read + Write>) -> anyhow::Result<()> {
-    writeln!(stream.get_mut(), "test").context("failed to write line")?;
+async fn assert_copy_line(
+    stream: &mut BufReader<impl AsyncRead + AsyncWrite + Unpin>,
+) -> anyhow::Result<()> {
+    stream
+        .write_all(b"test")
+        .await
+        .context("failed to write line")?;
     let mut line = String::new();
-    stream.read_line(&mut line).context("failed to read line")?;
+    stream
+        .read_line(&mut line)
+        .await
+        .context("failed to read line")?;
     ensure!(line == "test\n");
     ensure!(stream.buffer().is_empty());
     Ok(())
 }
 
-fn assert_stream<T: Read + Write>(mut stream: impl BorrowMut<T>) -> anyhow::Result<()> {
+async fn assert_stream<T: AsyncRead + AsyncWrite + Unpin>(
+    mut stream: impl BorrowMut<T>,
+) -> anyhow::Result<()> {
     let mut stream = BufReader::new(stream.borrow_mut());
-    assert_copy_line(&mut stream).context("failed to copy first line")?;
-    assert_copy_line(&mut stream).context("failed to copy second line")?;
-    assert_copy_line(&mut stream).context("failed to copy third line")?;
+    assert_copy_line(&mut stream)
+        .await
+        .context("failed to copy first line")?;
+    assert_copy_line(&mut stream)
+        .await
+        .context("failed to copy second line")?;
+    assert_copy_line(&mut stream)
+        .await
+        .context("failed to copy third line")?;
     Ok(())
 }
 
 #[test]
-fn connect_tcp() -> anyhow::Result<()> {
+async fn connect_tcp() -> anyhow::Result<()> {
     let wasm = wasm_path(env!("CARGO_BIN_FILE_ENARX_WASM_TESTS_connect"));
 
-    let listener =
-        TcpListener::bind((Ipv4Addr::UNSPECIFIED, 0)).context("failed to start TCP listener")?;
+    let listener = TcpListener::bind((Ipv4Addr::UNSPECIFIED, 0))
+        .await
+        .context("failed to start TCP listener")?;
     let port = listener
         .local_addr()
         .context("failed to query listener local address")?
@@ -291,23 +315,30 @@ name = "stream""#,
     )
     .context("failed to write config file")?;
 
-    let server = thread::spawn(move || {
-        let (stream, _) = listener.accept().expect("failed to accept connection");
-        assert_stream(stream).expect("failed to assert stream");
-    });
+    let server = EXEC
+        .spawn_with_handle(async move {
+            let (stream, _) = listener
+                .accept()
+                .await
+                .context("failed to accept connection")?;
+            assert_stream(stream)
+                .await
+                .context("failed to assert stream")
+        })
+        .expect("failed to spawn server");
     check_output(&enarx_run(&wasm, Some(&conf.path()), None), 0, None, None);
-    server.join().expect("failed to join server thread");
-    Ok(())
+    server.await
 }
 
 // TODO: Reenable once there's functionality to configure trust anchors in Enarx.toml
 // https://github.com/enarx/enarx/issues/2170 (which requires VFS)
 //#[test]
-//fn connect_tls() -> anyhow::Result<()> {
+//async fn connect_tls() -> anyhow::Result<()> {
 //    let wasm = wasm_path(env!("CARGO_BIN_FILE_ENARX_WASM_TESTS_connect"));
 //
-//    let listener =
-//        TcpListener::bind((Ipv4Addr::UNSPECIFIED, 0)).context("failed to start TCP listener")?;
+//    let listener = TcpListener::bind((Ipv4Addr::UNSPECIFIED, 0))
+//        .await
+//        .context("failed to start TCP listener")?;
 //    let port = listener
 //        .local_addr()
 //        .context("failed to query listener local address")?
@@ -341,7 +372,7 @@ name = "stream""#,
 //    )
 //    .context("failed to write config file")?;
 //
-//    let certs = rustls_pemfile::certs(&mut BufReader::new(
+//    let certs = rustls_pemfile::certs(&mut std::io::BufReader::new(
 //        include_bytes!("../../tests/data/tls/server.crt").as_slice(),
 //    ))
 //    .context("failed to read server TLS certificates")?
@@ -349,7 +380,7 @@ name = "stream""#,
 //    .map(Certificate)
 //    .collect();
 //
-//    let key = match rustls_pemfile::read_one(&mut BufReader::new(
+//    let key = match rustls_pemfile::read_one(&mut std::io::BufReader::new(
 //        include_bytes!("../../tests/data/tls/server.key").as_slice(),
 //    ))
 //    .context("failed to read server TLS certificate key")?
@@ -359,7 +390,7 @@ name = "stream""#,
 //        item => bail!("unsupported key type `{:?}`", item),
 //    };
 //
-//    let tls = Arc::new(
+//    let tls: TlsAcceptor = Arc::new(
 //        rustls::ServerConfig::builder()
 //            .with_safe_default_cipher_suites()
 //            .with_safe_default_kx_groups()
@@ -368,42 +399,65 @@ name = "stream""#,
 //            .with_no_client_auth() // TODO: Validate client cert
 //            .with_single_cert(certs, key)
 //            .context("invalid server TLS certificate key")?,
-//    );
+//    )
+//    .into();
 //
-//    let server = thread::spawn(move || {
-//        let (stream, _) = listener.accept().expect("failed to accept connection");
-//        let tls = rustls::ServerConnection::new(tls).expect("failed to create TLS connection");
-//        assert_stream(rustls::StreamOwned::new(tls, stream)).expect("failed to assert stream");
-//    });
+//    let server = EXEC
+//        .spawn_with_handle(async move {
+//            let (stream, _) = listener
+//                .accept()
+//                .await
+//                .context("failed to accept connection")?;
+//            let tls = tls
+//                .accept(stream)
+//                .await
+//                .context("failed to create TLS connection")?;
+//            assert_stream(tls).await.context("failed to assert stream")
+//        })
+//        .expect("failed to spawn server");
 //    check_output(&enarx_run(&wasm, Some(&conf.path()), None), 0, None, None);
-//    server.join().expect("failed to join server thread");
-//    Ok(())
+//    server.await
 //}
 
-fn assert_connect<T: Read + Write>(connect: impl Fn() -> anyhow::Result<T>) -> anyhow::Result<()> {
-    connect()
-        .context("failed to establish first connection")
-        .and_then(|stream| assert_stream(stream).context("failed to assert first stream"))?;
+async fn assert_connect<F, T>(connect: impl Fn() -> F) -> anyhow::Result<()>
+where
+    T: AsyncRead + AsyncWrite + Unpin,
+    F: Future<Output = anyhow::Result<T>>,
+{
+    let stream = connect()
+        .await
+        .context("failed to establish first connection")?;
+    assert_stream(stream)
+        .await
+        .context("failed to assert first stream")?;
 
-    connect()
-        .context("failed to establish second connection")
-        .and_then(|stream| assert_stream(stream).context("failed to assert second stream"))?;
+    let stream = connect()
+        .await
+        .context("failed to establish second connection")?;
+    assert_stream(stream)
+        .await
+        .context("failed to assert second stream")?;
 
-    connect()
-        .context("failed to establish third connection")
-        .and_then(|stream| assert_stream(stream).context("failed to assert third stream"))?;
+    let stream = connect()
+        .await
+        .context("failed to establish third connection")?;
+    assert_stream(stream)
+        .await
+        .context("failed to assert third stream")?;
 
     Ok(())
 }
 
 #[test]
 #[cfg_attr(windows, ignore = "listener tests hang on Windows")]
-fn listen_tcp() -> anyhow::Result<()> {
+async fn listen_tcp() -> anyhow::Result<()> {
     let wasm = wasm_path(env!("CARGO_BIN_FILE_ENARX_WASM_TESTS_listen"));
 
-    let listener =
-        TcpListener::bind((Ipv4Addr::UNSPECIFIED, 0)).context("failed to start TCP listener")?;
+    let listener = TcpListener::bind((Ipv4Addr::UNSPECIFIED, 0))
+        .await
+        .context("failed to start TCP listener")?;
     let port = TcpListener::bind((Ipv4Addr::UNSPECIFIED, 0))
+        .await
         .context("failed to start TCP listener")?
         .local_addr()
         .context("failed to query listener local address")?
@@ -438,19 +492,24 @@ name = "ping""#,
     )
     .context("failed to write config file")?;
 
-    let client = thread::spawn(move || {
-        println!("waiting for workload to start...");
-        _ = listener.accept().expect("failed to accept connection");
+    let client = EXEC
+        .spawn_with_handle(async move {
+            _ = listener
+                .accept()
+                .await
+                .context("failed to accept connection")?;
 
-        assert_connect(|| {
-            TcpStream::connect((Ipv4Addr::LOCALHOST, port))
-                .context("failed to connect to TCP socket")
+            assert_connect(|| async {
+                TcpStream::connect((Ipv4Addr::LOCALHOST, port))
+                    .await
+                    .context("failed to connect to TCP socket")
+            })
+            .await
+            .context("failed to assert TCP connection")
         })
-        .expect("failed to assert TCP connection");
-    });
+        .expect("failed to spawn client");
     check_output(&enarx_run(&wasm, Some(&conf.path()), None), 0, None, None);
-    client.join().expect("failed to join client thread");
-    Ok(())
+    client.await
 }
 
 struct NoopCertVerifier;
@@ -471,12 +530,14 @@ impl ServerCertVerifier for NoopCertVerifier {
 
 #[test]
 #[cfg_attr(windows, ignore = "listener tests hang on Windows")]
-fn listen_tls() -> anyhow::Result<()> {
+async fn listen_tls() -> anyhow::Result<()> {
     let wasm = wasm_path(env!("CARGO_BIN_FILE_ENARX_WASM_TESTS_listen"));
 
-    let listener =
-        TcpListener::bind((Ipv4Addr::UNSPECIFIED, 0)).context("failed to start TCP listener")?;
+    let listener = TcpListener::bind((Ipv4Addr::UNSPECIFIED, 0))
+        .await
+        .context("failed to start TCP listener")?;
     let port = TcpListener::bind((Ipv4Addr::UNSPECIFIED, 0))
+        .await
         .context("failed to start TCP listener")?
         .local_addr()
         .context("failed to query listener local address")?
@@ -511,7 +572,7 @@ name = "ping""#,
     )
     .context("failed to write config file")?;
 
-    let tls = Arc::new(
+    let tls: TlsConnector = Arc::new(
         rustls::ClientConfig::builder()
             .with_safe_default_cipher_suites()
             .with_safe_default_kx_groups()
@@ -519,23 +580,28 @@ name = "ping""#,
             .context("failed to select TLS protocol versions")?
             .with_custom_certificate_verifier(Arc::new(NoopCertVerifier))
             .with_no_client_auth(),
-    );
+    )
+    .into();
 
-    let client = thread::spawn(move || {
-        println!("waiting for workload to start...");
-        _ = listener.accept().expect("failed to accept connection");
+    let client = EXEC
+        .spawn_with_handle(async move {
+            _ = listener
+                .accept()
+                .await
+                .expect("failed to accept connection");
 
-        assert_connect(|| {
-            let stream = TcpStream::connect((Ipv4Addr::LOCALHOST, port))
-                .context("failed to connect to TCP socket")?;
-            let tls =
-                rustls::ClientConnection::new(Arc::clone(&tls), "localhost".try_into().unwrap())
-                    .context("failed to create TLS connection")?;
-            Ok(rustls::StreamOwned::new(tls, stream))
+            assert_connect(|| async {
+                let stream = TcpStream::connect((Ipv4Addr::LOCALHOST, port))
+                    .await
+                    .context("failed to connect to TLS socket")?;
+                tls.connect("localhost".try_into().unwrap(), stream)
+                    .await
+                    .context("failed to create TLS connection")
+            })
+            .await
+            .context("failed to assert TLS connection")
         })
-        .expect("failed to assert TLS connection");
-    });
+        .expect("failed to spawn client");
     check_output(&enarx_run(&wasm, Some(&conf.path()), None), 0, None, None);
-    client.join().expect("failed to join client thread");
-    Ok(())
+    client.await
 }
