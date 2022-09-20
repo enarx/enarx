@@ -1330,6 +1330,9 @@ dependencies = [
 [[package]]
 name = "enarx_wasm_tests"
 version = "0.1.0"
+dependencies = [
+ "anyhow",
+]
 
 [[package]]
 name = "encoding_rs"

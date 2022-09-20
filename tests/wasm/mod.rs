@@ -2,15 +2,21 @@
 
 use super::{check_output, enarx, CRATE, OUT_DIR, TEST_BINS_OUT};
 
-use std::io::{Read, Write};
+use std::borrow::BorrowMut;
+use std::io::{BufRead, BufReader, Read, Write};
 use std::net::{Ipv4Addr, TcpListener, TcpStream};
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 use std::{fs, thread};
 
+use anyhow::{ensure, Context};
 use drawbridge_client::Url;
 use process_control::Output;
+use rustls::client::{ServerCertVerified, ServerCertVerifier};
+use rustls::version::TLS13;
+use rustls::Certificate;
 use serial_test::serial;
-use tempfile::tempdir;
+use tempfile::{tempdir, NamedTempFile};
 
 #[cfg(not(enarx_with_shim))]
 pub fn enarx_run<'a>(
@@ -202,7 +208,7 @@ fn memory_stress_test() {
 
 #[test]
 #[serial]
-fn zerooneone() {
+fn zerooneone() -> anyhow::Result<()> {
     let wasm = wasm_path(env!("CARGO_BIN_FILE_ENARX_WASM_TESTS_zerooneone"));
     const INPUT: &[u8] = br#"Good morning, that's a nice tnetennba.
 0118 999 881 999 119 725 3
@@ -213,29 +219,210 @@ fn zerooneone() {
 
     check_output(&enarx_run(&wasm, None, INPUT), 0, OUTPUT, None);
 
-    // TODO: reinstate these tests with the new `enarx deploy` slug
     let url = Url::from_file_path(&wasm).expect("failed to construct a URL from path");
     check_output(&enarx_deploy(&url, INPUT), 0, OUTPUT, None);
 
+    const CONF: &str = r#"[[files]]
+kind = "stdin"
+
+[[files]]
+kind = "stdout"
+
+[[files]]
+kind = "stderr""#;
+
+    // TODO: Extract the `enarx deploy` test into a separate test case or use `enarx deploy`
+    // in all test cases.
+    let pkg = tempdir().context("failed to create temporary package directory")?;
+    let pkg_wasm = pkg.path().join("main.wasm");
+    let pkg_conf = pkg.path().join("Enarx.toml");
+
+    fs::copy(&wasm, &pkg_wasm).context("failed to copy WASM module")?;
+    fs::write(&pkg_conf, CONF).context("failed to write config")?;
+
+    check_output(&enarx_run(&wasm, Some(&pkg_conf), INPUT), 0, OUTPUT, None);
+
+    let url = Url::from_file_path(&pkg).expect("failed to construct a URL from package path");
+    check_output(&enarx_deploy(&url, None), 0, None, None);
+
     // TODO: Test execution from a remote HTTP(S) URL
     // https://github.com/enarx/enarx/issues/1855
+    Ok(())
+}
+
+fn assert_copy_line(stream: &mut BufReader<impl Read + Write>) -> anyhow::Result<()> {
+    writeln!(stream.get_mut(), "test").context("failed to write line")?;
+    let mut line = String::new();
+    stream.read_line(&mut line).context("failed to read line")?;
+    ensure!(line == "test\n");
+    ensure!(stream.buffer().is_empty());
+    Ok(())
+}
+
+fn assert_stream<T: Read + Write>(mut stream: impl BorrowMut<T>) -> anyhow::Result<()> {
+    let mut stream = BufReader::new(stream.borrow_mut());
+    assert_copy_line(&mut stream).context("failed to copy first line")?;
+    assert_copy_line(&mut stream).context("failed to copy second line")?;
+    assert_copy_line(&mut stream).context("failed to copy third line")?;
+    Ok(())
 }
 
 #[test]
 #[serial]
-fn check_tcp() {
-    let wasm = wasm_path(env!("CARGO_BIN_FILE_ENARX_WASM_TESTS_check_tcp"));
+fn connect_tcp() -> anyhow::Result<()> {
+    let wasm = wasm_path(env!("CARGO_BIN_FILE_ENARX_WASM_TESTS_connect"));
 
-    // Create listening sockets (allocate a port).
-    let listen = TcpListener::bind((Ipv4Addr::UNSPECIFIED, 0)).unwrap();
-    let lport = listen.local_addr().unwrap().port();
-    let cport = TcpListener::bind((Ipv4Addr::UNSPECIFIED, 0))
-        .unwrap()
+    let listener =
+        TcpListener::bind((Ipv4Addr::UNSPECIFIED, 0)).context("failed to start TCP listener")?;
+    let port = listener
         .local_addr()
-        .unwrap()
+        .context("failed to query listener local address")?
         .port();
 
-    let conf = format!(
+    let mut conf = NamedTempFile::new().context("failed to create config file")?;
+    write!(
+        conf,
+        r#"[[files]]
+kind = "stdin"
+
+[[files]]
+kind = "stdout"
+
+[[files]]
+kind = "stderr"
+
+[[files]]
+kind = "connect"
+prot = "tcp"
+host = "{}"
+port = {port}
+name = "stream""#,
+        Ipv4Addr::LOCALHOST,
+    )
+    .context("failed to write config file")?;
+
+    let server = thread::spawn(move || {
+        let (stream, _) = listener.accept().expect("failed to accept connection");
+        assert_stream(stream).expect("failed to assert stream");
+    });
+    check_output(&enarx_run(&wasm, Some(&conf.path()), None), 0, None, None);
+    server.join().expect("failed to join server thread");
+    Ok(())
+}
+
+// TODO: Reenable once there's functionality to configure trust anchors in Enarx.toml
+// https://github.com/enarx/enarx/issues/2170 (which requires VFS)
+//#[test]
+//#[serial]
+//fn connect_tls() -> anyhow::Result<()> {
+//    let wasm = wasm_path(env!("CARGO_BIN_FILE_ENARX_WASM_TESTS_connect"));
+//
+//    let listener =
+//        TcpListener::bind((Ipv4Addr::UNSPECIFIED, 0)).context("failed to start TCP listener")?;
+//    let port = listener
+//        .local_addr()
+//        .context("failed to query listener local address")?
+//        .port();
+//
+//    let mut conf = NamedTempFile::new().context("failed to create config file")?;
+//    write!(
+//        conf,
+//        r#"[[files]]
+//kind = "stdin"
+//
+//[[files]]
+//kind = "stdout"
+//
+//[[files]]
+//kind = "stderr"
+//
+//[[files]]
+//kind = "connect"
+//prot = "tls"
+//host = "localhost"
+//port = {port}
+//name = "stream"
+//ca = {{ custom = [ "test" ] }}
+//
+//[roots]
+//test = """\
+//{}\
+//""""#,
+//        include_str!("../../tests/data/tls/ca.crt")
+//    )
+//    .context("failed to write config file")?;
+//
+//    let certs = rustls_pemfile::certs(&mut BufReader::new(
+//        include_bytes!("../../tests/data/tls/server.crt").as_slice(),
+//    ))
+//    .context("failed to read server TLS certificates")?
+//    .into_iter()
+//    .map(Certificate)
+//    .collect();
+//
+//    let key = match rustls_pemfile::read_one(&mut BufReader::new(
+//        include_bytes!("../../tests/data/tls/server.key").as_slice(),
+//    ))
+//    .context("failed to read server TLS certificate key")?
+//    .context("server TLS certificate key missing")?
+//    {
+//        RSAKey(buf) | PKCS8Key(buf) | ECKey(buf) => PrivateKey(buf),
+//        item => bail!("unsupported key type `{:?}`", item),
+//    };
+//
+//    let tls = Arc::new(
+//        rustls::ServerConfig::builder()
+//            .with_safe_default_cipher_suites()
+//            .with_safe_default_kx_groups()
+//            .with_protocol_versions(&[&TLS13])
+//            .context("failed to select TLS protocol versions")?
+//            .with_no_client_auth() // TODO: Validate client cert
+//            .with_single_cert(certs, key)
+//            .context("invalid server TLS certificate key")?,
+//    );
+//
+//    let server = thread::spawn(move || {
+//        let (stream, _) = listener.accept().expect("failed to accept connection");
+//        let tls = rustls::ServerConnection::new(tls).expect("failed to create TLS connection");
+//        assert_stream(rustls::StreamOwned::new(tls, stream)).expect("failed to assert stream");
+//    });
+//    check_output(&enarx_run(&wasm, Some(&conf.path()), None), 0, None, None);
+//    server.join().expect("failed to join server thread");
+//    Ok(())
+//}
+
+fn assert_connect<T: Read + Write>(connect: impl Fn() -> anyhow::Result<T>) -> anyhow::Result<()> {
+    connect()
+        .context("failed to establish first connection")
+        .and_then(|stream| assert_stream(stream).context("failed to assert first stream"))?;
+
+    connect()
+        .context("failed to establish second connection")
+        .and_then(|stream| assert_stream(stream).context("failed to assert second stream"))?;
+
+    connect()
+        .context("failed to establish third connection")
+        .and_then(|stream| assert_stream(stream).context("failed to assert third stream"))?;
+
+    Ok(())
+}
+
+#[test]
+#[serial]
+fn listen_tcp() -> anyhow::Result<()> {
+    let wasm = wasm_path(env!("CARGO_BIN_FILE_ENARX_WASM_TESTS_listen"));
+
+    let listener =
+        TcpListener::bind((Ipv4Addr::UNSPECIFIED, 0)).context("failed to start TCP listener")?;
+    let port = TcpListener::bind((Ipv4Addr::UNSPECIFIED, 0))
+        .context("failed to start TCP listener")?
+        .local_addr()
+        .context("failed to query listener local address")?
+        .port();
+
+    let mut conf = NamedTempFile::new().context("failed to create config file")?;
+    write!(
+        conf,
         r#"[[files]]
 kind = "stdin"
 
@@ -248,44 +435,118 @@ kind = "stderr"
 [[files]]
 kind = "listen"
 prot = "tcp"
-port = {cport}
-name = "LISTEN"
-addr = "0.0.0.0"
+port = {port}
+name = "ingest"
 
 [[files]]
 kind = "connect"
 prot = "tcp"
-host = "127.0.0.1"
-port = {lport}
-name = "CONNECT""#
+host = "{}"
+port = {}
+name = "ping""#,
+        Ipv4Addr::LOCALHOST,
+        listener.local_addr().unwrap().port()
+    )
+    .context("failed to write config file")?;
+
+    let client = thread::spawn(move || {
+        println!("waiting for workload to start...");
+        _ = listener.accept().expect("failed to accept connection");
+
+        assert_connect(|| {
+            TcpStream::connect((Ipv4Addr::LOCALHOST, port))
+                .context("failed to connect to TCP socket")
+        })
+        .expect("failed to assert TCP connection");
+    });
+    check_output(&enarx_run(&wasm, Some(&conf.path()), None), 0, None, None);
+    client.join().expect("failed to join client thread");
+    Ok(())
+}
+
+struct NoopCertVerifier;
+
+impl ServerCertVerifier for NoopCertVerifier {
+    fn verify_server_cert(
+        &self,
+        _: &Certificate,
+        _: &[Certificate],
+        _: &rustls::ServerName,
+        _: &mut dyn Iterator<Item = &[u8]>,
+        _: &[u8],
+        _: std::time::SystemTime,
+    ) -> Result<ServerCertVerified, rustls::Error> {
+        Ok(ServerCertVerified::assertion())
+    }
+}
+
+#[test]
+#[serial]
+fn listen_tls() -> anyhow::Result<()> {
+    let wasm = wasm_path(env!("CARGO_BIN_FILE_ENARX_WASM_TESTS_listen"));
+
+    let listener =
+        TcpListener::bind((Ipv4Addr::UNSPECIFIED, 0)).context("failed to start TCP listener")?;
+    let port = TcpListener::bind((Ipv4Addr::UNSPECIFIED, 0))
+        .context("failed to start TCP listener")?
+        .local_addr()
+        .context("failed to query listener local address")?
+        .port();
+
+    let mut conf = NamedTempFile::new().context("failed to create config file")?;
+    write!(
+        conf,
+        r#"[[files]]
+kind = "stdin"
+
+[[files]]
+kind = "stdout"
+
+[[files]]
+kind = "stderr"
+
+[[files]]
+kind = "listen"
+prot = "tls"
+port = {port}
+name = "ingest"
+
+[[files]]
+kind = "connect"
+prot = "tcp"
+host = "{}"
+port = {}
+name = "ping""#,
+        Ipv4Addr::LOCALHOST,
+        listener.local_addr().unwrap().port()
+    )
+    .context("failed to write config file")?;
+
+    let tls = Arc::new(
+        rustls::ClientConfig::builder()
+            .with_safe_default_cipher_suites()
+            .with_safe_default_kx_groups()
+            .with_protocol_versions(&[&TLS13])
+            .context("failed to select TLS protocol versions")?
+            .with_custom_certificate_verifier(Arc::new(NoopCertVerifier))
+            .with_no_client_auth(),
     );
 
-    let pkg = tempdir().expect("failed to create temporary package directory");
-    let pkg_wasm = pkg.path().join("main.wasm");
-    let pkg_conf = pkg.path().join("Enarx.toml");
+    let client = thread::spawn(move || {
+        println!("waiting for workload to start...");
+        _ = listener.accept().expect("failed to accept connection");
 
-    fs::copy(wasm, &pkg_wasm).expect("failed to copy WASM module");
-    fs::write(&pkg_conf, &conf).expect("failed to write config");
-
-    // Spawn the IO thread.
-    thread::spawn(move || loop {
-        let mut output = listen.accept().unwrap().0;
-        output.write_all(b"test").unwrap();
-        drop(output);
-
-        let mut input = TcpStream::connect((Ipv4Addr::LOCALHOST, cport)).unwrap();
-        let mut buffer = String::new();
-        input.read_to_string(&mut buffer).unwrap();
-        drop(input);
-
-        assert_eq!("test\n", buffer)
+        assert_connect(|| {
+            let stream = TcpStream::connect((Ipv4Addr::LOCALHOST, port))
+                .context("failed to connect to TCP socket")?;
+            let tls =
+                rustls::ClientConnection::new(Arc::clone(&tls), "localhost".try_into().unwrap())
+                    .context("failed to create TLS connection")?;
+            Ok(rustls::StreamOwned::new(tls, stream))
+        })
+        .expect("failed to assert TLS connection");
     });
-
-    check_output(&enarx_run(&pkg_wasm, Some(&pkg_conf), None), 0, None, None);
-
-    let url = Url::from_file_path(&pkg).expect("failed to construct a URL from package path");
-    check_output(&enarx_deploy(&url, None), 0, None, None);
-
-    // TODO: Test execution from a remote HTTP(S) URL
-    // https://github.com/enarx/enarx/issues/1855
+    check_output(&enarx_run(&wasm, Some(&conf.path()), None), 0, None, None);
+    client.join().expect("failed to join client thread");
+    Ok(())
 }

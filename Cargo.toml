@@ -84,6 +84,7 @@ protobuf-codegen-pure = { version = "2.27", default-features = false }
 
 [dev-dependencies]
 process_control = { version = "3.3", default-features = false }
+rustls = { version = "0.20.6", default-features = false, features = ["dangerous_configuration"] } # `dangerous_configuration` is required to specify a custom TLS verifier
 serial_test = { version = "0.9", default-features = false }
 testaso = { version = "0.1", default-features = false }
 tempfile = { version = "3.3.0", default-features = false }

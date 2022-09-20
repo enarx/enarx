@@ -3,3 +3,6 @@ name = "enarx_wasm_tests"
 version = "0.1.0"
 edition = "2021"
 license = "Apache-2.0"
+
+[dependencies]
+anyhow = { version = "1.0.56", features = ["std"], default-features = false }
