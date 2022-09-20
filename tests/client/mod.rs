@@ -96,7 +96,7 @@ async fn full() {
         let cmd = cmd!(
             "enarx package publish
             {db_addr}/testuser/publicrepo:1.0.0
-            {workspace_dir}/tests/client/testdata/echo_server/main.wasm"
+            {workspace_dir}/tests/client/testdata/wasm_example/main.wasm"
         );
         assert_eq!(cmd.success, true);
 
@@ -104,13 +104,13 @@ async fn full() {
         let cmd = cmd!(
             "enarx package publish
             {db_addr}/testuser/publicrepo:2.0.0
-            {workspace_dir}/tests/client/testdata/echo_server"
+            {workspace_dir}/tests/client/testdata/wasm_example"
         );
         assert_eq!(cmd.success, true);
 
         // test for success when looking up a public package that exists
         let cmd = cmd!("enarx package info {db_addr}/testuser/publicrepo:2.0.0");
-        assert_eq!(cmd.output, "{\n  \"digest\": {\n    \"sha-224\": \"HSRr+vfp1r69/lJB9eUKLTpccgTXYZFCdlSvlA==\",\n    \"sha-256\": \"irAVZO3vtGXX24YSQIOz7Rtxp1the9NFG8/uFaOHNM8=\",\n    \"sha-384\": \"ZKgWsUvFmIbCvM2neDBioWn2JVQ4Ytpx1YAU/x5LiMyWl5fvWBA8rDpMd0GyFLAY\",\n    \"sha-512\": \"37aldu7b1JJlXhj2crJ3lvmy5ZQ15QcWKPzbmwez0bAZjE7gke/zqGcFvKiMLKiB17ba0F+/D05Xvtwss35Vmw==\"\n  },\n  \"length\": 709,\n  \"type\": \"application/vnd.drawbridge.directory.v1+json\"\n}\n");
+        assert_eq!(cmd.output, "{\n  \"digest\": {\n    \"sha-224\": \"9lthJYmqbXNwwWIK5CYHYnfBkqhz71mIWO6Vjw==\",\n    \"sha-256\": \"c/MsTz6fW1Y2eqnSDhGqmoOyyvTL5W7EOJJ6FpdlEzo=\",\n    \"sha-384\": \"DGIbID9HBhO2zqIH9fMlknguUCxau60fxpC/kb4sBy1xb5GcseHmtjsBUwA6Vfj3\",\n    \"sha-512\": \"RRXxD15/IUm/2WWUG58Erg4wtF5LHE3urhKsB8+H2IBOLnLApcXtinUA7dO+JshfP7DBWIJ+QhjjwzYyRlI5+A==\"\n  },\n  \"length\": 709,\n  \"type\": \"application/vnd.drawbridge.directory.v1+json\"\n}\n");
 
         // test for success when fetching tags from a non-empty public repo
         let cmd = cmd!("enarx repo info {db_addr}/testuser/publicrepo");
