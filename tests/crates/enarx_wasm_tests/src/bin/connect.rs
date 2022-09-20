@@ -2,34 +2,51 @@
 
 #![cfg_attr(target_os = "wasi", feature(wasi_ext))]
 
-#[cfg(unix)]
-use std::os::unix::io::FromRawFd;
-#[cfg(target_os = "wasi")]
-use std::os::wasi::io::FromRawFd;
-
 #[cfg(any(target_os = "wasi", unix))]
 fn main() -> anyhow::Result<()> {
     use enarx_wasm_tests::assert_stream;
 
-    use std::env;
-    use std::net::TcpStream;
+    use std::env::args;
+    use std::fs::File;
+    use std::net::{Ipv4Addr, Ipv6Addr, TcpStream};
+    use std::num::NonZeroU16;
+    #[cfg(unix)]
+    use std::os::unix::io::OwnedFd;
+    #[cfg(target_os = "wasi")]
+    use std::os::wasi::io::OwnedFd;
 
-    use anyhow::{ensure, Context};
+    use anyhow::{bail, ensure, Context};
 
-    let fd_count: usize = env::var("FD_COUNT")
-        .context("failed to lookup `FD_COUNT`")?
-        .parse()
-        .context("failed to parse `FD_COUNT`")?;
-    ensure!(
-        fd_count == 4, // STDIN, STDOUT, STDERR and the socket connected to the endpoint
-        "unexpected amount of file descriptors received"
-    );
-    ensure!(
-        env::var("FD_NAMES").context("failed to lookup `FD_NAMES`")?
-            == "stdin:stdout:stderr:stream"
-    );
+    let mut args = args();
+    ensure!(args.next().as_deref() == Some("main.wasm"));
+    let port: NonZeroU16 = match (args.next(), args.next()) {
+        (Some(port), None) => port
+            .parse()
+            .context("failed to parse port from arguments")?,
+        _ => bail!("takes exactly one argument (port)"),
+    };
 
-    assert_stream(unsafe { TcpStream::from_raw_fd(3) })
+    eprintln!("[guest] connecting to `{}:{port}`", Ipv4Addr::LOCALHOST);
+    let stream = File::options()
+        .read(true)
+        .write(true)
+        .open(format!("/net/con/{}:{port}", Ipv4Addr::LOCALHOST))
+        .map(OwnedFd::from)
+        .map(TcpStream::from)
+        .with_context(|| format!("failed to connect to `{}:{port}`", Ipv4Addr::LOCALHOST))?;
+    assert_stream(stream).context("failed to assert IPv4 connectivity")?;
+
+    eprintln!("[guest] connecting to `[{}]:{port}`", Ipv6Addr::LOCALHOST);
+    let stream = File::options()
+        .read(true)
+        .write(true)
+        .open(format!("/net/con/[{}]:{port}", Ipv6Addr::LOCALHOST))
+        .map(OwnedFd::from)
+        .map(TcpStream::from)
+        .with_context(|| format!("failed to connect to `[{}]:{port}`", Ipv6Addr::LOCALHOST))?;
+    assert_stream(stream).context("failed to assert IPv6 connectivity")?;
+
+    Ok(())
 }
 
 #[cfg(not(any(target_os = "wasi", unix)))]

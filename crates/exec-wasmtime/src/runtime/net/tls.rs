@@ -12,13 +12,27 @@ use cap_std::net::{Shutdown, TcpListener as CapListener, TcpStream as CapStream}
 use io_extras::os::windows::AsRawHandleOrSocket;
 #[cfg(unix)]
 use io_lifetimes::AsFd;
-
+use rustls::cipher_suite::{
+    TLS13_AES_128_GCM_SHA256, TLS13_AES_256_GCM_SHA384, TLS13_CHACHA20_POLY1305_SHA256,
+};
+use rustls::kx_group::{SECP256R1, SECP384R1, X25519};
+use rustls::version::TLS13;
 use rustls::{ClientConfig, ClientConnection, Connection, ServerConfig, ServerConnection};
 use wasi_common::file::{FdFlags, FileType, RiFlags, RoFlags, SdFlags, SiFlags};
 use wasi_common::{Context, Error, ErrorExt, ErrorKind, WasiFile};
 #[cfg(unix)]
 use wasmtime_wasi::net::get_fd_flags;
 use wasmtime_wasi::net::is_read_write;
+
+pub static DEFAULT_PROTOCOL_VERSIONS: &[&rustls::SupportedProtocolVersion] = &[&TLS13];
+
+pub static DEFAULT_KX_GROUPS: &[&rustls::SupportedKxGroup] = &[&X25519, &SECP384R1, &SECP256R1];
+
+pub static DEFAULT_CIPHER_SUITES: &[rustls::SupportedCipherSuite] = &[
+    TLS13_AES_256_GCM_SHA384,
+    TLS13_AES_128_GCM_SHA256,
+    TLS13_CHACHA20_POLY1305_SHA256,
+];
 
 fn errmap(error: io::Error) -> Error {
     match error.kind() {

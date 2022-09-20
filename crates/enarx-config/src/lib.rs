@@ -1,5 +1,4 @@
 // SPDX-License-Identifier: Apache-2.0
-
 //! Configuration for a WASI application in an Enarx Keep
 //!
 #![doc = include_str!("../README.md")]
@@ -8,12 +7,186 @@
 #![deny(clippy::all)]
 #![warn(rust_2018_idioms)]
 
-use std::collections::HashMap;
-use std::ops::Deref;
+use std::collections::{BTreeMap, HashMap};
+use std::fmt::{self, Display};
+use std::io;
+use std::net::{Ipv4Addr, Ipv6Addr, ToSocketAddrs};
+use std::num::NonZeroU16;
+use std::str::FromStr;
 
-use serde::de::Error as _;
-use serde::{Deserialize, Deserializer, Serialize};
-use url::Url;
+use serde::ser::SerializeMap;
+use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
+use url::{Host, Url};
+
+/// Host specification
+#[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+pub struct HostSpec {
+    /// Host - either Ipv4 address, Ipv6 address or a domain name
+    pub host: Host<String>,
+    /// Optional port
+    pub port: Option<NonZeroU16>,
+}
+
+impl From<Host<String>> for HostSpec {
+    fn from(host: Host<String>) -> Self {
+        Self { host, port: None }
+    }
+}
+
+impl<'a> From<Host<&'a str>> for HostSpec {
+    fn from(host: Host<&'a str>) -> Self {
+        host.to_owned().into()
+    }
+}
+
+impl From<(Host<String>, Option<NonZeroU16>)> for HostSpec {
+    fn from((host, port): (Host<String>, Option<NonZeroU16>)) -> Self {
+        Self { host, port }
+    }
+}
+
+impl From<(Host<String>, NonZeroU16)> for HostSpec {
+    fn from((host, port): (Host<String>, NonZeroU16)) -> Self {
+        (host, Some(port)).into()
+    }
+}
+
+impl<'a> From<(Host<&'a str>, NonZeroU16)> for HostSpec {
+    fn from((host, port): (Host<&'a str>, NonZeroU16)) -> Self {
+        (host.to_owned(), port).into()
+    }
+}
+
+impl From<(Ipv4Addr, NonZeroU16)> for HostSpec {
+    fn from((host, port): (Ipv4Addr, NonZeroU16)) -> Self {
+        Self {
+            host: Host::Ipv4(host),
+            port: Some(port),
+        }
+    }
+}
+
+impl From<Ipv4Addr> for HostSpec {
+    fn from(host: Ipv4Addr) -> Self {
+        Self {
+            host: Host::Ipv4(host),
+            port: None,
+        }
+    }
+}
+
+impl From<(Ipv6Addr, NonZeroU16)> for HostSpec {
+    fn from((host, port): (Ipv6Addr, NonZeroU16)) -> Self {
+        Self {
+            host: Host::Ipv6(host),
+            port: Some(port),
+        }
+    }
+}
+
+impl From<Ipv6Addr> for HostSpec {
+    fn from(host: Ipv6Addr) -> Self {
+        Self {
+            host: Host::Ipv6(host),
+            port: None,
+        }
+    }
+}
+
+impl ToSocketAddrs for HostSpec {
+    type Iter = <String as ToSocketAddrs>::Iter;
+
+    fn to_socket_addrs(&self) -> io::Result<Self::Iter> {
+        format!("{self}").to_socket_addrs()
+    }
+}
+
+/// Host specification parsing error
+#[derive(Clone, Debug)]
+pub enum HostSpecParseError {
+    /// Invalid host
+    InvalidHost(url::ParseError),
+    /// Invalid port
+    InvalidPort(<NonZeroU16 as FromStr>::Err),
+}
+
+impl Display for HostSpecParseError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::InvalidHost(e) => e.fmt(f),
+            Self::InvalidPort(e) => e.fmt(f),
+        }
+    }
+}
+
+impl FromStr for HostSpec {
+    type Err = HostSpecParseError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let (host, port) = if s.starts_with('[') {
+            // Split Ipv6 host from optional port
+            const INVALID_ADDR: HostSpecParseError =
+                HostSpecParseError::InvalidHost(url::ParseError::InvalidIpv6Address);
+
+            let mut it = s.split_inclusive(']');
+            let host = it.next().ok_or(INVALID_ADDR)?;
+            match (it.next(), it.next()) {
+                (Some(port), None) => {
+                    let port = port.strip_prefix(':').ok_or(INVALID_ADDR)?;
+                    (host, Some(port))
+                }
+                (None, None) => (host, None),
+                _ => return Err(INVALID_ADDR),
+            }
+        } else if let Some((host, port)) = s.rsplit_once(':') {
+            // Split Ipv4/domain host from optional port
+            (host, Some(port))
+        } else {
+            (s, None)
+        };
+        let host = Host::parse(host).map_err(Self::Err::InvalidHost)?;
+        let port = port
+            .map(FromStr::from_str)
+            .transpose()
+            .map_err(Self::Err::InvalidPort)?;
+        Ok(Self { host, port })
+    }
+}
+
+impl Display for HostSpec {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match (&self.host, self.port) {
+            (Host::Ipv4(host), None) => host.fmt(f),
+            (Host::Ipv6(host), None) => write!(f, "[{host}]"),
+            (Host::Domain(ref host), None) => host.fmt(f),
+
+            (Host::Ipv4(host), Some(port)) => write!(f, "{host}:{port}"),
+            (Host::Ipv6(host), Some(port)) => write!(f, "[{host}]:{port}"),
+            (Host::Domain(host), Some(port)) => write!(f, "{host}:{port}"),
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for HostSpec {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        s.parse().map_err(|e| {
+            de::Error::custom(format!("failed to parse `{s}` as host specification: {e}"))
+        })
+    }
+}
+
+impl Serialize for HostSpec {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_str(&self.to_string())
+    }
+}
 
 /// Configuration file template
 pub const CONFIG_TEMPLATE: &str = r#"## Configuration for a WASI application in an Enarx Keep
@@ -32,90 +205,30 @@ pub const CONFIG_TEMPLATE: &str = r#"## Configuration for a WASI application in 
 # VAR1 = "var1"
 # VAR2 = "var2"
 
-## Pre-opened file descriptors
-[[files]]
-kind = "stdin"
+# Standard input file
+[stdin]
+kind = "host" # or kind = "null"
 
-[[files]]
-kind = "stdout"
+# Standard output file
+[stdout]
+kind = "host" # or kind = "null"
 
-[[files]]
-kind = "stderr"
+# Standard error file
+[stderr]
+kind = "host" # or kind = "null"
 
-## A listen socket
-# [[files]]
-# name = "listen"
-# kind = "listen"
-# prot = "tls" # or prot = "tcp"
-# port = 12345
+# Use TCP for listening on port `8080` (TLS is the default)
+[network.incoming.8080]
+prot = "tcp"
 
-## An outgoing connected socket
-# [[files]]
-# name = "stream"
-# kind = "connect"
-# prot = "tls" # or prot = "tcp"
-# host = "localhost"
-# port = 23456
+# Use TCP for connecting to all ports on `example.com` (TLS is the default)
+[network.outgoing."example.com"]
+prot = "tcp"
+
+# Use TCP for connecting to `[::1]:8080` (TLS is the default)
+[network.outgoing."[::1]:8080"]
+prot = "tcp"
 "#;
-
-const fn default_tcp_port() -> u16 {
-    80
-}
-
-const fn default_tls_port() -> u16 {
-    443
-}
-
-fn default_addr() -> String {
-    "::".into()
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
-/// Name assigned to a file descriptor
-///
-/// This is used to export the `FD_NAMES` environment variable,
-/// which is a concatenation of all file descriptors names seperated by `:`.
-///
-/// See the [crate] documentation for examples.
-pub struct FileName(String);
-
-impl TryFrom<String> for FileName {
-    type Error = &'static str;
-
-    fn try_from(name: String) -> Result<Self, Self::Error> {
-        if name.find(':').is_some() {
-            Err("file name must not contain ':'")
-        } else {
-            Ok(Self(name))
-        }
-    }
-}
-
-impl TryFrom<&str> for FileName {
-    type Error = <FileName as TryFrom<String>>::Error;
-
-    fn try_from(name: &str) -> Result<Self, Self::Error> {
-        String::from(name).try_into()
-    }
-}
-
-impl Deref for FileName {
-    type Target = str;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl<'de> Deserialize<'de> for FileName {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let name = String::deserialize(deserializer)?;
-        name.try_into().map_err(D::Error::custom)
-    }
-}
 
 /// The configuration for an Enarx WASI application
 ///
@@ -127,273 +240,467 @@ impl<'de> Deserialize<'de> for FileName {
 /// extern crate toml;
 /// use enarx_config::Config;
 /// const CONFIG: &str = r#"
-/// [[files]]
-/// name = "listen"
-/// kind = "listen"
+/// [network.incoming.12345]
 /// prot = "tls"
-/// port = 12345
 /// "#;
 ///
 /// let config: Config = toml::from_str(CONFIG).unwrap();
 /// ```
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(default, deny_unknown_fields)]
 pub struct Config {
     /// An optional Steward URL
-    #[serde(default)]
     pub steward: Option<Url>,
 
     /// The arguments to provide to the application
-    #[serde(default)]
     pub args: Vec<String>,
 
-    /// The array of pre-opened file descriptors
-    #[serde(default)]
-    pub files: Vec<File>,
-
     /// The environment variables to provide to the application
-    #[serde(default)]
     pub env: HashMap<String, String>,
+
+    /// Standard input file. Null by default.
+    pub stdin: StdioFile,
+
+    /// Standard output file. Null by default.
+    pub stdout: StdioFile,
+
+    /// Standard error file. Null by default.
+    pub stderr: StdioFile,
+
+    /// Network policy.
+    ///
+    /// This API is highly experimental and will change significantly in the future.
+    /// Please track https://github.com/enarx/enarx/issues/2367 and provide feedback if this
+    /// feature is important for you.
+    #[serde(default)]
+    pub network: Network,
 }
 
-impl Default for Config {
-    fn default() -> Self {
-        let files = vec![
-            File::Stdin(Default::default()),
-            File::Stdout(Default::default()),
-            File::Stderr(Default::default()),
-        ];
+/// Incoming network connection policy.
+///
+/// This API is highly experimental and will change significantly in the future.
+/// Please track https://github.com/enarx/enarx/issues/2367 and provide feedback if this
+/// feature is important for you.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct IncomingNetwork {
+    /// Default incoming network connection policy.
+    ///
+    /// This API is highly experimental and will change significantly in the future.
+    /// Please track https://github.com/enarx/enarx/issues/2367 and provide feedback if this
+    /// feature is important for you.
+    #[serde(default)]
+    pub default: Incoming,
 
-        Self {
-            env: HashMap::new(),
-            args: vec![],
-            files,
-            steward: None, // TODO: Default to a deployed Steward instance
+    /// Per-port incoming network connection policy.
+    ///
+    /// This API is highly experimental and will change significantly in the future.
+    /// Please track https://github.com/enarx/enarx/issues/2367 and provide feedback if this
+    /// feature is important for you.
+    #[serde(
+        flatten,
+        deserialize_with = "IncomingNetwork::deserialize_ports",
+        serialize_with = "IncomingNetwork::serialize_ports"
+    )]
+    pub ports: HashMap<u16, Incoming>,
+}
+
+impl IncomingNetwork {
+    /// Returns the network policy associated with specified `port`.
+    pub fn get(&self, port: u16) -> &Incoming {
+        if let Some(policy) = self.ports.get(&port) {
+            policy
+        } else {
+            &self.default
         }
+    }
+
+    fn serialize_ports<S>(ports: &HashMap<u16, Incoming>, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut map = serializer.serialize_map(Some(ports.len()))?;
+        for (port, spec) in ports {
+            map.serialize_entry(&port.to_string(), spec)?;
+        }
+        map.end()
+    }
+
+    fn deserialize_ports<'de, D>(deserializer: D) -> Result<HashMap<u16, Incoming>, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct Visitor;
+
+        impl<'de> de::Visitor<'de> for Visitor {
+            type Value = HashMap<u16, Incoming>;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+                formatter.write_str("a u16 port to network listening policy")
+            }
+
+            fn visit_map<M>(self, mut access: M) -> Result<Self::Value, M::Error>
+            where
+                M: de::MapAccess<'de>,
+            {
+                let mut ports = Self::Value::with_capacity(access.size_hint().unwrap_or(0));
+                while let Some((port, spec)) = access.next_entry::<&'de str, Incoming>()? {
+                    let port = port.parse().map_err(|e| {
+                        de::Error::custom(format!("failed to parse `{port}` as port: {e}"))
+                    })?;
+                    ports.insert(port, spec);
+                }
+                Ok(ports)
+            }
+        }
+        deserializer.deserialize_map(Visitor)
     }
 }
 
-/// `/dev/null` file descriptor
+/// Outgoing network connection policy.
+///
+/// This API is highly experimental and will change significantly in the future.
+/// Please track https://github.com/enarx/enarx/issues/2367 and provide feedback if this
+/// feature is important for you.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OutgoingNetwork {
+    /// Default outgoing network connection policy.
+    ///
+    /// This API is highly experimental and will change significantly in the future.
+    /// Please track https://github.com/enarx/enarx/issues/2367 and provide feedback if this
+    /// feature is important for you.
+    #[serde(default)]
+    pub default: Outgoing,
+
+    /// Per-host outgoing network connection policy.
+    ///
+    /// This API is highly experimental and will change significantly in the future.
+    /// Please track https://github.com/enarx/enarx/issues/2367 and provide feedback if this
+    /// feature is important for you.
+    #[serde(flatten, deserialize_with = "OutgoingNetwork::deserialize_hosts")]
+    pub hosts: BTreeMap<HostSpec, Outgoing>,
+}
+
+impl OutgoingNetwork {
+    /// Returns the network policy associated with specified `addr`.
+    pub fn get(&self, addr: &HostSpec) -> &Outgoing {
+        if let Some(policy) = self.hosts.get(addr) {
+            policy
+        } else if let Some(policy) = self.hosts.get(&addr.host.clone().into()) {
+            policy
+        } else {
+            &self.default
+        }
+    }
+
+    fn deserialize_hosts<'de, D>(deserializer: D) -> Result<BTreeMap<HostSpec, Outgoing>, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct Visitor;
+
+        impl<'de> de::Visitor<'de> for Visitor {
+            type Value = BTreeMap<HostSpec, Outgoing>;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+                formatter.write_str("a host specification to network connection policy")
+            }
+
+            fn visit_map<M>(self, mut access: M) -> Result<Self::Value, M::Error>
+            where
+                M: de::MapAccess<'de>,
+            {
+                let mut hosts = Self::Value::new();
+                while let Some((host, spec)) = access.next_entry()? {
+                    // Ipv6 addresses exist, for which more than one string representation exist.
+                    match hosts.get(&host) {
+                        None => {
+                            hosts.insert(host, spec);
+                        }
+                        Some(stored) if spec == *stored => {}
+                        _ => {
+                            return Err(de::Error::custom(format!(
+                                "conflicting outgoing network host specification for `{host}`"
+                            )))
+                        }
+                    }
+                }
+                Ok(hosts)
+            }
+        }
+        deserializer.deserialize_map(Visitor)
+    }
+}
+
+/// Network policy.
+///
+/// This API is highly experimental and will change significantly in the future.
+/// Please track https://github.com/enarx/enarx/issues/2367 and provide feedback if this
+/// feature is important for you.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct NullFile {
-    /// Name assigned to the file descriptor
-    name: Option<FileName>,
+pub struct Network {
+    /// Incoming network connection policy.
+    ///
+    /// This API is highly experimental and will change significantly in the future.
+    /// Please track https://github.com/enarx/enarx/issues/2367 and provide feedback if this
+    /// feature is important for you.
+    #[serde(default)]
+    pub incoming: IncomingNetwork,
+
+    /// Outgoing network connection policy
+    ///
+    /// This API is highly experimental and will change significantly in the future.
+    /// Please track https://github.com/enarx/enarx/issues/2367 and provide feedback if this
+    /// feature is important for you.
+    #[serde(default)]
+    pub outgoing: OutgoingNetwork,
 }
 
-/// Standard I/O file descriptor
+/// Specification of an incoming network connection.
+///
+/// This API is highly experimental and will change significantly in the future.
+/// Please track https://github.com/enarx/enarx/issues/2367 and provide feedback if this
+/// feature is important for you.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct StdioFile {
-    /// Name assigned to the file descriptor
-    name: Option<FileName>,
-}
-
-/// File descriptor of a listen socket
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "prot", deny_unknown_fields)]
-pub enum ListenFile {
-    /// TLS listen socket
+pub enum Incoming {
+    /// TLS listen socket.
+    ///
+    /// This API is highly experimental and will change significantly in the future.
+    /// Please track https://github.com/enarx/enarx/issues/2367 and provide feedback if this
+    /// feature is important for you.
     #[serde(rename = "tls")]
-    Tls {
-        /// Name assigned to the file descriptor
-        name: FileName,
+    #[default]
+    Tls,
 
-        /// Address to listen on
-        #[serde(default = "default_addr")]
-        addr: String,
-
-        /// Port to listen on
-        #[serde(default = "default_tls_port")]
-        port: u16,
-    },
-
-    /// TCP listen socket
+    /// TCP listen socket.
+    ///
+    /// This API is highly experimental and will change significantly in the future.
+    /// Please track https://github.com/enarx/enarx/issues/2367 and provide feedback if this
+    /// feature is important for you.
     #[serde(rename = "tcp")]
-    Tcp {
-        /// Name assigned to the file descriptor
-        name: FileName,
-
-        /// Address to listen on
-        #[serde(default = "default_addr")]
-        addr: String,
-
-        /// Port to listen on
-        #[serde(default = "default_tcp_port")]
-        port: u16,
-    },
+    Tcp,
 }
 
-/// File descriptor of a stream socket
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+/// Specification of an outgoing network connection.
+///
+/// This API is highly experimental and will change significantly in the future.
+/// Please track https://github.com/enarx/enarx/issues/2367 and provide feedback if this
+/// feature is important for you.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "prot", deny_unknown_fields)]
-pub enum ConnectFile {
-    /// TLS stream socket
+pub enum Outgoing {
+    /// TLS stream socket.
+    ///
+    /// This API is highly experimental and will change significantly in the future.
+    /// Please track https://github.com/enarx/enarx/issues/2367 and provide feedback if this
+    /// feature is important for you.
     #[serde(rename = "tls")]
-    Tls {
-        /// Name assigned to the file descriptor
-        name: Option<FileName>,
+    #[default]
+    Tls,
 
-        /// Host address to connect to
-        host: String,
-
-        /// Port to connect to
-        #[serde(default = "default_tls_port")]
-        port: u16,
-    },
-
-    /// TCP stream socket
+    /// TCP stream socket.
+    ///
+    /// This API is highly experimental and will change significantly in the future.
+    /// Please track https://github.com/enarx/enarx/issues/2367 and provide feedback if this
+    /// feature is important for you.
     #[serde(rename = "tcp")]
-    Tcp {
-        /// Name assigned to the file descriptor
-        name: Option<FileName>,
-
-        /// Host address to connect to
-        host: String,
-
-        /// Port to connect to
-        #[serde(default = "default_tcp_port")]
-        port: u16,
-    },
+    Tcp,
 }
 
-/// Parameters for a pre-opened file descriptor
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+/// Standard I/O file configuration
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", deny_unknown_fields)]
-pub enum File {
-    /// File descriptor of `/dev/null`
+pub enum StdioFile {
+    /// Discard standard I/O.
     #[serde(rename = "null")]
-    Null(NullFile),
+    #[default]
+    Null,
 
-    /// File descriptor of stdin
-    #[serde(rename = "stdin")]
-    Stdin(StdioFile),
-
-    /// File descriptor of stdout
-    #[serde(rename = "stdout")]
-    Stdout(StdioFile),
-
-    /// File descriptor of stderr
-    #[serde(rename = "stderr")]
-    Stderr(StdioFile),
-
-    /// File descriptor of a listen socket
-    #[serde(rename = "listen")]
-    Listen(ListenFile),
-
-    /// File descriptor of a stream socket
-    #[serde(rename = "connect")]
-    Connect(ConnectFile),
-}
-
-impl File {
-    /// Get the name for a file descriptor
-    pub fn name(&self) -> &str {
-        match self {
-            Self::Null(NullFile { name }) => name.as_deref().unwrap_or("null"),
-            Self::Stdin(StdioFile { name }) => name.as_deref().unwrap_or("stdin"),
-            Self::Stdout(StdioFile { name }) => name.as_deref().unwrap_or("stdout"),
-            Self::Stderr(StdioFile { name }) => name.as_deref().unwrap_or("stderr"),
-            Self::Listen(ListenFile::Tls { name, .. }) => name,
-            Self::Listen(ListenFile::Tcp { name, .. }) => name,
-            Self::Connect(ConnectFile::Tls { name, host, .. }) => name.as_deref().unwrap_or(host),
-            Self::Connect(ConnectFile::Tcp { name, host, .. }) => name.as_deref().unwrap_or(host),
-        }
-    }
+    /// Forward standard I/O to host.
+    #[serde(rename = "host")]
+    Host,
 }
 
 #[cfg(test)]
 mod test {
+    use std::net::Ipv4Addr;
+
     use super::*;
 
-    const CONFIG: &str = r#"
-        [[files]]
-        kind = "stdin"
-
-        [[files]]
-        name = "X"
-        kind = "listen"
-        prot = "tcp"
-        port = 9000
-
-        [[files]]
-        kind = "stdout"
-
-        [[files]]
-        kind = "null"
-
-        [[files]]
-        kind = "stderr"
-
-        [[files]]
-        kind = "connect"
-        host = "example.com"
-        prot = "tls"
-    "#;
-
     #[test]
-    fn values() {
-        let cfg: Config = toml::from_str(CONFIG).unwrap();
-
-        assert_eq!(
-            cfg.files,
-            vec![
-                File::Stdin(Default::default()),
-                File::Listen(ListenFile::Tcp {
-                    name: "X".try_into().unwrap(),
-                    port: 9000,
-                    addr: default_addr()
-                }),
-                File::Stdout(Default::default()),
-                File::Null(Default::default()),
-                File::Stderr(Default::default()),
-                File::Connect(ConnectFile::Tls {
-                    name: Default::default(),
-                    port: default_tls_port(),
-                    host: "example.com".into(),
-                }),
-            ]
-        );
-
-        let _cfg_str = toml::to_string(&cfg).unwrap();
+    fn default() {
+        let cfg: Config = toml::from_str("").expect("failed to parse config");
+        assert_eq!(cfg, Default::default());
     }
 
     #[test]
-    fn names() {
-        let cfg: Config = toml::from_str(CONFIG).unwrap();
+    fn all() {
+        let cfg: Config = toml::from_str(
+            r#"
+steward = "https://example.com"
+
+args = [ "first", "2" ]
+
+[env]
+TEST = "test"
+
+[stdin]
+kind = "host"
+
+[stdout]
+kind = "null"
+
+[stderr]
+kind = "host"
+
+[network.incoming.default]
+prot = "tcp"
+
+[network.incoming.0]
+prot = "tls"
+
+[network.incoming.9000]
+prot = "tcp"
+
+[network.incoming.9001]
+prot = "tls"
+
+[network.outgoing.default]
+prot = "tls"
+
+[network.outgoing."tls.example.com"]
+prot = "tls"
+
+[network.outgoing."tls.example.com:8080"]
+prot = "tcp"
+
+[network.outgoing."tcp.example.com"]
+prot = "tcp"
+
+[network.outgoing."1.2.3.4:8080"]
+prot = "tls"
+
+[network.outgoing."1.2.3.4"]
+prot = "tcp"
+
+[network.outgoing."[2001:db8::1:0:0:1]"]
+prot = "tcp"
+
+[network.outgoing."[2001:db8::1:0:0:1]:5000"]
+prot = "tls"
+
+[network.outgoing."[::]"]
+prot = "tcp"
+
+[network.outgoing."[::1]"]
+prot = "tcp"
+"#,
+        )
+        .expect("failed to parse config");
+
+        const IPV4: Ipv4Addr = Ipv4Addr::new(1, 2, 3, 4);
+
+        const IPV6: Ipv6Addr = Ipv6Addr::new(
+            0x2001, 0x0db8, 0x0000, 0x0000, 0x0001, 0x0000, 0x0000, 0x0001,
+        );
+
+        fn connect_port(v: u16) -> NonZeroU16 {
+            NonZeroU16::new(v).unwrap()
+        }
 
         assert_eq!(
-            vec!["stdin", "X", "stdout", "null", "stderr", "example.com"],
-            cfg.files.iter().map(|f| f.name()).collect::<Vec<_>>()
+            cfg,
+            Config {
+                steward: Some("https://example.com".parse().unwrap()),
+                args: vec!["first".into(), "2".into()],
+                env: vec![("TEST".into(), "test".into())].into_iter().collect(),
+                stdin: StdioFile::Host,
+                stdout: StdioFile::Null,
+                stderr: StdioFile::Host,
+                network: Network {
+                    incoming: IncomingNetwork {
+                        ports: HashMap::from([
+                            (0, Incoming::Tls),
+                            (9000, Incoming::Tcp),
+                            (9001, Incoming::Tls)
+                        ]),
+                        default: Incoming::Tcp,
+                    },
+                    outgoing: OutgoingNetwork {
+                        hosts: BTreeMap::from([
+                            (Host::Domain("tls.example.com").into(), Outgoing::Tls),
+                            (
+                                (Host::Domain("tls.example.com"), connect_port(8080)).into(),
+                                Outgoing::Tcp
+                            ),
+                            (Host::Domain("tcp.example.com").into(), Outgoing::Tcp),
+                            ((IPV4, connect_port(8080)).into(), Outgoing::Tls),
+                            (IPV4.into(), Outgoing::Tcp),
+                            (IPV6.into(), Outgoing::Tcp),
+                            ((IPV6, connect_port(5000)).into(), Outgoing::Tls),
+                            (Ipv6Addr::UNSPECIFIED.into(), Outgoing::Tcp),
+                            (Ipv6Addr::LOCALHOST.into(), Outgoing::Tcp),
+                        ]),
+                        ..Default::default()
+                    },
+                },
+            }
         );
     }
 
     #[test]
-    fn invalid_name() {
-        const CONFIG: &str = r#"
-        [[files]]
-        name = "test:"
-        kind = "null"
-        "#;
+    fn duplicate_host_equal() {
+        let cfg: Config = toml::from_str(
+            r#"
+[network.outgoing."[::]"]
+prot = "tcp"
 
-        let err = toml::from_str::<Config>(CONFIG).unwrap_err();
-        assert_eq!(err.line_col(), Some((1, 8)));
+[network.outgoing."[0:0:0:0:0:0:0:0]"]
+prot = "tcp"
+
+[network.outgoing."[0::0:0:0:0]"]
+prot = "tcp"
+"#,
+        )
+        .expect("failed to parse config");
+
         assert_eq!(
-            err.to_string(),
-            "file name must not contain ':' for key `files` at line 2 column 9"
+            cfg,
+            Config {
+                network: Network {
+                    outgoing: OutgoingNetwork {
+                        hosts: BTreeMap::from([(Ipv6Addr::UNSPECIFIED.into(), Outgoing::Tcp),]),
+                        ..Default::default()
+                    },
+                    ..Default::default()
+                },
+                ..Default::default()
+            }
         );
     }
 
     #[test]
-    fn check_template() {
-        let cfg_str = CONFIG_TEMPLATE
-            .lines()
-            .map(|l| l.trim_start_matches("# "))
-            .collect::<Vec<_>>()
-            .join("\n");
+    fn duplicate_host_unequal() {
+        toml::from_str::<Config>(
+            r#"
+[network.outgoing."[::]"]
+prot = "tcp"
 
-        let cfg: Config = toml::from_str(&cfg_str).unwrap();
-        let cfg_str = toml::to_string(&cfg).unwrap();
-        let cfg2: Config = toml::from_str(&cfg_str).unwrap();
-        assert_eq!(cfg, cfg2);
+[network.outgoing."[0:0:0:0:0:0:0:0]"]
+prot = "tls"
+"#,
+        )
+        .expect_err("config parsing should have failed due to conflicting host specifications");
+    }
+
+    #[test]
+    fn template() {
+        let cfg: Config = toml::from_str(CONFIG_TEMPLATE).expect("failed to parse config template");
+        let buf = toml::to_string(&cfg).expect("failed to reencode config template");
+        assert_eq!(
+            toml::from_str::<Config>(&buf).expect("failed to parse reencoded config template"),
+            cfg
+        );
     }
 }

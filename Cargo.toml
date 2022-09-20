@@ -216,6 +216,13 @@ x86_64 = { version = "0.14.9", default-features = false }
 xsave = { version = "2.0.2", default-features = false }
 zeroize = { version = "1.5.4", features = ["alloc"], default-features = false }
 
+# VFS
+wasmtime-vfs-dir = { version = "0.1.1", default-features = false }
+wasmtime-vfs-file = { version = "0.1.0", default-features = false }
+wasmtime-vfs-keyfs = { version = "0.1.1", default-features = false }
+wasmtime-vfs-ledger = { version = "0.1.0", default-features = false }
+wasmtime-vfs-memory = { version = "0.1.0", default-features = false }
+
 # wasmtime and its pinned dependencies
 # these will need to be updated together
 wasmtime = { version = "2.0.0", features = ["cranelift", "pooling-allocator"], default-features = false }
