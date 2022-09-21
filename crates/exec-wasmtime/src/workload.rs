@@ -161,6 +161,7 @@ impl TryFrom<Package> for Workload {
                             TagEntry::Unsigned(e) => e,
                             TagEntry::Signed(_jws) => {
                                 // TODO: Support signed tags
+                                // https://github.com/enarx/enarx/issues/2167
                                 bail!("signed tags are not currently supported")
                             }
                         };
