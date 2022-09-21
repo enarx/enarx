@@ -20,8 +20,8 @@ use core::sync::atomic::Ordering;
 
 use enarx_shim_sgx::thread::{LoadRegsExt, NewThread, NEW_THREAD_QUEUE, THREAD_SSAS};
 use enarx_shim_sgx::{
-    entry, handler, shim_address, ATTR, BLOCK_SIZE, ENARX_EXEC_START, ENARX_SHIM_ADDRESS,
-    ENCL_SIZE, ENCL_SIZE_BITS, MISC,
+    entry, handler, shim_address, ATTR, BLOCK_SIZE, CSSA_0_STACK_SIZE, ENARX_EXEC_START,
+    ENARX_SHIM_ADDRESS, ENCL_SIZE, ENCL_SIZE_BITS, MISC,
 };
 
 #[panic_handler]
@@ -193,7 +193,7 @@ pub unsafe extern "sysv64" fn _start() -> ! {
         "cmp    rax,    0                   ",  // If CSSA > 0
         "jne    2f                          ",  // ... jump to the next section
         "mov    r10,    rcx                 ",  // r10 = stack pointer
-        "jmp    3f                          ",  // Jump to stack setup
+        "jmp    4f                          ",  // Jump to stack setup
 
         // Get the address of the previous SSA
         "2:                                 ",
@@ -206,12 +206,20 @@ pub unsafe extern "sysv64" fn _start() -> ! {
         "cmp    r11,    0                   ",  // If exceptions aren't enabled yet...
         "je     2b                          ",  // ... loop forever.
 
-        // Find stack pointer for CSSA > 0
+        // Find stack pointer for CSSA == 1
+        "cmp    rax,    1                   ",  // If CSSA > 0
+        "jne    3f                          ",  // ... jump to the next section
+        "mov    r10,    rcx                 ",  // r10 = stack pointer CSSA == 0
+        "sub    r10,    {CSSA_0_STACK_SIZE} ",  // r10 = stack pointer - 2MB
+        "jmp    4f                          ",  // Jump to stack setup
+
+        // Find stack pointer for CSSA > 1
+        "3:                                 ",
         "mov    r10,    [r10 + {RSPO}]      ",  // r10 = SSA[CSSA - 1].gpr.rsp
         "sub    r10,    128                 ",  // Skip the red zone
 
         // Setup the stack
-        "3:                                 ",
+        "4:                                 ",
         "and    r10,    ~0xf                ",  // Align the stack
         "xchg   rsp,    r10                 ",  // Swap r10 and rsp
         "sub    rsp,    8                   ",  // Align the stack
@@ -219,11 +227,11 @@ pub unsafe extern "sysv64" fn _start() -> ! {
 
         // Do relocation if CSSA == 0
         "cmp    rax,    0                   ",  // If CSSA > 0
-        "jne    4f                          ",  // ... jump to the next section
+        "jne    5f                          ",  // ... jump to the next section
         "call   {RELOC}                     ",  // Relocate symbols
 
         // Clear, call Rust, clear
-        "4:                                 ",  // rdi = &mut sallyport::Block (passthrough)
+        "5:                                 ",  // rdi = &mut sallyport::Block (passthrough)
         "lea    rsi,    [rcx + 4096]        ",  // rsi = &mut [StateSaveArea; N]
         "mov    rdx,    rax                 ",  // rdx = CSSA
         "call   {CLEARX}                    ",  // Clear CPU state
@@ -247,6 +255,7 @@ pub unsafe extern "sysv64" fn _start() -> ! {
         RELOC = sym relocate,
         ENTRY = sym main,
         EEXIT = const sgx::enclu::EEXIT,
+        CSSA_0_STACK_SIZE = const CSSA_0_STACK_SIZE,
         options(noreturn)
     )
 }
