@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
+//! Platform-specific functionality.
+
 use std::io::{ErrorKind, Result};
 
 use const_oid::ObjectIdentifier;
