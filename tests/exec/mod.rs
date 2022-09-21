@@ -45,8 +45,28 @@ Hello from Thread 2!
 Hello from Thread 1!
 After Join 1
 After Join 2
+Before Spawn
+After Spawn 1
+After Spawn 2
+Hello from Thread 2!
+Hello from Thread 1!
+After Join 1
+After Join 2
 "#;
     run_test(bin, 0, None, output.as_bytes(), None);
+}
+
+#[test]
+#[serial]
+#[cfg_attr(not(host_can_test_sgx), ignore = "Backend does not support SGX")]
+fn thread_many() {
+    if let Ok(backend) = std::env::var("ENARX_BACKEND") {
+        if backend != "sgx" {
+            return;
+        }
+    }
+    let bin = env!("CARGO_BIN_FILE_ENARX_EXEC_TESTS_thread-many");
+    run_test(bin, 0, None, None, None);
 }
 
 #[test]
