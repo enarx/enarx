@@ -16,9 +16,12 @@
 extern crate rcrt1;
 
 use core::arch::asm;
-use core::sync::atomic::Ordering;
+use core::mem::MaybeUninit;
+use core::ptr::NonNull;
 
-use enarx_shim_sgx::thread::{LoadRegsExt, NewThread, NEW_THREAD_QUEUE, THREAD_SSAS};
+use enarx_shim_sgx::thread::{
+    LoadRegsExt, NewThread, NewThreadFromRegisters, Tcb, NEW_THREAD_QUEUE,
+};
 use enarx_shim_sgx::{
     entry, handler, shim_address, ATTR, BLOCK_SIZE, CSSA_0_STACK_SIZE, ENARX_EXEC_START,
     ENARX_SHIM_ADDRESS, ENCL_SIZE, ENCL_SIZE_BITS, MISC,
@@ -192,7 +195,8 @@ pub unsafe extern "sysv64" fn _start() -> ! {
         // Find stack pointer for CSSA == 0
         "cmp    rax,    0                   ",  // If CSSA > 0
         "jne    2f                          ",  // ... jump to the next section
-        "mov    r10,    rcx                 ",  // r10 = stack pointer
+        "mov    r10,    rcx                 ",  // r10 = TCS page
+        "sub    r10,    4096                ",  // r10 = skip TCB page = stack pointer
         "jmp    4f                          ",  // Jump to stack setup
 
         // Get the address of the previous SSA
@@ -234,10 +238,13 @@ pub unsafe extern "sysv64" fn _start() -> ! {
         "5:                                 ",  // rdi = &mut sallyport::Block (passthrough)
         "lea    rsi,    [rcx + 4096]        ",  // rsi = &mut [StateSaveArea; N]
         "mov    rdx,    rax                 ",  // rdx = CSSA
+        "sub    rcx,    4096                ",  // rcx = TCB
         "call   {CLEARX}                    ",  // Clear CPU state
         "call   {ENTRY}                     ",  // Jump to Rust
+        "push   rax                         ",  // Save return value
         "call   {CLEARX}                    ",  // Clear CPU state
         "call   {CLEARP}                    ",  // Clear parameter registers
+        "pop    r8                          ",  // Restore return value
 
         // Exit
         "pop    rsp                         ",  // Restore old stack
@@ -264,7 +271,8 @@ unsafe extern "C" fn main(
     block: &mut [usize; BLOCK_SIZE / core::mem::size_of::<usize>()],
     ssas: &mut [StateSaveArea; 3],
     cssa: usize,
-) {
+    tcb: &mut MaybeUninit<Tcb>,
+) -> i32 {
     // Enable exceptions:
     ssas[cssa].extra[0] = 1;
 
@@ -282,29 +290,49 @@ unsafe extern "C" fn main(
         panic!();
     }
 
+    let mut ret = 0;
+
     match cssa {
         0 => {
-            let thread = NEW_THREAD_QUEUE.write().pop().unwrap();
+            // Initialize the TCB.
+            let tcb = {
+                tcb.write(Tcb::default());
+                tcb.assume_init_mut()
+            };
+
+            let thread = { NEW_THREAD_QUEUE.write().pop().unwrap() };
 
             match thread {
                 NewThread::Main => {
                     // register the main thread
-                    THREAD_SSAS[0].store(ssas as *const _ as usize, Ordering::Relaxed);
+                    tcb.tid = 0;
+
                     // run the executable payload
-                    entry::entry(&ENARX_EXEC_START as *const u8 as _)
+                    ret = entry::entry(&ENARX_EXEC_START as *const u8 as _, tcb)
                 }
-                NewThread::Thread((tid, regs)) => {
+                NewThread::Thread(NewThreadFromRegisters {
+                    tid,
+                    clear_on_exit,
+                    regs,
+                }) => {
                     // register the thread
-                    THREAD_SSAS[tid as usize].store(ssas as *const _ as usize, Ordering::Relaxed);
+                    tcb.tid = tid;
+                    tcb.clear_on_exit = NonNull::new(clear_on_exit as _);
+
                     // load the registers
-                    regs.load_registers()
+                    ret = regs.load_registers(tcb);
                 }
             }
         }
-        1 => handler::Handler::handle(&mut ssas[0], block.as_mut_slice()),
+        1 => {
+            // cssa == 0 already initialized the TCB
+            let tcb = tcb.assume_init_mut();
+            handler::Handler::handle(&mut ssas[0], block.as_mut_slice(), tcb)
+        }
         n => handler::Handler::finish(&mut ssas[n - 1]),
     }
 
     // Disable exceptions:
     ssas[cssa].extra[0] = 0;
+    ret
 }

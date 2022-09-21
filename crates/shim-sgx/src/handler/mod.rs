@@ -29,9 +29,7 @@ pub(crate) mod usermem;
 
 use crate::handler::usermem::UserMemScope;
 use crate::heap::Heap;
-use crate::thread::{
-    NewThread, MAX_THREADS, NEW_THREAD_QUEUE, NUM_THREADS, THREAD_CLEAR_TID, THREAD_SSAS,
-};
+use crate::thread::{NewThread, NewThreadFromRegisters, Tcb, NEW_THREAD_QUEUE, NUM_THREADS};
 use crate::{shim_address, DEBUG, ENARX_EXEC_END, ENARX_EXEC_START, ENCL_SIZE};
 use core::arch::asm;
 use core::arch::x86_64::CpuidResult;
@@ -44,12 +42,12 @@ use core::sync::atomic::{AtomicU32, Ordering};
 
 use mmledger::Access;
 use primordial::{Address, Offset, Page};
-use sallyport::guest::{self, syscall, Handler as _, Platform, ThreadLocalStorage};
+use sallyport::guest::{self, Handler as _, Platform, ThreadLocalStorage};
 use sallyport::item::enarxcall::sgx::{Report, ReportData, TargetInfo, TECH};
 use sallyport::item::enarxcall::{SYS_GETATT, SYS_GETKEY};
 use sallyport::libc::{
-    off_t, pid_t, CloneFlags, SYS_clock_gettime, EACCES, EAGAIN, EINVAL, EIO, EMSGSIZE, ENOMEM,
-    ENOSYS, ENOTSUP, MAP_ANONYMOUS, MAP_PRIVATE, PROT_EXEC, PROT_READ, PROT_WRITE, STDERR_FILENO,
+    off_t, pid_t, CloneFlags, SYS_clock_gettime, EACCES, EINVAL, EIO, EMSGSIZE, ENOMEM, ENOSYS,
+    ENOTSUP, MAP_ANONYMOUS, MAP_PRIVATE, PROT_EXEC, PROT_READ, PROT_WRITE, STDERR_FILENO,
 };
 use sgx::page::{Class, Flags};
 use sgx::ssa::StateSaveArea;
@@ -81,6 +79,7 @@ fn is_prot_allowed(prot: c_int) -> bool {
 pub struct Handler<'a> {
     block: &'a mut [usize],
     ssa: &'a mut StateSaveArea,
+    tcb: &'a mut Tcb,
 }
 
 impl<'a> Write for Handler<'a> {
@@ -122,9 +121,7 @@ impl guest::Handler for Handler<'_> {
     }
 
     fn thread_local_storage(&mut self) -> &mut ThreadLocalStorage {
-        static mut TLS: ThreadLocalStorage = ThreadLocalStorage::new();
-        // FIXME: proper TLS implementation https://github.com/enarx/enarx/issues/1476
-        unsafe { &mut TLS }
+        &mut self.tcb.tls
     }
 
     fn arch_prctl(
@@ -168,7 +165,7 @@ impl guest::Handler for Handler<'_> {
         flags: CloneFlags,
         stack: NonNull<c_void>,
         ptid: Option<&AtomicU32>,
-        ctid: Option<&AtomicU32>,
+        clear_on_exit: Option<&AtomicU32>,
         tls: NonNull<c_void>,
     ) -> sallyport::Result<c_int> {
         if flags
@@ -186,59 +183,68 @@ impl guest::Handler for Handler<'_> {
             return Err(ENOTSUP);
         }
 
-        let ctid = ctid.ok_or(EINVAL)?;
+        let clear_on_exit = clear_on_exit.ok_or(EINVAL)?;
         let ptid = ptid.ok_or(EINVAL)?;
 
         debugln!(
             self,
-            "clone({flags:?}, stack = {stack:p}, ptid = {ptid:#?}, ctid = {ctid:#?}, tls = {tls:p})",
+            "clone({flags:?}, stack = {stack:p}, ptid = {ptid:#?}, clear_on_exit = {clear_on_exit:#?}, tls = {tls:p})",
             stack = stack.as_ptr(),
             tls = tls.as_ptr()
         );
 
-        let child_id = NUM_THREADS.fetch_add(1, Ordering::SeqCst);
-
-        // FIXME: remove, when allocating threads dynamically
-        // https://github.com/enarx/enarx/issues/2200
-        if (child_id as usize) >= MAX_THREADS {
-            return Err(EAGAIN);
-        }
+        let tid = NUM_THREADS.fetch_add(1, Ordering::SeqCst);
 
         let mut regs = self.ssa.gpr;
         regs.rsp = stack.as_ptr() as _;
         regs.fsbase = tls.as_ptr() as _;
-        debugln!(self, "TO SPAWN {regs:#x?}");
 
         NEW_THREAD_QUEUE
             .write()
-            .push(NewThread::Thread((child_id as _, regs)))
+            .push(NewThread::Thread(NewThreadFromRegisters {
+                clear_on_exit: clear_on_exit as *const _ as _,
+                regs,
+                tid,
+            }))
             .unwrap();
 
-        THREAD_CLEAR_TID[child_id as usize].store(ctid as *const _ as _, Ordering::Relaxed);
-
-        ptid.store(child_id as _, Ordering::Relaxed);
+        ptid.store(tid as _, Ordering::Relaxed);
 
         let ret = self.spawn();
         debugln!(self, "spawn() = {ret:#?}");
         ret?;
 
-        Ok(child_id)
+        Ok(tid)
     }
 
     fn exit(&mut self, status: c_int) -> sallyport::Result<()> {
-        let tid = self.get_tid();
-        let addr = THREAD_CLEAR_TID[tid as usize].swap(0, Ordering::Relaxed) as *mut AtomicU32;
-        if !addr.is_null() {
+        let tid = self.tcb.tid;
+        let addr = self.tcb.clear_on_exit;
+        if let Some(addr) = addr {
             debugln!(self, "[{tid}] clear TID at {addr:p}");
-            unsafe { (*addr).store(0, Ordering::Relaxed) };
+            unsafe { (*addr.as_ptr()).store(0, Ordering::Relaxed) };
             let _ = self.unpark();
         } else {
             debugln!(self, "[{tid}] no TID to clear");
         }
-        THREAD_SSAS[tid as usize].store(0, Ordering::Relaxed);
-        debugln!(self, "[{tid}] exiting with status {status}");
-        let _ = self.execute(syscall::Exit { status });
-        self.attacked()
+
+        if self.tcb.return_to_main.rip != 0 {
+            self.ssa.gpr.rsp = self.tcb.return_to_main.rsp;
+            // The syscall handler will add 2 to rip to skip the syscall instruction (which we don't have anymore)
+            self.ssa.gpr.rip = self.tcb.return_to_main.rip - 2;
+            self.ssa.gpr.rbx = self.tcb.return_to_main.rbx;
+            self.ssa.gpr.rbp = self.tcb.return_to_main.rbp;
+            self.ssa.gpr.gsbase = self.tcb.return_to_main.gsbase;
+            self.ssa.gpr.fsbase = self.tcb.return_to_main.fsbase;
+            self.ssa.gpr.rcx = status as _;
+
+            debugln!(self, "[{tid}] exiting with status {status}",);
+        } else {
+            debugln!(self, "return_to_main.rip == 0");
+            self.print_ssa_stack_trace();
+            self.attacked()
+        }
+        Ok(())
     }
 
     fn madvise(
@@ -328,20 +334,21 @@ impl guest::Handler for Handler<'_> {
     }
 
     fn set_tid_address(&mut self, tidptr: &mut c_int) -> sallyport::Result<pid_t> {
-        let tid = self.get_tid();
+        let tid = self.tcb.tid;
         debugln!(
             self,
             "[{tid}] set_tid_address at {tidptr:p}",
             tidptr = tidptr as *const _
         );
-        THREAD_CLEAR_TID[tid as usize].store(tidptr as *const _ as usize, Ordering::Relaxed);
+
+        self.tcb.clear_on_exit = NonNull::new(tidptr as *mut c_int as *mut AtomicU32);
         Ok(tid)
     }
 }
 
 impl<'a> Handler<'a> {
-    fn new(ssa: &'a mut StateSaveArea, block: &'a mut [usize]) -> Self {
-        Self { ssa, block }
+    fn new(ssa: &'a mut StateSaveArea, block: &'a mut [usize], tcb: &'a mut Tcb) -> Self {
+        Self { ssa, block, tcb }
     }
 
     /// Finish handling an exception
@@ -358,8 +365,8 @@ impl<'a> Handler<'a> {
     }
 
     /// Handle an exception
-    pub fn handle(ssa: &'a mut StateSaveArea, block: &'a mut [usize]) {
-        let mut h = Self::new(ssa, block);
+    pub fn handle(ssa: &'a mut StateSaveArea, block: &'a mut [usize], tcb: &'a mut Tcb) {
+        let mut h = Self::new(ssa, block, tcb);
 
         match h.ssa.vector() {
             Some(Vector::InvalidOpcode) => match unsafe { read_unaligned(h.ssa.gpr.rip as _) } {
@@ -368,6 +375,12 @@ impl<'a> Handler<'a> {
                 r => {
                     debugln!(h, "unsupported opcode: {:#04x}", r);
                     h.print_ssa_stack_trace();
+
+                    #[cfg(feature = "dbg")]
+                    if r as u8 == 0xCC {
+                        h.ssa.gpr.rip += 1;
+                        return;
+                    }
 
                     #[cfg(feature = "gdb")]
                     if r as u8 == 0xCC {
@@ -395,7 +408,12 @@ impl<'a> Handler<'a> {
                 unreachable!()
             }
 
-            _ => h.attacked(),
+            _ => {
+                if cfg!(feature = "dbg") {
+                    h.print_ssa_stack_trace();
+                }
+                h.attacked()
+            }
         }
     }
 
@@ -487,19 +505,10 @@ impl<'a> Handler<'a> {
         Ok([len, TECH])
     }
 
-    fn get_tid(&mut self) -> pid_t {
-        for (i, val) in THREAD_SSAS.iter().enumerate() {
-            if val.load(Ordering::Relaxed) == self.ssa as *const _ as usize {
-                return i as pid_t;
-            }
-        }
-        panic!("get_tid: SSA not found");
-    }
-
     fn handle_syscall(&mut self) {
         let orig_rdx = self.ssa.gpr.rdx;
         let nr = self.ssa.gpr.rax as usize;
-        let tid = self.get_tid();
+        let tid = self.tcb.tid;
 
         // reduce log spam
         if nr != SYS_clock_gettime as _ {
@@ -737,6 +746,7 @@ impl<'a> Handler<'a> {
     /// Print a stack trace using the SSA registers.
     fn print_ssa_stack_trace(&mut self) {
         if DEBUG {
+            debugln!(self, "{:#x?}", self.ssa.gpr.clone());
             unsafe { self.print_stack_trace(self.ssa.gpr.rip, self.ssa.gpr.rbp) }
         }
     }
