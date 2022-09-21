@@ -1,5 +1,9 @@
 ENTRY(_start)
 
+/* change CSSA_0_STACK_SIZE in lib.rs if you change this */
+CSSA_0_STACK_SIZE = 0x200000;
+CSSA_1_plus_STACK_SIZE = 0x200000;
+
 PHDRS {
     rodata PT_LOAD FILEHDR PHDRS;
     data PT_LOAD;
@@ -7,15 +11,18 @@ PHDRS {
     dynamic PT_DYNAMIC;
     note PT_NOTE;
 
-    stk0 PT_LOAD;
+    stk01 PT_LOAD;
+    stk00 PT_LOAD;
     tcs0 PT_LOAD FLAGS(1 << 20); /* sallyport::elf::pf::sgx::TCS */
     ssa0 PT_LOAD;
 
-    stk1 PT_LOAD;
+    stk11 PT_LOAD;
+    stk10 PT_LOAD;
     tcs1 PT_LOAD FLAGS(1 << 20); /* sallyport::elf::pf::sgx::TCS */
     ssa1 PT_LOAD;
 
-    stk2 PT_LOAD;
+    stk21 PT_LOAD;
+    stk20 PT_LOAD;
     tcs2 PT_LOAD FLAGS(1 << 20); /* sallyport::elf::pf::sgx::TCS */
     ssa2 PT_LOAD;
 
@@ -58,7 +65,9 @@ SECTIONS {
     /* THREAD */
     . = ALIGN(2M);
     . += 4K;                /* Guard Page */
-    .enarx.stk0 (NOLOAD) : { . += 2M - 4K * 5; } :stk0 =0
+    .enarx.stk01 (NOLOAD) : { . += CSSA_1_plus_STACK_SIZE - 4K * 5; } :stk01 =0
+    . += 4K;                /* Guard Page */
+    .enarx.stk00 (NOLOAD) : { . += CSSA_0_STACK_SIZE - 4K; } :stk00 =0
     .enarx.tcs0 : {
         . += 16;
         QUAD(ADDR(.enarx.ssa0))   /* OSSA */
@@ -70,7 +79,9 @@ SECTIONS {
     .enarx.ssa0 (NOLOAD) : { . += 4K * 3; } :ssa0 =0
 
     . += 4K;                /* Guard Page */
-    .enarx.stk1 (NOLOAD) : { . += 2M - 4K * 5; } :stk1 =0
+    .enarx.stk11 (NOLOAD) : { . += CSSA_1_plus_STACK_SIZE - 4K * 5; } :stk11 =0
+    . += 4K;                /* Guard Page */
+    .enarx.stk10 (NOLOAD) : { . += CSSA_0_STACK_SIZE - 4K; } :stk10 =0
     .enarx.tcs1 : {
         . += 16;
         QUAD(ADDR(.enarx.ssa1))   /* OSSA */
@@ -82,7 +93,9 @@ SECTIONS {
     .enarx.ssa1 (NOLOAD) : { . += 4K * 3; } :ssa1 =0
 
     . += 4K;                /* Guard Page */
-    .enarx.stk2 (NOLOAD) : { . += 2M - 4K * 5; } :stk2 =0
+    .enarx.stk21 (NOLOAD) : { . += CSSA_1_plus_STACK_SIZE - 4K * 5; } :stk21 =0
+    . += 4K;                /* Guard Page */
+    .enarx.stk20 (NOLOAD) : { . += CSSA_0_STACK_SIZE - 4K; } :stk20 =0
     .enarx.tcs2 : {
         . += 16;
         QUAD(ADDR(.enarx.ssa2))   /* OSSA */

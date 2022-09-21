@@ -23,6 +23,10 @@ use sgx::parameters::{Attributes, Features, MiscSelect, Xfrm};
 
 const DEBUG: bool = cfg!(feature = "dbg");
 
+/// Stack size of the CSSA = 0
+/// as defined in the linker script `layout.ld`
+pub const CSSA_0_STACK_SIZE: u64 = 0x200000;
+
 /// FIXME: doc
 pub const ENCL_SIZE_BITS: u8 = 32;
 /// FIXME: doc
