@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
+
 //! Some cryptographic utilities
 
 use anyhow::{anyhow, Result};

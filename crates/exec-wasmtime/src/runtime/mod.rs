@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
+
 //! The Enarx Wasm runtime and all related functionality
 
 mod identity;
