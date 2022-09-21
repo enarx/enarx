@@ -810,7 +810,7 @@ pub trait Handler {
             (SYS_eventfd2, [initval, flags, ..]) => self
                 .eventfd2(initval as _, flags as _)
                 .map(|ret| [ret as _, 0]),
-            (SYS_exit, [status, ..]) => self.exit(status as _).map(|_| self.attacked()),
+            (SYS_exit, [status, ..]) => self.exit(status as _).map(|_| [0, 0]),
             (SYS_exit_group, [status, ..]) => self.exit_group(status as _).map(|_| self.attacked()),
             (SYS_fcntl, [fd, cmd, arg, ..]) => self
                 .fcntl(fd as _, cmd as _, arg as _)

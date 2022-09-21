@@ -43,10 +43,7 @@ pub struct Thread {
 impl Drop for Thread {
     fn drop(&mut self) {
         trace!("Dropping thread");
-        // We can't simply enqueue the dropped thread into the array of available
-        // threads, because the old state is not cleared yet.
-        // FIXME: https://github.com/enarx/enarx/issues/2200
-        // self.keep.tcs.write().unwrap().push(self.tcs)
+        self.keep.tcs.write().unwrap().push(self.tcs)
     }
 }
 
@@ -358,6 +355,12 @@ impl super::super::Thread for Thread {
         let mut run: Run = unsafe { MaybeUninit::zeroed().assume_init() };
         run.tcs = self.tcs as u64;
         let how = self.how;
+        let exit_status: u64;
+        use x86_64::registers::segmentation::Segment64;
+        use x86_64::registers::segmentation::{FS, GS};
+
+        let oldfs = FS::read_base().as_u64();
+        let oldgs = GS::read_base().as_u64();
 
         // The `enclu` instruction consumes `rax`, `rbx` and `rcx`. However,
         // the vDSO function preserves `rbx` AND sets `rax` as the return
@@ -382,7 +385,7 @@ impl super::super::Thread for Thread {
                 lateout("rsi") _,
                 lateout("rdx") _,
                 inout("rcx") how => _,
-                lateout("r8") _,
+                lateout("r8") exit_status,
                 lateout("r9") _,
                 inout("r10") &mut run => _,
                 inout("r11") self.vdso => _,
@@ -394,18 +397,40 @@ impl super::super::Thread for Thread {
             );
         }
 
+        debug_assert_eq!(oldfs, FS::read_base().as_u64());
+        debug_assert_eq!(oldgs, GS::read_base().as_u64());
+
+        let exit_status = exit_status as i32;
+
         self.how = match run.function as usize {
             EENTER | ERESUME if run.vector == Vector::InvalidOpcode => EENTER,
 
             #[cfg(feature = "gdb")]
             EENTER | ERESUME if run.vector == Vector::Page => EENTER,
 
-            EEXIT => ERESUME,
+            EEXIT if self.cssa > 0 => ERESUME,
+            EEXIT if self.cssa == 0 => {
+                trace!("exit({exit_status})");
+                return Ok(Command::Exit(exit_status as _));
+            }
 
-            _ => panic!(
-                "Unexpected {:?}: address = {:>#016x}, error code = {:>#016b}",
-                run.vector, run.exception_addr, run.exception_error_code
-            ),
+            _ => {
+                if cfg!(feature = "dbg") {
+                    error!(
+                        "Unexpected {:?}: address = {:>#016x}, error code = {:>#016b} cssa={}",
+                        run.vector, run.exception_addr, run.exception_error_code, self.cssa
+                    );
+                    if self.cssa > 4 {
+                        std::process::exit(1);
+                    }
+                    EENTER
+                } else {
+                    panic!(
+                        "Unexpected {:?}: address = {:>#016x}, error code = {:>#016b} cssa={}",
+                        run.vector, run.exception_addr, run.exception_error_code, self.cssa
+                    );
+                }
+            }
         };
 
         // Keep track of the CSSA
@@ -462,8 +487,10 @@ impl super::super::Thread for Thread {
                             },
                             ..,
                         ) if (*num == libc::SYS_exit as usize) => {
-                            trace!("exit({code})");
-                            return Ok(Command::Exit(*code as _));
+                            error!(
+                                "exit({code}) syscall used over sallyport, when it should not be"
+                            );
+                            std::process::exit(1);
                         }
 
                         // Catch exit_group for a clean shutdown

@@ -3,8 +3,11 @@
 //! Thread handling
 
 use core::arch::asm;
-use core::sync::atomic::{AtomicI32, AtomicUsize};
+use core::ptr::NonNull;
+use core::sync::atomic::{AtomicI32, AtomicU32};
 
+use sallyport::guest::ThreadLocalStorage;
+use sallyport::libc::pid_t;
 use sgx::ssa::GenPurposeRegs;
 use spinning::{Lazy, RwLock};
 
@@ -55,11 +58,22 @@ impl<const N: usize, T: Sized + Copy> ConstVecDequeue<N, T> {
 
 /// Describe the state of the new thread
 #[derive(Clone, Copy, Debug)]
+pub struct NewThreadFromRegisters {
+    /// The registers to use for the new thread
+    pub regs: GenPurposeRegs,
+    /// The thread ID
+    pub tid: pid_t,
+    /// The address of a u32 to clear on exit
+    pub clear_on_exit: usize,
+}
+
+/// Describe the state of the new thread
+#[derive(Clone, Copy, Debug)]
 pub enum NewThread {
     /// The main thread starting the payload
     Main,
     /// A new thread with the given registers
-    Thread((u32, GenPurposeRegs)),
+    Thread(NewThreadFromRegisters),
 }
 
 /// Queue of new threads to be picked up
@@ -69,21 +83,39 @@ pub static NEW_THREAD_QUEUE: Lazy<RwLock<ConstVecDequeue<10, NewThread>>> = Lazy
     RwLock::new(queue)
 });
 
-/// Maximum number of threads
-pub const MAX_THREADS: usize = 3;
+/// Return to main
+#[derive(Default)]
+#[repr(C)]
+pub struct ReturnToMain {
+    /// FS base
+    pub fsbase: u64,
+    /// GS base
+    pub gsbase: u64,
+    /// rbp
+    pub rbp: u64,
+    /// rbx
+    pub rbx: u64,
+    /// rip
+    pub rip: u64,
+    /// rsp
+    pub rsp: u64,
+}
+
+/// Thread Control Block
+#[derive(Default)]
+pub struct Tcb {
+    /// State to return to CSSA[0]
+    pub return_to_main: ReturnToMain,
+    /// The thread ID
+    pub tid: pid_t,
+    /// Holds addresses of AtomicU32 to clear on exiting the thread
+    pub clear_on_exit: Option<NonNull<AtomicU32>>,
+    /// sallyport thread local storage
+    pub tls: ThreadLocalStorage,
+}
 
 /// actual thread ID
 pub static NUM_THREADS: AtomicI32 = AtomicI32::new(1);
-
-// this is only used in the initializer below
-#[allow(clippy::declare_interior_mutable_const)]
-const ZERO_ATOMIC_USIZE: AtomicUsize = AtomicUsize::new(0);
-
-/// Holds addresses of AtomicU32 to clear on exiting the thread
-pub static THREAD_CLEAR_TID: [AtomicUsize; MAX_THREADS] = [ZERO_ATOMIC_USIZE; MAX_THREADS];
-
-/// Holds the addresses of the thread SSA frames
-pub static THREAD_SSAS: [AtomicUsize; MAX_THREADS] = [ZERO_ATOMIC_USIZE; MAX_THREADS];
 
 /// Extend some trait with a method to load registers
 pub trait LoadRegsExt {
@@ -92,48 +124,74 @@ pub trait LoadRegsExt {
     /// # Safety
     ///
     /// The Caller has to ensure the integrity of the loaded registers.
-    unsafe fn load_registers(&self) -> !;
+    unsafe fn load_registers(&self, tcb: &mut Tcb) -> i32;
 }
 
 impl LoadRegsExt for GenPurposeRegs {
-    unsafe fn load_registers(&self) -> ! {
-        asm!(
-            "mov rsp, {rsp}",
-            "pop rax",                              // skip rax
-            "pop rcx",
-            "pop rdx",
-            "pop rbx",
-            "pop rax",                              // skip rsp
-            "pop rbp",
-            "pop rsi",
-            "pop rdi",
-            "pop r8",
-            "pop r9",
-            "pop r10",
-            "pop r11",
-            "pop r12",
-            "pop r13",
-            "pop r14",
-            "pop r15",
-            "popfq",                                // pop rflags
-            "mov rax, QWORD PTR [rsp + 168 - 136]", // fsbase
-            "wrfsbase rax",
-            "pop rax",                              // rip
-            "add rax, 2",                           // skip syscall
-            "mov rsp, QWORD PTR [rsp + 32 - 144]",  // rsp
-            "push rax",                             // push rip
-            "mov rax, 0",                           // clone child has 0 in ret
-            "ret",                                  // return to rip
+    unsafe fn load_registers(&self, tcb: &mut Tcb) -> i32 {
+        let ret: i32;
 
-            rsp = in(reg) self as *const _ as u64,
-            options(noreturn)
-        )
+        asm!(
+            "rdfsbase rcx                        ",
+            "mov [rdx + 0*8], rcx                ", // tcb.fsbase
+            "rdgsbase rcx                        ",
+            "mov [rdx + 1*8], rcx                ", // tcb.gsbase
+            "mov [rdx + 2*8], rbp                ", // tcb.rbp
+            "mov [rdx + 3*8], rbx                ", // tcb.rbx
+            "lea rcx,         [rip + 2f]         ",
+            "mov [rdx + 4*8], rcx                ", // tcb.rip = label 2
+            "mov [rdx + 5*8], rsp                ", // tcb.rsp
+            "mov rsp, rax                        ", // switch stack pointer
+            "pop rax                             ", // skip rax
+            "pop rcx                             ",
+            "pop rdx                             ",
+            "pop rbx                             ",
+            "pop rax                             ", // skip rsp
+            "pop rbp                             ",
+            "pop rsi                             ",
+            "pop rdi                             ",
+            "pop r8                              ",
+            "pop r9                              ",
+            "pop r10                             ",
+            "pop r11                             ",
+            "pop r12                             ",
+            "pop r13                             ",
+            "pop r14                             ",
+            "pop r15                             ",
+            "popfq                               ", // pop rflags
+            "mov rax, QWORD PTR [rsp + 168 - 136]", // fsbase
+            "wrfsbase rax                        ",
+            "pop rax                             ", // rip
+            "add rax, 2                          ", // skip syscall
+            "mov rsp, QWORD PTR [rsp + 32 - 144] ", // rsp
+            "push rax                            ", // push rip
+            "mov rax, 0                          ", // clone child has 0 in ret
+            "ret                                 ", // return to rip
+            "2:                                  ", // return point for exit
+
+            inout("rax") self as *const _ as u64 => _,
+            lateout("ecx") ret,
+            lateout("r15") _,
+            lateout("r14") _,
+            lateout("r13") _,
+            lateout("r12") _,
+            lateout("r11") _,
+            lateout("r10") _,
+            lateout("r9") _,
+            lateout("r8") _ ,
+            lateout("rdi") _,
+            lateout("rsi") _,
+            inout("rdx") &mut tcb.return_to_main as *mut _ as u64 => _,
+        );
+        ret
     }
 }
 
 #[cfg(test)]
 mod test {
-    use super::ConstVecDequeue;
+    use super::{ConstVecDequeue, Tcb};
+    use core::mem::size_of;
+    use primordial::Page;
 
     #[test]
     fn test_const_vec_dequeue() {
@@ -150,5 +208,10 @@ mod test {
         assert_eq!(queue.pop(), Some(2));
         assert_eq!(queue.pop(), Some(3));
         assert_eq!(queue.pop(), None);
+    }
+
+    #[test]
+    fn test_thread_control_block() {
+        assert!(size_of::<Tcb>() < Page::SIZE);
     }
 }
