@@ -38,7 +38,7 @@ rustix = { version = "0.35.7", features = ["std"], default-features = false }
 system-interface = { version = "0.21.0", default-features = false }
 wasi-common = { version = "0.40.0", default-features = false }
 wasmtime-wasi = { version = "0.40.0", features = ["sync"], default-features = false }
-wiggle = { version = "0.40.0", default-features = false }
+wiggle = { version = "1.0.0", default-features = false }
 
 [target.'cfg(windows)'.dependencies]
 io-extras = { version = "=0.15.0", default-features = false }
