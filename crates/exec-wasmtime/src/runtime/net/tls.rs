@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
+
 //! A WasiFile for transparent TLS
 
 use std::any::Any;
