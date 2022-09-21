@@ -73,7 +73,7 @@ fn crt0setup<'a>(
     builder.push(&Entry::ClockTick(100))?;
     builder.push(&Entry::Flags(0))?; // TODO: https://github.com/enarx/enarx/issues/386
     builder.push(&Entry::HwCap(0))?; // TODO: https://github.com/enarx/enarx/issues/386
-    builder.push(&Entry::HwCap2(0))?; // TODO: https://github.com/enarx/enarx/issues/386
+    builder.push(&Entry::HwCap2(2))?; // FSGSBASE flag is 1 << 1
     builder.push(&Entry::PHdr(phdr as _))?;
     builder.push(&Entry::PHent(hdr.e_phentsize as _))?;
     builder.push(&Entry::PHnum(hdr.e_phnum as _))?;
@@ -109,6 +109,8 @@ pub unsafe fn entry(offset: *const ()) -> ! {
 
     asm!(
         "mov rsp, {SP}",
+        "mov rax, 0",
+        "wrfsbase rax",
         "jmp {START}",
         SP = in(reg) &*handle,
         START = in(reg) entry,
