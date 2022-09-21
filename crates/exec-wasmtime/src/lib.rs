@@ -67,7 +67,7 @@ mod test {
     use std::os::unix::prelude::AsRawFd;
 
     use anyhow::Context;
-    use tempfile::NamedTempFile;
+    use tempfile::tempfile;
     use wasmtime::Val;
 
     const NO_EXPORT_WAT: &str = r#"(module
@@ -105,14 +105,14 @@ mod test {
     )"#;
 
     pub fn run(wasm: &[u8]) -> anyhow::Result<Vec<Val>> {
-        let mut file = NamedTempFile::new().context("failed to create module file")?;
+        let mut file = tempfile().context("failed to create module file")?;
         file.write(wasm).context("failed to write module to file")?;
         file.rewind().context("failed to rewind file")?;
         Runtime::execute(Package::Local {
             #[cfg(unix)]
-            wasm: (&file).as_raw_fd(),
+            wasm: file.as_raw_fd(),
             #[cfg(windows)]
-            wasm: file.into_file(),
+            wasm: file,
             conf: None,
         })
     }
