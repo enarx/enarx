@@ -153,9 +153,9 @@ async fn init_drawbridge(oidc_addr: String) -> (u16, Sender<()>, JoinHandle<()>)
 
     let db_handle = spawn(async move {
         let tls = TlsConfig::read(
-            include_bytes!("testdata/server.crt").as_slice(),
-            include_bytes!("testdata/server.key").as_slice(),
-            include_bytes!("testdata/ca.crt").as_slice(),
+            include_bytes!("data/server.crt").as_slice(),
+            include_bytes!("data/server.key").as_slice(),
+            include_bytes!("data/ca.crt").as_slice(),
         )
         .unwrap();
 
