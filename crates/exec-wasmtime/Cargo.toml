@@ -12,7 +12,6 @@ anyhow = { version = "1.0", default-features = false }
 const-oid = { version = "0.9.0", default-features = false }
 drawbridge-client = { version = "0.2.2", default-features = false }
 enarx-config = { path = "../enarx-config", version = "0.6", default-features = false }
-env_logger = { version = "0.9", default-features = false }
 getrandom = { version = "0.2.6", features = ["rdrand"], default-features = false }
 libc = { version = "0.2.126", default-features = false }
 once_cell = { version = "1.13.0", default-features = false }
@@ -23,6 +22,8 @@ sec1 = { version = "0.3.0-pre.1", features = ["der"], default-features = false }
 serde = { version = "1.0", features = ["derive"], default-features = false }
 sha2 = { version = "0.10.2", default-features = false }
 toml = { version = "0.5.9", default-features = false }
+tracing = { version = "0.1.36", features = ["attributes"], default-features = false }
+tracing-subscriber = { version = "0.3.15", features = ["env-filter", "fmt"], default-features = false }
 ureq = { version = "2.4.0", features = ["charset", "json", "tls"], default-features = false }
 url = { version = "2.2.2", features = ["serde"], default-features = false }
 webpki-roots = { version = "0.22.2", default-features = false }
