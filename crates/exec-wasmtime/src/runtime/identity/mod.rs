@@ -24,7 +24,9 @@ use url::Url;
 use x509_cert::attr::Attribute;
 use x509_cert::der::asn1::{BitStringRef, UIntRef};
 use x509_cert::der::{AnyRef, Decode, Encode};
-use x509_cert::ext::pkix::{BasicConstraints, ExtendedKeyUsage, KeyUsage, KeyUsages};
+use x509_cert::ext::pkix::{
+    BasicConstraints, ExtendedKeyUsage, KeyUsage, KeyUsages, ID_CE_SUBJECT_ALT_NAME,
+};
 use x509_cert::ext::Extension;
 use x509_cert::name::RdnSequence;
 use x509_cert::request::{CertReq, CertReqInfo, ExtensionReq};
@@ -63,7 +65,7 @@ fn csr(pki: &PrivateKeyInfo<'_>, exts: Vec<Extension<'_>>) -> anyhow::Result<Vec
 }
 
 /// Generates a new private key and corresponding CSR
-pub fn generate() -> anyhow::Result<(Zeroizing<Vec<u8>>, Vec<u8>)> {
+pub fn generate(id: Option<String>) -> anyhow::Result<(Zeroizing<Vec<u8>>, Vec<u8>)> {
     let platform = Platform::get()?;
     let cert_algo = match platform.technology() {
         Technology::Snp => SECP_384_R_1,
@@ -91,14 +93,24 @@ pub fn generate() -> anyhow::Result<(Zeroizing<Vec<u8>>, Vec<u8>)> {
     let attestation_report = platform.attest(&key_hash)?;
 
     // Create extensions.
-    let ext = vec![Extension {
+    let mut ext = vec![Extension {
         extn_id: platform.technology().into(),
         critical: false,
         extn_value: &attestation_report,
     }];
 
     // Make a certificate signing request.
-    let req = csr(&pki, ext)?;
+    let req = match id {
+        Some(id) => {
+            ext.push(Extension {
+                extn_id: ID_CE_SUBJECT_ALT_NAME,
+                critical: false,
+                extn_value: id.as_bytes(),
+            });
+            csr(&pki, ext)?
+        }
+        None => csr(&pki, ext)?,
+    };
 
     Ok((raw, req))
 }

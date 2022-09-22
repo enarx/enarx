@@ -7,6 +7,7 @@ use std::io::Read;
 use std::os::unix::prelude::FromRawFd;
 
 use anyhow::{anyhow, bail, ensure, Context, Result};
+use drawbridge_client::types::digest::Algorithm;
 use drawbridge_client::types::{Meta, TagEntry, TreeDirectory, TreeEntry, TreeName, TreePath};
 use drawbridge_client::{scope, Client, Entity, Node, Scope};
 use enarx_config::Config;
@@ -78,7 +79,11 @@ fn get_wasm(root: Entity<'_, impl Scope, scope::Node>, entry: &TreeEntry) -> Res
     Ok(wasm)
 }
 
-fn get_package(root: Entity<'_, impl Scope, scope::Node>, dir: TreeDirectory) -> Result<Workload> {
+fn get_package(
+    root: Entity<'_, impl Scope, scope::Node>,
+    dir: TreeDirectory,
+    id: Option<String>,
+) -> Result<Workload> {
     let webasm = dir
         .get(&PACKAGE_ENTRYPOINT)
         .ok_or_else(|| anyhow!("directory does not contain `{}`", *PACKAGE_ENTRYPOINT))
@@ -89,6 +94,7 @@ fn get_package(root: Entity<'_, impl Scope, scope::Node>, dir: TreeDirectory) ->
     } else {
         return Ok(Workload {
             webasm,
+            id,
             config: None,
         });
     };
@@ -107,13 +113,17 @@ fn get_package(root: Entity<'_, impl Scope, scope::Node>, dir: TreeDirectory) ->
         *PACKAGE_CONFIG,
     );
     let config = toml::from_slice(&config).context("failed to parse config")?;
-    Ok(Workload { webasm, config })
+    Ok(Workload { webasm, id, config })
 }
 
 /// Acquired workload
 pub struct Workload {
     /// Wasm module
     pub webasm: Vec<u8>,
+
+    /// Unique workload identifier
+    // TODO: come up with a scheme for identifying local workloads and make this non-optional
+    pub id: Option<String>,
 
     /// Enarx keep configuration
     pub config: Option<Config>,
@@ -124,13 +134,21 @@ impl TryFrom<Package> for Workload {
 
     fn try_from(mut pkg: Package) -> Result<Self, Self::Error> {
         match pkg {
-            Package::Remote(ref url) => {
+            Package::Remote(ref mut url) => {
                 let cl = Client::<scope::Unknown>::new_scoped(url.clone())
                     .context("failed to construct client")?;
                 let top = Entity::new(&cl);
-                let (Meta { size, mime, .. }, mut rdr) = top
+                let (Meta { size, hash, mime }, mut rdr) = top
                     .get(MAX_TOP_SIZE)
                     .with_context(|| format!("failed to fetch top-level URL `{url}`"))?;
+
+                let digest = hash
+                    .get(&Algorithm::Sha256)
+                    .context("failed to retrieve digest")?;
+                let query = format!("sha256={digest}");
+                url.set_query(Some(&query));
+                let id = Some(url.to_string());
+
                 match mime.essence_str() {
                     WASM_MEDIA_TYPE => {
                         ensure!(
@@ -147,13 +165,15 @@ impl TryFrom<Package> for Workload {
                         ensure!(n == size, "invalid amount of Wasm bytes fetched");
                         Ok(Workload {
                             webasm,
+                            id,
                             config: None,
                         })
                     }
                     TreeDirectory::<()>::TYPE => serde_json::from_reader(rdr)
                         .context("failed to decode response body")
                         .and_then(|dir| {
-                            get_package(top.clone().scope(), dir).context("failed to fetch package")
+                            get_package(top.clone().scope(), dir, id)
+                                .context("failed to fetch package")
                         }),
                     typ => {
                         let tag = serde_json::from_reader(rdr).with_context(|| format!("failed to decode top-level entity of type `{typ}` as either Wasm module, Drawbridge directory or a tag"))?;
@@ -171,6 +191,7 @@ impl TryFrom<Package> for Workload {
                             WASM_MEDIA_TYPE => get_wasm(tree, &entry)
                                 .map(|webasm| Workload {
                                     webasm,
+                                    id,
                                     config: None,
                                 })
                                 .context("failed to fetch workload"),
@@ -182,7 +203,7 @@ impl TryFrom<Package> for Workload {
                                     meta == entry.meta,
                                     "directory metadata does not match tag entry metadata"
                                 );
-                                get_package(tree, dir).context("failed to fetch package")
+                                get_package(tree, dir, id).context("failed to fetch package")
                             }
                             typ => bail!("unsupported root type `{typ}`"),
                         }
@@ -216,7 +237,11 @@ impl TryFrom<Package> for Workload {
                 } else {
                     None
                 };
-                Ok(Workload { webasm, config })
+                Ok(Workload {
+                    webasm,
+                    id: None,
+                    config,
+                })
             }
         }
     }

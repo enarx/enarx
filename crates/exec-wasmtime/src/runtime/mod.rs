@@ -38,15 +38,15 @@ pub struct Runtime;
 impl Runtime {
     // Execute an Enarx [Package]
     pub fn execute(package: Package) -> anyhow::Result<Vec<Val>> {
-        let (prvkey, crtreq) = identity::generate()?;
-
-        let Workload { webasm, config } = package.try_into()?;
+        let Workload { webasm, id, config } = package.try_into()?;
         let Config {
             steward,
             args,
             files,
             env,
         } = config.unwrap_or_default();
+
+        let (prvkey, crtreq) = identity::generate(id)?;
 
         let certs = if let Some(url) = steward {
             identity::steward(&url, crtreq).context("failed to attest to Steward")?
