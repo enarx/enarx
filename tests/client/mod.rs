@@ -21,7 +21,7 @@ async fn full() {
     run(|oidc_addr, db_addr| {
         let workspace_dir = env!("CARGO_MANIFEST_DIR");
 
-        env::set_var("ENARX_CA_BUNDLE", format!("{workspace_dir}/tests/client/data/ca.crt"));
+        env::set_var("ENARX_CA_BUNDLE", format!("{workspace_dir}/tests/data/tls/ca.crt"));
         env::set_var("ENARX_INSECURE_AUTH_TOKEN", "test-token");
 
         // test for failure when looking up a user that does not exist
@@ -80,7 +80,7 @@ async fn full() {
         let cmd = cmd!(
             "enarx package publish
             {db_addr}/testuser/publicrepo:0.0.0
-            {workspace_dir}/tests/client/data/generate.sh"
+            {workspace_dir}/tests/data/tls/generate.sh"
         );
         assert_eq!(cmd.success, false);
 
@@ -88,7 +88,7 @@ async fn full() {
         let cmd = cmd!(
             "enarx package publish
             {db_addr}/testuser/publicrepo:0.0.0
-            {workspace_dir}/tests/client/data"
+            {workspace_dir}/tests/data"
         );
         assert_eq!(cmd.success, false);
 
