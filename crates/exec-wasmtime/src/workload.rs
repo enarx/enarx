@@ -89,7 +89,7 @@ fn get_package(root: Entity<'_, impl Scope, scope::Node>, dir: TreeDirectory) ->
     } else {
         return Ok(Workload {
             webasm,
-            config: None,
+            config: Default::default(),
         });
     };
     ensure!(
@@ -107,7 +107,10 @@ fn get_package(root: Entity<'_, impl Scope, scope::Node>, dir: TreeDirectory) ->
         *PACKAGE_CONFIG,
     );
     let config = toml::from_slice(&config).context("failed to parse config")?;
-    Ok(Workload { webasm, config })
+    Ok(Workload {
+        webasm,
+        config: Some(config),
+    })
 }
 
 /// Acquired workload
