@@ -83,11 +83,16 @@ enarx-shim-sgx = { version = "0.6.4", path = "crates/shim-sgx", artifact = "bin"
 protobuf-codegen-pure = { version = "2.27", default-features = false }
 
 [dev-dependencies]
+async-h1 = { version = "2.3.3", default-features = false }
+async-std = { version = "1.11.0", default-features = false, features = ["attributes"] }
+futures = { version = "0.3.21", default-features = false, features = ["executor", "io-compat", "thread-pool"] }
+futures-rustls = { version = "0.22.2", default-features = false }
+futures-test = { version = "0.3.21", default-features = false, features = ["std"] }
 process_control = { version = "3.3", default-features = false }
 rustls = { version = "0.20.6", default-features = false, features = ["dangerous_configuration"] } # `dangerous_configuration` is required to specify a custom TLS verifier
 serial_test = { version = "0.9", default-features = false }
-testaso = { version = "0.1", default-features = false }
 tempfile = { version = "3.3.0", default-features = false }
+testaso = { version = "0.1", default-features = false }
 wat = { version = "1.0", default-features = false }
 
 # binary dependencies
@@ -98,12 +103,7 @@ enarx_exec_tests = { path = "tests/crates/enarx_exec_tests", artifact = "bin", t
 enarx_syscall_tests = { path = "tests/crates/enarx_syscall_tests", artifact = "bin", target = "x86_64-unknown-none", default-features = false }
 
 [target.'cfg(not(windows))'.dev-dependencies]
-async-h1 = { version = "2.3.3", default-features = false }
-async-std = { version = "1.11.0", default-features = false, features = ["attributes"] }
 drawbridge-server = { version = "0.2.2", default-features = false }
-futures = { version = "0.3.21", default-features = false, features = ["executor", "io-compat", "thread-pool"] }
-futures-rustls = { version = "0.22.2", default-features = false }
-futures-test = { version = "0.3.21", default-features = false, features = ["std"] }
 http-types = { version = "2.12.0", default-features = false }
 openidconnect = { version = "2.3.1", default-features = false }
 
