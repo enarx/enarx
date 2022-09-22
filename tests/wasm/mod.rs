@@ -397,7 +397,7 @@ fn assert_connect<T: Read + Write>(connect: impl Fn() -> anyhow::Result<T>) -> a
 }
 
 #[test]
-#[cfg(not(windows))] // This test hangs on Windows
+#[cfg_attr(windows, ignore = "listener tests hang on Windows")]
 fn listen_tcp() -> anyhow::Result<()> {
     let wasm = wasm_path(env!("CARGO_BIN_FILE_ENARX_WASM_TESTS_listen"));
 
@@ -470,7 +470,7 @@ impl ServerCertVerifier for NoopCertVerifier {
 }
 
 #[test]
-#[cfg(not(windows))] // This test hangs on Windows
+#[cfg_attr(windows, ignore = "listener tests hang on Windows")]
 fn listen_tls() -> anyhow::Result<()> {
     let wasm = wasm_path(env!("CARGO_BIN_FILE_ENARX_WASM_TESTS_listen"));
 
