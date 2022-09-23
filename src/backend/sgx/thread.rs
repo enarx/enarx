@@ -489,6 +489,7 @@ impl super::super::Thread for Thread {
                                     libc::SYS_write | libc::SYS_read,
                                     libc::STDIN_FILENO | libc::STDOUT_FILENO | libc::STDERR_FILENO,
                                 ) => {}
+                                (libc::SYS_clock_gettime, _) => {}
                                 _ => {
                                     dbg!(&_syscall);
                                 }
