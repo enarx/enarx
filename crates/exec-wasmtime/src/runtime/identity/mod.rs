@@ -59,7 +59,7 @@ fn csr(pki: &PrivateKeyInfo<'_>, exts: Vec<Extension<'_>>) -> anyhow::Result<Vec
         signature: BitStringRef::from_bytes(sig.as_ref())?,
     };
 
-    Ok(req.to_vec()?)
+    Ok(vec![req].to_vec()?)
 }
 
 /// Generates a new private key and corresponding CSR
