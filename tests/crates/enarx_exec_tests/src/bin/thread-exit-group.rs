@@ -2,6 +2,7 @@
 
 use enarx_exec_tests::musl_fsbase_fix;
 
+use std::io::Write;
 use std::thread;
 
 musl_fsbase_fix!();
@@ -18,10 +19,11 @@ fn main() {
     let thread2 = thread::spawn(|| {
         thread::sleep(std::time::Duration::from_secs(1));
         println!("Hello from Thread 2!");
-
+        std::io::stdout().flush().unwrap();
         std::process::exit(0);
     });
     println!("After Spawn 2");
+    std::io::stdout().flush().unwrap();
 
     thread1.join().unwrap();
     println!("After Join 1");
