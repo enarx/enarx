@@ -11,16 +11,14 @@ use cap_std::net::{TcpListener as CapListener, TcpStream as CapStream};
 #[cfg(windows)]
 use io_extras::os::windows::AsRawHandleOrSocket;
 #[cfg(unix)]
-use io_lifetimes::{AsFd, AsFilelike};
+use io_lifetimes::AsFd;
 
 use rustls::{ClientConfig, ClientConnection, Connection, ServerConfig, ServerConnection};
-#[cfg(unix)]
-use system_interface::fs::GetSetFdFlags;
-use system_interface::io::IsReadWrite;
 use wasi_common::file::{FdFlags, FileType};
 use wasi_common::{Context, Error, ErrorExt, ErrorKind, WasiFile};
 #[cfg(unix)]
-use wasmtime_wasi::net::from_sysif_fdflags;
+use wasmtime_wasi::net::get_fd_flags;
+use wasmtime_wasi::net::is_read_write;
 
 fn errmap(error: io::Error) -> Error {
     match error.kind() {
@@ -161,8 +159,8 @@ impl WasiFile for Stream {
 
     #[cfg(unix)]
     async fn get_fdflags(&mut self) -> Result<FdFlags, Error> {
-        let fdflags = self.tcp.as_filelike().get_fd_flags()?;
-        Ok(from_sysif_fdflags(fdflags))
+        let fdflags = get_fd_flags(&self.tcp)?;
+        Ok(fdflags)
     }
 
     #[cfg(windows)]
@@ -210,7 +208,7 @@ impl WasiFile for Stream {
     }
 
     async fn readable(&self) -> Result<(), Error> {
-        let (readable, _writeable) = self.tcp.is_read_write()?;
+        let (readable, _writeable) = is_read_write(&self.tcp)?;
         if readable {
             Ok(())
         } else {
@@ -218,7 +216,7 @@ impl WasiFile for Stream {
         }
     }
     async fn writable(&self) -> Result<(), Error> {
-        let (_readable, writeable) = self.tcp.is_read_write()?;
+        let (_readable, writeable) = is_read_write(&self.tcp)?;
         if writeable {
             Ok(())
         } else {
@@ -303,8 +301,8 @@ impl WasiFile for Listener {
 
     #[cfg(unix)]
     async fn get_fdflags(&mut self) -> Result<FdFlags, Error> {
-        let fdflags = self.listener.as_filelike().get_fd_flags()?;
-        Ok(from_sysif_fdflags(fdflags))
+        let fdflags = get_fd_flags(&self.listener)?;
+        Ok(fdflags)
     }
 
     #[cfg(windows)]
