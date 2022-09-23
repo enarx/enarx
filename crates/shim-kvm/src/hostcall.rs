@@ -357,7 +357,7 @@ impl Handler for HostCall<'_> {
         let mut brk_line = BRK_LINE.write();
         let brk_end_u64 = brk_line.end.as_u64();
 
-        eprintln!("SC> brk({:#?}) …", addr);
+        eprintln!("SC> brk({:#?}) ...", addr);
 
         match addr.map(|a| a.as_ptr() as u64) {
             None => {
@@ -456,7 +456,7 @@ impl Handler for HostCall<'_> {
         offset: off_t,
     ) -> sallyport::Result<NonNull<c_void>> {
         const PA: i32 = MAP_PRIVATE | MAP_ANONYMOUS;
-        eprintln!("SC> mmap({:#?}, {}, …)", addr, length);
+        eprintln!("SC> mmap({:#?}, {}, ...)", addr, length);
 
         match (addr, length, prot, flags, fd, offset) {
             (None, _, _, PA, -1, 0) => {
@@ -484,17 +484,17 @@ impl Handler for HostCall<'_> {
                             | PageTableFlags::USER_ACCESSIBLE,
                     )
                     .map_err(|_| {
-                        eprintln!("SC> mmap(0, {}, …) = ENOMEM", length);
+                        eprintln!("SC> mmap(0, {}, ...) = ENOMEM", length);
                         ENOMEM
                     })?;
 
-                eprintln!("SC> mmap(0, {}, …) = {:#?}", length, mem_slice.as_ptr());
+                eprintln!("SC> mmap(0, {}, ...) = {:#?}", length, mem_slice.as_ptr());
 
                 *NEXT_MMAP_RWLOCK.write().deref_mut() = virt_addr + (len_aligned as u64);
                 Ok(NonNull::new(mem_slice.as_mut_ptr() as *mut c_void).unwrap())
             }
             (addr, ..) => {
-                eprintln!("SC> mmap({:#?}, {}, …)", addr, length);
+                eprintln!("SC> mmap({:#?}, {}, ...)", addr, length);
                 unimplemented!()
             }
         }
@@ -535,7 +535,7 @@ impl Handler for HostCall<'_> {
                 Ok(flush) => flush.ignore(),
                 Err(e) => {
                     eprintln!(
-                        "SC> mprotect({:#?}, {}, {}, …) = EINVAL ({:#?})",
+                        "SC> mprotect({:#?}, {}, {}, ...) = EINVAL ({:#?})",
                         addr, len, prot, e
                     );
                     return Err(EINVAL);
@@ -545,7 +545,7 @@ impl Handler for HostCall<'_> {
 
         flush_all();
 
-        eprintln!("SC> mprotect({:#?}, {}, {}, …) = 0", addr, len, prot);
+        eprintln!("SC> mprotect({:#?}, {}, {}, ...) = 0", addr, len, prot);
 
         Ok(())
     }
