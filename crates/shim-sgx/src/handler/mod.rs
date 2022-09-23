@@ -48,8 +48,8 @@ use sallyport::guest::{self, syscall, Handler as _, Platform, ThreadLocalStorage
 use sallyport::item::enarxcall::sgx::{Report, ReportData, TargetInfo, TECH};
 use sallyport::item::enarxcall::{SYS_GETATT, SYS_GETKEY};
 use sallyport::libc::{
-    off_t, pid_t, CloneFlags, EACCES, EAGAIN, EINVAL, EIO, EMSGSIZE, ENOMEM, ENOSYS, ENOTSUP,
-    MAP_ANONYMOUS, MAP_PRIVATE, PROT_EXEC, PROT_READ, PROT_WRITE, STDERR_FILENO,
+    off_t, pid_t, CloneFlags, SYS_clock_gettime, EACCES, EAGAIN, EINVAL, EIO, EMSGSIZE, ENOMEM,
+    ENOSYS, ENOTSUP, MAP_ANONYMOUS, MAP_PRIVATE, PROT_EXEC, PROT_READ, PROT_WRITE, STDERR_FILENO,
 };
 use sgx::page::{Class, Flags};
 use sgx::ssa::StateSaveArea;
@@ -499,9 +499,12 @@ impl<'a> Handler<'a> {
     fn handle_syscall(&mut self) {
         let orig_rdx = self.ssa.gpr.rdx;
         let nr = self.ssa.gpr.rax as usize;
-
         let tid = self.get_tid();
-        debugln!(self, "[{tid}] syscall {nr} ...");
+
+        // reduce log spam
+        if nr != SYS_clock_gettime as _ {
+            debugln!(self, "[{tid}] syscall {nr} ...");
+        }
 
         let usermemscope = UserMemScope;
 
@@ -561,7 +564,10 @@ impl<'a> Handler<'a> {
 
         self.ssa.gpr.rip += 2;
 
-        debugln!(self, "[{tid}] syscall {nr} = {}", self.ssa.gpr.rax as isize);
+        // reduce log spam
+        if nr != SYS_clock_gettime as _ {
+            debugln!(self, "[{tid}] syscall {nr} = {}", self.ssa.gpr.rax as isize);
+        }
     }
 
     fn handle_cpuid(&mut self) {
