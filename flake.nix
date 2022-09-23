@@ -63,6 +63,7 @@
                 src = pkgs.nix-gitignore.gitignoreRecursiveSource ignorePatterns self;
 
                 cargoLock.lockFileContents = builtins.readFile "${self}/Cargo.lock";
+                cargoLock.outputHashes."cranelift-bforest-0.89.0" = "sha256-ytUiONbe9pHceyNMtpjE2fRQF6SwO/rGXtDWQ3EkCK0="; # for Wasmtime 2.0.0 git rev
 
                 postPatch = ''
                   patchShebangs ./helper
