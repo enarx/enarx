@@ -501,7 +501,7 @@ impl<'a> Handler<'a> {
         let nr = self.ssa.gpr.rax as usize;
 
         let tid = self.get_tid();
-        debugln!(self, "[{tid}] syscall {nr} …");
+        debugln!(self, "[{tid}] syscall {nr} ...");
 
         let usermemscope = UserMemScope;
 
