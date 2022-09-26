@@ -7,14 +7,14 @@ use std::io;
 use std::io::{IoSlice, IoSliceMut, Read, Write};
 use std::sync::Arc;
 
-use cap_std::net::{TcpListener as CapListener, TcpStream as CapStream};
+use cap_std::net::{Shutdown, TcpListener as CapListener, TcpStream as CapStream};
 #[cfg(windows)]
 use io_extras::os::windows::AsRawHandleOrSocket;
 #[cfg(unix)]
 use io_lifetimes::AsFd;
 
 use rustls::{ClientConfig, ClientConnection, Connection, ServerConfig, ServerConnection};
-use wasi_common::file::{FdFlags, FileType};
+use wasi_common::file::{FdFlags, FileType, RiFlags, RoFlags, SdFlags, SiFlags};
 use wasi_common::{Context, Error, ErrorExt, ErrorKind, WasiFile};
 #[cfg(unix)]
 use wasmtime_wasi::net::get_fd_flags;
@@ -153,6 +153,16 @@ impl WasiFile for Stream {
         self
     }
 
+    #[cfg(unix)]
+    fn pollable(&self) -> Option<rustix::fd::BorrowedFd<'_>> {
+        Some(self.tcp.as_fd())
+    }
+
+    #[cfg(windows)]
+    fn pollable(&self) -> Option<io_extras::os::windows::RawHandleOrSocket> {
+        Some(self.tcp.as_raw_handle_or_socket())
+    }
+
     async fn get_filetype(&mut self) -> Result<FileType, Error> {
         Ok(FileType::SocketStream)
     }
@@ -161,11 +171,6 @@ impl WasiFile for Stream {
     async fn get_fdflags(&mut self) -> Result<FdFlags, Error> {
         let fdflags = get_fd_flags(&self.tcp)?;
         Ok(fdflags)
-    }
-
-    #[cfg(windows)]
-    async fn get_fdflags(&mut self) -> Result<FdFlags, Error> {
-        Ok(FdFlags::empty())
     }
 
     async fn set_fdflags(&mut self, fdflags: FdFlags) -> Result<(), Error> {
@@ -207,6 +212,18 @@ impl WasiFile for Stream {
         }
     }
 
+    async fn peek(&mut self, _buf: &mut [u8]) -> Result<u64, Error> {
+        // TODO: implement
+        // https://github.com/enarx/enarx/issues/2241
+        Err(Error::badf())
+    }
+
+    async fn num_ready_bytes(&self) -> Result<u64, Error> {
+        // TODO: implement
+        // https://github.com/enarx/enarx/issues/2242
+        Ok(0)
+    }
+
     async fn readable(&self) -> Result<(), Error> {
         let (readable, _writeable) = is_read_write(&self.tcp)?;
         if readable {
@@ -224,14 +241,45 @@ impl WasiFile for Stream {
         }
     }
 
-    #[cfg(unix)]
-    fn pollable(&self) -> Option<rustix::fd::BorrowedFd<'_>> {
-        Some(self.tcp.as_fd())
+    async fn sock_recv<'a>(
+        &mut self,
+        ri_data: &mut [IoSliceMut<'a>],
+        ri_flags: RiFlags,
+    ) -> Result<(u64, RoFlags), Error> {
+        if ri_flags != RiFlags::empty() {
+            return Err(Error::not_supported());
+        }
+        // TODO: Add support for peek and waitall
+        // https://github.com/enarx/enarx/issues/2243
+        let n = self.read_vectored(ri_data).await?;
+        Ok((n as u64, RoFlags::empty()))
     }
 
-    #[cfg(windows)]
-    fn pollable(&self) -> Option<io_extras::os::windows::RawHandleOrSocket> {
-        Some(self.tcp.as_raw_handle_or_socket())
+    async fn sock_send<'a>(
+        &mut self,
+        si_data: &[IoSlice<'a>],
+        si_flags: SiFlags,
+    ) -> Result<u64, Error> {
+        if si_flags != SiFlags::empty() {
+            return Err(Error::not_supported());
+        }
+
+        let n = self.write_vectored(si_data).await?;
+        Ok(n as u64)
+    }
+
+    async fn sock_shutdown(&mut self, how: SdFlags) -> Result<(), Error> {
+        let how = if how == SdFlags::RD | SdFlags::WR {
+            Shutdown::Both
+        } else if how == SdFlags::RD {
+            Shutdown::Read
+        } else if how == SdFlags::WR {
+            Shutdown::Write
+        } else {
+            return Err(Error::invalid_argument());
+        };
+        self.tcp.shutdown(how)?;
+        Ok(())
     }
 }
 
@@ -305,11 +353,6 @@ impl WasiFile for Listener {
         Ok(fdflags)
     }
 
-    #[cfg(windows)]
-    async fn get_fdflags(&mut self) -> Result<FdFlags, Error> {
-        Ok(FdFlags::empty())
-    }
-
     async fn set_fdflags(&mut self, fdflags: FdFlags) -> Result<(), Error> {
         if fdflags == FdFlags::NONBLOCK {
             self.listener.set_nonblocking(true)?;
@@ -321,38 +364,7 @@ impl WasiFile for Listener {
         Ok(())
     }
 
-    async fn read_vectored<'a>(
-        &mut self,
-        _bufs: &mut [std::io::IoSliceMut<'a>],
-    ) -> Result<u64, Error> {
-        Ok(0)
-    }
-
-    async fn read_vectored_at<'a>(
-        &mut self,
-        _bufs: &mut [std::io::IoSliceMut<'a>],
-        _offset: u64,
-    ) -> Result<u64, Error> {
-        Ok(0)
-    }
-
-    async fn write_vectored<'a>(&mut self, bufs: &[std::io::IoSlice<'a>]) -> Result<u64, Error> {
-        Ok(bufs.iter().map(|b| b.len() as u64).sum())
-    }
-
-    async fn write_vectored_at<'a>(
-        &mut self,
-        bufs: &[std::io::IoSlice<'a>],
-        _offset: u64,
-    ) -> Result<u64, Error> {
-        Ok(bufs.iter().map(|b| b.len() as u64).sum())
-    }
-
-    async fn peek(&mut self, _buf: &mut [u8]) -> Result<u64, Error> {
-        Ok(0)
-    }
-
-    async fn readable(&self) -> Result<(), Error> {
-        Ok(())
+    async fn num_ready_bytes(&self) -> Result<u64, Error> {
+        Ok(1)
     }
 }
