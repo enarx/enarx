@@ -79,12 +79,8 @@ fn thread_exit_group() {
         }
     }
     let bin = env!("CARGO_BIN_FILE_ENARX_EXEC_TESTS_thread-exit-group");
-    let output = r#"Before Spawn
-After Spawn 1
-After Spawn 2
-Hello from Thread 2!
-"#;
-    run_test(bin, 0, None, output.as_bytes(), None);
+
+    run_test(bin, 0, None, None, None);
 }
 
 #[test]

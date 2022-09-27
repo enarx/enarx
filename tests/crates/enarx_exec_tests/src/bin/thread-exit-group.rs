@@ -11,8 +11,10 @@ fn main() {
     println!("Before Spawn");
 
     let thread1 = thread::spawn(|| {
-        thread::sleep(std::time::Duration::from_secs(2));
+        thread::sleep(std::time::Duration::from_secs(100));
         println!("Hello from Thread 1!");
+        std::io::stdout().flush().unwrap();
+        std::process::exit(2);
     });
     println!("After Spawn 1");
 
@@ -30,4 +32,6 @@ fn main() {
 
     thread2.join().unwrap();
     println!("After Join 2");
+
+    std::process::exit(1);
 }
