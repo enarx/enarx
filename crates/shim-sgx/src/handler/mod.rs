@@ -75,6 +75,42 @@ fn is_prot_allowed(prot: c_int) -> bool {
     prot == PROT_READ || prot == (PROT_READ | PROT_WRITE) || prot == (PROT_READ | PROT_EXEC)
 }
 
+fn flags_from_libc(prot: c_int) -> Flags {
+    let mut flags = Flags::empty();
+
+    if prot & PROT_READ != 0 {
+        flags |= Flags::READ;
+    }
+
+    if prot & PROT_WRITE != 0 {
+        flags |= Flags::WRITE;
+    }
+
+    if prot & PROT_EXEC != 0 {
+        flags |= Flags::EXECUTE;
+    }
+
+    flags
+}
+
+fn access_from_libc(prot: c_int) -> Access {
+    let mut access = Access::empty();
+
+    if prot & PROT_READ != 0 {
+        access |= Access::READ;
+    }
+
+    if prot & PROT_WRITE != 0 {
+        access |= Access::WRITE;
+    }
+
+    if prot & PROT_EXEC != 0 {
+        access |= Access::EXECUTE;
+    }
+
+    access
+}
+
 /// Thread local storage for the current thread
 pub struct Handler<'a> {
     block: &'a mut [usize],
@@ -154,7 +190,7 @@ impl guest::Handler for Handler<'_> {
                 addr.raw() - max.raw(),
                 PROT_READ | PROT_WRITE,
             )?;
-            self.mmap_guest(max, addr - max, PROT_READ | PROT_WRITE);
+            self.mmap_guest(max, addr - max, Flags::READ | Flags::WRITE);
         }
 
         Ok(NonNull::new(addr.raw() as *mut _).unwrap())
@@ -281,7 +317,7 @@ impl guest::Handler for Handler<'_> {
         }
 
         let length = Offset::from_items((len + Page::SIZE - 1) / Page::SIZE);
-        let access = Access::from_bits_truncate(prot as usize);
+        let access = access_from_libc(prot);
         let mut heap = HEAP.write();
 
         if let Some(addr) = heap.mmap(None, length, access) {
@@ -292,7 +328,7 @@ impl guest::Handler for Handler<'_> {
                 length.bytes(),
                 PROT_READ | PROT_WRITE,
             )?;
-            self.mmap_guest(addr, length, prot);
+            self.mmap_guest(addr, length, flags_from_libc(prot));
 
             // If the previous operations succeeded, the virtual memory area
             // (VMA) is already RW.
@@ -619,9 +655,12 @@ impl<'a> Handler<'a> {
     }
 
     /// Acknowledge pages committed by the host with ENCLS[EAUG].
-    fn mmap_guest(&mut self, addr: Address<usize, Page>, length: Offset<usize, Page>, prot: c_int) {
-        let flags = Flags::from_bits_truncate(prot as u8);
-
+    fn mmap_guest(
+        &mut self,
+        addr: Address<usize, Page>,
+        length: Offset<usize, Page>,
+        flags: Flags,
+    ) {
         let zero_virt_addr = VirtAddr::new(ZERO.as_ptr() as u64);
         // # Safety
         //
@@ -683,12 +722,10 @@ impl<'a> Handler<'a> {
                 .accept(page_addr)
                 .unwrap_or_else(|_| self.attacked());
 
-            Class::Regular
-                .info(Flags::from_bits_truncate(prot as u8))
-                .extend(page_addr);
+            Class::Regular.info(flags_from_libc(prot)).extend(page_addr);
         }
 
-        let access = Access::from_bits_truncate(prot as usize);
+        let access = access_from_libc(prot);
         heap.mmap(Some(addr), length, access);
 
         Ok(())
