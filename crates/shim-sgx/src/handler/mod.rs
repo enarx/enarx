@@ -721,7 +721,7 @@ impl<'a> Handler<'a> {
         // On the other hand, failing in any of these operations is expected to
         // crash the enclave because it is due either to a software bug, or a
         // malicious host.
-        self.trim_sgx_pages(addr_in, length.bytes())
+        self.modify_sgx_page_type(addr_in, length.bytes(), Class::Trimmed as _)
             .unwrap_or_else(|_| self.attacked());
 
         for i in 0..pages {

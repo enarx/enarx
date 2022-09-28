@@ -173,22 +173,23 @@ impl PassthroughAlloc for Spawn {
 }
 
 /// Within an address range inside the enclave, ask host to set page type to
-/// 'trimmed'. Address and length must be page-aligned. Shim must validate
+/// the specified type. Address and length must be page-aligned. Shim must validate
 /// and acknowledge the changes with ENCLU[EACCEPT], in order for them to
 /// take effect.
-pub struct TrimSgxPages {
+pub struct ModifySgxPageType {
     pub addr: NonNull<c_void>,
     pub length: usize,
+    pub page_type: u8,
 }
 
-impl PassthroughAlloc for TrimSgxPages {
-    const NUM: Number = Number::TrimSgxPages;
+impl PassthroughAlloc for ModifySgxPageType {
+    const NUM: Number = Number::SgxModifyPageType;
 
-    type Argv = Argv<2>;
+    type Argv = Argv<3>;
     type Ret = ();
 
     fn stage(self) -> Self::Argv {
-        Argv([self.addr.as_ptr() as _, self.length])
+        Argv([self.addr.as_ptr() as _, self.length, self.page_type as _])
     }
 }
 
