@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use std::process::Command;
-use std::str::from_utf8;
 
 use async_std::net::{Ipv4Addr, TcpListener};
 use async_std::task::{spawn, JoinHandle};
@@ -20,27 +19,43 @@ use openidconnect::{
 };
 use tempfile::tempdir;
 
-pub fn enarx(args: String) -> Output {
+#[track_caller]
+pub fn enarx(args: String, expected_success: bool, expected_output: String) {
     let mut cmd = Command::new(env!("CARGO_BIN_EXE_enarx"));
 
     for arg in args.split_whitespace().skip(1) {
         cmd.arg(arg);
     }
 
-    let out = cmd.output().expect("failed to execute `enarx`");
+    let res = cmd.output().expect("failed to execute `enarx`");
 
-    Output {
-        success: out.status.success(),
-        output: from_utf8(&out.stdout).unwrap().to_string(),
-        err: from_utf8(&out.stderr).unwrap().to_string(),
+    let succeeded = res.status.success();
+    let output = String::from_utf8([res.stdout, res.stderr].concat()).unwrap();
+
+    let failed_test = if expected_success && !succeeded {
+        Some("expected command to succeed, but it failed")
+    } else if !expected_success && succeeded {
+        Some("expected command to fail, but it succeeded")
+    } else if output != expected_output {
+        Some("expected output differs from received output")
+    } else {
+        None
+    };
+
+    if let Some(msg) = failed_test {
+        panic!(
+            "{msg}:\n\n\
+            ```command\n\
+            {args}\n\
+            ```\n\n\
+            ```expected\n\
+            {expected_output}\n\
+            ```\n\n\
+            ```received\n\
+            {output}\n\
+            ```\n"
+        )
     }
-}
-
-#[allow(dead_code)]
-pub struct Output {
-    pub success: bool,
-    pub output: String,
-    pub err: String,
 }
 
 pub async fn run(commands: impl FnOnce(String, String)) {
@@ -116,16 +131,16 @@ async fn init_oidc() -> (String, Sender<()>, JoinHandle<()>) {
                                 let auth = req
                                     .header("Authorization")
                                     .expect("Authorization header missing");
-                                assert_eq!(
-                                    auth.as_str().split_once(' '),
-                                    Some(("Bearer", "test-token")),
-                                );
-                                json_response(&CoreUserInfoClaims::new(
-                                    StandardClaims::new(SubjectIdentifier::new(
-                                        "test|subject".into(),
-                                    )),
-                                    EmptyAdditionalClaims {},
-                                ))
+                                if auth.as_str().split_once(' ') != Some(("Bearer", "test-token")) {
+                                    Ok(Response::new(StatusCode::Unauthorized))
+                                } else {
+                                    json_response(&CoreUserInfoClaims::new(
+                                        StandardClaims::new(SubjectIdentifier::new(
+                                            "test|subject".into(),
+                                        )),
+                                        EmptyAdditionalClaims {},
+                                    ))
+                                }
                             }
                             p => panic!("Unsupported path requested: `{p}`"),
                         }
@@ -165,7 +180,7 @@ async fn init_drawbridge(oidc_addr: String) -> (u16, Sender<()>, JoinHandle<()>)
             OidcConfig {
                 label: "test-label".into(),
                 issuer: oidc_addr.parse().unwrap(),
-                client_id: "test-client-id".into(),
+                client_id: "4NuaJxkQv8EZBeJKE56R57gKJbxrTLG2".into(),
                 client_secret: None,
             },
         )
