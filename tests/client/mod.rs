@@ -9,11 +9,17 @@ use std::path::Path;
 
 use tempfile::Builder;
 
-/// Just a nice wrapper over `format!` for testing CLI invocations
+/// A nice wrapper over `format!` for testing CLI invocations
 macro_rules! cmd {
-    ($($arg:tt)+) => (
-        enarx(format!($($arg)+))
-    )
+    (succeed: $args:expr) => {
+        enarx(format!($args), true, String::new())
+    };
+    (succeed: $args:expr, $output:expr) => {
+        enarx(format!($args), true, format!($output))
+    };
+    (fail: $args:expr, $output:expr) => {
+        enarx(format!($args), false, format!($output))
+    };
 }
 
 #[async_std::test]
@@ -21,100 +27,161 @@ async fn full() {
     run(|oidc_addr, db_addr| {
         let workspace_dir = env!("CARGO_MANIFEST_DIR");
 
-        env::set_var("ENARX_CA_BUNDLE", format!("{workspace_dir}/tests/data/tls/ca.crt"));
+        env::set_var("ENARX_OIDC_DOMAIN", &oidc_addr);
         env::set_var("ENARX_INSECURE_AUTH_TOKEN", "test-token");
+        env::set_var("ENARX_CA_BUNDLE", format!("{workspace_dir}/tests/data/tls/ca.crt"));
 
-        // test for failure when looking up a user that does not exist
-        let cmd = cmd!("enarx user info {db_addr}/testuser");
-        assert_eq!(cmd.success, false);
+        cmd!(
+            fail: // when looking up a user that does not exist
+            "enarx user info {db_addr}/testuser",
+            "Error: Failed to get record for user: testuser
 
-        // test for failure when registering user without proper credentials
-        let cmd = cmd!(
-            "enarx user register
-            --insecure_auth_token bad-token
-            --oidc-domain {oidc_addr}
-            --oidc-client-id test-client-id
-            {db_addr}/testuser"
+Caused by:
+    0: GET request failed
+    1: request failed with status code `401`
+    2: User with OpenID Connect subject `test|subject` not found
+"
         );
-        assert_eq!(cmd.success, false);
 
-        // test for success when registering user with proper credentials
-        let cmd = cmd!(
-            "enarx user register
-            --oidc-domain {oidc_addr}
-            --oidc-client-id test-client-id
-            {db_addr}/testuser"
+        cmd!(
+            fail: // when registering user without proper credentials
+            "enarx user register --insecure-auth-token bad-token {db_addr}/testuser",
+            "Error: Failed to make user info request
+
+Caused by:
+    0: Request failed
+    1: ureq request failed
+    2: {oidc_addr}/userinfo: status code 401
+"
         );
-        assert_eq!(cmd.success, true);
 
-        // test for failure when creating a user whose subject matches an existing user
-        let cmd = cmd!(
-            "enarx user register
-            --oidc-domain {oidc_addr}
-            --oidc-client-id test-client-id
-            {db_addr}/testuser2"
+        cmd!(
+            succeed: // when registering user with proper credentials
+            "enarx user register {db_addr}/testuser"
         );
-        assert_eq!(cmd.success, false);
 
-        // test for success when looking up a user that exists
-        let cmd = cmd!("enarx user info {db_addr}/testuser");
-        assert_eq!(cmd.output, "{\n  \"subject\": \"test|subject\"\n}\n");
+        cmd!(
+            fail: // when creating a user whose subject matches an existing user
+            "enarx user register {db_addr}/testuser2",
+            "Error: Failed to register new user
 
-        // test for failure when looking up a repo that does not exist
-        let cmd = cmd!("enarx repo info {db_addr}/testuser/publicrepo");
-        assert_eq!(cmd.success, false);
+Caused by:
+    0: request failed with status code `409`
+    1: User already associated with OpenID Connect subject `test|subject`
+"
+        );
 
-        // test for success when registering a public repo
-        let cmd = cmd!("enarx repo register {db_addr}/testuser/publicrepo");
-        assert_eq!(cmd.success, true);
+        cmd!(
+            succeed: // when looking up a user that exists
+            "enarx user info {db_addr}/testuser",
+            r#"{{
+  "subject": "test|subject"
+}}
+"#
+        );
 
-        // test for success when fetching tags from empty public repo
-        let cmd = cmd!("enarx repo info {db_addr}/testuser/publicrepo");
-        assert_eq!(cmd.output, "{\n  \"config\": {\n    \"public\": true\n  },\n  \"tags\": []\n}\n");
+        cmd!(
+            fail: // when looking up a repo that does not exist
+            "enarx repo info {db_addr}/testuser/publicrepo",
+            "Error: Failed to retrieve repository information
 
-        // test for failure when looking up a package that does not exist
-        let cmd = cmd!("enarx package info {db_addr}/testuser/publicrepo:0.1.0");
-        assert_eq!(cmd.success, false);
+Caused by:
+    0: GET request failed
+    1: request failed with status code `404`
+    2: Repository does not exist
+"
+        );
 
-        // test for failure when publishing an invalid file as a public package
-        let cmd = cmd!(
+        cmd!(
+            succeed: // when registering a public repo
+            "enarx repo register {db_addr}/testuser/publicrepo"
+        );
+
+        cmd!(
+            succeed: // when fetching tags from empty public repo
+            "enarx repo info {db_addr}/testuser/publicrepo",
+            r#"{{
+  "config": {{
+    "public": true
+  }},
+  "tags": []
+}}
+"#
+        );
+
+        cmd!(
+            fail: // when looking up a package that does not exist
+            "enarx package info {db_addr}/testuser/publicrepo:0.1.0",
+            "Error: Failed to retrieve package information
+
+Caused by:
+    0: GET request failed
+    1: request failed with status code `404`
+    2: Repository does not exist
+"
+        );
+
+        cmd!(
+            fail: // when publishing an invalid file as a public package
             "enarx package publish
-            {db_addr}/testuser/publicrepo:0.0.0
-            {workspace_dir}/tests/data/tls/generate.sh"
+             {db_addr}/testuser/publicrepo:0.0.0
+             {workspace_dir}/tests/client/data/invalid_dir/invalid_file",
+            "Error: Invalid file name: {workspace_dir}/tests/client/data/invalid_dir/invalid_file
+"
         );
-        assert_eq!(cmd.success, false);
 
-        // test for failure when publishing an invalid directory as a public package
-        let cmd = cmd!(
+        cmd!(
+            fail: // when publishing an invalid directory as a public package
             "enarx package publish
-            {db_addr}/testuser/publicrepo:0.0.0
-            {workspace_dir}/tests/data"
+             {db_addr}/testuser/publicrepo:0.0.0
+             {workspace_dir}/tests/client/data/invalid_dir",
+            "Error: Invalid file name: {workspace_dir}/tests/client/data/invalid_dir/invalid_file
+"
         );
-        assert_eq!(cmd.success, false);
 
-        // test for success when publishing a main.wasm file as a public package
-        let cmd = cmd!(
+        cmd!(
+            succeed: // when publishing a main.wasm file as a public package
             "enarx package publish
-            {db_addr}/testuser/publicrepo:1.0.0
-            {workspace_dir}/tests/client/data/wasm_example/main.wasm"
+             {db_addr}/testuser/publicrepo:1.0.0
+             {workspace_dir}/tests/client/data/wasm_example/main.wasm"
         );
-        assert_eq!(cmd.success, true);
 
-        // test for success when publishing a directory as a public package
-        let cmd = cmd!(
+        cmd!(
+            succeed: // when fetching tags from a non-empty public repo
+            "enarx repo info {db_addr}/testuser/publicrepo",
+            r#"{{
+  "config": {{
+    "public": true
+  }},
+  "tags": [
+    "1.0.0"
+  ]
+}}
+"#
+        );
+
+        cmd!(
+            succeed: // when publishing a directory as a public package
             "enarx package publish
-            {db_addr}/testuser/publicrepo:2.0.0
-            {workspace_dir}/tests/client/data/wasm_example"
+             {db_addr}/testuser/publicrepo:2.0.0
+             {workspace_dir}/tests/client/data/wasm_example"
         );
-        assert_eq!(cmd.success, true);
 
-        // test for success when looking up a public package that exists
-        let cmd = cmd!("enarx package info {db_addr}/testuser/publicrepo:2.0.0");
-        assert_eq!(cmd.output, "{\n  \"digest\": {\n    \"sha-224\": \"ipv22ZRLXTRv4MypL2IVaZypKHb91PgAqWXG6w==\",\n    \"sha-256\": \"Jcdf/Q0urZed/9dKu9IBq/BtWIHcvSGlsrUWkS1Rx+E=\",\n    \"sha-384\": \"f52Mxw0vy4KHhk4MAKzfo3xfvi1sM+YpMhBaQvHMB2vGs378nyAADtEYxPlUnUoI\",\n    \"sha-512\": \"3weINHlihNmslwpckBdzARz4LdTMYsg+L1prU+u1FmwedBnYmpOIEB1Yix4kR3o4G4pbw+JLiSTBftGwLjFrqA==\"\n  },\n  \"length\": 707,\n  \"type\": \"application/vnd.drawbridge.directory.v1+json\"\n}\n");
-
-        // test for success when fetching tags from a non-empty public repo
-        let cmd = cmd!("enarx repo info {db_addr}/testuser/publicrepo");
-        assert_eq!(cmd.success, true);
+        cmd!(
+            succeed: // when looking up a public package that exists
+            "enarx package info {db_addr}/testuser/publicrepo:2.0.0",
+            r#"{{
+  "digest": {{
+    "sha-224": "ipv22ZRLXTRv4MypL2IVaZypKHb91PgAqWXG6w==",
+    "sha-256": "Jcdf/Q0urZed/9dKu9IBq/BtWIHcvSGlsrUWkS1Rx+E=",
+    "sha-384": "f52Mxw0vy4KHhk4MAKzfo3xfvi1sM+YpMhBaQvHMB2vGs378nyAADtEYxPlUnUoI",
+    "sha-512": "3weINHlihNmslwpckBdzARz4LdTMYsg+L1prU+u1FmwedBnYmpOIEB1Yix4kR3o4G4pbw+JLiSTBftGwLjFrqA=="
+  }},
+  "length": 707,
+  "type": "application/vnd.drawbridge.directory.v1+json"
+}}
+"#
+        );
 
         // TODO: fetch package
         // TODO: deploy package
@@ -126,9 +193,7 @@ async fn full() {
 fn test_config_init() {
     let tmpdir = Builder::new().prefix("test_config_init").tempdir().unwrap();
     env::set_current_dir(tmpdir.path()).unwrap();
-    let cmd = cmd!("enarx config init");
-    assert_eq!(cmd.success, true);
-    let cmd = cmd!("enarx config init");
-    assert_eq!(cmd.success, false);
+    cmd!(succeed: "enarx config init");
+    cmd!(fail: "enarx config init", "Error: \"Enarx.toml\" does already exist.\n");
     assert_eq!(Path::new("Enarx.toml").exists(), true);
 }
