@@ -1209,12 +1209,21 @@ pub trait Handler {
     }
 
     /// Within an address range inside the enclave, ask host to set page type to
-    /// 'trimmed'. Address and length must be page-aligned. Shim must validate
+    /// the specified type. Address and length must be page-aligned. Shim must validate
     /// and acknowledge the changes with ENCLU[EACCEPT], in order for them to
     /// take effect.
     #[inline]
-    fn trim_sgx_pages(&mut self, addr: NonNull<c_void>, length: usize) -> Result<()> {
-        self.execute(enarxcall::TrimSgxPages { addr, length })?
+    fn modify_sgx_page_type(
+        &mut self,
+        addr: NonNull<c_void>,
+        length: usize,
+        page_type: u8,
+    ) -> Result<()> {
+        self.execute(enarxcall::ModifySgxPageType {
+            addr,
+            length,
+            page_type,
+        })?
     }
 
     /// Unpark all parked threads

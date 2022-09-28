@@ -73,7 +73,7 @@ pub enum Number {
     MunmapHost = 0x09,
 
     /// Trim SGX pages call number.
-    TrimSgxPages = 0x10,
+    SgxModifyPageType = 0x10,
 
     /// Park the current thread
     Park = 0x11,

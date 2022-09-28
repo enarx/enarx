@@ -281,12 +281,12 @@ pub(crate) fn sgx_enarxcall<'a>(
         }
 
         item::Enarxcall {
-            num: item::enarxcall::Number::TrimSgxPages,
-            argv: [addr, length, ..],
+            num: item::enarxcall::Number::SgxModifyPageType,
+            argv: [addr, length, page_type, ..],
             ret,
             ..
         } => {
-            let mut parameters = ModifyTypes::new(*addr - keep.mem.addr(), *length, 4);
+            let mut parameters = ModifyTypes::new(*addr - keep.mem.addr(), *length, *page_type);
             ENCLAVE_MODIFY_TYPES
                 .ioctl(&mut keep.enclave.try_clone().unwrap(), &mut parameters)
                 .context("ENCLAVE_MODIFY_TYPES failed")?;
