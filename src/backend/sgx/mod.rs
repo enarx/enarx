@@ -4,6 +4,7 @@ mod attestation;
 mod builder;
 mod config;
 mod data;
+mod enarxcall;
 mod hasher;
 mod ioctls;
 mod thread;
@@ -22,7 +23,7 @@ pub const AESM_SOCKET: &str = "/var/run/aesmd/aesm.socket";
 
 pub type Tcs = usize;
 
-struct Keep {
+pub(crate) struct Keep {
     sallyport_block_size: u64,
     mem: Map<perms::Unknown>,
     tcs: RwLock<Vec<Tcs>>,
