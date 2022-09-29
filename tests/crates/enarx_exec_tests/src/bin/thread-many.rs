@@ -2,23 +2,37 @@
 
 use enarx_exec_tests::musl_fsbase_fix;
 
-use std::thread;
-
 musl_fsbase_fix!();
 
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::thread;
+use std::time::Duration;
+
+static GLOBAL_THREAD_COUNT: AtomicUsize = AtomicUsize::new(0);
+
 fn main() {
-    for _ in 0..100 {
-        let thread1 = thread::spawn(|| 0);
+    for i in 0..100 {
+        GLOBAL_THREAD_COUNT.fetch_add(1, Ordering::SeqCst);
 
-        let thread2 = thread::spawn(|| 0);
+        thread::spawn(move || {
+            // do some work
+            eprintln!("{}-th thread reporting", i + 1);
+            thread::sleep(Duration::from_secs(1));
+            GLOBAL_THREAD_COUNT.fetch_sub(1, Ordering::SeqCst);
+        });
+    }
 
-        let ret: i32 = thread1.join().unwrap();
-        assert_eq!(ret, 0);
+    let mut i = 0;
 
-        let ret: i32 = thread2.join().unwrap();
-        assert_eq!(ret, 0);
-
-        // Wait for threads to be returned to the thread pool
-        thread::sleep(std::time::Duration::from_micros(100));
+    while GLOBAL_THREAD_COUNT.load(Ordering::SeqCst) != 0 {
+        i += 1;
+        if i > 100 {
+            eprintln!(
+                "{} threads still running",
+                GLOBAL_THREAD_COUNT.load(Ordering::SeqCst)
+            );
+            std::process::exit(1);
+        }
+        thread::sleep(Duration::from_millis(100));
     }
 }
