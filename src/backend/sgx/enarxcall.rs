@@ -32,29 +32,54 @@ pub(crate) fn sgx_enarxcall<'a>(
     match enarxcall {
         enarxcall::Payload {
             num: item::enarxcall::Number::Spawn,
+            argv: [addr, ..],
             ret,
             ..
         } => {
-            *ret = if let Some(mut thread) = keep.spawn()? {
-                std::thread::spawn(move || {
-                    trace_span!(
-                        "Thread",
-                        id = ?std::thread::current().id()
-                    )
-                    .in_scope(|| loop {
-                        match thread.enter(&None)? {
-                            Command::Continue => (),
-                            Command::Exit(exit_code) => {
-                                drop(thread);
-                                return Ok::<i32, anyhow::Error>(exit_code);
-                            }
+            if *addr != 0 {
+                keep.push_tcs(*addr);
+            }
+
+            // retry for a little time, there should be exiting threads in flight,
+            // which can be reused.
+            let thread: Option<_> = {
+                let mut i = 0;
+                loop {
+                    if let Some(thread) = keep.clone().spawn()? {
+                        break Some(thread);
+                    } else {
+                        i += 1;
+                        if i < 10 {
+                            std::thread::sleep(std::time::Duration::from_millis(50));
+                            continue;
                         }
-                    })
-                });
-                0
-            } else {
-                error!("no more SGX threads available");
-                -EAGAIN as usize
+                        break None;
+                    }
+                }
+            };
+
+            *ret = {
+                if let Some(mut thread) = thread {
+                    std::thread::spawn(move || {
+                        trace_span!(
+                            "Thread",
+                            id = ?std::thread::current().id()
+                        )
+                        .in_scope(|| loop {
+                            match thread.enter(&None)? {
+                                Command::Continue => (),
+                                Command::Exit(exit_code) => {
+                                    drop(thread);
+                                    return Ok::<i32, anyhow::Error>(exit_code);
+                                }
+                            }
+                        })
+                    });
+                    0
+                } else {
+                    error!("no more SGX threads available");
+                    -EAGAIN as usize
+                }
             };
 
             Ok(None)

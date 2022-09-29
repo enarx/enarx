@@ -20,7 +20,7 @@ use core::mem::MaybeUninit;
 use core::ptr::NonNull;
 
 use enarx_shim_sgx::thread::{
-    LoadRegsExt, NewThread, NewThreadFromRegisters, Tcb, NEW_THREAD_QUEUE,
+    LoadRegsExt, NewThread, NewThreadFromRegisters, Tcb, NEW_THREAD_QUEUE, THREADS_FREE,
 };
 use enarx_shim_sgx::{
     entry, handler, shim_address, ATTR, BLOCK_SIZE, CSSA_0_STACK_SIZE, ENARX_EXEC_START,
@@ -214,7 +214,7 @@ pub unsafe extern "sysv64" fn _start() -> ! {
         "cmp    rax,    1                   ",  // If CSSA > 0
         "jne    3f                          ",  // ... jump to the next section
         "mov    r10,    rcx                 ",  // r10 = stack pointer CSSA == 0
-        "sub    r10,    {CSSA_0_STACK_SIZE} ",  // r10 = stack pointer - 2MB
+        "sub    r10,    {CSSA_0_STK_TCS_SZ} ",  // r10 = stack pointer - 2MB
         "jmp    4f                          ",  // Jump to stack setup
 
         // Find stack pointer for CSSA > 1
@@ -262,7 +262,7 @@ pub unsafe extern "sysv64" fn _start() -> ! {
         RELOC = sym relocate,
         ENTRY = sym main,
         EEXIT = const sgx::enclu::EEXIT,
-        CSSA_0_STACK_SIZE = const CSSA_0_STACK_SIZE,
+        CSSA_0_STK_TCS_SZ = const CSSA_0_STACK_SIZE + 4096,
         options(noreturn)
     )
 }
@@ -323,11 +323,18 @@ unsafe extern "C" fn main(
                     ret = regs.load_registers(tcb);
                 }
             }
+            // increment the free counter, although it's not yet completely done
+            *THREADS_FREE.write() += 1;
         }
         1 => {
             // cssa == 0 already initialized the TCB
             let tcb = tcb.assume_init_mut();
-            handler::Handler::handle(&mut ssas[0], block.as_mut_slice(), tcb)
+            handler::Handler::handle(
+                &mut ssas[0],
+                block.as_mut_slice(),
+                tcb,
+                _start as usize as _,
+            )
         }
         n => handler::Handler::finish(&mut ssas[n - 1]),
     }

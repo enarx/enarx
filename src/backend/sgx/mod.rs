@@ -30,6 +30,12 @@ pub(crate) struct Keep {
     enclave: File,
 }
 
+impl Keep {
+    fn push_tcs(&self, tcs: Tcs) {
+        self.tcs.write().unwrap().push(tcs)
+    }
+}
+
 pub struct Backend;
 
 impl crate::backend::Backend for Backend {

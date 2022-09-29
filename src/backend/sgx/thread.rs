@@ -35,7 +35,7 @@ pub struct Thread {
 impl Drop for Thread {
     fn drop(&mut self) {
         trace!("Dropping thread");
-        self.keep.tcs.write().unwrap().push(self.tcs)
+        self.keep.push_tcs(self.tcs)
     }
 }
 
