@@ -1204,8 +1204,8 @@ pub trait Handler {
 
     /// Spawn a new thread
     #[inline]
-    fn spawn(&mut self) -> Result<()> {
-        self.execute(enarxcall::Spawn)?
+    fn spawn(&mut self, addr: usize) -> Result<()> {
+        self.execute(enarxcall::Spawn { addr })?
     }
 
     /// Within an address range inside the enclave, ask host to set page type to

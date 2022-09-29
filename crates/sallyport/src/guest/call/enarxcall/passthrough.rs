@@ -159,16 +159,20 @@ impl PassthroughAlloc for MunmapHost {
 
 /// Spawn a new thread
 #[repr(transparent)]
-pub struct Spawn;
+pub struct Spawn {
+    /// An address suitable to start a new thread with the keep's technology.
+    /// 0 is a valid value, and indicates that the keep should reuse a thread from the pool.
+    pub addr: usize,
+}
 
 impl PassthroughAlloc for Spawn {
     const NUM: Number = Number::Spawn;
 
-    type Argv = Argv<0>;
+    type Argv = Argv<1>;
     type Ret = ();
 
     fn stage(self) -> Self::Argv {
-        Argv([])
+        Argv([self.addr as _])
     }
 }
 

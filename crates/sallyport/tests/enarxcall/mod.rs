@@ -96,7 +96,7 @@ fn munmap_host() {
 #[test]
 fn spawn() {
     run_test(1, [0xff; 16], move |_, _, handler| {
-        assert_eq!(handler.spawn(), Err(ENOSYS));
+        assert_eq!(handler.spawn(0), Err(ENOSYS));
     })
 }
 

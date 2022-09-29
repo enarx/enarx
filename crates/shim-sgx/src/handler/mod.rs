@@ -246,7 +246,7 @@ impl guest::Handler for Handler<'_> {
 
         ptid.store(tid as _, Ordering::Relaxed);
 
-        let ret = self.spawn();
+        let ret = self.spawn(0);
         debugln!(self, "spawn() = {ret:#?}");
         ret?;
 
