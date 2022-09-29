@@ -5,10 +5,12 @@
 use core::arch::asm;
 use core::ptr::NonNull;
 use core::sync::atomic::{AtomicI32, AtomicU32};
+use primordial::Page;
 
+use crate::{CSSA_0_STACK_SIZE, CSSA_1_PLUS_STACK_SIZE, NUM_SSA};
 use sallyport::guest::ThreadLocalStorage;
 use sallyport::libc::pid_t;
-use sgx::ssa::GenPurposeRegs;
+use sgx::ssa::{GenPurposeRegs, StateSaveArea};
 use spinning::{Lazy, RwLock};
 
 /// A constant array to enqueue and dequeue from.
@@ -83,6 +85,54 @@ pub static NEW_THREAD_QUEUE: Lazy<RwLock<ConstVecDequeue<10, NewThread>>> = Lazy
     RwLock::new(queue)
 });
 
+/// SGX Thread Control Structure
+///
+/// Section 37.8
+#[derive(Debug)]
+#[repr(C, align(4096))]
+pub struct Tcs {
+    _reserved1: [u8; 16],
+    /// Offset of the base of the State Save Area stack, relative to the enclave base.
+    /// Must be page aligned.
+    pub ossa: u64,
+    /// Current slot index of an SSA frame, cleared by EADD and EACCEPT.
+    pub cssa: u32,
+    /// Number of available slots for SSA frames.
+    pub nssa: u32,
+    /// Offset in enclave to which control is transferred on EENTER relative to the base of the enclave.
+    pub oentry: u64,
+    _reserved2: [u8; 4096 - 5 * 8],
+}
+
+impl Default for Tcs {
+    fn default() -> Self {
+        Self {
+            _reserved1: [0; 16],
+            ossa: 0,
+            cssa: 0,
+            nssa: 0,
+            oentry: 0,
+            _reserved2: [0; 4096 - 5 * 8],
+        }
+    }
+}
+
+/// Enarx Thread Memory layout
+#[derive(Debug)]
+#[repr(C, align(4096))]
+pub struct ThreadMem {
+    /// Stack for CSSA > 0.
+    pub cssa_stack: [u8; CSSA_1_PLUS_STACK_SIZE],
+    /// Stack for CSSA = 0
+    pub stack: [u8; CSSA_0_STACK_SIZE],
+    /// Enarx thread control block.
+    tcb: [u8; Page::SIZE],
+    /// SGX thread control structure.
+    pub tcs: Tcs,
+    /// State save area.
+    pub ssa: [StateSaveArea; NUM_SSA],
+}
+
 /// Return to main
 #[derive(Default)]
 #[repr(C)]
@@ -116,6 +166,9 @@ pub struct Tcb {
 
 /// actual thread ID to be used for the next thread
 pub static THREAD_ID_CNT: AtomicI32 = AtomicI32::new(1);
+
+/// number of free threads
+pub static THREADS_FREE: RwLock<usize> = RwLock::new(0);
 
 /// Extend some trait with a method to load registers
 pub trait LoadRegsExt {

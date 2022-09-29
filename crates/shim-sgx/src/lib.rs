@@ -19,13 +19,23 @@ pub mod handler;
 pub mod heap;
 pub mod thread;
 
+use primordial::Page;
 use sgx::parameters::{Attributes, Features, MiscSelect, Xfrm};
+use sgx::ssa::StateSaveArea;
 
 const DEBUG: bool = cfg!(feature = "dbg");
 
+/// Number of available slots for SSA frames.
+pub const NUM_SSA: usize = 3;
+
 /// Stack size of the CSSA = 0
 /// as defined in the linker script `layout.ld`
-pub const CSSA_0_STACK_SIZE: u64 = 0x200000;
+pub const CSSA_0_STACK_SIZE: usize = 0x200000 - Page::SIZE; // 2MB - TCB
+
+/// Stack size of the CSSA > 0
+/// as defined in the linker script `layout.ld`
+pub const CSSA_1_PLUS_STACK_SIZE: usize =
+    0x200000 - Page::SIZE - NUM_SSA * core::mem::size_of::<StateSaveArea>(); // 2MB - TCS - SSA
 
 /// FIXME: doc
 pub const ENCL_SIZE_BITS: u8 = 32;

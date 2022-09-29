@@ -29,8 +29,14 @@ pub(crate) mod usermem;
 
 use crate::handler::usermem::UserMemScope;
 use crate::heap::Heap;
-use crate::thread::{NewThread, NewThreadFromRegisters, Tcb, NEW_THREAD_QUEUE, THREAD_ID_CNT};
-use crate::{shim_address, DEBUG, ENARX_EXEC_END, ENARX_EXEC_START, ENCL_SIZE};
+use crate::thread::{
+    NewThread, NewThreadFromRegisters, Tcb, Tcs, ThreadMem, NEW_THREAD_QUEUE, THREADS_FREE,
+    THREAD_ID_CNT,
+};
+use crate::{
+    shim_address, CSSA_0_STACK_SIZE, CSSA_1_PLUS_STACK_SIZE, DEBUG, ENARX_EXEC_END,
+    ENARX_EXEC_START, ENCL_SIZE, NUM_SSA,
+};
 use core::arch::asm;
 use core::arch::x86_64::CpuidResult;
 use core::ffi::{c_int, c_size_t, c_ulong, c_void};
@@ -46,8 +52,8 @@ use sallyport::guest::{self, Handler as _, Platform, ThreadLocalStorage};
 use sallyport::item::enarxcall::sgx::{Report, ReportData, TargetInfo, TECH};
 use sallyport::item::enarxcall::{SYS_GETATT, SYS_GETKEY};
 use sallyport::libc::{
-    off_t, pid_t, CloneFlags, SYS_clock_gettime, EACCES, EINVAL, EIO, EMSGSIZE, ENOMEM, ENOSYS,
-    ENOTSUP, MAP_ANONYMOUS, MAP_PRIVATE, PROT_EXEC, PROT_READ, PROT_WRITE, STDERR_FILENO,
+    off_t, pid_t, CloneFlags, SYS_clock_gettime, EACCES, EAGAIN, EINVAL, EIO, EMSGSIZE, ENOMEM,
+    ENOSYS, ENOTSUP, MAP_ANONYMOUS, MAP_PRIVATE, PROT_EXEC, PROT_READ, PROT_WRITE, STDERR_FILENO,
 };
 use sgx::page::{Class, Flags};
 use sgx::ssa::StateSaveArea;
@@ -116,6 +122,7 @@ pub struct Handler<'a> {
     block: &'a mut [usize],
     ssa: &'a mut StateSaveArea,
     tcb: &'a mut Tcb,
+    start: u64,
 }
 
 impl<'a> Write for Handler<'a> {
@@ -235,6 +242,18 @@ impl guest::Handler for Handler<'_> {
         regs.rsp = stack.as_ptr() as _;
         regs.fsbase = tls.as_ptr() as _;
 
+        let mut threads_free_guard = THREADS_FREE.write();
+
+        let addr = if *threads_free_guard == 0 {
+            debugln!(self, "allocating new thread");
+            self.thread_mem_alloc().map_err(|_| EAGAIN)? as usize
+        } else {
+            *threads_free_guard -= 1;
+            0
+        };
+
+        drop(threads_free_guard);
+
         NEW_THREAD_QUEUE
             .write()
             .push(NewThread::Thread(NewThreadFromRegisters {
@@ -246,7 +265,7 @@ impl guest::Handler for Handler<'_> {
 
         ptid.store(tid as _, Ordering::Relaxed);
 
-        let ret = self.spawn(0);
+        let ret = self.spawn(addr);
         debugln!(self, "spawn() = {ret:#?}");
         ret?;
 
@@ -383,8 +402,18 @@ impl guest::Handler for Handler<'_> {
 }
 
 impl<'a> Handler<'a> {
-    fn new(ssa: &'a mut StateSaveArea, block: &'a mut [usize], tcb: &'a mut Tcb) -> Self {
-        Self { ssa, block, tcb }
+    fn new(
+        ssa: &'a mut StateSaveArea,
+        block: &'a mut [usize],
+        tcb: &'a mut Tcb,
+        start: u64,
+    ) -> Self {
+        Self {
+            ssa,
+            block,
+            tcb,
+            start,
+        }
     }
 
     /// Finish handling an exception
@@ -401,8 +430,13 @@ impl<'a> Handler<'a> {
     }
 
     /// Handle an exception
-    pub fn handle(ssa: &'a mut StateSaveArea, block: &'a mut [usize], tcb: &'a mut Tcb) {
-        let mut h = Self::new(ssa, block, tcb);
+    pub fn handle(
+        ssa: &'a mut StateSaveArea,
+        block: &'a mut [usize],
+        tcb: &'a mut Tcb,
+        start: u64,
+    ) {
+        let mut h = Self::new(ssa, block, tcb, start);
 
         match h.ssa.vector() {
             Some(Vector::InvalidOpcode) => match unsafe { read_unaligned(h.ssa.gpr.rip as _) } {
@@ -844,5 +878,86 @@ impl<'a> Handler<'a> {
                 }
             }
         }
+    }
+
+    fn thread_mem_alloc(&mut self) -> sallyport::Result<*const Tcs> {
+        let usermemscope = UserMemScope;
+
+        // Allocate the whole block of memory used for the thread.
+        // It is easier to do this in one go and punch holes in it,
+        // than to allocate each part separately.
+        let addr = self.mmap(
+            &usermemscope,
+            None,
+            size_of::<ThreadMem>(),
+            PROT_READ | PROT_WRITE,
+            MAP_PRIVATE | MAP_ANONYMOUS,
+            -1,
+            0,
+        )?;
+
+        // # Safety
+        // ThreadMem is a POD type and the memory is aligned and zeroed.
+        let tm = unsafe { &mut *(addr.as_ptr() as *mut ThreadMem) };
+
+        let stack_end_1 = NonNull::new(&mut tm.cssa_stack as *mut _ as *mut c_void).unwrap();
+        let stack_end_0 = NonNull::new(&mut tm.stack as *mut _ as *mut c_void).unwrap();
+        let tcs = &tm.tcs as *const Tcs;
+        let ssa = tm.ssa.as_ptr();
+
+        // address is relative to the enclave base (`shim_address()`)
+        tm.tcs.ossa = ssa as u64 - shim_address() as u64;
+        // start with level 0
+        tm.tcs.cssa = 0;
+        // number of SSA frames
+        tm.tcs.nssa = NUM_SSA as _;
+        // address is relative to the enclave base
+        tm.tcs.oentry = self.start - shim_address() as u64;
+
+        // unmap stack guard pages, so a stack overflow will cause a page fault
+        self.munmap(&usermemscope, stack_end_1, Page::SIZE)
+            .unwrap_or_else(|_| self.attacked());
+        self.munmap(&usermemscope, stack_end_0, Page::SIZE)
+            .unwrap_or_else(|_| self.attacked());
+
+        self.modify_sgx_page_type(
+            NonNull::new(tcs as *mut c_void).unwrap(),
+            Page::SIZE,
+            Class::Tcs as _,
+        )
+        .unwrap_or_else(|_| self.attacked());
+
+        let virt_addr = VirtAddr::from_ptr(tcs);
+        // # Safety
+        //
+        // The address must be page aligned.
+        let page_addr = unsafe { PageAddr::from_start_address_unchecked(virt_addr) };
+
+        Class::Tcs
+            .info(Flags::MODIFIED)
+            .accept(page_addr)
+            .unwrap_or_else(|_| self.attacked());
+
+        Ok(tcs)
+    }
+
+    // FIXME: https://github.com/enarx/enarx/issues/2251
+    #[allow(dead_code)]
+    fn thread_mem_free(&mut self, tcs: *const Tcs) -> sallyport::Result<()> {
+        let usermemscope = UserMemScope;
+
+        let tm_start = tcs as usize - CSSA_1_PLUS_STACK_SIZE - CSSA_0_STACK_SIZE - Page::SIZE;
+        let tm_addr = NonNull::new(tm_start as *const ThreadMem as *mut c_void).unwrap();
+
+        debugln!(
+            self,
+            "drop_thread_mem: {:#?} {}",
+            tm_addr,
+            size_of::<ThreadMem>()
+        );
+
+        self.munmap(&usermemscope, tm_addr, size_of::<ThreadMem>())?;
+
+        Ok(())
     }
 }
