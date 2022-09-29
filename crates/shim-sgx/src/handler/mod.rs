@@ -29,7 +29,7 @@ pub(crate) mod usermem;
 
 use crate::handler::usermem::UserMemScope;
 use crate::heap::Heap;
-use crate::thread::{NewThread, NewThreadFromRegisters, Tcb, NEW_THREAD_QUEUE, NUM_THREADS};
+use crate::thread::{NewThread, NewThreadFromRegisters, Tcb, NEW_THREAD_QUEUE, THREAD_ID_CNT};
 use crate::{shim_address, DEBUG, ENARX_EXEC_END, ENARX_EXEC_START, ENCL_SIZE};
 use core::arch::asm;
 use core::arch::x86_64::CpuidResult;
@@ -229,7 +229,7 @@ impl guest::Handler for Handler<'_> {
             tls = tls.as_ptr()
         );
 
-        let tid = NUM_THREADS.fetch_add(1, Ordering::SeqCst);
+        let tid = THREAD_ID_CNT.fetch_add(1, Ordering::SeqCst);
 
         let mut regs = self.ssa.gpr;
         regs.rsp = stack.as_ptr() as _;
