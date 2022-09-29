@@ -114,8 +114,8 @@ pub struct Tcb {
     pub tls: ThreadLocalStorage,
 }
 
-/// actual thread ID
-pub static NUM_THREADS: AtomicI32 = AtomicI32::new(1);
+/// actual thread ID to be used for the next thread
+pub static THREAD_ID_CNT: AtomicI32 = AtomicI32::new(1);
 
 /// Extend some trait with a method to load registers
 pub trait LoadRegsExt {
