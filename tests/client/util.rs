@@ -1,12 +1,16 @@
 // SPDX-License-Identifier: Apache-2.0
 
+use Output::{Json, Text};
+
+use std::fmt;
 use std::process::Command;
+use std::str::from_utf8;
 
 use async_std::net::{Ipv4Addr, TcpListener};
 use async_std::task::{spawn, JoinHandle};
 use drawbridge_server::{App, OidcConfig, TlsConfig};
 use futures::channel::oneshot::{channel, Sender};
-use futures::{join, StreamExt};
+use futures::StreamExt;
 use http_types::convert::{json, Serialize};
 use http_types::{Body, Response, StatusCode};
 use openidconnect::core::{
@@ -17,10 +21,35 @@ use openidconnect::{
     AuthUrl, EmptyAdditionalClaims, EmptyAdditionalProviderMetadata, IssuerUrl, JsonWebKeySetUrl,
     ResponseTypes, StandardClaims, SubjectIdentifier, UserInfoUrl,
 };
+use serde_json::{from_slice, to_string_pretty, Value};
 use tempfile::tempdir;
 
+/// A nice wrapper over `format!` for testing CLI invocations
+macro_rules! cmd {
+    // A command that succeeds with blank output
+    (succeed: $args:expr) => {
+        util::enarx(format!($args), true, util::Output::Text(String::new()))
+    };
+    // A command that succeeds with text output
+    (succeed: $args:expr, text: $output:expr) => {
+        util::enarx(format!($args), true, util::Output::Text(format!($output)))
+    };
+    // A command that succeeds with JSON output
+    (succeed: $args:expr, json: $output:tt) => {
+        util::enarx(
+            format!($args),
+            true,
+            util::Output::Json(serde_json::json!($output)),
+        )
+    };
+    // A command that fails with text output
+    (fail: $args:expr, text: $output:expr) => {
+        util::enarx(format!($args), false, util::Output::Text(format!($output)))
+    };
+}
+
 #[track_caller]
-pub fn enarx(args: String, expected_success: bool, expected_output: String) {
+pub fn enarx(args: String, expected_success: bool, expected_output: Output) {
     let mut cmd = Command::new(env!("CARGO_BIN_EXE_enarx"));
 
     for arg in args.split_whitespace().skip(1) {
@@ -30,7 +59,13 @@ pub fn enarx(args: String, expected_success: bool, expected_output: String) {
     let res = cmd.output().expect("failed to execute `enarx`");
 
     let succeeded = res.status.success();
-    let output = String::from_utf8([res.stdout, res.stderr].concat()).unwrap();
+
+    let combined = [res.stdout, res.stderr].concat();
+
+    let output = match expected_output {
+        Json(_) => Json(from_slice(&combined).unwrap()),
+        Text(_) => Text(from_utf8(&combined).unwrap().trim_end().to_string()),
+    };
 
     let failed_test = if expected_success && !succeeded {
         Some("expected command to succeed, but it failed")
@@ -58,28 +93,29 @@ pub fn enarx(args: String, expected_success: bool, expected_output: String) {
     }
 }
 
-pub async fn run(commands: impl FnOnce(String, String)) {
-    env_logger::builder().is_test(true).init();
-    let (oidc_addr, oidc_tx, oidc_handle) = init_oidc().await;
-    let (db_port, db_tx, db_handle) = init_drawbridge(oidc_addr.clone()).await;
-    let db_addr = format!("localhost:{db_port}");
-
-    commands(oidc_addr, db_addr);
-
-    // Gracefully stop servers
-    assert_eq!(oidc_tx.send(()), Ok(()));
-    assert_eq!(db_tx.send(()), Ok(()));
-    assert!(matches!(join!(oidc_handle, db_handle), ((), ())));
+#[derive(Debug, PartialEq)]
+pub enum Output {
+    Json(Value),
+    Text(String),
 }
 
-async fn init_oidc() -> (String, Sender<()>, JoinHandle<()>) {
+impl fmt::Display for Output {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Json(json) => write!(f, "{}", to_string_pretty(json).unwrap()),
+            Text(text) => write!(f, "{text}"),
+        }
+    }
+}
+
+pub async fn init_oidc() -> (String, Sender<()>, JoinHandle<()>) {
     let oidc_lis = TcpListener::bind((Ipv4Addr::LOCALHOST, 0))
         .await
         .expect("failed to bind to address");
 
-    let oidc_addr = oidc_lis.local_addr().unwrap();
+    let oidc_host = oidc_lis.local_addr().unwrap();
 
-    let oidc_url = format!("http://{oidc_addr}");
+    let oidc_url = format!("http://{oidc_host}");
 
     let (oidc_tx, oidc_rx) = channel();
 
@@ -101,7 +137,7 @@ async fn init_oidc() -> (String, Sender<()>, JoinHandle<()>) {
                             Ok(res)
                         }
 
-                        let oidc_url = format!("http://{oidc_addr}/");
+                        let oidc_url = format!("http://{oidc_host}/");
                         match req.url().path() {
                             "/.well-known/openid-configuration" => {
                                 json_response(
@@ -155,7 +191,7 @@ async fn init_oidc() -> (String, Sender<()>, JoinHandle<()>) {
     (oidc_url, oidc_tx, oidc_handle)
 }
 
-async fn init_drawbridge(oidc_addr: String) -> (u16, Sender<()>, JoinHandle<()>) {
+pub async fn init_drawbridge(oidc_url: String) -> (u16, Sender<()>, JoinHandle<()>) {
     let db_lis = TcpListener::bind((Ipv4Addr::LOCALHOST, 0))
         .await
         .expect("failed to bind to address");
@@ -179,7 +215,7 @@ async fn init_drawbridge(oidc_addr: String) -> (u16, Sender<()>, JoinHandle<()>)
             tls,
             OidcConfig {
                 label: "test-label".into(),
-                issuer: oidc_addr.parse().unwrap(),
+                issuer: oidc_url.parse().unwrap(),
                 client_id: "4NuaJxkQv8EZBeJKE56R57gKJbxrTLG2".into(),
                 client_secret: None,
             },
