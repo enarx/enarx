@@ -20,59 +20,59 @@ dbg = [ "enarx-shim-kvm/dbg", "enarx-shim-sgx/dbg" ]
 disable-sgx-attestation = ["enarx-shim-sgx/disable-sgx-attestation"]
 
 [dependencies]
-anyhow = { version = "1.0.56", features = ["std"], default-features = false }
-atty = { version = "0.2", default-features = false }
-bitflags = { version = "1.2", default-features = false }
-camino = { version = "1.0.9", default-features = false }
-clap = { version = "4.0", features = ["std", "derive", "env", "error-context", "help", "usage", "wrap_help"], default-features = false }
-colorful = { version = "0.2", default-features = false }
-dirs = { version = "4.0", default-features = false }
-drawbridge-client = { version = "0.2.2", default-features = false }
-enarx-exec-wasmtime = { version = "0.6.4", path = "crates/exec-wasmtime", default-features = false }
-enarx-config = { version = "0.6", path = "crates/enarx-config", default-features = false }
-env_logger = { version = "0.9", default-features = false }
-hex = { version = "0.4.3", features = ["std"], default-features = false }
-keyring = { version = "1.1.2", default-features = false }
-libc = { version = "0.2", default-features = false }
-tracing = { version = "0.1", default-features = false, features = ["std", "attributes", "release_max_level_info"] }
-tracing-subscriber = { version = "0.3", default-features = false, features = ["smallvec", "fmt", "ansi", "tracing-log", "std", "env-filter"] }
-oauth2 = { version = "4.2.2", default-features = false, features = ["ureq"] }
-once_cell = { version = "1.11.0", features = ["std"], default-features = false }
-openidconnect = { version = "2.3.2", features = ["ureq"], default-features = false }
-ring = { version = "0.16.20", features = ["std"] }
-rsa = { version = "^0.6.0", default-features = false }
-rustls = { version = "0.20.6", default-features = false }
-rustls-pemfile = { version = "1.0.0", default-features = false }
-serde = { version = "1.0.136", features = ["derive"], default-features = false }
-serde_json = { version = "1.0.79", features = ["std"], default-features = false }
-sha2 = { version = "0.10.2", default-features = false }
-toml = { version = "0.5.9", default-features = false }
-url = { version = "2.2.2", default-features = false }
+anyhow = { workspace = true, features = ["std"] }
+atty = { workspace = true }
+bitflags = { workspace = true }
+camino = { workspace = true }
+clap = { workspace = true }
+colorful = { workspace = true }
+dirs = { workspace = true }
+drawbridge-client = { workspace = true }
+enarx-exec-wasmtime = { workspace = true }
+enarx-config = { workspace = true }
+env_logger = { workspace = true }
+hex = { workspace = true }
+keyring = { workspace = true }
+libc = { workspace = true }
+tracing = { workspace = true, features = ["release_max_level_info", "std"] }
+tracing-subscriber = { workspace = true, features = ["ansi", "smallvec", "std", "tracing-log"] }
+oauth2 = { workspace = true }
+once_cell = { workspace = true, features = ["std"] }
+openidconnect = { workspace = true, features = ["ureq"] }
+ring = { workspace = true }
+rsa = { workspace = true }
+rustls = { workspace = true }
+rustls-pemfile = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+sha2 = { workspace = true }
+toml = { workspace = true }
+url = { workspace = true }
 
 # optional dependencies
-gdbstub = { version = "0.5.0", optional = true, features = ["std"], default-features = false }
+gdbstub = { workspace = true, features = ["std"], optional = true }
 
 [target.'cfg(all(target_os = "linux", target_arch = "x86_64"))'.dependencies]
-const-default = { version = "1.0", features = ["derive"], default-features = false }
-goblin = { version = "0.5", features = ["elf64", "elf32", "std", "endian_fd"], default-features = false }
-iocuddle = { version = "0.1.1", default-features = false }
-kvm-bindings = { version = "0.5", default-features = false }
-kvm-ioctls = { version = "0.11", default-features = false }
-lset = { version = "0.3", default-features = false }
-mmarinus = { version = "0.4.0", default-features = false }
-nbytes = { version = "0.1", default-features = false }
-p384 = { version = "0.11.1", features = ["std", "pem", "ecdsa"], default-features = false }
-pkcs8 = { version = "0.9.0", features = ["std", "pem"] }
-primordial = { version = "0.5", features = ["alloc"], default-features = false }
-protobuf = { version = "2.22", default-features = false }
-rand = { version = "0.8", features = ["std", "std_rng"], default-features = false }
-sallyport = { version = "0.6.4", path = "crates/sallyport", default-features = false }
-semver = { version = "1.0", default-features = false }
-sgx = { version = "0.5.0", features = ["rcrypto"], default-features = false }
-static_assertions = { version = "1.1.0", default-features = false }
-ureq = { version = "2.4.0", default-features = false }
-vdso = { version = "0.2", default-features = false }
-x86_64 = { version = "0.14.9", features = ["instructions"], default-features = false }
+const-default = { workspace = true }
+goblin = { workspace = true, features = ["elf32", "endian_fd", "std"], default-features = false }
+iocuddle = { workspace = true }
+kvm-bindings = { workspace = true }
+kvm-ioctls = { workspace = true }
+lset = { workspace = true }
+mmarinus = { workspace = true }
+nbytes = { workspace = true }
+p384 = { workspace = true }
+pkcs8 = { workspace = true, features = ["std", "pem"] }
+primordial = { workspace = true, features = ["alloc"] }
+protobuf = { workspace = true }
+rand = { workspace = true }
+sallyport = { workspace = true }
+semver = { workspace = true }
+sgx = { workspace = true, features = ["rcrypto"] }
+static_assertions = { workspace = true }
+ureq = { workspace = true }
+vdso = { workspace = true }
+x86_64 = { workspace = true, features = ["instructions"] }
 
 # binary dependencies
 enarx-exec-wasmtime = { version = "0.6.4", path = "crates/exec-wasmtime", artifact = "bin", target = "x86_64-unknown-linux-musl", default-features = false }
@@ -80,16 +80,16 @@ enarx-shim-kvm = { version = "0.6.4", path = "crates/shim-kvm", artifact = "bin"
 enarx-shim-sgx = { version = "0.6.4", path = "crates/shim-sgx", artifact = "bin", target = "x86_64-unknown-none", default-features = false }
 
 [build-dependencies]
-once_cell = { version = "1.11.0", features = ["std"], default-features = false }
-protobuf-codegen-pure = { version = "2.27", default-features = false }
+once_cell = { workspace = true, features = ["std"] }
+protobuf-codegen-pure = { workspace = true }
 
 [dev-dependencies]
-process_control = { version = "3.3", default-features = false }
-rustls = { version = "0.20.6", default-features = false, features = ["dangerous_configuration"] } # `dangerous_configuration` is required to specify a custom TLS verifier
-serial_test = { version = "0.9", default-features = false }
-testaso = { version = "0.1", default-features = false }
-tempfile = { version = "3.3.0", default-features = false }
-wat = { version = "1.0", default-features = false }
+process_control = { workspace = true }
+rustls = { workspace = true, features = ["dangerous_configuration"] } # `dangerous_configuration` is required to specify a custom TLS verifier
+serial_test = { workspace = true }
+testaso = { workspace = true }
+tempfile = { workspace = true }
+wat = { workspace = true }
 
 # binary dependencies
 enarx_wasm_tests  = { path = "tests/crates/enarx_wasm_tests", artifact = "bin", target = "wasm32-wasi", default-features = false }
@@ -99,12 +99,11 @@ enarx_exec_tests = { path = "tests/crates/enarx_exec_tests", artifact = "bin", t
 enarx_syscall_tests = { path = "tests/crates/enarx_syscall_tests", artifact = "bin", target = "x86_64-unknown-none", default-features = false }
 
 [target.'cfg(not(windows))'.dev-dependencies]
-async-h1 = { version = "2.3.3", default-features = false }
-async-std = { version = "1.11.0", default-features = false, features = ["attributes"] }
-drawbridge-server = { version = "0.2.2", default-features = false }
-futures = { version = "0.3.21", default-features = false }
-http-types = { version = "2.12.0", default-features = false }
-openidconnect = { version = "2.3.1", default-features = false }
+async-h1 = { workspace = true }
+async-std = { workspace = true }
+drawbridge-server = { workspace = true }
+futures = { workspace = true }
+http-types = { workspace = true }
 
 [profile.release]
 codegen-units = 1
@@ -132,3 +131,92 @@ overflow-checks = true
 [workspace]
 members = ["crates/*"]
 exclude = ["tests/crates"]
+
+[workspace.dependencies]
+aes-gcm = { version = "0.10.1", features = ["aes"], default-features = false }
+anyhow = { version = "1.0.56", default-features = false }
+array-const-fn-init = { version = "0.1.0", default-features = false }
+async-h1 = { version = "2.3.3", default-features = false }
+async-std = { version = "1.11.0", default-features = false, features = ["attributes"] }
+atty = { version = "0.2.0", default-features = false }
+bitflags = { version = "1.2.0", default-features = false }
+camino = { version = "1.0.9", default-features = false }
+clap = { version = "4.0", features = ["std", "derive", "env", "error-context", "help", "usage", "wrap_help"], default-features = false }
+colorful = { version = "0.2.0", default-features = false }
+const-default = { version = "1.0.0", default-features = false }
+const-oid = { version = "0.9.0", default-features = false }
+crt0stack = { version = "0.1.0", default-features = false }
+dirs = { version = "4.0.0", default-features = false }
+drawbridge-client = { version = "0.2.2", default-features = false }
+drawbridge-server = { version = "0.2.2", default-features = false }
+enarx-exec-wasmtime = { version = "0.6.4", path = "crates/exec-wasmtime", default-features = false }
+enarx-config = { version = "0.6.0", path = "crates/enarx-config", default-features = false }
+env_logger = { version = "0.9.0", default-features = false }
+futures = { version = "0.3.21", default-features = false }
+getrandom = { version = "0.2.6", features = ["rdrand"], default-features = false }
+gdbstub = { version = "0.5.0", default-features = false }
+gdbstub_arch = { version = "0.1.1", default-features = false }
+goblin = { version = "0.5.0", features = ["elf64"], default-features = false }
+hex = { version = "0.4.3", features = ["std"], default-features = false }
+http-types = { version = "2.12.0", default-features = false }
+io-extras = { version = "=0.15.0", default-features = false }
+iocuddle = { version = "0.1.1", default-features = false }
+keyring = { version = "1.1.2", default-features = false }
+kvm-bindings = { version = "0.5.0", default-features = false }
+kvm-ioctls = { version = "0.11.0", default-features = false }
+libc = { version = "0.2.126", default-features = false }
+linked_list_allocator = { version = "0.10.1", default-features = false }
+lset = { version = "0.3.0", default-features = false }
+mmarinus = { version = "0.4.0", default-features = false }
+mmledger = { version = "0.3.0", default-features = false }
+nbytes = { version = "0.1.0", default-features = false }
+noted = { version = "1.0.0", default-features = false }
+oauth2 = { version = "4.2.2", default-features = false, features = ["ureq"] }
+once_cell = { version = "1.13.0", default-features = false }
+openidconnect = { version = "2.3.1", default-features = false }
+p384 = { version = "0.11.1", features = ["std", "pem", "ecdsa"], default-features = false }
+pkcs8 = { version = "0.9.0" }
+primordial = { version = "0.5.0", default-features = false }
+process_control = { version = "3.3.0", default-features = false }
+protobuf = { version = "2.22.0", default-features = false }
+protobuf-codegen-pure = { version = "2.27.0", default-features = false }
+rand = { version = "0.8.0", features = ["std", "std_rng"], default-features = false }
+rcrt1 = { version = "2.4.0", default-features = false }
+ring = { version = "0.16.20", features = ["std"], default-features = false }
+rsa = { version = "^0.6.0", default-features = false }
+rustls = { version = "0.20.6", default-features = false }
+rustls-pemfile = { version = "1.0.0", default-features = false }
+sallyport = { version = "0.6.4", path = "crates/sallyport", default-features = false }
+sec1 = { version = "0.3.0-pre.1", features = ["der"], default-features = false }
+semver = { version = "1.0.0", default-features = false }
+serde = { version = "1.0.136", features = ["derive"], default-features = false }
+serde_json = { version = "1.0.79", features = ["std"], default-features = false }
+serial_test = { version = "0.9.0", default-features = false }
+sgx = { version = "0.5.0", default-features = false }
+sha2 = { version = "0.10.2", default-features = false }
+spinning = { version = "0.1.0", default-features = false }
+static_assertions = { version = "1.1.0", default-features = false }
+tempfile = { version = "3.3.0", default-features = false }
+testaso = { version = "0.1.0", default-features = false }
+toml = { version = "0.5.9", default-features = false }
+tracing = { version = "0.1.36", features = ["attributes"], default-features = false }
+tracing-subscriber = { version = "0.3.15", features = ["env-filter", "fmt"], default-features = false }
+ureq = { version = "2.4.0", default-features = false }
+url = { version = "2.2.2", default-features = false }
+vdso = { version = "0.2.0", default-features = false }
+wat = { version = "1.0.0", default-features = false }
+webpki-roots = { version = "0.22.2", default-features = false }
+x509-cert = { version = "0.1.0", features = ["std"], default-features = false }
+x86_64 = { version = "0.14.9", default-features = false }
+xsave = { version = "2.0.2", default-features = false }
+zeroize = { version = "1.5.4", features = ["alloc"], default-features = false }
+
+# wasmtime and its pinned dependencies
+# these will need to be updated together
+wasmtime = { git = "https://github.com/bytecodealliance/wasmtime", rev = "6f50ddaaf2ab8205b6e850361dd2cc662819f431", version = "2.0.0", features = ["cranelift", "pooling-allocator"], default-features = false }
+cap-std = { version = "0.26.0", default-features = false }
+io-lifetimes = { version = "0.7.3", default-features = false }
+rustix = { version = "0.35.10", features = ["std"], default-features = false }
+wasi-common = { git = "https://github.com/bytecodealliance/wasmtime", rev = "6f50ddaaf2ab8205b6e850361dd2cc662819f431", version = "2.0.0", default-features = false }
+wasmtime-wasi = { git = "https://github.com/bytecodealliance/wasmtime", rev = "6f50ddaaf2ab8205b6e850361dd2cc662819f431", version = "2.0.0", features = ["sync"], default-features = false }
+wiggle = { git = "https://github.com/bytecodealliance/wasmtime", rev = "6f50ddaaf2ab8205b6e850361dd2cc662819f431", version = "2.0.0", default-features = false }
