@@ -22,7 +22,7 @@ use rustls::{Certificate, RootCertStore};
 
 const DEFAULT_HOST: &str = "store.profian.com";
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct UserSpec {
     pub host: String,
     pub ctx: UserContext,
@@ -40,7 +40,7 @@ impl FromStr for UserSpec {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct RepoSpec {
     pub host: String,
     pub ctx: RepositoryContext,
@@ -59,7 +59,7 @@ impl FromStr for RepoSpec {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct TagSpec {
     pub host: String,
     pub ctx: TagContext,

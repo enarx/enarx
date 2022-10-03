@@ -24,7 +24,7 @@ anyhow = { version = "1.0.56", features = ["std"], default-features = false }
 atty = { version = "0.2", default-features = false }
 bitflags = { version = "1.2", default-features = false }
 camino = { version = "1.0.9", default-features = false }
-clap = { version = "3.1", features = ["env", "derive", "std"], default-features = false }
+clap = { version = "4.0", features = ["std", "derive", "env", "error-context", "help", "usage", "wrap_help"], default-features = false }
 colorful = { version = "0.2", default-features = false }
 dirs = { version = "4.0", default-features = false }
 drawbridge-client = { version = "0.2.2", default-features = false }
