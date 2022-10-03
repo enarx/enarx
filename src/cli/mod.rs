@@ -20,7 +20,7 @@ use std::ops::Deref;
 use std::str::FromStr;
 
 use anyhow::{anyhow, bail};
-use clap::{Args, Parser, Subcommand};
+use clap::{ArgAction, Args, Parser, Subcommand};
 use tracing::info;
 use tracing_subscriber::fmt::format::FmtSpan;
 use tracing_subscriber::{filter::LevelFilter, fmt, prelude::*, EnvFilter};
@@ -148,7 +148,7 @@ pub struct LogOptions {
     ///
     /// By default we only show error messages. Passing `-v` will show warnings,
     /// `-vv` adds info, `-vvv` for debug, and `-vvvv` for trace.
-    #[clap(long = "verbose", short = 'v', parse(from_occurrences))]
+    #[clap(long = "verbose", short = 'v', action = ArgAction::Count)]
     verbosity: u8,
 
     /// Set fancier logging filters.
