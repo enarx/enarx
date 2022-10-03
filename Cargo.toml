@@ -22,6 +22,7 @@ disable-sgx-attestation = ["enarx-shim-sgx/disable-sgx-attestation"]
 [dependencies]
 anyhow = { workspace = true, features = ["std"] }
 atty = { workspace = true }
+base64ct = { workspace = true }
 bitflags = { workspace = true }
 camino = { workspace = true }
 clap = { workspace = true }
@@ -39,6 +40,8 @@ tracing-subscriber = { workspace = true, features = ["ansi", "smallvec", "std", 
 oauth2 = { workspace = true }
 once_cell = { workspace = true, features = ["std"] }
 openidconnect = { workspace = true, features = ["ureq"] }
+p384 = { workspace = true }
+rand = { workspace = true }
 ring = { workspace = true }
 rsa = { workspace = true }
 rustls = { workspace = true }
@@ -61,11 +64,9 @@ kvm-ioctls = { workspace = true }
 lset = { workspace = true }
 mmarinus = { workspace = true }
 nbytes = { workspace = true }
-p384 = { workspace = true }
 pkcs8 = { workspace = true, features = ["std", "pem"] }
 primordial = { workspace = true, features = ["alloc"] }
 protobuf = { workspace = true }
-rand = { workspace = true }
 sallyport = { workspace = true }
 semver = { workspace = true }
 sgx = { workspace = true, features = ["rcrypto"] }
@@ -139,6 +140,7 @@ array-const-fn-init = { version = "0.1.0", default-features = false }
 async-h1 = { version = "2.3.3", default-features = false }
 async-std = { version = "1.11.0", default-features = false, features = ["attributes"] }
 atty = { version = "0.2.0", default-features = false }
+base64ct = { version = "1.5.2", default-features = false }
 bitflags = { version = "1.2.0", default-features = false }
 camino = { version = "1.0.9", default-features = false }
 clap = { version = "4.0", features = ["std", "derive", "env", "error-context", "help", "usage", "wrap_help"], default-features = false }
@@ -174,7 +176,7 @@ noted = { version = "1.0.0", default-features = false }
 oauth2 = { version = "4.2.2", default-features = false, features = ["ureq"] }
 once_cell = { version = "1.13.0", default-features = false }
 openidconnect = { version = "2.3.1", default-features = false }
-p384 = { version = "0.11.1", features = ["std", "pem", "ecdsa"], default-features = false }
+p384 = { version = "0.11.1", features = ["ecdsa", "jwk", "pem", "std"], default-features = false }
 pkcs8 = { version = "0.9.0" }
 primordial = { version = "0.5.0", default-features = false }
 process_control = { version = "3.3.0", default-features = false }

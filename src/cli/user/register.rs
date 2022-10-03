@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::drawbridge::{client, get_token, login, UserSpec};
+use crate::drawbridge::{client, get_auth_token, login, UserSpec};
 
 use std::ffi::OsString;
 
@@ -46,7 +46,7 @@ impl Options {
         } = self;
 
         // If we don't find a token saved locally, initiate an interactive login
-        let token = match get_token(oidc_domain, insecure_auth_token, credential_helper) {
+        let token = match get_auth_token(oidc_domain, insecure_auth_token, credential_helper) {
             Ok(token) => token,
             _ => login(oidc_domain, oidc_client_id.clone(), credential_helper)?,
         };

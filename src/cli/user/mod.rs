@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 mod info;
+mod key;
 mod login;
 mod logout;
 mod register;
@@ -12,6 +13,7 @@ use clap::Subcommand;
 pub enum Subcommands {
     #[clap(hide = true)]
     Info(info::Options),
+    Key(key::Options),
     Login(login::Options),
     #[clap(hide = true)]
     Logout(logout::Options),
@@ -22,6 +24,7 @@ impl Subcommands {
     pub fn dispatch(self) -> anyhow::Result<()> {
         match self {
             Self::Info(cmd) => cmd.execute(),
+            Self::Key(cmd) => cmd.execute(),
             Self::Login(cmd) => cmd.execute(),
             Self::Logout(cmd) => cmd.execute(),
             Self::Register(cmd) => cmd.execute(),

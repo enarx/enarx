@@ -10,6 +10,7 @@ use std::thread::spawn;
 use std::time::Duration;
 
 use anyhow::{anyhow, bail, Context};
+use base64ct::LineEnding;
 use camino::Utf8PathBuf;
 use drawbridge_client::types::{RepositoryContext, TagContext, UserContext};
 use drawbridge_client::Client;
@@ -18,6 +19,9 @@ use oauth2::devicecode::StandardDeviceAuthorizationResponse;
 use oauth2::ureq::http_client;
 use oauth2::url::Url;
 use oauth2::{AuthType, AuthUrl, ClientId, DeviceAuthorizationUrl, Scope, TokenResponse, TokenUrl};
+use p384::pkcs8::EncodePrivateKey;
+use p384::SecretKey;
+use rand::thread_rng;
 use rustls::{Certificate, RootCertStore};
 
 const DEFAULT_HOST: &str = "store.profian.com";
@@ -99,37 +103,19 @@ fn parse_user(slug: &str) -> (String, &str) {
     (host.to_string(), user)
 }
 
-pub fn get_token(
+pub fn get_auth_token(
     oidc_domain: &impl Borrow<Url>,
     provided_token: &Option<impl AsRef<str>>,
     helper: &Option<impl AsRef<OsStr>>,
 ) -> anyhow::Result<String> {
-    let oidc_domain = oidc_domain
-        .borrow()
-        .host_str()
-        .ok_or_else(|| anyhow!("invalid OpenID Connect domain"))?;
     if let Some(token) = provided_token {
         Ok(token.as_ref().into())
-    } else if let Some(helper) = helper {
-        let output = Command::new(helper)
-            .arg("show")
-            .arg(oidc_domain)
-            .output()
-            .context("Failed to execute credential helper")?;
-        stderr()
-            .write_all(&output.stderr)
-            .context("Failed to write stderr")?;
-        if output.status.success() {
-            String::from_utf8(output.stdout).context("Credential helper stdout is not valid UTF-8")
-        } else if let Some(code) = output.status.code() {
-            bail!("Credential helper failed with exit code {code}")
-        } else {
-            bail!("Credential helper was killed")
-        }
     } else {
-        keyring::Entry::new("enarx", oidc_domain)
-            .get_password()
-            .context("Failed to read credentials from keyring")
+        let oidc_domain = oidc_domain
+            .borrow()
+            .host_str()
+            .ok_or_else(|| anyhow!("invalid OpenID Connect domain"))?;
+        get_secret(helper, oidc_domain)
     }
 }
 
@@ -140,7 +126,7 @@ pub fn client(
     ca_bundle: &Option<Utf8PathBuf>,
     helper: &Option<impl AsRef<OsStr>>,
 ) -> anyhow::Result<Client> {
-    let token = get_token(oidc_domain, insecure_token, helper)?;
+    let token = get_auth_token(oidc_domain, insecure_token, helper)?;
 
     let url = format!("https://{host}");
 
@@ -226,16 +212,62 @@ pub fn login(
         .borrow()
         .host_str()
         .ok_or_else(|| anyhow!("invalid OpenID Connect domain"))?;
-    let secret = res.access_token().secret();
+
+    let secret = res.access_token().secret().to_string();
+    store_secret(helper, oidc_domain, secret.clone())?;
+    println!("Login authentication token saved locally.");
+
+    Ok(secret)
+}
+
+pub fn generate_signing_key(
+    spec: &UserSpec,
+    helper: &Option<impl AsRef<OsStr>>,
+) -> anyhow::Result<()> {
+    let rng = thread_rng();
+
+    let private_key = SecretKey::random(rng);
+    let private_key_pem = private_key.to_pkcs8_pem(LineEnding::default()).unwrap();
+
+    let public_key = private_key.public_key();
+    let public_key_jwk = public_key.to_jwk_string();
+
+    let host = &spec.host;
+    let user = &spec.ctx.name;
+    let public_key_id = format!("{host}|{user}|p384|publickey");
+    let private_key_id = format!("{host}|{user}|p384|privatekey");
+
+    store_secret(helper, &private_key_id, (*private_key_pem).clone())?;
+    store_secret(helper, &public_key_id, public_key_jwk)?;
+
+    println!("Package signing keys generated and saved locally.");
+
+    Ok(())
+}
+
+pub fn get_signing_key(
+    spec: &UserSpec,
+    helper: &Option<impl AsRef<OsStr>>,
+) -> anyhow::Result<String> {
+    let host = &spec.host;
+    let user = &spec.ctx.name;
+    let public_key_id = format!("{host}|{user}|p384|publickey");
+    get_secret(helper, &public_key_id)
+}
+
+pub fn store_secret(
+    helper: &Option<impl AsRef<OsStr>>,
+    id: &str,
+    secret: String,
+) -> anyhow::Result<()> {
     if let Some(helper) = helper {
         let mut helper = Command::new(helper)
             .stdin(Stdio::piped())
             .arg("insert")
-            .arg(oidc_domain)
+            .arg(id)
             .spawn()
             .context("Failed to spawn credential helper command")?;
         let mut stdin = helper.stdin.take().context("Failed to open stdin")?;
-        let secret = secret.clone();
         spawn(move || {
             stdin
                 .write_all(secret.as_bytes())
@@ -254,13 +286,36 @@ pub fn login(
             }
         }
     } else {
-        keyring::Entry::new("enarx", oidc_domain)
-            .set_password(secret)
+        keyring::Entry::new("enarx", id)
+            .set_password(&secret)
             .context("Failed to save user credentials")?;
     }
-    println!("Credentials saved locally.");
 
-    Ok(secret.to_string())
+    Ok(())
+}
+
+pub fn get_secret(helper: &Option<impl AsRef<OsStr>>, id: &str) -> anyhow::Result<String> {
+    if let Some(helper) = helper {
+        let output = Command::new(helper)
+            .arg("show")
+            .arg(id)
+            .output()
+            .context("Failed to execute credential helper")?;
+        stderr()
+            .write_all(&output.stderr)
+            .context("Failed to write stderr")?;
+        if output.status.success() {
+            String::from_utf8(output.stdout).context("Credential helper stdout is not valid UTF-8")
+        } else if let Some(code) = output.status.code() {
+            bail!("Credential helper failed with exit code {code}")
+        } else {
+            bail!("Credential helper was killed")
+        }
+    } else {
+        keyring::Entry::new("enarx", id)
+            .get_password()
+            .context("Failed to read credentials from keyring")
+    }
 }
 
 const INTERVAL: Duration = Duration::from_secs(3);
