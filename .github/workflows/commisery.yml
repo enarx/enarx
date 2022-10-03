@@ -34,7 +34,7 @@ jobs:
       uses: actions/checkout@v2
 
     - name: Run Commisery
-      uses: enarx/commisery-action@master
+      uses: tomtom-international/commisery-action@master
       with:
         token: ${{ secrets.GITHUB_TOKEN }}
         pull_request: ${{ github.event.number }}
