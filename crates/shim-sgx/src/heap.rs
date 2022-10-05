@@ -11,7 +11,9 @@ pub struct Heap {
     end: Address<usize, Page>,
     brk: Address<usize, Page>,
     brk_max: Address<usize, Page>,
-    ledger: Ledger<4094>,
+    // FIXME: use a dynamic Ledger
+    // https://github.com/enarx/enarx/issues/2264
+    ledger: Ledger<8188>,
 }
 
 impl Heap {
