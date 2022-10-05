@@ -322,6 +322,8 @@ impl guest::Handler for Handler<'_> {
         fd: c_int,
         offset: off_t,
     ) -> sallyport::Result<NonNull<c_void>> {
+        let tid = self.tcb.tid;
+
         let addr = addr.map(|v| v.as_ptr() as usize).unwrap_or(0);
         // TODO: https://github.com/enarx/enarx/issues/1892
         let prot = prot | PROT_READ;
@@ -342,11 +344,23 @@ impl guest::Handler for Handler<'_> {
         if let Some(addr) = heap.mmap(None, length, access) {
             let ret = NonNull::new(addr.raw() as *mut c_void).unwrap();
 
-            self.mmap_host(
+            if let Err(e) = self.mmap_host(
                 NonNull::new(addr.raw() as *mut _).unwrap(),
                 length.bytes(),
                 PROT_READ | PROT_WRITE,
-            )?;
+            ) {
+                debugln!(self, "[{tid}] ERROR mmap_host() = {e:#?}");
+                // undo the mmap
+                heap.munmap(addr, length).unwrap_or_else(|e| {
+                    panic!(
+                        "[{tid}] ERROR heap.munmap({addr:#x}, {length:#x}) = {e:#?}",
+                        addr = addr.raw(),
+                        length = length.bytes(),
+                    )
+                });
+                return Err(e);
+            }
+
             self.mmap_guest(addr, length, flags_from_libc(prot));
 
             // If the previous operations succeeded, the virtual memory area
@@ -358,9 +372,9 @@ impl guest::Handler for Handler<'_> {
                             .and(Err(e))
                     })?;
             }
-
             Ok(ret)
         } else {
+            debugln!(self, "[{tid}] ERROR heap.mmap() failed!!!!");
             Err(ENOMEM)
         }
     }
