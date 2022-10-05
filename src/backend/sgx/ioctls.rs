@@ -7,10 +7,14 @@
 #![allow(dead_code)]
 
 use std::marker::PhantomData;
+use std::sync::Mutex;
+use std::time;
+use std::{fs, io};
 
 use iocuddle::*;
 use sgx::page::{SecInfo, Secs};
 use sgx::signature::Signature;
+use tracing::debug;
 
 const SGX: Group = Group::new(0xA4);
 
@@ -152,6 +156,44 @@ impl RestrictPermissions {
     pub fn count(&self) -> u64 {
         self.count
     }
+
+    pub fn execute(&self, mutex_fd: &Mutex<fs::File>) -> io::Result<()> {
+        let mut count: u64 = 0;
+        while self.length > count {
+            let mut parameters = Self {
+                offset: self.offset + count,
+                length: self.length - count,
+                permissions: self.permissions,
+                result: 0,
+                count: 0,
+            };
+
+            let fd_locked = mutex_fd.lock().unwrap();
+            let mut fd_cloned = fd_locked.try_clone().unwrap();
+            match ENCLAVE_RESTRICT_PERMISSIONS.ioctl(&mut fd_cloned, &mut parameters) {
+                Ok(_) => {}
+                // EINTR
+                Err(e) if matches!(e.raw_os_error(), Some(libc::EINTR)) => {
+                    debug!("ENCLAVE_RESTRICT_PERMISSIONS failed with EINTR");
+                }
+                // EWOULDBLOCK, EAGAIN
+                Err(e) if matches!(e.kind(), io::ErrorKind::WouldBlock) => {
+                    debug!("ENCLAVE_RESTRICT_PERMISSIONS failed with EAGAIN");
+                }
+                // EBUSY
+                Err(e) if matches!(e.raw_os_error(), Some(libc::EBUSY)) => {
+                    debug!("ENCLAVE_RESTRICT_PERMISSIONS failed with EBUSY");
+                    std::thread::sleep(time::Duration::from_millis(1));
+                }
+                Err(e) => {
+                    return Err(e);
+                }
+            }
+
+            count += parameters.count();
+        }
+        Ok(())
+    }
 }
 
 #[repr(C)]
@@ -180,6 +222,44 @@ impl ModifyTypes {
             result: 0,
             count: 0,
         }
+    }
+
+    pub fn execute(&self, mutex_fd: &Mutex<fs::File>) -> io::Result<()> {
+        let mut count: u64 = 0;
+        while self.length > count {
+            let mut parameters = Self {
+                offset: self.offset + count,
+                length: self.length - count,
+                page_type: self.page_type,
+                result: 0,
+                count: 0,
+            };
+
+            let fd_locked = mutex_fd.lock().unwrap();
+            let mut fd_cloned = fd_locked.try_clone().unwrap();
+            match ENCLAVE_MODIFY_TYPES.ioctl(&mut fd_cloned, &mut parameters) {
+                Ok(_) => {}
+                // EINTR
+                Err(e) if matches!(e.raw_os_error(), Some(libc::EINTR)) => {
+                    debug!("ENCLAVE_MODIFY_TYPES failed with EINTR");
+                }
+                // EWOULDBLOCK, EAGAIN
+                Err(e) if matches!(e.kind(), io::ErrorKind::WouldBlock) => {
+                    debug!("ENCLAVE_MODIFY_TYPES failed with EAGAIN");
+                }
+                // EBUSY
+                Err(e) if matches!(e.raw_os_error(), Some(libc::EBUSY)) => {
+                    debug!("ENCLAVE_MODIFY_TYPES failed with EBUSY");
+                    std::thread::sleep(time::Duration::from_millis(1));
+                }
+                Err(e) => {
+                    return Err(e);
+                }
+            }
+
+            count += parameters.count();
+        }
+        Ok(())
     }
 
     /// Read result attribute.
@@ -218,6 +298,42 @@ impl RemovePages {
     /// Read count attribute.
     pub fn count(&self) -> u64 {
         self.count
+    }
+
+    pub fn execute(&self, mutex_fd: &Mutex<fs::File>) -> io::Result<()> {
+        let mut count: u64 = 0;
+        while self.length > count {
+            let mut parameters = Self {
+                offset: self.offset + count,
+                length: self.length - count,
+                count: 0,
+            };
+
+            let fd_locked = mutex_fd.lock().unwrap();
+            let mut fd_cloned = fd_locked.try_clone().unwrap();
+            match ENCLAVE_REMOVE_PAGES.ioctl(&mut fd_cloned, &mut parameters) {
+                Ok(_) => {}
+                // EINTR
+                Err(e) if matches!(e.raw_os_error(), Some(libc::EINTR)) => {
+                    debug!("ENCLAVE_REMOVE_PAGES failed with EINTR");
+                }
+                // EWOULDBLOCK, EAGAIN
+                Err(e) if matches!(e.kind(), io::ErrorKind::WouldBlock) => {
+                    debug!("ENCLAVE_REMOVE_PAGES failed with EAGAIN");
+                }
+                // EBUSY
+                Err(e) if matches!(e.raw_os_error(), Some(libc::EBUSY)) => {
+                    debug!("ENCLAVE_REMOVE_PAGES failed with EBUSY");
+                    std::thread::sleep(time::Duration::from_millis(1));
+                }
+                Err(e) => {
+                    return Err(e);
+                }
+            }
+
+            count += parameters.count();
+        }
+        Ok(())
     }
 }
 

@@ -17,7 +17,7 @@ use mmarinus::{perms, Map};
 use crate::backend::Signatures;
 use std::arch::x86_64::__cpuid_count;
 use std::fs::File;
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc, Mutex, RwLock};
 
 pub const AESM_SOCKET: &str = "/var/run/aesmd/aesm.socket";
 
@@ -27,7 +27,7 @@ pub(crate) struct Keep {
     sallyport_block_size: u64,
     mem: Map<perms::Unknown>,
     tcs: RwLock<Vec<Tcs>>,
-    enclave: File,
+    enclave: Mutex<File>,
 }
 
 impl Keep {
