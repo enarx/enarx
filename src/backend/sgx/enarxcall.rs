@@ -4,10 +4,7 @@ use crate::backend::parking::THREAD_PARK;
 use crate::backend::sgx::attestation::{
     get_attestation_key_id, get_key_size, get_quote, get_quote_size, get_target_info,
 };
-use crate::backend::sgx::ioctls::{
-    ModifyTypes, RemovePages, RestrictPermissions, ENCLAVE_MODIFY_TYPES, ENCLAVE_REMOVE_PAGES,
-    ENCLAVE_RESTRICT_PERMISSIONS,
-};
+use crate::backend::sgx::ioctls::{ModifyTypes, RemovePages, RestrictPermissions};
 use crate::backend::{Command, Keep};
 
 use std::arch::x86_64::CpuidResult;
@@ -61,7 +58,7 @@ pub(crate) fn sgx_enarxcall<'a>(
             *ret = {
                 if let Some(mut thread) = thread {
                     std::thread::spawn(move || {
-                        trace_span!(
+                        let ret = trace_span!(
                             "Thread",
                             id = ?std::thread::current().id()
                         )
@@ -73,7 +70,12 @@ pub(crate) fn sgx_enarxcall<'a>(
                                     return Ok::<i32, anyhow::Error>(exit_code);
                                 }
                             }
-                        })
+                        });
+                        if let Err(e) = ret {
+                            error!("Thread failed: {e:#?}");
+                            std::process::exit(1);
+                        }
+                        ret
                     });
                     0
                 } else {
@@ -221,13 +223,15 @@ pub(crate) fn sgx_enarxcall<'a>(
             ret,
             ..
         } => {
+            let fd_locked = keep.enclave.lock().unwrap();
+            let mut fd_cloned = fd_locked.try_clone().unwrap();
             // Safety: an `mmap()` call is pointed to a file descriptor of the
             // created enclave, and can therefore only affect the memory
             // mappings within the address range given to ENCLAVE_CREATE.
             match unsafe {
                 Map::bytes(*len)
                     .onto(*addr)
-                    .from(&mut keep.enclave.try_clone().unwrap(), 0)
+                    .from(&mut fd_cloned, 0)
                     .with_kind(Shared)
                     .with(perms::Unknown(*prot as i32))
             } {
@@ -266,10 +270,10 @@ pub(crate) fn sgx_enarxcall<'a>(
             }
 
             // TODO: https://github.com/enarx/enarx/issues/1892
-            let mut parameters =
+            let parameters =
                 RestrictPermissions::new(*addr - keep.mem.addr(), *len, PROT_READ as _);
-            ENCLAVE_RESTRICT_PERMISSIONS
-                .ioctl(&mut keep.enclave.try_clone().unwrap(), &mut parameters)
+            parameters
+                .execute(&keep.enclave)
                 .context("ENCLAVE_RESTRICT_PERMISSIONS failed")?;
 
             *ret = 0;
@@ -296,9 +300,9 @@ pub(crate) fn sgx_enarxcall<'a>(
                 libc::munmap(*addr as *mut _, *len);
             }
 
-            let mut parameters = RemovePages::new(*addr - keep.mem.addr(), *len);
-            ENCLAVE_REMOVE_PAGES
-                .ioctl(&mut keep.enclave.try_clone().unwrap(), &mut parameters)
+            let remove_pages = RemovePages::new(*addr - keep.mem.addr(), *len);
+            remove_pages
+                .execute(&keep.enclave)
                 .context("ENCLAVE_REMOVE_PAGES failed")?;
 
             *ret = 0;
@@ -311,10 +315,12 @@ pub(crate) fn sgx_enarxcall<'a>(
             ret,
             ..
         } => {
-            let mut parameters = ModifyTypes::new(*addr - keep.mem.addr(), *length, *page_type);
-            ENCLAVE_MODIFY_TYPES
-                .ioctl(&mut keep.enclave.try_clone().unwrap(), &mut parameters)
-                .context("ENCLAVE_MODIFY_TYPES failed")?;
+            let modify_types = ModifyTypes::new(*addr - keep.mem.addr(), *length, *page_type);
+
+            modify_types
+                .execute(&keep.enclave)
+                .context(format!("ENCLAVE_MODIFY_TYPES failed type = {}", *page_type))?;
+
             *ret = 0;
             Ok(None)
         }

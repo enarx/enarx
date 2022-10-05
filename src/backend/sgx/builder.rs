@@ -6,7 +6,7 @@ use super::ioctls::*;
 use std::convert::TryFrom;
 use std::fs::{File, OpenOptions};
 use std::io::prelude::*;
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc, Mutex, RwLock};
 
 use anyhow::{anyhow, Context, Error, Result};
 use mmarinus::{perms, Map, Shared};
@@ -210,7 +210,7 @@ impl TryFrom<Builder> for Arc<dyn super::super::Keep> {
             sallyport_block_size: builder.cnfg.sallyport_block_size,
             mem: builder.mmap,
             tcs: RwLock::new(builder.tcsp),
-            enclave: builder.file.try_clone().unwrap(),
+            enclave: Mutex::new(builder.file.try_clone().unwrap()),
         }))
     }
 }
