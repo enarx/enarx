@@ -173,7 +173,8 @@ impl guest::Handler for Handler<'_> {
         _code: c_int,
         _addr: c_ulong,
     ) -> sallyport::Result<()> {
-        debugln!(self, "arch_prctl should have never been called");
+        let tid = self.tcb.tid;
+        debugln!(self, "[{tid}] arch_prctl should have never been called");
         Err(ENOSYS)
     }
 
@@ -211,6 +212,8 @@ impl guest::Handler for Handler<'_> {
         clear_on_exit: Option<&AtomicU32>,
         tls: NonNull<c_void>,
     ) -> sallyport::Result<c_int> {
+        let tid = self.tcb.tid;
+
         if flags
             != CloneFlags::VM
                 | CloneFlags::FS
@@ -231,12 +234,14 @@ impl guest::Handler for Handler<'_> {
 
         debugln!(
             self,
-            "clone({flags:?}, stack = {stack:p}, ptid = {ptid:#?}, clear_on_exit = {clear_on_exit:#?}, tls = {tls:p})",
+            "[{tid}] clone({flags:?}, stack = {stack:p}, ptid = {ptid:p}, clear_on_exit = {clear_on_exit:p}, tls = {tls:p})",
+            ptid = ptid as *const _,
+            clear_on_exit = clear_on_exit as *const _,
             stack = stack.as_ptr(),
             tls = tls.as_ptr()
         );
 
-        let tid = THREAD_ID_CNT.fetch_add(1, Ordering::SeqCst);
+        let new_tid = THREAD_ID_CNT.fetch_add(1, Ordering::SeqCst);
 
         let mut regs = self.ssa.gpr;
         regs.rsp = stack.as_ptr() as _;
@@ -245,7 +250,7 @@ impl guest::Handler for Handler<'_> {
         let mut threads_free_guard = THREADS_FREE.write();
 
         let addr = if *threads_free_guard == 0 {
-            debugln!(self, "allocating new thread");
+            debugln!(self, "[{tid}] allocating new thread");
             self.thread_mem_alloc().map_err(|_| EAGAIN)? as usize
         } else {
             *threads_free_guard -= 1;
@@ -259,17 +264,17 @@ impl guest::Handler for Handler<'_> {
             .push(NewThread::Thread(NewThreadFromRegisters {
                 clear_on_exit: clear_on_exit as *const _ as _,
                 regs,
-                tid,
+                tid: new_tid,
             }))
             .unwrap();
 
-        ptid.store(tid as _, Ordering::Relaxed);
+        ptid.store(new_tid as _, Ordering::Relaxed);
 
         let ret = self.spawn(addr);
-        debugln!(self, "spawn() = {ret:#?}");
+        debugln!(self, "[{tid}] spawn() = {ret:#?}");
         ret?;
 
-        Ok(tid)
+        Ok(new_tid)
     }
 
     fn exit(&mut self, status: c_int) -> sallyport::Result<()> {
@@ -788,6 +793,7 @@ impl<'a> Handler<'a> {
         addr_in: NonNull<c_void>,
         length_in: c_size_t,
     ) -> sallyport::Result<()> {
+        let tid = self.tcb.tid;
         let addr = addr_in.as_ptr() as usize;
         let pages = ((length_in + Page::SIZE - 1) & !(Page::SIZE - 1)) / Page::SIZE;
 
@@ -804,13 +810,21 @@ impl<'a> Handler<'a> {
 
         // Process the ledger first, before doing anything else, because it can
         // legitly fail when running out of resources.
-        heap.munmap(addr, length).map_err(|_| ENOMEM)?;
+        if let Err(e) = heap.munmap(addr, length) {
+            debugln!(self, "[{tid}] ERROR munmap: heap.munmap FAILED !!! {e:?}");
+            return Err(ENOMEM);
+        }
 
         // On the other hand, failing in any of these operations is expected to
         // crash the enclave because it is due either to a software bug, or a
         // malicious host.
-        self.modify_sgx_page_type(addr_in, length.bytes(), Class::Trimmed as _)
-            .unwrap_or_else(|_| self.attacked());
+        if let Err(e) = self.modify_sgx_page_type(addr_in, length.bytes(), Class::Trimmed as _) {
+            debugln!(
+                self,
+                "[{tid}] ERROR munmap: modify_sgx_page_type FAILED !!! {e:?}"
+            );
+            self.attacked();
+        }
 
         for i in 0..pages {
             let virt_addr = VirtAddr::new((addr.raw() + i * Page::SIZE) as u64);
