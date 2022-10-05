@@ -417,7 +417,7 @@ impl<'a> Handler<'a> {
     }
 
     /// Finish handling an exception
-    pub fn finish(ssa: &'a mut StateSaveArea) {
+    pub fn finish(ssa: &'a mut StateSaveArea, block: &'a mut [usize], tcb: &'a mut Tcb) {
         if let Some(Vector::InvalidOpcode) = ssa.vector() {
             if let OP_SYSCALL | OP_CPUID = unsafe { read_unaligned(ssa.gpr.rip as _) } {
                 // Skip the instruction.
@@ -425,6 +425,9 @@ impl<'a> Handler<'a> {
                 return;
             }
         }
+
+        let mut h = Self::new(ssa, block, tcb, 0);
+        h.print_ssa_stack_trace();
 
         unsafe { asm!("ud2", options(noreturn)) };
     }

@@ -337,7 +337,10 @@ unsafe extern "C" fn main(
                 _start as usize as _,
             )
         }
-        n => handler::Handler::finish(&mut ssas[n - 1]),
+        n => {
+            let tcb = tcb.assume_init_mut();
+            handler::Handler::finish(&mut ssas[n - 1], block.as_mut_slice(), tcb)
+        }
     }
 
     // Disable exceptions:
