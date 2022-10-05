@@ -138,9 +138,6 @@ impl super::super::Thread for Thread {
                         "Unexpected {:?}: address = {:>#016x}, error code = {:>#016b} cssa={}",
                         run.vector, run.exception_addr, run.exception_error_code, self.cssa
                     );
-                    if self.cssa > 4 {
-                        std::process::exit(1);
-                    }
                     EENTER
                 } else {
                     panic!(
@@ -159,6 +156,11 @@ impl super::super::Thread for Thread {
                 _ => self.cssa -= 1,
             },
             _ => unreachable!(),
+        }
+
+        if self.cssa > 3 {
+            error!("CSSA overflow");
+            std::process::exit(1);
         }
 
         // If we have handled an InvalidOpcode error, evaluate the sallyport.
