@@ -26,16 +26,16 @@ use sgx::ssa::StateSaveArea;
 const DEBUG: bool = cfg!(feature = "dbg");
 
 /// Number of available slots for SSA frames.
-pub const NUM_SSA: usize = 3;
+pub const NUM_SSA: usize = 4;
 
 /// Stack size of the CSSA = 0
 /// as defined in the linker script `layout.ld`
-pub const CSSA_0_STACK_SIZE: usize = 0x200000 - Page::SIZE; // 2MB - TCB
+pub const CSSA_0_STACK_SIZE: usize = 0x800000 - Page::SIZE; // 8MB - TCB
 
 /// Stack size of the CSSA > 0
 /// as defined in the linker script `layout.ld`
 pub const CSSA_1_PLUS_STACK_SIZE: usize =
-    0x200000 - Page::SIZE - NUM_SSA * core::mem::size_of::<StateSaveArea>(); // 2MB - TCS - SSA
+    0x800000 - Page::SIZE - NUM_SSA * core::mem::size_of::<StateSaveArea>(); // 8MB - TCS - SSA
 
 /// FIXME: doc
 pub const ENCL_SIZE_BITS: u8 = 32;
