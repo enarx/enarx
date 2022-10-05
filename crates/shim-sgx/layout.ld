@@ -1,8 +1,8 @@
 ENTRY(_start)
 
 /* change CSSA_0_STACK_SIZE in lib.rs if you change this */
-CSSA_0_STACK_SIZE = 0x200000;
-CSSA_1_plus_STACK_SIZE = 0x200000;
+CSSA_0_STACK_SIZE = 0x800000;
+CSSA_1_plus_STACK_SIZE = 0x800000;
 
 PHDRS {
     rodata PT_LOAD FILEHDR PHDRS;
@@ -66,7 +66,7 @@ SECTIONS {
         QUAD(_start)              /* OENTRY */
         . = ALIGN(4K);
     } :tcs =0
-    .enarx.ssa (NOLOAD) : { . += 4K * 3; } :ssa =0
+    .enarx.ssa (NOLOAD) : { . += 4K * 4; } :ssa =0
 
     /* EXEC */
     . = ALIGN(1M);
