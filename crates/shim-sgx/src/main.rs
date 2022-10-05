@@ -37,6 +37,7 @@ fn panic(_info: &core::panic::PanicInfo<'_>) -> ! {
 // ============== REAL CODE HERE ===============
 
 use noted::noted;
+use primordial::Page;
 use sallyport::{elf::note, REQUIRES};
 use sgx::parameters::{Attributes, MiscSelect};
 use sgx::ssa::{GenPurposeRegs, StateSaveArea};
@@ -211,10 +212,10 @@ pub unsafe extern "sysv64" fn _start() -> ! {
         "je     2b                          ",  // ... loop forever.
 
         // Find stack pointer for CSSA == 1
-        "cmp    rax,    1                   ",  // If CSSA > 0
+        "cmp    rax,    1                   ",  // If CSSA > 1
         "jne    3f                          ",  // ... jump to the next section
-        "mov    r10,    rcx                 ",  // r10 = stack pointer CSSA == 0
-        "sub    r10,    {CSSA_0_STK_TCS_SZ} ",  // r10 = stack pointer - 2MB
+        "mov    r10,    rcx                 ",  // r10 = stack pointer CSSA == 1
+        "sub    r10,    {CSSA_0_STK_TCS_SZ} ",  // r10 = stack pointer - CSSA_0_STK_TCS_SZ
         "jmp    4f                          ",  // Jump to stack setup
 
         // Find stack pointer for CSSA > 1
@@ -262,7 +263,7 @@ pub unsafe extern "sysv64" fn _start() -> ! {
         RELOC = sym relocate,
         ENTRY = sym main,
         EEXIT = const sgx::enclu::EEXIT,
-        CSSA_0_STK_TCS_SZ = const CSSA_0_STACK_SIZE + 4096,
+        CSSA_0_STK_TCS_SZ = const CSSA_0_STACK_SIZE + Page::SIZE,
         options(noreturn)
     )
 }
