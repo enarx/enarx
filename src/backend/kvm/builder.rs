@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use super::config::Config;
-use super::mem::Region;
+use super::mem::{Region, Slot};
 use super::KvmKeepPersonality;
 
 use std::convert::TryFrom;
@@ -9,7 +9,6 @@ use std::mem::align_of;
 use std::sync::{Arc, RwLock};
 
 use anyhow::{Context, Error, Result};
-use kvm_bindings::bindings::kvm_userspace_memory_region;
 use kvm_bindings::fam_wrappers::KVM_MAX_CPUID_ENTRIES;
 use kvm_ioctls::{Kvm, VcpuFd, VmFd};
 use mmarinus::{perms, Map};
@@ -48,8 +47,6 @@ impl super::super::Mapper for Builder {
     type Output = Arc<dyn super::super::Keep>;
 
     fn map(&mut self, pages: Map<perms::ReadWrite>, to: usize, with: u32) -> anyhow::Result<()> {
-        let slot = self.regions.len() as _;
-
         // Ignore regions with no pages.
         if pages.is_empty() {
             return Ok(());
@@ -63,21 +60,15 @@ impl super::super::Mapper for Builder {
             );
         }
 
-        let mem_region = kvm_userspace_memory_region {
-            slot,
-            flags: 0,
-            guest_phys_addr: to as _,
-            memory_size: pages.size() as _,
-            userspace_addr: pages.addr() as _,
-        };
+        let slot = Slot::new(
+            &mut self.vm_fd,
+            self.regions.len() as u32,
+            &pages,
+            to as u64,
+            false,
+        )?;
 
-        unsafe {
-            self.vm_fd
-                .set_user_memory_region(mem_region)
-                .context("Failed to set user memory region")?
-        };
-
-        self.regions.push(Region::new(mem_region, pages));
+        self.regions.push(Region::new(slot, pages));
 
         Ok(())
     }
