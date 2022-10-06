@@ -5,7 +5,7 @@ use super::snp::launch::*;
 
 use super::SnpKeepPersonality;
 use crate::backend::kvm::builder::{kvm_try_from_builder, map_sallyports};
-use crate::backend::kvm::mem::Region;
+use crate::backend::kvm::mem::{Region, Slot};
 use crate::backend::sev::config::Config;
 use crate::backend::ByteSized;
 
@@ -15,7 +15,7 @@ use std::{thread, time};
 
 use crate::backend::sev::cpuid_page::import_from_kvm;
 use anyhow::{anyhow, Context, Error};
-use kvm_bindings::{kvm_enable_cap, kvm_userspace_memory_region};
+use kvm_bindings::kvm_enable_cap;
 use kvm_ioctls::Kvm;
 use mmarinus::{perms, Map};
 use primordial::Page;
@@ -121,8 +121,6 @@ impl super::super::Mapper for Builder {
         to: usize,
         with: u32,
     ) -> anyhow::Result<()> {
-        let slot = self.regions.len() as _;
-
         // Ignore regions with no pages.
         if pages.is_empty() {
             return Ok(());
@@ -136,20 +134,13 @@ impl super::super::Mapper for Builder {
             );
         }
 
-        let mem_region = kvm_userspace_memory_region {
-            slot,
-            flags: 0,
-            guest_phys_addr: to as _,
-            memory_size: pages.size() as _,
-            userspace_addr: pages.addr() as _,
-        };
-
-        unsafe {
-            self.launcher
-                .as_mut()
-                .set_user_memory_region(mem_region)
-                .context("Failed to set user memory region")?
-        };
+        let slot = Slot::new(
+            self.launcher.as_mut(),
+            self.regions.len() as u32,
+            &pages,
+            to as u64,
+            true,
+        )?;
 
         let dp = VmplPerms::empty();
 
@@ -206,7 +197,7 @@ impl super::super::Mapper for Builder {
                 .context("SNP Launcher update_data failed")?;
         };
 
-        self.regions.push(Region::new(mem_region, pages));
+        self.regions.push(Region::new(slot, pages));
 
         Ok(())
     }
