@@ -1,16 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 
-pub use kvm_bindings::kvm_userspace_memory_region as KvmUserspaceMemoryRegion;
-
 use super::Loader;
 use data::{dev_kvm, kvm_version, CPUIDS};
-use mem::Region;
+use mem::{Region, Slot};
 
 use std::sync::Arc;
 
 use crate::backend::Signatures;
 use anyhow::Result;
-use kvm_bindings::bindings::kvm_userspace_memory_region;
 use kvm_ioctls::Kvm;
 use kvm_ioctls::{VcpuFd, VmFd};
 use mmarinus::{perms, Map};
@@ -53,18 +50,17 @@ pub struct Keep<P: KeepPersonality> {
 }
 
 impl<P: KeepPersonality> Keep<P> {
+    /// Allocator for `enarxcall::BalloonMemory'.
     pub fn map(&mut self, pages: Map<perms::ReadWrite>, to: usize) -> std::io::Result<&mut Region> {
-        let kvm_region = kvm_userspace_memory_region {
-            slot: self.regions.len() as u32,
-            flags: 0,
-            guest_phys_addr: to as u64,
-            memory_size: pages.len() as u64,
-            userspace_addr: pages.addr() as u64,
-        };
-
-        unsafe { self.vm_fd.set_user_memory_region(kvm_region)? };
-
-        let region = Region::new(kvm_region, pages);
+        let slot = Slot::new(
+            &self.vm_fd,
+            self.regions.len() as u32,
+            pages.addr() as u64,
+            to as u64,
+            pages.len() as u64,
+            false,
+        )?;
+        let region = (slot, pages);
 
         P::map(&mut self.vm_fd, &region)?;
 

@@ -71,13 +71,11 @@ impl<P: KeepPersonality> Thread<P> {
         let mut keep = self.keep.write().unwrap();
 
         // Map the memory into the VM
-        let vaddr = keep
+        Ok(keep
             .map(pages, addr)
             .map_err(|e| e.raw_os_error().unwrap_or(libc::ENOTSUP))?
-            .as_virt()
-            .start;
-
-        Ok(vaddr.as_u64() as _)
+            .0
+            .userspace_addr as _)
     }
 
     pub fn meminfo(&self) -> sallyport::Result<usize> {

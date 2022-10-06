@@ -5,8 +5,8 @@ use super::snp::firmware::Firmware;
 use super::snp::launch::*;
 
 use super::SnpKeepPersonality;
-use crate::backend::kvm::builder::kvm_try_from_builder;
-use crate::backend::kvm::mem::Region;
+use crate::backend::kvm::builder::{kvm_try_from_builder, map_sallyports};
+use crate::backend::kvm::mem::{Region, Slot};
 use crate::backend::sev::config::Config;
 use crate::backend::ByteSized;
 
@@ -19,6 +19,7 @@ use kvm_ioctls::Kvm;
 use mmarinus::{perms, Map};
 use primordial::Page;
 use rand::{thread_rng, Rng};
+use sallyport::elf::pf::kvm::SALLYPORT;
 use sallyport::elf::pf::snp::{CPUID, SECRETS};
 use x86_64::VirtAddr;
 
@@ -111,14 +112,21 @@ impl super::super::Mapper for Builder {
             return Ok(());
         }
 
-        let mem_region = super::super::kvm::builder::kvm_builder_map(
-            self.config.sallyport_block_size as _,
-            &mut self.sallyports,
+        if with & SALLYPORT != 0 {
+            map_sallyports(
+                &pages,
+                self.config.sallyport_block_size,
+                &mut self.sallyports,
+            );
+        }
+
+        let slot = Slot::new(
             self.launcher.as_mut(),
-            &mut pages,
-            to,
-            with,
-            self.regions.len() as _,
+            self.regions.len() as u32,
+            pages.addr() as u64,
+            to as u64,
+            pages.len() as u64,
+            false,
         )?;
 
         let dp = VmplPerms::empty();
@@ -177,7 +185,7 @@ impl super::super::Mapper for Builder {
                 .context("SNP Launcher update_data failed")?;
         };
 
-        self.regions.push(Region::new(mem_region, pages));
+        self.regions.push((slot, pages));
 
         Ok(())
     }

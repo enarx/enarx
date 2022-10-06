@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use super::config::Config;
-use super::mem::Region;
+use super::mem::{Region, Slot};
 use super::KvmKeepPersonality;
 
 use std::convert::TryFrom;
@@ -9,7 +9,6 @@ use std::mem::align_of;
 use std::sync::{Arc, RwLock};
 
 use anyhow::{Context, Error, Result};
-use kvm_bindings::bindings::kvm_userspace_memory_region;
 use kvm_bindings::fam_wrappers::KVM_MAX_CPUID_ENTRIES;
 use kvm_ioctls::{Kvm, VcpuFd, VmFd};
 use mmarinus::{perms, Map};
@@ -47,66 +46,47 @@ impl super::super::Mapper for Builder {
     type Config = super::config::Config;
     type Output = Arc<dyn super::super::Keep>;
 
-    fn map(
-        &mut self,
-        mut pages: Map<perms::ReadWrite>,
-        to: usize,
-        with: u32,
-    ) -> anyhow::Result<()> {
-        // Ignore regions with no pages.
+    fn map(&mut self, pages: Map<perms::ReadWrite>, to: usize, with: u32) -> anyhow::Result<()> {
+        // Ignore slots with no pages.
         if pages.is_empty() {
             return Ok(());
         }
 
-        let mem_region = kvm_builder_map(
-            self.config.sallyport_block_size,
-            &mut self.sallyports,
-            &mut self.vm_fd,
-            &mut pages,
-            to,
-            with,
-            self.regions.len() as _,
+        if with & SALLYPORT != 0 {
+            map_sallyports(
+                &pages,
+                self.config.sallyport_block_size,
+                &mut self.sallyports,
+            );
+        }
+
+        let slot = Slot::new(
+            &self.vm_fd,
+            self.regions.len() as u32,
+            pages.addr() as u64,
+            to as u64,
+            pages.size() as u64,
+            false,
         )?;
 
-        self.regions.push(Region::new(mem_region, pages));
+        self.regions.push((slot, pages));
 
         Ok(())
     }
 }
 
-pub fn kvm_builder_map(
+pub fn map_sallyports(
+    pages: &Map<perms::ReadWrite>,
     block_size: usize,
     sallyports: &mut Vec<Option<VirtAddr>>,
-    vm_fd: &mut VmFd,
-    pages: &mut Map<perms::ReadWrite>,
-    to: usize,
-    with: u32,
-    slot: u32,
-) -> anyhow::Result<kvm_userspace_memory_region> {
-    if with & SALLYPORT != 0 {
-        for start in (0..pages.size()).step_by(block_size) {
-            let start = align_up(start as u64, align_of::<usize>() as u64) as usize;
-            if start + block_size <= pages.size() {
-                let virt = VirtAddr::from_ptr(pages.as_ptr()) + start;
-                sallyports.push(Some(virt));
-            }
+) {
+    for start in (0..pages.size()).step_by(block_size) {
+        let start = align_up(start as u64, align_of::<usize>() as u64) as usize;
+        if start + block_size <= pages.size() {
+            let virt = VirtAddr::from_ptr(pages.as_ptr()) + start;
+            sallyports.push(Some(virt));
         }
     }
-
-    let mem_region = kvm_userspace_memory_region {
-        slot,
-        flags: 0,
-        guest_phys_addr: to as _,
-        memory_size: pages.size() as _,
-        userspace_addr: pages.addr() as _,
-    };
-
-    unsafe {
-        vm_fd
-            .set_user_memory_region(mem_region)
-            .context("Failed to set user memory region")?
-    };
-    Ok(mem_region)
 }
 
 impl TryFrom<Builder> for Arc<dyn super::super::Keep> {
