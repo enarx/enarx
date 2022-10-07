@@ -1,23 +1,29 @@
 {
   "nodes": {
-    "fenix": {
+    "crane": {
       "inputs": {
+        "flake-compat": [
+          "flake-compat"
+        ],
+        "flake-utils": [
+          "flake-utils"
+        ],
         "nixpkgs": [
           "nixpkgs"
-        ],
-        "rust-analyzer-src": "rust-analyzer-src"
+        ]
       },
       "locked": {
-        "lastModified": 1663570974,
-        "narHash": "sha256-ncUdRdY70VdJIX6Mi+820xeD7FutADd3NbQR0BKkFYA=",
-        "owner": "nix-community",
-        "repo": "fenix",
-        "rev": "02093d3aca186135da78b76ac28ec58031391076",
+        "lastModified": 1665490127,
+        "narHash": "sha256-ZQdaPEgnR8AZGSjQ5dUYz8+D+EsKG4GymmDenBBwT30=",
+        "owner": "rvolosatovs",
+        "repo": "crane",
+        "rev": "b8d5ca397faf748eb50387885d0242eada6b8a3f",
         "type": "github"
       },
       "original": {
-        "owner": "nix-community",
-        "repo": "fenix",
+        "owner": "rvolosatovs",
+        "ref": "fix/no_std",
+        "repo": "crane",
         "type": "github"
       }
     },
@@ -69,26 +75,33 @@
     },
     "root": {
       "inputs": {
-        "fenix": "fenix",
+        "crane": "crane",
         "flake-compat": "flake-compat",
         "flake-utils": "flake-utils",
-        "nixpkgs": "nixpkgs"
+        "nixpkgs": "nixpkgs",
+        "rust-overlay": "rust-overlay"
       }
     },
-    "rust-analyzer-src": {
-      "flake": false,
+    "rust-overlay": {
+      "inputs": {
+        "flake-utils": [
+          "flake-utils"
+        ],
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
       "locked": {
-        "lastModified": 1662896065,
-        "narHash": "sha256-1LkSsXzI1JTAmP/GMTz4fTJd8y/tw8R79l96q+h7mu8=",
-        "owner": "rust-lang",
-        "repo": "rust-analyzer",
-        "rev": "2e9f1204ca01c3e20898d4a67c8b84899d394a88",
+        "lastModified": 1665111330,
+        "narHash": "sha256-bvL2xzSVOLBUlXQIklqHqn1M6z5aXrr3FKcqtSnGJ8I=",
+        "owner": "oxalica",
+        "repo": "rust-overlay",
+        "rev": "fb8f4fa9c5514dbbc7d2a7c310d8ba874c519779",
         "type": "github"
       },
       "original": {
-        "owner": "rust-lang",
-        "ref": "nightly",
-        "repo": "rust-analyzer",
+        "owner": "oxalica",
+        "repo": "rust-overlay",
         "type": "github"
       }
     }
