@@ -6,7 +6,7 @@
 //! instructions) from the enclave code and proxies them to the host.
 
 #![no_std]
-#![feature(asm_const, asm_sym, naked_functions)]
+#![feature(asm_const, asm_sym)]
 #![deny(clippy::all)]
 #![deny(missing_docs)]
 #![warn(rust_2018_idioms)]
@@ -15,10 +15,12 @@
 #[allow(unused_extern_crates)]
 extern crate rcrt1;
 
-use core::arch::asm;
+use core::arch::global_asm;
+use core::mem::size_of;
 use core::mem::MaybeUninit;
 use core::ptr::NonNull;
 
+use const_default::ConstDefault;
 use enarx_shim_sgx::thread::{
     LoadRegsExt, NewThread, NewThreadFromRegisters, Tcb, NEW_THREAD_QUEUE, THREADS_FREE,
 };
@@ -58,22 +60,24 @@ noted! {
     static NOTE_ATTRMASK<note::NAME, note::sgx::ATTRMASK, Attributes> = ATTR;
 }
 
-/// Clear CPU flags, extended state and temporary registers (`r10` and `r11`)
-///
-/// This function clears CPU state during enclave transitions.
-///
-/// # Safety
-///
-/// This function should be safe as it only modifies non-preserved
-/// registers. In fact, in addition to the declared calling convention,
-/// we promise not to modify any of the parameter registers.
-#[naked]
-extern "sysv64" fn clearx() {
-    use const_default::ConstDefault;
-    static XSAVE: xsave::XSave = <xsave::XSave as ConstDefault>::DEFAULT;
+static XSAVE: xsave::XSave = <xsave::XSave as ConstDefault>::DEFAULT;
 
-    unsafe {
-        asm!(
+extern "sysv64" {
+    /// Clear CPU flags, extended state and temporary registers (`r10` and `r11`)
+    ///
+    /// This function clears CPU state during enclave transitions.
+    ///
+    /// # Safety
+    ///
+    /// This function should be safe as it only modifies non-preserved
+    /// registers. In fact, in addition to the declared calling convention,
+    /// we promise not to modify any of the parameter registers.
+    fn clearx();
+}
+global_asm!(
+            ".pushsection .text.startup,\"ax\",@progbits",
+            "clearx:",
+
             // Clear all temporary registers
             "xor    r10,    r10",
             "xor    r11,    r11",
@@ -94,25 +98,26 @@ extern "sysv64" fn clearx() {
             "pop     rax            ",  // Restore rax
 
             "ret",
+            ".popsection",
 
-            XSAVE = sym XSAVE,
-            options(noreturn)
-        )
-    }
+            XSAVE = sym XSAVE
+);
+
+extern "sysv64" {
+    /// Clears parameter registers
+    ///
+    /// # Safety
+    ///
+    /// This function should be safe as it only modifies non-preserved
+    /// registers. It really doesn't even need to be a naked function
+    /// except that Rust tries really hard to put `rax` on the stack
+    /// and then pops it off into a random register (usually `rcx`).
+    fn clearp();
 }
+global_asm!(
+            ".pushsection .text.startup,\"ax\",@progbits",
+            "clearp:",
 
-/// Clears parameter registers
-///
-/// # Safety
-///
-/// This function should be safe as it only modifies non-preserved
-/// registers. It really doesn't even need to be a naked function
-/// except that Rust tries really hard to put `rax` on the stack
-/// and then pops it off into a random register (usually `rcx`).
-#[naked]
-extern "sysv64" fn clearp() {
-    unsafe {
-        asm!(
             "xor    rax,    rax",
             "xor    rdi,    rdi",
             "xor    rsi,    rsi",
@@ -121,23 +126,28 @@ extern "sysv64" fn clearp() {
             "xor    r8,     r8",
             "xor    r9,     r9",
             "ret",
-            options(noreturn)
-        )
-    }
-}
+            ".popsection",
 
-/// Perform relocation
-///
-/// # Safety
-///
-/// This function does not follow any established calling convention. It
-/// has the following requirements:
-///   * `rsp` must point to a stack with the return address (i.e. `call`)
-///
-/// Upon return, all general-purpose registers will have been preserved.
-#[naked]
-unsafe extern "sysv64" fn relocate() {
-    asm!(
+            "/* {DUMMY_FOR_RUSTFMT} */", // to keep the diff small
+            DUMMY_FOR_RUSTFMT = const 0,
+);
+
+extern "sysv64" {
+    /// Perform relocation
+    ///
+    /// # Safety
+    ///
+    /// This function does not follow any established calling convention. It
+    /// has the following requirements:
+    ///   * `rsp` must point to a stack with the return address (i.e. `call`)
+    ///
+    /// Upon return, all general-purpose registers will have been preserved.
+    fn relocate();
+}
+global_asm!(
+        ".pushsection .text.startup,\"ax\",@progbits",
+        "relocate:",
+
         "push   rax",
         "push   rdi",
         "push   rsi",
@@ -163,33 +173,34 @@ unsafe extern "sysv64" fn relocate() {
         "pop    rax",
 
         "ret",
+        ".popsection",
 
         DYN_RELOC = sym rcrt1::dyn_reloc,
         ENARX_SHIM_ADDRESS = sym ENARX_SHIM_ADDRESS,
-        options(noreturn)
-    )
+);
+
+extern "sysv64" {
+    /// Entry point
+    ///
+    /// This function is called during EENTER. Its inputs are as follows:
+    ///
+    ///  rax = The current SSA index. (i.e. rbx->cssa)
+    ///  rbx = The address of the TCS.
+    ///  rcx = The next address after the EENTER instruction.
+    ///
+    /// If rax == 0, we are doing normal execution.
+    /// Otherwise, we are handling an exception.
+    ///
+    /// # Safety
+    ///
+    /// Do not call this function from Rust. It is the entry point for SGX.
+    pub fn _start();
 }
+global_asm!(
+        ".pushsection .text.startup,\"ax\",@progbits",
+        ".global _start",
+        "_start:",
 
-/// Entry point
-///
-/// This function is called during EENTER. Its inputs are as follows:
-///
-///  rax = The current SSA index. (i.e. rbx->cssa)
-///  rbx = The address of the TCS.
-///  rcx = The next address after the EENTER instruction.
-///
-/// If rax == 0, we are doing normal execution.
-/// Otherwise, we are handling an exception.
-///
-/// # Safety
-///
-/// Do not call this function from Rust. It is the entry point for SGX.
-#[naked]
-#[no_mangle]
-pub unsafe extern "sysv64" fn _start() -> ! {
-    use core::mem::size_of;
-
-    asm!(
         "cld                                ",  // Clear Direction Flag
         "xchg   rbx,    rcx                 ",  // rbx = exit address, rcx = TCS page
 
@@ -251,6 +262,7 @@ pub unsafe extern "sysv64" fn _start() -> ! {
         "pop    rsp                         ",  // Restore old stack
         "mov    rax,    {EEXIT}             ",  // rax = EEXIT
         "enclu                              ",  // Exit enclave
+        ".popsection",
 
         // offset_of!(StateSaveArea, gpr.rsp)
         RSPO = const size_of::<StateSaveArea>() - size_of::<GenPurposeRegs>() + 32,
@@ -264,9 +276,7 @@ pub unsafe extern "sysv64" fn _start() -> ! {
         ENTRY = sym main,
         EEXIT = const sgx::enclu::EEXIT,
         CSSA_0_STK_TCS_SZ = const CSSA_0_STACK_SIZE + Page::SIZE,
-        options(noreturn)
-    )
-}
+);
 
 unsafe extern "C" fn main(
     block: &mut [usize; BLOCK_SIZE / core::mem::size_of::<usize>()],
