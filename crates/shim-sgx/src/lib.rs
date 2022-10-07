@@ -76,9 +76,7 @@ extern "C" {
     pub static ENARX_EXEC_END: u8;
 }
 
-/// Get the Shim's base address. It can be taken from any symbol inside the
-/// shim, but the reason for having ENARX_SHIM_ADDRESS is that it can be easily
-/// adapted to naked functions.
+/// Get the Shim's base address used to check ranges and calculate offsets.
 #[inline]
 pub fn shim_address() -> usize {
     unsafe { &ENARX_SHIM_ADDRESS as *const _ as usize }
