@@ -22,10 +22,8 @@ jobs:
         platform:
         - host: macos-latest
           target: x86_64-apple-darwin
-          nix: x86_64-darwin
         - host: ubuntu-20.04
           target: x86_64-unknown-linux-musl
-          nix: x86_64-linux
     runs-on: ${{ matrix.platform.host }}
     steps:
     - uses: actions/checkout@v3
@@ -34,17 +32,15 @@ jobs:
       with:
         name: enarx
         authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
-    - name: Pre-build setup
-      run: ${{ matrix.platform.setup }}
 
-    - run: nix build -L ${{ matrix.platform.buildArgs }} '.#packages.${{ matrix.platform.nix }}.enarx-static'
+    - run: nix build -L ${{ matrix.platform.buildArgs }} '.#enarx-${{ matrix.platform.target }}'
     - run: nix run --inputs-from . 'nixpkgs#coreutils' -- --coreutils-prog=ginstall -p ./result/bin/enarx "enarx-${{ matrix.platform.target }}"
     - uses: actions/upload-artifact@v3
       with:
         name: enarx-${{ matrix.platform.target }}
         path: enarx-${{ matrix.platform.target }}
 
-    - run: nix build -L ${{ matrix.platform.buildArgs }} '.#packages.${{ matrix.platform.nix }}.enarx-static-oci'
+    - run: nix build -L ${{ matrix.platform.buildArgs }} '.#enarx-${{ matrix.platform.target }}-oci'
     - run: nix run --inputs-from . 'nixpkgs#coreutils' -- --coreutils-prog=ginstall -p ./result "enarx-${{ matrix.platform.target }}-oci"
     - uses: actions/upload-artifact@v3
       with:
