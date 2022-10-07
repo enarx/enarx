@@ -8,7 +8,7 @@
 #![deny(missing_docs)]
 #![warn(rust_2018_idioms)]
 #![no_main]
-#![feature(asm_const, naked_functions)]
+#![feature(asm_const)]
 #![cfg_attr(coverage, feature(no_coverage))]
 
 #[allow(unused_extern_crates)]
@@ -24,7 +24,7 @@ use enarx_shim_kvm::print::enable_printing;
 use enarx_shim_kvm::snp::C_BIT_MASK;
 use enarx_shim_kvm::sse;
 
-use core::arch::asm;
+use core::arch::{asm, global_asm};
 use core::mem::size_of;
 use core::sync::atomic::Ordering;
 
@@ -185,21 +185,14 @@ macro_rules! correct_table_c_bit {
     };
 }
 
-/// The initial function called at startup
-///
-/// It sets up essential registers, page tables and jumps in shim virtual address space
-/// to the `_pre_main` rust function.
-///
-/// # Safety
-///
-/// This function MUST not be called manually.
-#[allow(clippy::integer_arithmetic)]
-#[no_mangle]
-#[naked]
-#[link_section = ".reset"]
-#[cfg_attr(coverage, no_coverage)]
-pub unsafe extern "sysv64" fn _start() -> ! {
-    asm!(
+// The initial function called at startup
+//
+// It sets up essential registers, page tables and jumps in shim virtual address space
+// to the `_pre_main` rust function.
+global_asm!(
+        ".pushsection .reset,\"ax\",@progbits",
+        ".global _start",
+        "_start:",
         ".set reset_vector_page, 0xFFFFF000",
 
         ".macro define_addr name,label",
@@ -481,6 +474,8 @@ pub unsafe extern "sysv64" fn _start() -> ! {
         // fill until the end of page minus 2 for the `ud2` rust/llvm add
         ".fill(({PAGE_SIZE} - (98b - 99b) - 2))",
         // END OF PAGE
+        ".popsection",
+        ".code64",
 
         EFER_FLAGS = const (EferFlags::LONG_MODE_ENABLE.bits() | EferFlags::SYSTEM_CALL_EXTENSIONS.bits() | EferFlags::NO_EXECUTE_ENABLE.bits()),
         SHIM_VIRT_OFFSET = const SHIM_VIRT_OFFSET,
@@ -500,7 +495,4 @@ pub unsafe extern "sysv64" fn _start() -> ! {
         CR4_FLAGS = const (Cr4Flags::FSGSBASE.bits() | Cr4Flags::PHYSICAL_ADDRESS_EXTENSION.bits() | Cr4Flags::OSFXSR.bits() | Cr4Flags::OSXMMEXCPT_ENABLE.bits() | Cr4Flags::OSXSAVE.bits()),
         PROTECTED_MODE_ENABLE = const Cr0Flags::PROTECTED_MODE_ENABLE.bits(),
         CR0_PAGING = const Cr0Flags::PAGING.bits()  | Cr0Flags::WRITE_PROTECT.bits() ,
-
-        options(noreturn)
-    )
-}
+);

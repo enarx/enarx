@@ -22,6 +22,7 @@ linked_list_allocator = { workspace = true }
 lset = { workspace = true }
 nbytes = { workspace = true }
 noted = { workspace = true }
+paste = { workspace = true }
 primordial = { workspace = true }
 rcrt1 = { workspace = true }
 sallyport = { workspace = true }
