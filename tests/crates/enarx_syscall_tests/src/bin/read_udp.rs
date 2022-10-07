@@ -5,7 +5,7 @@
 
 #![no_std]
 #![no_main]
-#![feature(naked_functions, asm_sym)]
+#![feature(asm_sym)]
 
 enarx_syscall_tests::startup!();
 

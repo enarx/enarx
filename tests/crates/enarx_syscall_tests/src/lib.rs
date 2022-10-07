@@ -15,12 +15,21 @@ pub type Result<T> = core::result::Result<T, i32>;
 #[macro_export]
 macro_rules! startup {
     () => {
-        rcrt1::x86_64_linux_startup!(
-            fn _start() -> ! {
+        fn __start_inner() -> ! {
                 use $crate::{exit, Termination};
-
                 exit(main().report().to_i32())
-            }
+        }
+        core::arch::global_asm!(
+                ".pushsection .text.startup,\"ax\",@progbits",
+                ".global _start",
+                "_start:",
+                "lea    rdi, [rip + _DYNAMIC]",
+                "mov    rsi, rsp",
+                "lea    rdx, [rip + {INNER}]",
+                "jmp   {RCRT}",
+
+                RCRT = sym rcrt1::rcrt,
+                INNER = sym __start_inner,
         );
 
         #[panic_handler]
