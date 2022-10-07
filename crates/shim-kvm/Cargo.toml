@@ -28,6 +28,7 @@ sallyport = { version = "0.6.4", path = "../sallyport", default-features = false
 spinning = { version = "0.1", default-features = false }
 x86_64 = { version = "0.14.9", features = ["instructions", "inline_asm"], default-features = false }
 xsave = { version = "2.0.2", default-features = false }
+paste = { version = "1.0", default-features = false }
 
 # optional dependencies
 gdbstub = { version = "0.5.0", optional = true, default-features = false }

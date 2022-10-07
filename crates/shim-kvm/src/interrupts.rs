@@ -10,11 +10,12 @@ use crate::eprintln;
 use crate::hostcall::shim_exit;
 use crate::snp::cpuid_count;
 
-use core::arch::asm;
+use core::arch::global_asm;
 use core::fmt;
 use core::mem::size_of;
 use core::ops::Deref;
 
+use paste::paste;
 use spinning::Lazy;
 use x86_64::structures::idt::InterruptDescriptorTable;
 use x86_64::VirtAddr;
@@ -125,14 +126,21 @@ macro_rules! declare_interrupt {
     };
 
     ($name:ident => $push_or_exchange:literal, { $code:block }, $($id:ident: $t:ty),*) => {
-        #[naked]
-        #[cfg_attr(coverage, no_coverage)]
-        unsafe extern "sysv64" fn $name() -> ! {
-            extern "sysv64" fn inner ( $($id: $t,)* ) {
+        paste! {
+            #[cfg_attr(coverage, no_coverage)]
+            extern "sysv64" fn [<__ $name _inner>] ( $($id: $t,)* ) {
                 $code
             }
-
-            asm!(
+        }
+        extern "sysv64" {
+            fn $name( $($id: $t,)* );
+        }
+        paste! {
+            global_asm!(
+                ".pushsection .text.interrupts,\"ax\",@progbits",
+                concat!(".global ", stringify!($name)),
+                concat!(".type ", stringify!($name), ",@function"),
+                concat!(stringify!($name), ":"),
                 // either push rsi or exchange with error code
                 $push_or_exchange,
                 "push   rdi",
@@ -202,12 +210,12 @@ macro_rules! declare_interrupt {
 
                 "iretq",
 
+                ".popsection",
+
                 // add 64 for alignment
                 XSAVE_STACK_OFFSET = const (XSAVE_AREA_SIZE + 64),
-                CALLOUT = sym inner,
-
-                options(noreturn)
-            )
+                CALLOUT = sym [<__ $name _inner>],
+            );
         }
     };
 }
@@ -266,6 +274,7 @@ pub fn init() {
 #[cfg(feature = "dbg")]
 mod debug {
     use super::*;
+    use core::arch::asm;
 
     #[cfg_attr(coverage, no_coverage)]
     pub(crate) fn idt_add_debug_exception_handlers(idt: &mut InterruptDescriptorTable) {

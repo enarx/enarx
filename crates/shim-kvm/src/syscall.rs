@@ -5,7 +5,7 @@
 use crate::hostcall::{HostCall, UserMemScope};
 use crate::spin::{Locked, RacyCell};
 
-use core::arch::asm;
+use core::arch::global_asm;
 use core::mem::size_of;
 
 use sallyport::guest;
@@ -21,20 +21,24 @@ struct X8664DoubleReturn {
     rdx: u64,
 }
 
-/// syscall service routine
-///
-/// # Safety
-///
-/// This function is not be called from rust.
-#[cfg_attr(coverage, no_coverage)]
-#[naked]
-pub unsafe extern "sysv64" fn _syscall_enter() -> ! {
-    // TaskStateSegment.privilege_stack_table[0]
-    const KERNEL_RSP_OFF: usize = size_of::<u32>();
-    // TaskStateSegment.privilege_stack_table[3]
-    const USR_RSP_OFF: usize = size_of::<u32>() + 3 * size_of::<u64>();
+extern "sysv64" {
+    /// syscall service routine
+    ///
+    /// # Safety
+    ///
+    /// This function is not be called from rust.
+    #[cfg_attr(coverage, no_coverage)]
+    pub fn _syscall_enter() -> !;
+}
+// TaskStateSegment.privilege_stack_table[0]
+const KERNEL_RSP_OFF: usize = size_of::<u32>();
+// TaskStateSegment.privilege_stack_table[3]
+const USR_RSP_OFF: usize = size_of::<u32>() + 3 * size_of::<u64>();
+global_asm!(
+        ".pushsection .text.syscall_enter,\"ax\",@progbits",
+        ".global _syscall_enter",
+        "_syscall_enter:",
 
-    asm!(
         // prepare the stack for sysretq and load the kernel rsp
         "swapgs",                                           // set gs segment to TSS
 
@@ -94,14 +98,13 @@ pub unsafe extern "sysv64" fn _syscall_enter() -> ! {
 
         "sysretq",
 
+        ".popsection",
+
         USR = const USR_RSP_OFF,
         KRN = const KERNEL_RSP_OFF,
 
         syscall_rust = sym syscall_rust,
-
-        options(noreturn)
-    )
-}
+);
 
 /// Thread local storage
 /// FIXME: when using multithreading
