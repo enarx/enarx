@@ -43,9 +43,14 @@
 
         rustToolchain = prev.rust-bin.fromRustupToolchainFile ./rust-toolchain.toml;
 
-        craneLib = (crane.mkLib final).overrideToolchain rustToolchain;
+        # mkCraneLib constructs a crane library for specified `pkgs`.
+        mkCraneLib = pkgs: (crane.mkLib pkgs).overrideToolchain rustToolchain;
 
-        commonArgs = {
+        # hostCrangeLib is the crane library for the host native triple.
+        hostCraneLib = mkCraneLib final;
+
+        # commonArgs is a set of arguments that is common to all crane invocations.
+        commonArgs = with final.lib; {
           inherit
             src
             version
@@ -53,35 +58,46 @@
           pname = "enarx";
 
           buildInputs =
-            final.lib.optional final.stdenv.isDarwin
+            optional final.stdenv.isDarwin
             final.darwin.apple_sdk.frameworks.Security;
         };
 
-        cargoArtifacts = craneLib.buildDepsOnly (commonArgs
-          // {
-            cargoExtraArgs = "-j $NIX_BUILD_CORES --all-features";
+        # buildDeps builds dependencies of the crate given `craneLib`.
+        # `extraArgs` are passed through to `craneLib.buildDepsOnly` verbatim.
+        buildDeps = craneLib: extraArgs:
+          craneLib.buildDepsOnly (commonArgs
+            // {
+              cargoExtraArgs = "-j $NIX_BUILD_CORES --all-features";
+              # Remove binary dependency specification, since that breaks on generated "dummy source"
+              extraDummyScript = ''
+                sed -i '/^artifact = "bin"$/d' $out/Cargo.toml
+                sed -i '/^target = ".*"$/d' $out/Cargo.toml
+              '';
+            }
+            // extraArgs);
 
-            # Remove binary dependency specification, since that breaks on generated "dummy source"
-            extraDummyScript = ''
-              sed -i '/^artifact = "bin"$/d' $out/Cargo.toml
-              sed -i '/^target = ".*"$/d' $out/Cargo.toml
-            '';
-          });
-
-        commonArtifactArgs = commonArgs // {inherit cargoArtifacts;};
+        # hostCargoArtifacts are the cargo artifacts built for the host native triple.
+        hostCargoArtifacts = buildDeps hostCraneLib {};
 
         # TODO: Use `--workspace` once https://github.com/enarx/enarx/issues/2270 is resolved
-        #checks.clippy = craneLib.cargoClippy (commonArtifactArgs // {cargoClippyExtraArgs = "--all-targets --workspace -- --deny warnings";});
-        checks.clippy = craneLib.cargoClippy (commonArtifactArgs
+        #checks.clippy = hostCraneLib.cargoClippy (hostArtifactCommonArgs // {cargoClippyExtraArgs = "--all-targets --workspace -- --deny warnings";});
+        checks.clippy = hostCraneLib.cargoClippy (commonArgs
           // {
-            cargoExtraArgs = "-j $NIX_BUILD_CORES --all-features";
-
+            cargoArtifacts = hostCargoArtifacts;
             cargoClippyExtraArgs = "--all-targets -- --deny warnings";
+            cargoExtraArgs = "-j $NIX_BUILD_CORES --all-features";
           });
-        checks.fmt = craneLib.cargoFmt commonArgs;
+        checks.fmt = hostCraneLib.cargoFmt commonArgs;
+        checks.nextest = hostCraneLib.cargoNextest (commonArgs
+          // {
+            cargoArtifacts = hostCargoArtifacts;
+            cargoExtraArgs = "-j $NIX_BUILD_CORES";
+          });
 
-        buildPackage = extraArgs:
-          craneLib.buildPackage (commonArtifactArgs
+        # buildPackage builds using `craneLib`.
+        # `extraArgs` are passed through to `craneLib.buildPackage` verbatim.
+        buildPackage = craneLib: extraArgs:
+          craneLib.buildPackage (commonArgs
             // {
               cargoExtraArgs = "-j $NIX_BUILD_CORES";
               cargoTestExtraArgs = "wasm::";
@@ -93,21 +109,65 @@
             }
             // extraArgs);
 
-        nativeBin = buildPackage {};
-        aarch64DarwinBin = buildPackage {
-          CARGO_BUILD_TARGET = "aarch64-apple-darwin";
+        # hostBin is the binary built for host native triple.
+        hostBin = buildPackage hostCraneLib {
+          cargoArtifacts = hostCargoArtifacts;
+          cargoExtraArgs = "-j $NIX_BUILD_CORES";
+        };
+
+        # pkgsFor constructs a package set for specified `crossSystem`.
+        pkgsFor = crossSystem: let
+          localSystem = final.hostPlatform.system;
+        in
+          if localSystem == crossSystem
+          then final
+          else if crossSystem == x86_64-darwin
+          then throw "cross compilation to x86_64-darwin not supported due to https://github.com/NixOS/nixpkgs/issues/180771"
+          else
+            import nixpkgs {
+              inherit
+                crossSystem
+                localSystem
+                ;
+            };
+
+        # buildPackageCross builds for `target` using `crossSystem` toolchain.
+        # `extraArgs` are passed through to `buildPackage` verbatim.
+        # NOTE: Upstream only provides binary caches for a subset of supported systems.
+        buildPackageCross = crossSystem: target: extraArgs:
+          with final.lib; let
+            pkgs = pkgsFor crossSystem;
+            cc = pkgs.stdenv.cc;
+            kebab2snake = replaceStrings ["-"] ["_"];
+            commonCrossArgs = {
+              depsBuildBuild = [
+                cc
+              ];
+
+              CARGO_BUILD_TARGET = target;
+              ${"CARGO_TARGET_${toUpper (kebab2snake target)}_LINKER"} = "${cc.targetPrefix}cc";
+            };
+            craneLib = mkCraneLib pkgs;
+          in
+            buildPackage craneLib (commonCrossArgs
+              // {
+                cargoArtifacts = buildDeps craneLib commonCrossArgs;
+              }
+              // extraArgs);
+
+        aarch64DarwinBin = buildPackageCross aarch64-darwin "aarch64-apple-darwin" {
           CARGO_BUILD_RUSTFLAGS = "-C target-feature=+crt-static";
         };
-        aarch64LinuxMuslBin = buildPackage {
-          CARGO_BUILD_TARGET = "aarch64-unknown-linux-musl";
+
+        aarch64LinuxMuslBin = buildPackageCross aarch64-linux "aarch64-unknown-linux-musl" {
           CARGO_BUILD_RUSTFLAGS = "-C target-feature=+crt-static";
         };
-        x86_64DarwinBin = buildPackage {
-          CARGO_BUILD_TARGET = "x86_64-apple-darwin";
+
+        x86_64DarwinBin = buildPackageCross x86_64-darwin "x86_64-apple-darwin" {
           CARGO_BUILD_RUSTFLAGS = "-C target-feature=+crt-static";
         };
-        x86_64LinuxMuslBin = buildPackage {
-          CARGO_BUILD_TARGET = "x86_64-unknown-linux-musl";
+
+        x86_64LinuxMuslBin = buildPackageCross x86_64-linux "x86_64-unknown-linux-musl" {
           CARGO_BUILD_RUSTFLAGS = "-C target-feature=+crt-static";
         };
 
@@ -122,7 +182,7 @@
             config.Env = ["PATH=${bin}/bin"];
           };
       in {
-        enarx = nativeBin;
+        enarx = hostBin;
         enarx-aarch64-apple-darwin = aarch64DarwinBin;
         enarx-aarch64-apple-darwin-oci = buildImage aarch64DarwinBin;
         enarx-aarch64-unknown-linux-musl = aarch64LinuxMuslBin;
@@ -161,21 +221,26 @@
 
           checks = pkgs.enarxChecks;
 
-          packages =
+          packages = with pkgs.lib;
             {
               default = pkgs.enarx;
             }
-            // pkgs.lib.genAttrs [
-              "enarx"
-              "enarx-aarch64-apple-darwin"
-              "enarx-aarch64-apple-darwin-oci"
-              "enarx-aarch64-unknown-linux-musl"
-              "enarx-aarch64-unknown-linux-musl-oci"
-              "enarx-x86_64-apple-darwin"
-              "enarx-x86_64-apple-darwin-oci"
-              "enarx-x86_64-unknown-linux-musl"
-              "enarx-x86_64-unknown-linux-musl-oci"
-            ] (name: pkgs.${name});
+            // genAttrs ([
+                "enarx"
+                "enarx-aarch64-unknown-linux-musl"
+                "enarx-aarch64-unknown-linux-musl-oci"
+                "enarx-x86_64-unknown-linux-musl"
+                "enarx-x86_64-unknown-linux-musl-oci"
+              ]
+              ++ optionals (system == aarch64-darwin || system == x86_64-darwin) [
+                "enarx-aarch64-apple-darwin"
+                "enarx-aarch64-apple-darwin-oci"
+              ]
+              ++ optionals (system == x86_64-darwin) [
+                # cross compilation to x86_64-darwin not supported due to https://github.com/NixOS/nixpkgs/issues/180771
+                "enarx-x86_64-apple-darwin"
+                "enarx-x86_64-apple-darwin-oci"
+              ]) (name: pkgs.${name});
 
           devShells.default = pkgs.mkShell {
             buildInputs = [
