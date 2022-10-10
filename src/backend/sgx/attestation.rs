@@ -444,7 +444,7 @@ mod tests {
         ignore = "CPU does not support SGX2 or attestation not possible"
     )]
     fn request_target_info() {
-        assert_eq!(std::path::Path::new(AESM_SOCKET).exists(), true);
+        assert!(std::path::Path::new(AESM_SOCKET).exists());
 
         let mut output = [1u8; SGX_TI_SIZE];
 

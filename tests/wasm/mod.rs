@@ -305,7 +305,7 @@ name = "stream""#,
         let (stream, _) = listener.accept().expect("failed to accept connection");
         assert_stream(stream).expect("failed to assert stream");
     });
-    check_output(&enarx_run(&wasm, Some(&conf.path()), None), 0, None, None);
+    check_output(&enarx_run(&wasm, Some(conf.path()), None), 0, None, None);
     server.join().expect("failed to join server thread");
     Ok(())
 }
@@ -386,7 +386,7 @@ name = "stream""#,
 //        let tls = rustls::ServerConnection::new(tls).expect("failed to create TLS connection");
 //        assert_stream(rustls::StreamOwned::new(tls, stream)).expect("failed to assert stream");
 //    });
-//    check_output(&enarx_run(&wasm, Some(&conf.path()), None), 0, None, None);
+//    check_output(&enarx_run(&wasm, Some(conf.path()), None), 0, None, None);
 //    server.join().expect("failed to join server thread");
 //    Ok(())
 //}
@@ -460,7 +460,7 @@ name = "ping""#,
         })
         .expect("failed to assert TCP connection");
     });
-    check_output(&enarx_run(&wasm, Some(&conf.path()), None), 0, None, None);
+    check_output(&enarx_run(&wasm, Some(conf.path()), None), 0, None, None);
     client.join().expect("failed to join client thread");
     Ok(())
 }
@@ -548,7 +548,7 @@ name = "ping""#,
         })
         .expect("failed to assert TLS connection");
     });
-    check_output(&enarx_run(&wasm, Some(&conf.path()), None), 0, None, None);
+    check_output(&enarx_run(&wasm, Some(conf.path()), None), 0, None, None);
     client.join().expect("failed to join client thread");
     Ok(())
 }

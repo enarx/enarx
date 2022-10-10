@@ -93,7 +93,7 @@ pub fn enarx(args: String, expected_success: bool, expected_output: Output) {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Eq, PartialEq)]
 pub enum Output {
     Json(Value),
     Text(String),

@@ -61,7 +61,7 @@ fn tee(r: impl Read, mut w: impl Write) -> io::Result<Vec<u8>> {
         .bytes()
         .map(|b| {
             let b = b?;
-            w.write(&[b])?;
+            w.write_all(&[b])?;
             Ok(b)
         })
         .collect()
@@ -71,7 +71,7 @@ fn enarx<'a>(
     cmd: impl FnOnce(&mut Command) -> &mut Command,
     input: impl Into<Option<&'a [u8]>>,
 ) -> Output {
-    let mut child = cmd(Command::new(&KEEP_BIN)
+    let mut child = cmd(Command::new(KEEP_BIN)
         .current_dir(CRATE)
         .env(
             "ENARX_TEST_SGX_KEY_FILE",
