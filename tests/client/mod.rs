@@ -211,5 +211,5 @@ fn test_config_init() {
     env::set_current_dir(tmpdir.path()).unwrap();
     cmd!(succeed: "enarx config init");
     cmd!(fail: "enarx config init", text: r#"Error: "Enarx.toml" does already exist."#);
-    assert_eq!(Path::new("Enarx.toml").exists(), true);
+    assert!(Path::new("Enarx.toml").exists());
 }
