@@ -16,10 +16,14 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build-x86_64:
+  build-nix:
     strategy:
       matrix:
         platform:
+        - host: macos-latest
+          target: aarch64-apple-darwin
+        - host: ubuntu-20.04
+          target: aarch64-unknown-linux-musl
         - host: macos-latest
           target: x86_64-apple-darwin
         - host: ubuntu-20.04
@@ -46,40 +50,6 @@ jobs:
       with:
         name: enarx-${{ matrix.platform.target }}-oci
         path: enarx-${{ matrix.platform.target }}-oci
-
-  build-aarch64:
-    strategy:
-      matrix:
-        platform:
-        - host: ARM64
-          target: aarch64-unknown-linux-musl
-        - host: aarch64-apple-darwin
-          target: aarch64-apple-darwin
-    runs-on: ${{ matrix.platform.host }}
-    steps:
-      - uses: actions/checkout@v3
-      - name: Get rust toolchain snapshot version
-        id: toolchain_version
-        run: echo "::set-output name=toolchain_version::$(grep channel  rust-toolchain.toml | cut -d\" -f 2)"
-      - uses: actions-rs/toolchain@v1
-        with:
-          toolchain: ${{ steps.toolchain_version.outputs.toolchain_version }}
-          target: ${{ matrix.platform.target }}
-          profile: minimal
-      - name: Setup Rust toolchain
-        run: >
-            rustup override unset || :
-            && rustup show
-      - uses: actions-rs/cargo@v1
-        with:
-          command: build
-          args: --release --target ${{ matrix.platform.target }}
-      - name: Rename artifact
-        run: mv target/${{ matrix.platform.target }}/release/enarx enarx-${{ matrix.platform.target }}
-      - uses: actions/upload-artifact@v3
-        with:
-          name: enarx-${{ matrix.platform.target }}
-          path: enarx-${{ matrix.platform.target }}
 
   build-windows:
     name: enarx Windows build
@@ -121,7 +91,7 @@ jobs:
           path: target\wix\enarx-x86_64-windows.msi
 
   sign-x86_64:
-    needs: [ build-x86_64 ]
+    needs: [ build-nix ]
     runs-on: ubuntu-20.04
     steps:
     - uses: actions/download-artifact@v3
@@ -155,8 +125,8 @@ jobs:
         name: enarx-x86_64-unknown-linux-musl-sig
         path: enarx-x86_64-unknown-linux-musl.sig
 
-  build-darwin-universal-binary:
-    needs: [ build-x86_64, build-aarch64 ]
+  build-lipo:
+    needs: [ build-nix ]
     runs-on: macos-latest
     steps:
     - uses: actions/download-artifact@v3
@@ -172,7 +142,7 @@ jobs:
         path: enarx-universal-darwin
 
   test-bin:
-    needs: [ build-x86_64, build-aarch64, build-darwin-universal-binary ]
+    needs: [ build-nix, build-lipo ]
     strategy:
       matrix:
         platform:
@@ -202,7 +172,7 @@ jobs:
     - run: .\enarx-x86_64-windows.exe platform info
 
   test-oci:
-    needs: build-x86_64
+    needs: build-nix
     strategy:
       matrix:
         platform:
@@ -227,7 +197,7 @@ jobs:
         architecture:
         - x86_64
         - aarch64
-    needs: [ build-x86_64, build-aarch64, sign-x86_64 ]
+    needs: [ build-nix, sign-x86_64 ]
     runs-on: ubuntu-20.04
     steps:
     - uses: actions/checkout@v3
@@ -267,7 +237,7 @@ jobs:
           debarch: amd64
         - build: aarch64
           debarch: arm64
-    needs: [ build-x86_64, build-aarch64 , sign-x86_64]
+    needs: [ build-nix, sign-x86_64]
     runs-on: ubuntu-20.04
     steps:
     - uses: actions/checkout@v3
@@ -307,7 +277,7 @@ jobs:
 
   release:
     if: startsWith(github.ref, 'refs/tags/') && github.event_name == 'push'
-    needs: [ build-x86_64, test-bin, test-oci, test-windows, build-rpm, build-deb ]
+    needs: [ build-nix, test-bin, test-oci, test-windows, build-rpm, build-deb ]
     runs-on: ubuntu-20.04
     steps:
     - uses: actions/checkout@v3
