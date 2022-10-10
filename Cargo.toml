@@ -80,6 +80,7 @@ enarx-shim-kvm = { version = "0.6.4", path = "crates/shim-kvm", artifact = "bin"
 enarx-shim-sgx = { version = "0.6.4", path = "crates/shim-sgx", artifact = "bin", target = "x86_64-unknown-none", default-features = false }
 
 [build-dependencies]
+once_cell = { version = "1.11.0", features = ["std"], default-features = false }
 protobuf-codegen-pure = { version = "2.27", default-features = false }
 
 [dev-dependencies]
