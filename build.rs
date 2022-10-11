@@ -1,17 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use once_cell::sync::Lazy;
 use std::env::var;
 use std::fs;
 use std::path::{Path, PathBuf};
-
-/// Whether Enarx compilation target is x86_64 Linux or not.
-// NOTE: This may or may not correspond to `target_os` and `target_arch`, since `build.rs` is
-// compiled for the host triple and not the cargo compilation target
-static IS_X86_64_LINUX: Lazy<bool> = Lazy::new(|| {
-    var("CARGO_CFG_TARGET_OS").expect("missing CARGO_CFG_TARGET_OS") == "linux"
-        && var("CARGO_CFG_TARGET_ARCH").expect("missing CARGO_CFG_TARGET_ARCH") == "x86_64"
-});
 
 #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
 use std::os::unix::fs::FileTypeExt;
@@ -49,11 +40,16 @@ fn main() {
     // FIXME: this exists to work around https://github.com/rust-lang/cargo/issues/10527
     println!("cargo:rerun-if-changed=crates/");
 
-    if *IS_X86_64_LINUX {
+    // Enarx compilation target architecture and OS.
+    // NOTE: This may or may not correspond to `target_os` and `target_arch` attributes,
+    // since `build.rs` is compiled for the host triple and not the cargo compilation target
+    let target_os = var("CARGO_CFG_TARGET_OS").expect("missing CARGO_CFG_TARGET_OS");
+    let target_arch = var("CARGO_CFG_TARGET_ARCH").expect("missing CARGO_CFG_TARGET_ARCH");
+
+    if target_os == "linux" && target_arch == "x86_64" {
         println!("cargo:rustc-cfg=enarx_with_shim");
     }
-
-    if *IS_X86_64_LINUX {
+    if target_os == "linux" && target_arch == "x86_64" {
         generate_protos();
     }
 
