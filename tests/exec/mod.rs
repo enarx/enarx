@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use super::{assert_eq_slices, enarx, run_test, run_test_signed};
+use super::{assert_eq_slices, enarx, is_nil, is_sev, is_sgx, run_test, run_test_signed};
 
 use std::ffi::OsStr;
 use std::fs;
@@ -18,11 +18,11 @@ use tempfile::Builder;
 #[serial]
 #[cfg_attr(not(host_can_test_sgx), ignore = "Backend does not support SGX")]
 fn futex() {
-    if let Ok(backend) = std::env::var("ENARX_BACKEND") {
-        if backend != "sgx" {
-            return;
-        }
+    if !is_sgx() {
+        eprintln!("SGX backend is disabled, ignoring");
+        return;
     }
+
     let bin = env!("CARGO_BIN_FILE_ENARX_EXEC_TESTS_futex");
 
     run_test(bin, 0, None, None, None);
@@ -32,11 +32,11 @@ fn futex() {
 #[serial]
 #[cfg_attr(not(host_can_test_sgx), ignore = "Backend does not support SGX")]
 fn thread() {
-    if let Ok(backend) = std::env::var("ENARX_BACKEND") {
-        if backend != "sgx" {
-            return;
-        }
+    if !is_sgx() {
+        eprintln!("SGX backend is disabled, ignoring");
+        return;
     }
+
     let bin = env!("CARGO_BIN_FILE_ENARX_EXEC_TESTS_thread");
     let output = r#"Before Spawn
 After Spawn 1
@@ -60,11 +60,11 @@ After Join 2
 #[serial]
 #[cfg_attr(not(host_can_test_sgx), ignore = "Backend does not support SGX")]
 fn thread_many() {
-    if let Ok(backend) = std::env::var("ENARX_BACKEND") {
-        if backend != "sgx" {
-            return;
-        }
+    if !is_sgx() {
+        eprintln!("SGX backend is disabled, ignoring");
+        return;
     }
+
     let bin = env!("CARGO_BIN_FILE_ENARX_EXEC_TESTS_thread-many");
     run_test(bin, 0, None, None, None);
 }
@@ -73,13 +73,12 @@ fn thread_many() {
 #[serial]
 #[cfg_attr(not(host_can_test_sgx), ignore = "Backend does not support SGX")]
 fn thread_exit_group() {
-    if let Ok(backend) = std::env::var("ENARX_BACKEND") {
-        if backend != "sgx" {
-            return;
-        }
+    if !is_sgx() {
+        eprintln!("SGX backend is disabled, ignoring");
+        return;
     }
-    let bin = env!("CARGO_BIN_FILE_ENARX_EXEC_TESTS_thread-exit-group");
 
+    let bin = env!("CARGO_BIN_FILE_ENARX_EXEC_TESTS_thread-exit-group");
     run_test(bin, 0, None, None, None);
 }
 
@@ -87,11 +86,11 @@ fn thread_exit_group() {
 #[serial]
 #[cfg_attr(not(host_can_test_sgx), ignore = "Backend does not support SGX")]
 fn thread_channel() {
-    if let Ok(backend) = std::env::var("ENARX_BACKEND") {
-        if backend != "sgx" {
-            return;
-        }
+    if !is_sgx() {
+        eprintln!("SGX backend is disabled, ignoring");
+        return;
     }
+
     let bin = env!("CARGO_BIN_FILE_ENARX_EXEC_TESTS_thread-channel");
     let output = "Start\nHello, thread\n";
     run_test(bin, 0, None, output.as_bytes(), None);
@@ -100,6 +99,11 @@ fn thread_channel() {
 #[test]
 #[serial]
 fn echo() {
+    if is_nil() {
+        eprintln!("Not supported on nil backend, ignoring");
+        return;
+    }
+
     let mut input: Vec<u8> = Vec::with_capacity(2 * 1024 * 1024);
 
     for i in 0..input.capacity() {
@@ -114,6 +118,11 @@ fn echo() {
 #[test]
 #[serial]
 fn unix_echo() {
+    if is_nil() {
+        eprintln!("Not supported on nil backend, ignoring");
+        return;
+    }
+
     let tmpdir = Arc::new(Builder::new().prefix("unix_echo").tempdir().unwrap());
     const FILENAME_IN: &str = "enarx_unix_echo_to_bin";
     const FILENAME_OUT: &str = "enarx_unix_echo_from_bin";
@@ -163,11 +172,11 @@ fn unix_echo() {
 #[cfg_attr(not(host_can_test_sev), ignore = "Backend does not support SEV-SNP")]
 #[serial]
 fn rust_sev_attestation() {
-    if let Ok(backend) = std::env::var("ENARX_BACKEND") {
-        if backend != "sev" {
-            return;
-        }
+    if !is_sev() {
+        eprintln!("SEV backend is disabled, ignoring");
+        return;
     }
+
     let bin = env!("CARGO_BIN_FILE_ENARX_EXEC_TESTS_sev_attestation");
     let mut exp_out = vec![];
     exp_out.extend_from_slice(b"ID_KEY_DIGEST = ".as_slice());
@@ -212,11 +221,11 @@ fn rust_sev_attestation() {
 #[cfg_attr(not(host_can_test_sgx), ignore = "Backend does not support SGX")]
 #[serial]
 fn rust_sgx_attestation() {
-    if let Ok(backend) = std::env::var("ENARX_BACKEND") {
-        if backend != "sgx" {
-            return;
-        }
+    if !is_sgx() {
+        eprintln!("SGX backend is disabled, ignoring");
+        return;
     }
+
     let bin = env!("CARGO_BIN_FILE_ENARX_EXEC_TESTS_sgx_attestation");
     let exp_out = b"MRSIGNER = 298037d88782e022e019b3020745b78aa40ed95c77da4bf7f3253d3a44c4fd7e\n";
     run_test_signed(bin, 0, None, exp_out.as_slice(), None);
@@ -225,6 +234,11 @@ fn rust_sgx_attestation() {
 #[test]
 #[serial]
 fn memspike() {
+    if is_nil() {
+        eprintln!("Not supported on nil backend, ignoring");
+        return;
+    }
+
     let bin = env!("CARGO_BIN_FILE_ENARX_EXEC_TESTS_memspike");
     run_test(bin, 0, None, None, None);
 }
@@ -232,6 +246,11 @@ fn memspike() {
 #[test]
 #[serial]
 fn memory_stress_test() {
+    if is_nil() {
+        eprintln!("Not supported on nil backend, ignoring");
+        return;
+    }
+
     let bin = env!("CARGO_BIN_FILE_ENARX_EXEC_TESTS_memory_stress_test");
     run_test(bin, 0, None, None, None);
 }
@@ -239,6 +258,11 @@ fn memory_stress_test() {
 #[test]
 #[serial]
 fn cpuid() {
+    if is_nil() {
+        eprintln!("Not supported on nil backend, ignoring");
+        return;
+    }
+
     let bin = env!("CARGO_BIN_FILE_ENARX_EXEC_TESTS_cpuid");
     run_test(bin, 0, None, None, None);
 }
