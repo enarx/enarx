@@ -96,7 +96,6 @@
           craneLib.buildPackage (commonArgs
             // {
               cargoExtraArgs = "-j $NIX_BUILD_CORES";
-              cargoTestExtraArgs = "wasm::";
 
               installPhaseCommand = ''
                 mkdir -p $out/bin
