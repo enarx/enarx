@@ -51,13 +51,18 @@ pub struct Keep<P: KeepPersonality> {
 
 impl<P: KeepPersonality> Keep<P> {
     /// Allocator for `enarxcall::BalloonMemory'.
-    pub fn map(&mut self, pages: Map<perms::ReadWrite>, to: usize) -> std::io::Result<&mut Region> {
+    pub fn map(
+        &mut self,
+        pages: Map<perms::ReadWrite>,
+        to: usize,
+        is_private: bool,
+    ) -> std::io::Result<&mut Region> {
         let slot = Slot::new(
             &mut self.vm_fd,
             self.regions.len() as u32,
             &pages,
             to as u64,
-            false,
+            is_private,
         )?;
         let region = Region::new(slot, pages);
 
