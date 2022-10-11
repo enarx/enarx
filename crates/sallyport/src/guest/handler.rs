@@ -1109,17 +1109,20 @@ pub trait Handler {
     /// - `size_exponent`: Page size expressed as an exponent of 2
     /// - `pages`: Number of pages to allocate
     /// - `addr`: Guest physical address where the memory should be allocated
+    /// - `is_private`: Set if private memory must be used, instead of mapped
     #[inline]
     fn balloon_memory(
         &mut self,
         size_exponent: usize,
         pages: usize,
         addr: *mut c_void,
+        is_private: bool,
     ) -> Result<usize> {
         self.execute(enarxcall::BalloonMemory {
             size_exponent,
             pages,
             addr,
+            is_private,
         })?
     }
 
