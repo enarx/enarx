@@ -77,7 +77,13 @@ impl<P: KeepPersonality> super::super::Keep for RwLock<super::Keep<P>> {
 }
 
 impl<P: KeepPersonality> Thread<P> {
-    pub fn balloon(&mut self, log2: usize, npgs: usize, addr: usize) -> sallyport::Result<usize> {
+    pub fn balloon(
+        &mut self,
+        log2: usize,
+        npgs: usize,
+        addr: usize,
+        is_private: bool,
+    ) -> sallyport::Result<usize> {
         let size: usize = 1 << log2; // Page Size
 
         // Get the current page size
@@ -100,7 +106,7 @@ impl<P: KeepPersonality> Thread<P> {
 
         // Map the memory into the VM
         let vaddr = keep
-            .map(pages, addr)
+            .map(pages, addr, is_private)
             .map_err(|e| e.raw_os_error().unwrap_or(libc::ENOTSUP))?
             .as_virt()
             .start;
@@ -136,10 +142,10 @@ impl<P: KeepPersonality> Thread<P> {
 
             item::Enarxcall {
                 num: item::enarxcall::Number::BalloonMemory,
-                argv: [log2, npgs, addr, ..],
+                argv: [log2, npgs, addr, is_private, ..],
                 ret,
             } => {
-                *ret = match self.balloon(*log2, *npgs, *addr) {
+                *ret = match self.balloon(*log2, *npgs, *addr, *is_private != 0) {
                     Ok(n) => n,
                     Err(e) => -e as usize,
                 };
