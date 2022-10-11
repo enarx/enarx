@@ -126,7 +126,7 @@ impl super::super::Mapper for Builder {
             pages.addr() as u64,
             to as u64,
             pages.len() as u64,
-            false,
+            true,
         )?;
 
         let dp = VmplPerms::empty();

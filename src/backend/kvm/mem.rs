@@ -7,9 +7,9 @@ use mmarinus::{perms, Map};
 
 const KVM_MEM_PRIVATE: u32 = 0x04;
 #[cfg(target_env = "musl")]
-const KVM_SET_USER_MEMORY_REGION: std::ffi::c_int = 0x4020ae46;
+const KVM_SET_USER_MEMORY_REGION: std::ffi::c_int = 0x4020ae40;
 #[cfg(not(target_env = "musl"))]
-const KVM_SET_USER_MEMORY_REGION: std::ffi::c_ulong = 0x4020ae46;
+const KVM_SET_USER_MEMORY_REGION: std::ffi::c_ulong = 0x4020ae40;
 
 // TODO: Should contain instead being `kvm_userspace_memory_region_ext` once it is in the mainline
 // kernel and `kvm_ioctls` crate.

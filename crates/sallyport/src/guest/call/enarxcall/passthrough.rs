@@ -58,16 +58,23 @@ pub struct BalloonMemory {
     pub pages: usize,
     /// Guest physical address where the memory should be allocated.
     pub addr: *mut c_void,
+    /// Set if private memory must be used, instead of mapped.
+    pub is_private: bool,
 }
 
 impl PassthroughAlloc for BalloonMemory {
     const NUM: Number = Number::BalloonMemory;
 
-    type Argv = Argv<3>;
+    type Argv = Argv<4>;
     type Ret = usize;
 
     fn stage(self) -> Self::Argv {
-        Argv([self.size_exponent, self.pages, self.addr as _])
+        Argv([
+            self.size_exponent,
+            self.pages,
+            self.addr as _,
+            self.is_private as _,
+        ])
     }
 }
 

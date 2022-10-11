@@ -235,6 +235,7 @@ impl EnarxAllocator {
                 12, // 1 << 12 == 4096 == page size
                 num_pages,
                 self.end_of_mem.as_u64() as _,
+                snp_active(),
             );
             drop(tls);
 
