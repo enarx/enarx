@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use super::run_test;
+use super::{is_nil, is_sgx, run_test};
 
 use std::io::Read;
 use std::mem::{size_of, MaybeUninit};
@@ -19,6 +19,11 @@ fn read_item<T: Copy>(mut rdr: impl Read) -> std::io::Result<T> {
 #[test]
 #[serial]
 fn exit_zero() {
+    if is_nil() {
+        eprintln!("Not supported on nil backend, ignoring");
+        return;
+    }
+
     let bin = env!("CARGO_BIN_FILE_ENARX_SYSCALL_TESTS_exit_zero");
     run_test(bin, 0, None, None, None);
 }
@@ -26,6 +31,11 @@ fn exit_zero() {
 #[test]
 #[serial]
 fn exit_one() {
+    if is_nil() {
+        eprintln!("Not supported on nil backend, ignoring");
+        return;
+    }
+
     let bin = env!("CARGO_BIN_FILE_ENARX_SYSCALL_TESTS_exit_one");
     run_test(bin, 1, None, None, None);
 }
@@ -33,6 +43,11 @@ fn exit_one() {
 #[test]
 #[serial]
 fn clock_gettime() {
+    if is_nil() {
+        eprintln!("Not supported on nil backend, ignoring");
+        return;
+    }
+
     use libc::{clock_gettime, CLOCK_MONOTONIC};
 
     // Get the time from inside the keep.
@@ -63,6 +78,11 @@ fn clock_gettime() {
 #[test]
 #[serial]
 fn close() {
+    if is_nil() {
+        eprintln!("Not supported on nil backend, ignoring");
+        return;
+    }
+
     let bin = env!("CARGO_BIN_FILE_ENARX_SYSCALL_TESTS_close");
     run_test(bin, 0, None, None, None);
 }
@@ -70,6 +90,11 @@ fn close() {
 #[test]
 #[serial]
 fn write_stdout() {
+    if is_nil() {
+        eprintln!("Not supported on nil backend, ignoring");
+        return;
+    }
+
     let bin = env!("CARGO_BIN_FILE_ENARX_SYSCALL_TESTS_write_stdout");
     run_test(bin, 0, None, &b"hi\n"[..], None);
 }
@@ -78,6 +103,11 @@ fn write_stdout() {
 #[test]
 #[serial]
 fn write_stderr() {
+    if is_nil() {
+        eprintln!("Not supported on nil backend, ignoring");
+        return;
+    }
+
     let bin = env!("CARGO_BIN_FILE_ENARX_SYSCALL_TESTS_write_stderr");
     run_test(bin, 0, None, None, &b"hi\n"[..]);
 }
@@ -85,6 +115,11 @@ fn write_stderr() {
 #[test]
 #[serial]
 fn write_emsgsize() {
+    if is_nil() {
+        eprintln!("Not supported on nil backend, ignoring");
+        return;
+    }
+
     let bin = env!("CARGO_BIN_FILE_ENARX_SYSCALL_TESTS_write_emsgsize");
     run_test(bin, 0, None, None, None);
 }
@@ -92,6 +127,11 @@ fn write_emsgsize() {
 #[test]
 #[serial]
 fn read() {
+    if is_nil() {
+        eprintln!("Not supported on nil backend, ignoring");
+        return;
+    }
+
     const INPUT: &[u8; 12] = b"hello world\n";
     let bin = env!("CARGO_BIN_FILE_ENARX_SYSCALL_TESTS_read");
     run_test(bin, 0, INPUT.as_slice(), INPUT.as_slice(), None);
@@ -100,6 +140,11 @@ fn read() {
 #[test]
 #[serial]
 fn readv() {
+    if is_nil() {
+        eprintln!("Not supported on nil backend, ignoring");
+        return;
+    }
+
     const INPUT: &[u8; 36] = b"hello, worldhello, worldhello, world";
     let bin = env!("CARGO_BIN_FILE_ENARX_SYSCALL_TESTS_readv");
     run_test(bin, 0, INPUT.as_slice(), INPUT.as_slice(), None);
@@ -108,6 +153,11 @@ fn readv() {
 #[test]
 #[serial]
 fn uname() {
+    if is_nil() {
+        eprintln!("Not supported on nil backend, ignoring");
+        return;
+    }
+
     let bin = env!("CARGO_BIN_FILE_ENARX_SYSCALL_TESTS_uname");
     run_test(bin, 0, None, None, None);
 }
@@ -115,6 +165,11 @@ fn uname() {
 #[test]
 #[serial]
 fn read_udp() {
+    if is_nil() {
+        eprintln!("Not supported on nil backend, ignoring");
+        return;
+    }
+
     // The maximum UDP message size is 65507, as determined by the following formula:
     // 0xffff - (sizeof(minimal IP Header) + sizeof(UDP Header)) = 65535-(20+8) = 65507
     const MAX_UDP_PACKET_SIZE: usize = 65507;
@@ -136,22 +191,27 @@ fn read_udp() {
 #[test]
 #[serial]
 fn get_att() {
+    if is_nil() {
+        eprintln!("Not supported on nil backend, ignoring");
+        return;
+    }
+
     let bin = env!("CARGO_BIN_FILE_ENARX_SYSCALL_TESTS_get_att");
     run_test(bin, 0, None, None, None);
 }
 
 #[cfg_attr(
     any(not(host_can_test_sgx), not(host_can_test_attestation)),
-    ignore = "Backend does not support SGX2"
+    ignore = "Backend does not support SGX"
 )]
 #[test]
 #[serial]
 fn sgx_get_att_quote() {
-    if let Ok(backend) = std::env::var("ENARX_BACKEND") {
-        if backend != "sgx" {
-            return;
-        }
+    if !is_sgx() {
+        eprintln!("SGX backend is disabled, ignoring");
+        return;
     }
+
     let bin = env!("CARGO_BIN_FILE_ENARX_SYSCALL_TESTS_sgx_get_att_quote");
     run_test(bin, 0, None, None, None);
 }
@@ -159,6 +219,11 @@ fn sgx_get_att_quote() {
 #[test]
 #[serial]
 fn getuid() {
+    if is_nil() {
+        eprintln!("Not supported on nil backend, ignoring");
+        return;
+    }
+
     let bin = env!("CARGO_BIN_FILE_ENARX_SYSCALL_TESTS_getuid");
     run_test(bin, 0, None, None, None);
 }
@@ -166,6 +231,11 @@ fn getuid() {
 #[test]
 #[serial]
 fn geteuid() {
+    if is_nil() {
+        eprintln!("Not supported on nil backend, ignoring");
+        return;
+    }
+
     let bin = env!("CARGO_BIN_FILE_ENARX_SYSCALL_TESTS_geteuid");
     run_test(bin, 0, None, None, None);
 }
@@ -173,6 +243,11 @@ fn geteuid() {
 #[test]
 #[serial]
 fn getgid() {
+    if is_nil() {
+        eprintln!("Not supported on nil backend, ignoring");
+        return;
+    }
+
     let bin = env!("CARGO_BIN_FILE_ENARX_SYSCALL_TESTS_getgid");
     run_test(bin, 0, None, None, None);
 }
@@ -180,6 +255,11 @@ fn getgid() {
 #[test]
 #[serial]
 fn getegid() {
+    if is_nil() {
+        eprintln!("Not supported on nil backend, ignoring");
+        return;
+    }
+
     let bin = env!("CARGO_BIN_FILE_ENARX_SYSCALL_TESTS_getegid");
     run_test(bin, 0, None, None, None);
 }
@@ -187,6 +267,11 @@ fn getegid() {
 #[test]
 #[serial]
 fn socket() {
+    if is_nil() {
+        eprintln!("Not supported on nil backend, ignoring");
+        return;
+    }
+
     let bin = env!("CARGO_BIN_FILE_ENARX_SYSCALL_TESTS_socket");
     run_test(bin, 0, None, None, None);
 }
@@ -194,6 +279,11 @@ fn socket() {
 #[test]
 #[serial]
 fn bind() {
+    if is_nil() {
+        eprintln!("Not supported on nil backend, ignoring");
+        return;
+    }
+
     let bin = env!("CARGO_BIN_FILE_ENARX_SYSCALL_TESTS_bind");
     run_test(bin, 0, None, None, None);
 }
@@ -201,6 +291,11 @@ fn bind() {
 #[test]
 #[serial]
 fn listen() {
+    if is_nil() {
+        eprintln!("Not supported on nil backend, ignoring");
+        return;
+    }
+
     let bin = env!("CARGO_BIN_FILE_ENARX_SYSCALL_TESTS_listen");
     run_test(bin, 0, None, None, None);
 }

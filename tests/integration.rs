@@ -7,14 +7,15 @@ extern crate core;
 #[cfg(not(windows))]
 mod client;
 
-#[cfg(enarx_with_shim)]
+#[cfg(any(host_can_test_kvm, host_can_test_sev, host_can_test_sgx))]
 mod exec;
 
-#[cfg(enarx_with_shim)]
+#[cfg(any(host_can_test_kvm, host_can_test_sev, host_can_test_sgx))]
 mod syscall;
 
 mod wasm;
 
+use std::env::{var, VarError};
 use std::ffi::{OsStr, OsString};
 use std::io;
 use std::io::{BufReader, Read, Write};
@@ -22,6 +23,7 @@ use std::path::PathBuf;
 use std::process::{Command, Stdio};
 use std::time;
 
+use once_cell::sync::Lazy;
 use process_control::{ChildExt, Control, Output};
 use tempfile::tempdir;
 
@@ -31,6 +33,50 @@ pub const OUT_DIR: &str = env!("OUT_DIR");
 pub const TEST_BINS_OUT: &str = "bin";
 pub const TIMEOUT_SECS: u64 = 60 * 60;
 pub const MAX_ASSERT_ELEMENTS: usize = 100;
+
+/// `ENARX_BACKEND` environment variable value
+pub static ENARX_BACKEND: Lazy<Option<String>> = Lazy::new(|| match var("ENARX_BACKEND") {
+    Ok(backend) => Some(backend),
+    Err(VarError::NotUnicode(..)) => panic!("`ENARX_BACKEND` value is not valid unicode"),
+    Err(VarError::NotPresent) => None,
+});
+
+/// Returns `true` if SGX backend should be used by Enarx given the environment
+pub fn is_sgx() -> bool {
+    match ENARX_BACKEND.as_deref() {
+        Some("sgx") => true,
+        Some(..) => false,
+        None => cfg!(host_can_test_sgx),
+    }
+}
+
+/// Returns `true` if SEV backend should be used by Enarx given the environment
+pub fn is_sev() -> bool {
+    match ENARX_BACKEND.as_deref() {
+        Some("sev") => true,
+        Some(..) => false,
+        // NOTE: SGX backend is prioritized
+        None => cfg!(host_can_test_sev) && !is_sgx(),
+    }
+}
+
+/// Returns `true` if KVM backend should be used by Enarx given the environment
+pub fn is_kvm() -> bool {
+    match ENARX_BACKEND.as_deref() {
+        Some("kvm") => true,
+        Some(..) => false,
+        None => cfg!(host_can_test_kvm) && !is_sgx() && !is_sev(),
+    }
+}
+
+/// Returns `true` if nil backend should be used by Enarx given the environment
+pub fn is_nil() -> bool {
+    match ENARX_BACKEND.as_deref() {
+        Some("nil") => true,
+        Some(..) => false,
+        None => !is_sgx() && !is_sev() && !is_kvm(),
+    }
+}
 
 pub fn assert_eq_slices(expected_output: &[u8], output: &[u8], what: &str) {
     let max_len = usize::min(output.len(), expected_output.len());
