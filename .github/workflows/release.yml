@@ -22,12 +22,29 @@ jobs:
         platform:
         - host: macos-latest
           target: aarch64-apple-darwin
+          test-bin: file ./result/bin/enarx
+          test-oci: echo "OCI runtime not available, skip"
+
         - host: ubuntu-20.04
           target: aarch64-unknown-linux-musl
+          test-bin: nix shell --inputs-from . 'nixpkgs#qemu' -c qemu-aarch64 ./result/bin/enarx platform info
+          test-oci: |
+            docker load < ./result
+            docker run --rm localhost/enarx:$(nix eval --raw .#enarx-aarch64-unknown-linux-musl-oci.imageTag) enarx --help
+
         - host: macos-latest
           target: x86_64-apple-darwin
+          test-bin: ./result/bin/enarx platform info
+          test-oci: echo "OCI runtime not available, skip"
+
         - host: ubuntu-20.04
           target: x86_64-unknown-linux-musl
+          test-bin: ./result/bin/enarx platform info
+          test-oci: |
+            docker load < ./result
+            docker run --rm localhost/enarx:$(nix eval --raw .#enarx-x86_64-unknown-linux-musl-oci.imageTag) enarx --help
+
+
     runs-on: ${{ matrix.platform.host }}
     steps:
     - uses: actions/checkout@v3
@@ -37,19 +54,21 @@ jobs:
         name: enarx
         authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
 
-    - run: nix build -L ${{ matrix.platform.buildArgs }} '.#enarx-${{ matrix.platform.target }}'
+    - run: nix build -L --show-trace '.#enarx-${{ matrix.platform.target }}'
     - run: nix run --inputs-from . 'nixpkgs#coreutils' -- --coreutils-prog=ginstall -p ./result/bin/enarx "enarx-${{ matrix.platform.target }}"
     - uses: actions/upload-artifact@v3
       with:
         name: enarx-${{ matrix.platform.target }}
         path: enarx-${{ matrix.platform.target }}
+    - run: ${{ matrix.platform.test-bin }}
 
-    - run: nix build -L ${{ matrix.platform.buildArgs }} '.#enarx-${{ matrix.platform.target }}-oci'
+    - run: nix build -L --show-trace '.#enarx-${{ matrix.platform.target }}-oci'
     - run: nix run --inputs-from . 'nixpkgs#coreutils' -- --coreutils-prog=ginstall -p ./result "enarx-${{ matrix.platform.target }}-oci"
     - uses: actions/upload-artifact@v3
       with:
         name: enarx-${{ matrix.platform.target }}-oci
         path: enarx-${{ matrix.platform.target }}-oci
+    - run: ${{ matrix.platform.test-oci }}
 
   build-windows:
     name: enarx Windows build
@@ -89,9 +108,10 @@ jobs:
         with:
           name: enarx-x86_64-windows-msi
           path: target\wix\enarx-x86_64-windows.msi
+      - run: .\target\release\enarx-x86_64-windows.exe platform info
 
   sign-x86_64:
-    needs: [ build-nix ]
+    needs: build-nix
     runs-on: ubuntu-20.04
     steps:
     - uses: actions/download-artifact@v3
@@ -126,7 +146,7 @@ jobs:
         path: enarx-x86_64-unknown-linux-musl.sig
 
   build-lipo:
-    needs: [ build-nix ]
+    needs: build-nix
     runs-on: macos-latest
     steps:
     - uses: actions/download-artifact@v3
@@ -141,53 +161,21 @@ jobs:
         name: enarx-universal-darwin
         path: enarx-universal-darwin
 
-  test-bin:
-    needs: [ build-nix, build-lipo ]
+  test-lipo:
+    needs: build-lipo
     strategy:
       matrix:
         platform:
-        - host: ubuntu-20.04
-          target: x86_64-unknown-linux-musl
         - host: macos-latest
-          target: universal-darwin
         - host: aarch64-apple-darwin
-          target: universal-darwin
-        - host: ARM64
-          target: aarch64-unknown-linux-musl
-    runs-on: ${{ matrix.platform.host }}
-    steps:
-    - uses: actions/download-artifact@v3
-      with:
-        name: enarx-${{ matrix.platform.target }}
-    - run: chmod +x ./enarx-${{ matrix.platform.target }}
-    - run: ./enarx-${{ matrix.platform.target }} platform info
-
-  test-windows:
-    needs: build-windows
-    runs-on: windows-latest
-    steps:
-    - uses: actions/download-artifact@v3
-      with:
-        name: enarx-x86_64-windows
-    - run: .\enarx-x86_64-windows.exe platform info
-
-  test-oci:
-    needs: build-nix
-    strategy:
-      matrix:
-        platform:
-        - host: ubuntu-20.04
-          target: x86_64-unknown-linux-musl
-
-        # TODO: Enable aarch64 and MacOS
 
     runs-on: ${{ matrix.platform.host }}
     steps:
     - uses: actions/download-artifact@v3
       with:
-        name: enarx-${{ matrix.platform.target }}-oci
-    - run: docker load < enarx-${{ matrix.platform.target }}-oci
-    # TODO: Attempt to run `enarx platform info` within the loaded container
+        name: enarx-universal-darwin
+    - run: chmod +x ./enarx-universal-darwin
+    - run: ./enarx-universal-darwin platform info
 
   # TODO: redevelop SBOM generation per issue #1954
 
@@ -237,7 +225,7 @@ jobs:
           debarch: amd64
         - build: aarch64
           debarch: arm64
-    needs: [ build-nix, sign-x86_64]
+    needs: [ build-nix, sign-x86_64 ]
     runs-on: ubuntu-20.04
     steps:
     - uses: actions/checkout@v3
@@ -277,7 +265,7 @@ jobs:
 
   release:
     if: startsWith(github.ref, 'refs/tags/') && github.event_name == 'push'
-    needs: [ build-nix, test-bin, test-oci, test-windows, build-rpm, build-deb ]
+    needs: [ build-nix, build-rpm, build-deb, test-lipo ]
     runs-on: ubuntu-20.04
     steps:
     - uses: actions/checkout@v3
