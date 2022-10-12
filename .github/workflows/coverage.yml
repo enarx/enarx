@@ -52,8 +52,10 @@ jobs:
             host: [ self-hosted, linux, x64 ]
 
     steps:
-      - run: sudo apt -o Acquire::Retries=3 update
-      - run: sudo apt -o Acquire::Retries=3 install -y musl-tools lcov
+      - if: matrix.crate.name == 'nil'
+        run: | 
+          sudo apt -o Acquire::Retries=3 update
+          sudo apt -o Acquire::Retries=3 install -y musl-tools lcov
       - name: Cleanup working directory
         run: rm -fr * $HOME/.cargo $HOME/.rustup
       - uses: actions/checkout@v2
