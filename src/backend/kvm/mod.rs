@@ -125,7 +125,7 @@ mod tests {
     fn shim_kvm_binary_size() {
         use crate::backend::Backend;
 
-        let max_shim_size = 500_000;
+        let max_shim_size = 600_000;
         let shim = super::Backend.shim();
         if shim.len() > max_shim_size {
             panic!(
