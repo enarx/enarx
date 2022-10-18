@@ -297,7 +297,7 @@ pub fn wait_for_gdb_connection(sockaddr: &str) -> std::io::Result<std::net::TcpS
     Ok(stream) // `TcpStream` implements `gdbstub::Connection`
 }
 
-#[cfg(feature = "gdb")]
+#[cfg(all(feature = "gdb", target_arch = "x86_64", target_os = "linux"))]
 pub(super) unsafe fn execute_gdb(
     gdbcall: &mut sallyport::item::Gdbcall,
     data: &mut [u8],
