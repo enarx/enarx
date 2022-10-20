@@ -12,14 +12,16 @@ jobs:
       - uses: actions/checkout@v3
       - uses: nixbuild/nix-quick-install-action@v18
         with:
-          nix_conf: experimental-features = nix-command flakes
+          nix_conf: |
+            experimental-features = nix-command flakes
+            access-tokens = github.com=${{ github.token }}
       - uses: jessestricker/nix-flake-update@v1
         id: nix-update
       - uses: peter-evans/create-pull-request@v4
         with:
           branch: nix-update
-          commit-message: ${{ steps.nix-update.outputs.commit-message }}
-          title: ${{ steps.nix-update.outputs.pull-request-title }}
+          commit-message: "build(nix): update flake lock"
+          title: "build(nix): update flake lock"
           body: ${{ steps.nix-update.outputs.pull-request-body }}
           labels: dependencies, nix
           assignees: |
