@@ -36,3 +36,7 @@ updates:
   directory: "tests/crates/enarx_wasm_tests"
   schedule:
     interval: "daily"
+- package-ecosystem: "github-actions"
+  directory: "/"
+  schedule:
+    interval: "daily"
