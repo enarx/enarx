@@ -119,8 +119,9 @@ jobs:
     - uses: actions/download-artifact@v3
       with:
         name: enarx-x86_64-unknown-linux-musl
-    - name: Generate the enarx keep signature (no fork)
-      if: ${{ !github.event.pull_request.head.repo.fork }}
+    - run: chmod +x enarx-x86_64-unknown-linux-musl
+    - name: Retrieve keep signing keys (main branch and tags)
+      if: (startsWith(github.ref, 'refs/tags/') || github.ref == '/refs/heads/main') && github.event_name == 'push'
       env:
         SEV_ID_KEY: ${{ secrets.SEV_ID_KEY }}
         SEV_ID_KEY_SIGNATURE_BLOB: ${{ secrets.SEV_ID_KEY_SIGNATURE_BLOB }}
@@ -129,19 +130,17 @@ jobs:
         base64 --decode <<<${SEV_ID_KEY} | gunzip > sev-id.key
         base64 --decode <<<${SEV_ID_KEY_SIGNATURE_BLOB} | gunzip > sev-id-key-signature.blob
         base64 --decode <<<${SGX_KEY} | gunzip > sgx.key
-        chmod +x enarx-x86_64-unknown-linux-musl
-        ./enarx-x86_64-unknown-linux-musl sign --sgx-key sgx.key --sev-id-key sev-id.key --sev-id-key-signature sev-id-key-signature.blob --out enarx-x86_64-unknown-linux-musl.sig
-        rm -f sev-id.key sev-id-key-signature.blob sgx.key
     - name: Generate the enarx keep signature (fork)
       if: ${{ github.event.pull_request.head.repo.fork }}
       run: |
-        chmod +x enarx-x86_64-unknown-linux-musl
         ./enarx-x86_64-unknown-linux-musl key sgx create --out sgx.key
         ./enarx-x86_64-unknown-linux-musl key sev create --out sev-author.key
         ./enarx-x86_64-unknown-linux-musl key sev create --out sev-id.key
         ./enarx-x86_64-unknown-linux-musl key sev sign --author-key sev-author.key --id-key sev-id.key --out sev-id-key-signature.blob
-        ./enarx-x86_64-unknown-linux-musl sign --sgx-key sgx.key --sev-id-key sev-id.key --sev-id-key-signature sev-id-key-signature.blob --out enarx-x86_64-unknown-linux-musl.sig
-        rm -f sgx.key sev-author.key sev-id.key sev-id-key-signature.blob
+    - name: Sign enarx keep
+      run: ./enarx-x86_64-unknown-linux-musl sign --sgx-key sgx.key --sev-id-key sev-id.key --sev-id-key-signature sev-id-key-signature.blob --out enarx-x86_64-unknown-linux-musl.sig
+    - name: Remove keys
+      run: rm -f sgx.key sev-author.key sev-id.key sev-id-key-signature.blob
     - uses: actions/upload-artifact@v3
       with:
         name: enarx-x86_64-unknown-linux-musl-sig
