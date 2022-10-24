@@ -265,6 +265,48 @@ jobs:
         path: dpkg.deb
         if-no-files-found: error
 
+  push_oci:
+    needs: [ build-nix, sign-x86_64 ]
+    permissions:
+      actions: read
+      packages: write
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/download-artifact@v3
+      with:
+        name: enarx-aarch64-unknown-linux-musl-oci
+    - uses: actions/download-artifact@v3
+      with:
+        name: enarx-x86_64-unknown-linux-musl-oci
+    - run: skopeo copy docker-archive:./enarx-aarch64-unknown-linux-musl-oci containers-storage:localhost/enarx:aarch64
+    - run: skopeo copy docker-archive:./enarx-x86_64-unknown-linux-musl-oci containers-storage:localhost/enarx:x86_64
+    - run: podman image ls
+    - run: podman manifest create enarx:manifest
+    - run: podman manifest add enarx:manifest containers-storage:localhost/enarx:aarch64 --arch=arm64
+    - run: podman manifest add enarx:manifest containers-storage:localhost/enarx:x86_64 --arch=amd64
+    - run: podman manifest inspect enarx:manifest
+    - name: metadata
+      id: metadata
+      uses: docker/metadata-action@v4
+      with:
+        images: ghcr.io/enarx/enarx
+        tags: |
+          type=ref,event=branch
+          type=semver,pattern={{version}}
+          type=semver,pattern={{major}}.{{minor}}
+          type=semver,pattern={{major}},enable=${{ !startsWith(github.ref, 'refs/tags/v0.') }}
+        sep-tags: " "
+    - name: add tags
+      if: github.event_name == 'push'
+      run: podman tag enarx:manifest ${{ steps.metadata.outputs.tags }}
+    - name: push to GitHub Packages
+      if: github.event_name == 'push'
+      uses: redhat-actions/push-to-registry@v2
+      with:
+        tags: ${{ steps.metadata.outputs.tags }}
+        username: ${{ github.actor }}
+        password: ${{ github.token }}
+
   release:
     if: startsWith(github.ref, 'refs/tags/') && github.event_name == 'push'
     needs: [ build-nix, build-rpm, build-deb, test-lipo ]
