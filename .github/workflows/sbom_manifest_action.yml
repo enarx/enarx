@@ -11,7 +11,7 @@ jobs:
           sudo apt -o Acquire::Retries=3 update
           sudo apt -o Acquire::Retries=3 install -y musl-tools
 
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
       - name: Install Rust tool chain
         uses: actions-rs/toolchain@v1

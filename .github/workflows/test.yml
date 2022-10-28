@@ -15,7 +15,7 @@ jobs:
     steps:
       - name: Cleanup working directory
         run: rm -fr * $HOME/.cargo $HOME/.rustup
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
       - name: Install rustup
         run: curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain nightly-2022-09-15 -y
@@ -49,7 +49,7 @@ jobs:
     steps:
       - run: sudo apt -o Acquire::Retries=3 update
       - run: sudo apt -o Acquire::Retries=3 install -y musl-tools
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Setup Rust toolchain
         run: rustup show
       - uses: actions-rs/cargo@v1
@@ -68,7 +68,7 @@ jobs:
     name: enarx MacOS
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Setup Rust toolchain
         run: rustup show
       - uses: actions-rs/cargo@v1
@@ -80,7 +80,7 @@ jobs:
     name: enarx Windows
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Setup Rust toolchain
         run: rustup show
       - uses: actions-rs/cargo@v1
@@ -94,7 +94,7 @@ jobs:
     steps:
       - run: sudo apt -o Acquire::Retries=3 update
       - run: sudo apt -o Acquire::Retries=3 install -y musl-tools
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Setup Rust toolchain
         run: rustup show
       - run: cargo test ${{ matrix.profile.flag }} --target x86_64-unknown-linux-gnu --manifest-path ${{ matrix.crate.path }}/Cargo.toml
@@ -118,7 +118,7 @@ jobs:
     steps:
       - run: sudo apt -o Acquire::Retries=3 update
       - run: sudo apt -o Acquire::Retries=3 install -y musl-tools
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Setup Rust toolchain
         run: rustup show
       - uses: actions-rs/cargo@v1

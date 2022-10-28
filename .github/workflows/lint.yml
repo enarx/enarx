@@ -11,7 +11,7 @@ jobs:
     name: cargo fmt (${{ matrix.crate.name }})
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Setup Rust toolchain
         run: rustup show
       - uses: actions-rs/cargo@v1
@@ -35,7 +35,7 @@ jobs:
     steps:
       - run: sudo apt -o Acquire::Retries=3 update
       - run: sudo apt -o Acquire::Retries=3 install -y musl-tools
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Setup Rust toolchain
         run: rustup show
       - uses: actions-rs/cargo@v1
@@ -68,7 +68,7 @@ jobs:
     name: cargo deny
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - uses: EmbarkStudios/cargo-deny-action@v1
         with:
           arguments: --workspace --manifest-path=${{ matrix.crate.path }}
@@ -82,7 +82,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       - uses: enarx/spdx@master
         with:
           licenses: Apache-2.0 BSD-3-Clause MIT
