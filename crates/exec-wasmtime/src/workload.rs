@@ -42,21 +42,15 @@ pub enum Package {
     Remote(Url),
 
     /// Local package
-    #[cfg(unix)]
     Local {
         /// Open WASM module file descriptor
+        #[cfg(unix)]
         wasm: std::os::unix::prelude::RawFd,
-        /// Optional open config file descriptor
-        conf: Option<std::os::unix::prelude::RawFd>,
-    },
-
-    /// Local package
-    #[cfg(windows)]
-    Local {
         /// Open WASM module file
+        #[cfg(windows)]
         wasm: std::fs::File,
-        /// Optional open config file
-        conf: Option<std::fs::File>,
+        /// Enarx configuration
+        config: Config,
     },
 }
 
@@ -107,10 +101,7 @@ fn get_package(root: Entity<'_, impl Scope, scope::Node>, dir: TreeDirectory) ->
         *PACKAGE_CONFIG,
     );
     let config = toml::from_slice(&config).context("failed to parse config")?;
-    Ok(Workload {
-        webasm,
-        config: Some(config),
-    })
+    Ok(Workload { webasm, config })
 }
 
 /// Acquired workload
@@ -119,7 +110,7 @@ pub struct Workload {
     pub webasm: Vec<u8>,
 
     /// Enarx keep configuration
-    pub config: Option<Config>,
+    pub config: Config,
 }
 
 impl TryFrom<Package> for Workload {
@@ -150,7 +141,7 @@ impl TryFrom<Package> for Workload {
                         ensure!(n == size, "invalid amount of Wasm bytes fetched");
                         Ok(Workload {
                             webasm,
-                            config: None,
+                            config: Config::default(),
                         })
                     }
                     TreeDirectory::<()>::TYPE => serde_json::from_reader(rdr)
@@ -174,7 +165,7 @@ impl TryFrom<Package> for Workload {
                             WASM_MEDIA_TYPE => get_wasm(tree, &entry)
                                 .map(|webasm| Workload {
                                     webasm,
-                                    config: None,
+                                    config: Config::default(),
                                 })
                                 .context("failed to fetch workload"),
                             TreeDirectory::<()>::TYPE => {
@@ -194,9 +185,10 @@ impl TryFrom<Package> for Workload {
             }
             Package::Local {
                 ref mut wasm,
-                ref mut conf,
+                config,
             } => {
                 let mut webasm = Vec::new();
+
                 // SAFETY: This FD was passed to us by the host and we trust that we have exclusive
                 // access to it.
                 #[cfg(unix)]
@@ -205,20 +197,6 @@ impl TryFrom<Package> for Workload {
                 wasm.read_to_end(&mut webasm)
                     .context("failed to read WASM module")?;
 
-                let config = if let Some(conf) = conf.as_mut() {
-                    // SAFETY: This FD was passed to us by the host and we trust that we have exclusive
-                    // access to it.
-                    #[cfg(unix)]
-                    let mut conf = unsafe { std::fs::File::from_raw_fd(*conf) };
-
-                    let mut config = vec![];
-                    conf.read_to_end(&mut config)
-                        .context("failed to read config")?;
-                    let config = toml::from_slice(&config).context("failed to parse config")?;
-                    Some(config)
-                } else {
-                    None
-                };
                 Ok(Workload { webasm, config })
             }
         }

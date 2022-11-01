@@ -78,6 +78,7 @@ impl KeepPersonality for SnpKeepPersonality {
     }
 }
 
+#[derive(Debug)]
 pub struct Backend;
 
 impl super::Backend for Backend {

@@ -23,15 +23,18 @@ mod parking;
 #[cfg(enarx_with_shim)]
 use binary::{Binary, Loader, Mapper};
 
+use std::fmt::Debug;
 use std::fs::File;
 use std::io::Read;
+use std::ops::Deref;
 use std::path::{Path, PathBuf};
+use std::str::FromStr;
 use std::sync::Arc;
 
 use anyhow::{bail, Context, Error, Result};
 use camino::Utf8PathBuf;
 #[cfg(windows)]
-use enarx_exec_wasmtime::Args;
+use enarx_exec_wasmtime::Package;
 use libc::c_int;
 use once_cell::sync::Lazy;
 use serde::ser::{Serialize, SerializeStruct, Serializer};
@@ -142,7 +145,7 @@ pub(crate) trait Config: Sized {
     fn new(shim: &Binary<'_>, exec: &Binary<'_>, signatures: Option<Signatures>) -> Result<Self>;
 }
 
-pub trait Backend: Sync + Send {
+pub trait Backend: Debug + Sync + Send {
     /// The name of the backend
     fn name(&self) -> &'static str;
 
@@ -178,7 +181,7 @@ pub trait Backend: Sync + Send {
 
     #[cfg(windows)]
     /// set wasmtime args directly
-    fn set_args(&self, _args: Args) {}
+    fn set_args(&self, _args: Package) {}
 }
 
 impl Serialize for dyn Backend {
@@ -187,6 +190,34 @@ impl Serialize for dyn Backend {
         backend.serialize_field("backend", self.name())?;
         backend.serialize_field("data", &self.data())?;
         backend.end()
+    }
+}
+
+impl Default for &'static dyn Backend {
+    fn default() -> Self {
+        // This unwrap will not fail, as the nil backend is always present
+        &**BACKENDS.deref().iter().find(|b| b.have()).unwrap()
+    }
+}
+
+impl FromStr for &'static dyn Backend {
+    type Err = anyhow::Error;
+
+    fn from_str(name: &str) -> Result<Self, Self::Err> {
+        match BACKENDS.deref().iter().find(|b| b.name() == name) {
+            None => {
+                bail!("Keep backend identifier {:?} is unknown.", name)
+            }
+            Some(backend) => {
+                if !backend.have() {
+                    bail!("Keep backend {:?} is not available on this platform.", name)
+                }
+                if !backend.configured() {
+                    bail!("Keep backend {:?} is available on this platform, but the machine is misconfigured. Please check with `enarx platform info`.", name)
+                }
+                Ok(&**backend)
+            }
+        }
     }
 }
 
@@ -221,6 +252,7 @@ pub enum Command {
     Exit(c_int),
 }
 
+#[derive(Debug)]
 struct NotSupportedBackend(&'static str);
 
 impl Backend for NotSupportedBackend {

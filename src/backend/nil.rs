@@ -5,15 +5,15 @@ use std::sync::{Arc, RwLock};
 use crate::backend::Signatures;
 use anyhow::{bail, Result};
 #[cfg(windows)]
-use enarx_exec_wasmtime::Args;
+use enarx_exec_wasmtime::Package;
 
 #[cfg(unix)]
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct Backend;
 
 #[cfg(windows)]
-#[derive(Default)]
-pub struct Backend(RwLock<Option<Args>>);
+#[derive(Debug, Default)]
+pub struct Backend(RwLock<Option<Package>>);
 
 impl crate::backend::Backend for Backend {
     #[inline]
@@ -83,7 +83,7 @@ impl crate::backend::Backend for Backend {
     }
 
     #[cfg(windows)]
-    fn set_args(&self, args: Args) {
+    fn set_args(&self, args: Package) {
         self.0.write().unwrap().replace(args);
     }
 }
@@ -100,7 +100,7 @@ impl super::Keep for RwLock<Keep> {
 struct Thread;
 
 #[cfg(windows)]
-struct Thread(Option<Args>);
+struct Thread(Option<Package>);
 
 impl super::Thread for Thread {
     fn enter(&mut self, _gdblisten: &Option<String>) -> Result<super::Command> {

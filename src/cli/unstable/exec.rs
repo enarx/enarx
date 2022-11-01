@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::cli::BackendOptions;
+use crate::backend::Backend;
 
 use camino::Utf8PathBuf;
 use clap::Args;
@@ -17,8 +17,8 @@ use clap::Args;
 /// development and integration tests.
 #[derive(Args, Debug)]
 pub struct Options {
-    #[clap(flatten)]
-    pub backend: BackendOptions,
+    #[clap(long, env = "ENARX_BACKEND")]
+    pub backend: Option<&'static dyn Backend>,
 
     /// Binary to load and run inside the keep
     #[clap(value_name = "BINARY")]
@@ -55,7 +55,7 @@ impl Options {
         use crate::exec::keep_exec;
         use mmarinus::{perms, Map, Private};
 
-        let backend = backend.pick()?;
+        let backend = backend.unwrap_or_default();
         let binary = Map::load(binpath, Private, perms::Read)?;
 
         let signatures = if unsigned {

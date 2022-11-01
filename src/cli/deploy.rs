@@ -1,26 +1,26 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::cli::BackendOptions;
+use crate::backend::{Backend, Signatures};
 use crate::drawbridge::parse_tag;
-use crate::exec::{open_package, run_package, EXECS};
+use crate::exec::{open_wasm, run_package, EXECS};
 
 use std::fmt::Debug;
-use std::fs;
+use std::fs::{self, read_to_string};
 #[cfg(unix)]
 use std::os::unix::io::IntoRawFd;
 
-use crate::backend::Signatures;
 use anyhow::{anyhow, bail, Context};
 use camino::Utf8PathBuf;
 use clap::Args;
+use enarx_config::Config;
 use enarx_exec_wasmtime::{Package, PACKAGE_CONFIG, PACKAGE_ENTRYPOINT};
 use url::Url;
 
 /// Deploy an Enarx package to an Enarx Keep.
 #[derive(Args, Debug)]
 pub struct Options {
-    #[clap(flatten)]
-    pub backend: BackendOptions,
+    #[clap(long, env = "ENARX_BACKEND")]
+    pub backend: Option<&'static dyn Backend>,
 
     /// Package slug or a URL to deploy.
     #[clap(value_name = "PACKAGE")]
@@ -51,7 +51,7 @@ impl Options {
             gdblisten,
         } = self;
 
-        let backend = backend.pick()?;
+        let backend = backend.unwrap_or_default();
         // TODO: Only allow secure backends
         // https://github.com/enarx/enarx/issues/1850
         let exec = EXECS
@@ -113,19 +113,23 @@ impl Options {
                     )
                 };
 
-                let get_pkg = || {
-                    let (wasm, conf) = open_package(wasm, conf)?;
+                let config = match conf {
+                    Some(path) => toml::from_str(&read_to_string(path)?)?,
+                    None => Config::default(),
+                };
 
-                    #[cfg(unix)]
-                    let pkg = Package::Local {
+                let get_pkg = || {
+                    let wasm = open_wasm(wasm)?;
+
+                    let package = Package::Local {
+                        #[cfg(unix)]
                         wasm: wasm.into_raw_fd(),
-                        conf: conf.map(|conf| conf.into_raw_fd()),
+                        #[cfg(windows)]
+                        wasm,
+                        config,
                     };
 
-                    #[cfg(windows)]
-                    let pkg = Package::Local { wasm, conf };
-
-                    Ok(pkg)
+                    Ok(package)
                 };
 
                 run_package(backend, exec, signatures, gdblisten, get_pkg)?

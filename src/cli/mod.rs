@@ -14,12 +14,9 @@ mod tree;
 mod unstable;
 mod user;
 
-use crate::backend::{Backend, BACKENDS};
-
-use std::ops::Deref;
 use std::str::FromStr;
 
-use anyhow::{anyhow, bail};
+use anyhow::anyhow;
 use clap::{ArgAction, Args, Parser, Subcommand};
 use tracing::info;
 use tracing_subscriber::fmt::format::FmtSpan;
@@ -100,44 +97,6 @@ impl Subcommands {
             Self::User(subcmd) => subcmd.dispatch(),
             Self::Unstable(subcmd) => subcmd.dispatch(),
         }
-    }
-}
-
-/// Common backend and shim options
-#[derive(Args, Debug)]
-pub struct BackendOptions {
-    /// Set which backend to use
-    #[clap(long, env = "ENARX_BACKEND")]
-    backend: Option<String>,
-    // TODO: Path to an external shim binary?
-    //shim: Option<PathBuf>,
-}
-
-impl BackendOptions {
-    pub fn pick(&self) -> anyhow::Result<&dyn Backend> {
-        if let Some(ref name) = self.backend {
-            match BACKENDS.deref().iter().find(|b| b.name() == name) {
-                None => {
-                    bail!("Keep backend identifier {:?} is unknown.", name)
-                }
-                Some(backend) => {
-                    if !backend.have() {
-                        bail!("Keep backend {:?} is not available on this platform.", name)
-                    }
-                    if !backend.configured() {
-                        bail!("Keep backend {:?} is available on this platform, but the machine is misconfigured. Please check with `enarx platform info`.", name)
-                    }
-                    Ok(backend)
-                }
-            }
-        } else {
-            BACKENDS.deref().iter().find(|b| b.have()).ok_or_else(|| {
-                anyhow!(
-                    "No supported backend found. Please check your machine with `$ enarx platform info`."
-                )
-            })
-        }
-        .map(|b| &**b)
     }
 }
 

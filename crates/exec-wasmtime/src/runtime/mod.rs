@@ -13,7 +13,7 @@ use self::net::{connect_file, listen_file};
 use super::{Package, Workload};
 
 use anyhow::{bail, Context};
-use enarx_config::{Config, File};
+use enarx_config::File;
 use once_cell::sync::Lazy;
 use wasi_common::file::FileCaps;
 use wasi_common::WasiFile;
@@ -41,14 +41,8 @@ impl Runtime {
         let (prvkey, crtreq) = identity::generate()?;
 
         let Workload { webasm, config } = package.try_into()?;
-        let Config {
-            steward,
-            args,
-            files,
-            env,
-        } = config.unwrap_or_default();
 
-        let certs = if let Some(url) = steward {
+        let certs = if let Some(url) = config.steward {
             identity::steward(&url, crtreq).context("failed to attest to Steward")?
         } else {
             identity::selfsigned(&prvkey).context("failed to generate self-signed certificates")?
@@ -74,7 +68,7 @@ impl Runtime {
         let ctx = ctx.data_mut();
 
         let mut names = vec![];
-        for (fd, file) in files.iter().enumerate() {
+        for (fd, file) in config.files.iter().enumerate() {
             names.push(file.name());
             let (file, caps): (Box<dyn WasiFile>, _) = match file {
                 File::Null(..) => (Box::new(Null), FileCaps::all()),
@@ -94,14 +88,14 @@ impl Runtime {
         ctx.push_env("FD_NAMES", &names.join(":"))
             .context("failed to set environment variable `FD_NAMES`")?;
 
-        for (k, v) in env {
+        for (k, v) in config.env {
             ctx.push_env(&k, &v)
                 .context("failed to set environment variable `{k}`")?;
         }
 
         ctx.push_arg("main.wasm")
             .context("failed to push argv[0]")?;
-        for arg in args {
+        for arg in config.args {
             ctx.push_arg(&arg).context("failed to push argument")?;
         }
 

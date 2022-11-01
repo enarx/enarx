@@ -36,6 +36,7 @@ impl Keep {
     }
 }
 
+#[derive(Debug)]
 pub struct Backend;
 
 impl crate::backend::Backend for Backend {

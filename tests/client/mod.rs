@@ -9,11 +9,12 @@ use std::path::Path;
 use futures::join;
 use tempfile::Builder;
 
+const WORKSPACE_DIR: &str = env!("CARGO_MANIFEST_DIR");
+
 // This is a stateful test that spawns subcommands to exercise the Enarx CLI
 // using a local Drawbridge server and a mocked OIDC server.
-fn cli_test(oidc_url: String, db_host: String) {
-    let workspace_dir = env!("CARGO_MANIFEST_DIR");
-    let data_dir = format!("{workspace_dir}/tests/client/data");
+fn drawbridge_script(oidc_url: String, db_host: String) {
+    let data_dir = format!("{WORKSPACE_DIR}/tests/client/data");
 
     // These environment variables will affect all commands executed below,
     // unless explicitly overridden.
@@ -21,7 +22,7 @@ fn cli_test(oidc_url: String, db_host: String) {
     env::set_var("ENARX_INSECURE_AUTH_TOKEN", "test-token");
     env::set_var(
         "ENARX_CA_BUNDLE",
-        format!("{workspace_dir}/tests/data/tls/ca.crt"),
+        format!("{WORKSPACE_DIR}/tests/data/tls/ca.crt"),
     );
 
     // TODO: succeed when logging in with custom credential helper
@@ -138,8 +139,6 @@ Caused by:
         "Error: Invalid file name: {data_dir}/bad_dir/bad_file"
     );
 
-    // TODO: succeed when running a main.wasm
-
     cmd!(
         succeed: // when publishing a main.wasm file as a public package
         "enarx package publish {db_host}/testuser/pubrepo:1.0.0 {data_dir}/wasm_example/main.wasm"
@@ -191,13 +190,13 @@ Caused by:
 }
 
 #[async_std::test]
-async fn full() {
+async fn drawbridge() {
     env_logger::builder().is_test(true).init();
     let (oidc_url, oidc_tx, oidc_handle) = util::init_oidc().await;
     let (db_port, db_tx, db_handle) = util::init_drawbridge(oidc_url.clone()).await;
     let db_host = format!("localhost:{db_port}");
 
-    cli_test(oidc_url, db_host);
+    drawbridge_script(oidc_url, db_host);
 
     // Gracefully stop servers
     assert_eq!(oidc_tx.send(()), Ok(()));
@@ -206,7 +205,59 @@ async fn full() {
 }
 
 #[test]
-fn test_config_init() {
+fn run() {
+    let example_dir = format!("{WORKSPACE_DIR}/tests/client/data/wasm_example");
+
+    cmd!(
+        fail: // when not specifying a wasm module
+        "enarx run",
+        text:
+        "error: The following required arguments were not provided:
+  <MODULE>
+
+Usage: enarx run <MODULE>
+
+For more information try '--help'"
+    );
+
+    // TODO: Get a better test.
+    // Ideally the wasm example would print "Hello World" when no arguments are passed,
+    // and otherwise read the passed-in arguments to say "Hello $FOO" for each argument.
+    // This would let us better demonstrate configuration.
+    cmd!(
+        succeed: // when no configuration is given
+        "enarx run {example_dir}/main.wasm",
+        text:
+        "Hello, world!"
+    );
+
+    cmd!(
+        succeed: // when configuring via file
+        "enarx run --wasmcfgfile {example_dir}/Enarx.toml {example_dir}/main.wasm",
+        text:
+        "Hello, world!"
+    );
+
+    cmd!(
+        succeed: // when configuring via CLI
+        r#"enarx run
+        --with-files '[{{kind = "stdin"}}, {{kind = "stderr"}}, {{kind = "stderr"}}]'
+        {example_dir}/main.wasm"#,
+        text:
+        "Hello, world!"
+    );
+
+    cmd!(
+        succeed: // when configuring via file and overriding via CLI
+        r#"enarx run
+        --wasmcfgfile {example_dir}/Enarx.toml
+        --with-files '[{{kind = "stdin"}}, {{kind = "stdin"}}, {{kind = "stdin"}}]'
+        {example_dir}/main.wasm"#
+    );
+}
+
+#[test]
+fn config() {
     let tmpdir = Builder::new().prefix("test_config_init").tempdir().unwrap();
     env::set_current_dir(tmpdir.path()).unwrap();
     cmd!(succeed: "enarx config init");

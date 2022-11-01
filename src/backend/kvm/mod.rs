@@ -74,6 +74,7 @@ impl<P: KeepPersonality> Keep<P> {
     }
 }
 
+#[derive(Debug)]
 pub struct Backend;
 
 impl crate::backend::Backend for Backend {

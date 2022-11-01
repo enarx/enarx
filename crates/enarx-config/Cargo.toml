@@ -13,6 +13,7 @@ exclude = [".github/"]
 
 [dependencies]
 serde = { workspace = true }
+toml = { workspace = true }
 url = { workspace = true, features = ["serde"] }
 
 [dev-dependencies]

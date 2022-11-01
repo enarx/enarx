@@ -13,19 +13,9 @@ pub use workload::{Package, Workload, PACKAGE_CONFIG, PACKAGE_ENTRYPOINT};
 
 use runtime::Runtime;
 
-/// The Arguments
-// NOTE: `repr(C)` is required, otherwise `toml` serialization fails with `values must be emitted before tables`
-#[derive(Debug)]
-#[cfg_attr(unix, derive(serde::Deserialize, serde::Serialize))]
-#[repr(C)]
-pub struct Args {
-    /// Package
-    pub package: Package,
-}
-
 /// Execute
-pub fn execute_with_args(args: Args) -> anyhow::Result<()> {
-    Runtime::execute(args.package).map(|_| ())
+pub fn execute_with_args(package: Package) -> anyhow::Result<()> {
+    Runtime::execute(package).map(|_| ())
 }
 
 /// Execute
@@ -44,16 +34,16 @@ pub fn execute() -> anyhow::Result<()> {
     // TODO: Use the write half of the socket to write logs/errors to the host
     let mut host = unsafe { UnixStream::from_raw_fd(3) };
 
-    let mut args = String::new();
-    host.read_to_string(&mut args)
+    let mut package = String::new();
+    host.read_to_string(&mut package)
         .context("failed to read arguments")?;
 
     // The FD is managed by the host or its parent.
     forget(host);
 
-    let args = toml::from_str::<Args>(&args).context("failed to decode arguments")?;
+    let package = toml::from_str::<Package>(&package).context("failed to decode arguments")?;
 
-    execute_with_args(args)?;
+    execute_with_args(package)?;
 
     Ok(())
 }

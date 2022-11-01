@@ -1,26 +1,39 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::backend::Signatures;
-use crate::cli::BackendOptions;
-use crate::exec::{open_package, run_package, EXECS};
+use crate::backend::{Backend, Signatures};
+use crate::exec::{open_wasm, run_package, EXECS};
 
 use std::fmt::Debug;
+use std::fs::read_to_string;
 #[cfg(unix)]
 use std::os::unix::io::IntoRawFd;
 
 use anyhow::anyhow;
 use camino::Utf8PathBuf;
 use clap::Args;
+use enarx_config::{Config, PartialConfig};
 use enarx_exec_wasmtime::Package;
 
 /// Run a WebAssembly module inside an Enarx Keep.
 #[derive(Args, Debug)]
 pub struct Options {
-    #[clap(flatten)]
-    pub backend: BackendOptions,
+    #[clap(long, env = "ENARX_BACKEND")]
+    pub backend: Option<&'static dyn Backend>,
 
     #[clap(long, env = "ENARX_WASMCFGFILE")]
     pub wasmcfgfile: Option<Utf8PathBuf>,
+
+    #[clap(long)]
+    pub with_steward: Option<String>,
+
+    #[clap(long)]
+    pub with_args: Option<String>,
+
+    #[clap(long)]
+    pub with_files: Option<String>,
+
+    #[clap(long)]
+    pub with_env: Option<String>,
 
     /// Path of the WebAssembly module to run
     #[clap(value_name = "MODULE")]
@@ -45,13 +58,28 @@ impl Options {
         let Self {
             backend,
             wasmcfgfile,
+            with_steward,
+            with_args,
+            with_files,
+            with_env,
             module,
             unsigned,
             signatures,
             #[cfg(feature = "gdb")]
             gdblisten,
         } = self;
-        let backend = backend.pick()?;
+
+        let mut config = match wasmcfgfile {
+            Some(path) => toml::from_str(&read_to_string(path)?)?,
+            None => Config::default(),
+        };
+
+        let partial_config = PartialConfig::new(with_steward, with_args, with_files, with_env)?;
+        if let Some(keys) = partial_config {
+            config.update(keys);
+        }
+
+        let backend = backend.unwrap_or_default();
         let exec = EXECS
             .iter()
             .find(|w| w.with_backend(backend))
@@ -65,18 +93,17 @@ impl Options {
         };
 
         let get_pkg = || {
-            let (wasm, conf) = open_package(module, wasmcfgfile)?;
+            let wasm = open_wasm(module)?;
 
-            #[cfg(unix)]
-            let pkg = Package::Local {
+            let package = Package::Local {
+                #[cfg(unix)]
                 wasm: wasm.into_raw_fd(),
-                conf: conf.map(|conf| conf.into_raw_fd()),
+                #[cfg(windows)]
+                wasm,
+                config,
             };
 
-            #[cfg(windows)]
-            let pkg = Package::Local { wasm, conf };
-
-            Ok(pkg)
+            Ok(package)
         };
 
         let code = run_package(
@@ -89,6 +116,7 @@ impl Options {
             Some(gdblisten),
             get_pkg,
         )?;
+
         std::process::exit(code);
     }
 }

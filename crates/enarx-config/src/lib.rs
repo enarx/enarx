@@ -153,6 +153,116 @@ pub struct Config {
     pub env: HashMap<String, String>,
 }
 
+/// A variant of `Config` where all fields are optional.
+///
+/// This type is used to initialize and validate partial configurations,
+/// specified as any combination of configuration keys,
+/// which can then be merged into a base `Config` to update its values.
+/// Best constructed with `PartialConfig::new` and used via
+/// `Config::update`.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PartialConfig {
+    /// A Steward URL
+    #[serde(default)]
+    pub steward: Option<Url>,
+
+    /// The arguments to provide to the application
+    #[serde(default)]
+    pub args: Option<Vec<String>>,
+
+    /// The array of pre-opened file descriptors
+    #[serde(default)]
+    pub files: Option<Vec<File>>,
+
+    /// The environment variables to provide to the application
+    #[serde(default)]
+    pub env: Option<HashMap<String, String>>,
+}
+
+impl Config {
+    /// Update this `Config` with values from a `PartialConfig`.
+    pub fn update(&mut self, new_config: PartialConfig) {
+        let PartialConfig {
+            steward,
+            args,
+            files,
+            env,
+        } = new_config;
+
+        if let Some(new_steward) = steward {
+            self.steward = Some(new_steward);
+        }
+
+        if let Some(new_args) = args {
+            self.args = new_args;
+        }
+
+        if let Some(new_files) = files {
+            self.files = new_files;
+        }
+
+        if let Some(new_env) = env {
+            self.env = new_env;
+        }
+    }
+}
+
+impl PartialConfig {
+    /// Construct a `PartialConfig` from a number of optional arguments,
+    /// specified as strings containing TOML-formatted data.
+    /// If all arguments are `None`, no `PartialConfig` will be constructed
+    /// and the returned value will be `Ok(None)`.
+    ///
+    /// ```
+    /// use enarx_config::PartialConfig;
+    ///
+    /// let partial_config = PartialConfig::new(
+    ///     Some("https://www.example.com".to_string()),
+    ///     Some(r#"["--foo", "--bar"]"#.to_string()),
+    ///     Some(r#"[{kind = "stdin"}, {kind = "stdout"}, {kind = "stderr"}]"#.to_string()),
+    ///     Some(r#"{baz = "qux"}"#.to_string()),
+    /// );
+    /// ```
+    pub fn new(
+        steward: Option<String>,
+        args: Option<String>,
+        files: Option<String>,
+        env: Option<String>,
+    ) -> Result<Option<PartialConfig>, toml::de::Error> {
+        let mut toml_keys = Vec::new();
+
+        // It would be nice if our TOML parser allowed us to parse individual
+        // TOML fragments into arbitrary TOML types.
+        // However, our parser only allows us to parse well-formed documents
+        // (see https://github.com/toml-rs/toml/issues/363).
+        // Thus, we are forced to construct a fake TOML document with the
+        // appropriate keys, as shown below, then extract the parsed values.
+        if let Some(new_steward) = steward {
+            toml_keys.push(format!(r#"steward = "{new_steward}""#));
+        }
+
+        if let Some(new_args) = args {
+            toml_keys.push(format!("args = {new_args}"));
+        }
+
+        if let Some(new_files) = files {
+            toml_keys.push(format!("files = {new_files}"));
+        }
+
+        if let Some(new_env) = env {
+            toml_keys.push(format!("env = {new_env}"));
+        }
+
+        if toml_keys.is_empty() {
+            Ok(None)
+        } else {
+            let document = toml_keys.join("\n");
+            let partial_config = toml::from_str(&document)?;
+            Ok(Some(partial_config))
+        }
+    }
+}
+
 impl Default for Config {
     fn default() -> Self {
         let files = vec![

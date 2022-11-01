@@ -35,7 +35,7 @@ use std::path::PathBuf;
 use std::time::Duration;
 
 use anyhow::{Context, Result};
-use enarx_exec_wasmtime::{Args as ExecArgs, Package};
+use enarx_exec_wasmtime::Package;
 use once_cell::sync::Lazy;
 
 /// Write timeout for writing the arguments to exec-wasmtime.
@@ -105,21 +105,11 @@ pub fn keep_exec(
     }
 }
 
-pub fn open_package(
-    wasm: impl Into<PathBuf>,
-    conf: Option<impl Into<PathBuf>>,
-) -> Result<(File, Option<File>)> {
+pub fn open_wasm(wasm: impl Into<PathBuf>) -> Result<File> {
     let wasm = wasm.into();
     let wasm = File::open(&wasm)
         .with_context(|| format!("failed to open WASM module at `{}`", wasm.display()))?;
-    if let Some(conf) = conf {
-        let conf = conf.into();
-        let conf = File::open(&conf)
-            .with_context(|| format!("failed to open package config at `{}`", conf.display()))?;
-        Ok((wasm, Some(conf)))
-    } else {
-        Ok((wasm, None))
-    }
+    Ok(wasm)
 }
 
 /// Runs a package.
@@ -132,11 +122,10 @@ pub fn run_package(
     exec: impl AsRef<[u8]>,
     _signatures: Option<Signatures>,
     gdblisten: Option<String>,
-    package: impl FnOnce() -> Result<Package>,
+    get_pkg: impl FnOnce() -> Result<Package>,
 ) -> Result<i32> {
-    let package = package()?;
-    let args = ExecArgs { package };
-    backend.set_args(args);
+    let package = get_pkg()?;
+    backend.set_args(package);
     let exit_code = keep_exec(backend, backend.shim(), exec, None, gdblisten)?;
     Ok(exit_code)
 }
@@ -151,7 +140,7 @@ pub fn run_package(
     exec: impl AsRef<[u8]>,
     signatures: Option<Signatures>,
     gdblisten: Option<String>,
-    package: impl FnOnce() -> Result<Package>,
+    get_pkg: impl FnOnce() -> Result<Package>,
 ) -> Result<i32> {
     use std::io::Write;
     use std::net::Shutdown;
@@ -167,9 +156,9 @@ pub fn run_package(
         "exec-wasmtime expects the Unix socket to be at FD 3"
     );
 
-    let package = package()?;
-    let args =
-        toml::to_vec(&ExecArgs { package }).context("failed to encode exec-wasmtime arguments")?;
+    let package = get_pkg()?;
+
+    let args = toml::to_vec(&package).context("failed to encode exec-wasmtime arguments")?;
 
     host_sock
         .set_nonblocking(true)
