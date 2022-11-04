@@ -92,7 +92,7 @@ impl<'a, T: Id> Command<'a, T> {
     pub fn encapsulate(&self, err: std::io::Error) -> Indeterminate<Error> {
         match self.error {
             0 => Indeterminate::<Error>::from(err),
-            _ => Indeterminate::<Error>::from(self.error as u32),
+            _ => Indeterminate::<Error>::from(self.error),
         }
     }
 }

@@ -23,7 +23,7 @@ pub struct EncPhysOffset {
 impl Default for EncPhysOffset {
     fn default() -> Self {
         EncPhysOffset {
-            offset: VirtAddr::new(SHIM_VIRT_OFFSET as u64),
+            offset: VirtAddr::new(SHIM_VIRT_OFFSET),
             c_bit_mask: get_cbit_mask(),
         }
     }

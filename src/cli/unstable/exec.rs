@@ -56,7 +56,7 @@ impl Options {
         use mmarinus::{perms, Map, Private};
 
         let backend = backend.pick()?;
-        let binary = Map::load(&binpath, Private, perms::Read)?;
+        let binary = Map::load(binpath, Private, perms::Read)?;
 
         let signatures = if unsigned {
             None

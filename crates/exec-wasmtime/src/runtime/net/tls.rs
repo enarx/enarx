@@ -252,7 +252,7 @@ impl WasiFile for Stream {
         // TODO: Add support for peek and waitall
         // https://github.com/enarx/enarx/issues/2243
         let n = self.read_vectored(ri_data).await?;
-        Ok((n as u64, RoFlags::empty()))
+        Ok((n, RoFlags::empty()))
     }
 
     async fn sock_send<'a>(
@@ -265,7 +265,7 @@ impl WasiFile for Stream {
         }
 
         let n = self.write_vectored(si_data).await?;
-        Ok(n as u64)
+        Ok(n)
     }
 
     async fn sock_shutdown(&mut self, how: SdFlags) -> Result<(), Error> {

@@ -2,7 +2,7 @@
 
 #![no_std]
 #![no_main]
-#![feature(naked_functions, asm_sym)]
+#![feature(naked_functions)]
 
 enarx_syscall_tests::startup!();
 
