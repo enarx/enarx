@@ -17,7 +17,7 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           target: x86_64-unknown-linux-musl
-          toolchain: nightly-2022-09-15
+          toolchain: nightly-2022-11-04
           override: true
 
       - name: Install cargo-cyclonedx

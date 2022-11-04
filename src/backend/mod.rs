@@ -278,7 +278,7 @@ pub static BACKENDS: Lazy<Vec<Box<dyn Backend>>> = Lazy::new(|| {
         Box::new(kvm::Backend),
         #[cfg(not(enarx_with_shim))]
         Box::new(NotSupportedBackend("kvm")),
-        Box::new(nil::Backend::default()),
+        Box::<nil::Backend>::default(),
     ]
 });
 
@@ -328,7 +328,7 @@ pub(super) unsafe fn execute_gdb(
                 }
 
                 *ret = match res {
-                    Ok(n) => n as usize,
+                    Ok(n) => n,
                     Err(e) => -e as usize,
                 };
             } else {
@@ -400,7 +400,7 @@ pub(super) unsafe fn execute_gdb(
                 .map(|_| 0usize)
                 .map_err(|e| e.raw_os_error().unwrap_or(libc::EINVAL));
             *ret = match res {
-                Ok(n) => n as usize,
+                Ok(n) => n,
                 Err(e) => -e as usize,
             };
             Ok(())
@@ -420,7 +420,7 @@ pub(super) unsafe fn execute_gdb(
                 .map_err(|e| e.raw_os_error().unwrap_or(libc::EINVAL));
 
             *ret = match res {
-                Ok(n) => n as usize,
+                Ok(n) => n,
                 Err(e) => -e as usize,
             };
             Ok(())

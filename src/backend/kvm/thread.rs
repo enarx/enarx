@@ -100,7 +100,7 @@ impl<P: KeepPersonality> Thread<P> {
                 ..
             } => {
                 *ret = match self.meminfo() {
-                    Ok(n) => n as usize,
+                    Ok(n) => n,
                     Err(e) => -e as usize,
                 };
                 Ok(None)
@@ -112,7 +112,7 @@ impl<P: KeepPersonality> Thread<P> {
                 ret,
             } => {
                 *ret = match self.balloon(*log2, *npgs, *addr) {
-                    Ok(n) => n as usize,
+                    Ok(n) => n,
                     Err(e) => -e as usize,
                 };
                 Ok(None)
@@ -138,8 +138,7 @@ impl<P: KeepPersonality> super::super::Thread for Thread<P> {
                 let block: Block = unsafe {
                     std::slice::from_raw_parts_mut(
                         block_virt.as_mut_ptr::<usize>(),
-                        self.keep.read().unwrap().sallyport_block_size as usize
-                            / size_of::<usize>(),
+                        self.keep.read().unwrap().sallyport_block_size / size_of::<usize>(),
                     )
                 }
                 .into();

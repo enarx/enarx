@@ -133,7 +133,7 @@ impl<'a> Write for Handler<'a> {
         while written < len {
             written += self
                 .write(STDERR_FILENO, &buf[written..])
-                .map_err(|_| core::fmt::Error)? as usize;
+                .map_err(|_| core::fmt::Error)?;
         }
         Ok(())
     }

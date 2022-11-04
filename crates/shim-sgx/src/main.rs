@@ -6,7 +6,7 @@
 //! instructions) from the enclave code and proxies them to the host.
 
 #![no_std]
-#![feature(asm_const, asm_sym, naked_functions)]
+#![feature(asm_const, naked_functions)]
 #![deny(clippy::all)]
 #![deny(missing_docs)]
 #![warn(rust_2018_idioms)]

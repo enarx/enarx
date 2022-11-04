@@ -293,7 +293,7 @@ pub trait Handler {
                     let mut timeout = *t;
                     timeout.tv_sec += cur_time.tv_sec;
                     timeout.tv_nsec += cur_time.tv_nsec;
-                    timeout.tv_sec += (timeout.tv_nsec / 1_000_000_000) as i64;
+                    timeout.tv_sec += timeout.tv_nsec / 1_000_000_000;
                     timeout.tv_nsec %= 1_000_000_000;
                     timeout
                 });

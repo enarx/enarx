@@ -1,5 +1,5 @@
 [toolchain]
-channel = "nightly-2022-09-15"
+channel = "nightly-2022-11-04"
 targets = [
     "aarch64-apple-darwin",
     "aarch64-unknown-linux-musl",

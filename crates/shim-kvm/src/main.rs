@@ -8,7 +8,7 @@
 #![deny(missing_docs)]
 #![warn(rust_2018_idioms)]
 #![no_main]
-#![feature(asm_const, asm_sym, naked_functions)]
+#![feature(asm_const, naked_functions)]
 #![cfg_attr(coverage, feature(no_coverage))]
 
 #[allow(unused_extern_crates)]

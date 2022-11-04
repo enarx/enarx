@@ -11,7 +11,7 @@
 #![cfg_attr(not(test), no_std)]
 #![deny(clippy::all)]
 #![deny(missing_docs)]
-#![feature(asm_const, asm_sym, c_size_t, naked_functions)]
+#![feature(asm_const, c_size_t, naked_functions)]
 #![warn(rust_2018_idioms)]
 #![cfg_attr(coverage, feature(no_coverage))]
 
