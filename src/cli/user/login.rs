@@ -16,6 +16,8 @@ pub struct Options {
     oidc_client_id: String,
     #[clap(long, env = "ENARX_CREDENTIAL_HELPER")]
     credential_helper: Option<OsString>,
+    #[clap(long, default_value = "store.profian.com")]
+    store_host: String,
 }
 
 impl Options {
@@ -24,9 +26,10 @@ impl Options {
             ref oidc_domain,
             oidc_client_id,
             ref credential_helper,
+            store_host,
         } = self;
 
-        login(oidc_domain, oidc_client_id, credential_helper)?;
+        login(&store_host, oidc_domain, oidc_client_id, credential_helper)?;
 
         println!("Login successful.");
 

@@ -46,9 +46,19 @@ impl Options {
         } = self;
 
         // If we don't find a token saved locally, initiate an interactive login
-        let token = match get_token(oidc_domain, insecure_auth_token, credential_helper) {
+        let token = match get_token(
+            &spec.host,
+            oidc_domain,
+            insecure_auth_token,
+            credential_helper,
+        ) {
             Ok(token) => token,
-            _ => login(oidc_domain, oidc_client_id.clone(), credential_helper)?,
+            _ => login(
+                &spec.host,
+                oidc_domain,
+                oidc_client_id.clone(),
+                credential_helper,
+            )?,
         };
 
         let cl = client(
