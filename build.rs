@@ -35,6 +35,16 @@ fn generate_protos() {
         .expect("Protobuf codegen failed");
 }
 
+#[cfg(all(target_os = "linux", target_arch = "x86_64"))]
+fn host_has_sgx2() -> bool {
+    use std::arch::x86_64::__cpuid;
+    use std::os::unix::fs::PermissionsExt;
+
+    Path::new("/dev/sgx_enclave").metadata().map_or(false, |m| {
+        m.file_type().is_char_device() && m.permissions().mode() & 0o600 == 0o600
+    }) && unsafe { __cpuid(0x7).ebx & (1 << 2) != 0 && __cpuid(0x12).eax & (1 << 1) != 0 }
+}
+
 fn main() {
     println!("cargo:rerun-if-env-changed=OUT_DIR");
     // FIXME: this exists to work around https://github.com/rust-lang/cargo/issues/10527
@@ -55,12 +65,7 @@ fn main() {
 
     #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
     {
-        if Path::new("/dev/sgx_enclave").exists()
-            && fs::metadata("/dev/sgx_enclave")
-                .unwrap()
-                .file_type()
-                .is_char_device()
-        {
+        if host_has_sgx2() {
             const AESM_SOCKET: &str = "/var/run/aesmd/aesm.socket";
 
             println!("cargo:rustc-cfg=host_can_test_sgx");
