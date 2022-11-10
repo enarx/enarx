@@ -121,7 +121,8 @@ jobs:
         name: enarx-x86_64-unknown-linux-musl
     - run: chmod +x enarx-x86_64-unknown-linux-musl
     - name: Retrieve keep signing keys (main branch and tags)
-      if: (startsWith(github.ref, 'refs/tags/') || github.ref == '/refs/heads/main') && github.event_name == 'push'
+      if: (startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/main') && github.event_name == 'push'
+      id: signkey_retrieve
       env:
         SEV_ID_KEY: ${{ secrets.SEV_ID_KEY }}
         SEV_ID_KEY_SIGNATURE_BLOB: ${{ secrets.SEV_ID_KEY_SIGNATURE_BLOB }}
@@ -131,7 +132,7 @@ jobs:
         base64 --decode <<<${SEV_ID_KEY_SIGNATURE_BLOB} | gunzip > sev-id-key-signature.blob
         base64 --decode <<<${SGX_KEY} | gunzip > sgx.key
     - name: Generate the enarx keep signature (fork)
-      if: ${{ github.event.pull_request.head.repo.fork }}
+      if: steps.signkey_retrieve.conclusion == 'skipped'
       run: |
         ./enarx-x86_64-unknown-linux-musl key sgx create --out sgx.key
         ./enarx-x86_64-unknown-linux-musl key sev create --out sev-author.key
