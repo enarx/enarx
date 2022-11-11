@@ -52,6 +52,12 @@ macro_rules! cmd {
 pub fn enarx(args: String, expected_success: bool, expected_output: Output) {
     let mut cmd = Command::new(env!("CARGO_BIN_EXE_enarx"));
 
+    // Disable RUST_BACKTRACE when running the tests so as not to cause spurious
+    // failures when comparing the actual output to the expected output.
+    // This is convenient for users who have RUST_BACKTRACE set by default
+    // in their development environment and want to run the tests.
+    cmd.env_remove("RUST_BACKTRACE");
+
     for arg in args.split_whitespace().skip(1) {
         cmd.arg(arg);
     }
