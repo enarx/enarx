@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::drawbridge::{client, get_token, login, UserSpec};
+use crate::drawbridge::{client, get_token, login, LoginContext, LoginCredentials, UserSpec};
 
 use std::ffi::OsString;
 
@@ -53,12 +53,14 @@ impl Options {
             credential_helper,
         ) {
             Ok(token) => token,
-            _ => login(
-                &spec.host,
-                oidc_domain,
-                oidc_client_id.clone(),
-                credential_helper,
-            )?,
+            _ => login(LoginContext {
+                host: spec.host.clone(),
+                oidc_domain: oidc_domain.clone(),
+                credentials: LoginCredentials::DeviceAuthorization {
+                    client_id: oidc_client_id.clone(),
+                },
+                helper: credential_helper.clone(),
+            })?,
         };
 
         let cl = client(
