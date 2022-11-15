@@ -199,7 +199,7 @@ jobs:
       with:
         name: "enarx-x86_64-unknown-linux-musl-sig"
     - id: version
-      run: echo "::set-output name=version::$(cargo metadata --format-version=1 --no-deps | jq '.packages[] | select(.name == "enarx") | .version' --raw-output)"
+      run: echo "version=$(cargo metadata --format-version=1 --no-deps | jq '.packages[] | select(.name == "enarx") | .version' --raw-output)" >>$GITHUB_OUTPUT
     - run: |
         rpmbuild -bb release/linux/rpm/enarx.spec \
         --define "%source_binary `pwd`/enarx-${{ matrix.architecture }}-unknown-linux-musl" \
@@ -239,7 +239,7 @@ jobs:
       with:
         name: "enarx-x86_64-unknown-linux-musl-sig"
     - id: version
-      run: echo "::set-output name=version::$(cargo metadata --format-version=1 --no-deps | jq '.packages[] | select(.name == "enarx") | .version' --raw-output)"
+      run: echo "version=$(cargo metadata --format-version=1 --no-deps | jq '.packages[] | select(.name == "enarx") | .version' --raw-output)" >>$GITHUB_OUTPUT
     - run: |
         mkdir -p dpkg dpkg/DEBIAN dpkg/usr/bin
         cat release/linux/deb/control | sed -e 's/VERSION/${{ steps.version.outputs.version }}/' -e 's/ARCH/${{ matrix.architecture.debarch }}/' > dpkg/DEBIAN/control
@@ -314,7 +314,7 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     - id: version
-      run: echo "::set-output name=version::$(cargo metadata --format-version=1 --no-deps | jq '.packages[] | select(.name == "enarx") | .version' --raw-output)"
+      run: echo "version=$(cargo metadata --format-version=1 --no-deps | jq '.packages[] | select(.name == "enarx") | .version' --raw-output)" >>$GITHUB_OUTPUT
     - uses: actions/download-artifact@v3
       with:
         name: enarx-x86_64-windows

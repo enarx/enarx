@@ -27,7 +27,7 @@ jobs:
           git reset --hard origin/main
           for i in $(find . -name Cargo.toml); do cargo update --manifest-path=$i; done
           git diff --quiet && git diff --staged --quiet || git commit -am 'chore(deps): cargo update to update dependencies' && \
-            git push --force origin chore/cargo-update && echo "::set-output name=updated::0"
+            git push --force origin chore/cargo-update && echo "updated=0" >>$GITHUB_OUTPUT
         shell: bash
       - name: Create pull request
         if: steps.update_dependencies.outputs.updated == 0
