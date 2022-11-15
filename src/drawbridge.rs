@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use std::borrow::Borrow;
+use std::convert::TryInto;
 use std::ffi::OsStr;
 use std::fs::File;
 use std::io::{stderr, Write};
@@ -15,7 +16,6 @@ use drawbridge_client::types::{RepositoryContext, TagContext, UserContext};
 use drawbridge_client::Client;
 use oauth2::basic::BasicClient;
 use oauth2::devicecode::StandardDeviceAuthorizationResponse;
-use oauth2::ureq::http_client;
 use oauth2::url::Url;
 use oauth2::{AuthType, AuthUrl, ClientId, DeviceAuthorizationUrl, Scope, TokenResponse, TokenUrl};
 use rustls::{Certificate, RootCertStore};
@@ -177,6 +177,16 @@ pub fn client(
         .context("Failed to build client")?;
 
     Ok(cl)
+}
+
+fn http_client(mut req: oauth2::HttpRequest) -> Result<oauth2::HttpResponse, oauth2::ureq::Error> {
+    req.headers.insert(
+        "User-Agent",
+        format!("enarx-cli/{}", env!("CARGO_PKG_VERSION"))
+            .try_into()
+            .unwrap(),
+    );
+    oauth2::ureq::http_client(req)
 }
 
 pub fn login(
