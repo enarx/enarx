@@ -1,15 +1,7 @@
 {
   description = "Tools for deploying WebAssembly into Enarx Keeps.";
 
-  # NOTE: https://github.com/rvolosatovs/nixify/commit/e714e8244d3736c6bd3168f4de87f519db4a507c following this commit
-  # introduced a bug, once that is fixed the dependency should be unpinned
-  inputs.nixify.url = github:rvolosatovs/nixify/e87cbcb1ba3f43dbf99901312c70e6d566a21fb6;
-
-  # Temporary override transitive `nixify` dependencies to benefit from updates.
-  inputs.nixify.inputs.nixpkgs.follows = "nixpkgs";
-  inputs.nixify.inputs.rust-overlay.follows = "rust-overlay";
-  inputs.nixpkgs.url = github:nixos/nixpkgs/nixpkgs-22.05-darwin;
-  inputs.rust-overlay.url = github:oxalica/rust-overlay;
+  inputs.nixify.url = github:rvolosatovs/nixify;
 
   outputs = {nixify, ...}: let
   in
@@ -44,6 +36,8 @@
         clippy.allFeatures = true;
         clippy.allTargets = true;
         clippy.deny = ["warnings"];
+
+        targets.x86_64-unknown-none = false;
 
         buildOverrides = {
           pkgs,
