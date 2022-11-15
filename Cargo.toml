@@ -85,7 +85,6 @@ protobuf-codegen-pure = { workspace = true }
 [dev-dependencies]
 process_control = { workspace = true }
 rustls = { workspace = true, features = ["dangerous_configuration"] } # `dangerous_configuration` is required to specify a custom TLS verifier
-serial_test = { workspace = true }
 testaso = { workspace = true }
 tempfile = { workspace = true }
 wat = { workspace = true }
