@@ -42,53 +42,6 @@ fn exit_one() {
 
 #[test]
 #[serial]
-fn clock_gettime() {
-    if is_nil() {
-        eprintln!("Not supported on nil backend, ignoring");
-        return;
-    }
-
-    use libc::{clock_gettime, CLOCK_MONOTONIC};
-
-    // Get the time from inside the keep.
-    let bin = env!("CARGO_BIN_FILE_ENARX_SYSCALL_TESTS_clock_gettime");
-    let stdout = run_test(bin, 0, None, None, None).stdout;
-    let theirs: libc::timespec = read_item(stdout.as_slice()).unwrap();
-
-    // Get the time from outside the keep.
-    let ours = unsafe {
-        let mut ts = MaybeUninit::uninit();
-        assert_eq!(0, clock_gettime(CLOCK_MONOTONIC, ts.as_mut_ptr()));
-        ts.assume_init()
-    };
-
-    // Validate that the difference in time is minor...
-    const NSEC_PER_SEC: libc::c_long = 1_000_000_000;
-    const MAX_SEC: libc::c_long = 60;
-
-    let sec = ours.tv_sec - theirs.tv_sec;
-    assert!(sec >= 0);
-    assert!(sec < MAX_SEC);
-
-    let nsec = sec * NSEC_PER_SEC + ours.tv_nsec - theirs.tv_nsec;
-    assert!(nsec >= 0);
-    assert!(nsec < MAX_SEC * NSEC_PER_SEC);
-}
-
-#[test]
-#[serial]
-fn close() {
-    if is_nil() {
-        eprintln!("Not supported on nil backend, ignoring");
-        return;
-    }
-
-    let bin = env!("CARGO_BIN_FILE_ENARX_SYSCALL_TESTS_close");
-    run_test(bin, 0, None, None, None);
-}
-
-#[test]
-#[serial]
 fn write_stdout() {
     if is_nil() {
         eprintln!("Not supported on nil backend, ignoring");
@@ -152,18 +105,6 @@ fn readv() {
 
 #[test]
 #[serial]
-fn uname() {
-    if is_nil() {
-        eprintln!("Not supported on nil backend, ignoring");
-        return;
-    }
-
-    let bin = env!("CARGO_BIN_FILE_ENARX_SYSCALL_TESTS_uname");
-    run_test(bin, 0, None, None, None);
-}
-
-#[test]
-#[serial]
 fn read_udp() {
     if is_nil() {
         eprintln!("Not supported on nil backend, ignoring");
@@ -218,84 +159,35 @@ fn sgx_get_att_quote() {
 
 #[test]
 #[serial]
-fn getuid() {
+fn tests() {
     if is_nil() {
         eprintln!("Not supported on nil backend, ignoring");
         return;
     }
 
-    let bin = env!("CARGO_BIN_FILE_ENARX_SYSCALL_TESTS_getuid");
-    run_test(bin, 0, None, None, None);
-}
+    use libc::{clock_gettime, CLOCK_MONOTONIC};
 
-#[test]
-#[serial]
-fn geteuid() {
-    if is_nil() {
-        eprintln!("Not supported on nil backend, ignoring");
-        return;
-    }
+    // Get the time from inside the keep.
+    let bin = env!("CARGO_BIN_FILE_ENARX_SYSCALL_TESTS_tests");
+    let stdout = run_test(bin, 0, None, None, None).stdout;
+    let theirs: libc::timespec = read_item(stdout.as_slice()).unwrap();
 
-    let bin = env!("CARGO_BIN_FILE_ENARX_SYSCALL_TESTS_geteuid");
-    run_test(bin, 0, None, None, None);
-}
+    // Get the time from outside the keep.
+    let ours = unsafe {
+        let mut ts = MaybeUninit::uninit();
+        assert_eq!(0, clock_gettime(CLOCK_MONOTONIC, ts.as_mut_ptr()));
+        ts.assume_init()
+    };
 
-#[test]
-#[serial]
-fn getgid() {
-    if is_nil() {
-        eprintln!("Not supported on nil backend, ignoring");
-        return;
-    }
+    // Validate that the difference in time is minor...
+    const NSEC_PER_SEC: libc::c_long = 1_000_000_000;
+    const MAX_SEC: libc::c_long = 60;
 
-    let bin = env!("CARGO_BIN_FILE_ENARX_SYSCALL_TESTS_getgid");
-    run_test(bin, 0, None, None, None);
-}
+    let sec = ours.tv_sec - theirs.tv_sec;
+    assert!(sec >= 0);
+    assert!(sec < MAX_SEC);
 
-#[test]
-#[serial]
-fn getegid() {
-    if is_nil() {
-        eprintln!("Not supported on nil backend, ignoring");
-        return;
-    }
-
-    let bin = env!("CARGO_BIN_FILE_ENARX_SYSCALL_TESTS_getegid");
-    run_test(bin, 0, None, None, None);
-}
-
-#[test]
-#[serial]
-fn socket() {
-    if is_nil() {
-        eprintln!("Not supported on nil backend, ignoring");
-        return;
-    }
-
-    let bin = env!("CARGO_BIN_FILE_ENARX_SYSCALL_TESTS_socket");
-    run_test(bin, 0, None, None, None);
-}
-
-#[test]
-#[serial]
-fn bind() {
-    if is_nil() {
-        eprintln!("Not supported on nil backend, ignoring");
-        return;
-    }
-
-    let bin = env!("CARGO_BIN_FILE_ENARX_SYSCALL_TESTS_bind");
-    run_test(bin, 0, None, None, None);
-}
-
-#[test]
-#[serial]
-fn listen() {
-    if is_nil() {
-        eprintln!("Not supported on nil backend, ignoring");
-        return;
-    }
-
-    let bin = env!("CARGO_BIN_FILE_ENARX_SYSCALL_TESTS_listen");
-    run_test(bin, 0, None, None, None);
+    let nsec = sec * NSEC_PER_SEC + ours.tv_nsec - theirs.tv_nsec;
+    assert!(nsec >= 0);
+    assert!(nsec < MAX_SEC * NSEC_PER_SEC);
 }

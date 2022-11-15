@@ -8,3 +8,4 @@ license = "Apache-2.0"
 goblin = { version = "0.5", features = ["elf64"], default-features = false }
 rcrt1 = { version = "2.4.0", default-features = false }
 sallyport = { path = "../../../crates/sallyport", default-features = false }
+numtoa = "0.2.4"
