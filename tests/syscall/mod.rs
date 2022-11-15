@@ -6,8 +6,6 @@ use std::io::Read;
 use std::mem::{size_of, MaybeUninit};
 use std::slice::from_raw_parts_mut;
 
-use serial_test::serial;
-
 fn read_item<T: Copy>(mut rdr: impl Read) -> std::io::Result<T> {
     let mut item = MaybeUninit::uninit();
     let ptr = item.as_mut_ptr() as *mut u8;
@@ -17,7 +15,6 @@ fn read_item<T: Copy>(mut rdr: impl Read) -> std::io::Result<T> {
 }
 
 #[test]
-#[serial]
 fn exit_zero() {
     if is_nil() {
         eprintln!("Not supported on nil backend, ignoring");
@@ -29,7 +26,6 @@ fn exit_zero() {
 }
 
 #[test]
-#[serial]
 fn exit_one() {
     if is_nil() {
         eprintln!("Not supported on nil backend, ignoring");
@@ -41,7 +37,6 @@ fn exit_one() {
 }
 
 #[test]
-#[serial]
 fn write_stdout() {
     if is_nil() {
         eprintln!("Not supported on nil backend, ignoring");
@@ -54,7 +49,6 @@ fn write_stdout() {
 
 #[cfg(not(feature = "dbg"))]
 #[test]
-#[serial]
 fn write_stderr() {
     if is_nil() {
         eprintln!("Not supported on nil backend, ignoring");
@@ -66,7 +60,6 @@ fn write_stderr() {
 }
 
 #[test]
-#[serial]
 fn write_emsgsize() {
     if is_nil() {
         eprintln!("Not supported on nil backend, ignoring");
@@ -78,7 +71,6 @@ fn write_emsgsize() {
 }
 
 #[test]
-#[serial]
 fn read() {
     if is_nil() {
         eprintln!("Not supported on nil backend, ignoring");
@@ -91,7 +83,6 @@ fn read() {
 }
 
 #[test]
-#[serial]
 fn readv() {
     if is_nil() {
         eprintln!("Not supported on nil backend, ignoring");
@@ -104,7 +95,6 @@ fn readv() {
 }
 
 #[test]
-#[serial]
 fn read_udp() {
     if is_nil() {
         eprintln!("Not supported on nil backend, ignoring");
@@ -130,7 +120,6 @@ fn read_udp() {
     ignore = "Backend does not support attestation"
 )]
 #[test]
-#[serial]
 fn get_att() {
     if is_nil() {
         eprintln!("Not supported on nil backend, ignoring");
@@ -146,7 +135,6 @@ fn get_att() {
     ignore = "Backend does not support SGX"
 )]
 #[test]
-#[serial]
 fn sgx_get_att_quote() {
     if !is_sgx() {
         eprintln!("SGX backend is disabled, ignoring");
@@ -158,7 +146,6 @@ fn sgx_get_att_quote() {
 }
 
 #[test]
-#[serial]
 fn tests() {
     if is_nil() {
         eprintln!("Not supported on nil backend, ignoring");

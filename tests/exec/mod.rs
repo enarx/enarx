@@ -10,12 +10,10 @@ use std::os::unix::net::{UnixListener, UnixStream};
 use std::thread;
 use std::time::Duration;
 
-use serial_test::serial;
 use std::sync::Arc;
 use tempfile::Builder;
 
 #[test]
-#[serial]
 #[cfg_attr(not(host_can_test_sgx), ignore = "Backend does not support SGX")]
 fn futex() {
     if !is_sgx() {
@@ -29,7 +27,6 @@ fn futex() {
 }
 
 #[test]
-#[serial]
 #[cfg_attr(not(host_can_test_sgx), ignore = "Backend does not support SGX")]
 fn thread() {
     if !is_sgx() {
@@ -57,7 +54,6 @@ After Join 2
 }
 
 #[test]
-#[serial]
 #[cfg_attr(not(host_can_test_sgx), ignore = "Backend does not support SGX")]
 fn thread_many() {
     if !is_sgx() {
@@ -70,7 +66,6 @@ fn thread_many() {
 }
 
 #[test]
-#[serial]
 #[cfg_attr(not(host_can_test_sgx), ignore = "Backend does not support SGX")]
 fn thread_exit_group() {
     if !is_sgx() {
@@ -83,7 +78,6 @@ fn thread_exit_group() {
 }
 
 #[test]
-#[serial]
 #[cfg_attr(not(host_can_test_sgx), ignore = "Backend does not support SGX")]
 fn thread_channel() {
     if !is_sgx() {
@@ -97,7 +91,6 @@ fn thread_channel() {
 }
 
 #[test]
-#[serial]
 fn echo() {
     if is_nil() {
         eprintln!("Not supported on nil backend, ignoring");
@@ -116,7 +109,6 @@ fn echo() {
 }
 
 #[test]
-#[serial]
 fn unix_echo() {
     if is_nil() {
         eprintln!("Not supported on nil backend, ignoring");
@@ -170,7 +162,6 @@ fn unix_echo() {
 
 #[test]
 #[cfg_attr(not(host_can_test_sev), ignore = "Backend does not support SEV-SNP")]
-#[serial]
 fn rust_sev_attestation() {
     if !is_sev() {
         eprintln!("SEV backend is disabled, ignoring");
@@ -219,7 +210,6 @@ fn rust_sev_attestation() {
 
 #[test]
 #[cfg_attr(not(host_can_test_sgx), ignore = "Backend does not support SGX")]
-#[serial]
 fn rust_sgx_attestation() {
     if !is_sgx() {
         eprintln!("SGX backend is disabled, ignoring");
@@ -232,7 +222,6 @@ fn rust_sgx_attestation() {
 }
 
 #[test]
-#[serial]
 fn memspike() {
     if is_nil() {
         eprintln!("Not supported on nil backend, ignoring");
@@ -244,7 +233,6 @@ fn memspike() {
 }
 
 #[test]
-#[serial]
 fn memory_stress_test() {
     if is_nil() {
         eprintln!("Not supported on nil backend, ignoring");
@@ -256,7 +244,6 @@ fn memory_stress_test() {
 }
 
 #[test]
-#[serial]
 fn cpuid() {
     if is_nil() {
         eprintln!("Not supported on nil backend, ignoring");

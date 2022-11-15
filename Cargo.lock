@@ -1207,7 +1207,6 @@ dependencies = [
  "semver",
  "serde",
  "serde_json",
- "serial_test",
  "sgx",
  "sha2 0.10.6",
  "static_assertions",
