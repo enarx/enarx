@@ -5,26 +5,6 @@ updates:
   schedule:
     interval: "daily"
 - package-ecosystem: "cargo"
-  directory: "crates/exec-wasmtime"
-  schedule:
-    interval: "daily"
-- package-ecosystem: "cargo"
-  directory: "crates/enarx-config"
-  schedule:
-    interval: "daily"
-- package-ecosystem: "cargo"
-  directory: "crates/shim-kvm"
-  schedule:
-    interval: "daily"
-- package-ecosystem: "cargo"
-  directory: "crates/shim-sgx"
-  schedule:
-    interval: "daily"
-- package-ecosystem: "cargo"
-  directory: "crates/sallyport"
-  schedule:
-    interval: "daily"
-- package-ecosystem: "cargo"
   directory: "tests/crates/enarx_exec_tests"
   schedule:
     interval: "daily"
