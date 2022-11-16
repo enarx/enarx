@@ -49,7 +49,9 @@ macro_rules! cmd {
 }
 
 #[track_caller]
-pub fn enarx(args: String, expected_success: bool, expected_output: Output) {
+pub fn enarx(input: String, expected_success: bool, expected_output: Output) {
+    let args = shell_words::split(&input).unwrap();
+
     let mut cmd = Command::new(env!("CARGO_BIN_EXE_enarx"));
 
     // Disable RUST_BACKTRACE when running the tests so as not to cause spurious
@@ -58,7 +60,7 @@ pub fn enarx(args: String, expected_success: bool, expected_output: Output) {
     // in their development environment and want to run the tests.
     cmd.env_remove("RUST_BACKTRACE");
 
-    for arg in args.split_whitespace().skip(1) {
+    for arg in args.iter().skip(1) {
         cmd.arg(arg);
     }
 
@@ -87,7 +89,7 @@ pub fn enarx(args: String, expected_success: bool, expected_output: Output) {
         panic!(
             "{msg}:\n\n\
             ```command\n\
-            {args}\n\
+            {input}\n\
             ```\n\n\
             ```expected\n\
             {expected_output}\n\
