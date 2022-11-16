@@ -108,13 +108,18 @@ mod test {
         let mut file = tempfile().context("failed to create module file")?;
         file.write(wasm).context("failed to write module to file")?;
         file.rewind().context("failed to rewind file")?;
-        Runtime::execute(Package::Local {
+        #[cfg(unix)]
+        let file = std::mem::ManuallyDrop::new(file);
+        let res = Runtime::execute(Package::Local {
             #[cfg(unix)]
             wasm: file.as_raw_fd(),
             #[cfg(windows)]
             wasm: file,
             conf: None,
-        })
+        });
+        #[cfg(unix)]
+        let _ = std::mem::ManuallyDrop::into_inner(file);
+        res
     }
 
     #[test]
