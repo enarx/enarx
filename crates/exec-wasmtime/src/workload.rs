@@ -2,6 +2,7 @@
 
 //! Workload-related functionality and definitions.
 
+use std::fs::File;
 use std::io::Read;
 #[cfg(unix)]
 use std::os::unix::prelude::FromRawFd;
@@ -54,9 +55,9 @@ pub enum Package {
     #[cfg(windows)]
     Local {
         /// Open WASM module file
-        wasm: std::fs::File,
+        wasm: File,
         /// Optional open config file
-        conf: Option<std::fs::File>,
+        conf: Option<File>,
     },
 }
 
@@ -200,7 +201,7 @@ impl TryFrom<Package> for Workload {
                 // SAFETY: This FD was passed to us by the host and we trust that we have exclusive
                 // access to it.
                 #[cfg(unix)]
-                let mut wasm = unsafe { std::fs::File::from_raw_fd(*wasm) };
+                let mut wasm = unsafe { File::from_raw_fd(*wasm) };
 
                 wasm.read_to_end(&mut webasm)
                     .context("failed to read WASM module")?;
@@ -209,7 +210,7 @@ impl TryFrom<Package> for Workload {
                     // SAFETY: This FD was passed to us by the host and we trust that we have exclusive
                     // access to it.
                     #[cfg(unix)]
-                    let mut conf = unsafe { std::fs::File::from_raw_fd(*conf) };
+                    let mut conf = unsafe { File::from_raw_fd(*conf) };
 
                     let mut config = vec![];
                     conf.read_to_end(&mut config)
