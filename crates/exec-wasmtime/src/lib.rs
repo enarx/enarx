@@ -64,7 +64,7 @@ mod test {
 
     use std::io::{Seek, Write};
     #[cfg(unix)]
-    use std::os::unix::prelude::AsRawFd;
+    use std::os::unix::io::IntoRawFd;
 
     use anyhow::Context;
     use tempfile::tempfile;
@@ -109,17 +109,11 @@ mod test {
         file.write(wasm).context("failed to write module to file")?;
         file.rewind().context("failed to rewind file")?;
         #[cfg(unix)]
-        let file = std::mem::ManuallyDrop::new(file);
-        let res = Runtime::execute(Package::Local {
-            #[cfg(unix)]
-            wasm: file.as_raw_fd(),
-            #[cfg(windows)]
+        let file = file.into_raw_fd();
+        Runtime::execute(Package::Local {
             wasm: file,
             conf: None,
-        });
-        #[cfg(unix)]
-        let _ = std::mem::ManuallyDrop::into_inner(file);
-        res
+        })
     }
 
     #[test]
