@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::drawbridge::{client, get_token, login, LoginContext, LoginCredentials, UserSpec};
+use super::oidc_client_secret;
+use crate::drawbridge::{client, get_token, LoginContext, OidcLoginFlow, UserSpec};
 
 use std::ffi::OsString;
 
@@ -31,19 +32,24 @@ pub struct Options {
     oidc_domain: Url,
     #[clap(long, default_value = "4NuaJxkQv8EZBeJKE56R57gKJbxrTLG2")]
     oidc_client_id: String,
+    #[clap(long, default_value = "device")]
+    oidc_flow: OidcLoginFlow,
     spec: UserSpec,
 }
 
 impl Options {
     pub fn execute(self) -> anyhow::Result<()> {
         let Self {
-            ref ca_bundle,
-            ref insecure_auth_token,
+            ca_bundle,
+            insecure_auth_token,
             ref oidc_domain,
             oidc_client_id,
+            oidc_flow,
             ref spec,
-            ref credential_helper,
+            credential_helper,
         } = self;
+        let oidc_client_secret = oidc_client_secret()?;
+        let credential_helper = credential_helper.as_ref().map(AsRef::as_ref);
 
         // If we don't find a token saved locally, initiate an interactive login
         let token = match get_token(
@@ -53,20 +59,21 @@ impl Options {
             credential_helper,
         ) {
             Ok(token) => token,
-            _ => login(LoginContext {
-                host: spec.host.clone(),
-                oidc_domain: oidc_domain.clone(),
-                credentials: LoginCredentials::DeviceAuthorization {
-                    client_id: oidc_client_id.clone(),
-                },
-                helper: credential_helper.clone(),
-            })?,
+            _ => LoginContext {
+                host: &spec.host,
+                oidc_domain,
+                oidc_client_id: oidc_client_id.clone(),
+                oidc_client_secret,
+                oidc_flow,
+                credential_helper,
+            }
+            .login()?,
         };
 
         let cl = client(
             &spec.host,
             oidc_domain,
-            &Some(token.clone()),
+            Some(&token),
             ca_bundle,
             credential_helper,
         )?;

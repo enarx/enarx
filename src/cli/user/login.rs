@@ -1,18 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::drawbridge::{login, LoginContext, LoginCredentials};
+use super::oidc_client_secret;
+use crate::drawbridge::{LoginContext, OidcLoginFlow};
 
 use std::ffi::OsString;
 
-use anyhow::Context;
-use clap::{Args, ValueEnum};
+use clap::Args;
 use oauth2::url::Url;
 
-#[derive(Debug, Clone, ValueEnum)]
-enum LoginMethod {
-    ClientCredentials,
-    DeviceAuthorization,
-}
 /// Log in to an Enarx package host and save credentials locally.
 #[derive(Args, Debug)]
 pub struct Options {
@@ -24,9 +19,8 @@ pub struct Options {
     oidc_domain: Url,
     #[clap(long, default_value = "4NuaJxkQv8EZBeJKE56R57gKJbxrTLG2")]
     oidc_client_id: String,
-    #[clap(long)]
-    #[arg(value_enum)]
-    login_method: LoginMethod,
+    #[clap(long, default_value = "device")]
+    oidc_flow: OidcLoginFlow,
     #[clap(long, env = "ENARX_CREDENTIAL_HELPER")]
     credential_helper: Option<OsString>,
     #[clap(long, default_value = "store.profian.com")]
@@ -36,30 +30,24 @@ pub struct Options {
 impl Options {
     pub fn execute(self) -> anyhow::Result<()> {
         let Self {
-            oidc_domain,
+            ref oidc_domain,
             oidc_client_id,
-            login_method,
+            oidc_flow,
             credential_helper,
-            store_host,
+            ref store_host,
         } = self;
+        let oidc_client_secret = oidc_client_secret()?;
+        let credential_helper = credential_helper.as_ref().map(AsRef::as_ref);
 
-        let oidc_credentials = match login_method {
-            LoginMethod::ClientCredentials => LoginCredentials::ClientCredentials {
-                client_id: oidc_client_id,
-                client_secret: std::env::var("ENARX_OIDC_CLIENT_SECRET")
-                    .context("Error getting the ENARX_OIDC_CLIENT_SECRET value")?,
-            },
-            LoginMethod::DeviceAuthorization => LoginCredentials::DeviceAuthorization {
-                client_id: oidc_client_id,
-            },
-        };
-
-        login(LoginContext {
+        LoginContext {
             host: store_host,
             oidc_domain,
-            credentials: oidc_credentials,
-            helper: credential_helper,
-        })?;
+            oidc_client_id,
+            oidc_client_secret,
+            oidc_flow,
+            credential_helper,
+        }
+        .login()?;
 
         println!("Login successful.");
 

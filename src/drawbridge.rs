@@ -2,7 +2,7 @@
 
 use std::borrow::Borrow;
 use std::convert::TryInto;
-use std::ffi::{OsStr, OsString};
+use std::ffi::OsStr;
 use std::fs::File;
 use std::io::{stderr, Write};
 use std::process::{Command, Stdio};
@@ -11,7 +11,7 @@ use std::thread::spawn;
 use std::time::Duration;
 
 use anyhow::{anyhow, bail, Context};
-use camino::Utf8PathBuf;
+use camino::Utf8Path;
 use drawbridge_client::types::{RepositoryContext, TagContext, UserContext};
 use drawbridge_client::Client;
 use oauth2::basic::BasicClient;
@@ -24,11 +24,28 @@ use oauth2::{
 use rustls::{Certificate, RootCertStore};
 
 const DEFAULT_HOST: &str = "store.profian.com";
-const OAUTH_SCOPES: &[&str] = &[
-    "manage:drawbridge_users",
-    "manage:drawbridge_repositories",
-    "manage:drawbridge_tags",
-];
+
+struct OauthScopes<'a, const N: usize>([&'a str; N]);
+
+impl Default for OauthScopes<'_, 3> {
+    fn default() -> Self {
+        Self([
+            "manage:drawbridge_repositories",
+            "manage:drawbridge_tags",
+            "manage:drawbridge_users",
+        ])
+    }
+}
+
+impl<const N: usize> IntoIterator for OauthScopes<'_, N> {
+    type Item = Scope;
+    type IntoIter = std::array::IntoIter<Scope, N>;
+
+    #[inline]
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.map(String::from).map(Scope::new).into_iter()
+    }
+}
 
 #[derive(Clone, Debug)]
 pub struct UserSpec {
@@ -108,11 +125,13 @@ fn parse_user(slug: &str) -> (String, &str) {
 }
 
 pub fn get_token(
-    host: &str,
-    oidc_domain: &impl Borrow<Url>,
-    provided_token: &Option<impl AsRef<str>>,
-    helper: &Option<impl AsRef<OsStr>>,
+    host: impl AsRef<str>,
+    oidc_domain: impl Borrow<Url>,
+    provided_token: Option<impl AsRef<str>>,
+    helper: Option<impl AsRef<OsStr>>,
 ) -> anyhow::Result<String> {
+    let host = host.as_ref();
+
     let oidc_domain = oidc_domain
         .borrow()
         .host_str()
@@ -144,14 +163,15 @@ pub fn get_token(
 }
 
 pub fn client(
-    host: &str,
-    oidc_domain: &impl Borrow<Url>,
-    insecure_token: &Option<String>,
-    ca_bundle: &Option<Utf8PathBuf>,
-    helper: &Option<impl AsRef<OsStr>>,
+    host: impl AsRef<str>,
+    oidc_domain: impl Borrow<Url>,
+    insecure_token: Option<impl AsRef<str>>,
+    ca_bundle: Option<impl AsRef<Utf8Path>>,
+    helper: Option<impl AsRef<OsStr>>,
 ) -> anyhow::Result<Client> {
-    let token = get_token(host, oidc_domain, insecure_token, helper)?;
+    let host = host.as_ref();
 
+    let token = get_token(host, oidc_domain, insecure_token, helper)?;
     let url = format!("https://{host}");
 
     let mut cl = Client::builder(
@@ -163,7 +183,7 @@ pub fn client(
         cl = cl.roots({
             let mut roots = RootCertStore::empty();
 
-            let ca_bundle_file = File::open(ca_bundle_path)?;
+            let ca_bundle_file = File::open(ca_bundle_path.as_ref())?;
 
             rustls_pemfile::certs(&mut std::io::BufReader::new(ca_bundle_file))
                 .unwrap()
@@ -195,29 +215,6 @@ fn http_client(mut req: oauth2::HttpRequest) -> Result<oauth2::HttpResponse, oau
             .unwrap(),
     );
     oauth2::ureq::http_client(req)
-}
-
-fn get_oauth2_client(
-    oidc_domain: &impl Borrow<Url>,
-    oidc_client_id: String,
-    oidc_client_secret: Option<String>,
-) -> anyhow::Result<BasicClient> {
-    let oidc_domain = oidc_domain.borrow();
-    let dev_auth_url = DeviceAuthorizationUrl::new(format!("{oidc_domain}oauth/device/code"))
-        .context("Failed to construct device authorization URL")?;
-    let auth_url = AuthUrl::new(format!("{oidc_domain}authorize"))
-        .context("Failed to construct authorization URL")?;
-    let token_url = TokenUrl::new(format!("{oidc_domain}oauth/token"))
-        .context("Failed to construct token URL")?;
-
-    Ok(BasicClient::new(
-        ClientId::new(oidc_client_id),
-        oidc_client_secret.map(ClientSecret::new),
-        auth_url,
-        Some(token_url),
-    )
-    .set_auth_type(AuthType::RequestBody)
-    .set_device_authorization_url(dev_auth_url))
 }
 
 fn store_retrieved_access_token(
@@ -268,113 +265,118 @@ fn store_retrieved_access_token(
     Ok(secret)
 }
 
-fn login_device_authorization(
-    host: &str,
-    oidc_domain: &impl Borrow<Url>,
-    oidc_client_id: String,
-) -> anyhow::Result<String> {
-    let client = get_oauth2_client(oidc_domain, oidc_client_id, None)
-        .context("Failed to construct OIDC client")?;
+#[derive(Debug, Clone)]
+pub enum OidcLoginFlow {
+    ClientCredentials,
+    DeviceAuthorization,
+}
 
-    let details: StandardDeviceAuthorizationResponse = client
-        .exchange_device_code()
-        .context("Failed to construct device authorization request")?
-        .add_scopes(OAUTH_SCOPES.iter().map(|s| Scope::new(s.to_string())))
-        .add_extra_param("audience", format!("https://{}/", host))
-        .request(http_client)
-        .context("Failed to request device code")?;
+impl FromStr for OidcLoginFlow {
+    type Err = anyhow::Error;
 
-    println!(
-        "To continue, open the following link in your browser:\n\
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "client" => Ok(Self::ClientCredentials),
+            "device" => Ok(Self::DeviceAuthorization),
+            _ => bail!("Unsupported OIDC login flow type `{s}`"),
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct LoginContext<'a> {
+    pub host: &'a str,
+    pub oidc_domain: &'a Url,
+    pub oidc_client_id: String,
+    pub oidc_client_secret: Option<String>,
+    pub oidc_flow: OidcLoginFlow,
+    pub credential_helper: Option<&'a OsStr>,
+}
+
+impl LoginContext<'_> {
+    /// This function controls how often the final step of the device flow will
+    /// poll the server to see if the user has finished entering their one-time code.
+    /// By default the oauth2 crate will start with a sleep interval of 5 seconds
+    /// and double the interval every time it elapses, which makes for extremely
+    /// poor user experience, because users can easily be forced to wait more
+    /// than 40 seconds staring at a command line that's providing no visible feedback.
+    /// Instead, we politely decline the exponential backoff by ignoring their passed-in
+    /// duration and always sleep for a fixed number of seconds,
+    /// making for a dramatically more responsive CLI.
+    fn poll_delay(_: Duration) {
+        std::thread::sleep(Duration::from_secs(3));
+    }
+
+    pub fn login(self) -> anyhow::Result<String> {
+        let Self {
+            host,
+            oidc_domain,
+            oidc_client_id,
+            oidc_client_secret,
+            oidc_flow,
+            credential_helper,
+        } = self;
+
+        let auth_url = AuthUrl::new(format!("{oidc_domain}authorize"))
+            .context("Failed to construct authorization URL")?;
+        let token_url = TokenUrl::new(format!("{oidc_domain}oauth/token"))
+            .context("Failed to construct token URL")?;
+
+        let client = BasicClient::new(
+            ClientId::new(oidc_client_id),
+            oidc_client_secret.map(ClientSecret::new),
+            auth_url,
+            Some(token_url),
+        )
+        .set_auth_type(AuthType::RequestBody);
+
+        let audience = format!("https://{host}/");
+        let token = match oidc_flow {
+            OidcLoginFlow::DeviceAuthorization => {
+                let dev_auth_url =
+                    DeviceAuthorizationUrl::new(format!("{oidc_domain}oauth/device/code"))
+                        .context("Failed to construct device authorization URL")?;
+                let client = client.set_device_authorization_url(dev_auth_url);
+
+                let details: StandardDeviceAuthorizationResponse = client
+                    .exchange_device_code()
+                    .context("Failed to construct device authorization request")?
+                    .add_scopes(OauthScopes::default())
+                    .add_scope(Scope::new("openid".into()))
+                    .add_scope(Scope::new("profile".into()))
+                    .add_extra_param("audience", audience)
+                    .request(http_client)
+                    .context("Failed to request device code")?;
+                println!(
+                    "To continue, open the following link in your browser:\n\
          \t{}\n\
          At the prompt, enter the following one-time code:\n\
          \t{}\n\
          Once entered, please wait a few moments for authorization to complete.",
-        details.verification_uri().as_str(),
-        details.user_code().secret()
-    );
+                    details.verification_uri().as_str(),
+                    details.user_code().secret()
+                );
 
-    // TODO: graceful timeout, so that users are not forced to Ctrl+C if the server errors
+                // TODO: graceful timeout, so that users are not forced to Ctrl+C if the server errors
 
-    client
-        .exchange_device_access_token(&details)
-        .request(http_client, poll_delay, None)
-        .context("Failed to exchange device code for a token")
-        .map(|res| res.access_token().secret().clone())
-}
-
-fn login_client_credentials(
-    host: &str,
-    oidc_domain: &impl Borrow<Url>,
-    oidc_client_id: String,
-    oidc_client_secret: String,
-) -> anyhow::Result<String> {
-    let client = get_oauth2_client(oidc_domain, oidc_client_id, Some(oidc_client_secret))
-        .context("Failed to construct OIDC client")?;
-
-    client
-        .exchange_client_credentials()
-        .add_scopes(OAUTH_SCOPES.iter().map(|s| Scope::new(s.to_string())))
-        .add_extra_param("audience", format!("https://{}/", host))
-        .request(http_client)
-        .context("Failed to request access token")
-        .map(|res| res.access_token().secret().clone())
-}
-
-#[derive(Debug)]
-pub struct LoginContext {
-    pub host: String,
-    pub oidc_domain: Url,
-    pub credentials: LoginCredentials,
-    pub helper: Option<OsString>,
-}
-
-#[derive(Debug)]
-pub enum LoginCredentials {
-    DeviceAuthorization {
-        client_id: String,
-    },
-    ClientCredentials {
-        client_id: String,
-        client_secret: String,
-    },
-}
-
-pub fn login(
-    LoginContext {
-        host,
-        oidc_domain,
-        helper,
-        credentials,
-    }: LoginContext,
-) -> anyhow::Result<String> {
-    let access_token = match credentials {
-        LoginCredentials::DeviceAuthorization { client_id } => {
-            login_device_authorization(&host, &oidc_domain, client_id)
-                .context("Failed to log in with device authorization")?
-        }
-        LoginCredentials::ClientCredentials {
-            client_id,
-            client_secret,
-        } => login_client_credentials(&host, &oidc_domain, client_id, client_secret)
-            .context("Failed to log in with client credentials")?,
-    };
-
-    store_retrieved_access_token(&host, &oidc_domain, &helper, access_token)
+                client
+                    .exchange_device_access_token(&details)
+                    .request(http_client, Self::poll_delay, None)
+                    .context("Failed to exchange device code for a token")?
+            }
+            OidcLoginFlow::ClientCredentials => client
+                .exchange_client_credentials()
+                .add_scopes(OauthScopes::default())
+                .add_extra_param("audience", audience)
+                .request(http_client)
+                .context("Failed to request access token")?,
+        };
+        store_retrieved_access_token(
+            host,
+            oidc_domain,
+            &credential_helper,
+            token.access_token().secret().into(),
+        )
         .context("Failed to store access token")
-}
-
-const INTERVAL: Duration = Duration::from_secs(3);
-
-/// This function controls how often the final step of the device flow will
-/// poll the server to see if the user has finished entering their one-time code.
-/// By default the oauth2 crate will start with a sleep interval of 5 seconds
-/// and double the interval every time it elapses, which makes for extremely
-/// poor user experience, because users can easily be forced to wait more
-/// than 40 seconds staring at a command line that's providing no visible feedback.
-/// Instead, we politely decline the exponential backoff by ignoring their passed-in
-/// duration and always sleep for a fixed number of seconds,
-/// making for a dramatically more responsive CLI.
-fn poll_delay(_: Duration) {
-    std::thread::sleep(INTERVAL);
+    }
 }

@@ -27,11 +27,11 @@ pub struct Options {
 impl Options {
     pub fn execute(self) -> anyhow::Result<()> {
         let cl = client(
-            &self.spec.host,
-            &self.oidc_domain,
-            &self.insecure_auth_token,
-            &self.ca_bundle,
-            &self.credential_helper,
+            self.spec.host,
+            self.oidc_domain,
+            self.insecure_auth_token,
+            self.ca_bundle,
+            self.credential_helper,
         )?;
         let repo = cl.repository(&self.spec.ctx);
         let repo_config = RepositoryConfig {
