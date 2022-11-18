@@ -16,7 +16,11 @@ enum LoginMethod {
 /// Log in to an Enarx package host and save credentials locally.
 #[derive(Args, Debug)]
 pub struct Options {
-    #[clap(long, default_value = "https://auth.profian.com/")]
+    #[clap(
+        long,
+        env = "ENARX_OIDC_DOMAIN",
+        default_value = "https://auth.profian.com/"
+    )]
     oidc_domain: Url,
     #[clap(long, default_value = "4NuaJxkQv8EZBeJKE56R57gKJbxrTLG2")]
     oidc_client_id: String,
