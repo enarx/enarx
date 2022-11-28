@@ -31,6 +31,9 @@ xsave = { workspace = true }
 gdbstub = { workspace = true, optional = true }
 gdbstub_arch = { workspace = true, optional = true }
 
+[dev-dependencies]
+testaso = { workspace = true }
+
 [[bin]]
 name = "enarx-shim-sgx"
 test = false
