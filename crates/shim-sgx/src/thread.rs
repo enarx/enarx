@@ -91,7 +91,12 @@ pub static NEW_THREAD_QUEUE: Lazy<RwLock<ConstVecDequeue<10, NewThread>>> = Lazy
 #[derive(Debug)]
 #[repr(C, align(4096))]
 pub struct Tcs {
-    _reserved1: [u8; 16],
+    /// Enclave execution state of the thread controlled by this TCS. A value of 0
+    /// indicates that this TCS is available for enclave entry. A value of 1 indicates
+    /// that a processer is currently executing an enclave in the context of this TCS.
+    pub stage: u64,
+    /// The thread’s execution flags.
+    pub flags: TcsFlags,
     /// Offset of the base of the State Save Area stack, relative to the enclave base.
     /// Must be page aligned.
     pub ossa: u64,
@@ -99,20 +104,65 @@ pub struct Tcs {
     pub cssa: u32,
     /// Number of available slots for SSA frames.
     pub nssa: u32,
-    /// Offset in enclave to which control is transferred on EENTER relative to the base of the enclave.
+    /// Offset in enclave to which control is transferred on EENTER relative to
+    /// the base of the enclave.
     pub oentry: u64,
-    _reserved2: [u8; 4096 - 5 * 8],
+    /// The value of the Asynchronous Exit Pointer that was saved at EENTER time.
+    pub aep: u64,
+    /// Offset to add to the base address of the enclave for producing the base
+    /// address of FS segment inside the enclave. Must be page aligned
+    pub ofsbase: u64,
+    /// Offset to add to the base address of the enclave for producing the base
+    /// address of GS segment inside the enclave. Must be page aligned
+    pub ogsbase: u64,
+    /// Size to become the new FS limit in 32-bit mode.
+    pub fslimit: u32,
+    /// Size to become the new GS limit in 32-bit mode.
+    pub gslimit: u32,
+    /// When CPUID.(EAX=12H, ECX=1):EAX[6] is 1, this field provides the offset of
+    /// the CET state save area from enclave base. When CPUID.(EAX=12H,
+    /// ECX=1):EAX[6] is 0, this field is reserved and must be 0.
+    pub ocetssa: u64,
+    /// When CPUID.(EAX=07H, ECX=00h):ECX[CET_SS] is 1, this field records the SSP
+    /// at the time of AEX or EEXIT; used to setup SSP on entry. When
+    /// CPUID.(EAX=07H, ECX=00h):ECX[CET_SS] is 0, this field is reserved and must
+    /// be 0.
+    pub prevssp: u64,
+    _reserved: [u8; 4008],
+}
+
+bitflags::bitflags! {
+    /// The thread’s execution flags.
+    #[derive(Default)]
+    pub struct TcsFlags: u64 {
+        /// If set, allows debugging features (single-stepping, breakpoints, etc.)
+        /// to be enabled and active while executing in the enclave on this TCS.
+        /// Hardware clears this bit on EADD. A debugger may later modify it if the
+        /// enclave’s ATTRIBUTES.DEBUG is set.
+        const DBGOPTIN = 1 << 0;
+        /// A thread that enters the enclave cannot receive AEX notifications
+        /// unless this flag is set.
+        const AEXNOTIFY = 1 << 1;
+    }
 }
 
 impl Default for Tcs {
     fn default() -> Self {
         Self {
-            _reserved1: [0; 16],
+            stage: 0,
+            flags: Default::default(),
             ossa: 0,
             cssa: 0,
             nssa: 0,
             oentry: 0,
-            _reserved2: [0; 4096 - 5 * 8],
+            aep: 0,
+            ofsbase: 0,
+            ogsbase: 0,
+            fslimit: 0,
+            gslimit: 0,
+            ocetssa: 0,
+            prevssp: 0,
+            _reserved: [0; 4008],
         }
     }
 }
@@ -242,9 +292,10 @@ impl LoadRegsExt for GenPurposeRegs {
 
 #[cfg(test)]
 mod test {
-    use super::{ConstVecDequeue, Tcb};
+    use super::{ConstVecDequeue, Tcb, Tcs};
     use core::mem::size_of;
     use primordial::Page;
+    use testaso::testaso;
 
     #[test]
     fn test_const_vec_dequeue() {
@@ -266,5 +317,12 @@ mod test {
     #[test]
     fn test_thread_control_block() {
         assert!(size_of::<Tcb>() < Page::SIZE);
+    }
+
+    testaso! {
+        struct Tcs: 4096, 4096 => {
+            prevssp: 80,
+            _reserved: 88
+        }
     }
 }

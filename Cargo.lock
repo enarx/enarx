@@ -1313,6 +1313,7 @@ dependencies = [
  "sallyport",
  "sgx",
  "spinning",
+ "testaso",
  "x86_64",
  "xsave",
 ]
