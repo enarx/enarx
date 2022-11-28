@@ -8,7 +8,7 @@ mod net;
 
 use self::io::null::Null;
 use self::io::stdio_file;
-use self::net::{connect_file, listen_file};
+use self::net::{connect_file, create_tls_connector, listen_file};
 
 use super::{Package, Workload};
 
@@ -61,6 +61,10 @@ impl Runtime {
 
         let mut linker = Linker::new(&engine);
         add_to_linker(&mut linker, |s| s).context("failed to setup linker and add WASI")?;
+
+        linker
+            .func_wrap("host", "tls_client_connect", create_tls_connector())
+            .expect("failed to add TLS client connect host function");
 
         let mut wstore = Store::new(&engine, WasiCtxBuilder::new().build());
 

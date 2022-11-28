@@ -3,6 +3,9 @@
 //! Networking functionality for keeps
 
 pub mod tls;
+mod wrapped_connect;
+
+pub use wrapped_connect::create_tls_connector;
 
 use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
 use std::ops::Deref;
