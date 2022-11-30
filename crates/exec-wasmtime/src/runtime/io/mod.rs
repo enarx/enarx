@@ -3,3 +3,4 @@
 //! I/O functionality for keeps
 
 pub mod null;
+pub mod urandom;

@@ -104,6 +104,14 @@ impl Runtime {
 
         let root = Directory::root(Ledger::new(), Some(create_file.clone()));
 
+        // `/dev`
+        {
+            let devfs = vfs::dev::new(root.clone()).await?;
+            root.attach("dev", devfs)
+                .await
+                .context("failed to attach /dev")?;
+        }
+
         // `/key`
         {
             let keyfs = wasmtime_vfs_keyfs::new(root.clone()).await?;

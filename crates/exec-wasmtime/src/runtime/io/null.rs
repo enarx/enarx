@@ -7,6 +7,7 @@ use std::any::Any;
 use wasi_common::file::{FdFlags, FileType};
 use wasi_common::{Error, WasiFile};
 
+#[derive(Clone)]
 pub struct Null;
 
 #[wiggle::async_trait]
