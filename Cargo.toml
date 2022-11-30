@@ -186,7 +186,7 @@ protobuf-codegen-pure = { version = "2.27.0", default-features = false }
 rand = { version = "0.8.0", features = ["std", "std_rng"], default-features = false }
 rcrt1 = { git = "https://github.com/enarx/rcrt1", rev = "54c556fc611754521ba8825033dc8e0574d81be9", default-features = false }
 ring = { version = "0.16.20", features = ["std"], default-features = false }
-rsa = { version = "^0.6.0", default-features = false }
+rsa = { version = "0.7.2", default-features = false }
 rustls = { version = "0.20.6", default-features = false }
 rustls-pemfile = { version = "1.0.0", default-features = false }
 sallyport = { version = "0.6.4", path = "crates/sallyport", default-features = false }
