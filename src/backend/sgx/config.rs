@@ -58,7 +58,7 @@ impl super::super::Config for Config {
                 .note(elf::note::NAME, elf::note::sgx::ATTRMASK)
                 .ok_or_else(|| anyhow!("SGX shim is missing ATTRMASK"))?;
 
-            let params: Parameters = Parameters {
+            let params = Parameters {
                 misc: Masked {
                     data: shim
                         .note(elf::note::NAME, elf::note::sgx::MISC)
@@ -86,6 +86,7 @@ impl super::super::Config for Config {
                 svn: shim
                     .note(elf::note::NAME, elf::note::sgx::SVN)
                     .ok_or_else(|| anyhow!("SGX shim is missing SVN"))?,
+                ..Default::default()
             };
 
             let ssap: u8 = shim
