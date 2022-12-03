@@ -15,7 +15,7 @@
 #[allow(unused_extern_crates)]
 extern crate rcrt1;
 
-use core::arch::global_asm;
+use core::arch::{asm, global_asm};
 use core::mem::size_of;
 use core::mem::MaybeUninit;
 use core::ptr::NonNull;
@@ -26,20 +26,23 @@ use enarx_shim_sgx::thread::{
 };
 use enarx_shim_sgx::{
     entry, handler, shim_address, ATTR, BLOCK_SIZE, CSSA_0_STACK_SIZE, ENARX_EXEC_START,
-    ENARX_SHIM_ADDRESS, ENCL_SIZE, ENCL_SIZE_BITS, MISC,
+    ENARX_SHIM_ADDRESS, ENCL_SIZE, ENCL_SIZE_BITS, MISC, NUM_SSA,
 };
 
 #[panic_handler]
 #[cfg(not(test))]
 #[allow(clippy::empty_loop)]
 fn panic(_info: &core::panic::PanicInfo<'_>) -> ! {
-    loop {}
+    loop {
+        unsafe { asm!("hlt") };
+    }
 }
 
 // ============== REAL CODE HERE ===============
 
 use noted::noted;
 use primordial::Page;
+use sallyport::util::ptr::is_aligned_non_null;
 use sallyport::{elf::note, REQUIRES};
 use sgx::parameters::{Attributes, MiscSelect};
 use sgx::ssa::{GenPurposeRegs, StateSaveArea};
@@ -275,14 +278,9 @@ global_asm!(
         CSSA_0_STK_TCS_SZ = const CSSA_0_STACK_SIZE + Page::SIZE,
 );
 
-unsafe extern "C" fn main(
-    block: &mut [usize; BLOCK_SIZE / core::mem::size_of::<usize>()],
-    ssas: &mut [StateSaveArea; 3],
-    cssa: usize,
-    tcb: &mut MaybeUninit<Tcb>,
-) -> i32 {
-    // Enable exceptions:
-    ssas[cssa].extra[0] = 1;
+fn validate_block_ptr(ptr: *mut u8) -> &'static mut [usize; BLOCK_SIZE / size_of::<usize>()] {
+    is_aligned_non_null::<[usize; BLOCK_SIZE / size_of::<usize>()]>(ptr as usize).unwrap();
+    let block = unsafe { &mut *(ptr as *mut [usize; BLOCK_SIZE / size_of::<usize>()]) };
 
     // As host is a separate application from the shim, all the data coming from
     // it needs to be validated explicitly.  Thus, check that the Sallyport
@@ -295,8 +293,20 @@ unsafe extern "C" fn main(
     if (block_start >= shim_start && block_start < shim_end)
         || (block_end > shim_start && block_end <= shim_end)
     {
-        panic!();
+        panic!("Sallyport block is inside the shim address space");
     }
+
+    block
+}
+
+unsafe extern "C" fn main(
+    block_ptr: *mut u8,
+    ssas: &mut [StateSaveArea; NUM_SSA],
+    cssa: usize,
+    tcb: &mut MaybeUninit<Tcb>,
+) -> i32 {
+    // Enable exceptions:
+    ssas[cssa].extra[0] = 1;
 
     let mut ret = 0;
 
@@ -337,6 +347,7 @@ unsafe extern "C" fn main(
         1 => {
             // cssa == 0 already initialized the TCB
             let tcb = tcb.assume_init_mut();
+            let block = validate_block_ptr(block_ptr);
             handler::Handler::handle(
                 &mut ssas[0],
                 block.as_mut_slice(),
@@ -344,10 +355,16 @@ unsafe extern "C" fn main(
                 _start as usize as _,
             )
         }
-        n => {
+        2 => {
             let tcb = tcb.assume_init_mut();
-            handler::Handler::finish(&mut ssas[n - 1], block.as_mut_slice(), tcb)
+            let block = validate_block_ptr(block_ptr);
+            handler::Handler::finish(&mut ssas[1], Some(block.as_mut_slice()), tcb)
         }
+        3 => {
+            let tcb = tcb.assume_init_mut();
+            handler::Handler::finish(&mut ssas[2], None, tcb)
+        }
+        _ => panic!("CSSA > 3"),
     }
 
     // Disable exceptions:

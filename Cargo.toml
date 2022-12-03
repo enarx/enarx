@@ -167,7 +167,7 @@ libc = { version = "0.2.137", default-features = false }
 linked_list_allocator = { version = "0.10.1", default-features = false }
 lset = { version = "0.3.0", default-features = false }
 mmarinus = { version = "0.4.0", default-features = false }
-mmledger = { version = "0.3.0", default-features = false }
+mmledger = { git = "https://github.com/enarx/mmledger", rev="79bbef3ef90dc33bfd8a188ea4bc79db57fe91a0", default-features = false }
 nbytes = { version = "0.1.0", default-features = false }
 noted = { version = "1.0.0", default-features = false }
 oauth2 = { version = "4.2.2", default-features = false, features = ["ureq"] }
