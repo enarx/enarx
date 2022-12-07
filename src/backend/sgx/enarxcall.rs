@@ -13,7 +13,7 @@ use std::mem::{forget, size_of, MaybeUninit};
 use std::sync::Arc;
 
 use anyhow::Context;
-use libc::{timespec, EAGAIN, EINVAL, PROT_READ};
+use libc::{timespec, EAGAIN, EINVAL, PROT_NONE};
 use mmarinus::{perms, Map, Shared};
 use sallyport::host::{deref_aligned, deref_slice};
 use sallyport::item;
@@ -269,9 +269,8 @@ pub(crate) fn sgx_enarxcall<'a>(
                 return Ok(None);
             }
 
-            // TODO: https://github.com/enarx/enarx/issues/1892
             let parameters =
-                RestrictPermissions::new(*addr - keep.mem.addr(), *len, PROT_READ as _);
+                RestrictPermissions::new(*addr - keep.mem.addr(), *len, PROT_NONE as _);
             parameters
                 .execute(&keep.enclave)
                 .context("ENCLAVE_RESTRICT_PERMISSIONS failed")?;

@@ -330,8 +330,6 @@ impl guest::Handler for Handler<'_> {
         let tid = self.tcb.tid;
 
         let addr = addr.map(|v| v.as_ptr() as usize).unwrap_or(0);
-        // TODO: https://github.com/enarx/enarx/issues/1892
-        let prot = prot | PROT_READ;
 
         if addr != 0 || len == 0 || fd != -1 || offset != 0 || flags != MAP_PRIVATE | MAP_ANONYMOUS
         {
@@ -772,9 +770,8 @@ impl<'a> Handler<'a> {
             // pages was added.
             let page_addr = unsafe { PageAddr::from_start_address_unchecked(virt_addr) };
 
-            // TODO: https://github.com/enarx/enarx/issues/1892
             Class::Regular
-                .info(Flags::READ | Flags::RESTRICTED)
+                .info(Flags::RESTRICTED)
                 .accept(page_addr)
                 .unwrap_or_else(|_| self.attacked());
 
