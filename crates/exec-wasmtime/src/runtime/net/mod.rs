@@ -22,19 +22,15 @@ use wasi_common::file::FileCaps;
 use wasi_common::WasiFile;
 use zeroize::Zeroizing;
 
-static DEFAULT_TLS_PROTOCOL_VERSIONS: Lazy<[&'static rustls::SupportedProtocolVersion; 1]> =
-    Lazy::new(|| [&TLS13]);
+static DEFAULT_TLS_PROTOCOL_VERSIONS: &[&rustls::SupportedProtocolVersion] = &[&TLS13];
 
-static DEFAULT_TLS_KX_GROUPS: Lazy<[&'static rustls::SupportedKxGroup; 3]> =
-    Lazy::new(|| [&X25519, &SECP384R1, &SECP256R1]);
+static DEFAULT_TLS_KX_GROUPS: &[&rustls::SupportedKxGroup] = &[&X25519, &SECP384R1, &SECP256R1];
 
-static DEFAULT_TLS_CIPHER_SUITES: Lazy<[rustls::SupportedCipherSuite; 3]> = Lazy::new(|| {
-    [
-        TLS13_AES_256_GCM_SHA384,
-        TLS13_AES_128_GCM_SHA256,
-        TLS13_CHACHA20_POLY1305_SHA256,
-    ]
-});
+static DEFAULT_TLS_CIPHER_SUITES: &[rustls::SupportedCipherSuite] = &[
+    TLS13_AES_256_GCM_SHA384,
+    TLS13_AES_128_GCM_SHA256,
+    TLS13_CHACHA20_POLY1305_SHA256,
+];
 
 static LISTEN_CAPS: Lazy<FileCaps> = Lazy::new(|| {
     FileCaps::FILESTAT_GET | FileCaps::FDSTAT_SET_FLAGS | FileCaps::POLL_READWRITE | FileCaps::READ
@@ -62,9 +58,9 @@ pub fn listen_file(
         ListenFile::Tcp { .. } => wasmtime_wasi::net::Socket::from(tcp).into(),
         ListenFile::Tls { .. } => {
             let cfg = rustls::ServerConfig::builder()
-                .with_cipher_suites(DEFAULT_TLS_CIPHER_SUITES.deref())
-                .with_kx_groups(DEFAULT_TLS_KX_GROUPS.deref())
-                .with_protocol_versions(DEFAULT_TLS_PROTOCOL_VERSIONS.deref())?
+                .with_cipher_suites(DEFAULT_TLS_CIPHER_SUITES)
+                .with_kx_groups(DEFAULT_TLS_KX_GROUPS)
+                .with_protocol_versions(DEFAULT_TLS_PROTOCOL_VERSIONS)?
                 .with_no_client_auth() // TODO: https://github.com/enarx/enarx/issues/1547
                 .with_single_cert(certs, PrivateKey(key.deref().clone()))?;
             tls::Listener::new(tcp, Arc::new(cfg)).into()
@@ -106,9 +102,9 @@ pub fn connect_file(
                 },
             ));
             let cfg = rustls::ClientConfig::builder()
-                .with_cipher_suites(DEFAULT_TLS_CIPHER_SUITES.deref())
-                .with_kx_groups(DEFAULT_TLS_KX_GROUPS.deref())
-                .with_protocol_versions(DEFAULT_TLS_PROTOCOL_VERSIONS.deref())?
+                .with_cipher_suites(DEFAULT_TLS_CIPHER_SUITES)
+                .with_kx_groups(DEFAULT_TLS_KX_GROUPS)
+                .with_protocol_versions(DEFAULT_TLS_PROTOCOL_VERSIONS)?
                 .with_root_certificates(server_roots)
                 .with_single_cert(certs, PrivateKey(key.deref().clone()))?;
 
