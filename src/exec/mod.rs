@@ -36,7 +36,6 @@ use std::time::Duration;
 
 use anyhow::{Context, Result};
 use enarx_exec_wasmtime::{Args as ExecArgs, Package};
-use once_cell::sync::Lazy;
 
 /// Write timeout for writing the arguments to exec-wasmtime.
 #[cfg(unix)]
@@ -80,13 +79,11 @@ impl Exec for NilExec {
     }
 }
 
-pub static EXECS: Lazy<Vec<Box<dyn Exec>>> = Lazy::new(|| {
-    vec![
-        #[cfg(enarx_with_shim)]
-        Box::new(exec_wasmtime::WasmExec),
-        Box::new(NilExec),
-    ]
-});
+pub static EXECS: &[&dyn Exec] = &[
+    #[cfg(enarx_with_shim)]
+    &exec_wasmtime::WasmExec,
+    &NilExec,
+];
 
 pub fn keep_exec(
     backend: &dyn Backend,
