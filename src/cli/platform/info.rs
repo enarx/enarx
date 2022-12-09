@@ -4,6 +4,7 @@ use crate::backend::{Backend, BACKENDS};
 
 use std::fmt::{self, Formatter};
 use std::ops::Deref;
+use std::process::ExitCode;
 
 use clap::Args;
 #[cfg(unix)]
@@ -19,7 +20,7 @@ pub struct Options {
 }
 
 impl Options {
-    pub fn execute(self) -> anyhow::Result<()> {
+    pub fn execute(self) -> anyhow::Result<ExitCode> {
         let backends = BACKENDS.deref();
 
         #[cfg(windows)]
@@ -70,7 +71,7 @@ impl Options {
             println!("{}", info);
         }
 
-        Ok(())
+        Ok(ExitCode::SUCCESS)
     }
 }
 

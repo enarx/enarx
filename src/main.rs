@@ -14,9 +14,11 @@ mod exec;
 #[cfg(enarx_with_shim)]
 mod protobuf;
 
+use std::process::ExitCode;
+
 use clap::Parser;
 
-fn main() -> anyhow::Result<()> {
+fn main() -> anyhow::Result<ExitCode> {
     let app = cli::Options::parse();
     app.execute()
 }

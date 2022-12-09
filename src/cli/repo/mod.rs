@@ -6,6 +6,8 @@ mod search;
 mod token;
 mod yank;
 
+use std::process::ExitCode;
+
 use clap::Subcommand;
 
 /// Commands for working with repositories on an Enarx package host.
@@ -22,7 +24,7 @@ pub enum Subcommands {
 }
 
 impl Subcommands {
-    pub fn dispatch(self) -> anyhow::Result<()> {
+    pub fn dispatch(self) -> anyhow::Result<ExitCode> {
         match self {
             Self::Info(cmd) => cmd.execute(),
             Self::Register(cmd) => cmd.execute(),

@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
+use std::process::ExitCode;
+
 use anyhow::Context;
 use clap::Args;
 
@@ -13,7 +15,7 @@ const URL: &str = "https://api.trustedservices.intel.com/sgx/registration/v1/pla
 pub struct Options {}
 
 impl Options {
-    pub fn execute(self) -> anyhow::Result<()> {
+    pub fn execute(self) -> anyhow::Result<ExitCode> {
         let path = format!("{PATH}/{EFI_NAME}-{EFI_UUID}");
         let bytes = std::fs::read(path).context("unable to read platform data")?;
 
@@ -21,6 +23,6 @@ impl Options {
             .set("Content-Type", "application/octet-stream")
             .send_bytes(&bytes[8..])?;
 
-        Ok(())
+        Ok(ExitCode::SUCCESS)
     }
 }

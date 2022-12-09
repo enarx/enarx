@@ -4,6 +4,8 @@ mod create;
 mod digest;
 pub mod sign;
 
+use std::process::ExitCode;
+
 use clap::Subcommand;
 
 /// SEV-specific functionality
@@ -15,7 +17,7 @@ pub enum Subcommands {
 }
 
 impl Subcommands {
-    pub fn dispatch(self) -> anyhow::Result<()> {
+    pub fn dispatch(self) -> anyhow::Result<ExitCode> {
         match self {
             Self::Digest(cmd) => cmd.execute(),
             Self::Sign(cmd) => cmd.execute(),

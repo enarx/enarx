@@ -160,7 +160,7 @@ impl super::super::Thread for Thread {
 
         if self.cssa > 3 {
             error!("CSSA overflow");
-            std::process::exit(1);
+            return Ok(Command::Exit(1));
         }
 
         // If we have handled an InvalidOpcode error, evaluate the sallyport.
@@ -210,7 +210,7 @@ impl super::super::Thread for Thread {
                             error!(
                                 "exit({code}) syscall used over sallyport, when it should not be"
                             );
-                            std::process::exit(1);
+                            return Ok(Command::Exit(1));
                         }
 
                         // Catch exit_group for a clean shutdown

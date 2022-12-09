@@ -7,6 +7,7 @@ use std::fmt::Debug;
 use std::fs::File;
 use std::io::prelude::*;
 use std::io::stdout;
+use std::process::ExitCode;
 
 use anyhow::{bail, Context};
 use camino::Utf8PathBuf;
@@ -52,7 +53,7 @@ fn sev_key_digest(sev_key: &SigningKey) -> anyhow::Result<Vec<u8>> {
 }
 
 impl Options {
-    pub fn execute(self) -> anyhow::Result<()> {
+    pub fn execute(self) -> anyhow::Result<ExitCode> {
         let mut sev_key_file = File::open(&self.key).context("Failed to open SEV key file")?;
         let mut buffer = String::new();
         sev_key_file.read_to_string(&mut buffer)?;
@@ -68,7 +69,7 @@ impl Options {
             stdout().write_all(out.as_bytes())?;
         }
 
-        Ok(())
+        Ok(ExitCode::SUCCESS)
     }
 }
 

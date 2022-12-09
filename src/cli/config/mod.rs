@@ -2,6 +2,8 @@
 
 mod init;
 
+use std::process::ExitCode;
+
 use clap::Subcommand;
 
 /// Commands for working with Enarx configuration files.
@@ -11,7 +13,7 @@ pub enum Subcommands {
 }
 
 impl Subcommands {
-    pub fn dispatch(self) -> anyhow::Result<()> {
+    pub fn dispatch(self) -> anyhow::Result<ExitCode> {
         match self {
             Self::Init(cmd) => cmd.execute(),
         }

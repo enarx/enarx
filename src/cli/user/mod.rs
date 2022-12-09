@@ -6,6 +6,7 @@ mod logout;
 mod register;
 
 use std::env::{var, VarError};
+use std::process::ExitCode;
 
 use anyhow::bail;
 use clap::Subcommand;
@@ -22,7 +23,7 @@ pub enum Subcommands {
 }
 
 impl Subcommands {
-    pub fn dispatch(self) -> anyhow::Result<()> {
+    pub fn dispatch(self) -> anyhow::Result<ExitCode> {
         match self {
             Self::Info(cmd) => cmd.execute(),
             Self::Login(cmd) => cmd.execute(),

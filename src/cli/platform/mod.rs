@@ -6,6 +6,8 @@ mod sgx;
 #[cfg(enarx_with_shim)]
 mod snp;
 
+use std::process::ExitCode;
+
 use clap::Subcommand;
 
 /// Commands for configuration of trusted execution environments.
@@ -21,7 +23,7 @@ pub enum Subcommands {
 }
 
 impl Subcommands {
-    pub fn dispatch(self) -> anyhow::Result<()> {
+    pub fn dispatch(self) -> anyhow::Result<ExitCode> {
         match self {
             Self::Info(cmd) => cmd.execute(),
             #[cfg(enarx_with_shim)]

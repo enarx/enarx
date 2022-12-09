@@ -3,6 +3,7 @@
 use crate::drawbridge::{client, RepoSpec};
 
 use std::ffi::OsString;
+use std::process::ExitCode;
 
 use anyhow::Context;
 use camino::Utf8PathBuf;
@@ -32,7 +33,7 @@ pub struct Options {
 }
 
 impl Options {
-    pub fn execute(self) -> anyhow::Result<()> {
+    pub fn execute(self) -> anyhow::Result<ExitCode> {
         let cl = client(
             self.spec.host,
             self.oidc_domain,
@@ -47,6 +48,6 @@ impl Options {
         let tags = repo.tags().context("Failed to retrieve repository tags")?;
         let info = RepoInfo { config, tags };
         println!("{}", serde_json::to_string_pretty(&info)?);
-        Ok(())
+        Ok(ExitCode::SUCCESS)
     }
 }

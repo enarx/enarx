@@ -4,6 +4,7 @@ use std::fmt::Debug;
 use std::fs::File;
 use std::io::prelude::*;
 use std::io::stdout;
+use std::process::ExitCode;
 
 use camino::Utf8PathBuf;
 use clap::Args;
@@ -20,7 +21,7 @@ pub struct Options {
 }
 
 impl Options {
-    pub fn execute(self) -> anyhow::Result<()> {
+    pub fn execute(self) -> anyhow::Result<ExitCode> {
         let rng = rand::thread_rng();
         let signing_key = SigningKey::random(rng);
 
@@ -33,6 +34,6 @@ impl Options {
             stdout().write_all(res_key.as_bytes())?;
         }
 
-        Ok(())
+        Ok(ExitCode::SUCCESS)
     }
 }

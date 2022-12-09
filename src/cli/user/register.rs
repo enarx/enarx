@@ -4,6 +4,7 @@ use super::oidc_client_secret;
 use crate::drawbridge::{client, get_token, LoginContext, OidcLoginFlow, UserSpec};
 
 use std::ffi::OsString;
+use std::process::ExitCode;
 
 use anyhow::Context;
 use camino::Utf8PathBuf;
@@ -38,7 +39,7 @@ pub struct Options {
 }
 
 impl Options {
-    pub fn execute(self) -> anyhow::Result<()> {
+    pub fn execute(self) -> anyhow::Result<ExitCode> {
         let Self {
             ca_bundle,
             insecure_auth_token,
@@ -105,6 +106,6 @@ impl Options {
         user.create(&record)
             .context("Failed to register new user")?;
 
-        Ok(())
+        Ok(ExitCode::SUCCESS)
     }
 }

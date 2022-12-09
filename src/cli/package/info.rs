@@ -3,6 +3,7 @@
 use crate::drawbridge::{client, TagSpec};
 
 use std::ffi::OsString;
+use std::process::ExitCode;
 
 use anyhow::Context;
 use camino::Utf8PathBuf;
@@ -24,7 +25,7 @@ pub struct Options {
 }
 
 impl Options {
-    pub fn execute(self) -> anyhow::Result<()> {
+    pub fn execute(self) -> anyhow::Result<ExitCode> {
         let cl = client(
             self.spec.host,
             self.oidc_domain,
@@ -38,6 +39,6 @@ impl Options {
             .context("Failed to retrieve package information")?;
         println!("{}", serde_json::to_string_pretty(&tag_entry)?);
 
-        Ok(())
+        Ok(ExitCode::SUCCESS)
     }
 }

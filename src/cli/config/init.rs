@@ -3,6 +3,7 @@
 use std::fs::OpenOptions;
 use std::io::prelude::*;
 use std::path::Path;
+use std::process::ExitCode;
 
 use anyhow::bail;
 use clap::Args;
@@ -13,7 +14,7 @@ use enarx_config::CONFIG_TEMPLATE;
 pub struct Options;
 
 impl Options {
-    pub fn execute(self) -> anyhow::Result<()> {
+    pub fn execute(self) -> anyhow::Result<ExitCode> {
         let enarx_toml_path = Path::new("Enarx.toml");
         if enarx_toml_path.exists() {
             bail!("{enarx_toml_path:?} does already exist.");
@@ -25,6 +26,6 @@ impl Options {
             .open(enarx_toml_path)?;
 
         enarx_toml.write_all(CONFIG_TEMPLATE.as_bytes())?;
-        Ok(())
+        Ok(ExitCode::SUCCESS)
     }
 }

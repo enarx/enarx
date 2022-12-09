@@ -2,6 +2,8 @@
 
 use crate::cli::BackendOptions;
 
+use std::process::ExitCode;
+
 use camino::Utf8PathBuf;
 use clap::Args;
 
@@ -40,7 +42,7 @@ pub struct Options {
 
 #[cfg(enarx_with_shim)]
 impl Options {
-    pub fn execute(self) -> anyhow::Result<()> {
+    pub fn execute(self) -> anyhow::Result<ExitCode> {
         use crate::backend::Signatures;
 
         let Self {
@@ -70,7 +72,6 @@ impl Options {
         #[cfg(feature = "gdb")]
         let gdblisten = Some(gdblisten);
 
-        let exit_code = keep_exec(backend, backend.shim(), binary, signatures, gdblisten)?;
-        std::process::exit(exit_code);
+        keep_exec(backend, backend.shim(), binary, signatures, gdblisten)
     }
 }
