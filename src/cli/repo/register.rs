@@ -3,6 +3,7 @@
 use crate::drawbridge::{client, RepoSpec};
 
 use std::ffi::OsString;
+use std::process::ExitCode;
 
 use anyhow::Context;
 use camino::Utf8PathBuf;
@@ -25,7 +26,7 @@ pub struct Options {
 }
 
 impl Options {
-    pub fn execute(self) -> anyhow::Result<()> {
+    pub fn execute(self) -> anyhow::Result<ExitCode> {
         let cl = client(
             self.spec.host,
             self.oidc_domain,
@@ -40,6 +41,6 @@ impl Options {
         };
         repo.create(&repo_config)
             .context("Failed to register repository")?;
-        Ok(())
+        Ok(ExitCode::SUCCESS)
     }
 }

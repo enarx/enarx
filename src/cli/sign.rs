@@ -12,6 +12,7 @@ use std::io::prelude::*;
 use std::io::{stdout, Read};
 use std::mem::size_of;
 use std::ops::Deref;
+use std::process::ExitCode;
 
 use crate::backend::sev::snp::sign::PublicKey;
 use anyhow::{anyhow, bail, Context, Result};
@@ -134,7 +135,7 @@ impl Options {
         Ok((sev_key, sev_id_key_signature))
     }
 
-    pub fn execute(self) -> anyhow::Result<()> {
+    pub fn execute(self) -> anyhow::Result<ExitCode> {
         use mmarinus::{perms, Map, Private};
         let binary = if let Some(ref path) = self.binpath {
             Some(Map::load(path, Private, perms::Read)?)
@@ -187,7 +188,7 @@ impl Options {
         } else {
             stdout().write_all(serde_json::to_string(&signatures)?.as_bytes())?;
         }
-        Ok(())
+        Ok(ExitCode::SUCCESS)
     }
 }
 

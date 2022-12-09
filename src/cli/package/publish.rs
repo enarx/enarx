@@ -4,6 +4,7 @@ use crate::drawbridge::{client, TagSpec};
 
 use std::ffi::OsString;
 use std::fs::read_dir;
+use std::process::ExitCode;
 
 use anyhow::{bail, Context};
 use camino::Utf8PathBuf;
@@ -26,7 +27,7 @@ pub struct Options {
 }
 
 impl Options {
-    pub fn execute(self) -> anyhow::Result<()> {
+    pub fn execute(self) -> anyhow::Result<ExitCode> {
         let cl = client(
             self.spec.host,
             self.oidc_domain,
@@ -59,6 +60,6 @@ impl Options {
             .create_from_path_unsigned(self.path)
             .context("Failed to create tag and upload tree")?;
 
-        Ok(())
+        Ok(ExitCode::SUCCESS)
     }
 }

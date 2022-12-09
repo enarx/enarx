@@ -3,6 +3,7 @@
 use crate::backend::sev::snp::vcek::{get_vcek_reader, get_vcek_reader_with_path, sev_cache_dir};
 
 use std::io::{self, ErrorKind};
+use std::process::ExitCode;
 
 use clap::Args;
 
@@ -15,12 +16,12 @@ pub struct Options {
 }
 
 impl Options {
-    pub fn execute(self) -> anyhow::Result<()> {
+    pub fn execute(self) -> anyhow::Result<ExitCode> {
         if self.file {
             match get_vcek_reader_with_path(sev_cache_dir()?) {
                 Ok((path, _)) => {
                     println!("{:?}", path);
-                    Ok(())
+                    Ok(ExitCode::SUCCESS)
                 }
                 Err(e) => {
                     if matches!(
@@ -28,7 +29,7 @@ impl Options {
                         Some(ErrorKind::NotFound)
                     ) {
                         eprintln!("No cache file found.");
-                        Ok(())
+                        Ok(ExitCode::SUCCESS)
                     } else {
                         Err(e)
                     }
@@ -37,7 +38,7 @@ impl Options {
         } else {
             let mut reader = get_vcek_reader()?;
             io::copy(&mut reader, &mut io::stdout())?;
-            Ok(())
+            Ok(ExitCode::SUCCESS)
         }
     }
 }

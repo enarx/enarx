@@ -3,6 +3,8 @@
 pub mod sev;
 mod sgx;
 
+use std::process::ExitCode;
+
 use clap::Subcommand;
 
 /// Commands for utilizing keys to interact with Enarx.
@@ -16,7 +18,7 @@ pub enum Subcommands {
 }
 
 impl Subcommands {
-    pub fn dispatch(self) -> anyhow::Result<()> {
+    pub fn dispatch(self) -> anyhow::Result<ExitCode> {
         match self {
             Self::Sgx(subcmd) => subcmd.dispatch(),
             Self::Sev(subcmd) => subcmd.dispatch(),

@@ -3,6 +3,8 @@
 mod update;
 mod vcek;
 
+use std::process::ExitCode;
+
 use clap::Subcommand;
 
 /// SNP-specific functionality
@@ -13,7 +15,7 @@ pub enum Subcommands {
 }
 
 impl Subcommands {
-    pub fn dispatch(self) -> anyhow::Result<()> {
+    pub fn dispatch(self) -> anyhow::Result<ExitCode> {
         match self {
             Self::Vcek(cmd) => cmd.execute(),
             Self::Update(cmd) => cmd.execute(),

@@ -2,6 +2,8 @@
 
 mod exec;
 
+use std::process::ExitCode;
+
 use clap::Subcommand;
 
 /// Deliberately unstable commands.
@@ -15,7 +17,7 @@ pub enum Subcommands {
 }
 
 impl Subcommands {
-    pub fn dispatch(self) -> anyhow::Result<()> {
+    pub fn dispatch(self) -> anyhow::Result<ExitCode> {
         match self {
             #[cfg(not(enarx_with_shim))]
             Self::Exec(_) => anyhow::bail!("exec option not supported"),

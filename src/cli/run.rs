@@ -7,6 +7,7 @@ use crate::exec::{open_package, run_package, EXECS};
 use std::fmt::Debug;
 #[cfg(unix)]
 use std::os::unix::io::IntoRawFd;
+use std::process::ExitCode;
 
 use anyhow::anyhow;
 use camino::Utf8PathBuf;
@@ -41,7 +42,7 @@ pub struct Options {
 }
 
 impl Options {
-    pub fn execute(self) -> anyhow::Result<()> {
+    pub fn execute(self) -> anyhow::Result<ExitCode> {
         let Self {
             backend,
             wasmcfgfile,
@@ -79,7 +80,7 @@ impl Options {
             Ok(pkg)
         };
 
-        let code = run_package(
+        run_package(
             backend,
             exec,
             signatures,
@@ -88,7 +89,6 @@ impl Options {
             #[cfg(feature = "gdb")]
             Some(gdblisten),
             get_pkg,
-        )?;
-        std::process::exit(code);
+        )
     }
 }

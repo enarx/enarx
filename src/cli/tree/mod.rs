@@ -4,6 +4,8 @@ mod digest;
 mod fetch;
 mod info;
 
+use std::process::ExitCode;
+
 use clap::Subcommand;
 
 /// Commands for working with file trees inside of Enarx packages.
@@ -15,7 +17,7 @@ pub enum Subcommands {
 }
 
 impl Subcommands {
-    pub fn dispatch(self) -> anyhow::Result<()> {
+    pub fn dispatch(self) -> anyhow::Result<ExitCode> {
         match self {
             Self::Info(cmd) => cmd.execute(),
             Self::Fetch(cmd) => cmd.execute(),

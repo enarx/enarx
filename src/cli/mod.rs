@@ -17,6 +17,7 @@ mod user;
 use crate::backend::{Backend, BACKENDS};
 
 use std::ops::Deref;
+use std::process::ExitCode;
 use std::str::FromStr;
 
 use anyhow::{anyhow, bail};
@@ -46,7 +47,7 @@ pub struct Options {
 }
 
 impl Options {
-    pub fn execute(self) -> anyhow::Result<()> {
+    pub fn execute(self) -> anyhow::Result<ExitCode> {
         self.logger.init();
 
         info!("logging initialized!");
@@ -84,7 +85,7 @@ enum Subcommands {
 }
 
 impl Subcommands {
-    fn dispatch(self) -> anyhow::Result<()> {
+    fn dispatch(self) -> anyhow::Result<ExitCode> {
         match self {
             Self::Run(cmd) => cmd.execute(),
             Self::Config(subcmd) => subcmd.dispatch(),

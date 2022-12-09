@@ -31,10 +31,11 @@ use std::fs::File;
 #[cfg(unix)]
 use std::os::unix::io::AsRawFd;
 use std::path::PathBuf;
+use std::process::ExitCode;
 #[cfg(unix)]
 use std::time::Duration;
 
-use anyhow::{Context, Result};
+use anyhow::{bail, Context, Result};
 use enarx_exec_wasmtime::{Args as ExecArgs, Package};
 
 /// Write timeout for writing the arguments to exec-wasmtime.
@@ -91,13 +92,16 @@ pub fn keep_exec(
     exec: impl AsRef<[u8]>,
     signatures: Option<Signatures>,
     _gdblisten: Option<String>,
-) -> anyhow::Result<libc::c_int> {
+) -> anyhow::Result<ExitCode> {
     let keep = backend.keep(shim.as_ref(), exec.as_ref(), signatures)?;
     let mut thread = keep.clone().spawn()?.unwrap();
     loop {
         match thread.enter(&_gdblisten)? {
             Command::Continue => (),
-            Command::Exit(exit_code) => return Ok(exit_code),
+            Command::Exit(code @ 0..=0xff) => return Ok(ExitCode::from(code as u8)),
+            Command::Exit(code) => {
+                bail!("keep exited with a non-portable exit code `{code}`, which exceeds 255")
+            }
         }
     }
 }
@@ -130,12 +134,11 @@ pub fn run_package(
     _signatures: Option<Signatures>,
     gdblisten: Option<String>,
     package: impl FnOnce() -> Result<Package>,
-) -> Result<i32> {
+) -> Result<ExitCode> {
     let package = package()?;
     let args = ExecArgs { package };
     backend.set_args(args);
-    let exit_code = keep_exec(backend, backend.shim(), exec, None, gdblisten)?;
-    Ok(exit_code)
+    keep_exec(backend, backend.shim(), exec, None, gdblisten)
 }
 
 /// Runs a package.
@@ -149,7 +152,7 @@ pub fn run_package(
     signatures: Option<Signatures>,
     gdblisten: Option<String>,
     package: impl FnOnce() -> Result<Package>,
-) -> Result<i32> {
+) -> Result<ExitCode> {
     use std::io::Write;
     use std::net::Shutdown;
     use std::os::unix::net::UnixStream;

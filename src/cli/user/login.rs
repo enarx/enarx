@@ -4,6 +4,7 @@ use super::oidc_client_secret;
 use crate::drawbridge::{LoginContext, OidcLoginFlow};
 
 use std::ffi::OsString;
+use std::process::ExitCode;
 
 use clap::Args;
 use oauth2::url::Url;
@@ -28,7 +29,7 @@ pub struct Options {
 }
 
 impl Options {
-    pub fn execute(self) -> anyhow::Result<()> {
+    pub fn execute(self) -> anyhow::Result<ExitCode> {
         let Self {
             ref oidc_domain,
             oidc_client_id,
@@ -51,6 +52,6 @@ impl Options {
 
         println!("Login successful.");
 
-        Ok(())
+        Ok(ExitCode::SUCCESS)
     }
 }

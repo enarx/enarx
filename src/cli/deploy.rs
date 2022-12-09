@@ -8,6 +8,7 @@ use std::fmt::Debug;
 use std::fs;
 #[cfg(unix)]
 use std::os::unix::io::IntoRawFd;
+use std::process::ExitCode;
 
 use crate::backend::Signatures;
 use anyhow::{anyhow, bail, Context};
@@ -41,7 +42,7 @@ pub struct Options {
 }
 
 impl Options {
-    pub fn execute(self) -> anyhow::Result<()> {
+    pub fn execute(self) -> anyhow::Result<ExitCode> {
         let Self {
             backend,
             package,
@@ -91,7 +92,7 @@ impl Options {
             Some(url) => url,
         };
 
-        let code = match package.scheme() {
+        match package.scheme() {
             "file" => {
                 let path = package
                     .to_file_path()
@@ -128,18 +129,16 @@ impl Options {
                     Ok(pkg)
                 };
 
-                run_package(backend, exec, signatures, gdblisten, get_pkg)?
+                run_package(backend, exec, signatures, gdblisten, get_pkg)
             }
 
             // The WASM module and config will be downloaded from a remote by exec-wasmtime
             // TODO: Disallow `http` or guard by an `--insecure` flag
             "http" | "https" => run_package(backend, exec, signatures, gdblisten, || {
                 Ok(Package::Remote(package))
-            })?,
+            }),
 
             s => bail!("unsupported scheme: {}", s),
-        };
-
-        std::process::exit(code);
+        }
     }
 }

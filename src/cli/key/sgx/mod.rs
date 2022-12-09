@@ -3,6 +3,8 @@
 mod create;
 mod digest;
 
+use std::process::ExitCode;
+
 use clap::Subcommand;
 
 /// SGX-specific functionality
@@ -13,7 +15,7 @@ pub enum Subcommands {
 }
 
 impl Subcommands {
-    pub fn dispatch(self) -> anyhow::Result<()> {
+    pub fn dispatch(self) -> anyhow::Result<ExitCode> {
         match self {
             Self::Create(cmd) => cmd.execute(),
             Self::Digest(cmd) => cmd.execute(),

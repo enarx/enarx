@@ -4,6 +4,8 @@ mod generate;
 mod info;
 mod revoke;
 
+use std::process::ExitCode;
+
 use clap::Subcommand;
 
 /// Commands for working with repository access tokens.
@@ -15,7 +17,7 @@ pub enum Subcommands {
 }
 
 impl Subcommands {
-    pub fn dispatch(self) -> anyhow::Result<()> {
+    pub fn dispatch(self) -> anyhow::Result<ExitCode> {
         match self {
             Self::Info(cmd) => cmd.execute(),
             Self::Generate(cmd) => cmd.execute(),

@@ -6,6 +6,7 @@ use crate::backend::ByteSized;
 use std::fmt::Debug;
 use std::fs::File;
 use std::io::prelude::*;
+use std::process::ExitCode;
 
 use anyhow::{bail, Context};
 use camino::Utf8PathBuf;
@@ -82,7 +83,7 @@ pub fn sign_id_sev_key(
 }
 
 impl Options {
-    pub fn execute(self) -> anyhow::Result<()> {
+    pub fn execute(self) -> anyhow::Result<ExitCode> {
         let mut sev_author_key_file =
             File::open(&self.author_key).context("Failed to open SEV author key file")?;
         let mut buffer = String::new();
@@ -105,7 +106,7 @@ impl Options {
         f.write_all(&buf)
             .with_context(|| format!("Failed to write to output file {}", self.out))?;
 
-        Ok(())
+        Ok(ExitCode::SUCCESS)
     }
 }
 
