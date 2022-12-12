@@ -35,8 +35,17 @@ use rcrt1::dyn_reloc;
 use sallyport::{elf::note, REQUIRES};
 use x86_64::registers::control::{Cr0Flags, Cr4Flags, EferFlags};
 
+const POLICY_FLAGS: PolicyFlags = PolicyFlags::SMT;
+
+#[cfg(not(any(features = "dbg", features = "gdb")))]
+const KEEP_POLICY_FLAGS: PolicyFlags = POLICY_FLAGS;
+
+#[cfg(any(features = "dbg", features = "gdb"))]
+const KEEP_POLICY_FLAGS: PolicyFlags =
+    PolicyFlags::from_bits_truncate(POLICY_FLAGS.bits() | POLICY_FLAGS::DEBUG.bits());
+
 const POLICY: u64 = Policy {
-    flags: PolicyFlags::SMT,
+    flags: KEEP_POLICY_FLAGS,
     minfw: Version {
         major: 1,
         minor: 51,

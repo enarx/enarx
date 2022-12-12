@@ -51,8 +51,17 @@ const XFRM: Xfrm = Xfrm::from_bits_truncate(
         | Xfrm::HI16_ZMM.bits(),
 );
 
+const FEATURES: Features = Features::MODE64BIT;
+
+#[cfg(any(features = "dbg", features = "gdb"))]
+const KEEP_FEATURES: Features =
+    Features::from_bits_truncate(FEATURES.bits() | Features::DEBUG.bits());
+
+#[cfg(not(any(features = "dbg", features = "gdb")))]
+const KEEP_FEATURES: Features = FEATURES;
+
 /// Default enclave CPU attributes
-pub const ATTR: Attributes = Attributes::new(Features::MODE64BIT, XFRM);
+pub const ATTR: Attributes = Attributes::new(KEEP_FEATURES, XFRM);
 
 /// Default miscelaneous SSA data selector
 pub const MISC: MiscSelect = {
