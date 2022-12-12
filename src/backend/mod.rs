@@ -25,6 +25,7 @@ use binary::{Binary, Loader, Mapper};
 
 use std::fs::File;
 use std::io::Read;
+use std::panic::UnwindSafe;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
@@ -210,7 +211,7 @@ pub trait Keep {
     fn spawn(self: Arc<Self>) -> Result<Option<Box<dyn Thread>>>;
 }
 
-pub trait Thread: Send {
+pub trait Thread: Send + UnwindSafe {
     /// Enters the keep.
     fn enter(&mut self, gdblisten: &Option<String>) -> Result<Command>;
 }

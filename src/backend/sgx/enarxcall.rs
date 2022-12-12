@@ -58,24 +58,30 @@ pub(crate) fn sgx_enarxcall<'a>(
             *ret = {
                 if let Some(mut thread) = thread {
                     std::thread::spawn(move || {
-                        let ret = trace_span!(
-                            "Thread",
-                            id = ?std::thread::current().id()
-                        )
-                        .in_scope(|| loop {
-                            match thread.enter(&None)? {
-                                Command::Continue => (),
-                                Command::Exit(exit_code) => {
-                                    drop(thread);
-                                    return Ok::<i32, anyhow::Error>(exit_code);
+                        std::panic::catch_unwind(move || {
+                            let ret = trace_span!(
+                                "Thread",
+                                id = ?std::thread::current().id()
+                            )
+                            .in_scope(|| loop {
+                                match thread.enter(&None)? {
+                                    Command::Continue => (),
+                                    Command::Exit(exit_code) => {
+                                        drop(thread);
+                                        return Ok::<i32, anyhow::Error>(exit_code);
+                                    }
                                 }
+                            });
+                            if let Err(e) = ret {
+                                error!("Thread failed: {e:#?}");
+                                std::process::exit(1);
                             }
-                        });
-                        if let Err(e) = ret {
-                            error!("Thread failed: {e:#?}");
+                            ret
+                        })
+                        .unwrap_or_else(|e| {
+                            error!("Thread panicked: {e:#?}");
                             std::process::exit(1);
-                        }
-                        ret
+                        })
                     });
                     0
                 } else {
