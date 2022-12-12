@@ -2,8 +2,6 @@
 
 use crate::cli::BackendOptions;
 
-use std::process::ExitCode;
-
 use camino::Utf8PathBuf;
 use clap::Args;
 
@@ -42,7 +40,7 @@ pub struct Options {
 
 #[cfg(enarx_with_shim)]
 impl Options {
-    pub fn execute(self) -> anyhow::Result<ExitCode> {
+    pub fn execute(self) -> anyhow::Result<std::process::ExitCode> {
         use crate::backend::Signatures;
 
         let Self {
