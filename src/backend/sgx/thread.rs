@@ -13,7 +13,7 @@ use std::mem::{size_of, MaybeUninit};
 use std::net::TcpStream;
 use std::sync::Arc;
 
-use anyhow::{Context, Result};
+use anyhow::{bail, Context, Result};
 use sallyport::item;
 use sallyport::item::{Block, Item};
 use sgx::enclu::{EENTER, EEXIT, ERESUME};
@@ -159,8 +159,8 @@ impl super::super::Thread for Thread {
         }
 
         if self.cssa > 3 {
-            error!("CSSA overflow");
-            return Ok(Command::Exit(1));
+            error!("SGX CSSA overflow");
+            bail!("SGX CSSA overflow");
         }
 
         // If we have handled an InvalidOpcode error, evaluate the sallyport.
@@ -210,7 +210,9 @@ impl super::super::Thread for Thread {
                             error!(
                                 "exit({code}) syscall used over sallyport, when it should not be"
                             );
-                            return Ok(Command::Exit(1));
+                            bail!(
+                                "exit({code}) syscall used over sallyport, when it should not be"
+                            );
                         }
 
                         // Catch exit_group for a clean shutdown
