@@ -15,6 +15,7 @@ use super::{Package, Workload};
 use anyhow::{bail, Context};
 use enarx_config::{Config, File};
 use once_cell::sync::Lazy;
+use tracing::{instrument, trace_span};
 use wasi_common::file::FileCaps;
 use wasi_common::WasiFile;
 use wasmtime::{AsContextMut, Engine, Linker, Module, Store, Trap, Val};
@@ -37,6 +38,7 @@ pub struct Runtime;
 
 impl Runtime {
     // Execute an Enarx [Package]
+    #[instrument]
     pub fn execute(package: Package) -> anyhow::Result<Vec<Val>> {
         let (prvkey, crtreq) = identity::generate()?;
 
@@ -64,8 +66,9 @@ impl Runtime {
 
         let mut wstore = Store::new(&engine, WasiCtxBuilder::new().build());
 
-        let module =
-            Module::from_binary(&engine, &webasm).context("failed to compile Wasm module")?;
+        let module = trace_span!("compile")
+            .in_scope(|| Module::from_binary(&engine, &webasm))
+            .context("failed to compile Wasm module")?;
         linker
             .module(&mut wstore, "", &module)
             .context("failed to link module")?;
@@ -110,7 +113,9 @@ impl Runtime {
             .context("failed to get default function")?;
 
         let mut values = vec![Val::null(); func.ty(&wstore).results().len()];
-        if let Err(e) = func.call(wstore, Default::default(), &mut values) {
+        if let Err(e) =
+            trace_span!("call").in_scope(|| func.call(wstore, Default::default(), &mut values))
+        {
             match e.downcast_ref::<Trap>().map(Trap::i32_exit_status) {
                 Some(Some(0)) => {} // function exited with a code of 0, treat as success
                 _ => bail!(e.context("failed to execute default function")),

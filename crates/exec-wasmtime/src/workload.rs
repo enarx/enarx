@@ -12,6 +12,7 @@ use drawbridge_client::types::{Meta, TagEntry, TreeDirectory, TreeEntry, TreeNam
 use drawbridge_client::{scope, Client, Entity, Node, Scope};
 use enarx_config::Config;
 use once_cell::sync::Lazy;
+use tracing::instrument;
 use ureq::serde_json;
 use url::Url;
 
@@ -126,6 +127,7 @@ pub struct Workload {
 impl TryFrom<Package> for Workload {
     type Error = anyhow::Error;
 
+    #[instrument]
     fn try_from(mut pkg: Package) -> Result<Self, Self::Error> {
         match pkg {
             Package::Remote(ref url) => {
