@@ -2,3 +2,5 @@ target/
 output/
 .idea/
 .vscode/
+tracing.folded
+*.svg

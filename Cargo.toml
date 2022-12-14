@@ -34,6 +34,7 @@ hex = { workspace = true }
 keyring = { workspace = true }
 libc = { workspace = true }
 tracing = { workspace = true, features = ["release_max_level_info", "std"] }
+tracing-flame = { workspace = true }
 tracing-subscriber = { workspace = true, features = ["ansi", "smallvec", "std", "tracing-log"] }
 oauth2 = { workspace = true }
 once_cell = { workspace = true, features = ["std"] }
@@ -202,6 +203,7 @@ tempfile = { version = "3.3.0", default-features = false }
 testaso = { version = "0.1.0", default-features = false }
 toml = { version = "0.5.9", default-features = false }
 tracing = { version = "0.1.36", features = ["attributes"], default-features = false }
+tracing-flame = { version = "0.2.0", default-features = false }
 tracing-subscriber = { version = "0.3.15", features = ["env-filter", "fmt"], default-features = false }
 ureq = { version = "2.4.0", default-features = false }
 url = { version = "2.2.2", default-features = false }

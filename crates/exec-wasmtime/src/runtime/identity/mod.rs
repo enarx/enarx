@@ -7,6 +7,7 @@ mod platform;
 
 use pki::PrivateKeyInfoExt;
 use platform::{Platform, Technology};
+use tracing::instrument;
 
 use std::time::Duration;
 
@@ -63,6 +64,7 @@ fn csr(pki: &PrivateKeyInfo<'_>, exts: Vec<Extension<'_>>) -> anyhow::Result<Vec
 }
 
 /// Generates a new private key and corresponding CSR
+#[instrument]
 pub fn generate() -> anyhow::Result<(Zeroizing<Vec<u8>>, Vec<u8>)> {
     let platform = Platform::get()?;
     let cert_algo = match platform.technology() {
@@ -103,6 +105,7 @@ pub fn generate() -> anyhow::Result<(Zeroizing<Vec<u8>>, Vec<u8>)> {
     Ok((raw, req))
 }
 
+#[instrument(skip(csr))]
 pub fn steward(url: &Url, csr: impl AsRef<[u8]>) -> anyhow::Result<Vec<Vec<u8>>> {
     if url.scheme() != "https" {
         bail!("refusing to use an unencrypted steward url");
@@ -122,6 +125,7 @@ pub fn steward(url: &Url, csr: impl AsRef<[u8]>) -> anyhow::Result<Vec<Vec<u8>>>
     path.iter().rev().map(|c| Ok(c.to_vec()?)).collect()
 }
 
+#[instrument(skip(key))]
 pub fn selfsigned(key: impl AsRef<[u8]>) -> anyhow::Result<Vec<Vec<u8>>> {
     let pki = PrivateKeyInfo::from_der(key.as_ref())?;
 
