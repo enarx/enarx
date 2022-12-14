@@ -16,12 +16,12 @@ mod user;
 
 use crate::backend::{Backend, BACKENDS};
 
-use std::fs::File;
 use std::ops::Deref;
 use std::process::ExitCode;
 use std::str::FromStr;
 
-use anyhow::{anyhow, bail};
+use anyhow::{anyhow, bail, Context};
+use camino::Utf8PathBuf;
 use clap::{ArgAction, Args, Parser, Subcommand};
 use tracing::info;
 use tracing_flame::FlameLayer;
@@ -50,7 +50,33 @@ pub struct Options {
 
 impl Options {
     pub fn execute(self) -> anyhow::Result<ExitCode> {
-        let _guard = self.logger.init();
+        let env_filter = EnvFilter::builder()
+            .with_default_directive(self.logger.verbosity_level().into())
+            .parse_lossy(self.logger.log_filter.as_ref().unwrap_or(&"".to_owned()));
+        let fmt_layer = fmt::layer()
+            .with_span_events(FmtSpan::NEW | FmtSpan::CLOSE)
+            .with_filter(env_filter);
+
+        let (flame_layer, _) = if let Some(ref profile) = self.logger.profile {
+            // Open `/dev/null` to reserve fd 3 on Unix, which `exec-wasmtime` will expect to read config from
+            // It will be dropped at the end of this block, freeing it for the following socketpair call
+            #[cfg(unix)]
+            let _reserved = matches!(self.cmd, Subcommands::Run(_) | Subcommands::Deploy(_))
+                .then_some(File::open("/dev/null"))
+                .transpose()
+                .context("failed to open temporary directory")?;
+
+            let (flame_layer, guard) =
+                FlameLayer::with_file(profile).context("failed to open profile")?;
+            (Some(flame_layer), Some(guard))
+        } else {
+            (None, None)
+        };
+
+        tracing_subscriber::registry()
+            .with(fmt_layer)
+            .with(flame_layer)
+            .init();
 
         info!("logging initialized!");
         info!("CLI opts: {:?}", self);
@@ -164,33 +190,13 @@ pub struct LogOptions {
     /// Set log output target ("stderr", "stdout")
     #[clap(long, default_value = "stderr")]
     log_target: LogTarget,
+
+    /// If set, a performance profile will be written to this location.
+    #[clap(long)]
+    profile: Option<Utf8PathBuf>,
 }
 
 impl LogOptions {
-    /// Build & initialize a global logger using [EnvFilter::builder].
-    /// As with Builder::init(), this will panic if called more than once,
-    /// or if another library has already initialized a global logger.
-    pub fn init(&self) -> impl Drop {
-        let env_filter = EnvFilter::builder()
-            .with_default_directive(self.verbosity_level().into())
-            .parse_lossy(self.log_filter.as_ref().unwrap_or(&"".to_owned()));
-
-        let fmt_layer = fmt::layer()
-            .with_span_events(FmtSpan::NEW | FmtSpan::CLOSE)
-            .with_filter(env_filter);
-
-        let file = File::open("/dev/null"); // reserve fd 3
-        let (flame_layer, _guard) = FlameLayer::with_file("./tracing.folded").unwrap();
-        drop(file);
-
-        tracing_subscriber::registry()
-            .with(fmt_layer)
-            .with(flame_layer)
-            .init();
-
-        _guard
-    }
-
     /// Convert the -vvv.. count into a log level.
     fn verbosity_level(&self) -> LevelFilter {
         match self.verbosity {
