@@ -38,3 +38,6 @@ jobs:
       with:
         token: ${{ secrets.GITHUB_TOKEN }}
         pull_request: ${{ github.event.number }}
+        validate-pull-request: false
+        validate-pull-request-title-bump: false
+
