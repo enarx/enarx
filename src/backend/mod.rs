@@ -86,7 +86,7 @@ impl Signatures {
                 }
             }
             Some(path) => Self::load_and_check_file(path.as_std_path())
-                .with_context(|| format!("Failed to load signatures from {}", path)),
+                .with_context(|| format!("Failed to load signatures from {path}")),
         }
     }
 
@@ -287,14 +287,14 @@ pub static BACKENDS: Lazy<Vec<Box<dyn Backend>>> = Lazy::new(|| {
 pub fn wait_for_gdb_connection(sockaddr: &str) -> std::io::Result<std::net::TcpStream> {
     use std::net::TcpListener;
 
-    eprintln!("Waiting for a GDB connection on {:?}...", sockaddr);
+    eprintln!("Waiting for a GDB connection on {sockaddr:?}...");
     let sock = TcpListener::bind(sockaddr)?;
     let (stream, addr) = sock.accept()?;
 
     // Blocks until a GDB client connects via TCP.
     // i.e: Running `target remote localhost:<port>` from the GDB prompt.
 
-    eprintln!("Debugger connected from {}", addr);
+    eprintln!("Debugger connected from {addr}");
     Ok(stream) // `TcpStream` implements `gdbstub::Connection`
 }
 

@@ -55,7 +55,7 @@ impl<T: Debug + Display> Display for Indeterminate<T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             Indeterminate::Known(e) => {
-                write!(f, "{}", e)
+                write!(f, "{e}")
             }
             Indeterminate::Unknown => {
                 write!(f, "Unknown Error",)
@@ -188,7 +188,7 @@ impl std::fmt::Display for Error {
             }
             Error::SecureDataInvalid => "SEV platform observed a failed integrity check",
         };
-        write!(f, "{}", err_description)
+        write!(f, "{err_description}")
     }
 }
 

@@ -32,7 +32,7 @@ impl Vendor {
         let name = from_utf8(&name[..]).map_err(|e| {
             Error::new(
                 ErrorKind::Other,
-                format!("vendor string parse error: {:#?}", e),
+                format!("vendor string parse error: {e:#?}"),
             )
         })?;
 
@@ -41,7 +41,7 @@ impl Vendor {
             GENUINE_INTEL => Ok(Self::Intel),
             name => Err(Error::new(
                 ErrorKind::Other,
-                format!("unsupported vendor: '{}'", name),
+                format!("unsupported vendor: '{name}'"),
             )),
         }
     }
@@ -77,7 +77,7 @@ impl CpuId {
                 name.unwrap_or("[unknown model]"),
                 vendor
                     .map(|v| v.id().to_string())
-                    .unwrap_or_else(|e| format!("[{}]", e))
+                    .unwrap_or_else(|e| format!("[{e}]"))
             )
         };
 

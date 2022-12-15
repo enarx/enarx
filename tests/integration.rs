@@ -84,21 +84,18 @@ pub fn assert_eq_slices(expected_output: &[u8], output: &[u8], what: &str) {
     assert_eq!(
         output[..max_len],
         expected_output[..max_len],
-        "Expected contents of {} differs",
-        what
+        "Expected contents of {what} differs"
     );
 
     assert_eq!(
         output.len(),
         expected_output.len(),
-        "Expected length of {} differs",
-        what,
+        "Expected length of {what} differs",
     );
 
     assert_eq!(
         output, expected_output,
-        "Expected contents of {} differs",
-        what
+        "Expected contents of {what} differs"
     );
 }
 
@@ -127,7 +124,7 @@ fn enarx<'a>(
         .stdout(Stdio::piped())
         .stderr(Stdio::piped()))
     .spawn()
-    .unwrap_or_else(|e| panic!("failed to execute command: {:#?}", e));
+    .unwrap_or_else(|e| panic!("failed to execute command: {e:#?}"));
 
     let stdin = input.into().map(|input| {
         let mut stdin = child.stdin.take().unwrap();
@@ -148,7 +145,7 @@ fn enarx<'a>(
         .time_limit(time::Duration::from_secs(TIMEOUT_SECS))
         .terminate_for_timeout()
         .wait()
-        .unwrap_or_else(|e| panic!("failed to run command: {:#?}", e))
+        .unwrap_or_else(|e| panic!("failed to run command: {e:#?}"))
         .unwrap_or_else(|| panic!("process timed out"));
 
     if let Some(stdin) = stdin {

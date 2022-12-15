@@ -20,7 +20,7 @@ impl Options {
         if self.file {
             match get_vcek_reader_with_path(sev_cache_dir()?) {
                 Ok((path, _)) => {
-                    println!("{:?}", path);
+                    println!("{path:?}");
                     Ok(ExitCode::SUCCESS)
                 }
                 Err(e) => {

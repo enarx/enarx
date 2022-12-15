@@ -161,13 +161,13 @@ fn compile(wasm: &str) -> PathBuf {
     match fs::create_dir(&out_dir) {
         Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {}
         Err(e) => {
-            eprintln!("Can't create {:#?} : {:#?}", out_dir, e);
+            eprintln!("Can't create {out_dir:#?} : {e:#?}");
             std::process::exit(1);
         }
         Ok(_) => {}
     }
     let bin = wat::parse_file(&wat).unwrap_or_else(|_| panic!("failed to compile {:?}", &wat));
-    fs::write(&wasm, &bin).unwrap_or_else(|_| panic!("failed to write {:?}", &wasm));
+    fs::write(&wasm, bin).unwrap_or_else(|_| panic!("failed to write {:?}", &wasm));
     wasm
 }
 
@@ -259,7 +259,7 @@ kind = "stderr""#;
     let pkg_wasm = pkg.path().join("main.wasm");
     let pkg_conf = pkg.path().join("Enarx.toml");
 
-    fs::copy(&wasm, &pkg_wasm).context("failed to copy WASM module")?;
+    fs::copy(&wasm, pkg_wasm).context("failed to copy WASM module")?;
     fs::write(&pkg_conf, CONF).context("failed to write config")?;
 
     check_output(&enarx_run(&wasm, Some(&pkg_conf), INPUT), 0, OUTPUT, None);
