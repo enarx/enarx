@@ -5,6 +5,9 @@ use enarx_exec_tests::musl_fsbase_fix;
 use std::convert::TryFrom;
 use std::io;
 
+use der::{Decode, Sequence};
+use x509_cert::crl::CertificateList;
+
 musl_fsbase_fix!();
 
 const MRSIGNER_START: usize = 48 + 128;
@@ -34,6 +37,13 @@ impl TryFrom<u64> for TeeTech {
             _ => Err(TryFromIntError(())),
         }
     }
+}
+
+#[derive(Sequence)]
+pub struct SgxEvidence<'a> {
+    #[asn1(type = "OCTET STRING")]
+    pub quote: &'a [u8],
+    pub crl: Vec<CertificateList<'a>>,
 }
 
 #[cfg(target_os = "linux")]
@@ -116,11 +126,26 @@ fn main() -> io::Result<()> {
 
     assert!(matches!(tech, TeeTech::Sgx));
 
+    let evidence = SgxEvidence::from_der(&buffer[..len]).map_err(|e| {
+        io::Error::new(
+            io::ErrorKind::Other,
+            format!("SGX evidence to DER error {e}"),
+        )
+    })?;
+
+    assert!(
+        evidence.crl.len() > 1,
+        "ensure CRLs were present, got {}",
+        evidence.crl.len()
+    );
+
+    let buffer = evidence.quote;
+
     let bytes = &buffer[MRSIGNER_START..][..32];
     let out = hex::encode(bytes);
     println!("MRSIGNER = {out}");
 
-    let bytes = &buffer[QUOTE_SIG_START..len];
+    let bytes = &buffer[QUOTE_SIG_START..];
 
     let mut qe_auth_len_bytes = [0u8; 2];
     qe_auth_len_bytes.copy_from_slice(&bytes[QE_AUTH_LEN_START..QE_AUTH_LEN_END]);

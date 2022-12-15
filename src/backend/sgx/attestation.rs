@@ -4,7 +4,7 @@
 // * https://github.com/fortanix/rust-sgx for examples of AESM requests.
 
 use super::AESM_SOCKET;
-
+use crate::backend::sgx::sgx_cache_dir;
 use crate::protobuf::aesm_proto::{
     Request, Request_GetQuoteExRequest, Request_GetQuoteSizeExRequest,
     Request_GetSupportedAttKeyIDNumRequest, Request_GetSupportedAttKeyIDsRequest,
@@ -16,14 +16,23 @@ use std::mem::size_of;
 use std::ops::{Deref, DerefMut};
 use std::os::unix::net::UnixStream;
 
+use anyhow::Context;
+use der::{Document, Encode, Sequence};
 use protobuf::Message;
 use sallyport::item::enarxcall::sgx::TargetInfo;
 
 const SGX_TI_SIZE: usize = size_of::<TargetInfo>();
-
 const AESM_REQUEST_TIMEOUT: u32 = 1_000_000;
 const SGX_KEY_ID_SIZE: u32 = 256;
 const SGX_REPORT_SIZE: usize = 432;
+
+#[derive(Sequence)]
+pub struct SgxEvidence<'a> {
+    #[asn1(type = "OCTET STRING")]
+    pub quote: &'a [u8],
+    // CRL is already ASN.1 encoded on disk
+    pub crl: Document,
+}
 
 #[repr(u32)]
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
@@ -432,6 +441,75 @@ pub fn get_quote(report: &[u8], akid: Vec<u8>, out_buf: &mut [u8]) -> Result<usi
 
     out_buf.copy_from_slice(quote);
     Ok(quote.len())
+}
+
+/// Gets quote size with CRL added
+pub fn get_quote_size_with_collateral(akid: Vec<u8>) -> Result<usize, Error> {
+    let q_size = get_quote_size(akid)?;
+    let out_buf_temp = vec![0; q_size];
+
+    let mut crl_file = sgx_cache_dir()
+        .map_err(|e| Error::new(ErrorKind::Other, format!("SGX CRL read error {e}")))?;
+    crl_file.push("crls.der");
+
+    let evidence = SgxEvidence {
+        quote: &out_buf_temp,
+        crl: Document::read_der_file(&crl_file)
+            .context(format!("error reading Intel CRL file {crl_file:?}"))
+            .unwrap(),
+    };
+
+    let evidence_vec = evidence
+        .to_vec()
+        .map_err(|e| Error::new(ErrorKind::Other, format!("SGX evidence to DER error: {e}")))?;
+
+    Ok(evidence_vec.len())
+}
+
+pub fn get_quote_and_collateral(
+    report: &[u8],
+    akid: Vec<u8>,
+    out_buf: &mut [u8],
+) -> Result<usize, Error> {
+    // Get the report in a separate buffer
+    let q_size = get_quote_size(akid.clone())?;
+    let mut out_buf_temp = vec![0; q_size];
+    get_quote(report, akid, &mut out_buf_temp)?;
+
+    let mut crl_file = sgx_cache_dir()
+        .map_err(|e| Error::new(ErrorKind::Other, format!("SGX CRL read error: {e}")))?;
+    crl_file.push("crls.der");
+
+    let crl = Document::read_der_file(&crl_file)
+        .context(format!("error reading Intel CRL file `{crl_file:?}`"))
+        .map_err(|e| Error::new(ErrorKind::Other, format!("DER decoding error: {e}")))?;
+
+    let evidence = SgxEvidence {
+        quote: &out_buf_temp.clone(),
+        crl,
+    };
+
+    let evidence = evidence.to_vec().map_err(|e| {
+        Error::new(
+            ErrorKind::InvalidData,
+            format!("SGX CRL & report error {e}"),
+        )
+    })?;
+
+    if evidence.len() > out_buf.len() {
+        return Err(Error::new(
+            ErrorKind::InvalidData,
+            format!(
+                "SGX CRL & report error: buffer length is {}, but need {}",
+                out_buf.len(),
+                evidence.len()
+            ),
+        ));
+    }
+
+    out_buf.copy_from_slice(&evidence);
+
+    Ok(evidence.len())
 }
 
 #[cfg(test)]
