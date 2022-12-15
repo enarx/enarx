@@ -56,7 +56,7 @@ impl Options {
                 format!("[{}]", io::Error::last_os_error())
             } else {
                 utsname_to_string(unsafe { utsname.assume_init() })
-                    .unwrap_or_else(|e| format!("[utf8 error: {}]", e))
+                    .unwrap_or_else(|e| format!("[utf8 error: {e}]"))
             }
         }
 
@@ -68,7 +68,7 @@ impl Options {
         if self.json {
             println!("{}", serde_json::to_string_pretty(&info)?);
         } else {
-            println!("{}", info);
+            println!("{info}");
         }
 
         Ok(ExitCode::SUCCESS)
@@ -118,14 +118,14 @@ impl fmt::Display for Info<'_> {
                 write!(f, "  {} {}", icon, datum.name)?;
 
                 if let Some(ref info) = datum.info {
-                    write!(f, ": {}", info)?;
+                    write!(f, ": {info}")?;
                 }
                 writeln!(f)?;
             }
 
             for datum in &data {
                 if let Some(mesg) = datum.mesg.as_ref() {
-                    writeln!(f, "\n  {}\n", mesg)?;
+                    writeln!(f, "\n  {mesg}\n")?;
                 }
             }
         }

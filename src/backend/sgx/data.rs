@@ -77,7 +77,7 @@ pub const CPUIDS: &[CpuId] = &[
         func: |res| {
             let bits = res.edx as u8;
             let (n, s) = humanize((1u64 << bits) as f64);
-            (true, Some(format!("{:.0} {}", n, s)))
+            (true, Some(format!("{n:.0} {s}")))
         },
         vend: Some(Vendor::Intel),
     },
@@ -88,7 +88,7 @@ pub const CPUIDS: &[CpuId] = &[
         func: |res| {
             let bits = res.edx >> 8 & 0xff;
             let (n, s) = humanize((1u64 << bits) as f64);
-            (true, Some(format!("{:.0} {}", n, s)))
+            (true, Some(format!("{n:.0} {s}")))
         },
         vend: Some(Vendor::Intel),
     },
@@ -97,7 +97,7 @@ pub const CPUIDS: &[CpuId] = &[
         leaf: 0x00000012,
         subl: 0x00000000,
         func: |res| match MiscSelect::from_bits(res.ebx) {
-            Some(ms) => (true, Some(format!("{:?}", ms))),
+            Some(ms) => (true, Some(format!("{ms:?}"))),
             None => (false, None),
         },
         vend: Some(Vendor::Intel),
@@ -107,7 +107,7 @@ pub const CPUIDS: &[CpuId] = &[
         leaf: 0x00000012,
         subl: 0x00000001,
         func: |res| match Features::from_bits((res.ebx as u64) << 32 | res.eax as u64) {
-            Some(features) => (true, Some(format!("{:?}", features))),
+            Some(features) => (true, Some(format!("{features:?}"))),
             None => (false, None),
         },
         vend: Some(Vendor::Intel),
@@ -117,7 +117,7 @@ pub const CPUIDS: &[CpuId] = &[
         leaf: 0x00000012,
         subl: 0x00000001,
         func: |res| match Xfrm::from_bits((res.edx as u64) << 32 | res.ecx as u64) {
-            Some(flags) => (true, Some(format!("{:?}", flags))),
+            Some(flags) => (true, Some(format!("{flags:?}"))),
             None => (false, None),
         },
         vend: Some(Vendor::Intel),
@@ -143,7 +143,7 @@ pub fn epc_size(max: u32) -> Datum {
         }
 
         let (n, s) = humanize(size as f64);
-        info = Some(format!("{:.0} {}", n, s));
+        info = Some(format!("{n:.0} {s}"));
         pass = true;
     }
 

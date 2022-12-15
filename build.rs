@@ -12,7 +12,7 @@ fn generate_protos() {
         match fs::create_dir(path) {
             Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {}
             Err(e) => {
-                eprintln!("Can't create {:#?} : {:#?}", path, e);
+                eprintln!("Can't create {path:#?} : {e:#?}");
                 std::process::exit(1);
             }
             Ok(_) => {}

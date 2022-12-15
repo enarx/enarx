@@ -149,7 +149,7 @@ fn panic(_info: &core::panic::PanicInfo<'_>) -> ! {
         {
             #[cfg(feature = "dbg")]
             if is_printing_enabled() {
-                print::_eprint(format_args!("{}\n", _info));
+                print::_eprint(format_args!("{_info}\n"));
                 enarx_shim_kvm::debug::print_stack_trace();
             }
             // FIXME: might want to have a custom panic hostcall

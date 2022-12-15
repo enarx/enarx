@@ -136,7 +136,7 @@ pub fn get_token(
         .borrow()
         .host_str()
         .ok_or_else(|| anyhow!("invalid OpenID Connect domain"))?;
-    let oidc_token_id = format!("{}-{}", oidc_domain, host);
+    let oidc_token_id = format!("{oidc_domain}-{host}");
     if let Some(token) = provided_token {
         Ok(token.as_ref().into())
     } else if let Some(helper) = helper {
@@ -227,7 +227,7 @@ fn store_retrieved_access_token(
         .borrow()
         .host_str()
         .ok_or_else(|| anyhow!("invalid OpenID Connect domain"))?;
-    let oidc_token_id = format!("{}-{}", oidc_domain, host);
+    let oidc_token_id = format!("{oidc_domain}-{host}");
 
     if let Some(helper) = helper {
         let mut helper = Command::new(helper)

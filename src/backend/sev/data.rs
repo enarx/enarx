@@ -186,7 +186,7 @@ pub const CPUIDS: &[CpuId] = &[
         subl: 0x00000000,
         func: |res| {
             let field = res.ebx & 0b1111_1100_0000 >> 6;
-            (true, Some(format!("{}", field)))
+            (true, Some(format!("{field}")))
         },
         vend: Some(Vendor::Amd),
     },
@@ -196,7 +196,7 @@ pub const CPUIDS: &[CpuId] = &[
         subl: 0x00000000,
         func: |res| {
             let field = res.ebx & 0b01_1111;
-            (true, Some(format!("{}", field)))
+            (true, Some(format!("{field}")))
         },
         vend: Some(Vendor::Amd),
     },

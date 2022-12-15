@@ -213,11 +213,11 @@ unsafe fn stack_trace_from_rbp(mut rbp: usize) {
                     break;
                 }
                 if let Some(rip) = rip.checked_sub(shim_offset) {
-                    print::_eprint(format_args!("S 0x{:>016x}\n", rip));
+                    print::_eprint(format_args!("S 0x{rip:>016x}\n"));
                     rbp = *(rbp as *const usize);
                 } else if crate::exec::EXEC_READY.load(Ordering::Relaxed) {
                     if let Some(rip) = rip.checked_sub(EXEC_VIRT_ADDR.read().as_u64() as _) {
-                        print::_eprint(format_args!("E 0x{:>016x}\n", rip));
+                        print::_eprint(format_args!("E 0x{rip:>016x}\n"));
                         rbp = *(rbp as *const usize);
                     } else {
                         break;

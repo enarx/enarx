@@ -36,7 +36,7 @@ impl std::fmt::Display for State {
             State::Uninitialized => "uninitialized",
             State::Initialized => "initialized",
         };
-        write!(f, "{}", state)
+        write!(f, "{state}")
     }
 }
 
@@ -93,7 +93,7 @@ impl From<Vec<u8>> for Identifier {
 impl std::fmt::Display for Identifier {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         for b in self.0.iter() {
-            write!(f, "{:02X}", b)?;
+            write!(f, "{b:02X}")?;
         }
 
         Ok(())
@@ -103,7 +103,7 @@ impl std::fmt::Display for Identifier {
 impl std::fmt::LowerHex for Identifier {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         for b in self.0.iter() {
-            write!(f, "{:02x}", b)?;
+            write!(f, "{b:02x}")?;
         }
 
         Ok(())
