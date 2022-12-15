@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::backend::probe::x86_64::{CpuId, Vendor};
-use crate::backend::sgx::AESM_SOCKET;
+use crate::backend::sgx::{sgx_cache_dir, AESM_SOCKET};
 use crate::backend::Datum;
 
 use sgx::parameters::{Features, MiscSelect, Xfrm};
@@ -9,6 +9,10 @@ use sgx::parameters::{Features, MiscSelect, Xfrm};
 use std::arch::x86_64::__cpuid_count;
 use std::fs::File;
 use std::path::Path;
+use std::time::SystemTime;
+
+use der::Decode;
+use x509_cert::crl::CertificateList;
 
 fn humanize(mut size: f64) -> (f64, &'static str) {
     let mut iter = 0;
@@ -169,6 +173,83 @@ pub fn aesm_socket() -> Datum {
         name: "AESM Daemon Socket".into(),
         pass: cfg!(feature = "disable-sgx-attestation") || Path::new(AESM_SOCKET).exists(),
         info: Some(AESM_SOCKET.into()),
+        mesg: None,
+    }
+}
+
+pub fn intel_crl() -> Datum {
+    let name = "Intel CRL cache".to_string();
+    let mut crl_file =
+        match sgx_cache_dir() {
+            Ok(p) => p,
+            Err(e) => return Datum {
+                name,
+                pass: false,
+                info: Some(e.to_string()),
+                mesg: Some(
+                    "enarx expects the directory `/var/cache/intel-sgx` to exist and be readable"
+                        .into(),
+                ),
+            },
+        };
+    crl_file.push("crls.der");
+
+    if !crl_file.exists() {
+        return Datum {
+            name,
+            pass: false,
+            info: None,
+            mesg: Some(
+                "Run `enarx platform sgx cache-crl` to generate the Intel CRL cache file".into(),
+            ),
+        };
+    }
+
+    let crls =
+        match std::fs::read(crl_file.clone()) {
+            Ok(c) => c,
+            Err(e) => return Datum {
+                name,
+                pass: false,
+                info: Some(e.to_string()),
+                mesg: Some(
+                    "Re-run `enarx platform sgx cache-crl` to generate the Intel CRL cache file"
+                        .into(),
+                ),
+            },
+        };
+
+    let crls =
+        match Vec::<CertificateList>::from_der(&crls) {
+            Ok(c) => c,
+            Err(e) => return Datum {
+                name,
+                pass: false,
+                info: Some(e.to_string()),
+                mesg: Some(format!(
+                    "Re-run `enarx platform sgx cache-crl` to generate the Intel CRL cache file `{crl_file:?}`")),
+            },
+        };
+
+    for crl in crls.iter() {
+        if let Some(update) = crl.tbs_cert_list.next_update {
+            if update.to_system_time() <= SystemTime::now() {
+                return Datum {
+                    name,
+                    pass: false,
+                    info: None,
+                    mesg: Some(
+                        format!("CRLs expired, re-run `enarx platform sgx cache-crl` to update the Intel CRL cache file `{crl_file:?}`"),
+                    ),
+                };
+            }
+        }
+    }
+
+    Datum {
+        name,
+        pass: true,
+        info: None,
         mesg: None,
     }
 }

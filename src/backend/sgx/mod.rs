@@ -11,12 +11,14 @@ mod thread;
 
 use super::Loader;
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use mmarinus::{perms, Map};
 
 use crate::backend::Signatures;
 use std::arch::x86_64::__cpuid_count;
 use std::fs::File;
+use std::io::{self, ErrorKind};
+use std::path::PathBuf;
 use std::sync::{Arc, Mutex, RwLock};
 
 pub const AESM_SOCKET: &str = "/var/run/aesmd/aesm.socket";
@@ -61,6 +63,7 @@ impl crate::backend::Backend for Backend {
 
         let max = unsafe { __cpuid_count(0x00000000, 0x00000000) }.eax;
         data.push(data::epc_size(max));
+        data.push(data::intel_crl());
 
         data
     }
@@ -82,6 +85,21 @@ impl crate::backend::Backend for Backend {
     #[inline]
     fn hash(&self, shim: &[u8], exec: &[u8]) -> Result<Vec<u8>> {
         hasher::Hasher::load(shim, exec, None)
+    }
+}
+
+/// Returns the "system-level" search path for the SGX
+/// CRLs (`/var/cache/intel-sgx`).
+pub fn sgx_cache_dir() -> anyhow::Result<PathBuf> {
+    const CACHE_DIR: &str = "/var/cache";
+
+    let mut sys = PathBuf::from(CACHE_DIR);
+    if sys.exists() && sys.is_dir() {
+        sys.push("intel-sgx");
+        Ok(sys)
+    } else {
+        Err(io::Error::from(ErrorKind::NotFound))
+            .with_context(|| format!("Directory `{CACHE_DIR}` does not exist!"))
     }
 }
 

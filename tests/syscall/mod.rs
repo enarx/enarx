@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use super::{is_nil, is_sgx, run_test};
+use super::{is_nil, run_test};
 
 use std::io::Read;
 use std::mem::{size_of, MaybeUninit};
@@ -127,21 +127,6 @@ fn get_att() {
     }
 
     let bin = env!("CARGO_BIN_FILE_ENARX_SYSCALL_TESTS_get_att");
-    run_test(bin, 0, None, None, None);
-}
-
-#[cfg_attr(
-    any(not(host_can_test_sgx), not(host_can_test_attestation)),
-    ignore = "Backend does not support SGX"
-)]
-#[test]
-fn sgx_get_att_quote() {
-    if !is_sgx() {
-        eprintln!("SGX backend is disabled, ignoring");
-        return;
-    }
-
-    let bin = env!("CARGO_BIN_FILE_ENARX_SYSCALL_TESTS_sgx_get_att_quote");
     run_test(bin, 0, None, None, None);
 }
 

@@ -1,11 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use super::super::caching::fetch_file;
+use crate::backend::sgx::sgx_cache_dir;
 
 use std::fs::OpenOptions;
 use std::io::Write;
-use std::io::{self, ErrorKind};
-use std::path::PathBuf;
 use std::process::ExitCode;
 
 use anyhow::Context;
@@ -68,20 +67,5 @@ impl CrlCache {
             .context(format!("writing Intel CRLs to file {dest_file:?}"))?;
 
         Ok(ExitCode::SUCCESS)
-    }
-}
-
-/// Returns the "system-level" search path for the SGX
-/// CRLs (`/var/cache/intel-sgx`).
-pub fn sgx_cache_dir() -> anyhow::Result<PathBuf> {
-    const CACHE_DIR: &str = "/var/cache";
-
-    let mut sys = PathBuf::from(CACHE_DIR);
-    if sys.exists() && sys.is_dir() {
-        sys.push("intel-sgx");
-        Ok(sys)
-    } else {
-        Err(io::Error::from(ErrorKind::NotFound))
-            .with_context(|| format!("Directory `{CACHE_DIR}` does not exist!"))
     }
 }

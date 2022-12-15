@@ -27,6 +27,7 @@ bitflags = { workspace = true }
 camino = { workspace = true }
 clap = { workspace = true }
 colorful = { workspace = true }
+der = { workspace = true }
 dirs = { workspace = true }
 drawbridge-client = { workspace = true }
 enarx-exec-wasmtime = { workspace = true }
@@ -48,6 +49,7 @@ serde_json = { workspace = true }
 sha2 = { workspace = true }
 toml = { workspace = true }
 url = { workspace = true }
+x509-cert = { workspace = true }
 
 # optional dependencies
 gdbstub = { workspace = true, features = ["std"], optional = true }

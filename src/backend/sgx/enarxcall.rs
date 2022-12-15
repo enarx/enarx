@@ -2,7 +2,8 @@
 
 use crate::backend::parking::THREAD_PARK;
 use crate::backend::sgx::attestation::{
-    get_attestation_key_id, get_key_size, get_quote, get_quote_size, get_target_info,
+    get_attestation_key_id, get_key_size, get_quote_and_collateral, get_quote_size_with_collateral,
+    get_target_info,
 };
 use crate::backend::sgx::ioctls::{ModifyTypes, RemovePages, RestrictPermissions};
 use crate::backend::{Command, Keep};
@@ -202,7 +203,7 @@ pub(crate) fn sgx_enarxcall<'a>(
             let akid = get_attestation_key_id().context(
                 "Error obtaining attestation key id. Check your aesmd / pccs service installation.",
             )?;
-            *ret = get_quote(report_buf, akid, quote_buf)
+            *ret = get_quote_and_collateral(report_buf, akid, quote_buf)
                 .context("Error getting quote. Check your aesmd / pccs service installation.")?;
 
             Ok(None)
@@ -216,7 +217,7 @@ pub(crate) fn sgx_enarxcall<'a>(
             let akid = get_attestation_key_id().context(
                 "Error obtaining attestation key id. Check your aesmd / pccs service installation.",
             )?;
-            *ret = get_quote_size(akid).context(
+            *ret = get_quote_size_with_collateral(akid).context(
                 "Error getting quote size. Check your aesmd / pccs service installation.",
             )?;
 
