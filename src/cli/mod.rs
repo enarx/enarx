@@ -57,7 +57,7 @@ impl Options {
             .with_span_events(FmtSpan::NEW | FmtSpan::CLOSE)
             .with_filter(env_filter);
 
-        let (flame_layer, _) = if let Some(ref profile) = self.logger.profile {
+        let (flame_layer, _guard) = if let Some(ref profile) = self.logger.profile {
             // Open `/dev/null` to reserve fd 3 on Unix, which `exec-wasmtime` will expect to read config from
             // It will be dropped at the end of this block, freeing it for the following socketpair call
             #[cfg(unix)]
