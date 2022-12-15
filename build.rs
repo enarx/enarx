@@ -47,8 +47,6 @@ fn host_has_sgx2() -> bool {
 
 fn main() {
     println!("cargo:rerun-if-env-changed=OUT_DIR");
-    // FIXME: this exists to work around https://github.com/rust-lang/cargo/issues/10527
-    println!("cargo:rerun-if-changed=crates/");
 
     // Enarx compilation target architecture and OS.
     // NOTE: This may or may not correspond to `target_os` and `target_arch` attributes,
