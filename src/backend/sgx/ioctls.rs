@@ -149,7 +149,7 @@ impl RestrictPermissions {
 
     /// Read result attribute.
     pub fn result(&self) -> u64 {
-        self.count
+        self.result
     }
 
     /// Read count attribute.
@@ -264,7 +264,7 @@ impl ModifyTypes {
 
     /// Read result attribute.
     pub fn result(&self) -> u64 {
-        self.count
+        self.result
     }
 
     /// Read count attribute.
