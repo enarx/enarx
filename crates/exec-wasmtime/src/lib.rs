@@ -6,9 +6,13 @@
 #![deny(clippy::all)]
 #![warn(rust_2018_idioms)]
 
+#[cfg(unix)]
+mod log;
 mod runtime;
 mod workload;
 
+#[cfg(unix)]
+pub use log::Level as LogLevel;
 pub use workload::{Package, Workload, PACKAGE_CONFIG, PACKAGE_ENTRYPOINT};
 
 use runtime::Runtime;
@@ -19,25 +23,37 @@ use runtime::Runtime;
 #[cfg_attr(unix, derive(serde::Deserialize, serde::Serialize))]
 #[repr(C)]
 pub struct Args {
+    /// Log level
+    #[cfg(unix)]
+    pub log_level: Option<log::Level>,
+
+    /// Profile
+    #[cfg(unix)]
+    pub profile: Option<std::os::unix::prelude::RawFd>,
+
     /// Package
     pub package: Package,
 }
 
-/// Execute
-pub fn execute_with_args(args: Args) -> anyhow::Result<()> {
-    Runtime::execute(args.package).map(|_| ())
+/// Execute package
+pub fn execute_package(pkg: Package) -> anyhow::Result<()> {
+    Runtime::execute(pkg).map(|_| ())
 }
 
-/// Execute
-///
-/// with configuration read from file descriptor 3.
+/// Execute with arguments read from file descriptor 3.
 #[cfg(unix)]
 pub fn execute() -> anyhow::Result<()> {
-    use anyhow::Context;
+    use std::fs::File;
     use std::io::Read;
     use std::mem::forget;
     use std::os::unix::io::FromRawFd;
     use std::os::unix::net::UnixStream;
+
+    use anyhow::Context;
+    use tracing::level_filters::LevelFilter;
+    use tracing_flame::FlameLayer;
+    use tracing_subscriber::prelude::*;
+    use tracing_subscriber::{fmt, registry};
 
     // This is the FD of a Unix socket on which the host will send the TOML-encoded execution arguments
     // and shutdown the write half of it immediately after.
@@ -51,10 +67,28 @@ pub fn execute() -> anyhow::Result<()> {
     // The FD is managed by the host or its parent.
     forget(host);
 
-    let args = toml::from_str::<Args>(&args).context("failed to decode arguments")?;
+    let Args {
+        log_level,
+        profile,
+        package,
+    } = toml::from_str(&args).context("failed to decode arguments")?;
 
-    execute_with_args(args)?;
-
+    let (flame_layer, _guard) = if let Some(profile) = profile {
+        let profile = unsafe { File::from_raw_fd(profile) };
+        let flame_layer = FlameLayer::new(profile);
+        let guard = flame_layer.flush_on_drop();
+        (Some(flame_layer), Some(guard))
+    } else {
+        (None, None)
+    };
+    let log_level: LevelFilter = log_level.map(Into::into).into();
+    {
+        let _guard = registry()
+            .with(fmt::layer().with_filter(log_level))
+            .with(flame_layer)
+            .set_default();
+        execute_package(package)?;
+    }
     Ok(())
 }
 

@@ -1259,6 +1259,7 @@ dependencies = [
  "tempfile",
  "toml",
  "tracing",
+ "tracing-flame",
  "tracing-subscriber",
  "ureq",
  "url",

@@ -33,7 +33,7 @@ use std::os::unix::io::AsRawFd;
 use std::path::PathBuf;
 use std::process::ExitCode;
 #[cfg(unix)]
-use std::time::Duration;
+use std::{os::unix::prelude::IntoRawFd, time::Duration};
 
 use anyhow::{bail, Context, Result};
 use enarx_exec_wasmtime::{Args as ExecArgs, Package};
@@ -152,6 +152,8 @@ pub fn run_package(
     signatures: Option<Signatures>,
     gdblisten: Option<String>,
     package: impl FnOnce() -> Result<Package>,
+    log_level: Option<enarx_exec_wasmtime::LogLevel>,
+    profile: Option<impl IntoRawFd>,
 ) -> Result<ExitCode> {
     use std::io::Write;
     use std::net::Shutdown;
@@ -168,8 +170,14 @@ pub fn run_package(
     );
 
     let package = package()?;
-    let args =
-        toml::to_vec(&ExecArgs { package }).context("failed to encode exec-wasmtime arguments")?;
+    // On `nil` backend, currently active logging configuration will be used.
+    let profile = profile.map(IntoRawFd::into_raw_fd);
+    let args = toml::to_vec(&ExecArgs {
+        package,
+        log_level,
+        profile,
+    })
+    .context("failed to encode exec-wasmtime arguments")?;
 
     host_sock
         .set_nonblocking(true)
