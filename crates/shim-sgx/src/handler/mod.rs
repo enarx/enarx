@@ -28,8 +28,7 @@ pub(crate) mod key;
 pub(crate) mod usermem;
 
 use crate::handler::usermem::UserMemScope;
-use crate::heap::Access;
-use crate::heap::Heap;
+use crate::heap::{Access, Heap};
 use crate::thread::{
     NewThread, NewThreadFromRegisters, Tcb, Tcs, ThreadMem, NEW_THREAD_QUEUE, THREADS_FREE,
     THREAD_ID_CNT,
@@ -44,11 +43,12 @@ use core::arch::x86_64::CpuidResult;
 use core::ffi::{c_int, c_size_t, c_ulong, c_void};
 use core::fmt::Write;
 use core::mem::size_of;
+use core::ops::Deref;
 use core::ptr::read_unaligned;
 use core::ptr::NonNull;
 use core::sync::atomic::{AtomicU32, Ordering};
-use mmledger::{Region, Span};
 
+use mmledger::{Record, Region, Span};
 use primordial::{Address, Offset, Page};
 use sallyport::guest::{self, Handler as _, Platform, ThreadLocalStorage};
 use sallyport::item::enarxcall::sgx::{Report, ReportData, TargetInfo, TECH};
@@ -57,11 +57,13 @@ use sallyport::libc::{
     off_t, pid_t, CloneFlags, SYS_clock_gettime, EACCES, EAGAIN, EINVAL, EIO, EMSGSIZE, ENOMEM,
     ENOSYS, ENOTSUP, MAP_ANONYMOUS, MAP_PRIVATE, PROT_EXEC, PROT_READ, PROT_WRITE, STDERR_FILENO,
 };
+use sallyport::Error;
 use sgx::page::{Class, Flags};
 use sgx::ssa::StateSaveArea;
 use sgx::ssa::Vector;
 use spin::{Lazy, RwLock};
 use x86_64::addr::VirtAddr;
+use x86_64::structures::idt::PageFaultErrorCode;
 use x86_64::structures::paging::Page as PageAddr;
 
 // Opcode constants, details in Volume 2 of the Intel 64 and IA-32 Architectures Software
@@ -82,6 +84,42 @@ static ZERO: Page = Page::zeroed();
 
 fn is_prot_allowed(prot: c_int) -> bool {
     prot == PROT_READ || prot == (PROT_READ | PROT_WRITE) || prot == (PROT_READ | PROT_EXEC)
+}
+
+fn flags_from_access(access: Access) -> Flags {
+    let mut flags = Flags::empty();
+
+    if access.contains(Access::READ) {
+        flags |= Flags::READ;
+    }
+
+    if access.contains(Access::WRITE) {
+        flags |= Flags::WRITE;
+    }
+
+    if access.contains(Access::EXECUTE) {
+        flags |= Flags::EXECUTE;
+    }
+
+    flags
+}
+
+fn libc_from_access(access: Access) -> c_int {
+    let mut flags = 0;
+
+    if access.contains(Access::READ) {
+        flags |= PROT_READ;
+    }
+
+    if access.contains(Access::WRITE) {
+        flags |= PROT_WRITE;
+    }
+
+    if access.contains(Access::EXECUTE) {
+        flags |= PROT_EXEC;
+    }
+
+    flags
 }
 
 fn flags_from_libc(prot: c_int) -> Flags {
@@ -118,6 +156,14 @@ fn access_from_libc(prot: c_int) -> Access {
     }
 
     access
+}
+
+#[derive(PartialEq)]
+enum MMapStrategy {
+    /// Memory should be mmap'ed directly
+    Direct,
+    /// Memory should be mmap'ed, when used
+    Lazy,
 }
 
 /// Thread local storage for the current thread
@@ -330,8 +376,6 @@ impl guest::Handler for Handler<'_> {
         fd: c_int,
         offset: off_t,
     ) -> sallyport::Result<NonNull<c_void>> {
-        let tid = self.tcb.tid;
-
         let addr = addr.map(|v| v.as_ptr() as usize).unwrap_or(0);
         // TODO: https://github.com/enarx/enarx/issues/1892
         let prot = prot | PROT_READ;
@@ -345,46 +389,7 @@ impl guest::Handler for Handler<'_> {
             return Err(EACCES);
         }
 
-        let length = Offset::from_items((len + Page::SIZE - 1) / Page::SIZE);
-        let access = access_from_libc(prot);
-        let mut heap = HEAP.write();
-
-        if let Some(addr) = heap.mmap(None, length, access) {
-            let ret = NonNull::new(addr.raw() as *mut c_void).unwrap();
-
-            if let Err(e) = self.mmap_host(
-                NonNull::new(addr.raw() as *mut _).unwrap(),
-                length.bytes(),
-                PROT_READ | PROT_WRITE,
-            ) {
-                debugln!(self, "[{tid}] ERROR mmap_host() = {e:#?}");
-                // undo the mmap
-                heap.munmap(addr, length).unwrap_or_else(|e| {
-                    panic!(
-                        "[{tid}] ERROR heap.munmap({addr:#x}, {length:#x}) = {e:#?}",
-                        addr = addr.raw(),
-                        length = length.bytes(),
-                    )
-                });
-                return Err(e);
-            }
-
-            self.mmap_guest(addr, length, flags_from_libc(prot));
-
-            // If the previous operations succeeded, the virtual memory area
-            // (VMA) is already RW.
-            if prot != PROT_READ | PROT_WRITE {
-                self.mprotect_unlocked(&mut heap, ret, length.bytes() as c_size_t, prot)
-                    .or_else(|e| {
-                        self.munmap_unlocked(&mut heap, ret, length.bytes())
-                            .and(Err(e))
-                    })?;
-            }
-            Ok(ret)
-        } else {
-            debugln!(self, "[{tid}] ERROR heap.mmap() failed!!!!");
-            Err(ENOMEM)
-        }
+        self.do_mmap(prot, len, MMapStrategy::Lazy)
     }
 
     fn mprotect(
@@ -440,20 +445,31 @@ impl<'a> Handler<'a> {
 
     /// Finish handling an exception
     pub fn finish(ssa: &'a mut StateSaveArea, block: Option<&'a mut [usize]>, tcb: &'a mut Tcb) {
-        if let Some(Vector::InvalidOpcode) = ssa.vector() {
-            if let OP_SYSCALL | OP_CPUID = unsafe { read_unaligned(ssa.gpr.rip as _) } {
-                // Skip the instruction.
-                ssa.gpr.rip += 2;
-                return;
+        match ssa.vector() {
+            Some(Vector::InvalidOpcode) => {
+                if let OP_SYSCALL | OP_CPUID = unsafe { read_unaligned(ssa.gpr.rip as _) } {
+                    // Skip the instruction.
+                    ssa.gpr.rip += 2;
+                    return;
+                }
+                // Some other invalid opcode.
+                panic!();
             }
+            Some(Vector::Page) => {
+                if let Some(block) = block {
+                    let mut h = Self::new(ssa, block, tcb, 0);
+                    let error_code =
+                        PageFaultErrorCode::from_bits_truncate(h.ssa.misc.exinfo.errcd as u64);
+                    let addr = h.ssa.misc.exinfo.maddr as usize;
+                    if h.handle_page_fault(addr, error_code).is_ok() {
+                        return;
+                    }
+                }
+                // Page fault cannot be handled by the enclave without a block.
+                panic!();
+            }
+            _ => panic!(),
         }
-
-        if let Some(block) = block {
-            let mut h = Self::new(ssa, block, tcb, 0);
-            h.print_ssa_stack_trace();
-        }
-
-        unsafe { asm!("ud2", options(noreturn)) };
     }
 
     /// Handle an exception
@@ -497,15 +513,29 @@ impl<'a> Handler<'a> {
                 }
             },
 
-            #[cfg(feature = "gdb")]
             Some(Vector::Page) => {
-                h.print_ssa_stack_trace();
-                h.gdb_session();
-                let _ = h.exit_group(1);
-                unreachable!()
+                let error_code =
+                    PageFaultErrorCode::from_bits_truncate(h.ssa.misc.exinfo.errcd as u64);
+                if h.handle_page_fault(h.ssa.misc.exinfo.maddr as usize, error_code)
+                    .is_ok()
+                {
+                    return;
+                }
+
+                if cfg!(feature = "gdb") {
+                    h.print_ssa_stack_trace();
+                    #[cfg(feature = "gdb")]
+                    h.gdb_session();
+                    let _ = h.exit_group(1);
+                } else {
+                    h.attacked()
+                }
             }
 
             _ => {
+                debugln!(h, "unhandled exception: {:#?}", h.ssa.vector());
+                debugln!(h, "Exinfo: {:#?}", h.ssa.misc.exinfo.clone());
+
                 if cfg!(feature = "dbg") {
                     h.print_ssa_stack_trace();
                 }
@@ -715,6 +745,68 @@ impl<'a> Handler<'a> {
         self.ssa.gpr.rip += 2;
     }
 
+    fn do_mmap(
+        &mut self,
+        prot: c_int,
+        len: usize,
+        lazy: MMapStrategy,
+    ) -> Result<NonNull<c_void>, Error> {
+        if len == 0 {
+            return Err(EINVAL);
+        }
+
+        let length = Offset::from_items((len + Page::SIZE - 1) / Page::SIZE);
+        let access = access_from_libc(prot);
+        let mut heap = HEAP.write();
+
+        let Some(addr) = heap.mmap(None, length, access) else {
+            debugln!(self, "ERROR heap.mmap() failed!!!!");
+            return Err(ENOMEM)
+        };
+
+        let ret = NonNull::new(addr.raw() as *mut _).unwrap();
+        debugln!(
+            self,
+            "mmap({:#?})",
+            Record {
+                region: Region::new(addr, addr + length),
+                access: access | Access::MMAPPED
+            }
+        );
+
+        if lazy == MMapStrategy::Lazy {
+            // Allocate all paged on-demand.
+            return Ok(ret);
+        }
+
+        if heap.mmap(Some(addr), length, access | Access::MMAPPED) != Some(addr) {
+            debugln!(self, "MMAPPED heap is inconsistent");
+            self.attacked()
+        }
+
+        if let Err(e) = self.mmap_host(
+            NonNull::new(addr.raw() as *mut _).unwrap(),
+            length.bytes(),
+            PROT_READ | PROT_WRITE,
+        ) {
+            debugln!(self, "ERROR mmap_host() = {e:#?}");
+            self.attacked()
+        }
+
+        self.mmap_guest(addr, length, flags_from_libc(prot));
+
+        // If the previous operations succeeded, the virtual memory area
+        // (VMA) is already RW.
+        if prot != PROT_READ | PROT_WRITE {
+            if let Err(e) = self.mprotect_unlocked(&mut heap, ret, length.bytes() as c_size_t, prot)
+            {
+                debugln!(self, "ERROR mprotect_unlocked() = {e:#?}");
+                self.attacked()
+            }
+        }
+        Ok(ret)
+    }
+
     /// Acknowledge pages committed by the host with ENCLS[EAUG].
     fn mmap_guest(
         &mut self,
@@ -763,31 +855,81 @@ impl<'a> Handler<'a> {
 
         let addr = Address::new(addr);
         let length = Offset::from_items(pages);
-
-        if heap.contains(addr, length).is_none() {
-            return Err(ENOMEM);
-        }
-
-        self.mprotect_host(addr_in, length.bytes(), prot)?;
-
-        for i in 0..pages {
-            let virt_addr = VirtAddr::new((addr.raw() + i * Page::SIZE) as u64);
-            // Safety: The address is guaranteed to be page aligned, because
-            // `addr` was checked to be page aligned and only a multiple of
-            // pages was added.
-            let page_addr = unsafe { PageAddr::from_start_address_unchecked(virt_addr) };
-
-            // TODO: https://github.com/enarx/enarx/issues/1892
-            Class::Regular
-                .info(Flags::READ | Flags::RESTRICTED)
-                .accept(page_addr)
-                .unwrap_or_else(|_| self.attacked());
-
-            Class::Regular.info(flags_from_libc(prot)).extend(page_addr);
-        }
-
         let access = access_from_libc(prot);
-        heap.mmap(Some(addr), length, access);
+
+        debugln!(self, "heap = {heap:#?}", heap = heap.deref());
+        debugln!(
+            self,
+            "mprotect({:#?}, {:?})",
+            &Region {
+                start: addr,
+                end: addr + length
+            },
+            access
+        );
+
+        match heap.contains(addr, length) {
+            None => return Err(ENOMEM),
+            Some(access) => {
+                if access == Access::empty() {
+                    debugln!(
+                        self,
+                        "mprotect_unlocked previous access ({:#?}",
+                        Record {
+                            region: Region::new(addr, addr + length),
+                            access
+                        }
+                    );
+                    self.attacked();
+                }
+            }
+        }
+
+        heap.protect_with(addr, length, |record| {
+            debugln!(self, "mprotect_unlocked working on ({record:#?})");
+            if record.access.contains(Access::MMAPPED) {
+                if access != record.access {
+                    let region = &record.region;
+                    let addr = NonNull::new(region.start.as_mut_ptr() as *mut c_void).unwrap();
+                    let length = (region.end - region.start).bytes();
+                    let pages = (region.end - region.start).items();
+
+                    self.mprotect_host(addr, length, prot)
+                        .unwrap_or_else(|err| {
+                            debugln!(
+                                self,
+                                "mprotect_unlocked mprotect_host failed access={access:#?} record.access={raccess:#?} ({record:#?}) = {err:#?}",
+                                raccess=record.access,
+                            );
+                            self.attacked();
+                        });
+
+                    for i in 0..pages {
+                        let virt_addr =
+                            VirtAddr::new((region.start + Offset::from_items(i)).as_ptr() as u64);
+                        // Safety: The address is guaranteed to be page aligned, because
+                        // `addr` was checked to be page aligned and only a multiple of
+                        // pages was added.
+                        let page_addr =
+                            unsafe { PageAddr::from_start_address_unchecked(virt_addr) };
+
+                        // TODO: https://github.com/enarx/enarx/issues/1892
+                        Class::Regular
+                            .info(Flags::READ | Flags::RESTRICTED)
+                            .accept(page_addr)
+                            .unwrap_or_else(|_| self.attacked());
+
+                        Class::Regular.info(flags_from_libc(prot)).extend(page_addr);
+                    }
+                }
+                access | Access::MMAPPED
+            } else {
+                access
+            }
+        }).unwrap_or_else(|e| {
+            debugln!(self, "mprotect_unlocked heap.protect_with failed: {:?}", e);
+            self.attacked();
+        });
 
         Ok(())
     }
@@ -815,37 +957,48 @@ impl<'a> Handler<'a> {
 
         // Process the ledger first, before doing anything else, because it can
         // legitly fail when running out of resources.
-        if let Err(e) = heap.munmap(addr, length) {
-            debugln!(self, "[{tid}] ERROR munmap: heap.munmap FAILED !!! {e:?}");
-            return Err(ENOMEM);
-        }
+        heap.munmap_with(addr, length, move |record: &Record<Access>| {
+            debugln!(self, "[{tid}] sgx_unmap({:#?}", record);
 
-        // On the other hand, failing in any of these operations is expected to
-        // crash the enclave because it is due either to a software bug, or a
-        // malicious host.
-        if let Err(e) = self.modify_sgx_page_type(addr_in, length.bytes(), Class::Trimmed as _) {
-            debugln!(
-                self,
-                "[{tid}] ERROR munmap: modify_sgx_page_type FAILED !!! {e:?}"
-            );
-            self.attacked();
-        }
+            if !record.access.contains(Access::MMAPPED) {
+                // if not MMAPPED, we don't have to do anything
+                return;
+            }
 
-        for i in 0..pages {
-            let virt_addr = VirtAddr::new((addr.raw() + i * Page::SIZE) as u64);
-            // # Safety
-            //
-            // The address must be page aligned.
-            let page_addr = unsafe { PageAddr::from_start_address_unchecked(virt_addr) };
+            let region = &record.region;
+            let addr = NonNull::new(region.start.as_mut_ptr() as *mut c_void).unwrap();
+            let length = (region.end - region.start).bytes();
+            let pages = (region.end - region.start).items();
 
-            Class::Trimmed
-                .info(Flags::MODIFIED)
-                .accept(page_addr)
+            // On the other hand, failing in any of these operations is expected to
+            // crash the enclave because it is due either to a software bug, or a
+            // malicious host.
+            if let Err(e) = self.modify_sgx_page_type(addr, length, Class::Trimmed as _) {
+                debugln!(
+                    self,
+                    "[{tid}] ERROR munmap: modify_sgx_page_type FAILED !!! {e:?}"
+                );
+                self.attacked();
+            }
+
+            for i in 0..pages {
+                let virt_addr =
+                    VirtAddr::new((region.start + Offset::from_items(i)).as_ptr() as u64);
+                // # Safety
+                //
+                // The address must be page aligned.
+                let page_addr = unsafe { PageAddr::from_start_address_unchecked(virt_addr) };
+
+                Class::Trimmed
+                    .info(Flags::MODIFIED)
+                    .accept(page_addr)
+                    .unwrap_or_else(|_| self.attacked());
+            }
+
+            self.munmap_host(addr, length)
                 .unwrap_or_else(|_| self.attacked());
-        }
-
-        self.munmap_host(addr_in, length.bytes())
-            .unwrap_or_else(|_| self.attacked());
+        })
+        .map_err(|_| ENOMEM)?;
 
         Ok(())
     }
@@ -922,14 +1075,10 @@ impl<'a> Handler<'a> {
         // Allocate the whole block of memory used for the thread.
         // It is easier to do this in one go and punch holes in it,
         // than to allocate each part separately.
-        let addr = self.mmap(
-            &usermemscope,
-            None,
-            size_of::<ThreadMem>(),
+        let addr = self.do_mmap(
             PROT_READ | PROT_WRITE,
-            MAP_PRIVATE | MAP_ANONYMOUS,
-            -1,
-            0,
+            size_of::<ThreadMem>(),
+            MMapStrategy::Direct,
         )?;
 
         // # Safety
@@ -993,6 +1142,119 @@ impl<'a> Handler<'a> {
         );
 
         self.munmap(&usermemscope, tm_addr, size_of::<ThreadMem>())?;
+
+        Ok(())
+    }
+
+    fn handle_page_fault(&mut self, addr: usize, error_code: PageFaultErrorCode) -> Result<(), ()> {
+        let tid = self.tcb.tid;
+        let addr = addr & !(Page::SIZE - 1);
+
+        debugln!(self, "[{tid}] handle_page_fault: {addr:#x} {error_code:?}");
+
+        // check for non-valid flags
+        if !error_code
+            .difference(
+                PageFaultErrorCode::CAUSED_BY_WRITE
+                    | PageFaultErrorCode::INSTRUCTION_FETCH
+                    | PageFaultErrorCode::USER_MODE,
+            )
+            .is_empty()
+        {
+            debugln!(
+                self,
+                "[{tid}] handle_page_fault: difference {:#?}",
+                error_code.difference(
+                    PageFaultErrorCode::CAUSED_BY_WRITE
+                        | PageFaultErrorCode::INSTRUCTION_FETCH
+                        | PageFaultErrorCode::USER_MODE,
+                )
+            );
+
+            return Err(());
+        }
+
+        // check for must have flags
+        if !error_code.contains(PageFaultErrorCode::USER_MODE) {
+            return Err(());
+        }
+
+        let mut heap = HEAP.write();
+
+        let addr = Address::new(addr);
+        let length = Offset::from_items(1);
+
+        let access = match heap.contains(addr, length) {
+            None => {
+                debugln!(
+                    self,
+                    "[{tid}] handle_page_fault: access empty {:#?}",
+                    Region::new(addr, addr + length),
+                );
+                panic!();
+            }
+            Some(access) => {
+                // check for real page fault
+                if !access.contains(Access::READ)
+                    || (error_code.contains(PageFaultErrorCode::CAUSED_BY_WRITE)
+                        && !access.contains(Access::WRITE))
+                    || (error_code.contains(PageFaultErrorCode::INSTRUCTION_FETCH)
+                        && !access.contains(Access::READ | Access::EXECUTE))
+                {
+                    debugln!(
+                        self,
+                        "[{tid}] handle_page_fault: real page fault previous access {:#?}",
+                        Record {
+                            region: Region::new(addr, addr + length),
+                            access
+                        }
+                    );
+                    panic!();
+                }
+                access
+            }
+        };
+
+        if heap.mmap(Some(addr), length, access | Access::MMAPPED) != Some(addr) {
+            debugln!(
+                self,
+                "[{tid}] handle_page_fault: MMAPPED heap is inconsistent"
+            );
+            panic!();
+        }
+
+        if let Err(e) = self.mmap_host(
+            NonNull::new(addr.raw() as *mut _).unwrap(),
+            length.bytes(),
+            PROT_READ | PROT_WRITE,
+        ) {
+            debugln!(
+                self,
+                "[{tid}] handle_page_fault: ERROR mmap_host() = {e:#?}"
+            );
+            panic!();
+        }
+
+        self.mmap_guest(addr, length, flags_from_access(access));
+
+        // If the previous operations succeeded, the virtual memory area
+        // (VMA) is already RW.
+        if access != (Access::READ | Access::WRITE) {
+            let ret = NonNull::new(addr.raw() as *mut c_void).unwrap();
+
+            if let Err(e) = self.mprotect_unlocked(
+                &mut heap,
+                ret,
+                length.bytes() as c_size_t,
+                libc_from_access(access),
+            ) {
+                debugln!(
+                    self,
+                    "[{tid}] handle_page_fault: ERROR mprotect_unlocked() = {e:#?}"
+                );
+                panic!();
+            }
+        }
 
         Ok(())
     }

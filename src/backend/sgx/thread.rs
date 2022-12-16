@@ -133,15 +133,13 @@ impl super::super::Thread for Thread {
             EENTER | ERESUME if run.vector == Vector::InvalidOpcode => EENTER,
             EENTER | ERESUME if run.vector == Vector::Page => {
                 trace!(
-                    "Vector::Page: address = {:>#016x}, error code = {:>#016b} cssa={}",
-                    run.exception_addr,
+                    ?run.vector,
+                    run.exception_addr = ?(run.exception_addr as *const u8),
                     run.exception_error_code,
-                    self.cssa
+                    cssa = self.cssa
                 );
-
                 EENTER
             }
-
             EEXIT if self.cssa > 0 => ERESUME,
             EEXIT if self.cssa == 0 => {
                 trace!("exit({exit_status})");
@@ -151,8 +149,11 @@ impl super::super::Thread for Thread {
             _ => {
                 if cfg!(feature = "dbg") {
                     error!(
-                        "Unexpected {:?}: address = {:>#016x}, error code = {:>#016b} cssa={}",
-                        run.vector, run.exception_addr, run.exception_error_code, self.cssa
+                        ?run.vector,
+                        run.exception_addr = ?(run.exception_addr as *const u8),
+                        run.exception_error_code,
+                        cssa = self.cssa,
+                        "Unexpected exception",
                     );
                     EENTER
                 } else {
