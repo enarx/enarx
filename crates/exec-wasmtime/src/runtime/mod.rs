@@ -15,12 +15,12 @@ use super::{Package, Workload};
 use anyhow::{bail, Context};
 use enarx_config::{Config, File};
 use once_cell::sync::Lazy;
-use tracing::{instrument, trace_span};
 use wasi_common::file::FileCaps;
 use wasi_common::WasiFile;
 use wasmtime::{AsContextMut, Engine, Linker, Module, Store, Trap, Val};
 use wasmtime_wasi::stdio::{stderr, stdin, stdout};
 use wasmtime_wasi::{add_to_linker, WasiCtxBuilder};
+use wiggle::tracing::{instrument, trace_span};
 
 /// Wasmtime config
 static WASMTIME_CONFIG: Lazy<wasmtime::Config> = Lazy::new(|| {

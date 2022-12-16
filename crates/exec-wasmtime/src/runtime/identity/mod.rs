@@ -7,7 +7,6 @@ mod platform;
 
 use pki::PrivateKeyInfoExt;
 use platform::{Platform, Technology};
-use tracing::instrument;
 
 use std::time::Duration;
 
@@ -22,6 +21,7 @@ use getrandom::getrandom;
 use pkcs8::PrivateKeyInfo;
 use sha2::{Digest, Sha256, Sha384};
 use url::Url;
+use wiggle::tracing::instrument;
 use x509_cert::attr::Attribute;
 use x509_cert::der::asn1::{BitStringRef, UIntRef};
 use x509_cert::der::{AnyRef, Decode, Encode};
