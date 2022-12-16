@@ -6,8 +6,6 @@
 #![warn(rust_2018_idioms)]
 
 use enarx_exec_wasmtime::execute;
-use tracing_subscriber::prelude::*;
-use tracing_subscriber::{fmt, EnvFilter};
 
 /// Set FSBASE
 ///
@@ -36,10 +34,5 @@ pub extern "C" fn __set_thread_area(p: *mut core::ffi::c_void) -> core::ffi::c_i
 }
 
 fn main() -> anyhow::Result<()> {
-    tracing_subscriber::registry()
-        .with(fmt::layer())
-        .with(EnvFilter::from_default_env())
-        .init();
-
     execute()
 }

@@ -42,7 +42,11 @@ pub struct Options {
 }
 
 impl Options {
-    pub fn execute(self) -> anyhow::Result<ExitCode> {
+    pub fn execute(
+        self,
+        #[cfg(unix)] log_level: Option<enarx_exec_wasmtime::LogLevel>,
+        #[cfg(unix)] profile: Option<impl IntoRawFd>,
+    ) -> anyhow::Result<ExitCode> {
         let Self {
             backend,
             package,
@@ -129,14 +133,32 @@ impl Options {
                     Ok(pkg)
                 };
 
-                run_package(backend, exec, signatures, gdblisten, get_pkg)
+                run_package(
+                    backend,
+                    exec,
+                    signatures,
+                    gdblisten,
+                    get_pkg,
+                    #[cfg(unix)]
+                    log_level,
+                    #[cfg(unix)]
+                    profile,
+                )
             }
 
             // The WASM module and config will be downloaded from a remote by exec-wasmtime
             // TODO: Disallow `http` or guard by an `--insecure` flag
-            "http" | "https" => run_package(backend, exec, signatures, gdblisten, || {
-                Ok(Package::Remote(package))
-            }),
+            "http" | "https" => run_package(
+                backend,
+                exec,
+                signatures,
+                gdblisten,
+                || Ok(Package::Remote(package)),
+                #[cfg(unix)]
+                log_level,
+                #[cfg(unix)]
+                profile,
+            ),
 
             s => bail!("unsupported scheme: {}", s),
         }

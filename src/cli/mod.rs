@@ -16,6 +16,7 @@ mod user;
 
 use crate::backend::{Backend, BACKENDS};
 
+use std::fs::File;
 use std::ops::Deref;
 use std::process::ExitCode;
 use std::str::FromStr;
@@ -53,11 +54,16 @@ impl Options {
         let env_filter = EnvFilter::builder()
             .with_default_directive(self.logger.verbosity_level().into())
             .parse_lossy(self.logger.log_filter.as_ref().unwrap_or(&"".to_owned()));
+        #[cfg(unix)]
+        let log_level = env_filter
+            .max_level_hint()
+            .and_then(LevelFilter::into_level)
+            .map(Into::into);
         let fmt_layer = fmt::layer()
             .with_span_events(FmtSpan::NEW | FmtSpan::CLOSE)
             .with_filter(env_filter);
 
-        let (flame_layer, _guard) = if let Some(ref profile) = self.logger.profile {
+        let (flame_layer, _guard, profile) = if let Some(ref profile) = self.logger.profile {
             // Open `/dev/null` to reserve fd 3 on Unix, which `exec-wasmtime` will expect to read config from
             // It will be dropped at the end of this block, freeing it for the following socketpair call
             #[cfg(unix)]
@@ -66,11 +72,15 @@ impl Options {
                 .transpose()
                 .context("failed to open temporary directory")?;
 
-            let (flame_layer, guard) =
-                FlameLayer::with_file(profile).context("failed to open profile")?;
-            (Some(flame_layer), Some(guard))
+            let profile = File::create(profile).context("failed to create profile file")?;
+            let exec_profile = profile
+                .try_clone()
+                .context("failed to duplicate profile file handle")?;
+            let flame_layer = FlameLayer::new(profile);
+            let guard = flame_layer.flush_on_drop();
+            (Some(flame_layer), Some(guard), Some(exec_profile))
         } else {
-            (None, None)
+            (None, None, None)
         };
 
         tracing_subscriber::registry()
@@ -81,7 +91,31 @@ impl Options {
         info!("logging initialized!");
         info!("CLI opts: {:?}", self);
 
-        self.cmd.dispatch()
+        match self.cmd {
+            Subcommands::Run(cmd) => cmd.execute(
+                #[cfg(unix)]
+                log_level,
+                #[cfg(unix)]
+                profile,
+            ),
+            Subcommands::Config(cmd) => cmd.dispatch(),
+            Subcommands::Deploy(cmd) => cmd.execute(
+                #[cfg(unix)]
+                log_level,
+                #[cfg(unix)]
+                profile,
+            ),
+            #[cfg(enarx_with_shim)]
+            Subcommands::Key(cmd) => cmd.dispatch(),
+            Subcommands::Platform(cmd) => cmd.dispatch(),
+            Subcommands::Package(cmd) => cmd.dispatch(),
+            Subcommands::Repo(cmd) => cmd.dispatch(),
+            #[cfg(enarx_with_shim)]
+            Subcommands::Sign(cmd) => cmd.execute(),
+            Subcommands::Tree(cmd) => cmd.dispatch(),
+            Subcommands::User(cmd) => cmd.dispatch(),
+            Subcommands::Unstable(cmd) => cmd.dispatch(),
+        }
     }
 }
 
@@ -110,26 +144,6 @@ enum Subcommands {
     User(user::Subcommands),
     #[clap(subcommand, hide = true)]
     Unstable(unstable::Subcommands),
-}
-
-impl Subcommands {
-    fn dispatch(self) -> anyhow::Result<ExitCode> {
-        match self {
-            Self::Run(cmd) => cmd.execute(),
-            Self::Config(subcmd) => subcmd.dispatch(),
-            Self::Deploy(cmd) => cmd.execute(),
-            #[cfg(enarx_with_shim)]
-            Self::Key(subcmd) => subcmd.dispatch(),
-            Self::Platform(subcmd) => subcmd.dispatch(),
-            Self::Package(subcmd) => subcmd.dispatch(),
-            Self::Repo(subcmd) => subcmd.dispatch(),
-            #[cfg(enarx_with_shim)]
-            Self::Sign(cmd) => cmd.execute(),
-            Self::Tree(subcmd) => subcmd.dispatch(),
-            Self::User(subcmd) => subcmd.dispatch(),
-            Self::Unstable(subcmd) => subcmd.dispatch(),
-        }
-    }
 }
 
 /// Common backend and shim options

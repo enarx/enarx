@@ -108,7 +108,7 @@ impl super::Thread for Thread {
         enarx_exec_wasmtime::execute()?;
 
         #[cfg(windows)]
-        enarx_exec_wasmtime::execute_with_args(self.0.take().unwrap())?;
+        enarx_exec_wasmtime::execute_package(self.0.take().unwrap().package)?;
 
         Ok(super::Command::Exit(0))
     }

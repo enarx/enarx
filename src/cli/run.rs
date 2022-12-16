@@ -42,7 +42,11 @@ pub struct Options {
 }
 
 impl Options {
-    pub fn execute(self) -> anyhow::Result<ExitCode> {
+    pub fn execute(
+        self,
+        #[cfg(unix)] log_level: Option<enarx_exec_wasmtime::LogLevel>,
+        #[cfg(unix)] profile: Option<impl IntoRawFd>,
+    ) -> anyhow::Result<ExitCode> {
         let Self {
             backend,
             wasmcfgfile,
@@ -89,6 +93,10 @@ impl Options {
             #[cfg(feature = "gdb")]
             Some(gdblisten),
             get_pkg,
+            #[cfg(unix)]
+            log_level,
+            #[cfg(unix)]
+            profile,
         )
     }
 }
