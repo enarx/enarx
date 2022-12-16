@@ -2271,10 +2271,10 @@ dependencies = [
 [[package]]
 name = "mmledger"
 version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "05e897144402a49ebd210db4b367029e69fdad0db6f38ad97289dc9d5af10023"
+source = "git+https://github.com/enarx/mmledger?rev=79bbef3ef90dc33bfd8a188ea4bc79db57fe91a0#79bbef3ef90dc33bfd8a188ea4bc79db57fe91a0"
 dependencies = [
  "bitflags",
+ "const-default",
  "lset",
  "primordial",
 ]

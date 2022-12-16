@@ -8,7 +8,9 @@ use core::mem::size_of;
 use core::ops::Range;
 
 use crate::handler::HEAP;
+use crate::heap::Access;
 use crate::{shim_address, BLOCK_SIZE, ENARX_EXEC_START};
+
 use gdbstub::arch::Arch;
 use gdbstub::target::ext::base::singlethread::SingleThreadOps;
 use gdbstub::target::ext::base::singlethread::{GdbInterrupt, ResumeAction, StopReason};
@@ -16,7 +18,6 @@ use gdbstub::target::ext::base::BaseOps;
 use gdbstub::target::{Target, TargetError, TargetResult};
 use gdbstub::Connection;
 use gdbstub_arch::x86::reg::X86_64CoreRegs;
-use mmledger::Access;
 use primordial::{Address, Offset, Page};
 use sallyport::guest::Handler;
 use sgx::ssa::StateSaveArea;
