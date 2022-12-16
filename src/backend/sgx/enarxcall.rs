@@ -19,7 +19,7 @@ use sallyport::host::{deref_aligned, deref_slice};
 use sallyport::item;
 use sallyport::item::enarxcall::sgx::{Report, TargetInfo};
 use sallyport::item::{enarxcall, Item};
-use tracing::{error, trace_span};
+use tracing::{error, trace, trace_span};
 
 pub(crate) fn sgx_enarxcall<'a>(
     enarxcall: &'a mut enarxcall::Payload,
@@ -303,7 +303,8 @@ pub(crate) fn sgx_enarxcall<'a>(
             // Safety: the parameters have been sanity checked before, that only
             // enclave memory is unmapped.
             unsafe {
-                libc::munmap(*addr as *mut _, *len);
+                let ret = libc::munmap(*addr as *mut _, *len);
+                trace!("munmap({:#x}, {:#x}) = {}", *addr, *len, ret);
             }
 
             let remove_pages = RemovePages::new(*addr - keep.mem.addr(), *len);
