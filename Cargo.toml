@@ -54,6 +54,7 @@ gdbstub = { workspace = true, features = ["std"], optional = true }
 
 [target.'cfg(all(target_os = "linux", target_arch = "x86_64"))'.dependencies]
 const-default = { workspace = true }
+der = { workspace = true }
 goblin = { workspace = true, features = ["elf32", "endian_fd", "std"], default-features = false }
 iocuddle = { workspace = true }
 kvm-bindings = { workspace = true }
@@ -72,6 +73,7 @@ sgx = { workspace = true, features = ["rcrypto"] }
 static_assertions = { workspace = true }
 ureq = { workspace = true }
 vdso = { workspace = true }
+x509-cert = { workspace = true }
 x86_64 = { workspace = true, features = ["instructions"] }
 
 # binary dependencies
@@ -145,6 +147,7 @@ colorful = { version = "0.2.0", default-features = false }
 const-default = { version = "1.0.0", default-features = false }
 const-oid = { version = "0.9.0", default-features = false }
 crt0stack = { version = "0.1.0", default-features = false }
+der = { version = "0.6.1", features = ["std"], default-features = false }
 dirs = { version = "4.0.0", default-features = false }
 drawbridge-client = { version = "0.2.2", default-features = false }
 drawbridge-server = { version = "0.2.2", default-features = false }
