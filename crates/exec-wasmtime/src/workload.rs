@@ -12,9 +12,9 @@ use drawbridge_client::types::{Meta, TagEntry, TreeDirectory, TreeEntry, TreeNam
 use drawbridge_client::{scope, Client, Entity, Node, Scope};
 use enarx_config::Config;
 use once_cell::sync::Lazy;
-use tracing::instrument;
 use ureq::serde_json;
 use url::Url;
+use wiggle::tracing::instrument;
 
 /// Name of package entrypoint file
 pub static PACKAGE_ENTRYPOINT: Lazy<TreeName> = Lazy::new(|| "main.wasm".parse().unwrap());
