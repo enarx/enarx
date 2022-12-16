@@ -6,12 +6,12 @@ use crate::backend::execute_gdb;
 use crate::backend::Command;
 
 use std::arch::asm;
-use std::io;
 use std::iter;
 use std::mem::{size_of, MaybeUninit};
 #[cfg(feature = "gdb")]
 use std::net::TcpStream;
 use std::sync::Arc;
+use std::{io, ptr};
 
 use anyhow::{bail, Context, Result};
 use sallyport::item;
@@ -25,7 +25,7 @@ pub struct Thread {
     keep: Arc<super::Keep>,
     vdso: &'static Symbol,
     tcs: super::Tcs,
-    block: Vec<usize>,
+    block: [Vec<usize>; 2],
     cssa: usize,
     how: usize,
     #[cfg(feature = "gdb")]
@@ -53,7 +53,10 @@ impl super::super::Keep for super::Keep {
             None => return Ok(None),
         };
 
-        let block = vec![0; self.sallyport_block_size as usize / size_of::<usize>()];
+        let block = [
+            vec![0; self.sallyport_block_size as usize / size_of::<usize>()],
+            vec![0; self.sallyport_block_size as usize / size_of::<usize>()],
+        ];
 
         Ok(Some(Box::new(Thread {
             keep: self,
@@ -80,6 +83,12 @@ impl super::super::Thread for Thread {
         let oldfs = FS::read_base().as_u64();
         let oldgs = GS::read_base().as_u64();
 
+        let block = if self.cssa == 1 || self.cssa == 2 {
+            self.block[self.cssa - 1].as_mut_ptr()
+        } else {
+            ptr::null_mut()
+        };
+
         // The `enclu` instruction consumes `rax`, `rbx` and `rcx`. However,
         // the vDSO function preserves `rbx` AND sets `rax` as the return
         // value. All other registers are passed to and from the enclave
@@ -99,7 +108,7 @@ impl super::super::Thread for Thread {
                 "pop  rbp",       // restore rbp
                 "pop  rbx",       // restore rbx
 
-                inout("rdi") self.block.as_mut_ptr() => _,
+                inout("rdi") block => _,
                 lateout("rsi") _,
                 lateout("rdx") _,
                 inout("rcx") how => _,
@@ -122,9 +131,16 @@ impl super::super::Thread for Thread {
 
         self.how = match run.function as usize {
             EENTER | ERESUME if run.vector == Vector::InvalidOpcode => EENTER,
+            EENTER | ERESUME if run.vector == Vector::Page => {
+                trace!(
+                    "Vector::Page: address = {:>#016x}, error code = {:>#016b} cssa={}",
+                    run.exception_addr,
+                    run.exception_error_code,
+                    self.cssa
+                );
 
-            #[cfg(feature = "gdb")]
-            EENTER | ERESUME if run.vector == Vector::Page => EENTER,
+                EENTER
+            }
 
             EEXIT if self.cssa > 0 => ERESUME,
             EEXIT if self.cssa == 0 => {
@@ -158,22 +174,15 @@ impl super::super::Thread for Thread {
             _ => unreachable!(),
         }
 
-        if self.cssa > 3 {
+        if self.cssa > 4 {
             error!("SGX CSSA overflow");
             bail!("SGX CSSA overflow");
         }
 
-        // If we have handled an InvalidOpcode error, evaluate the sallyport.
-        //
-        // Currently, we have no way to know if the sallyport contains a valid
-        // request by evaluating the sallyport directly. So we must presume
-        // that the sallyport is only valid when moving from CSSA 2 to CSSA 1.
-        //
-        // After the sallyport rework, we can test the sallyport itself and
-        // remove this logic.
-        if self.cssa > 0 {
+        // Handle some potential sallyport contents
+        if self.cssa == 1 || self.cssa == 2 {
             if let (EENTER, ERESUME) = (how, self.how) {
-                let block: Block = self.block.as_mut_slice().into();
+                let block: Block = self.block[self.cssa - 1].as_mut_slice().into();
                 for item in block {
                     match item {
                         Item::Gdbcall(_gdbcall, _data) => {
