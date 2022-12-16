@@ -62,7 +62,7 @@ SECTIONS {
         . += 16;
         QUAD(ADDR(.enarx.ssa))   /* OSSA */
         LONG(0)                   /* CSSA */
-        LONG(3)                   /* NSSA */
+        LONG(4)                   /* NSSA */
         QUAD(_start)              /* OENTRY */
         . = ALIGN(4K);
     } :tcs =0
