@@ -37,9 +37,12 @@ pub const CSSA_0_STACK_SIZE: usize = 0x800000 - Page::SIZE; // 8MB - TCB
 pub const CSSA_1_PLUS_STACK_SIZE: usize =
     0x800000 - Page::SIZE - NUM_SSA * core::mem::size_of::<StateSaveArea>(); // 8MB - TCS - SSA
 
-/// FIXME: doc
-pub const ENCL_SIZE_BITS: u8 = 32;
-/// FIXME: doc
+/// Defines the size of the enclave address space
+///
+/// This is now 16GB, enough for wasmtime to allocate 8GB of memory for the wasm payload
+/// and still have some memory left for the shim and the stack.
+pub const ENCL_SIZE_BITS: u8 = 34;
+/// Defines the size of the enclave address space
 pub const ENCL_SIZE: usize = 1 << ENCL_SIZE_BITS;
 
 const XFRM: Xfrm = Xfrm::from_bits_truncate(
@@ -63,14 +66,8 @@ const KEEP_FEATURES: Features = FEATURES;
 /// Default enclave CPU attributes
 pub const ATTR: Attributes = Attributes::new(KEEP_FEATURES, XFRM);
 
-/// Default miscelaneous SSA data selector
-pub const MISC: MiscSelect = {
-    if cfg!(dbg) {
-        MiscSelect::EXINFO
-    } else {
-        MiscSelect::empty()
-    }
-};
+/// Default miscellaneous SSA data selector
+pub const MISC: MiscSelect = MiscSelect::EXINFO;
 
 /// The size of the sallyport block
 pub const BLOCK_SIZE: usize = 69632;

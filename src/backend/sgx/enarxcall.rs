@@ -302,9 +302,7 @@ pub(crate) fn sgx_enarxcall<'a>(
 
             // Safety: the parameters have been sanity checked before, that only
             // enclave memory is unmapped.
-            unsafe {
-                libc::munmap(*addr as *mut _, *len);
-            }
+            unsafe { libc::munmap(*addr as *mut _, *len) };
 
             let remove_pages = RemovePages::new(*addr - keep.mem.addr(), *len);
             remove_pages
