@@ -28,6 +28,7 @@ pub(crate) mod key;
 pub(crate) mod usermem;
 
 use crate::handler::usermem::UserMemScope;
+use crate::heap::Access;
 use crate::heap::Heap;
 use crate::thread::{
     NewThread, NewThreadFromRegisters, Tcb, Tcs, ThreadMem, NEW_THREAD_QUEUE, THREADS_FREE,
@@ -37,6 +38,7 @@ use crate::{
     shim_address, CSSA_0_STACK_SIZE, CSSA_1_PLUS_STACK_SIZE, DEBUG, ENARX_EXEC_END,
     ENARX_EXEC_START, ENCL_SIZE, NUM_SSA,
 };
+
 use core::arch::asm;
 use core::arch::x86_64::CpuidResult;
 use core::ffi::{c_int, c_size_t, c_ulong, c_void};
@@ -45,8 +47,8 @@ use core::mem::size_of;
 use core::ptr::read_unaligned;
 use core::ptr::NonNull;
 use core::sync::atomic::{AtomicU32, Ordering};
+use mmledger::{Region, Span};
 
-use mmledger::Access;
 use primordial::{Address, Offset, Page};
 use sallyport::guest::{self, Handler as _, Platform, ThreadLocalStorage};
 use sallyport::item::enarxcall::sgx::{Report, ReportData, TargetInfo, TECH};
@@ -71,7 +73,8 @@ const OP_CPUID: u16 = 0xa20f;
 pub static HEAP: Lazy<RwLock<Heap>> = Lazy::new(|| {
     let start = unsafe { &ENARX_EXEC_END as *const _ } as usize;
     let end = shim_address() + ENCL_SIZE;
-    RwLock::new(Heap::new(Address::new(start), Address::new(end)))
+    let span: Span = Region::new(Address::new(start), Address::new(end)).into();
+    RwLock::new(Heap::new(span.start, span.count))
 });
 
 // For `Handler::mmap_guest()`

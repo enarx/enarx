@@ -2,30 +2,85 @@
 
 //! Allocate and deallocate memory on a Heap
 
-use mmledger::{Access, Ledger, Region};
+use const_default::ConstDefault;
+use core::fmt;
+
+use mmledger::{Ledger, LedgerAccess, Record};
 use primordial::{Address, Offset, Page};
 
+bitflags::bitflags! {
+    /// Memory access permissions.
+    #[derive(Default)]
+    #[repr(transparent)]
+    pub struct Access: usize {
+        /// Read access
+        const READ = 1 << 0;
+
+        /// Write access
+        const WRITE = 1 << 1;
+
+        /// Execute access
+        const EXECUTE = 1 << 2;
+
+        /// Memory was allocated by the shim
+        const MMAPPED = 1 << 3;
+    }
+}
+
+impl ConstDefault for Access {
+    const DEFAULT: Self = Self::empty();
+}
+
+impl LedgerAccess for Access {
+    const ALL: Self = Self::all();
+}
+
+impl fmt::Display for Access {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{}{}{}{}",
+            if self.contains(Access::READ) {
+                'r'
+            } else {
+                '-'
+            },
+            if self.contains(Access::WRITE) {
+                'w'
+            } else {
+                '-'
+            },
+            if self.contains(Access::EXECUTE) {
+                'x'
+            } else {
+                '-'
+            },
+            if self.contains(Access::MMAPPED) {
+                'x'
+            } else {
+                '-'
+            }
+        )
+    }
+}
+
 /// A heap
+#[derive(Debug)]
 pub struct Heap {
-    start: Address<usize, Page>,
-    end: Address<usize, Page>,
     brk: Address<usize, Page>,
     brk_max: Address<usize, Page>,
     // FIXME: use a dynamic Ledger
     // https://github.com/enarx/enarx/issues/2264
-    ledger: Ledger<8188>,
+    ledger: Ledger<Access, 8188>,
 }
 
 impl Heap {
     /// Create a new instance.
-    pub const fn new(start: Address<usize, Page>, end: Address<usize, Page>) -> Self {
-        let region = Region::new(start, end);
+    pub fn new(addr: Address<usize, Page>, length: Offset<usize, Page>) -> Self {
         Self {
-            start,
-            end,
-            brk: start,
-            brk_max: start,
-            ledger: Ledger::new(region),
+            brk: addr,
+            brk_max: addr,
+            ledger: Ledger::new(addr, length),
         }
     }
 
@@ -46,7 +101,7 @@ impl Heap {
 
     /// Increase or decrease `brk` address.
     pub fn brk(&mut self, next: Address<usize, Page>) -> Address<usize, Page> {
-        if next < self.start || next >= self.end {
+        if !self.ledger.valid(next, Offset::from_items(1)) {
             return self.brk;
         }
 
@@ -61,10 +116,11 @@ impl Heap {
             return self.brk;
         }
 
-        match self
-            .ledger
-            .map(self.brk_max, length, Access::READ | Access::WRITE)
-        {
+        match self.ledger.map(
+            self.brk_max,
+            length,
+            Access::READ | Access::WRITE | Access::MMAPPED,
+        ) {
             Ok(_) => {
                 self.brk_max = next;
                 next
@@ -85,6 +141,16 @@ impl Heap {
         Some(addr)
     }
 
+    /// Change access permissions of an address range.
+    pub fn protect_with(
+        &mut self,
+        addr: Address<usize, Page>,
+        length: Offset<usize, Page>,
+        func: impl FnMut(&Record<Access>) -> Access,
+    ) -> Result<(), mmledger::Error> {
+        self.ledger.protect_with(addr, length, func)
+    }
+
     /// Release a region.
     pub fn munmap(
         &mut self,
@@ -93,6 +159,16 @@ impl Heap {
     ) -> Result<(), mmledger::Error> {
         self.ledger.unmap(addr, length)
     }
+
+    /// Release a region.
+    pub fn munmap_with(
+        &mut self,
+        addr: Address<usize, Page>,
+        length: Offset<usize, Page>,
+        func: impl FnMut(&Record<Access>),
+    ) -> Result<(), mmledger::Error> {
+        self.ledger.unmap_with(addr, length, func)
+    }
 }
 
 #[cfg(test)]
@@ -100,7 +176,6 @@ mod tests {
     use super::*;
 
     const PAGES: usize = 128;
-    const BYTES: usize = PAGES * Page::SIZE;
 
     trait HeapTestExt {
         fn is_allocated(&self, page: usize) -> bool;
@@ -122,7 +197,7 @@ mod tests {
 
     #[test]
     fn mmap_order() {
-        let mut heap = Heap::new(Address::new(0), Address::new(BYTES));
+        let mut heap = Heap::new(Address::new(0), Offset::from_items(PAGES));
 
         for pages in [128, 64] {
             let brk_page = PAGES - pages;
@@ -155,9 +230,9 @@ mod tests {
 
     #[test]
     fn mmap_oversubscribe() {
-        let mut heap = Heap::new(Address::new(0), Address::new(BYTES));
+        let mut heap = Heap::new(Address::new(0), Offset::from_items(PAGES));
         assert_eq!(
-            heap.mmap(None, Offset::from_items(BYTES + Page::SIZE), Access::READ),
+            heap.mmap(None, Offset::from_items(PAGES + 1), Access::READ),
             None
         );
     }
