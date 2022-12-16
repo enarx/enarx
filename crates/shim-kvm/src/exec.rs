@@ -131,20 +131,6 @@ fn crt0setup(
     builder.push("/init").unwrap();
     let mut builder = builder.done().unwrap();
     builder.push("LANG=C").unwrap();
-    // FIXME - v0.1.0 KEEP-CONFIG HACK
-    // We don't yet have a well-defined way to pass runtime configuration from
-    // the frontend/CLI into the keep. This is a hack to simulate that process.
-    // For v0.1.0 the keep configuration is hardcoded as follows:
-    //   * the .wasm module is open on fd3 and gets no arguments or env vars
-    //   * stdin, stdout, and stderr are enabled and should go to fd 0,1,2
-    //   * logging should be turned on at "debug" level
-    // This is one possible way we could provide that information to the code
-    // inside the keep. The actual implementation may be completely different.
-    builder.push("ENARX_STDIO_FDS=0,1,2").unwrap();
-    builder.push("ENARX_MODULE_FD=3").unwrap();
-    builder
-        .push("RUST_LOG=enarx=debug,enarx-exec-wasmtime=debug")
-        .unwrap();
     let mut builder = builder.done().unwrap();
 
     let ph_header = app_virt_start + header.e_phoff;
