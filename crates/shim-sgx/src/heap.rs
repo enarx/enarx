@@ -5,7 +5,7 @@
 use const_default::ConstDefault;
 use core::fmt;
 
-use mmledger::{Ledger, LedgerAccess, Record};
+use mmledger::{Ledger, LedgerAccess, Record, Region};
 use primordial::{Address, Offset, Page};
 
 bitflags::bitflags! {
@@ -68,7 +68,7 @@ impl fmt::Display for Access {
 #[derive(Debug)]
 pub struct Heap {
     brk: Address<usize, Page>,
-    brk_max: Address<usize, Page>,
+    brk_region: Region,
     // FIXME: use a dynamic Ledger
     // https://github.com/enarx/enarx/issues/2264
     ledger: Ledger<Access, 8188>,
@@ -79,7 +79,7 @@ impl Heap {
     pub fn new(addr: Address<usize, Page>, length: Offset<usize, Page>) -> Self {
         Self {
             brk: addr,
-            brk_max: addr,
+            brk_region: Region::new(addr, addr),
             ledger: Ledger::new(addr, length),
         }
     }
@@ -96,7 +96,7 @@ impl Heap {
 
     /// Return the maximum `brk` address reached.
     pub fn brk_max(&self) -> Address<usize, Page> {
-        self.brk_max
+        self.brk_region.end
     }
 
     /// Increase or decrease `brk` address.
@@ -105,24 +105,24 @@ impl Heap {
             return self.brk;
         }
 
-        if next <= self.brk_max {
+        if next >= self.brk_region.start && next <= self.brk_region.end {
             self.brk = next;
             return next;
         }
 
-        let length = next - self.brk_max;
+        let length = next - self.brk_region.end;
 
-        if self.ledger.overlaps(self.brk_max, length) {
+        if self.ledger.overlaps(self.brk_region.end, length) {
             return self.brk;
         }
 
         match self.ledger.map(
-            self.brk_max,
+            self.brk_region.end,
             length,
             Access::READ | Access::WRITE | Access::MMAPPED,
         ) {
             Ok(_) => {
-                self.brk_max = next;
+                self.brk_region.end = next;
                 next
             }
             Err(_) => self.brk,
