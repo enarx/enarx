@@ -17,6 +17,8 @@ pub use workload::{Package, Workload, PACKAGE_CONFIG, PACKAGE_ENTRYPOINT};
 
 use runtime::Runtime;
 
+use wiggle::tracing::instrument;
+
 /// The Arguments
 // NOTE: `repr(C)` is required, otherwise `toml` serialization fails with `values must be emitted before tables`
 #[derive(Debug)]
@@ -36,6 +38,7 @@ pub struct Args {
 }
 
 /// Execute package
+#[instrument]
 pub fn execute_package(pkg: Package) -> anyhow::Result<()> {
     Runtime::execute(pkg).map(|_| ())
 }
