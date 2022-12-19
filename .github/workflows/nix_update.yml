@@ -1,0 +1,11 @@
+name: Nix update
+
+on:
+  schedule:
+    - cron: "0 0 * * *"
+  workflow_dispatch:
+
+jobs:
+  nix-update:
+    uses: enarx/.github/.github/workflows/shared_nix_update.yml@main
+
