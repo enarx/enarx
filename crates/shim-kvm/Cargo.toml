@@ -10,6 +10,7 @@ license = "Apache-2.0"
 [features]
 gdb = ["dep:gdbstub", "dep:gdbstub_arch", "dbg"]
 dbg = []
+bench = []
 
 [dependencies]
 aes-gcm = { workspace = true }

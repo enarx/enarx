@@ -45,7 +45,7 @@ impl Options {
     pub fn execute(
         self,
         #[cfg(unix)] log_level: Option<enarx_exec_wasmtime::LogLevel>,
-        #[cfg(unix)] profile: Option<impl IntoRawFd>,
+        #[cfg(all(unix, feature = "bench"))] profile: Option<impl IntoRawFd>,
     ) -> anyhow::Result<ExitCode> {
         let Self {
             backend,
@@ -95,7 +95,7 @@ impl Options {
             get_pkg,
             #[cfg(unix)]
             log_level,
-            #[cfg(unix)]
+            #[cfg(all(unix, feature = "bench"))]
             profile,
         )
     }

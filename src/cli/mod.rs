@@ -16,16 +16,13 @@ mod user;
 
 use crate::backend::{Backend, BACKENDS};
 
-use std::fs::File;
 use std::ops::Deref;
 use std::process::ExitCode;
 use std::str::FromStr;
 
-use anyhow::{anyhow, bail, Context};
-use camino::Utf8PathBuf;
+use anyhow::{anyhow, bail};
 use clap::{ArgAction, Args, Parser, Subcommand};
 use tracing::info;
-use tracing_flame::FlameLayer;
 use tracing_subscriber::fmt::format::FmtSpan;
 use tracing_subscriber::{filter::LevelFilter, fmt, prelude::*, EnvFilter};
 
@@ -63,7 +60,12 @@ impl Options {
             .with_span_events(FmtSpan::NEW | FmtSpan::CLOSE)
             .with_filter(env_filter);
 
+        #[cfg(feature = "bench")]
         let (flame_layer, _guard, profile) = if let Some(ref profile) = self.logger.profile {
+            use std::fs::File;
+
+            use anyhow::Context;
+
             // Open `/dev/null` to reserve fd 3 on Unix, which `exec-wasmtime` will expect to read config from
             // It will be dropped at the end of this block, freeing it for the following socketpair call
             #[cfg(unix)]
@@ -76,17 +78,17 @@ impl Options {
             let exec_profile = profile
                 .try_clone()
                 .context("failed to duplicate profile file handle")?;
-            let flame_layer = FlameLayer::new(profile);
+            let flame_layer = tracing_flame::FlameLayer::new(profile);
             let guard = flame_layer.flush_on_drop();
             (Some(flame_layer), Some(guard), Some(exec_profile))
         } else {
             (None, None, None)
         };
 
-        tracing_subscriber::registry()
-            .with(fmt_layer)
-            .with(flame_layer)
-            .init();
+        let registry = tracing_subscriber::registry().with(fmt_layer);
+        #[cfg(feature = "bench")]
+        let registry = registry.with(flame_layer);
+        registry.init();
 
         info!("logging initialized!");
         info!("CLI opts: {:?}", self);
@@ -95,14 +97,14 @@ impl Options {
             Subcommands::Run(cmd) => cmd.execute(
                 #[cfg(unix)]
                 log_level,
-                #[cfg(unix)]
+                #[cfg(all(unix, feature = "bench"))]
                 profile,
             ),
             Subcommands::Config(cmd) => cmd.dispatch(),
             Subcommands::Deploy(cmd) => cmd.execute(
                 #[cfg(unix)]
                 log_level,
-                #[cfg(unix)]
+                #[cfg(all(unix, feature = "bench"))]
                 profile,
             ),
             #[cfg(enarx_with_shim)]
@@ -206,8 +208,9 @@ pub struct LogOptions {
     log_target: LogTarget,
 
     /// If set, a performance profile will be written to this location.
+    #[cfg(feature = "bench")]
     #[clap(long)]
-    profile: Option<Utf8PathBuf>,
+    profile: Option<camino::Utf8PathBuf>,
 }
 
 impl LogOptions {

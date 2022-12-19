@@ -30,7 +30,7 @@ pub struct Args {
     pub log_level: Option<log::Level>,
 
     /// Profile
-    #[cfg(unix)]
+    #[cfg(all(unix, feature = "bench"))]
     pub profile: Option<std::os::unix::prelude::RawFd>,
 
     /// Package
@@ -46,7 +46,6 @@ pub fn execute_package(pkg: Package) -> anyhow::Result<()> {
 /// Execute with arguments read from file descriptor 3.
 #[cfg(unix)]
 pub fn execute() -> anyhow::Result<()> {
-    use std::fs::File;
     use std::io::Read;
     use std::mem::forget;
     use std::os::unix::io::FromRawFd;
@@ -54,7 +53,6 @@ pub fn execute() -> anyhow::Result<()> {
 
     use anyhow::Context;
     use tracing::level_filters::LevelFilter;
-    use tracing_flame::FlameLayer;
     use tracing_subscriber::prelude::*;
     use tracing_subscriber::{fmt, registry};
 
@@ -72,13 +70,16 @@ pub fn execute() -> anyhow::Result<()> {
 
     let Args {
         log_level,
+        #[cfg(feature = "bench")]
         profile,
         package,
     } = toml::from_str(&args).context("failed to decode arguments")?;
 
+    #[cfg(feature = "bench")]
     let (flame_layer, _guard) = if let Some(profile) = profile {
+        use std::fs::File;
         let profile = unsafe { File::from_raw_fd(profile) };
-        let flame_layer = FlameLayer::new(profile);
+        let flame_layer = tracing_flame::FlameLayer::new(profile);
         let guard = flame_layer.flush_on_drop();
         (Some(flame_layer), Some(guard))
     } else {
@@ -86,10 +87,12 @@ pub fn execute() -> anyhow::Result<()> {
     };
     let log_level: LevelFilter = log_level.map(Into::into).into();
     {
-        let _guard = registry()
-            .with(fmt::layer().with_filter(log_level))
-            .with(flame_layer)
-            .set_default();
+        // TODO: Default to a secure log target
+        // https://github.com/enarx/enarx/issues/1042
+        let registry = registry().with(fmt::layer().with_filter(log_level));
+        #[cfg(feature = "bench")]
+        let registry = registry.with(flame_layer);
+        let _guard = registry.set_default();
         execute_package(package)?;
     }
     Ok(())

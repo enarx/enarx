@@ -18,6 +18,7 @@ default = []
 gdb = ["dep:gdbstub", "enarx-shim-kvm/gdb", "enarx-shim-sgx/gdb"]
 dbg = [ "enarx-shim-kvm/dbg", "enarx-shim-sgx/dbg" ]
 disable-sgx-attestation = ["enarx-shim-sgx/disable-sgx-attestation"]
+bench = ["dep:tracing-flame", "enarx-exec-wasmtime/bench", "enarx-shim-kvm/bench", "enarx-shim-sgx/bench"]
 
 [dependencies]
 anyhow = { workspace = true, features = ["std"] }
@@ -34,7 +35,6 @@ hex = { workspace = true }
 keyring = { workspace = true }
 libc = { workspace = true }
 tracing = { workspace = true, features = ["release_max_level_info", "std"] }
-tracing-flame = { workspace = true }
 tracing-subscriber = { workspace = true, features = ["ansi", "smallvec", "std", "tracing-log"] }
 oauth2 = { workspace = true }
 once_cell = { workspace = true, features = ["std"] }
@@ -51,6 +51,7 @@ url = { workspace = true }
 
 # optional dependencies
 gdbstub = { workspace = true, features = ["std"], optional = true }
+tracing-flame = { workspace = true, optional = true }
 
 [target.'cfg(all(target_os = "linux", target_arch = "x86_64"))'.dependencies]
 const-default = { workspace = true }

@@ -56,11 +56,11 @@ const XFRM: Xfrm = Xfrm::from_bits_truncate(
 
 const FEATURES: Features = Features::MODE64BIT;
 
-#[cfg(any(features = "dbg", features = "gdb"))]
+#[cfg(any(features = "dbg", features = "gdb", features = "bench"))]
 const KEEP_FEATURES: Features =
     Features::from_bits_truncate(FEATURES.bits() | Features::DEBUG.bits());
 
-#[cfg(not(any(features = "dbg", features = "gdb")))]
+#[cfg(not(any(features = "dbg", features = "gdb", features = "bench")))]
 const KEEP_FEATURES: Features = FEATURES;
 
 /// Default enclave CPU attributes
