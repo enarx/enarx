@@ -8,14 +8,14 @@ use x86_64::{PhysAddr, VirtAddr};
 
 pub struct Region {
     kvm_region: KvmUserspaceMemoryRegion,
-    _backing: Map<perms::ReadWrite>,
+    backing: Map<perms::ReadWrite>,
 }
 
 impl Region {
     pub fn new(kvm_region: KvmUserspaceMemoryRegion, backing: Map<perms::ReadWrite>) -> Self {
         Self {
             kvm_region,
-            _backing: backing,
+            backing,
         }
     }
 
@@ -35,6 +35,6 @@ impl Region {
     }
 
     pub fn backing(&self) -> &[u8] {
-        self._backing.as_ref()
+        self.backing.as_ref()
     }
 }

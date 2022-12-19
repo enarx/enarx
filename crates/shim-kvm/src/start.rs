@@ -10,19 +10,21 @@ extern crate rcrt1;
 use enarx_shim_kvm::addr::SHIM_VIRT_OFFSET;
 use enarx_shim_kvm::exec;
 use enarx_shim_kvm::gdt;
-use enarx_shim_kvm::hostcall::BLOCK_SIZE;
+use enarx_shim_kvm::hostcall::{BLOCK_SIZE, MAINT_HOSTCALL};
 use enarx_shim_kvm::interrupts;
-use enarx_shim_kvm::pagetables::{unmap_identity, PDPT, PDT_C000_0000, PML4T, PT_FFE0_0000};
+use enarx_shim_kvm::pagetables::{PDPT, PDT_C000_0000, PML4T, PT_FFE0_0000};
 use enarx_shim_kvm::print::enable_printing;
 use enarx_shim_kvm::snp::C_BIT_MASK;
 use enarx_shim_kvm::sse;
 
 use core::arch::{asm, global_asm};
 use core::mem::size_of;
-use core::sync::atomic::Ordering;
+use core::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
 use enarx_shim_kvm::allocator::ZERO_PAGE_FRAME;
+use enarx_shim_kvm::gdt::initial_shim_stack;
 use enarx_shim_kvm::snp::launch::{Policy, PolicyFlags, Version};
+use enarx_shim_kvm::thread::pickup_new_threads;
 use noted::noted;
 use primordial::Page;
 use rcrt1::dyn_reloc;
@@ -76,48 +78,74 @@ static INITIAL_SHIM_STACK: [Page; INITIAL_STACK_PAGES] = [Page::zeroed(); INITIA
 /// aligned usable stack.
 #[allow(clippy::integer_arithmetic)]
 #[cfg_attr(coverage, no_coverage)]
-unsafe fn switch_shim_stack(ip: extern "sysv64" fn() -> !, sp: u64) -> ! {
+unsafe fn switch_shim_stack(
+    ip: extern "sysv64" fn(*mut AtomicBool, usize) -> !,
+    sp: u64,
+    wait_ap: *mut AtomicBool,
+    num_cpu: usize,
+) -> ! {
     debug_assert_eq!(sp % 16, 0);
 
     // load a new stack pointer and jmp to function
     asm!(
-    "mov    rsp,    {SP}",
-    "sub    rsp,    8",
-    "push   rbp",
-    "call   {IP}",
+    "wrgsbase {SP}         ", // save the stack pointer in the GS base for later use
+    "mov      rsp,    {SP} ",
+    "sub      rsp,    8    ",
+    "push     rbp          ",
+    "call     {IP}         ",
 
     SP = in(reg) sp,
     IP = in(reg) ip,
+    in("rdi") wait_ap,
+    in("rsi") num_cpu,
 
     options(noreturn, nomem)
     )
 }
+
+static CPUNUM: AtomicUsize = AtomicUsize::new(0);
 
 /// Defines the entry point function.
 ///
 /// # Safety
 /// Do not call from Rust.
 #[cfg_attr(coverage, no_coverage)]
-unsafe extern "sysv64" fn _pre_main(c_bit_mask: u64) -> ! {
+unsafe extern "sysv64" fn _pre_main(c_bit_mask: u64, wait_ap: *mut AtomicBool) -> ! {
     C_BIT_MASK.store(c_bit_mask, Ordering::Relaxed);
+    Lazy::force(&MAINT_HOSTCALL);
 
-    unmap_identity();
+    let cpunum = AtomicUsize::fetch_add(&CPUNUM, 1, Ordering::Relaxed);
+
+    let stack = initial_shim_stack(cpunum);
+    let pointer = stack.pointer;
+
+    //unmap_identity();
 
     // Everything setup, so print works
     enable_printing();
 
     // Switch the stack to a guarded stack
-    switch_shim_stack(main, gdt::INITIAL_STACK.pointer.as_u64())
+    switch_shim_stack(main, pointer.as_u64(), wait_ap, cpunum)
 }
 
 /// The main function for the shim with stack setup
 #[cfg_attr(coverage, no_coverage)]
-extern "sysv64" fn main() -> ! {
-    unsafe { gdt::init() };
+extern "sysv64" fn main(wait_ap: *mut AtomicBool, cpunum: usize) -> ! {
+    enarx_shim_kvm::eprintln!("cpu {} started", cpunum);
+    enarx_shim_kvm::dbg!(enarx_shim_kvm::snp::snp_active());
+    unsafe { gdt::init(cpunum) };
     sse::init_sse();
-    interrupts::init();
-    Lazy::force(&ZERO_PAGE_FRAME);
-    exec::execute_exec()
+    interrupts::init(cpunum);
+    assert!(!wait_ap.is_null());
+    unsafe { &mut (*wait_ap).store(false, Ordering::SeqCst) };
+
+    if cpunum == 0 {
+        Lazy::force(&ZERO_PAGE_FRAME);
+        exec::execute_exec()
+    } else {
+        enarx_shim_kvm::eprintln!("[{cpunum}] init_ap");
+        pickup_new_threads()
+    }
 }
 
 /// The panic function
@@ -129,7 +157,6 @@ extern "sysv64" fn main() -> ! {
 #[panic_handler]
 #[cfg_attr(coverage, no_coverage)]
 fn panic(_info: &core::panic::PanicInfo<'_>) -> ! {
-    use core::sync::atomic::AtomicBool;
     use enarx_shim_kvm::debug::_enarx_asm_triple_fault;
     #[cfg(feature = "dbg")]
     use enarx_shim_kvm::print::{self, is_printing_enabled};
@@ -148,7 +175,7 @@ fn panic(_info: &core::panic::PanicInfo<'_>) -> ! {
                 enarx_shim_kvm::debug::print_stack_trace();
             }
             // FIXME: might want to have a custom panic hostcall
-            enarx_shim_kvm::hostcall::shim_exit(255);
+            enarx_shim_kvm::hostcall::shim_exit(254);
         }
     }
 
@@ -265,10 +292,21 @@ global_asm!(
         "68:",
         "define_addr gdt_end 68b",
 
+        "define_addr is_ap 69f",
+        ".align 8",
+        "69:",
+        ".byte  0x00",
+
+        "define_addr wait_ap 70f",
+        ".align 8",
+        "70:",
+        ".byte  0x00",
+
         // *****************************
         // 16-bit setup code
         // *****************************
         "define_addr code16_start 20f",
+        ".align 8",
         "20:",
         ".code16",
 
@@ -378,7 +416,6 @@ global_asm!(
         // jmpl    0x18,    code64_start
         "jmpl   0x18,   (reset_vector_page + 0x8)",
 
-
         // *****************************
         // Terminate with a GHCB exit
         // *****************************
@@ -401,6 +438,10 @@ global_asm!(
         "define_addr code64_start 40f",
         "40:",
         ".code64",
+
+        "movzx  eax,    byte ptr [rip + is_ap]",
+        "test   al,     al",
+        "jne    41f",
 
         // ebx contains C-bit >> 32
         // r12: C-bit full 64bit mask
@@ -426,7 +467,9 @@ global_asm!(
         correct_table_c_bit!(cbit_low = "ebx", ctr = "ecx", "rdx" = "{PDT_C000_0000}"),
         correct_table_c_bit!(cbit_low = "ebx", ctr = "ecx", "rdx" = "{PT_FFE0_0000}"),
 
+        "41:",
         // set C-bit for new CR3 and load it
+        "lea    rax,    [rip + {PML4T}]",
         "or     rax,    r12",
         "mov    cr3,    rax",
 
@@ -445,11 +488,26 @@ global_asm!(
         // sub 8 because we push 8 bytes later and want 16 bytes align
         "add    rsp,    {SIZE_OF_INITIAL_STACK}",
 
+        "80:",
+        "pause",
+        "mov    al,     1",
+        "lock   xchg byte ptr [rip + wait_ap], al",
+        "test   al,     al",
+        "jne    80b",
+
+        "mov    al,     1",
+        "lock   xchg byte ptr [rip + is_ap], al",
+        "test   al,     al",
+        "jne    95f",
+
         // rdi - _DYNAMIC
         // rsi - {SHIM_VIRT_OFFSET}
         // correct dynamic symbols with shim load offset + {SHIM_VIRT_OFFSET}
         "lea    rdi,    [rip + _DYNAMIC]",
         "call   {DYN_RELOC}",
+
+        "95:",
+        "lea    rsi,    byte ptr [rip + wait_ap]",
 
         // set arg1 to SEV C-Bit mask
         "mov    rdi,    r12",
@@ -461,6 +519,7 @@ global_asm!(
 
         // call the `_pre_main` function and never return
         // arg1 rdi  = SEV C-bit mask
+        // arg2 rsi  = wait_ap AtomicBool
         "call   {PRE_MAIN}",
 
         // end of code

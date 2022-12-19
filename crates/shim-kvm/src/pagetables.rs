@@ -23,7 +23,7 @@ use crate::spin::RacyCell;
 
 /// A page-aligned Page Table.
 #[repr(C, align(4096))]
-pub struct AlignedPageTable(pub [u64; 512]);
+pub struct AlignedPageTable([u64; 512]);
 
 const HUGE_PAGE_TABLE_FLAGS: u64 = PageTableFlags::HUGE_PAGE.bits()
     | PageTableFlags::WRITABLE.bits()
@@ -116,7 +116,7 @@ pub enum Error {
 
 /// smash the pagetable entries to 4k pages
 pub fn smash(addr: VirtAddr) -> Result<(), Error> {
-    let trans = paging::SHIM_PAGETABLE.write().translate(addr);
+    let trans = paging::SHIM_PAGETABLE.read().translate(addr);
     match trans {
         TranslateResult::Mapped {
             frame,
@@ -239,7 +239,7 @@ pub fn clear_c_bit_address_range(start: VirtAddr, end: VirtAddr) -> Result<(), E
         if current >= end {
             return Ok(());
         }
-        let trans = paging::SHIM_PAGETABLE.write().translate(current);
+        let trans = paging::SHIM_PAGETABLE.read().translate(current);
 
         current += match trans {
             TranslateResult::Mapped {

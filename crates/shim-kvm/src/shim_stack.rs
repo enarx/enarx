@@ -2,7 +2,7 @@
 
 //! Helper functions for the shim stack
 
-use crate::allocator::ALLOCATOR;
+use crate::allocator::PageTableAllocatorLock;
 
 use x86_64::structures::paging::{Page, PageTableFlags, Size4KiB};
 use x86_64::{PhysAddr, VirtAddr};
@@ -21,7 +21,7 @@ pub fn init_stack_with_guard(
     stack_size: u64,
     extra_flags: PageTableFlags,
 ) -> GuardedStack {
-    let mut allocator = ALLOCATOR.lock();
+    let mut allocator = PageTableAllocatorLock::new();
 
     // guard page
     allocator

@@ -1186,6 +1186,11 @@ pub trait Handler {
         self.execute(enarxcall::MunmapHost { addr, length })?
     }
 
+    /// Execute `cpuid` instruction storing the result in `result`.
+    #[inline]
+    fn new_sallyport(&mut self, addr: NonNull<c_void>, index: usize) -> Result<()> {
+        self.execute(enarxcall::NewSallyport { addr, index })?
+    }
     /// Park the current thread
     ///
     /// # Arguments

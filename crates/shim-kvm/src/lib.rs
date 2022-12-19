@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
+
 #![cfg(any(
     all(test, target_arch = "x86_64", target_os = "linux"),
     target_vendor = "unknown"
 ))]
+
 //! The SEV shim
 //!
 //! This crate contains the system/kernel that handles the syscalls (and cpuid instructions)
@@ -14,6 +16,8 @@
 #![feature(asm_const, c_size_t)]
 #![warn(rust_2018_idioms)]
 #![cfg_attr(coverage, feature(no_coverage))]
+
+extern crate alloc;
 
 use goblin::elf::header::header64::Header;
 use nbytes::bytes;
@@ -39,7 +43,7 @@ pub mod snp;
 pub mod spin;
 pub mod sse;
 pub mod syscall;
-pub mod usermode;
+pub mod thread;
 
 extern "C" {
     /// Extern
@@ -54,15 +58,18 @@ extern "C" {
     pub static _ENARX_CPUID: CpuidPage;
 }
 
+/// Maximum virtual cpus supported
+pub const MAX_NUM_CPUS: usize = 512;
+
 /// The virtual address of the main kernel stack
-pub const SHIM_STACK_START: u64 = 0xFFFF_FF48_4800_0000;
+pub const SHIM_STACK_START: u64 = 0xFFFF_FF48_0000_0000;
 
 /// The size of the main kernel stack
 #[allow(clippy::integer_arithmetic)]
 pub const SHIM_STACK_SIZE: u64 = bytes![2; MiB];
 
 /// The virtual address of the exception kernel stacks
-pub const SHIM_EX_STACK_START: u64 = 0xFFFF_FF48_F000_0000;
+pub const SHIM_EX_STACK_START: u64 = 0xFFFF_FF49_0000_0000;
 
 /// The size of the main kernel stack for exceptions
 #[allow(clippy::integer_arithmetic)]
@@ -86,3 +93,15 @@ const EXEC_STACK_VIRT_ADDR_BASE: VirtAddr = VirtAddr::new_truncate(0x7ff0_0000_0
 /// Initial exec stack size
 #[allow(clippy::integer_arithmetic)]
 const EXEC_STACK_SIZE: u64 = bytes![2; MiB];
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_shim_stack() {
+        assert!(
+            SHIM_STACK_START + 2 * SHIM_STACK_SIZE * (MAX_NUM_CPUS as u64) < SHIM_EX_STACK_START
+        );
+    }
+}

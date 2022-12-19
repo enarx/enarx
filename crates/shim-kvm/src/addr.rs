@@ -2,13 +2,14 @@
 
 //! Some basic address operations
 
-use crate::paging::SHIM_PAGETABLE;
+use crate::paging::ShimPageTable;
 use crate::snp::get_cbit_mask;
 
-use core::convert::{TryFrom, TryInto};
+use core::convert::TryFrom;
 
 use nbytes::bytes;
 use primordial::Address;
+use spin::RwLockReadGuard;
 use x86_64::structures::paging::Translate;
 use x86_64::{PhysAddr, VirtAddr};
 
@@ -26,6 +27,18 @@ pub const BYTES_2_MIB: u64 = bytes![2; MiB];
 /// 1 GiB
 #[allow(clippy::integer_arithmetic)]
 pub const BYTES_1_GIB: u64 = bytes![1; GiB];
+
+/// Translate addresses with the page table
+pub trait TryTranslate<T>: Sized {
+    /// The type returned in the event of a conversion error.
+    type Error;
+
+    /// Performs the conversion.
+    fn translate_from(
+        shim_page_table: &mut RwLockReadGuard<'_, ShimPageTable>,
+        value: T,
+    ) -> Result<Self, Self::Error>;
+}
 
 /// Address in the shim physical address space
 pub struct ShimPhysAddr<U>(Address<u64, U>);
@@ -62,12 +75,15 @@ impl<U> ShimPhysAddr<U> {
     }
 }
 
-impl<U> TryFrom<*const U> for ShimPhysAddr<U> {
+impl<U> TryTranslate<*const U> for ShimPhysAddr<U> {
     type Error = ();
 
-    fn try_from(value: *const U) -> Result<Self, Self::Error> {
-        let pa = SHIM_PAGETABLE
-            .read()
+    /// translate the address to shim physical address
+    fn translate_from(
+        shim_page_table: &mut RwLockReadGuard<'_, ShimPageTable>,
+        value: *const U,
+    ) -> Result<Self, Self::Error> {
+        let pa = shim_page_table
             .translate_addr(VirtAddr::from_ptr(value))
             .ok_or(())?;
         Ok(unsafe { Self(Address::unchecked(pa.as_u64())) })
@@ -146,12 +162,14 @@ impl<U> ShimPhysUnencryptedAddr<U> {
     }
 }
 
-impl<U> TryFrom<*const U> for ShimPhysUnencryptedAddr<U> {
+impl<U> TryTranslate<*const U> for ShimPhysUnencryptedAddr<U> {
     type Error = ();
 
-    fn try_from(value: *const U) -> Result<Self, Self::Error> {
-        let pa = SHIM_PAGETABLE
-            .read()
+    fn translate_from(
+        shim_page_table: &mut RwLockReadGuard<'_, ShimPageTable>,
+        value: *const U,
+    ) -> Result<Self, Self::Error> {
+        let pa = shim_page_table
             .translate_addr(VirtAddr::from_ptr(value))
             .ok_or(())?;
 
@@ -163,27 +181,32 @@ impl<U> TryFrom<*const U> for ShimPhysUnencryptedAddr<U> {
     }
 }
 
-impl<U> TryFrom<ShimVirtAddr<U>> for ShimPhysUnencryptedAddr<U> {
+impl<U> TryTranslate<ShimVirtAddr<U>> for ShimPhysUnencryptedAddr<U> {
     type Error = ();
 
     #[inline(always)]
-    fn try_from(value: ShimVirtAddr<U>) -> Result<Self, Self::Error> {
+    fn translate_from(
+        shim_page_table: &mut RwLockReadGuard<'_, ShimPageTable>,
+        value: ShimVirtAddr<U>,
+    ) -> Result<Self, Self::Error> {
         #[allow(clippy::integer_arithmetic)]
         let value = value.0;
 
-        value.try_into()
+        ShimPhysUnencryptedAddr::translate_from(shim_page_table, value)
     }
 }
 
-impl<U> TryFrom<Address<u64, U>> for ShimPhysUnencryptedAddr<U> {
+impl<U> TryTranslate<Address<u64, U>> for ShimPhysUnencryptedAddr<U> {
     type Error = ();
 
     #[inline(always)]
-    fn try_from(value: Address<u64, U>) -> Result<Self, Self::Error> {
+    fn translate_from(
+        shim_page_table: &mut RwLockReadGuard<'_, ShimPageTable>,
+        value: Address<u64, U>,
+    ) -> Result<Self, Self::Error> {
         let value = value.raw();
 
-        let pa = SHIM_PAGETABLE
-            .read()
+        let pa = shim_page_table
             .translate_addr(VirtAddr::new(value))
             .ok_or(())?;
 

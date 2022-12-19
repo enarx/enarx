@@ -23,7 +23,7 @@ while read line; do
         continue
     fi
 
-    if [[ $line = "Error: Shutdown"* ]] || [[ $line = "Error: MmioRead"* ]]; then
+    if [[ $line = "Error: Shutdown"* ]] || [[ $line = "Error: MmioRead"* ]] || [[ $line = "Error: KVM error: InternalError"* ]]; then
         ADDR2LINE="REGS"
         continue
     fi
@@ -67,6 +67,10 @@ while read line; do
         addr2line -apiCf -e "$SHIM" $line | grep -F -v '??' | \
             while read line; do
                  printf -- "Shim: %s\n" "$line"
+            done
+        addr2line -apiCf -e "$PAYLOAD" $line | grep -F -v '??' | \
+            while read line; do
+                 printf -- "Exec: %s\n" "$line"
             done
         continue
     else

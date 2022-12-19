@@ -157,6 +157,24 @@ impl PassthroughAlloc for MunmapHost {
     }
 }
 
+/// Notify the host to prepare memory for the guest to handle
+/// [Munmap](crate::guest::call::syscall::Munmap).
+pub struct NewSallyport {
+    pub addr: NonNull<c_void>,
+    pub index: usize,
+}
+
+impl PassthroughAlloc for NewSallyport {
+    const NUM: Number = Number::NewSallyport;
+
+    type Argv = Argv<2>;
+    type Ret = ();
+
+    fn stage(self) -> Self::Argv {
+        Argv([self.addr.as_ptr() as _, self.index])
+    }
+}
+
 /// Spawn a new thread
 #[repr(transparent)]
 pub struct Spawn {

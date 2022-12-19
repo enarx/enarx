@@ -4,11 +4,14 @@
 
 use crate::shim_stack::{init_stack_with_guard, GuardedStack};
 use crate::syscall::_syscall_enter;
-use crate::{SHIM_EX_STACK_SIZE, SHIM_EX_STACK_START, SHIM_STACK_SIZE, SHIM_STACK_START};
+use crate::thread::TcbRefCell;
+use crate::{
+    MAX_NUM_CPUS, SHIM_EX_STACK_SIZE, SHIM_EX_STACK_START, SHIM_STACK_SIZE, SHIM_STACK_START,
+};
 
-use core::ops::Deref;
+use alloc::boxed::Box;
 
-use spin::Lazy;
+use crate::hostcall::BlockGuard;
 use x86_64::instructions::segmentation::{Segment, Segment64, CS, DS, ES, FS, GS, SS};
 use x86_64::instructions::tables::load_tss;
 use x86_64::registers::model_specific::{KernelGsBase, LStar, SFMask, Star};
@@ -18,23 +21,23 @@ use x86_64::structures::paging::{Page, PageTableFlags, Size2MiB, Size4KiB};
 use x86_64::structures::tss::TaskStateSegment;
 use x86_64::{align_up, VirtAddr};
 
-#[cfg_attr(coverage, no_coverage)]
-fn lazy_initial_stack() -> GuardedStack {
-    init_stack_with_guard(
-        VirtAddr::new(SHIM_STACK_START),
-        SHIM_STACK_SIZE,
-        PageTableFlags::empty(),
-    )
+/// Create an initial shim stack
+pub fn initial_shim_stack(cpunum: usize) -> GuardedStack {
+    assert!(cpunum < MAX_NUM_CPUS);
+    let start = VirtAddr::new(
+        SHIM_STACK_START + (cpunum as u64) * (SHIM_STACK_SIZE + Page::<Size2MiB>::SIZE),
+    );
+    assert!((start + SHIM_STACK_SIZE).as_u64() < SHIM_EX_STACK_START);
+    init_stack_with_guard(start, SHIM_STACK_SIZE, PageTableFlags::empty())
 }
 
-/// The initial shim stack
-pub static INITIAL_STACK: Lazy<GuardedStack> = Lazy::new(lazy_initial_stack);
-
 #[cfg_attr(coverage, no_coverage)]
-fn lazy_tss() -> TaskStateSegment {
-    let mut tss = TaskStateSegment::new();
+fn new_tss(cpunum: usize) -> &'static mut TaskStateSegment {
+    assert!(cpunum < MAX_NUM_CPUS);
+    let mut tss = Box::new(TaskStateSegment::new());
 
-    tss.privilege_stack_table[0] = INITIAL_STACK.pointer;
+    // The current stack pointer top is in GS base
+    tss.privilege_stack_table[0] = GS::read_base();
 
     let ptr_interrupt_stack_table = core::ptr::addr_of_mut!(tss.interrupt_stack_table);
     let mut interrupt_stack_table = unsafe { ptr_interrupt_stack_table.read_unaligned() };
@@ -52,7 +55,8 @@ fn lazy_tss() -> TaskStateSegment {
             );
 
             let stack_offset = offset.checked_mul(idx as _).unwrap();
-            let start = VirtAddr::new(SHIM_EX_STACK_START.checked_add(stack_offset).unwrap());
+            let start = VirtAddr::new(SHIM_EX_STACK_START.checked_add(stack_offset).unwrap())
+                + cpunum * 0x100_0000;
 
             *p = init_stack_with_guard(start, SHIM_EX_STACK_SIZE, PageTableFlags::empty()).pointer;
         });
@@ -61,57 +65,8 @@ fn lazy_tss() -> TaskStateSegment {
         ptr_interrupt_stack_table.write_unaligned(interrupt_stack_table);
     }
 
-    tss
+    Box::leak(tss)
 }
-
-/// The global TSS
-pub static TSS: Lazy<TaskStateSegment> = Lazy::new(lazy_tss);
-
-/// The Selectors used in the GDT setup
-pub struct Selectors {
-    /// shim code selector
-    pub code: SegmentSelector,
-    /// shim data selector
-    pub data: SegmentSelector,
-    /// exec data selector
-    pub user_data: SegmentSelector,
-    /// exec code selector
-    pub user_code: SegmentSelector,
-    /// TSS selector
-    pub tss: SegmentSelector,
-}
-
-#[cfg_attr(coverage, no_coverage)]
-fn lazy_gdt() -> (GlobalDescriptorTable, Selectors) {
-    let mut gdt = GlobalDescriptorTable::new();
-
-    // `syscall` loads segments from STAR MSR assuming a data_segment follows `kernel_code_segment`
-    // so the ordering is crucial here. Star::write() will panic otherwise later.
-    let code = gdt.add_entry(Descriptor::kernel_code_segment());
-
-    let data = gdt.add_entry(Descriptor::kernel_data_segment());
-
-    // `sysret` loads segments from STAR MSR assuming `user_code_segment` follows `user_data_segment`
-    // so the ordering is crucial here. Star::write() will panic otherwise later.
-    let user_data = gdt.add_entry(Descriptor::user_data_segment());
-    let user_code = gdt.add_entry(Descriptor::user_code_segment());
-
-    // Important: TSS.deref() != &TSS because of lazy_static
-    let tss = gdt.add_entry(Descriptor::tss_segment(TSS.deref()));
-
-    let selectors = Selectors {
-        code,
-        data,
-        user_data,
-        user_code,
-        tss,
-    };
-
-    (gdt, selectors)
-}
-
-/// The global GDT
-pub static GDT: Lazy<(GlobalDescriptorTable, Selectors)> = Lazy::new(lazy_gdt);
 
 /// Initialize the GDT
 ///
@@ -120,16 +75,33 @@ pub static GDT: Lazy<(GlobalDescriptorTable, Selectors)> = Lazy::new(lazy_gdt);
 /// `unsafe` because the caller has to ensure it is only called once
 /// and in a single-threaded context.
 #[cfg_attr(coverage, no_coverage)]
-pub unsafe fn init() {
-    #[cfg(debug_assertions)]
-    crate::eprintln!("init_gdt");
+pub unsafe fn init(cpunum: usize) {
+    assert!(cpunum < MAX_NUM_CPUS);
 
-    GDT.0.load();
+    crate::eprintln!("[{cpunum}] init_gdt");
+
+    let gdt = Box::leak(Box::new(GlobalDescriptorTable::new()));
+
+    // `syscall` loads segments from STAR MSR assuming a data_segment follows `kernel_code_segment`
+    // so the ordering is crucial here. Star::write() will panic otherwise later.
+    let code = gdt.add_entry(Descriptor::kernel_code_segment());
+    let data = gdt.add_entry(Descriptor::kernel_data_segment());
+
+    // `sysret` loads segments from STAR MSR assuming `user_code_segment` follows `user_data_segment`
+    // so the ordering is crucial here. Star::write() will panic otherwise later.
+    let user_data = gdt.add_entry(Descriptor::user_data_segment());
+    let user_code = gdt.add_entry(Descriptor::user_code_segment());
+
+    let tss_selector = gdt.add_entry(Descriptor::tss_segment(new_tss(cpunum)));
+
+    gdt.load();
+
+    let kernel_stack = GS::read_base();
 
     // Setup the segment registers with the corresponding selectors
-    CS::set_reg(GDT.1.code);
-    SS::set_reg(GDT.1.data);
-    load_tss(GDT.1.tss);
+    CS::set_reg(code);
+    SS::set_reg(data);
+    load_tss(tss_selector);
 
     // Clear the other segment registers
     SS::set_reg(SegmentSelector(0));
@@ -139,7 +111,7 @@ pub unsafe fn init() {
     GS::set_reg(SegmentSelector(0));
 
     // Set the selectors to be set when userspace uses `syscall`
-    Star::write(GDT.1.user_code, GDT.1.user_data, GDT.1.code, GDT.1.data).unwrap();
+    Star::write(user_code, user_data, code, data).unwrap();
 
     // Set the pointer to the function to be called when userspace uses `syscall`
     LStar::write(VirtAddr::new(_syscall_enter as usize as u64));
@@ -147,9 +119,11 @@ pub unsafe fn init() {
     // Clear trap flag and interrupt enable
     SFMask::write(RFlags::INTERRUPT_FLAG | RFlags::TRAP_FLAG);
 
-    // Set the kernel gs base to the TSS to be used in `_syscall_enter`
-    // Important: TSS.deref() != &TSS because of lazy_static
-    let base = VirtAddr::new(TSS.deref() as *const _ as u64);
+    // Set the kernel gs base to the Tcb to be used in `_syscall_enter`
+    let tcb = Box::new(TcbRefCell::new(kernel_stack, BlockGuard::new(cpunum)));
+    let base = VirtAddr::from_ptr(Box::leak(tcb));
     KernelGsBase::write(base);
     GS::write_base(base);
+
+    crate::eprintln!("[{cpunum}] init_gdt done");
 }

@@ -59,3 +59,5 @@ pub const REQUIRES: [u8; VERSION.len() + 1] = {
 
 /// I/O port used to trigger an exit to the host (`#VMEXIT`) for KVM driven shims.
 pub const KVM_SYSCALL_TRIGGER_PORT: u16 = 0xFF;
+
+pub const KVM_SYSCALL_TRIGGER_EXIT: u16 = 0xFE;

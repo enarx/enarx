@@ -3,7 +3,8 @@
 //! wrapper around spin types to permit trait implementations.
 
 use core::cell::UnsafeCell;
-use spin::{Mutex, MutexGuard, RwLock, RwLockReadGuard, RwLockWriteGuard};
+use core::ops::Deref;
+use spin::{Lazy, Mutex, MutexGuard, RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 /// Cell type that should be preferred over a `static mut` is better to use in a
 /// `static`
@@ -83,5 +84,28 @@ impl<A> RwLocked<A> {
     #[inline]
     pub fn write(&self) -> RwLockWriteGuard<'_, A> {
         self.inner.write()
+    }
+}
+
+/// A wrapper around spin::Lazy to permit trait implementations.
+pub struct Lazied<T> {
+    inner: Lazy<T>,
+}
+
+impl<T> Lazied<T> {
+    /// Constructor
+    #[inline]
+    pub const fn new(f: fn() -> T) -> Self {
+        Self {
+            inner: Lazy::new(f),
+        }
+    }
+}
+
+impl<T> Deref for Lazied<T> {
+    type Target = T;
+
+    fn deref(&self) -> &T {
+        Lazy::force(&self.inner)
     }
 }

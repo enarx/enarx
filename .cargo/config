@@ -3,6 +3,7 @@ rustflags = [
     "-C", "linker=gcc",
     "--cfg", "polyval_force_soft",
     "--cfg", "aes_force_soft",
+    "-C", "force-frame-pointers=yes",
 ]
 
 [target.x86_64-pc-windows-msvc]

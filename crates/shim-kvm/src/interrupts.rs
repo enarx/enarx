@@ -258,7 +258,6 @@ declare_interrupt!(
 
 fn handle_page_fault(address: VirtAddr, error_code: PageFaultErrorCode) -> Result<(), ()> {
     let mut shim_page_table = SHIM_PAGETABLE.write();
-
     #[cfg(feature = "trace")]
     match shim_page_table.translate(address) {
         TranslateResult::Mapped { frame, flags, .. } => {
@@ -317,6 +316,7 @@ fn handle_page_fault(address: VirtAddr, error_code: PageFaultErrorCode) -> Resul
         let (_, _) = shim_page_table.unmap(page).unwrap();
 
         let mut allocator = ALLOCATOR.lock();
+
         let frame = allocator.allocate_frame().unwrap();
         let shim_phys_page = ShimPhysAddr::try_from(frame.start_address()).unwrap();
         let shim_virt: *mut u8 = ShimVirtAddr::from(shim_phys_page).into();
@@ -383,10 +383,11 @@ pub static IDT: Lazy<InterruptDescriptorTable> = Lazy::new(|| {
 
 /// Initialize the IDT
 #[cfg_attr(coverage, no_coverage)]
-pub fn init() {
+pub fn init(cpunum: usize) {
     #[cfg(debug_assertions)]
-    eprintln!("interrupts::init");
+    eprintln!("[{cpunum}] interrupts::init");
     IDT.load();
+    eprintln!("[{cpunum}] interrupts::init done");
 }
 
 #[cfg(feature = "dbg")]

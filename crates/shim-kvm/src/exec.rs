@@ -2,16 +2,15 @@
 
 //! Functions dealing with the exec
 
-use crate::addr::ShimPhysAddr;
-use crate::allocator::ALLOCATOR;
+use crate::addr::{ShimPhysAddr, TryTranslate};
+use crate::allocator::PageTableAllocatorLock;
 use crate::random::random;
 use crate::shim_stack::init_stack_with_guard;
 use crate::snp::cpuid;
-use crate::usermode::usermode;
-
-use core::convert::TryFrom;
+use crate::thread::usermode;
 use core::sync::atomic::{AtomicBool, Ordering};
 
+use crate::paging::SHIM_PAGETABLE;
 use crate::{
     EXEC_BRK_VIRT_ADDR_BASE, EXEC_ELF_VIRT_ADDR_BASE, EXEC_STACK_SIZE, EXEC_STACK_VIRT_ADDR_BASE,
 };
@@ -28,12 +27,12 @@ use x86_64::{PhysAddr, VirtAddr};
 pub static EXEC_READY: AtomicBool = AtomicBool::new(false);
 
 /// The randomized virtual address of the exec
-#[cfg(not(feature = "gdb"))]
+#[cfg(not(any(feature = "gdb", feature = "dbg")))]
 pub static EXEC_VIRT_ADDR: Lazy<RwLock<VirtAddr>> =
     Lazy::new(|| RwLock::new(EXEC_ELF_VIRT_ADDR_BASE + (random() & 0x7F_FFFF_F000)));
 
 /// The non-randomized virtual address of the exec in case the gdb feature is active
-#[cfg(feature = "gdb")]
+#[cfg(any(feature = "gdb", feature = "dbg"))]
 pub static EXEC_VIRT_ADDR: Lazy<RwLock<VirtAddr>> =
     Lazy::new(|| RwLock::new(EXEC_ELF_VIRT_ADDR_BASE));
 
@@ -65,10 +64,11 @@ fn map_elf(app_virt_start: VirtAddr) -> &'static Header {
     };
 
     // Convert to shim physical addresses with potential SEV C-Bit set
-    let code_start_phys = ShimPhysAddr::try_from(header as *const _)
-        .unwrap()
-        .raw()
-        .raw();
+    let code_start_phys =
+        ShimPhysAddr::translate_from(&mut SHIM_PAGETABLE.read(), header as *const _)
+            .unwrap()
+            .raw()
+            .raw();
 
     for ph in headers
         .iter()
@@ -88,8 +88,7 @@ fn map_elf(app_virt_start: VirtAddr) -> &'static Header {
 
         debug_assert_eq!(ph.p_align, Page::<Size4KiB>::SIZE);
 
-        ALLOCATOR
-            .lock()
+        PageTableAllocatorLock::new()
             .map_memory(
                 map_from,
                 map_to,
