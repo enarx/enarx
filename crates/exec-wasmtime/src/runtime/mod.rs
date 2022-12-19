@@ -59,18 +59,23 @@ impl Runtime {
         .map(rustls::Certificate)
         .collect::<Vec<_>>();
 
-        let engine = Engine::new(&WASMTIME_CONFIG).context("failed to create execution engine")?;
+        let engine = trace_span!("initialize Wasmtime engine")
+            .in_scope(|| Engine::new(&WASMTIME_CONFIG))
+            .context("failed to create execution engine")?;
 
-        let mut linker = Linker::new(&engine);
-        add_to_linker(&mut linker, |s| s).context("failed to setup linker and add WASI")?;
+        let mut linker = trace_span!("setup linker").in_scope(|| Linker::new(&engine));
+        trace_span!("link WASI")
+            .in_scope(|| add_to_linker(&mut linker, |s| s))
+            .context("failed to setup linker and link WASI")?;
 
-        let mut wstore = Store::new(&engine, WasiCtxBuilder::new().build());
+        let mut wstore = trace_span!("initialize Wasmtime store")
+            .in_scope(|| Store::new(&engine, WasiCtxBuilder::new().build()));
 
-        let module = trace_span!("compile")
+        let module = trace_span!("compile Wasm")
             .in_scope(|| Module::from_binary(&engine, &webasm))
             .context("failed to compile Wasm module")?;
-        linker
-            .module(&mut wstore, "", &module)
+        trace_span!("link Wasm")
+            .in_scope(|| linker.module(&mut wstore, "", &module))
             .context("failed to link module")?;
 
         let mut ctx = wstore.as_context_mut();
@@ -108,13 +113,13 @@ impl Runtime {
             ctx.push_arg(&arg).context("failed to push argument")?;
         }
 
-        let func = linker
-            .get_default(&mut wstore, "")
+        let func = trace_span!("get default function")
+            .in_scope(|| linker.get_default(&mut wstore, ""))
             .context("failed to get default function")?;
 
         let mut values = vec![Val::null(); func.ty(&wstore).results().len()];
-        if let Err(e) =
-            trace_span!("call").in_scope(|| func.call(wstore, Default::default(), &mut values))
+        if let Err(e) = trace_span!("execute default function")
+            .in_scope(|| func.call(wstore, Default::default(), &mut values))
         {
             match e.downcast_ref::<Trap>().map(Trap::i32_exit_status) {
                 Some(Some(0)) => {} // function exited with a code of 0, treat as success
