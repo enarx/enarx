@@ -40,6 +40,8 @@ jobs:
           - name: debug
           - name: debug with dbg
             flag: --features=dbg
+          - name: debug with bench
+            flag: --features=bench
           - name: release
             flag: --release
 
@@ -63,6 +65,8 @@ jobs:
           - name: default-features
           - name: gdb
             flag: --features=gdb
+          - name: bench
+            flag: --features=bench
 
   macos:
     name: enarx MacOS
