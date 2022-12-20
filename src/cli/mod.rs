@@ -155,7 +155,7 @@ pub struct LogOptions {
     /// Set fancier logging filters.
     ///
     /// This is equivalent to the `RUST_LOG` environment variable.
-    /// For more info, see the `env_logger` crate documentation.
+    /// For more info, see the [EnvFilter] documentation.
     #[clap(long = "log-filter", env = "ENARX_LOG")]
     log_filter: Option<String>,
 
@@ -165,9 +165,7 @@ pub struct LogOptions {
 }
 
 impl LogOptions {
-    /// Build & initialize a global logger using env_logger::Builder.
-    /// As with Builder::init(), this will panic if called more than once,
-    /// or if another library has already initialized a global logger.
+    /// Build & initialize a global logger using [EnvFilter::builder].
     pub fn init(&self) {
         let env_filter = EnvFilter::builder()
             .with_default_directive(self.verbosity_level().into())
@@ -211,16 +209,6 @@ impl FromStr for LogTarget {
             "stdout" => Ok(Self::Stdout),
             "stderr" => Ok(Self::Stderr),
             _ => Err(anyhow!("unknown log target {:?}", s)),
-        }
-    }
-}
-
-/// Convert our LogTarget to env_logger's Target
-impl From<LogTarget> for env_logger::Target {
-    fn from(t: LogTarget) -> Self {
-        match t {
-            LogTarget::Stdout => Self::Stdout,
-            LogTarget::Stderr => Self::Stderr,
         }
     }
 }
