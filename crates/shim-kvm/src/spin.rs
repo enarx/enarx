@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
-//! wrapper around spinning types to permit trait implementations.
+//! wrapper around spin types to permit trait implementations.
 
 use core::cell::UnsafeCell;
-use spinning::{Mutex, MutexGuard, RawMutex, RawRwLock, RwLock, RwLockReadGuard, RwLockWriteGuard};
+use spin::{Mutex, MutexGuard, RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 /// Cell type that should be preferred over a `static mut` is better to use in a
 /// `static`
@@ -38,7 +38,7 @@ impl<T> RacyCell<T> {
 
 unsafe impl<T: Sync> Sync for RacyCell<T> {}
 
-/// A wrapper around spinning::Mutex to permit trait implementations.
+/// A wrapper around spin::Mutex to permit trait implementations.
 pub struct Locked<A> {
     inner: Mutex<A>,
 }
@@ -48,18 +48,18 @@ impl<A> Locked<A> {
     #[inline]
     pub const fn new(inner: A) -> Self {
         Self {
-            inner: Mutex::const_new(RawMutex::const_new(), inner),
+            inner: Mutex::new(inner),
         }
     }
 
-    /// get a [`MutexGuard`](spinning::MutexGuard)
+    /// get a [`MutexGuard`](spin::MutexGuard)
     #[inline]
     pub fn lock(&self) -> MutexGuard<'_, A> {
         self.inner.lock()
     }
 }
 
-/// A wrapper around spinning::RwLock to permit trait implementations.
+/// A wrapper around spin::RwLock to permit trait implementations.
 pub struct RwLocked<A> {
     inner: RwLock<A>,
 }
@@ -69,17 +69,17 @@ impl<A> RwLocked<A> {
     #[inline]
     pub const fn new(inner: A) -> Self {
         Self {
-            inner: RwLock::const_new(RawRwLock::const_new(), inner),
+            inner: RwLock::new(inner),
         }
     }
 
-    /// get a [`RwLockReadGuard`](spinning::RwLockReadGuard)
+    /// get a [`RwLockReadGuard`](spin::RwLockReadGuard)
     #[inline]
     pub fn read(&self) -> RwLockReadGuard<'_, A> {
         self.inner.read()
     }
 
-    /// get a [`RwLockWriteGuard`](spinning::RwLockWriteGuard)
+    /// get a [`RwLockWriteGuard`](spin::RwLockWriteGuard)
     #[inline]
     pub fn write(&self) -> RwLockWriteGuard<'_, A> {
         self.inner.write()

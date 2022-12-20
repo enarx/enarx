@@ -28,7 +28,7 @@ use sallyport::libc::{
 };
 use sallyport::util::ptr::is_aligned_non_null;
 use sallyport::{libc, KVM_SYSCALL_TRIGGER_PORT};
-use spinning::Lazy;
+use spin::Lazy;
 use x86_64::instructions::port::Port;
 use x86_64::instructions::segmentation::{Segment64, FS, GS};
 use x86_64::instructions::tlb::flush_all;

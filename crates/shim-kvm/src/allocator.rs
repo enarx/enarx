@@ -23,7 +23,7 @@ use lset::{Line, Span};
 use nbytes::bytes;
 use primordial::{Address, Page as Page4KiB};
 use sallyport::guest::Handler;
-use spinning::Lazy;
+use spin::Lazy;
 use x86_64::instructions::tlb::flush_all;
 use x86_64::structures::paging::mapper::{MapToError, UnmapError};
 use x86_64::structures::paging::{
@@ -206,8 +206,8 @@ impl EnarxAllocator {
 
         let end_of_mem = mem_start + mem_size;
 
-        *NEXT_MMAP_RWLOCK.write() =
-            (*NEXT_MMAP_RWLOCK.read() + code_size).align_up(Page::<Size4KiB>::SIZE);
+        let mut nmr = NEXT_MMAP_RWLOCK.write();
+        *nmr = (*nmr + code_size).align_up(Page::<Size4KiB>::SIZE);
 
         let allocator = Heap::empty();
 

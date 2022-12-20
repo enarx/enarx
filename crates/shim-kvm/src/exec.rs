@@ -18,7 +18,7 @@ use goblin::elf::header::ELFMAG;
 use goblin::elf::program_header::program_header64::*;
 use lset::Line;
 use nbytes::bytes;
-use spinning::{Lazy, RwLock};
+use spin::{Lazy, RwLock};
 use x86_64::structures::paging::{Page, PageTableFlags, Size4KiB};
 use x86_64::{PhysAddr, VirtAddr};
 
@@ -40,29 +40,23 @@ const EXEC_STACK_SIZE: u64 = bytes![2; MiB];
 
 /// The randomized virtual address of the exec
 #[cfg(not(feature = "gdb"))]
-pub static EXEC_VIRT_ADDR: Lazy<RwLock<VirtAddr>> = Lazy::new(|| {
-    RwLock::<VirtAddr>::const_new(
-        spinning::RawRwLock::const_new(),
-        EXEC_ELF_VIRT_ADDR_BASE + (random() & 0x7F_FFFF_F000),
-    )
-});
+pub static EXEC_VIRT_ADDR: Lazy<RwLock<VirtAddr>> =
+    Lazy::new(|| RwLock::new(EXEC_ELF_VIRT_ADDR_BASE + (random() & 0x7F_FFFF_F000)));
 
 /// The non-randomized virtual address of the exec in case the gdb feature is active
 #[cfg(feature = "gdb")]
-pub static EXEC_VIRT_ADDR: Lazy<RwLock<VirtAddr>> = Lazy::new(|| {
-    RwLock::<VirtAddr>::const_new(spinning::RawRwLock::const_new(), EXEC_ELF_VIRT_ADDR_BASE)
-});
+pub static EXEC_VIRT_ADDR: Lazy<RwLock<VirtAddr>> =
+    Lazy::new(|| RwLock::new(EXEC_ELF_VIRT_ADDR_BASE));
 
 /// Actual brk virtual address the exec gets, when calling brk
 pub static BRK_LINE: Lazy<RwLock<Line<VirtAddr>>> = Lazy::new(|| {
     let start = EXEC_BRK_VIRT_ADDR_BASE + (random() & 0xFFFF_F000);
-    RwLock::<Line<VirtAddr>>::const_new(spinning::RawRwLock::const_new(), Line::new(start, start))
+    RwLock::new(Line::new(start, start))
 });
 
 /// The global NextMMap RwLock
-pub static NEXT_MMAP_RWLOCK: Lazy<RwLock<VirtAddr>> = Lazy::new(|| {
-    RwLock::<VirtAddr>::const_new(spinning::RawRwLock::const_new(), *EXEC_VIRT_ADDR.read())
-});
+pub static NEXT_MMAP_RWLOCK: Lazy<RwLock<VirtAddr>> =
+    Lazy::new(|| RwLock::new(*EXEC_VIRT_ADDR.read()));
 
 /// load the elf binary
 fn map_elf(app_virt_start: VirtAddr) -> &'static Header {

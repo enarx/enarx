@@ -16,7 +16,7 @@ use core::mem::size_of;
 use core::ops::Deref;
 
 use paste::paste;
-use spinning::Lazy;
+use spin::Lazy;
 use x86_64::structures::idt::InterruptDescriptorTable;
 use x86_64::VirtAddr;
 use xsave::XSave;

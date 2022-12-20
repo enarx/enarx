@@ -5,8 +5,8 @@
 use crate::addr::SHIM_VIRT_OFFSET;
 use crate::snp::get_cbit_mask;
 
-use spinning::{Lazy, RwLock};
-use x86_64::registers::control::Cr3;
+use crate::pagetables::PML4T;
+use spin::{Lazy, RwLock};
 use x86_64::structures::paging::mapper::PageTableFrameMapping;
 use x86_64::structures::paging::{MappedPageTable, PageTable, PhysFrame};
 use x86_64::VirtAddr;
@@ -44,13 +44,8 @@ pub static SHIM_PAGETABLE: Lazy<RwLock<MappedPageTable<'static, EncPhysOffset>>>
         let enc_phys_offset = EncPhysOffset::default();
 
         let enc_offset_page_table = unsafe {
-            let level_4_table_ptr = enc_phys_offset.frame_to_pointer(Cr3::read().0);
-
-            MappedPageTable::new(&mut *level_4_table_ptr, enc_phys_offset)
+            MappedPageTable::new(&mut (*(PML4T.get() as *mut PageTable)), enc_phys_offset)
         };
 
-        RwLock::<MappedPageTable<'static, EncPhysOffset>>::const_new(
-            spinning::RawRwLock::const_new(),
-            enc_offset_page_table,
-        )
+        RwLock::new(enc_offset_page_table)
     });

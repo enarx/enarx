@@ -181,7 +181,7 @@ unsafe fn stack_trace_from_rbp(mut rbp: usize) {
     print::_eprint(format_args!("TRACE:\n"));
 
     if SHIM_PAGETABLE.try_read().is_none() {
-        SHIM_PAGETABLE.force_unlock_write()
+        SHIM_PAGETABLE.force_write_unlock()
     }
 
     let shim_offset = SHIM_VIRT_OFFSET as usize;

@@ -19,7 +19,7 @@ use aes_gcm::{AeadInPlace, Aes256Gcm, KeyInit, Nonce, Tag};
 use bitflags::bitflags;
 use const_default::ConstDefault;
 use sallyport::libc::{EINVAL, EIO};
-use spinning::Lazy;
+use spin::Lazy;
 use x86_64::registers::model_specific::Msr;
 use x86_64::structures::paging::{Page, Size4KiB};
 use x86_64::{PhysAddr, VirtAddr};

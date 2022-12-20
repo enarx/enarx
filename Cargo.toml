@@ -198,7 +198,7 @@ serial_test = { version = "0.9.0", default-features = false }
 sgx = { version = "0.5.0", default-features = false }
 sha2 = { version = "0.10.2", default-features = false }
 shell-words = { version = "1.1.0", default-features = false }
-spinning = { version = "0.1.0", default-features = false }
+spin = { version = "0.9.4", default-features = false, features = ["lock_api", "spin_mutex", "rwlock", "lazy"] }
 static_assertions = { version = "1.1.0", default-features = false }
 tempfile = { version = "3.3.0", default-features = false }
 testaso = { version = "0.1.0", default-features = false }
