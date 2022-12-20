@@ -1292,7 +1292,7 @@ dependencies = [
  "primordial",
  "rcrt1",
  "sallyport",
- "spinning",
+ "spin 0.9.4",
  "testaso",
  "x86_64",
  "xsave",
@@ -1314,7 +1314,7 @@ dependencies = [
  "rcrt1",
  "sallyport",
  "sgx",
- "spinning",
+ "spin 0.9.4",
  "testaso",
  "x86_64",
  "xsave",
@@ -2109,7 +2109,7 @@ version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e2abad23fbc42b3700f2f279844dc832adb2b2eb069b2df918f455c4e18cc646"
 dependencies = [
- "spin",
+ "spin 0.5.2",
 ]
 
 [[package]]
@@ -2953,7 +2953,7 @@ dependencies = [
  "cc",
  "libc",
  "once_cell",
- "spin",
+ "spin 0.5.2",
  "untrusted",
  "web-sys",
  "winapi",
@@ -3438,10 +3438,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6e63cff320ae2c57904679ba7cb63280a3dc4613885beafb148ee7bf9aa9042d"
 
 [[package]]
-name = "spinning"
-version = "0.1.0"
+name = "spin"
+version = "0.9.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2d4f0e86297cad2658d92a707320d87bf4e6ae1050287f51d19b67ef3f153a7b"
+checksum = "7f6002a767bff9e83f8eeecf883ecb8011875a21ae8da43bffb817a57e78cc09"
 dependencies = [
  "lock_api",
 ]

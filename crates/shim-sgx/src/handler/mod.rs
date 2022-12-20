@@ -60,7 +60,7 @@ use sallyport::libc::{
 use sgx::page::{Class, Flags};
 use sgx::ssa::StateSaveArea;
 use sgx::ssa::Vector;
-use spinning::{Lazy, RwLock};
+use spin::{Lazy, RwLock};
 use x86_64::addr::VirtAddr;
 use x86_64::structures::paging::Page as PageAddr;
 

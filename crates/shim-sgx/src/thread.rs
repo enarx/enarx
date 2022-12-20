@@ -11,7 +11,7 @@ use crate::{CSSA_0_STACK_SIZE, CSSA_1_PLUS_STACK_SIZE, NUM_SSA};
 use sallyport::guest::ThreadLocalStorage;
 use sallyport::libc::pid_t;
 use sgx::ssa::{GenPurposeRegs, StateSaveArea};
-use spinning::{Lazy, RwLock};
+use spin::{Lazy, RwLock};
 
 /// A constant array to enqueue and dequeue from.
 #[derive(Clone, Debug)]

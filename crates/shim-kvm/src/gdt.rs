@@ -8,7 +8,7 @@ use crate::syscall::_syscall_enter;
 use core::ops::Deref;
 
 use nbytes::bytes;
-use spinning::Lazy;
+use spin::Lazy;
 use x86_64::instructions::segmentation::{Segment, Segment64, CS, DS, ES, FS, GS, SS};
 use x86_64::instructions::tables::load_tss;
 use x86_64::registers::model_specific::{KernelGsBase, LStar, SFMask, Star};

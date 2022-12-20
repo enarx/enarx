@@ -13,7 +13,7 @@ use sallyport::guest::Handler;
 use sallyport::item::enarxcall::{SYS_GETATT, SYS_GETKEY};
 #[cfg(feature = "dbg")]
 use sallyport::libc::{SYS_write, STDERR_FILENO, STDOUT_FILENO};
-use spinning::Lazy;
+use spin::Lazy;
 
 #[repr(C)]
 struct X8664DoubleReturn {

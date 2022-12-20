@@ -23,7 +23,7 @@ primordial = { workspace = true, features = ["const-default"] }
 rcrt1 = { workspace = true }
 sallyport = { workspace = true }
 sgx = { workspace = true }
-spinning = { workspace = true }
+spin = { workspace = true }
 x86_64 = { workspace = true }
 xsave = { workspace = true }
 

@@ -4,7 +4,7 @@
 
 use crate::spin::{Locked, RacyCell};
 
-use spinning::Lazy;
+use spin::Lazy;
 
 /// The SEV-SNP secrets page OS area
 ///
