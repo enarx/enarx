@@ -8,6 +8,8 @@ use std::path::Path;
 
 use futures::join;
 use tempfile::Builder;
+use tracing_subscriber::prelude::*;
+use tracing_subscriber::{fmt, EnvFilter};
 
 // This is a stateful test that spawns subcommands to exercise the Enarx CLI
 // using a local Drawbridge server and a mocked OIDC server.
@@ -192,7 +194,10 @@ Caused by:
 
 #[async_std::test]
 async fn full() {
-    env_logger::builder().is_test(true).init();
+    tracing_subscriber::registry()
+        .with(fmt::layer())
+        .with(EnvFilter::from_default_env())
+        .init();
     let (oidc_url, oidc_tx, oidc_handle) = util::init_oidc().await;
     let (db_port, db_tx, db_handle) = util::init_drawbridge(oidc_url.clone()).await;
     let db_host = format!("localhost:{db_port}");
