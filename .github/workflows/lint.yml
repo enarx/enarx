@@ -17,7 +17,7 @@ jobs:
       - uses: actions-rs/cargo@v1
         with:
           command: fmt
-          args: --manifest-path=${{ matrix.crate.path }} -- --check
+          args: --manifest-path=${{ matrix.crate.path }} --all -- --check
     strategy:
       fail-fast: false
       matrix:
