@@ -299,10 +299,10 @@ pub fn get_att(nonce: Option<&mut [u8]>, buf: Option<&mut [u8]>) -> Result<(usiz
     let (rax, rdx) = syscall(
         SYS_GETATT,
         Args {
-            arg0: arg0,
-            arg1: arg1,
-            arg2: arg2,
-            arg3: arg3,
+            arg0,
+            arg1,
+            arg2,
+            arg3,
             ..Default::default()
         },
     );

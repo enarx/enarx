@@ -221,7 +221,7 @@ fn clock_gettime() {
 #[serial]
 fn close() {
     run_test(2, [0xff; 16], move |i, platform, handler| {
-        let path = temp_dir().join(format!("sallyport-test-close-{}", i));
+        let path = temp_dir().join(format!("sallyport-test-close-{i}"));
         let c_path = CString::new(path.as_os_str().to_str().unwrap()).unwrap();
 
         // NOTE: `miri` only supports mode 0o666 at the time of writing
@@ -238,15 +238,13 @@ fn close() {
             }
             assert_eq!(unsafe { libc::close(fd) }, -1);
             assert_eq!(unsafe { libc::__errno_location().read() }, EBADF);
+        } else if i % 2 == 0 {
+            assert_eq!(handler.close(fd), Err(ENOSYS));
         } else {
-            if i % 2 == 0 {
-                assert_eq!(handler.close(fd), Err(ENOSYS));
-            } else {
-                assert_eq!(
-                    unsafe { handler.syscall(platform, [SYS_close as _, fd as _, 0, 0, 0, 0, 0]) },
-                    Err(ENOSYS)
-                );
-            }
+            assert_eq!(
+                unsafe { handler.syscall(platform, [SYS_close as _, fd as _, 0, 0, 0, 0, 0]) },
+                Err(ENOSYS)
+            );
         }
     })
 }
@@ -304,7 +302,7 @@ fn fcntl() {
             }
         }
 
-        let file = File::create(temp_dir().join(format!("sallyport-test-fcntl-{}", i))).unwrap();
+        let file = File::create(temp_dir().join(format!("sallyport-test-fcntl-{i}"))).unwrap();
         let fd = file.as_raw_fd();
 
         for cmd in [F_GETFD] {
@@ -484,7 +482,7 @@ fn getrandom() {
         assert_eq!(handler.getrandom(&mut buf, GRND_RANDOM), Ok(LEN));
         assert_ne!(buf, [0u8; LEN]);
 
-        let mut buf_2 = buf.clone();
+        let mut buf_2 = buf;
         assert_eq!(
             unsafe {
                 handler.syscall(
@@ -775,8 +773,8 @@ fn poll() {
 fn read() {
     run_test(2, [0xff; 16], move |i, platform, handler| {
         const EXPECTED: &str = "read";
-        let path = temp_dir().join(format!("sallyport-test-read-{}", i));
-        write!(&mut File::create(&path).unwrap(), "{}", EXPECTED).unwrap();
+        let path = temp_dir().join(format!("sallyport-test-read-{i}"));
+        write!(&mut File::create(&path).unwrap(), "{EXPECTED}").unwrap();
 
         let mut buf = [0u8; EXPECTED.len()];
 
@@ -883,7 +881,7 @@ fn readv() {
         const EXPECTED: [&str; 3] = ["012", "345", "67"];
         const CONTENTS: &str = "012345678012345678";
         let path = temp_dir().join("sallyport-test-readv");
-        write!(&mut File::create(&path).unwrap(), "{}", CONTENTS).unwrap();
+        write!(&mut File::create(&path).unwrap(), "{CONTENTS}").unwrap();
 
         let mut one = [0u8; EXPECTED[0].len()];
         let mut two = [0u8; EXPECTED[1].len()];
@@ -1257,7 +1255,7 @@ fn recvfrom() {
 
         let mut buf = [0u8; EXPECTED.len()];
         let mut src_addr: sockaddr_in = unsafe { mem::zeroed() };
-        let mut src_addr_bytes = unsafe {
+        let src_addr_bytes = unsafe {
             slice::from_raw_parts_mut(&mut src_addr as *mut _ as _, size_of::<sockaddr_in>())
         };
         let mut addrlen = src_addr_bytes.len() as _;
@@ -1267,7 +1265,7 @@ fn recvfrom() {
                     dest_socket.as_raw_fd(),
                     &mut buf,
                     0,
-                    SockaddrOutput::new(&mut src_addr_bytes, &mut addrlen),
+                    SockaddrOutput::new(src_addr_bytes, &mut addrlen),
                 ),
                 Ok(EXPECTED.len())
             );
@@ -1562,7 +1560,7 @@ fn sync_read_close() {
     run_test(1, [0xff; 64], move |_, _, handler| {
         const EXPECTED: &str = "sync-read-close";
         let path = temp_dir().join("sallyport-test-sync-read-close");
-        write!(&mut File::create(&path).unwrap(), "{}", EXPECTED).unwrap();
+        write!(&mut File::create(&path).unwrap(), "{EXPECTED}").unwrap();
 
         let c_path = CString::new(path.as_os_str().to_str().unwrap()).unwrap();
         let fd = unsafe { libc::open(c_path.as_ptr(), O_RDONLY, 0o666) };
@@ -1634,7 +1632,7 @@ fn write() {
             .write(true)
             .truncate(true)
             .create(true)
-            .open(&path)
+            .open(path)
             .unwrap();
 
         if i % 2 == 0 {
@@ -1691,14 +1689,14 @@ fn writev() {
             .write(true)
             .truncate(true)
             .create(true)
-            .open(&path)
+            .open(path)
             .unwrap();
 
         if i % 2 == 0 {
             assert_eq!(
                 handler.writev(
                     file.as_raw_fd() as _,
-                    &[&"", &INPUT[0..3], &"", &INPUT[3..4], &INPUT[4..]]
+                    &["", &INPUT[0..3], "", &INPUT[3..4], &INPUT[4..]]
                 ),
                 if cfg!(not(miri)) {
                     Ok(EXPECTED.len())

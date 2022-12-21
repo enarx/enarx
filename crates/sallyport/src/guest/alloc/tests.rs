@@ -9,7 +9,7 @@ fn assert_block_eq<const N: usize>(got: [usize; N], expected: [usize; N]) {
     #[inline]
     fn format(iter: impl IntoIterator<Item = impl LowerHex>) -> String {
         iter.into_iter()
-            .fold("\n[\n".into(), |s, el| format!("{} {:#018x},\n", s, el))
+            .fold("\n[\n".into(), |s, el| format!("{s} {el:#018x},\n"))
             + "]\n"
     }
     assert_eq!(

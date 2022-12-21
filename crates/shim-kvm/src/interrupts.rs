@@ -243,7 +243,7 @@ declare_interrupt!(
                     stack_frame.instruction_pointer += 2u64
                 }
             }
-            _ => panic!("Unhandled #VC: {:x?}", error_code),
+            _ => panic!("Unhandled #VC: {error_code:x?}"),
         }
     }
 );
