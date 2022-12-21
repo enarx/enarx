@@ -9,4 +9,5 @@ jobs:
   nix-update:
     permissions:
       contents: write
+      pull-requests: write
     uses: enarx/.github/.github/workflows/nix-update.yml@main
