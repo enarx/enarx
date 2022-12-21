@@ -1326,6 +1326,7 @@ dependencies = [
  "hex",
  "libc",
  "sallyport",
+ "testaso",
 ]
 
 [[package]]

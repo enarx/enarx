@@ -129,8 +129,7 @@ overflow-checks = true
 overflow-checks = true
 
 [workspace]
-members = ["crates/*"]
-exclude = ["tests/crates"]
+members = ["crates/*", "tests/crates/*"]
 
 [workspace.dependencies]
 aes-gcm = { version = "0.10.1", features = ["aes"], default-features = false }
@@ -171,6 +170,7 @@ mmarinus = { version = "0.4.0", default-features = false }
 mmledger = { git = "https://github.com/enarx/mmledger", rev="79bbef3ef90dc33bfd8a188ea4bc79db57fe91a0", default-features = false }
 nbytes = { version = "0.1.0", default-features = false }
 noted = { version = "1.0.0", default-features = false }
+numtoa = { version = "0.2.4", default-features = false }
 oauth2 = { version = "4.2.2", default-features = false, features = ["ureq"] }
 once_cell = { version = "1.13.0", default-features = false }
 openidconnect = { version = "2.3.1", default-features = false }

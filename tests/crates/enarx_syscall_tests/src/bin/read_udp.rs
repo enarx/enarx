@@ -3,8 +3,8 @@
 // Read and write a buffer of the size of a maximum sized UDP packet
 // in one go and fail, if it was fragmented.
 
-#![no_std]
-#![no_main]
+#![cfg_attr(target_os = "none", no_std)]
+#![cfg_attr(target_os = "none", no_main)]
 
 enarx_syscall_tests::startup!();
 
