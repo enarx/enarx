@@ -4,18 +4,6 @@ updates:
   directory: "/"
   schedule:
     interval: "daily"
-- package-ecosystem: "cargo"
-  directory: "tests/crates/enarx_exec_tests"
-  schedule:
-    interval: "daily"
-- package-ecosystem: "cargo"
-  directory: "tests/crates/enarx_syscall_tests"
-  schedule:
-    interval: "daily"
-- package-ecosystem: "cargo"
-  directory: "tests/crates/enarx_wasm_tests"
-  schedule:
-    interval: "daily"
 - package-ecosystem: "github-actions"
   directory: "/"
   schedule:
