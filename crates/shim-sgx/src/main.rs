@@ -5,7 +5,7 @@
 //! This crate contains the system that traps the syscalls (and cpuid
 //! instructions) from the enclave code and proxies them to the host.
 
-#![no_std]
+#![cfg_attr(target_os = "none", no_std)]
 #![feature(asm_const)]
 #![deny(clippy::all)]
 #![deny(missing_docs)]
@@ -35,8 +35,8 @@ use sallyport::{elf::note, REQUIRES};
 use sgx::parameters::{Attributes, MiscSelect};
 use sgx::ssa::{GenPurposeRegs, StateSaveArea};
 
+#[cfg(target_os = "none")]
 #[panic_handler]
-#[cfg(not(test))]
 #[allow(clippy::empty_loop)]
 fn panic(_info: &core::panic::PanicInfo<'_>) -> ! {
     loop {}
