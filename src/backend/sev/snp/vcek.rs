@@ -7,7 +7,7 @@ use std::io::{self, ErrorKind, Read};
 use std::os::unix::fs::OpenOptionsExt;
 use std::path::PathBuf;
 
-use anyhow::{anyhow, Context};
+use anyhow::Context;
 
 /// Return a reader, which provides the VCEK certificate
 pub fn get_vcek_reader() -> anyhow::Result<Box<dyn Read>> {
@@ -65,14 +65,6 @@ fn get_vcek_url_path() -> anyhow::Result<(String, String)> {
     let status = sev
         .platform_status()
         .context("failed to query platform status")?;
-
-    // Ensure the versions match.
-    if status.tcb.platform_version != status.tcb.reported_version {
-        // It is not clear from the documentation what the difference between the two is,
-        // therefore only proceed if they are identical to ensure correctness.
-        // TODO: Figure out which one should be used and drop this check.
-        return Err(anyhow!("reported TCB version mismatch"));
-    }
 
     let url = id.vcek_url(&status.tcb.reported_version);
 
