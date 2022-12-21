@@ -152,18 +152,18 @@ where
 {
     for i in 0..iterations {
         thread::Builder::new()
-            .name(format!("iteration {}", i))
+            .name(format!("iteration {i}"))
             .spawn(move || {
                 let mut platform = TestPlatform;
                 let mut handler = TestHandler {
-                    block: block.clone(),
+                    block,
                     tls: Default::default(),
                 };
                 f(i, &mut platform, &mut handler);
             })
-            .expect(&format!("couldn't spawn test iteration {} thread", i))
+            .unwrap_or_else(|_| panic!("couldn't spawn test iteration {i} thread"))
             .join()
-            .expect(&format!("couldn't join test iteration {} thread", i))
+            .unwrap_or_else(|_| panic!("couldn't join test iteration {i} thread"))
     }
 }
 

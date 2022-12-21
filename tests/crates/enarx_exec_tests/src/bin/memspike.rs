@@ -11,6 +11,6 @@ musl_fsbase_fix!();
 
 fn main() -> Result<(), TryReserveError> {
     let mut alloc: Vec<u8> = Vec::new();
-    let _ = alloc.try_reserve(40_000_000)?;
+    alloc.try_reserve(40_000_000)?;
     Ok(())
 }

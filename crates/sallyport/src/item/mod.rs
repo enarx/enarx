@@ -93,7 +93,7 @@ mod tests {
             (0x04, Err(EINVAL)),
             (0xff, Err(EINVAL)),
         ] {
-            assert_eq!(v.try_into(), expected, "Invalid mapping for {}", v);
+            assert_eq!(v.try_into(), expected, "Invalid mapping for {v}");
         }
     }
 }

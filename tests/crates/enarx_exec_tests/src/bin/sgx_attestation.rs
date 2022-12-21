@@ -113,7 +113,7 @@ fn main() -> std::io::Result<()> {
 
     let bytes = &buffer[MRSIGNER_START..][..32];
     let out = hex::encode(bytes);
-    println!("MRSIGNER = {}", out);
+    println!("MRSIGNER = {out}");
 
     let bytes = &buffer[QUOTE_SIG_START..len];
 

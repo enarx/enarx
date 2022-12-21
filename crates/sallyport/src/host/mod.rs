@@ -176,7 +176,7 @@ mod tests {
     #[test]
     fn deref_aligned() {
         let mut data = [0u128; 4];
-        let (prefix, mut data, suffix) = unsafe { data.align_to_mut() };
+        let (prefix, data, suffix) = unsafe { data.align_to_mut() };
         assert!(prefix.is_empty());
         assert!(suffix.is_empty());
 
@@ -196,7 +196,7 @@ mod tests {
         ];
         test_deref(
             |data, offset, len| super::deref_aligned::<u16>(data, offset, len),
-            &mut data,
+            data,
             cases,
         );
     }
@@ -262,7 +262,7 @@ mod tests {
     #[test]
     fn deref_aligned_slice() {
         let mut data = [0u128; 4];
-        let (prefix, mut data, suffix) = unsafe { data.align_to_mut() };
+        let (prefix, data, suffix) = unsafe { data.align_to_mut() };
         assert!(prefix.is_empty());
         assert!(suffix.is_empty());
 
@@ -306,7 +306,7 @@ mod tests {
         ];
         test_deref(
             |data, offset, len| super::deref_aligned_slice::<u16>(data, offset, len),
-            &mut data,
+            data,
             cases,
         );
     }

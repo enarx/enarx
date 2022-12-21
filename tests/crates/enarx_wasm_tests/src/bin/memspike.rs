@@ -8,6 +8,6 @@ use std::collections::TryReserveError;
 
 fn main() -> Result<(), TryReserveError> {
     let mut alloc: Vec<u8> = Vec::new();
-    let _ = alloc.try_reserve(16_000_000)?;
+    alloc.try_reserve(16_000_000)?;
     Ok(())
 }

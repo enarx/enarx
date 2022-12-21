@@ -199,7 +199,7 @@ const ASN_OCTET_STRING: u8 = 0x04;
 // header_len = tag_size + length_prefix + nbytes
 // header_len = 1 + (0 or 1) + nbytes
 fn decode_len(buf: &[u8]) -> Option<(u32, usize)> {
-    match *buf.get(0)? {
+    match *buf.first()? {
         // Note: per X.690 Section 8.1.3.6.1 the byte 0x80 encodes indefinite
         // lengths, which are not allowed in DER, so disallow that byte.
         len if len < 0x80 => Some((len.into(), 2)),
@@ -248,7 +248,7 @@ fn get_att(mut nonce: [u8; 64]) -> std::io::Result<()> {
 
     eprintln!("To be pasted in https://lapo.it/asn1js/ :");
     for b in chunks {
-        eprint!("{:02x} ", b);
+        eprint!("{b:02x} ");
     }
     eprintln!("\n");
 
@@ -279,11 +279,11 @@ fn get_att(mut nonce: [u8; 64]) -> std::io::Result<()> {
     assert_eq!(report.version, 2);
     assert_eq!(nonce, report.report_data);
 
-    eprintln!("report_buf: {:?}", report_buf);
+    eprintln!("report_buf: {report_buf:?}");
 
-    eprintln!("report: {:?}", report);
+    eprintln!("report: {report:?}");
 
-    eprintln!("vcek: {:?}", vcek_buf);
+    eprintln!("vcek: {vcek_buf:?}");
 
     eprintln!("ID_KEY_DIGEST = {}", hex::encode(report.id_key_digest));
     eprintln!(
