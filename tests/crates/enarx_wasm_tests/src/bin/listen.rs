@@ -12,7 +12,7 @@ use std::os::unix::io::FromRawFd;
 #[cfg(target_os = "wasi")]
 use std::os::wasi::io::FromRawFd;
 
-use anyhow::{ensure, anyhow, Context, bail};
+use anyhow::{anyhow, bail, ensure, Context};
 
 fn main() -> anyhow::Result<()> {
     let fd_count: usize = env::var("FD_COUNT")
