@@ -229,15 +229,14 @@ pub(crate) fn sgx_enarxcall<'a>(
             ret,
             ..
         } => {
-            let fd_locked = keep.enclave.lock().unwrap();
-            let mut fd_cloned = fd_locked.try_clone().unwrap();
+            let mut fd_locked = keep.enclave.lock().unwrap();
             // Safety: an `mmap()` call is pointed to a file descriptor of the
             // created enclave, and can therefore only affect the memory
             // mappings within the address range given to ENCLAVE_CREATE.
             match unsafe {
                 Map::bytes(*len)
                     .onto(*addr)
-                    .from(&mut fd_cloned, 0)
+                    .from(&mut *fd_locked, 0)
                     .with_kind(Shared)
                     .with(perms::Unknown(*prot as i32))
             } {
