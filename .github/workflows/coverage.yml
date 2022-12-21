@@ -35,21 +35,6 @@ jobs:
             path: .
             host: ubuntu-20.04
             flags: "--test integration --bin enarx -- wasm::"
-          - name: enarx-config
-            path: ./crates/enarx-config
-            host: [ self-hosted, linux, x64 ]
-          - name: exec-wasmtime
-            path: ./crates/exec-wasmtime
-            host: [ self-hosted, linux, x64 ]
-          - name: shim-kvm
-            path: ./crates/shim-kvm
-            host: [ self-hosted, linux, sev-snp ]
-          - name: shim-sgx
-            path: ./crates/shim-sgx
-            host: [ self-hosted, linux, sgx ]
-          - name: sallyport
-            path: ./crates/sallyport
-            host: [ self-hosted, linux, x64 ]
 
     steps:
       - if: matrix.crate.name == 'nil'
@@ -76,7 +61,7 @@ jobs:
           && mv cargo-llvm-cov $HOME/.cargo/bin
 
       - name: Run cargo-llvm-cov
-        run: cargo llvm-cov --coverage-target-only --target x86_64-unknown-linux-gnu --manifest-path ${{ matrix.crate.path }}/Cargo.toml --lcov --output-path lcov.info ${{ matrix.crate.flags }}
+        run: cargo llvm-cov --coverage-target-only --target x86_64-unknown-linux-gnu --workspace --lcov --output-path lcov.info ${{ matrix.crate.flags }}
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v3
