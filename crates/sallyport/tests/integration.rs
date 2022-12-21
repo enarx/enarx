@@ -168,8 +168,7 @@ where
 }
 
 pub fn recv_udp(sock: UdpSocket, expected: &str) {
-    let mut buf = Vec::with_capacity(expected.len());
-    buf.resize(expected.len(), 0);
+    let mut buf = vec![0; expected.len()];
     assert_eq!(
         sock.recv(&mut buf).expect("couldn't recv data"),
         expected.len()

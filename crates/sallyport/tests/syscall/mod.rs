@@ -33,11 +33,7 @@ use sallyport::guest::{syscall, Handler, Platform};
 use sallyport::item::syscall::sigaction;
 use serial_test::serial;
 
-fn syscall_socket<'a, 'b>(
-    opaque: bool,
-    platform: &'a impl Platform,
-    exec: &'b mut impl Handler,
-) -> c_int {
+fn syscall_socket(opaque: bool, platform: &impl Platform, exec: &mut impl Handler) -> c_int {
     let fd = if !opaque {
         exec.socket(AF_INET, SOCK_STREAM, 0)
             .expect("couldn't execute 'socket' syscall")
@@ -56,10 +52,10 @@ fn syscall_socket<'a, 'b>(
     fd
 }
 
-fn syscall_recv<'a, 'b>(
+fn syscall_recv(
     opaque: bool,
-    platform: &'a impl Platform,
-    exec: &'b mut impl Handler,
+    platform: &impl Platform,
+    exec: &mut impl Handler,
     fd: c_int,
     buf: &mut [u8],
 ) {
