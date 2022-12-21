@@ -1,6 +1,6 @@
 codecov:
   notify:
-    after_n_builds: 9 # adjust to the number of jobs in .github/workflows/coverage.yml
+    after_n_builds: 4 # adjust to the number of jobs in .github/workflows/coverage.yml
     require_ci_to_pass: false
     wait_for_ci: false
 
