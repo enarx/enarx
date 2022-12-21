@@ -130,8 +130,8 @@ extern "sysv64" fn main() -> ! {
 ///
 /// Reverts to a triple fault, which causes a `#VMEXIT` and a KVM shutdown,
 /// if it can't print the panic and exit normally with an error code.
+#[cfg(target_os = "none")]
 #[panic_handler]
-#[cfg(not(test))]
 #[cfg_attr(coverage, no_coverage)]
 fn panic(_info: &core::panic::PanicInfo<'_>) -> ! {
     use core::sync::atomic::AtomicBool;
