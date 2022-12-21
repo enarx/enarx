@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
-#![no_std]
-#![no_main]
+#![cfg_attr(target_os = "none", no_std)]
+#![cfg_attr(target_os = "none", no_main)]
 
 enarx_syscall_tests::startup!();
 

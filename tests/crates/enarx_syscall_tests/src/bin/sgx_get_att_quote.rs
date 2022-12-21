@@ -6,8 +6,8 @@
 //! Quote from get_attestation() and check that the first bytes of
 //! the returned Quote in buf match expected values.
 
-#![no_std]
-#![no_main]
+#![cfg_attr(target_os = "none", no_std)]
+#![cfg_attr(target_os = "none", no_main)]
 
 enarx_syscall_tests::startup!();
 

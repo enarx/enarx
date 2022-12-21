@@ -5,7 +5,7 @@ edition = "2021"
 license = "Apache-2.0"
 
 [dependencies]
-goblin = { version = "0.6", features = ["elf64"], default-features = false }
-rcrt1 = { git = "https://github.com/enarx/rcrt1", rev = "54c556fc611754521ba8825033dc8e0574d81be9", default-features = false }
-sallyport = { path = "../../../crates/sallyport", default-features = false }
-numtoa = "0.2.4"
+goblin = { workspace = true, features = ["elf64"] }
+numtoa = { workspace = true }
+rcrt1 = { workspace = true }
+sallyport = { workspace = true }

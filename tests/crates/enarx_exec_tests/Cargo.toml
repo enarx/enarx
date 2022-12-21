@@ -5,9 +5,9 @@ edition = "2021"
 license = "Apache-2.0"
 
 [dependencies]
-hex = { version = "0.4.3", features = ["std"], default-features = false }
-libc = { version = "0.2.137", default-features = false }
-sallyport = { path = "../../../crates/sallyport", default-features = false }
+hex = { workspace = true }
+libc = { workspace = true }
+sallyport = { workspace = true }
 
 [dev-dependencies]
-testaso = { version = "0.1", default-features = false }
+testaso = { workspace = true }

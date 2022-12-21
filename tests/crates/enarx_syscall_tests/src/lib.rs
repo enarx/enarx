@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
+
 #![no_std]
 
 pub mod io;
@@ -15,10 +16,12 @@ pub type Result<T> = core::result::Result<T, i32>;
 #[macro_export]
 macro_rules! startup {
     () => {
+        #[cfg(target_os = "none")]
         fn __start_inner() -> ! {
                 use $crate::{exit, Termination};
                 exit(main().report().to_i32())
         }
+        #[cfg(target_os = "none")]
         core::arch::global_asm!(
                 ".pushsection .text.startup,\"ax\",@progbits",
                 ".global _start",
@@ -32,7 +35,7 @@ macro_rules! startup {
                 INNER = sym __start_inner,
         );
 
-        #[panic_handler]
+        #[cfg_attr(target_os = "none", panic_handler)]
         fn panic(info: &core::panic::PanicInfo<'_>) -> ! {
             use $crate::{eprintln, exit};
             eprintln!("{}\n", info);
