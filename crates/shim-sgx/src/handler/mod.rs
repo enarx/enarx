@@ -158,6 +158,19 @@ fn access_from_libc(prot: c_int) -> Access {
     access
 }
 
+trait IntoNonNull {
+    fn into_nonnull<T>(self) -> NonNull<T>;
+}
+
+impl<R, S> IntoNonNull for Address<R, S>
+where
+    Address<R, S>: Into<Address<usize, S>>,
+{
+    fn into_nonnull<T>(self) -> NonNull<T> {
+        NonNull::new(self.as_mut_ptr() as *mut T).unwrap()
+    }
+}
+
 #[derive(PartialEq)]
 enum MMapStrategy {
     /// Memory should be mmap'ed directly
@@ -243,14 +256,14 @@ impl guest::Handler for Handler<'_> {
 
         if addr > max {
             self.mmap_host(
-                NonNull::new(max.raw() as *mut _).unwrap(),
+                max.into_nonnull(),
                 addr.raw() - max.raw(),
                 PROT_READ | PROT_WRITE,
             )?;
             self.mmap_guest(max, addr - max, Flags::READ | Flags::WRITE);
         }
 
-        Ok(NonNull::new(addr.raw() as *mut _).unwrap())
+        Ok(addr.into_nonnull())
     }
 
     fn clone(
@@ -764,7 +777,7 @@ impl<'a> Handler<'a> {
             return Err(ENOMEM)
         };
 
-        let ret = NonNull::new(addr.raw() as *mut _).unwrap();
+        let ret = addr.into_nonnull();
         debugln!(
             self,
             "mmap({:#?})",
@@ -784,11 +797,8 @@ impl<'a> Handler<'a> {
             self.attacked()
         }
 
-        if let Err(e) = self.mmap_host(
-            NonNull::new(addr.raw() as *mut _).unwrap(),
-            length.bytes(),
-            PROT_READ | PROT_WRITE,
-        ) {
+        if let Err(e) = self.mmap_host(addr.into_nonnull(), length.bytes(), PROT_READ | PROT_WRITE)
+        {
             debugln!(self, "ERROR mmap_host() = {e:#?}");
             self.attacked()
         }
@@ -890,7 +900,7 @@ impl<'a> Handler<'a> {
             if record.access.contains(Access::MMAPPED) {
                 if access != record.access {
                     let region = &record.region;
-                    let addr = NonNull::new(region.start.as_mut_ptr() as *mut c_void).unwrap();
+                    let addr = region.start.into_nonnull();
                     let length = (region.end - region.start).bytes();
                     let pages = (region.end - region.start).items();
 
@@ -966,7 +976,7 @@ impl<'a> Handler<'a> {
             }
 
             let region = &record.region;
-            let addr = NonNull::new(region.start.as_mut_ptr() as *mut c_void).unwrap();
+            let addr = region.start.into_nonnull();
             let length = (region.end - region.start).bytes();
             let pages = (region.end - region.start).items();
 
@@ -1223,11 +1233,8 @@ impl<'a> Handler<'a> {
             panic!();
         }
 
-        if let Err(e) = self.mmap_host(
-            NonNull::new(addr.raw() as *mut _).unwrap(),
-            length.bytes(),
-            PROT_READ | PROT_WRITE,
-        ) {
+        if let Err(e) = self.mmap_host(addr.into_nonnull(), length.bytes(), PROT_READ | PROT_WRITE)
+        {
             debugln!(
                 self,
                 "[{tid}] handle_page_fault: ERROR mmap_host() = {e:#?}"
@@ -1240,7 +1247,7 @@ impl<'a> Handler<'a> {
         // If the previous operations succeeded, the virtual memory area
         // (VMA) is already RW.
         if access != (Access::READ | Access::WRITE) {
-            let ret = NonNull::new(addr.raw() as *mut c_void).unwrap();
+            let ret = addr.into_nonnull();
 
             if let Err(e) = self.mprotect_unlocked(
                 &mut heap,
