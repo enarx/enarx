@@ -12,31 +12,20 @@ use crate::usermode::usermode;
 use core::convert::TryFrom;
 use core::sync::atomic::{AtomicBool, Ordering};
 
+use crate::{
+    EXEC_BRK_VIRT_ADDR_BASE, EXEC_ELF_VIRT_ADDR_BASE, EXEC_STACK_SIZE, EXEC_STACK_VIRT_ADDR_BASE,
+};
 use crt0stack::{self, Builder, Entry};
 use goblin::elf::header::header64::Header;
 use goblin::elf::header::ELFMAG;
 use goblin::elf::program_header::program_header64::*;
 use lset::Line;
-use nbytes::bytes;
 use spin::{Lazy, RwLock};
 use x86_64::structures::paging::{Page, PageTableFlags, Size4KiB};
 use x86_64::{PhysAddr, VirtAddr};
 
 /// Indicator, if the executable is ready to be executed or already executed
 pub static EXEC_READY: AtomicBool = AtomicBool::new(false);
-
-/// Exec virtual address, where the elf binary is mapped to, plus a random offset
-const EXEC_ELF_VIRT_ADDR_BASE: VirtAddr = VirtAddr::new_truncate(0x7f00_0000_0000);
-
-/// The first brk virtual address the exec gets, plus a random offset
-const EXEC_BRK_VIRT_ADDR_BASE: VirtAddr = VirtAddr::new_truncate(0x5555_0000_0000);
-
-/// Exec stack virtual address
-const EXEC_STACK_VIRT_ADDR_BASE: VirtAddr = VirtAddr::new_truncate(0x7ff0_0000_0000);
-
-/// Initial exec stack size
-#[allow(clippy::integer_arithmetic)]
-const EXEC_STACK_SIZE: u64 = bytes![2; MiB];
 
 /// The randomized virtual address of the exec
 #[cfg(not(feature = "gdb"))]
