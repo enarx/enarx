@@ -1177,7 +1177,7 @@ dependencies = [
  "enarx_syscall_tests",
  "enarx_wasm_tests",
  "futures",
- "gdbstub 0.5.0",
+ "gdbstub",
  "goblin",
  "hex",
  "http-types",
@@ -1280,7 +1280,7 @@ dependencies = [
  "bitflags",
  "const-default",
  "crt0stack",
- "gdbstub 0.5.0",
+ "gdbstub",
  "gdbstub_arch",
  "goblin",
  "linked_list_allocator",
@@ -1304,7 +1304,7 @@ dependencies = [
  "bitflags",
  "const-default",
  "crt0stack",
- "gdbstub 0.5.0",
+ "gdbstub",
  "gdbstub_arch",
  "goblin",
  "mmledger",
@@ -1619,26 +1619,12 @@ dependencies = [
 ]
 
 [[package]]
-name = "gdbstub"
-version = "0.6.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "32c95766e0414f8bfc1d07055574c621b67739466d6ba516c4fef8e99d30d2e6"
-dependencies = [
- "bitflags",
- "cfg-if 1.0.0",
- "log",
- "managed",
- "num-traits",
- "paste",
-]
-
-[[package]]
 name = "gdbstub_arch"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e358b9c0e1468eae66099062e47bb502849308b987b74b5e72f1936397c33c16"
 dependencies = [
- "gdbstub 0.5.0",
+ "gdbstub",
  "num-traits",
 ]
 
@@ -3045,7 +3031,7 @@ name = "sallyport"
 version = "0.6.4"
 dependencies = [
  "bitflags",
- "gdbstub 0.6.3",
+ "gdbstub",
  "goblin",
  "libc",
  "serial_test",
