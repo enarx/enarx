@@ -10,14 +10,14 @@ mod cpuid_page;
 mod data;
 mod hasher;
 
-use snp::vcek::get_vcek_reader;
+use snp::vcek::SnpEvidence;
 
 use super::kvm::mem::Region;
 use super::kvm::{Keep, KeepPersonality};
 use super::Loader;
 use data::{
-    dev_kvm, dev_sev, dev_sev_readable, dev_sev_writable, has_reasonable_memlock_rlimit,
-    kvm_version, sev_enabled_in_kernel, CPUIDS,
+    dev_kvm, dev_sev, dev_sev_readable, dev_sev_writable, has_crl_cache,
+    has_reasonable_memlock_rlimit, kvm_version, sev_enabled_in_kernel, CPUIDS,
 };
 
 use std::io;
@@ -26,11 +26,13 @@ use std::sync::Arc;
 use crate::backend::sev::data::has_vcek_cache;
 use crate::backend::Signatures;
 use anyhow::{bail, Context, Result};
+use der::Encode;
 use kvm_bindings::bindings::kvm_enc_region;
 use kvm_ioctls::VmFd;
 use sallyport::host::deref_slice;
 use sallyport::item::enarxcall::Payload;
 use sallyport::item::{self, Item};
+use sallyport::libc::EMSGSIZE;
 
 struct SnpKeepPersonality {
     // Must be kept open for the VM to talk to the SEV Firmware
@@ -58,7 +60,9 @@ impl KeepPersonality for SnpKeepPersonality {
                 argv: [vcek_offset, vcek_len, ..],
                 ret,
             } => {
-                let mut vcek_buf: &mut [u8] = unsafe {
+                const UPDATE_ERROR: &str = "Could not get SEV-SNP evidence! Run `enarx platform snp vcek update && enarx platform snp cache-crl`";
+
+                let vcek_buf: &mut [u8] = unsafe {
                     // Safety: `deref_slice` gives us a pointer to a byte slice, which does not have to be aligned.
                     // We also know, that the resulting pointer is inside the allocated sallyport block, where `data`
                     // is a subslice of.
@@ -66,10 +70,20 @@ impl KeepPersonality for SnpKeepPersonality {
                         .map_err(io::Error::from_raw_os_error)
                         .context("snp::enarxcall deref")?
                 };
-                let mut vcek_reader = get_vcek_reader()?;
-                *ret = std::io::copy(&mut vcek_reader, &mut vcek_buf)? as _;
+
+                let evidence = SnpEvidence::read()
+                    .context(UPDATE_ERROR)?
+                    .to_vec()
+                    .context("SnpEvidence.to_vec()")?;
                 if *ret == 0 {
-                    bail!("Could not get SEV-SNP vcek! Run `enarx snp vcek update`")
+                    bail!(UPDATE_ERROR)
+                }
+
+                if evidence.len() > vcek_buf.len() {
+                    *ret = -EMSGSIZE as usize
+                } else {
+                    *ret = evidence.len();
+                    vcek_buf[..*ret].copy_from_slice(&evidence);
                 }
                 Ok(None)
             }
@@ -108,6 +122,7 @@ impl super::Backend for Backend {
             dev_sev_writable(),
             has_reasonable_memlock_rlimit(),
             has_vcek_cache(),
+            has_crl_cache().unwrap_or_else(|e| e),
         ]
     }
 

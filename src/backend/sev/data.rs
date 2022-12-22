@@ -5,10 +5,64 @@ pub use crate::backend::kvm::data::{dev_kvm, kvm_version};
 use crate::backend::probe::x86_64::{CpuId, Vendor};
 use crate::backend::Datum;
 
-use crate::backend::sev::snp::vcek::{get_vcek_reader_with_path, sev_cache_dir};
+use crate::backend::sev::snp::vcek::{
+    get_crl_reader_with_path, get_vcek_reader_with_path, sev_cache_dir,
+};
 use std::arch::x86_64::__cpuid_count;
 use std::fs::OpenOptions;
 use std::mem::MaybeUninit;
+use std::time::SystemTime;
+
+use der::Decode;
+use x509_cert::crl::CertificateList;
+
+pub fn has_crl_cache() -> Result<Datum, Datum> {
+    const NAME: &str = "AMD CRL cache file";
+    const UPDATE_MSG: &str =
+        "Run `enarx platform snp cache-crl` to generate the AMD CRL cache file.";
+
+    let (path, mut reader) = get_crl_reader_with_path().map_err(|e| Datum {
+        name: NAME.to_string(),
+        pass: false,
+        info: Some(e.to_string()),
+        mesg: Some(UPDATE_MSG.to_string()),
+    })?;
+
+    let mut crls = Vec::new();
+    std::io::copy(&mut reader, &mut crls).map_err(|e| Datum {
+        name: NAME.to_string(),
+        pass: false,
+        info: Some(e.to_string()),
+        mesg: Some(UPDATE_MSG.to_string()),
+    })?;
+
+    let crls = Vec::<CertificateList>::from_der(&crls).map_err(|e| Datum {
+        name: NAME.to_string(),
+        pass: false,
+        info: Some(e.to_string()),
+        mesg: Some(UPDATE_MSG.to_string()),
+    })?;
+
+    for crl in crls.iter() {
+        if let Some(update) = crl.tbs_cert_list.next_update {
+            if update.to_system_time() <= SystemTime::now() {
+                return Err(Datum {
+                    name: NAME.to_string(),
+                    pass: false,
+                    info: None,
+                    mesg: Some("CRLs expired! ".to_string() + UPDATE_MSG),
+                });
+            }
+        }
+    }
+
+    Ok(Datum {
+        name: NAME.to_string(),
+        pass: true,
+        info: path.to_string_lossy().into_owned().into(),
+        mesg: None,
+    })
+}
 
 pub fn has_vcek_cache() -> Datum {
     let name = "SEV-SNP VCEK key cache file".to_string();

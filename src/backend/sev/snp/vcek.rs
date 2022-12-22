@@ -8,6 +8,31 @@ use std::os::unix::fs::OpenOptionsExt;
 use std::path::PathBuf;
 
 use anyhow::Context;
+use colorful::core::StrMarker;
+use der::{Decode, Document, Sequence};
+
+#[derive(Sequence)]
+pub struct SnpEvidence {
+    pub vcek: Document,
+    pub crl: Document,
+}
+
+impl SnpEvidence {
+    pub fn read() -> anyhow::Result<Self> {
+        let mut vcek = Vec::new();
+        let mut vcek_reader = get_vcek_reader()?;
+        io::copy(&mut vcek_reader, &mut vcek)?;
+
+        let mut crl = Vec::new();
+        let (_, mut crl_reader) = get_crl_reader_with_path()?;
+        io::copy(&mut crl_reader, &mut crl)?;
+
+        Ok(Self {
+            vcek: Document::from_der(&vcek)?,
+            crl: Document::from_der(&crl)?,
+        })
+    }
+}
 
 /// Return a reader, which provides the VCEK certificate
 pub fn get_vcek_reader() -> anyhow::Result<Box<dyn Read>> {
@@ -18,6 +43,11 @@ pub fn get_vcek_reader() -> anyhow::Result<Box<dyn Read>> {
 pub fn vcek_write() -> anyhow::Result<()> {
     vcek_write_with_path(sev_cache_dir()?)?;
     Ok(())
+}
+
+/// Returns a reader and a path, which provides the AMD CRLs
+pub fn get_crl_reader_with_path() -> anyhow::Result<(PathBuf, Box<dyn Read>)> {
+    read(sev_cache_dir()?, "crls.der".to_str())
 }
 
 /// Returns the "system-level" search path for the SEV
