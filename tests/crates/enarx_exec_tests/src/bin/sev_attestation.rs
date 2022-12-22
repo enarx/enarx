@@ -6,6 +6,9 @@ use std::convert::TryFrom;
 use std::io;
 use std::mem::size_of;
 
+use der::{Decode, Document, Sequence};
+use x509_cert::crl::CertificateList;
+
 musl_fsbase_fix!();
 
 pub const MAX_AUTHTAG_LEN: usize = 32;
@@ -121,6 +124,12 @@ impl TryFrom<u64> for TeeTech {
             _ => Err(TryFromIntError(())),
         }
     }
+}
+
+#[derive(Sequence)]
+struct SnpEvidence<'a> {
+    vcek: Document,
+    crl: Vec<CertificateList<'a>>,
 }
 
 #[cfg(target_os = "linux")]
@@ -268,6 +277,11 @@ fn get_att(mut nonce: [u8; 64]) -> io::Result<()> {
             - asn_len_header_len(size_of::<SnpReportData>()).unwrap(),
     );
 
+    let evidence = SnpEvidence::from_der(vcek_buf).unwrap();
+    assert!(!evidence.crl.is_empty(), "expected at least one AMD CRL");
+
+    let vcek_buf = evidence.vcek.as_bytes();
+
     // octet
     assert_eq!(chunks[0], ASN_OCTET_STRING);
     let (len_left, len) = decode_len(&chunks[1..]).unwrap();
@@ -299,6 +313,9 @@ fn get_att(mut nonce: [u8; 64]) -> io::Result<()> {
         "AUTHOR_KEY_DIGEST = {}",
         hex::encode(report.author_key_digest)
     );
+
+    eprintln!("CRLs: {:?}", evidence.crl);
+
     Ok(())
 }
 
