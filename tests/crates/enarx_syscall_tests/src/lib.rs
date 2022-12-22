@@ -9,7 +9,6 @@ pub use macros::*;
 
 pub use sallyport::libc;
 
-use core::arch::asm;
 use core::ffi::c_long;
 
 pub type Result<T> = core::result::Result<T, i32>;
@@ -110,11 +109,12 @@ pub struct Args {
     pub arg5: usize,
 }
 
+#[cfg(all(target_arch = "x86_64", target_vendor = "unknown"))]
 pub fn syscall(nr: c_long, args: Args) -> (usize, usize) {
     let rax: usize;
     let rdx: usize;
     unsafe {
-        asm!(
+        core::arch::asm!(
         "syscall",
         inlateout("rax") nr as usize => rax,
         in("rdi") args.arg0,
@@ -128,6 +128,11 @@ pub fn syscall(nr: c_long, args: Args) -> (usize, usize) {
         );
     }
     (rax, rdx)
+}
+
+#[cfg(not(all(target_arch = "x86_64", target_vendor = "unknown")))]
+pub fn syscall(_: c_long, _: Args) -> (usize, usize) {
+    unimplemented!("`syscall` not supported on this target");
 }
 
 pub fn exit(status: i32) -> ! {
