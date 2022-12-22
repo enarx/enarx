@@ -1,8 +1,4 @@
 // SPDX-License-Identifier: Apache-2.0
-#![cfg(any(
-    all(test, target_arch = "x86_64", target_os = "linux"),
-    target_vendor = "unknown"
-))]
 #![doc = include_str!("../README.md")]
 #![cfg_attr(not(test), no_std)]
 #![deny(clippy::all)]
@@ -14,7 +10,15 @@
 #![feature(slice_ptr_len)]
 
 pub mod elf;
+#[cfg(any(
+    all(test, target_arch = "x86_64", target_os = "linux"),
+    target_vendor = "unknown"
+))]
 pub mod guest;
+#[cfg(any(
+    all(test, target_arch = "x86_64", target_os = "linux"),
+    target_vendor = "unknown"
+))]
 pub mod host;
 pub mod item;
 pub mod libc;
