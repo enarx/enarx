@@ -2,13 +2,14 @@
 
 use enarx_exec_tests::musl_fsbase_fix;
 
-use std::io;
-use std::sync::atomic::AtomicU32;
-use std::time;
-
 musl_fsbase_fix!();
 
+#[cfg(target_os = "linux")]
 fn main() {
+    use std::io;
+    use std::sync::atomic::AtomicU32;
+    use std::time;
+
     let futex = AtomicU32::new(0);
     let futex_ptr = &futex as *const AtomicU32;
     let timespec = libc::timespec {
@@ -32,4 +33,9 @@ fn main() {
     assert_eq!(err, libc::ETIMEDOUT);
 
     assert!(now.elapsed().as_secs() >= 2);
+}
+
+#[cfg(not(target_os = "linux"))]
+fn main() {
+    panic!("only supported on Linux")
 }
