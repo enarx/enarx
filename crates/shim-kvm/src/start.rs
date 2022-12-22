@@ -21,11 +21,13 @@ use core::arch::{asm, global_asm};
 use core::mem::size_of;
 use core::sync::atomic::Ordering;
 
+use enarx_shim_kvm::allocator::ZERO_PAGE_FRAME;
 use enarx_shim_kvm::snp::launch::{Policy, PolicyFlags, Version};
 use noted::noted;
 use primordial::Page;
 use rcrt1::dyn_reloc;
 use sallyport::{elf::note, REQUIRES};
+use spin::Lazy;
 use x86_64::registers::control::{Cr0Flags, Cr4Flags, EferFlags};
 
 const POLICY_FLAGS: PolicyFlags = PolicyFlags::SMT;
@@ -114,6 +116,7 @@ extern "sysv64" fn main() -> ! {
     unsafe { gdt::init() };
     sse::init_sse();
     interrupts::init();
+    Lazy::force(&ZERO_PAGE_FRAME);
     exec::execute_exec()
 }
 

@@ -60,31 +60,22 @@ fn lazy_tss() -> TaskStateSegment {
     let mut interrupt_stack_table = unsafe { ptr_interrupt_stack_table.read_unaligned() };
 
     // Assign the stacks for the exceptions and interrupts
-    if !cfg!(feature = "dbg") {
-        // Only the vmm_communication_exception is needed
-        let start = VirtAddr::new(SHIM_EX_STACK_START);
-        let ptr = init_stack_with_guard(start, SHIM_EX_STACK_SIZE, PageTableFlags::empty()).pointer;
-        interrupt_stack_table[0] = ptr;
-    } else {
-        // Allocate all for debug
-        interrupt_stack_table
-            .iter_mut()
-            .enumerate()
-            .for_each(|(idx, p)| {
-                let offset: u64 = align_up(
-                    SHIM_EX_STACK_SIZE
-                        .checked_add(Page::<Size4KiB>::SIZE.checked_mul(2).unwrap())
-                        .unwrap(),
-                    Page::<Size2MiB>::SIZE,
-                );
+    interrupt_stack_table
+        .iter_mut()
+        .enumerate()
+        .for_each(|(idx, p)| {
+            let offset: u64 = align_up(
+                SHIM_EX_STACK_SIZE
+                    .checked_add(Page::<Size4KiB>::SIZE.checked_mul(2).unwrap())
+                    .unwrap(),
+                Page::<Size2MiB>::SIZE,
+            );
 
-                let stack_offset = offset.checked_mul(idx as _).unwrap();
-                let start = VirtAddr::new(SHIM_EX_STACK_START.checked_add(stack_offset).unwrap());
+            let stack_offset = offset.checked_mul(idx as _).unwrap();
+            let start = VirtAddr::new(SHIM_EX_STACK_START.checked_add(stack_offset).unwrap());
 
-                *p = init_stack_with_guard(start, SHIM_EX_STACK_SIZE, PageTableFlags::empty())
-                    .pointer;
-            });
-    }
+            *p = init_stack_with_guard(start, SHIM_EX_STACK_SIZE, PageTableFlags::empty()).pointer;
+        });
 
     unsafe {
         ptr_interrupt_stack_table.write_unaligned(interrupt_stack_table);

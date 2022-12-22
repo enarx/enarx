@@ -5,7 +5,7 @@
 use crate::addr::{ShimPhysAddr, ShimVirtAddr, SHIM_VIRT_OFFSET};
 use crate::exec::NEXT_MMAP_RWLOCK;
 use crate::hostcall::{HostCall, SHIM_LOCAL_STORAGE};
-use crate::paging::SHIM_PAGETABLE;
+use crate::paging::{EncPhysOffset, SHIM_PAGETABLE};
 use crate::snp::{get_cbit_mask, pvalidate, snp_active, PvalidateSize};
 use crate::spin::Locked;
 
@@ -20,25 +20,27 @@ use goblin::elf::header::ELFMAG;
 use goblin::elf::program_header::program_header64::*;
 use linked_list_allocator::Heap;
 use lset::{Line, Span};
-use nbytes::bytes;
 use primordial::{Address, Page as Page4KiB};
 use sallyport::guest::Handler;
-use spin::Lazy;
+use spin::{Lazy, RwLockWriteGuard};
 use x86_64::instructions::tlb::flush_all;
 use x86_64::structures::paging::mapper::{MapToError, UnmapError};
 use x86_64::structures::paging::{
-    self, Mapper, Page, PageTableFlags, PhysFrame, Size1GiB, Size2MiB, Size4KiB,
+    self, FrameAllocator, Mapper, Page, PageTableFlags, PhysFrame, Size1GiB, Size2MiB, Size4KiB,
 };
+use x86_64::structures::paging::{MappedPageTable, PageSize};
 use x86_64::{align_down, align_up, PhysAddr, VirtAddr};
 
-/// An aligned 2MiB Page
-///
-/// The `x86_64::structures::paging::Page<S>` is not aligned, so we use
-/// memory::Page as Page4KiB and this Page2MiB
-#[derive(Copy, Clone)]
-#[repr(C, align(0x200000))]
-#[allow(clippy::integer_arithmetic)]
-pub struct Page2MiB([u8; bytes![2; MiB]]);
+/// Frame of the zero page
+pub static ZERO_PAGE_FRAME: Lazy<PhysFrame<Size4KiB>> = Lazy::new(|| {
+    let frame = ALLOCATOR.lock().allocate_frame().unwrap();
+    let shim_phys_page = ShimPhysAddr::try_from(frame.start_address()).unwrap();
+    let shim_virt: *mut u8 = ShimVirtAddr::from(shim_phys_page).into();
+    unsafe {
+        core::ptr::write_bytes(shim_virt, 0, Size4KiB::SIZE as _);
+    }
+    frame
+});
 
 /// The global EnarxAllocator RwLock
 pub static ALLOCATOR: Lazy<Locked<EnarxAllocator>> =
@@ -384,6 +386,54 @@ impl EnarxAllocator {
         Ok(unsafe { core::slice::from_raw_parts_mut(map_to.as_mut_ptr() as *mut u8, size) })
     }
 
+    /// Map the zero page to the given virtual address
+    ///
+    /// FIXME: change PhysAddr to ShimPhysAddr to ensure encrypted memory
+    pub fn map_memory_zero(
+        &mut self,
+        shim_page_table: &mut RwLockWriteGuard<'_, MappedPageTable<'_, EncPhysOffset>>,
+        map_to: VirtAddr,
+        size: usize,
+        mut flags: PageTableFlags,
+        parent_flags: PageTableFlags,
+    ) -> Result<&'static mut [u8], AllocateError> {
+        if size == 0 {
+            return Err(AllocateError::ZeroSize);
+        }
+
+        let page_range_to = {
+            let start = map_to;
+            let end = start + size - 1u64;
+            let start_page = Page::<Size4KiB>::containing_address(start);
+            let end_page = Page::<Size4KiB>::containing_address(end);
+            Page::range_inclusive(start_page, end_page)
+        };
+
+        if flags.contains(PageTableFlags::WRITABLE) {
+            flags.remove(PageTableFlags::WRITABLE);
+            flags |= PageTableFlags::BIT_10;
+        }
+
+        let zero_frame = *ZERO_PAGE_FRAME;
+
+        for page_to in page_range_to {
+            unsafe {
+                shim_page_table
+                    .map_to_with_table_flags(page_to, zero_frame, flags, parent_flags, self)
+                    .map_err(|e| match e {
+                        MapToError::FrameAllocationFailed => AllocateError::OutOfMemory,
+                        MapToError::ParentEntryHugePage => AllocateError::ParentEntryHugePage,
+                        MapToError::PageAlreadyMapped(_) => AllocateError::PageAlreadyMapped,
+                    })?
+                    .ignore();
+            }
+        }
+        flush_all();
+
+        // transmute the whole thing to one big bytes slice
+        Ok(unsafe { core::slice::from_raw_parts_mut(map_to.as_mut_ptr() as *mut u8, size) })
+    }
+
     /// Map physical memory to the given virtual address
     ///
     /// FIXME: change PhysAddr to ShimPhysAddr to ensure encrypted memory
@@ -414,10 +464,11 @@ impl EnarxAllocator {
             Page::range_inclusive(start_page, end_page)
         };
 
+        let mut shim_page_table = SHIM_PAGETABLE.write();
+
         for (frame_from, page_to) in frame_range_from.zip(page_range_to) {
             unsafe {
-                SHIM_PAGETABLE
-                    .write()
+                shim_page_table
                     .map_to_with_table_flags(page_to, frame_from, flags, parent_flags, self)
                     .map_err(|e| match e {
                         MapToError::FrameAllocationFailed => AllocateError::OutOfMemory,
@@ -447,10 +498,12 @@ impl EnarxAllocator {
         };
 
         for frame_from in page_range_to {
-            let phys = {
-                let (phys_frame, _) = SHIM_PAGETABLE.write().unmap(frame_from)?;
-                phys_frame.start_address()
-            };
+            let (phys_frame, _) = SHIM_PAGETABLE.write().unmap(frame_from)?;
+            if phys_frame == *ZERO_PAGE_FRAME {
+                continue;
+            }
+
+            let phys = phys_frame.start_address();
 
             let free_start_phys = Address::<usize, _>::from(phys.as_u64() as *const u8);
             let shim_phys_page = ShimPhysAddr::from(free_start_phys);
