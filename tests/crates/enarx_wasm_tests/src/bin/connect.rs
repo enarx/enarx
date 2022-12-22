@@ -2,19 +2,20 @@
 
 #![cfg_attr(target_os = "wasi", feature(wasi_ext))]
 
-use enarx_wasm_tests::assert_stream;
-
-use std::env;
-use std::net::TcpStream;
-
 #[cfg(unix)]
 use std::os::unix::io::FromRawFd;
 #[cfg(target_os = "wasi")]
 use std::os::wasi::io::FromRawFd;
 
-use anyhow::{ensure, Context};
-
+#[cfg(any(target_os = "wasi", unix))]
 fn main() -> anyhow::Result<()> {
+    use enarx_wasm_tests::assert_stream;
+
+    use std::env;
+    use std::net::TcpStream;
+
+    use anyhow::{ensure, Context};
+
     let fd_count: usize = env::var("FD_COUNT")
         .context("failed to lookup `FD_COUNT`")?
         .parse()
@@ -29,4 +30,9 @@ fn main() -> anyhow::Result<()> {
     );
 
     assert_stream(unsafe { TcpStream::from_raw_fd(3) })
+}
+
+#[cfg(not(any(target_os = "wasi", unix)))]
+fn main() {
+    panic!("unsupported on this target")
 }
