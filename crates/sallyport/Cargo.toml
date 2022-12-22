@@ -17,7 +17,7 @@ bitflags = { workspace = true }
 goblin = { workspace = true }
 
 # optional dependencies
-gdbstub = { version = "0.6", optional = true, default-features = false }
+gdbstub = { workspace = true, optional = true }
 
 [dev-dependencies]
 libc = { workspace = true, features = ["extra_traits"] }
