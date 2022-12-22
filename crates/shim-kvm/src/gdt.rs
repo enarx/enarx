@@ -4,10 +4,10 @@
 
 use crate::shim_stack::{init_stack_with_guard, GuardedStack};
 use crate::syscall::_syscall_enter;
+use crate::{SHIM_EX_STACK_SIZE, SHIM_EX_STACK_START, SHIM_STACK_SIZE, SHIM_STACK_START};
 
 use core::ops::Deref;
 
-use nbytes::bytes;
 use spin::Lazy;
 use x86_64::instructions::segmentation::{Segment, Segment64, CS, DS, ES, FS, GS, SS};
 use x86_64::instructions::tables::load_tss;
@@ -17,26 +17,6 @@ use x86_64::structures::gdt::{Descriptor, GlobalDescriptorTable, SegmentSelector
 use x86_64::structures::paging::{Page, PageTableFlags, Size2MiB, Size4KiB};
 use x86_64::structures::tss::TaskStateSegment;
 use x86_64::{align_up, VirtAddr};
-
-/// The virtual address of the main kernel stack
-pub const SHIM_STACK_START: u64 = 0xFFFF_FF48_4800_0000;
-
-/// The size of the main kernel stack
-#[allow(clippy::integer_arithmetic)]
-pub const SHIM_STACK_SIZE: u64 = bytes![2; MiB];
-
-/// The virtual address of the exception kernel stacks
-pub const SHIM_EX_STACK_START: u64 = 0xFFFF_FF48_F000_0000;
-
-/// The size of the main kernel stack for exceptions
-#[allow(clippy::integer_arithmetic)]
-pub const SHIM_EX_STACK_SIZE: u64 = {
-    if cfg!(feature = "gdb") {
-        bytes![2; MiB]
-    } else {
-        bytes![32; KiB]
-    }
-};
 
 #[cfg_attr(coverage, no_coverage)]
 fn lazy_initial_stack() -> GuardedStack {
