@@ -8,6 +8,7 @@ macro_rules! musl_fsbase_fix {
         /// Set FSBASE
         ///
         /// Overwrite the only location in musl, which uses the `arch_prctl` syscall
+        #[cfg(all(target_arch = "x86_64",  target_vendor = "unknown", target_os = "linux", target_env = "musl"))]
         #[no_mangle]
         #[inline(never)]
         pub extern "C" fn __set_thread_area(p: *mut core::ffi::c_void) -> core::ffi::c_int {
