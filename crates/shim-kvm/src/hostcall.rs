@@ -2,7 +2,7 @@
 
 //! Host <-> Shim Communication
 
-use crate::allocator::ALLOCATOR;
+use crate::allocator::{ALLOCATOR, ZERO_PAGE_FRAME};
 use crate::debug::_enarx_asm_triple_fault;
 use crate::eprintln;
 use crate::exec::{BRK_LINE, NEXT_MMAP_RWLOCK};
@@ -32,7 +32,8 @@ use spin::Lazy;
 use x86_64::instructions::port::Port;
 use x86_64::instructions::segmentation::{Segment64, FS, GS};
 use x86_64::instructions::tlb::flush_all;
-use x86_64::structures::paging::{Page, PageTableFlags, Size4KiB};
+use x86_64::structures::paging::mapper::TranslateResult;
+use x86_64::structures::paging::{Mapper, Page, PageTableFlags, Size4KiB, Translate};
 use x86_64::{align_up, VirtAddr};
 
 /// The sallyport block size
@@ -456,7 +457,8 @@ impl Handler for HostCall<'_> {
         offset: off_t,
     ) -> sallyport::Result<NonNull<c_void>> {
         const PA: i32 = MAP_PRIVATE | MAP_ANONYMOUS;
-        eprintln!("SC> mmap({:#?}, {}, ...)", addr, length);
+
+        eprintln!("SC> mmap({:#?}, {}, {}, ...)", addr, length, prot);
 
         match (addr, length, prot, flags, fd, offset) {
             (None, _, _, PA, -1, 0) => {
@@ -475,7 +477,8 @@ impl Handler for HostCall<'_> {
 
                 let mem_slice = ALLOCATOR
                     .lock()
-                    .allocate_and_map_memory(
+                    .map_memory_zero(
+                        &mut SHIM_PAGETABLE.write(),
                         virt_addr,
                         len_aligned,
                         flags,
@@ -510,33 +513,68 @@ impl Handler for HostCall<'_> {
         // FIXME: check, that addr points to userspace address
         let addr = addr.as_ptr();
 
-        use x86_64::structures::paging::mapper::Mapper;
-
-        let mut flags = PageTableFlags::PRESENT | PageTableFlags::USER_ACCESSIBLE;
+        let mut page_flags = PageTableFlags::PRESENT | PageTableFlags::USER_ACCESSIBLE;
 
         if prot & PROT_WRITE != 0 {
-            flags |= PageTableFlags::WRITABLE;
+            page_flags |= PageTableFlags::WRITABLE;
         }
 
         if prot & PROT_EXEC == 0 {
-            flags |= PageTableFlags::NO_EXECUTE;
+            page_flags |= PageTableFlags::NO_EXECUTE;
         }
 
         let start_addr = VirtAddr::from_ptr(addr);
         let start_page: Page = Page::containing_address(start_addr);
         let end_page: Page = Page::containing_address(start_addr + len - 1u64);
         let page_range = Page::range_inclusive(start_page, end_page);
+
+        let mut shim_page_table = SHIM_PAGETABLE.write();
+
         for page in page_range {
-            let ret = unsafe {
-                // Safety: only read and write access is modified
-                SHIM_PAGETABLE.write().update_flags(page, flags)
-            };
-            match ret {
-                Ok(flush) => flush.ignore(),
-                Err(e) => {
+            match shim_page_table.translate(page.start_address()) {
+                TranslateResult::Mapped { flags, .. }
+                    if flags.contains(PageTableFlags::USER_ACCESSIBLE) => {}
+                _ => {
                     eprintln!(
-                        "SC> mprotect({:#?}, {}, {}, ...) = EINVAL ({:#?})",
-                        addr, len, prot, e
+                        "SC> mprotect({:#?}, {}, {}, ...) = EINVAL !USER_ACCESSIBLE",
+                        addr, len, prot
+                    );
+                    return Err(EINVAL);
+                }
+            }
+        }
+
+        for page in page_range {
+            match shim_page_table.translate(page.start_address()) {
+                TranslateResult::Mapped { frame, flags, .. }
+                    if flags.contains(PageTableFlags::USER_ACCESSIBLE) =>
+                {
+                    if frame.start_address() == ZERO_PAGE_FRAME.start_address()
+                        && page_flags.contains(PageTableFlags::WRITABLE)
+                        && !flags.contains(PageTableFlags::BIT_10)
+                    {
+                        page_flags.remove(PageTableFlags::WRITABLE);
+                        page_flags |= PageTableFlags::BIT_10;
+                    }
+                    let ret = unsafe {
+                        // Safety: only read and write access is modified
+                        shim_page_table.update_flags(page, page_flags)
+                    };
+                    match ret {
+                        Ok(flush) => flush.ignore(),
+                        Err(e) => {
+                            eprintln!(
+                                "SC> mprotect({:#?}, {}, {}, ...) = EINVAL ({:#?})",
+                                addr, len, prot, e
+                            );
+                            return Err(EINVAL);
+                        }
+                    }
+                }
+                _ => {
+                    eprintln!(
+                        "SC> mprotect({:#?}, {}, {}, ...) = EINVAL !USER_ACCESSIBLE",
+                        addr, len, prot
                     );
                     return Err(EINVAL);
                 }

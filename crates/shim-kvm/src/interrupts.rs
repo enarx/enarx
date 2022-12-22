@@ -6,18 +6,26 @@
 use crate::debug::{interrupt_trace, print_stack_trace};
 #[cfg(any(debug_assertions, feature = "dbg"))]
 use crate::eprintln;
-#[cfg(feature = "dbg")]
 use crate::hostcall::shim_exit;
 use crate::snp::cpuid_count;
 
 use core::arch::global_asm;
 use core::fmt;
 use core::mem::size_of;
-use core::ops::Deref;
+use core::ops::{Deref, DerefMut};
 
+use crate::addr::{ShimPhysAddr, ShimVirtAddr};
+use crate::allocator::{ALLOCATOR, ZERO_PAGE_FRAME};
+use crate::paging::SHIM_PAGETABLE;
 use paste::paste;
 use spin::Lazy;
-use x86_64::structures::idt::InterruptDescriptorTable;
+use x86_64::registers::control::Cr2;
+use x86_64::structures::idt::{InterruptDescriptorTable, PageFaultErrorCode};
+use x86_64::structures::paging::mapper::TranslateResult;
+use x86_64::structures::paging::PageSize;
+use x86_64::structures::paging::{
+    FrameAllocator, Mapper, Page, PageTableFlags, Size4KiB, Translate,
+};
 use x86_64::VirtAddr;
 use xsave::XSave;
 
@@ -113,8 +121,8 @@ macro_rules! declare_interrupt {
         declare_interrupt!($name => "xchg [rsp], rsi", { $code }, $stack : &mut ExtendedInterruptStackFrame, $error: u64);
     };
 
-    (fn $name:ident ( $stack:ident : &mut ExtendedInterruptStackFrame , $error:ident : x86_64::structures::idt::PageFaultErrorCode $(,)? ) $code:block) => {
-        declare_interrupt!($name => "xchg [rsp], rsi", { $code }, $stack : &mut ExtendedInterruptStackFrame, $error: x86_64::structures::idt::PageFaultErrorCode);
+    (fn $name:ident ( $stack:ident : &mut ExtendedInterruptStackFrame , $error:ident : PageFaultErrorCode $(,)? ) $code:block) => {
+        declare_interrupt!($name => "xchg [rsp], rsi", { $code }, $stack : &mut ExtendedInterruptStackFrame, $error: PageFaultErrorCode);
     };
 
     (fn $name:ident ( $stack:ident : &mut ExtendedInterruptStackFrame $(,)? ) -> ! $code:block) => {
@@ -248,6 +256,113 @@ declare_interrupt!(
     }
 );
 
+fn handle_page_fault(address: VirtAddr, error_code: PageFaultErrorCode) -> Result<(), ()> {
+    let mut shim_page_table = SHIM_PAGETABLE.write();
+
+    #[cfg(feature = "trace")]
+    match shim_page_table.translate(address) {
+        TranslateResult::Mapped { frame, flags, .. } => {
+            eprintln!(
+                "Page fault at {:#x} (mapped to {:#x} with flags {:?})",
+                address,
+                frame.start_address(),
+                flags
+            );
+        }
+        TranslateResult::NotMapped => {
+            eprintln!("Page fault at {:#x}: NotMapped", address);
+        }
+        TranslateResult::InvalidFrameAddress(_) => {
+            eprintln!("Page fault at {:#x}: InvalidFrameAddress", address);
+        }
+    }
+
+    let (entry_flags, _) = match shim_page_table.translate(address) {
+        TranslateResult::Mapped { frame, flags, .. }
+            if ZERO_PAGE_FRAME.start_address() == frame.start_address()
+                && error_code.contains(PageFaultErrorCode::PROTECTION_VIOLATION)
+                && !flags.contains(PageTableFlags::HUGE_PAGE)
+                && flags.contains(PageTableFlags::BIT_10) =>
+        {
+            (flags, frame)
+        }
+        TranslateResult::NotMapped
+            if error_code
+                .difference(PageFaultErrorCode::CAUSED_BY_WRITE | PageFaultErrorCode::USER_MODE)
+                .is_empty() =>
+        {
+            // read or write without a protection violation - page not present (while remapping on another thread?)
+            // retry
+            return Ok(());
+        }
+        _ => return Err(()),
+    };
+
+    let mut flags = PageTableFlags::PRESENT
+        | PageTableFlags::WRITABLE
+        | PageTableFlags::ACCESSED
+        | PageTableFlags::DIRTY;
+
+    if entry_flags.contains(PageTableFlags::USER_ACCESSIBLE) {
+        flags |= PageTableFlags::USER_ACCESSIBLE;
+    }
+
+    if entry_flags.contains(PageTableFlags::NO_EXECUTE) {
+        flags |= PageTableFlags::NO_EXECUTE;
+    }
+
+    let page = Page::<Size4KiB>::containing_address(address);
+    unsafe {
+        // FIXME: add a remap method to the page table
+        let (_, _) = shim_page_table.unmap(page).unwrap();
+
+        let mut allocator = ALLOCATOR.lock();
+        let frame = allocator.allocate_frame().unwrap();
+        let shim_phys_page = ShimPhysAddr::try_from(frame.start_address()).unwrap();
+        let shim_virt: *mut u8 = ShimVirtAddr::from(shim_phys_page).into();
+        core::ptr::write_bytes(shim_virt, 0, Size4KiB::SIZE as _);
+
+        shim_page_table
+            .map_to_with_table_flags(
+                page,
+                frame,
+                flags,
+                PageTableFlags::PRESENT
+                    | PageTableFlags::WRITABLE
+                    | PageTableFlags::USER_ACCESSIBLE,
+                allocator.deref_mut(),
+            )
+            .unwrap()
+            .flush();
+    };
+    Ok(())
+}
+
+declare_interrupt!(
+    fn page_fault_handler(
+        _stack_frame: &mut ExtendedInterruptStackFrame,
+        error_code: PageFaultErrorCode,
+    ) {
+        let address = Cr2::read();
+        if handle_page_fault(address, error_code).is_err() {
+            eprintln!("EXCEPTION: PAGE FAULT");
+
+            eprintln!("Accessed Address: {:?}", address);
+            eprintln!("Error Code: {:?}", error_code);
+            #[cfg(feature = "dbg")]
+            interrupt_trace(_stack_frame);
+
+            #[cfg(feature = "gdb")]
+            unsafe {
+                crate::gdb::gdb_session(_stack_frame.as_mut());
+            }
+
+            #[cfg(not(feature = "gdb"))]
+            shim_exit(255);
+        }
+    }
+);
+
 /// The global IDT
 pub static IDT: Lazy<InterruptDescriptorTable> = Lazy::new(|| {
     let mut idt = InterruptDescriptorTable::new();
@@ -256,6 +371,9 @@ pub static IDT: Lazy<InterruptDescriptorTable> = Lazy::new(|| {
         idt.vmm_communication_exception
             .set_handler_addr(virt)
             .set_stack_index(0);
+
+        let virt = VirtAddr::new_unsafe(page_fault_handler as usize as u64);
+        idt.page_fault.set_handler_addr(virt).set_stack_index(6);
 
         #[cfg(feature = "dbg")]
         debug::idt_add_debug_exception_handlers(&mut idt);
@@ -332,9 +450,6 @@ mod debug {
             idt.general_protection_fault
                 .set_handler_addr(virt)
                 .set_stack_index(6);
-
-            let virt = VirtAddr::new_unsafe(page_fault_handler as usize as u64);
-            idt.page_fault.set_handler_addr(virt).set_stack_index(6);
 
             let virt = VirtAddr::new_unsafe(x87_floating_point_handler as usize as u64);
             idt.x87_floating_point
@@ -563,31 +678,6 @@ mod debug {
         fn non_maskable_interrupt_handler(stack_frame: &mut ExtendedInterruptStackFrame) {
             eprintln!("EXCEPTION: NMI");
             eprintln!("{:#?}", stack_frame);
-        }
-    );
-
-    declare_interrupt!(
-        fn page_fault_handler(
-            stack_frame: &mut ExtendedInterruptStackFrame,
-            error_code: x86_64::structures::idt::PageFaultErrorCode,
-        ) {
-            use x86_64::registers::control::Cr2;
-
-            eprintln!("EXCEPTION: PAGE FAULT");
-
-            eprintln!("Accessed Address: {:?}", Cr2::read());
-            eprintln!("Error Code: {:?}", error_code);
-            eprintln!("{:x?}", stack_frame);
-
-            interrupt_trace(stack_frame);
-
-            #[cfg(feature = "gdb")]
-            unsafe {
-                crate::gdb::gdb_session(stack_frame.as_mut());
-            }
-
-            #[cfg(not(feature = "gdb"))]
-            shim_exit(255)
         }
     );
 
