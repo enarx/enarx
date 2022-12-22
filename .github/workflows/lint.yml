@@ -8,7 +8,7 @@ concurrency:
 
 jobs:
   fmt:
-    name: cargo fmt (${{ matrix.crate.name }})
+    name: cargo fmt
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -17,20 +17,10 @@ jobs:
       - uses: actions-rs/cargo@v1
         with:
           command: fmt
-          args: --manifest-path=${{ matrix.crate.path }} --all -- --check
-    strategy:
-      fail-fast: false
-      matrix:
-        crate:
-          - {name: enarx, path: Cargo.toml}
-          - {name: shim-sgx, path: crates/shim-sgx/Cargo.toml}
-          - {name: shim-kvm, path: crates/shim-kvm/Cargo.toml}
-          - {name: enarx-config, path: crates/enarx-config/Cargo.toml}
-          - {name: exec-wasmtime, path: crates/exec-wasmtime/Cargo.toml}
-          - {name: sallyport, path: crates/sallyport/Cargo.toml}
+          args: --all -- --check
 
   clippy:
-    name: cargo clippy (${{ matrix.crate.name }})
+    name: cargo clippy (${{ matrix.args }})
     runs-on: ubuntu-20.04
     steps:
       - run: sudo apt -o Acquire::Retries=3 update
@@ -41,28 +31,19 @@ jobs:
       - uses: actions-rs/cargo@v1
         with:
           command: clippy
-          args: ${{ matrix.crate.target }} --all-targets --all-features --manifest-path=${{ matrix.crate.path }} -- -D warnings
+          args: ${{ matrix.args }} -- -D warnings
+      - uses: actions-rs/cargo@v1
+        with:
+          command: clippy
+          args: ${{ matrix.args }} --all-features -- -D warnings
     strategy:
       fail-fast: false
       matrix:
-        crate:
-          - name: enarx
-            path: Cargo.toml
-          - name: shim-sgx
-            path: crates/shim-sgx/Cargo.toml
-            target: --target=x86_64-unknown-none
-          - name: shim-kvm
-            path: crates/shim-kvm/Cargo.toml
-            target: --target=x86_64-unknown-none
-          - name: enarx-config
-            path: crates/enarx-config/Cargo.toml
-            target: --target=x86_64-unknown-linux-musl
-          - name: exec-wasmtime
-            path: crates/exec-wasmtime/Cargo.toml
-            target: --target=x86_64-unknown-linux-musl
-          - name: sallyport
-            path: crates/sallyport/Cargo.toml
-            target: --target=x86_64-unknown-none
+        args:
+          - --workspace --all-targets
+          - --target=x86_64-unknown-linux-musl --workspace --all-targets
+          - --target=x86_64-unknown-none -p enarx-shim-sgx -p enarx-shim-kvm -p sallyport -p enarx_syscall_tests
+          - --target=wasm32-wasi -p enarx_wasm_tests --all-targets
 
   deny:
     name: cargo deny
@@ -71,12 +52,7 @@ jobs:
       - uses: actions/checkout@v3
       - uses: EmbarkStudios/cargo-deny-action@v1
         with:
-          arguments: --workspace --manifest-path=${{ matrix.crate.path }}
-    strategy:
-      fail-fast: false
-      matrix:
-        crate:
-          - {name: enarx, path: ./Cargo.toml}
+          arguments: --workspace
 
   check-spdx-headers:
     runs-on: ubuntu-latest
