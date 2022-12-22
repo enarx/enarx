@@ -10,6 +10,7 @@ pub use macros::*;
 pub use sallyport::libc;
 
 use core::arch::asm;
+use core::ffi::c_long;
 
 pub type Result<T> = core::result::Result<T, i32>;
 
@@ -109,7 +110,7 @@ pub struct Args {
     pub arg5: usize,
 }
 
-pub fn syscall(nr: i64, args: Args) -> (usize, usize) {
+pub fn syscall(nr: c_long, args: Args) -> (usize, usize) {
     let rax: usize;
     let rdx: usize;
     unsafe {
@@ -234,7 +235,7 @@ pub fn close(fd: i32) -> Result<()> {
 
 pub fn is_enarx() -> bool {
     #[allow(non_upper_case_globals)]
-    const SYS_fork: i64 = 57;
+    const SYS_fork: c_long = 57;
 
     let ret = syscall(SYS_fork, Args::default()).0 as i32;
 
@@ -270,7 +271,7 @@ impl TryFrom<u64> for TeeTech {
 }
 
 pub fn get_att(nonce: Option<&mut [u8]>, buf: Option<&mut [u8]>) -> Result<(usize, TeeTech)> {
-    const SYS_GETATT: i64 = 0xEA01;
+    const SYS_GETATT: c_long = 0xEA01;
 
     let arg1 = if let Some(ref nonce) = nonce {
         nonce.len()
