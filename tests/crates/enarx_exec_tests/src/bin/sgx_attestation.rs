@@ -2,8 +2,8 @@
 
 use enarx_exec_tests::musl_fsbase_fix;
 
-use std::arch::asm;
 use std::convert::TryFrom;
+use std::io;
 
 musl_fsbase_fix!();
 
@@ -36,10 +36,11 @@ impl TryFrom<u64> for TeeTech {
     }
 }
 
+#[cfg(target_os = "linux")]
 pub fn get_att_syscall(
     nonce: Option<&mut [u8]>,
     buf: Option<&mut [u8]>,
-) -> std::io::Result<(usize, TeeTech)> {
+) -> io::Result<(usize, TeeTech)> {
     let rax: i64;
     let rdx: u64;
 
@@ -68,7 +69,7 @@ pub fn get_att_syscall(
     };
 
     unsafe {
-        asm!(
+        std::arch::asm!(
             "syscall",
             inlateout("rax") sallyport::item::enarxcall::SYS_GETATT => rax,
             in("rdi") nonce_ptr,
@@ -83,16 +84,20 @@ pub fn get_att_syscall(
     }
 
     if rax < 0 {
-        return Err(std::io::Error::from_raw_os_error(-rax as _));
+        return Err(io::Error::from_raw_os_error(-rax as _));
     }
 
-    let tech = TeeTech::try_from(rdx)
-        .map_err(|_| std::io::Error::from(std::io::ErrorKind::InvalidData))?;
+    let tech = TeeTech::try_from(rdx).map_err(|_| io::Error::from(io::ErrorKind::InvalidData))?;
 
     Ok((rax as _, tech))
 }
 
-fn main() -> std::io::Result<()> {
+#[cfg(not(target_os = "linux"))]
+pub fn get_att_syscall(_: Option<&mut [u8]>, _: Option<&mut [u8]>) -> io::Result<(usize, TeeTech)> {
+    unimplemented!("`get_att_syscall` only supported on Linux")
+}
+
+fn main() -> io::Result<()> {
     let (len, tech) = get_att_syscall(None, None)?;
 
     assert!(matches!(tech, TeeTech::Sgx));
