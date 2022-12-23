@@ -14,24 +14,12 @@ use super::{Package, Workload};
 
 use anyhow::{bail, Context};
 use enarx_config::{Config, File};
-use once_cell::sync::Lazy;
 use wasi_common::file::FileCaps;
 use wasi_common::WasiFile;
 use wasmtime::{AsContextMut, Engine, Linker, Module, Store, Trap, Val};
 use wasmtime_wasi::stdio::{stderr, stdin, stdout};
 use wasmtime_wasi::{add_to_linker, WasiCtxBuilder};
 use wiggle::tracing::{instrument, trace_span};
-
-/// Wasmtime config
-static WASMTIME_CONFIG: Lazy<wasmtime::Config> = Lazy::new(|| {
-    let mut config = wasmtime::Config::new();
-    config.wasm_multi_memory(true);
-    config.static_memory_maximum_size(0);
-    config.static_memory_guard_size(0);
-    config.dynamic_memory_guard_size(0);
-    config.dynamic_memory_reserved_for_growth(16 * 1024 * 1024);
-    config
-});
 
 // The Enarx Wasm runtime
 pub struct Runtime;
@@ -59,8 +47,9 @@ impl Runtime {
         .map(rustls::Certificate)
         .collect::<Vec<_>>();
 
+        let config = wasmtime::Config::new();
         let engine = trace_span!("initialize Wasmtime engine")
-            .in_scope(|| Engine::new(&WASMTIME_CONFIG))
+            .in_scope(|| Engine::new(&config))
             .context("failed to create execution engine")?;
 
         let mut linker = trace_span!("setup linker").in_scope(|| Linker::new(&engine));
