@@ -1251,6 +1251,7 @@ dependencies = [
  "ring",
  "rustix 0.35.10",
  "rustls",
+ "rustls-pemfile",
  "sallyport",
  "sec1",
  "serde",

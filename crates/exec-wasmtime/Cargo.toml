@@ -44,5 +44,6 @@ io-extras = { workspace = true }
 sallyport = { workspace = true }
 
 [dev-dependencies]
+rustls-pemfile = { workspace = true }
 tempfile = { workspace = true }
 wat = { workspace = true }
