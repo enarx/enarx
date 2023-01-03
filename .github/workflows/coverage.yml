@@ -46,11 +46,11 @@ jobs:
       - uses: actions/checkout@v3
 
       - name: Install rustup
-        run: curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain nightly-2022-12-14 -y
+        run: curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain nightly-2023-01-02 -y
       - uses: actions-rs/toolchain@v1
         with:
           target: x86_64-unknown-linux-gnu
-          toolchain: nightly-2022-12-14
+          toolchain: nightly-2023-01-02
           profile: minimal
           components: llvm-tools-preview
 
