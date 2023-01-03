@@ -94,7 +94,7 @@ pub fn keep_exec(
     _gdblisten: Option<String>,
 ) -> anyhow::Result<ExitCode> {
     let keep = backend.keep(shim.as_ref(), exec.as_ref(), signatures)?;
-    let mut thread = keep.clone().spawn()?.unwrap();
+    let mut thread = keep.spawn()?.unwrap();
     loop {
         match thread.enter(&_gdblisten)? {
             Command::Continue => (),
