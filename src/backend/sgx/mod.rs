@@ -21,9 +21,21 @@ use std::io::{self, ErrorKind};
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex, RwLock};
 
+use der::Sequence;
+use x509_cert::Certificate;
+
 pub const AESM_SOCKET: &str = "/var/run/aesmd/aesm.socket";
+pub const FMSPC_PATH: &str = "/var/cache/intel-sgx/fmspc.txt";
+pub const TCB_PATH: &str = "/var/cache/intel-sgx/tcb.der";
 
 pub type Tcs = usize;
+
+#[derive(Sequence)]
+pub(crate) struct TcbPackage<'a> {
+    pub(crate) crts: Vec<Certificate<'a>>,
+    #[asn1(type = "OCTET STRING")]
+    pub(crate) report: &'a [u8],
+}
 
 pub(crate) struct Keep {
     sallyport_block_size: u64,
@@ -64,6 +76,7 @@ impl crate::backend::Backend for Backend {
         let max = unsafe { __cpuid_count(0x00000000, 0x00000000) }.eax;
         data.push(data::epc_size(max));
         data.push(data::intel_crl());
+        data.push(data::tcb_fmspc_cached());
 
         data
     }

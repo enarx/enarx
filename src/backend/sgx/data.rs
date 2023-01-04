@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::backend::probe::x86_64::{CpuId, Vendor};
-use crate::backend::sgx::{sgx_cache_dir, AESM_SOCKET};
+use crate::backend::sgx::{sgx_cache_dir, TcbPackage, AESM_SOCKET, FMSPC_PATH, TCB_PATH};
 use crate::backend::Datum;
 use crate::caching::CrlList;
 
@@ -12,7 +12,9 @@ use std::fs::File;
 use std::path::Path;
 use std::time::SystemTime;
 
+use chrono::{DateTime, Local};
 use der::Decode;
+use serde_json::Value;
 
 fn humanize(mut size: f64) -> (f64, &'static str) {
     let mut iter = 0;
@@ -249,6 +251,162 @@ pub fn intel_crl() -> Datum {
         name,
         pass: true,
         info: None,
+        mesg: None,
+    }
+}
+
+pub fn tcb_fmspc_cached() -> Datum {
+    const NAME: &str = "TCB & FMSPC cache";
+    const TCB_INSTRUCTION: &str = "Run `enarx platform sgx cache-tcb`";
+
+    if !Path::new(FMSPC_PATH).exists() {
+        return Datum {
+            name: NAME.to_string(),
+            pass: false,
+            info: Some("Missing FMSPC".into()),
+            mesg: Some("Run `enarx platform sgx cache-pck`".into()),
+        };
+    }
+
+    if !Path::new(TCB_PATH).exists() {
+        return Datum {
+            name: NAME.to_string(),
+            pass: false,
+            info: Some("Missing TCB report".into()),
+            mesg: Some(TCB_INSTRUCTION.into()),
+        };
+    }
+
+    let tcb = match std::fs::read(TCB_PATH) {
+        Ok(bytes) => bytes,
+        Err(e) => {
+            return Datum {
+                name: NAME.to_string(),
+                pass: false,
+                info: Some(format!("Unable to read TCB report: {e}")),
+                mesg: Some(TCB_INSTRUCTION.into()),
+            };
+        }
+    };
+
+    let tcb = match TcbPackage::from_der(&tcb) {
+        Ok(t) => t,
+        Err(e) => {
+            return Datum {
+                name: NAME.to_string(),
+                pass: false,
+                info: Some(format!("Unable to decode TCB report: {e}")),
+                mesg: Some(TCB_INSTRUCTION.into()),
+            };
+        }
+    };
+
+    let tcb = match String::from_utf8(Vec::from(tcb.report)) {
+        Ok(s) => s,
+        Err(e) => {
+            return Datum {
+                name: NAME.to_string(),
+                pass: false,
+                info: Some(format!("Unable to decode JSON TCB report: {e}")),
+                mesg: Some(TCB_INSTRUCTION.into()),
+            };
+        }
+    };
+
+    let tcb: Value = match serde_json::from_str(&tcb) {
+        Ok(j) => j,
+        Err(e) => {
+            return Datum {
+                name: NAME.to_string(),
+                pass: false,
+                info: Some(format!("Unable to decode JSON TCB report: {e}")),
+                mesg: Some(TCB_INSTRUCTION.into()),
+            };
+        }
+    };
+
+    let tcb = match tcb.get("tcbInfo") {
+        Some(t) => t,
+        None => {
+            return Datum {
+                name: NAME.to_string(),
+                pass: false,
+                info: Some("Unable to decode JSON TCB report, missing `tcbInfo` field".into()),
+                mesg: Some(TCB_INSTRUCTION.into()),
+            };
+        }
+    };
+
+    let next_update = match tcb.get("nextUpdate") {
+        Some(t) => t,
+        None => {
+            return Datum {
+                name: NAME.to_string(),
+                pass: false,
+                info: Some(
+                    "Unable to decode JSON TCB report, missing `tcbInfo.nextUpdate` field".into(),
+                ),
+                mesg: Some(TCB_INSTRUCTION.into()),
+            };
+        }
+    };
+
+    let next_update = match next_update.as_str() {
+        Some(u) => u,
+        None => {
+            return Datum {
+                name: NAME.to_string(),
+                pass: false,
+                info: Some(
+                    "Unable to decode JSON TCB report, unable to decode `tcbInfo.nextUpdate` field"
+                        .into(),
+                ),
+                mesg: Some(TCB_INSTRUCTION.into()),
+            };
+        }
+    };
+
+    let next_update = match DateTime::parse_from_rfc3339(next_update) {
+        Ok(d) => d,
+        Err(e) => {
+            return Datum {
+                name: NAME.to_string(),
+                pass: false,
+                info: Some(format!(
+                    "Unable to decode timestamp in JSON TCB report: {e}"
+                )),
+                mesg: Some(TCB_INSTRUCTION.into()),
+            };
+        }
+    };
+
+    let now = Local::now();
+    if next_update < now {
+        let elapsed = now.naive_local() - next_update.naive_local();
+        let elapsed = {
+            if elapsed.num_days() > 0 {
+                format!("{} days", elapsed.num_days())
+            } else {
+                format!(
+                    "{}:{}:{}",
+                    elapsed.num_hours(),
+                    elapsed.num_minutes(),
+                    elapsed.num_seconds()
+                )
+            }
+        };
+        return Datum {
+            name: NAME.to_string(),
+            pass: false,
+            info: Some(format!("Intel TCB expired on {next_update}, {elapsed} ago")),
+            mesg: Some(TCB_INSTRUCTION.into()),
+        };
+    }
+
+    Datum {
+        name: NAME.to_string(),
+        pass: true,
+        info: Some(format!("Next update: {next_update}")),
         mesg: None,
     }
 }
