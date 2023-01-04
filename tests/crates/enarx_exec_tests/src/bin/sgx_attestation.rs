@@ -6,6 +6,7 @@ use std::convert::TryFrom;
 use std::io;
 
 use der::{Decode, Sequence};
+use x509_cert::Certificate;
 
 musl_fsbase_fix!();
 
@@ -39,10 +40,18 @@ impl TryFrom<u64> for TeeTech {
 }
 
 #[derive(Sequence)]
+pub struct TcbPackage<'a> {
+    pub crts: Vec<Certificate<'a>>,
+    #[asn1(type = "OCTET STRING")]
+    pub report: &'a [u8],
+}
+
+#[derive(Sequence)]
 pub struct SgxEvidence<'a> {
     #[asn1(type = "OCTET STRING")]
     pub quote: &'a [u8],
     pub crl: CrlList<'a>,
+    pub tcb: TcbPackage<'a>,
 }
 
 #[cfg(target_os = "linux")]

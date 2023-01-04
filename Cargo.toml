@@ -56,6 +56,7 @@ gdbstub = { workspace = true, features = ["std"], optional = true }
 tracing-flame = { workspace = true, optional = true }
 
 [target.'cfg(all(target_os = "linux", target_arch = "x86_64"))'.dependencies]
+chrono = { workspace = true }
 const-default = { workspace = true }
 der = { workspace = true }
 goblin = { workspace = true, features = ["elf32", "endian_fd", "std"], default-features = false }
@@ -66,6 +67,7 @@ lset = { workspace = true }
 mmarinus = { workspace = true }
 nbytes = { workspace = true }
 p384 = { workspace = true }
+percent-encoding = { workspace = true }
 pkcs8 = { workspace = true, features = ["std", "pem"] }
 primordial = { workspace = true, features = ["alloc"] }
 protobuf = { workspace = true }
@@ -148,6 +150,7 @@ async-std = { version = "1.11.0", default-features = false, features = ["attribu
 atty = { version = "0.2.0", default-features = false }
 bitflags = { version = "1.2.0", default-features = false }
 camino = { version = "1.0.9", default-features = false }
+chrono = { version = "0.4.19", features = ["clock", "serde", "std"], default-features = false }
 clap = { version = "4.0", features = ["std", "derive", "env", "error-context", "help", "usage", "wrap_help"], default-features = false }
 colorful = { version = "0.2.0", default-features = false }
 const-default = { version = "1.0.0", default-features = false }
@@ -184,6 +187,7 @@ once_cell = { version = "1.13.0", default-features = false }
 openidconnect = { version = "2.3.1", default-features = false }
 p384 = { version = "0.11.1", features = ["std", "pem", "ecdsa"], default-features = false }
 paste = { version = "1.0.0", default-features = false }
+percent-encoding = { version = "2.2.0", default-features = false }
 pkcs8 = { version = "0.9.0" }
 primordial = { version = "0.5.0", default-features = false }
 process_control = { version = "4.0.1", default-features = false }

@@ -4,7 +4,7 @@
 // * https://github.com/fortanix/rust-sgx for examples of AESM requests.
 
 use super::AESM_SOCKET;
-use crate::backend::sgx::sgx_cache_dir;
+use crate::backend::sgx::{sgx_cache_dir, TCB_PATH};
 use crate::protobuf::aesm_proto::{
     Request, Request_GetQuoteExRequest, Request_GetQuoteSizeExRequest,
     Request_GetSupportedAttKeyIDNumRequest, Request_GetSupportedAttKeyIDsRequest,
@@ -30,8 +30,9 @@ const SGX_REPORT_SIZE: usize = 432;
 pub struct SgxEvidence<'a> {
     #[asn1(type = "OCTET STRING")]
     pub quote: &'a [u8],
-    // CRL is already ASN.1 encoded on disk
+    // CRL & TCB data are already ASN.1 encoded on disk
     pub crl: Document,
+    pub tcb: Document,
 }
 
 #[repr(u32)]
@@ -452,11 +453,16 @@ pub fn get_quote_size_with_collateral(akid: Vec<u8>) -> Result<usize, Error> {
         .map_err(|e| Error::new(ErrorKind::Other, format!("SGX CRL read error {e}")))?;
     crl_file.push("crls.der");
 
+    let tcb = Document::read_der_file(TCB_PATH)
+        .context(format!("error reading Intel TCB file `{TCB_PATH:?}`"))
+        .map_err(|e| Error::new(ErrorKind::Other, format!("DER decoding error: {e}")))?;
+
     let evidence = SgxEvidence {
         quote: &out_buf_temp,
         crl: Document::read_der_file(&crl_file)
             .context(format!("error reading Intel CRL file {crl_file:?}"))
-            .unwrap(),
+            .map_err(|e| Error::new(ErrorKind::Other, format!("DER decoding error: {e}")))?,
+        tcb,
     };
 
     let evidence_vec = evidence
@@ -484,9 +490,14 @@ pub fn get_quote_and_collateral(
         .context(format!("error reading Intel CRL file `{crl_file:?}`"))
         .map_err(|e| Error::new(ErrorKind::Other, format!("DER decoding error: {e}")))?;
 
+    let tcb = Document::read_der_file(TCB_PATH)
+        .context(format!("error reading Intel TCB file `{TCB_PATH:?}`"))
+        .map_err(|e| Error::new(ErrorKind::Other, format!("DER decoding error: {e}")))?;
+
     let evidence = SgxEvidence {
         quote: &out_buf_temp.clone(),
         crl,
+        tcb,
     };
 
     let evidence = evidence.to_vec().map_err(|e| {

@@ -2,6 +2,7 @@
 
 mod crl;
 mod register;
+mod tcb;
 
 use std::process::ExitCode;
 
@@ -12,6 +13,8 @@ use clap::Subcommand;
 pub enum Subcommands {
     Register(register::Options),
     CacheCRL(crl::CrlCache),
+    CachePCK(tcb::PckCache),
+    CacheTCB(tcb::TcbCache),
 }
 
 impl Subcommands {
@@ -19,6 +22,8 @@ impl Subcommands {
         match self {
             Self::Register(cmd) => cmd.execute(),
             Self::CacheCRL(cmd) => cmd.execute(),
+            Self::CachePCK(cmd) => cmd.execute(),
+            Self::CacheTCB(cmd) => cmd.execute(),
         }
     }
 }
