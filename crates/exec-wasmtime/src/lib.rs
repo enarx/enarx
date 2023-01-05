@@ -54,7 +54,7 @@ pub fn execute() -> anyhow::Result<()> {
     use anyhow::Context;
     use tracing::level_filters::LevelFilter;
     use tracing_subscriber::prelude::*;
-    use tracing_subscriber::{fmt, registry};
+    use tracing_subscriber::registry;
 
     // This is the FD of a Unix socket on which the host will send the TOML-encoded execution arguments
     // and shutdown the write half of it immediately after.
@@ -87,9 +87,12 @@ pub fn execute() -> anyhow::Result<()> {
     };
     let log_level: LevelFilter = log_level.map(Into::into).into();
     {
-        // TODO: Default to a secure log target
-        // https://github.com/enarx/enarx/issues/1042
-        let registry = registry().with(fmt::layer().with_filter(log_level));
+        let fmt_layer = tracing_subscriber::fmt::layer()
+            // TODO: Default to a secure log target
+            // https://github.com/enarx/enarx/issues/1042
+            .with_writer(std::io::stderr)
+            .with_filter(log_level);
+        let registry = registry().with(fmt_layer);
         #[cfg(feature = "bench")]
         let registry = registry.with(flame_layer);
         let _guard = registry.set_default();
