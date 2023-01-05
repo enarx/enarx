@@ -16,6 +16,7 @@ mod user;
 
 use crate::backend::{Backend, BACKENDS};
 
+use std::io;
 use std::ops::Deref;
 use std::process::ExitCode;
 use std::str::FromStr;
@@ -23,8 +24,10 @@ use std::str::FromStr;
 use anyhow::{anyhow, bail};
 use clap::{ArgAction, Args, Parser, Subcommand};
 use tracing::info;
+use tracing_subscriber::filter::LevelFilter;
 use tracing_subscriber::fmt::format::FmtSpan;
-use tracing_subscriber::{filter::LevelFilter, fmt, prelude::*, EnvFilter};
+use tracing_subscriber::prelude::*;
+use tracing_subscriber::EnvFilter;
 
 /// Tool to deploy WebAssembly into Enarx Keeps
 ///
@@ -56,7 +59,13 @@ impl Options {
             .max_level_hint()
             .and_then(LevelFilter::into_level)
             .map(Into::into);
-        let fmt_layer = fmt::layer()
+        let fmt_layer = tracing_subscriber::fmt::layer()
+            .with_writer(move || -> Box<dyn io::Write> {
+                match self.logger.log_target {
+                    LogTarget::Stdout => Box::new(io::stdout()),
+                    LogTarget::Stderr => Box::new(io::stderr()),
+                }
+            })
             .with_span_events(FmtSpan::NEW | FmtSpan::CLOSE)
             .with_filter(env_filter);
 
@@ -226,14 +235,11 @@ impl LogOptions {
     }
 }
 
-/// Represents targets for debug logging.
-/// This will probably grow over time.
+/// Represents logging target.
 #[derive(Debug, Clone, Copy)]
-#[non_exhaustive]
 enum LogTarget {
     Stdout,
     Stderr,
-    // FUTURE: file path, syslog/journal, ...
 }
 
 /// Convert a str to a LogTarget. This is how Clap parses CLI args.
