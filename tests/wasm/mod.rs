@@ -1,14 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use super::{check_output, enarx, CRATE, KEEP_BIN, OUT_DIR, TEST_BINS_OUT};
+use super::{check_output, enarx, CRATE, OUT_DIR, TEST_BINS_OUT};
 
 use std::borrow::BorrowMut;
-use std::ffi::OsStr;
+use std::fs;
 use std::io::{BufRead, BufReader, Read, Write};
 use std::net::{Ipv4Addr, TcpListener, TcpStream};
 use std::path::{Path, PathBuf};
+use std::process::Command;
 use std::sync::Arc;
-use std::{fs, thread};
+use std::thread;
 
 use anyhow::{ensure, Context};
 use drawbridge_client::Url;
@@ -18,6 +19,72 @@ use rustls::version::TLS13;
 use rustls::Certificate;
 use tempfile::{tempdir, NamedTempFile};
 
+#[cfg(enarx_with_shim)]
+fn with_signatures(cmd: &mut Command) -> &mut Command {
+    let sig = Path::new(CRATE).join(OUT_DIR).join("sig.json");
+    let outdated = || match sig.metadata().as_ref().map(fs::Metadata::modified) {
+        Ok(Ok(modified))
+            if modified
+                >= fs::metadata(super::KEEP_BIN)
+                    .expect("failed to query metadata of keep binary")
+                    .modified()
+                    .expect("failed to query modification time of keep binary") =>
+        {
+            // signature is already recent enough, no need to regenerate
+            false
+        }
+        Err(e) if e.kind() != std::io::ErrorKind::NotFound => {
+            panic!(
+                "failed to query metadata of signature file `{}`: {e}",
+                sig.display()
+            )
+        }
+        Ok(Err(e)) => {
+            panic!(
+                "failed to query modification time of signature file `{}`: {e}",
+                sig.display()
+            )
+        }
+        // signature is either missing or outdated
+        _ => true,
+    };
+    let generate = || {
+        let out = enarx(
+            |cmd| {
+                cmd.args([
+                    "sign",
+                    "--sgx-key",
+                    "tests/data/sgx-test.key",
+                    "--sev-id-key",
+                    "tests/data/sev-id.key",
+                    "--sev-id-key-signature",
+                    "tests/data/sev-id-key-signature.blob",
+                    "--out",
+                ])
+                .arg(&sig)
+            },
+            None,
+        );
+        if !out.status.success() {
+            panic!(
+                "failed to sign package: {}",
+                String::from_utf8_lossy(&out.stderr)
+            );
+        }
+        eprintln!("generated signature file `{}`", sig.display())
+    };
+
+    super::PathLock::new_in_out_dir("sig.lock")
+        .once_if(outdated, generate, std::time::Duration::from_secs(30))
+        .expect("failed to generate signature");
+    cmd.arg("--signatures").arg(sig)
+}
+
+#[cfg(not(enarx_with_shim))]
+fn with_signatures(cmd: &mut Command) -> &mut Command {
+    cmd
+}
+
 pub fn enarx_run<'a>(
     wasm: &Path,
     conf: Option<&Path>,
@@ -25,20 +92,11 @@ pub fn enarx_run<'a>(
 ) -> Output {
     enarx(
         |cmd| {
-            let mut cmd = cmd.arg("run").arg(wasm);
-
-            if cfg!(enarx_with_shim) {
-                cmd = cmd.args(vec![
-                    OsStr::new("--signatures"),
-                    create_signature().as_os_str(),
-                ]);
-            }
-
+            let cmd = cmd.arg("run").arg(wasm);
             if let Some(conf) = conf {
-                cmd.args(vec!["--wasmcfgfile", conf.to_str().unwrap()])
-            } else {
-                cmd
+                cmd.arg("--wasmcfgfile").arg(conf);
             }
+            with_signatures(cmd)
         },
         input,
     )
@@ -47,84 +105,11 @@ pub fn enarx_run<'a>(
 pub fn enarx_deploy<'a>(url: &Url, input: impl Into<Option<&'a [u8]>>) -> Output {
     enarx(
         |cmd| {
-            let mut cmd = cmd.arg("deploy").arg(url.as_str());
-
-            if cfg!(enarx_with_shim) {
-                cmd = cmd.args(vec![
-                    OsStr::new("--signatures"),
-                    create_signature().as_os_str(),
-                ]);
-            }
-
-            cmd
+            let cmd = cmd.arg("deploy").arg(url.as_str());
+            with_signatures(cmd)
         },
         input,
     )
-}
-
-pub fn with_lockfile(
-    lockfile: &Path,
-    f: impl FnOnce() -> std::io::Result<()>,
-) -> std::io::Result<()> {
-    let ret = fs::OpenOptions::new()
-        .write(true)
-        .create_new(true)
-        .open(lockfile);
-
-    if let Err(e) = ret {
-        if e.kind() == std::io::ErrorKind::AlreadyExists {
-            while lockfile.exists() {
-                thread::sleep(std::time::Duration::from_millis(100));
-            }
-            return Ok(()); // lockfile was removed
-        }
-        return Err(e);
-    }
-
-    let ret = f();
-    fs::remove_file(lockfile).unwrap();
-    ret
-}
-
-fn create_signature() -> PathBuf {
-    let outdir = Path::new(CRATE).join(OUT_DIR);
-    let signature_file_path = outdir.join("sig.json");
-    let signature_file_path_lock = outdir.join("sig.lock");
-
-    if !signature_file_path.exists()
-        || signature_file_path.metadata().unwrap().modified().unwrap()
-            <= Path::new(KEEP_BIN).metadata().unwrap().modified().unwrap()
-    {
-        with_lockfile(&signature_file_path_lock, || {
-            let out = enarx(
-                |cmd| {
-                    cmd.args(vec![
-                        OsStr::new("sign"),
-                        OsStr::new("--sgx-key"),
-                        OsStr::new("tests/data/sgx-test.key"),
-                        OsStr::new("--sev-id-key"),
-                        OsStr::new("tests/data/sev-id.key"),
-                        OsStr::new("--sev-id-key-signature"),
-                        OsStr::new("tests/data/sev-id-key-signature.blob"),
-                        OsStr::new("--out"),
-                        signature_file_path.as_os_str(),
-                    ])
-                },
-                None,
-            );
-
-            if !out.status.success() {
-                eprintln!(
-                    "failed to sign package: {}",
-                    String::from_utf8_lossy(&out.stderr)
-                );
-                panic!("failed to sign package");
-            }
-            Ok(())
-        })
-        .unwrap();
-    }
-    signature_file_path
 }
 
 fn wasm_out() -> PathBuf {
