@@ -10,4 +10,5 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
+    secrets: inherit
     uses: enarx/.github/.github/workflows/nix-update.yml@main
