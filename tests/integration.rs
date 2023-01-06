@@ -15,13 +15,15 @@ mod syscall;
 
 mod wasm;
 
+use std::cmp::min;
 use std::env::{var, VarError};
 use std::ffi::{OsStr, OsString};
-use std::io;
-use std::io::{BufReader, Read, Write};
-use std::path::PathBuf;
+use std::fs;
+use std::io::{self, BufReader, Read, Write};
+use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
-use std::time;
+use std::thread;
+use std::time::{Duration, Instant};
 
 use once_cell::sync::Lazy;
 use process_control::{ChildExt, Control, Output};
@@ -75,6 +77,134 @@ pub fn is_nil() -> bool {
         Some("nil") => true,
         Some(..) => false,
         None => !is_sgx() && !is_sev() && !is_kvm(),
+    }
+}
+
+/// Best-effort on-disk mutex lock.
+/// Mutually-exclusive access it not guaranteed in cases when previous invocation did not exit cleanly.
+pub struct PathLock(PathBuf);
+
+impl From<PathBuf> for PathLock {
+    fn from(path: PathBuf) -> Self {
+        Self(path)
+    }
+}
+
+impl PathLock {
+    /// Create a new lock within `OUT_DIR` in `CARGO_MANIFEST_DIR`.
+    pub fn new_in_out_dir(name: impl AsRef<Path>) -> Self {
+        Path::new(CRATE).join(OUT_DIR).join(name).into()
+    }
+
+    /// Acquire lock at associated path for duration of `ttl`.
+    ///
+    /// If lock is already held by another thread for more than `ttl`, then it will be
+    /// considered stale and reacquired on a best-effort basis.
+    fn lock(&self, ttl: Duration) -> io::Result<impl Drop + '_> {
+        let start = Instant::now();
+        match fs::File::options()
+            .write(true)
+            .create_new(true)
+            .open(&self.0)
+        {
+            Ok(_) => {} // Lock acquired
+            Err(e) if e.kind() == io::ErrorKind::AlreadyExists => {
+                let sleep_duration = min(Duration::from_millis(100), ttl / 10);
+
+                let elapsed = self.0.metadata()?.modified()?.elapsed().expect(
+                    "failed to compute time elapsed since lock was acquired by another thread",
+                );
+                if elapsed < ttl {
+                    // Another thread had already acquired the lock within `ttl`, wait for it
+                    // to be released and return `io::ErrorKind::AlreadyExists` if it is
+                    while start.elapsed() < ttl && self.0.exists() {
+                        thread::sleep(sleep_duration);
+                    }
+                    if !self.0.exists() {
+                        return Err(e);
+                    }
+                }
+
+                // Previous lock has timed out, probably because thread holding it crashed without unlocking
+                match self.unlock() {
+                    Ok(()) => {
+                        eprintln!(
+                            "possibly stale lock at `{}` removed (this is prone to a race condition)",
+                            self.0.display()
+                        );
+                        // We managed to remove the lock and assume we acquired mutex access.
+                        // This is prone to race condition, where another thread could call
+                        // `lock` with a "fresh" state, create the file and one of the other
+                        // previously blocked threads could remove it.
+                        // Sleep for `ttl` to allow for (most) other blocked threads to exit
+                        let start = Instant::now(); // Reset starting time
+                        while start.elapsed() < ttl {
+                            if self.0.exists() {
+                                // Another thread started "fresh" and locked, return
+                                // original `io::ErrorKind::AlreadyExists` error
+                                return Err(e);
+                            }
+                            thread::sleep(sleep_duration);
+                        }
+                        // Retry after `ttl`
+                        return self.lock(ttl);
+                    }
+                    Err(unlock_err) if unlock_err.kind() == io::ErrorKind::NotFound => {
+                        // another thread has already unlocked the lock, return original
+                        // `io::ErrorKind::AlreadyExists` error
+                        eprintln!(
+                            "stale lock at `{}` already reacquired by another thread",
+                            self.0.display()
+                        );
+                        return Err(e);
+                    }
+                    Err(e) => return Err(e),
+                }
+            }
+            Err(e) => return Err(e),
+        }
+
+        struct Guard<'a>(&'a PathLock);
+        impl Drop for Guard<'_> {
+            fn drop(&mut self) {
+                self.0.unlock().unwrap_or_else(|e| {
+                    eprintln!("failed to remove lock at `{}`: {e}", self.0 .0.display())
+                })
+            }
+        }
+
+        Ok(Guard(self))
+    }
+
+    /// Release the lock.
+    fn unlock(&self) -> io::Result<()> {
+        fs::remove_file(&self.0)
+    }
+
+    /// Calls `f` once if `pred` returns `true`.
+    ///
+    /// `ttl` represents the lock time-to-live. A lock will be considered stale and reacquired
+    /// if older than `ttl`.
+    ///
+    /// Returns:
+    /// - `Ok(Some(..))` if `f` was called
+    /// - `Ok(None)` if `pred` returned false
+    /// - `Err(e)` if either locking failed due to an I/O error
+    pub fn once_if<T>(
+        &self,
+        pred: impl Fn() -> bool,
+        f: impl FnOnce() -> T,
+        ttl: Duration,
+    ) -> io::Result<Option<T>> {
+        while pred() {
+            match self.lock(ttl) {
+                Ok(_) if !pred() => return Ok(None), // another thread managed to lock first
+                Ok(_) => return Ok(Some(f())), // lock acquired and `pred()` is still `true`, call `f()`
+                Err(e) if e.kind() == io::ErrorKind::AlreadyExists => {}
+                Err(e) => return Err(e), // I/O failure
+            }
+        }
+        Ok(None)
     }
 }
 
@@ -142,7 +272,7 @@ fn enarx<'a>(
 
     let mut output = child
         .controlled_with_output()
-        .time_limit(time::Duration::from_secs(TIMEOUT_SECS))
+        .time_limit(Duration::from_secs(TIMEOUT_SECS))
         .terminate_for_timeout()
         .wait()
         .unwrap_or_else(|e| panic!("failed to run command: {e:#?}"))
