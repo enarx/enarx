@@ -53,6 +53,7 @@ pub fn execute() -> anyhow::Result<()> {
 
     use anyhow::Context;
     use tracing::level_filters::LevelFilter;
+    use tracing_subscriber::filter::{filter_fn, FilterExt};
     use tracing_subscriber::prelude::*;
     use tracing_subscriber::registry;
 
@@ -85,16 +86,25 @@ pub fn execute() -> anyhow::Result<()> {
     } else {
         (None, None)
     };
-    let log_level: LevelFilter = log_level.map(Into::into).into();
+    let level_filter: LevelFilter = log_level.map(Into::into).into();
+    let target_filter = filter_fn(|meta| match meta.target() {
+        "enarx" | "enarx_exec_wasmtime" | "enarx_shim_kvm" | "enarx_shim_sgx" => true,
+        target if target.starts_with("enarx::") => true,
+        target if target.starts_with("enarx_exec_wasmtime::") => true,
+        target if target.starts_with("enarx_shim_kvm::") => true,
+        target if target.starts_with("enarx_shim_sgx::") => true,
+        _ => false,
+    });
+    let log_filter = level_filter.and(target_filter);
+    let fmt_layer = tracing_subscriber::fmt::layer()
+        // TODO: Default to a secure log target
+        // https://github.com/enarx/enarx/issues/1042
+        .with_writer(std::io::stderr)
+        .with_filter(log_filter);
+    let registry = registry().with(fmt_layer);
+    #[cfg(feature = "bench")]
+    let registry = registry.with(flame_layer);
     {
-        let fmt_layer = tracing_subscriber::fmt::layer()
-            // TODO: Default to a secure log target
-            // https://github.com/enarx/enarx/issues/1042
-            .with_writer(std::io::stderr)
-            .with_filter(log_level);
-        let registry = registry().with(fmt_layer);
-        #[cfg(feature = "bench")]
-        let registry = registry.with(flame_layer);
         let _guard = registry.set_default();
         execute_package(package)?;
     }
