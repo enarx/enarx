@@ -24,7 +24,7 @@ use std::str::FromStr;
 use anyhow::{anyhow, bail};
 use clap::{ArgAction, Args, Parser, Subcommand};
 use tracing::info;
-use tracing_subscriber::filter::LevelFilter;
+use tracing_subscriber::filter::{filter_fn, FilterExt, LevelFilter};
 use tracing_subscriber::fmt::format::FmtSpan;
 use tracing_subscriber::prelude::*;
 use tracing_subscriber::EnvFilter;
@@ -59,6 +59,17 @@ impl Options {
             .max_level_hint()
             .and_then(LevelFilter::into_level)
             .map(Into::into);
+
+        let target_filter = filter_fn(|meta| match meta.target() {
+            "enarx" | "enarx_exec_wasmtime" | "enarx_shim_kvm" | "enarx_shim_sgx" => true,
+            target if target.starts_with("enarx::") => true,
+            target if target.starts_with("enarx_exec_wasmtime::") => true,
+            target if target.starts_with("enarx_shim_kvm::") => true,
+            target if target.starts_with("enarx_shim_sgx::") => true,
+            _ => false,
+        });
+        let log_filter = env_filter.and(target_filter);
+
         let fmt_layer = tracing_subscriber::fmt::layer()
             .with_writer(move || -> Box<dyn io::Write> {
                 match self.logger.log_target {
@@ -67,7 +78,7 @@ impl Options {
                 }
             })
             .with_span_events(FmtSpan::NEW | FmtSpan::CLOSE)
-            .with_filter(env_filter);
+            .with_filter(log_filter);
 
         #[cfg(feature = "bench")]
         let (flame_layer, _guard, profile) = if let Some(ref profile) = self.logger.profile {
