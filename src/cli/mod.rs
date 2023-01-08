@@ -22,9 +22,9 @@ use std::process::ExitCode;
 use std::str::FromStr;
 
 use anyhow::{anyhow, bail};
-use clap::{ArgAction, Args, Parser, Subcommand};
+use clap::{Args, Parser, Subcommand};
 use tracing::info;
-use tracing_subscriber::filter::{filter_fn, FilterExt, LevelFilter};
+use tracing_subscriber::filter::{filter_fn, FilterExt};
 use tracing_subscriber::fmt::format::FmtSpan;
 use tracing_subscriber::prelude::*;
 use tracing_subscriber::EnvFilter;
@@ -52,12 +52,11 @@ pub struct Options {
 impl Options {
     pub fn execute(self) -> anyhow::Result<ExitCode> {
         let env_filter = EnvFilter::builder()
-            .with_default_directive(self.logger.verbosity_level().into())
             .parse_lossy(self.logger.log_filter.as_ref().unwrap_or(&"".to_owned()));
         #[cfg(unix)]
         let log_level = env_filter
             .max_level_hint()
-            .and_then(LevelFilter::into_level)
+            .and_then(tracing_subscriber::filter::LevelFilter::into_level)
             .map(Into::into);
 
         let target_filter = filter_fn(|meta| match meta.target() {
@@ -209,13 +208,6 @@ impl BackendOptions {
 /// Common logging / output options
 #[derive(Args, Debug)]
 pub struct LogOptions {
-    /// Increase log verbosity. Pass multiple times for more log output.
-    ///
-    /// By default we only show error messages. Passing `-v` will show warnings,
-    /// `-vv` adds info, `-vvv` for debug, and `-vvvv` for trace.
-    #[clap(long = "verbose", short = 'v', action = ArgAction::Count)]
-    verbosity: u8,
-
     /// Set fancier logging filters.
     ///
     /// This is equivalent to the `RUST_LOG` environment variable.
@@ -231,19 +223,6 @@ pub struct LogOptions {
     #[cfg(feature = "bench")]
     #[clap(long)]
     profile: Option<camino::Utf8PathBuf>,
-}
-
-impl LogOptions {
-    /// Convert the -vvv.. count into a log level.
-    fn verbosity_level(&self) -> LevelFilter {
-        match self.verbosity {
-            0 => LevelFilter::ERROR,
-            1 => LevelFilter::WARN,
-            2 => LevelFilter::INFO,
-            3 => LevelFilter::DEBUG,
-            _ => LevelFilter::TRACE,
-        }
-    }
 }
 
 /// Represents logging target.
