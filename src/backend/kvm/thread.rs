@@ -5,6 +5,7 @@ use super::KeepPersonality;
 #[cfg(feature = "gdb")]
 use crate::backend::execute_gdb;
 use crate::backend::parking::THREAD_PARK;
+use crate::backend::sev::set_memory_attributes;
 
 use std::io;
 use std::iter;
@@ -164,6 +165,42 @@ impl<P: KeepPersonality> Thread<P> {
             _ => return Ok(Some(Item::Enarxcall(enarxcall, data))),
         }
     }
+
+    fn handle_vmgexit(&mut self, ghcb_msr: u64, _error: u8) -> Result<()> {
+        match ghcb_msr & 0xfff {
+            0x014 => {
+                // SNP Page State Change Request
+
+                self.handle_msr_page_state_request(ghcb_msr)?;
+            }
+            f => bail!("unimplemented GHCB protocol function {f:#03x}"),
+        }
+
+        Ok(())
+    }
+
+    fn handle_msr_page_state_request(&mut self, ghcb_msr: u64) -> Result<()> {
+        let gpa = ghcb_msr & 0x7_ffff_ffff_f000;
+        let page_operation = (ghcb_msr >> 52) & 0xf;
+
+        match page_operation {
+            1 => {
+                // Page assignment, Private
+
+                set_memory_attributes(&mut self.keep.write().unwrap().vm_fd, gpa, 0x1000, true)
+                    .context("failed to change page state to private")?;
+            }
+            2 => {
+                // Page assignment, Shared
+
+                set_memory_attributes(&mut self.keep.write().unwrap().vm_fd, gpa, 0x1000, false)
+                    .context("failed to change page state to shared")?;
+            }
+            _ => bail!("unimplemented operation {page_operation:#x}"),
+        }
+
+        Ok(())
+    }
 }
 
 impl<P: KeepPersonality> super::super::Thread for Thread<P> {
@@ -249,6 +286,10 @@ impl<P: KeepPersonality> super::super::Thread for Thread<P> {
                 }
 
                 self.keep.write().unwrap().sallyports[block_nr].replace(block_virt);
+                Ok(Command::Continue)
+            }
+            VcpuExit::Vmgexit(ghcb_msr, error) => {
+                self.handle_vmgexit(ghcb_msr, error)?;
                 Ok(Command::Continue)
             }
             #[cfg(debug_assertions)]
