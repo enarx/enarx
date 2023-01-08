@@ -6,6 +6,7 @@ use super::KeepPersonality;
 use crate::backend::execute_gdb;
 use crate::backend::kvm::builder::kvm_new_vcpu;
 use crate::backend::parking::THREAD_PARK;
+use crate::backend::sev::set_memory_attributes;
 use crate::backend::Keep as _;
 
 use std::io;
@@ -15,6 +16,7 @@ use std::ops::DerefMut;
 use std::sync::{Arc, RwLock};
 
 use anyhow::{bail, Context, Result};
+use kvm_bindings::kvm_run__bindgen_ty_1;
 use kvm_ioctls::{VcpuExit, VcpuFd};
 use libc::{c_int, timespec};
 use mmarinus::{perms, Map};
@@ -270,6 +272,44 @@ impl<P: KeepPersonality> Thread<P> {
             -EAGAIN as usize
         }
     }
+
+    fn handle_vmgexit(&mut self, ghcb_msr: &mut u64, _error: &mut u8) -> Result<()> {
+        match *ghcb_msr & 0xfff {
+            0x014 => {
+                // SNP Page State Change Request
+
+                self.handle_msr_page_state_request(ghcb_msr)?;
+            }
+            f => bail!("unimplemented GHCB protocol function {f:#03x}"),
+        }
+
+        Ok(())
+    }
+
+    fn handle_msr_page_state_request(&mut self, ghcb_msr: &mut u64) -> Result<()> {
+        let gpa = *ghcb_msr & 0x7_ffff_ffff_f000;
+        let page_operation = (*ghcb_msr >> 52) & 0xf;
+
+        match page_operation {
+            1 => {
+                // Page assignment, Private
+
+                set_memory_attributes(&mut self.keep.write().unwrap().vm_fd, gpa, 0x1000, true)
+                    .context("failed to change page state to private")?;
+            }
+            2 => {
+                // Page assignment, Shared
+
+                set_memory_attributes(&mut self.keep.write().unwrap().vm_fd, gpa, 0x1000, false)
+                    .context("failed to change page state to shared")?;
+            }
+            _ => bail!("unimplemented operation {page_operation:#x}"),
+        }
+
+        *ghcb_msr = 0x015; // Page State Change Response - Success
+
+        Ok(())
+    }
 }
 
 impl<P: KeepPersonality> super::super::Thread for Thread<P> {
@@ -367,6 +407,35 @@ impl<P: KeepPersonality> super::super::Thread for Thread<P> {
                 }
 
                 self.keep.write().unwrap().sallyports[block_nr].replace(block_virt);
+                Ok(Command::Continue)
+            }
+            VcpuExit::Unsupported(50) => {
+                // Vmgexit
+
+                // Cast the exit to a KvmExitVmgexit structure
+                // FIXME: Move this into kvm-ioctls once the SEV-SNP host
+                // patches land upstream.
+                #[repr(C, packed)]
+                pub struct KvmExitVmgexit {
+                    pub ghcb_msr: u64,
+                    pub error: u8,
+                }
+                let exit = &mut vcpu_fd.get_kvm_run().__bindgen_anon_1;
+                let vmgexit = unsafe {
+                    // SAFETY: `KvmExitVmgexit` has no alignment or bit-pattern requirements.
+                    &mut *(exit as *mut kvm_run__bindgen_ty_1 as *mut KvmExitVmgexit)
+                };
+
+                // Move from packed struct into normally aligned variables on the stack.
+                let mut ghcb_msr = vmgexit.ghcb_msr;
+                let mut error = vmgexit.error;
+
+                self.handle_vmgexit(&mut ghcb_msr, &mut error)?;
+
+                // Move back from the stack.
+                vmgexit.ghcb_msr = ghcb_msr;
+                vmgexit.error = error;
+
                 Ok(Command::Continue)
             }
             #[cfg(debug_assertions)]
