@@ -15,7 +15,7 @@ use std::{thread, time};
 
 use crate::backend::sev::cpuid_page::import_from_kvm;
 use anyhow::{anyhow, Context, Error};
-use kvm_bindings::kvm_userspace_memory_region;
+use kvm_bindings::{kvm_enable_cap, kvm_userspace_memory_region};
 use kvm_ioctls::Kvm;
 use mmarinus::{perms, Map};
 use primordial::Page;
@@ -75,6 +75,16 @@ impl TryFrom<super::config::Config> for Builder {
             let vm_fd = kvm_fd
                 .create_vm()
                 .context("Failed to create a virtual machine")?;
+
+            const KVM_CAP_UNMAPPED_PRIVATE_MEM: u32 = 240;
+            vm_fd
+                .enable_cap(&kvm_enable_cap {
+                    cap: KVM_CAP_UNMAPPED_PRIVATE_MEM,
+                    flags: 0,
+                    args: [0; 4],
+                    pad: [0; 64],
+                })
+                .context("failed to enable UPM capability")?;
 
             let sev = retry(|| Firmware::open().context("Failed to open '/dev/sev'"))?;
             // FIXME: use SnpInitFlags::RESTRICTED_INJECTION when available
