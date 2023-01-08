@@ -3,7 +3,7 @@
 use super::snp::firmware::Firmware;
 use super::snp::launch::*;
 
-use super::SnpKeepPersonality;
+use super::{set_memory_attributes, SnpKeepPersonality};
 use crate::backend::kvm::builder::{kvm_new_vcpu, map_sallyports};
 use crate::backend::kvm::mem::{Region, Slot};
 use crate::backend::sev::config::Config;
@@ -185,6 +185,8 @@ impl super::super::Mapper for Builder {
                 .update_data(update)
                 .context("SNP Launcher update_data failed")?;
         };
+
+        set_memory_attributes(self.launcher.as_mut(), to as u64, pages.len() as u64, true)?;
 
         self.regions.push(Region::new(slot, pages));
 

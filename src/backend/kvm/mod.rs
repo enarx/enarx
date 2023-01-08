@@ -23,7 +23,7 @@ pub mod mem;
 pub mod thread;
 
 pub trait KeepPersonality: Send + Sync + 'static {
-    fn map(_vm_fd: &mut VmFd, _region: &Region) -> std::io::Result<()> {
+    fn map(_vm_fd: &mut VmFd, _region: &Region, _is_private: bool) -> std::io::Result<()> {
         Ok(())
     }
 
@@ -68,7 +68,7 @@ impl<P: KeepPersonality> Keep<P> {
         )?;
         let region = Region::new(slot, pages);
 
-        P::map(&mut self.vm_fd, &region)?;
+        P::map(&mut self.vm_fd, &region, is_private)?;
 
         self.regions.push(region);
 
