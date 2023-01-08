@@ -91,9 +91,9 @@ impl From<PathBuf> for PathLock {
 }
 
 impl PathLock {
-    /// Create a new lock within `OUT_DIR` in `CARGO_MANIFEST_DIR`.
+    /// Initialize a new [`PathLock`] called `name` within `OUT_DIR`.
     pub fn new_in_out_dir(name: impl AsRef<Path>) -> Self {
-        Path::new(CRATE).join(OUT_DIR).join(name).into()
+        Path::new(OUT_DIR).join(name).into()
     }
 
     /// Acquire lock at associated path for duration of `ttl`.

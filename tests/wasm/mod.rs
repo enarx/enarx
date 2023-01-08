@@ -21,7 +21,7 @@ use tempfile::{tempdir, NamedTempFile};
 
 #[cfg(enarx_with_shim)]
 fn with_signatures(cmd: &mut Command) -> &mut Command {
-    let sig = Path::new(CRATE).join(OUT_DIR).join("sig.json");
+    let sig = Path::new(OUT_DIR).join("sig.json");
     let outdated = || match sig.metadata().as_ref().map(fs::Metadata::modified) {
         Ok(Ok(modified))
             if modified
@@ -113,7 +113,7 @@ pub fn enarx_deploy<'a>(url: &Url, input: impl Into<Option<&'a [u8]>>) -> Output
 }
 
 fn wasm_out() -> PathBuf {
-    Path::new(CRATE).join(OUT_DIR).join(TEST_BINS_OUT)
+    Path::new(OUT_DIR).join(TEST_BINS_OUT)
 }
 
 fn wasm_path(wasm: &str) -> PathBuf {
