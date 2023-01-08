@@ -47,6 +47,10 @@ impl Region {
     pub fn backing(&self) -> &[u8] {
         self.backing.as_ref()
     }
+
+    pub fn backing_mut(&mut self) -> &mut [u8] {
+        self.backing.as_mut()
+    }
 }
 
 #[repr(C)]

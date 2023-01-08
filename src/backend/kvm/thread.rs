@@ -1,25 +1,32 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use super::super::Command;
+use super::Keep;
 use super::KeepPersonality;
 #[cfg(feature = "gdb")]
 use crate::backend::execute_gdb;
 use crate::backend::parking::THREAD_PARK;
 use crate::backend::sev::set_memory_attributes;
+use crate::backend::sev::snp::ghcb::Ghcb;
+use crate::backend::sev::snp::ghcb::SnpPscDesc;
 
 use std::io;
 use std::iter;
 use std::mem::size_of;
 use std::sync::{Arc, RwLock};
 
+use anyhow::ensure;
 use anyhow::{bail, Context, Result};
 use kvm_ioctls::{VcpuExit, VcpuFd};
 use libc::timespec;
+use lset::Contains;
 use mmarinus::{perms, Map};
 use sallyport::host::deref_aligned;
 use sallyport::item::enarxcall::Payload;
 use sallyport::item::{Block, Item};
 use sallyport::{item, KVM_SYSCALL_TRIGGER_PORT};
+use tracing::warn;
+use x86_64::PhysAddr;
 
 pub struct Thread<P: KeepPersonality> {
     keep: Arc<RwLock<super::Keep<P>>>,
@@ -168,12 +175,96 @@ impl<P: KeepPersonality> Thread<P> {
 
     fn handle_vmgexit(&mut self, ghcb_msr: u64, _error: u8) -> Result<()> {
         match ghcb_msr & 0xfff {
+            0x000 => {
+                // GHCB Guest Physical Address
+
+                self.handle_ghcb_request(ghcb_msr)?;
+            }
             0x014 => {
                 // SNP Page State Change Request
 
                 self.handle_msr_page_state_request(ghcb_msr)?;
             }
             f => bail!("unimplemented GHCB protocol function {f:#03x}"),
+        }
+
+        Ok(())
+    }
+
+    fn handle_ghcb_request(&mut self, ghcb_msr: u64) -> Result<(), anyhow::Error> {
+        let gpa = ghcb_msr & !0xfff;
+        let gpa = PhysAddr::new(gpa);
+
+        let mut guard = self.keep.write().unwrap();
+        let keep = &mut *guard;
+
+        // Find the memory slot that backs the guest physical address of the
+        // GHCB.
+        let region = keep
+            .regions
+            .iter_mut()
+            .find(|region| region.as_guest().contains(&gpa))
+            .context("can't find GHCB")?;
+        let offset = usize::try_from(gpa - region.as_guest().start).unwrap();
+
+        // Create a reference to the GHCB.
+        let ghcb_slice = &mut region.backing_mut()[offset..][..0x1000];
+        let ghcb = unsafe {
+            // SAFETY: `Ghcb` is a 0x1000 byte sized struct that's valid for
+            // all bit patterns and has no padding bytes.
+            // We assume that the guest passes us a unique reference to the
+            // memory.
+            &mut *(ghcb_slice as *mut [u8] as *mut Ghcb)
+        };
+
+        // Validate ghcb protocol.
+        ensure!(ghcb.ghcb_usage == 0);
+        ensure!(ghcb.protocol_version <= 2);
+
+        match ghcb.save_area.sw_exit_code {
+            0x8000_0010 => {
+                // SNP Page Stage Change
+
+                // Make sure that the page state change struct is in the shared
+                // buffer.
+                // The GHCB spec suggests this, but doesn't require it.
+                // However, our guest implementation always uses the shared
+                // buffer and using that knowledge allows us to simplify the
+                // code.
+                ensure!(
+                    ghcb.save_area.sw_scratch == gpa.as_u64() + 2048,
+                    "the page state change struct is not in the shared buffer"
+                );
+
+                // Create a reference to the page state change struct in the
+                // shared buffer.
+                let psc_desc = unsafe {
+                    // SAFETY: `SnpPscDesc` is a 2032 byte sized struct that's
+                    // valid for all bit patterns and has no padding bytes.
+                    &mut *(&mut ghcb.shared_buffer as *mut [u8; 2032] as *mut SnpPscDesc)
+                };
+
+                while psc_desc.cur_entry <= psc_desc.end_entry {
+                    // Process a page state change.
+                    let res = handle_next_page_state_change_request(psc_desc, keep);
+
+                    // Handle the result.
+                    match res {
+                        Ok(_) => {
+                            psc_desc.cur_entry += 1;
+                        }
+                        Err(error_code) => {
+                            ghcb.save_area.sw_exit_info2 = error_code;
+                            break;
+                        }
+                    }
+                }
+            }
+            _ => {
+                bail!("unimplemented sw_exit_code {:#x}", {
+                    ghcb.save_area.sw_exit_code
+                })
+            }
         }
 
         Ok(())
@@ -201,6 +292,75 @@ impl<P: KeepPersonality> Thread<P> {
 
         Ok(())
     }
+}
+
+fn handle_next_page_state_change_request<P>(
+    psc_desc: &SnpPscDesc,
+    keep: &mut Keep<P>,
+) -> Result<(), u64>
+where
+    P: KeepPersonality,
+{
+    const INVALID_HEADER_ERROR: u64 = 0x0000_0001_0000_0001;
+    const INVALID_ENTRY_ERROR: u64 = 0x0000_0001_0000_0002;
+    const UNSPECIFIED_ERROR: u64 = 0x0000_0100_0000_0000;
+
+    let entry = psc_desc
+        .entries
+        .get(usize::from(psc_desc.cur_entry))
+        .ok_or(INVALID_HEADER_ERROR)?;
+    let cur_page = entry.entry & 0xfff;
+    let gpa = entry.entry & 0x7_ffff_ffff_f000;
+    let operation = (entry.entry >> 52) & 0xf;
+    let page_size = (entry.entry >> 56) & 1;
+
+    // Check that the guest requested page state change for a
+    // 4KiB page. We never map 2MiB pages into the guest, so
+    // there's no reason for the guest to request anything else
+    // and for us to support anything else.
+    if page_size != 0 {
+        return Err(UNSPECIFIED_ERROR);
+    }
+    if cur_page != 0 {
+        return Err(INVALID_ENTRY_ERROR);
+    }
+
+    // Try to execute the request.
+    let res = match operation {
+        0x001 => {
+            // Page assignment, Private
+            set_memory_attributes(&mut keep.vm_fd, gpa, 0x1000, true).map_err(|_| {
+                // Indicate to the guest that an unspecified error occured.
+                UNSPECIFIED_ERROR
+            })
+        }
+        0x002 => {
+            // Page assignment, Shared
+            set_memory_attributes(&mut keep.vm_fd, gpa, 0x1000, false).map_err(|_| {
+                // Indicate to the guest that an unspecified error occured.
+                UNSPECIFIED_ERROR
+            })
+        }
+        0x003 => {
+            // PSMASH hint
+
+            // We're not required to process the hint.
+            Ok(())
+        }
+        0x004 => {
+            // UNSMASH hint
+
+            // We're not required to process the hint.
+            Ok(())
+        }
+        _ => {
+            warn!("unimplemented page state change operation {operation:#x}");
+
+            // Indicate to the guest that the entry is not valid.
+            Err(INVALID_ENTRY_ERROR)
+        }
+    };
+    res
 }
 
 impl<P: KeepPersonality> super::super::Thread for Thread<P> {
