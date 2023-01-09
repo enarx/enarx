@@ -28,8 +28,8 @@ sec1 = { workspace = true }
 serde = { workspace = true }
 sha2 = { workspace = true }
 toml = { workspace = true }
-tracing = { workspace = true }
-tracing-subscriber = { workspace = true }
+tracing = { workspace = true, features = ["release_max_level_info", "std"] }
+tracing-subscriber = { workspace = true, features = ["ansi", "smallvec", "std", "tracing-log"] }
 ureq = { workspace = true, features = ["charset", "json", "tls"] }
 url = { workspace = true, features = ["serde"] }
 wasi-common = { workspace = true }
