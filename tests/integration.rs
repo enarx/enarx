@@ -19,7 +19,7 @@ use std::cmp::min;
 use std::env::{var, VarError};
 use std::ffi::{OsStr, OsString};
 use std::fs;
-use std::io::{self, BufReader, Read, Write};
+use std::io::{self, BufReader, LineWriter, Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::thread;
@@ -259,7 +259,7 @@ fn enarx<'a>(
     let stdin = input.into().map(|input| {
         let mut stdin = child.stdin.take().unwrap();
         let input = input.to_vec();
-        std::thread::spawn(move || {
+        thread::spawn(move || {
             stdin
                 .write_all(&input)
                 .expect("failed to write stdin to child");
@@ -267,7 +267,7 @@ fn enarx<'a>(
     });
     let stderr = {
         let stderr = child.stderr.take().unwrap();
-        std::thread::spawn(|| tee(stderr, io::stderr()).expect("failed to copy stderr"))
+        thread::spawn(|| tee(stderr, LineWriter::new(io::stderr())).expect("failed to copy stderr"))
     };
 
     let mut output = child
