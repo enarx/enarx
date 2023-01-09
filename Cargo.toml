@@ -218,10 +218,10 @@ zeroize = { version = "1.5.4", features = ["alloc"], default-features = false }
 
 # wasmtime and its pinned dependencies
 # these will need to be updated together
-wasmtime = { git = "https://github.com/bytecodealliance/wasmtime", rev = "6f50ddaaf2ab8205b6e850361dd2cc662819f431", version = "2.0.0", features = ["cranelift", "pooling-allocator"], default-features = false }
+wasmtime = { version = "2.0.0", features = ["cranelift", "pooling-allocator"], default-features = false }
 cap-std = { version = "0.26.0", default-features = false }
 io-lifetimes = { version = "0.7.3", default-features = false }
-rustix = { version = "0.35.10", features = ["std"], default-features = false }
-wasi-common = { git = "https://github.com/bytecodealliance/wasmtime", rev = "6f50ddaaf2ab8205b6e850361dd2cc662819f431", version = "2.0.0", default-features = false }
-wasmtime-wasi = { git = "https://github.com/bytecodealliance/wasmtime", rev = "6f50ddaaf2ab8205b6e850361dd2cc662819f431", version = "2.0.0", features = ["sync"], default-features = false }
-wiggle = { git = "https://github.com/bytecodealliance/wasmtime", rev = "6f50ddaaf2ab8205b6e850361dd2cc662819f431", version = "2.0.0", default-features = false }
+rustix = { version = "0.35.11", features = ["std"], default-features = false }
+wasi-common = { version = "2.0.0", default-features = false }
+wasmtime-wasi = { version = "2.0.0", features = ["sync"], default-features = false }
+wiggle = { version = "2.0.0", default-features = false }
