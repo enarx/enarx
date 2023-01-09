@@ -495,5 +495,5 @@ global_asm!(
         SEV_GHCB_MSR = const 0xC001_0130u32,
         CR4_FLAGS = const (Cr4Flags::FSGSBASE.bits() | Cr4Flags::PHYSICAL_ADDRESS_EXTENSION.bits() | Cr4Flags::OSFXSR.bits() | Cr4Flags::OSXMMEXCPT_ENABLE.bits() | Cr4Flags::OSXSAVE.bits()),
         PROTECTED_MODE_ENABLE = const Cr0Flags::PROTECTED_MODE_ENABLE.bits(),
-        CR0_PAGING = const Cr0Flags::PAGING.bits()  | Cr0Flags::WRITE_PROTECT.bits() ,
+        CR0_PAGING = const Cr0Flags::PAGING.bits()  | Cr0Flags::WRITE_PROTECT.bits() | Cr0Flags::MONITOR_COPROCESSOR.bits(),
 );
