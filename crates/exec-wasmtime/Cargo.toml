@@ -36,7 +36,7 @@ wasi-common = { workspace = true }
 wasmtime = { workspace = true }
 wasmtime-wasi = { workspace = true }
 webpki-roots = { workspace = true }
-wiggle = { workspace = true }
+wiggle = { workspace = true, features = ["tracing_log"] }
 x509-cert = { workspace = true }
 zeroize = { workspace = true }
 
