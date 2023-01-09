@@ -1,13 +1,15 @@
 name: "Pull Request Labeler"
 on:
-- pull_request_target
+- pull_request_review
+
+permissions:
+  checks: write
+  contents: read
+  pull-requests: write
 
 jobs:
   triage:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      issues: write
     steps:
     - uses: actions/labeler@v4
       with:
