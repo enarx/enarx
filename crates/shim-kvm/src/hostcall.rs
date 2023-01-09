@@ -19,12 +19,13 @@ use core::ptr::NonNull;
 use core::slice;
 use core::sync::atomic::AtomicU32;
 
+use sallyport::guest::syscall::types::MremapFlags;
 use sallyport::guest::{self, Handler, Platform, ThreadLocalStorage};
 use sallyport::item::enarxcall::sev::TECH;
 use sallyport::item::syscall;
 use sallyport::libc::{
-    off_t, CloneFlags, EAGAIN, EFAULT, EINVAL, EIO, EMSGSIZE, ENOMEM, ENOSYS, MAP_ANONYMOUS,
-    MAP_PRIVATE, PROT_EXEC, PROT_WRITE,
+    off_t, CloneFlags, EAGAIN, EFAULT, EINVAL, EIO, EMSGSIZE, ENOMEM, ENOSYS, ENOTSUP,
+    MAP_ANONYMOUS, MAP_PRIVATE, PROT_EXEC, PROT_READ, PROT_WRITE,
 };
 use sallyport::util::ptr::is_aligned_non_null;
 use sallyport::{libc, KVM_SYSCALL_TRIGGER_PORT};
@@ -32,7 +33,7 @@ use spin::Lazy;
 use x86_64::instructions::port::Port;
 use x86_64::instructions::segmentation::{Segment64, FS, GS};
 use x86_64::instructions::tlb::flush_all;
-use x86_64::structures::paging::mapper::TranslateResult;
+use x86_64::structures::paging::mapper::{TranslateError, TranslateResult};
 use x86_64::structures::paging::{Mapper, Page, PageTableFlags, Size4KiB, Translate};
 use x86_64::{align_up, VirtAddr};
 
@@ -444,6 +445,180 @@ impl Handler for HostCall<'_> {
     ) -> sallyport::Result<()> {
         // FIXME
         Ok(())
+    }
+
+    /// Executes [`mremap`](https://man7.org/linux/man-pages/man2/mremap.2.html) syscall akin to [`libc::mremap`].
+    /// If `flags` is `Some`, `[libc::MREMAP_MAYMOVE]` is implied.
+    fn mremap(
+        &mut self,
+        platform: &impl Platform,
+        old_address: NonNull<c_void>,
+        old_size: c_size_t,
+        new_size: c_size_t,
+        flags: Option<MremapFlags>,
+    ) -> sallyport::Result<NonNull<c_void>> {
+        fn normalize_flags(flags: PageTableFlags) -> PageTableFlags {
+            let mut new_flags = flags.intersection(
+                PageTableFlags::PRESENT
+                    | PageTableFlags::WRITABLE
+                    | PageTableFlags::USER_ACCESSIBLE
+                    | PageTableFlags::BIT_10,
+            );
+
+            if new_flags.contains(PageTableFlags::BIT_10) {
+                new_flags.remove(PageTableFlags::BIT_10);
+                new_flags |= PageTableFlags::WRITABLE;
+            }
+
+            new_flags
+        }
+
+        eprintln!(
+            "SC> mremap({:?}, {:?}, {:?}, {:#?}) ...",
+            old_address, old_size, new_size, flags
+        );
+
+        match flags {
+            None | Some(MremapFlags { FIXED: None, .. }) if new_size == old_size => Ok(old_address),
+            Some(MremapFlags {
+                FIXED: None,
+                DONTUNMAP: false,
+            }) if new_size < old_size => {
+                // Make sure old address range is owned by process
+                let source_slice =
+                    platform.validate_slice::<u8>(old_address.as_ptr() as _, old_size)?;
+
+                // simply unmap the tail
+                let addr = &source_slice[new_size] as *const _;
+                // It is not an error if the indicated range does not contain any mapped pages.
+                let _ = self.munmap(
+                    platform,
+                    NonNull::new(addr as *mut c_void).ok_or(EINVAL)?,
+                    old_size.checked_sub(new_size).ok_or(EINVAL)?,
+                );
+                Ok(old_address)
+            }
+            Some(MremapFlags {
+                FIXED: None,
+                DONTUNMAP,
+            }) if new_size > old_size => {
+                // Make sure old address range is owned by process
+                let source_slice =
+                    platform.validate_slice::<u8>(old_address.as_ptr() as _, old_size)?;
+
+                let old_start_addr = VirtAddr::from_ptr(old_address.as_ptr());
+                let old_end_page: Page = Page::containing_address(old_start_addr + old_size - 1u64);
+                let old_page_range =
+                    Page::range_inclusive(Page::containing_address(old_start_addr), old_end_page);
+
+                let start_addr = VirtAddr::from_ptr(old_address.as_ptr()) + old_size;
+                let start_page: Page = Page::containing_address(start_addr);
+                let end_page: Page = Page::containing_address(start_addr + new_size - 1u64);
+                let page_range = Page::range_inclusive(start_page, end_page);
+
+                let mut shim_page_table = SHIM_PAGETABLE.write();
+
+                let TranslateResult::Mapped { flags, .. } = shim_page_table.translate(VirtAddr::from_ptr(old_address.as_ptr())) else {
+                    return Err(EINVAL);
+                };
+
+                let new_flags = normalize_flags(flags);
+
+                // check that the old address range is mapped
+                if !new_flags.contains(PageTableFlags::PRESENT | PageTableFlags::USER_ACCESSIBLE) {
+                    return Err(EFAULT);
+                }
+
+                // Check, that all pages have the same permissions as the first
+                for page in old_page_range.skip(1) {
+                    let TranslateResult::Mapped { flags, .. } = shim_page_table.translate(page.start_address()) else {
+                        return Err(EINVAL);
+                    };
+
+                    let flags = normalize_flags(flags);
+
+                    if flags != new_flags {
+                        return Err(EFAULT);
+                    }
+                }
+
+                // Check, if the region can be extended, if all pages beneath are free
+                let check_mem_unmapped = page_range.into_iter().all(|page| {
+                    matches!(
+                        shim_page_table.translate_page(page),
+                        Err(TranslateError::PageNotMapped)
+                    )
+                });
+
+                if check_mem_unmapped {
+                    eprintln!("SC> mremap: adding to the end of the mapping");
+
+                    let len_aligned =
+                        align_up((new_size - old_size) as _, Page::<Size4KiB>::SIZE) as _;
+
+                    let _ = ALLOCATOR
+                        .lock()
+                        .map_memory_zero(
+                            &mut shim_page_table,
+                            start_addr,
+                            len_aligned,
+                            new_flags,
+                            PageTableFlags::PRESENT
+                                | PageTableFlags::WRITABLE
+                                | PageTableFlags::USER_ACCESSIBLE,
+                        )
+                        .map_err(|_| {
+                            eprintln!("SC> mmap(0, {}, ...) = ENOMEM", len_aligned);
+                            ENOMEM
+                        })?;
+
+                    let mut nmmap = NEXT_MMAP_RWLOCK.write();
+
+                    if *nmmap < start_addr + len_aligned {
+                        *nmmap = start_addr + len_aligned;
+                    }
+
+                    Ok(old_address)
+                } else {
+                    drop(shim_page_table);
+                    // FIXME: copy the physical pages in the page table
+
+                    // simply copy the old data to a new location
+                    let mut prot = PROT_READ;
+
+                    if new_flags.intersects(PageTableFlags::WRITABLE | PageTableFlags::BIT_10) {
+                        prot |= PROT_WRITE;
+                    }
+
+                    if !new_flags.contains(PageTableFlags::NO_EXECUTE) {
+                        prot |= PROT_EXEC;
+                    }
+
+                    let new_addr = self.mmap(
+                        platform,
+                        None,
+                        new_size,
+                        prot,
+                        MAP_PRIVATE | MAP_ANONYMOUS,
+                        -1,
+                        0,
+                    )?;
+                    // SAFETY: we successfully mmap'ed the memory
+                    let new_slice = unsafe {
+                        slice::from_raw_parts_mut(new_addr.as_ptr() as *mut u8, new_size)
+                    };
+                    new_slice[..old_size].copy_from_slice(source_slice);
+
+                    if !DONTUNMAP {
+                        // It is not an error if the indicated range does not contain any mapped pages.
+                        let _ = self.munmap(platform, old_address, old_size);
+                    }
+
+                    Ok(NonNull::new(new_slice.as_ptr() as *mut _).unwrap())
+                }
+            }
+            _ => Err(ENOTSUP),
+        }
     }
 
     fn mmap(
