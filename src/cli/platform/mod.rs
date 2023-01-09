@@ -1,7 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 
-#[cfg(enarx_with_shim)]
-mod caching;
 mod info;
 #[cfg(enarx_with_shim)]
 mod sgx;
