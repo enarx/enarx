@@ -3,6 +3,7 @@
 use crate::backend::probe::x86_64::{CpuId, Vendor};
 use crate::backend::sgx::{sgx_cache_dir, AESM_SOCKET};
 use crate::backend::Datum;
+use crate::caching::CrlList;
 
 use sgx::parameters::{Features, MiscSelect, Xfrm};
 
@@ -12,7 +13,6 @@ use std::path::Path;
 use std::time::SystemTime;
 
 use der::Decode;
-use x509_cert::crl::CertificateList;
 
 fn humanize(mut size: f64) -> (f64, &'static str) {
     let mut iter = 0;
@@ -179,9 +179,9 @@ pub fn aesm_socket() -> Datum {
 
 pub fn intel_crl() -> Datum {
     let name = "Intel CRL cache".to_string();
-    let mut crl_file =
+    let crl_file =
         match sgx_cache_dir() {
-            Ok(p) => p,
+            Ok(p) => p.join("crls.der"),
             Err(e) => return Datum {
                 name,
                 pass: false,
@@ -192,7 +192,6 @@ pub fn intel_crl() -> Datum {
                 ),
             },
         };
-    crl_file.push("crls.der");
 
     if !crl_file.exists() {
         return Datum {
@@ -220,7 +219,7 @@ pub fn intel_crl() -> Datum {
         };
 
     let crls =
-        match Vec::<CertificateList>::from_der(&crls) {
+        match CrlList::from_der(&crls) {
             Ok(c) => c,
             Err(e) => return Datum {
                 name,
@@ -231,7 +230,7 @@ pub fn intel_crl() -> Datum {
             },
         };
 
-    for crl in crls.iter() {
+    for (_, crl) in crls.entries() {
         if let Some(update) = crl.tbs_cert_list.next_update {
             if update.to_system_time() <= SystemTime::now() {
                 return Datum {

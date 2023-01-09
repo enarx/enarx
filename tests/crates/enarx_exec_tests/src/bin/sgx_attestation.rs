@@ -1,12 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use enarx_exec_tests::musl_fsbase_fix;
+use enarx_exec_tests::{musl_fsbase_fix, CrlList};
 
 use std::convert::TryFrom;
 use std::io;
 
 use der::{Decode, Sequence};
-use x509_cert::crl::CertificateList;
 
 musl_fsbase_fix!();
 
@@ -43,7 +42,7 @@ impl TryFrom<u64> for TeeTech {
 pub struct SgxEvidence<'a> {
     #[asn1(type = "OCTET STRING")]
     pub quote: &'a [u8],
-    pub crl: Vec<CertificateList<'a>>,
+    pub crl: CrlList<'a>,
 }
 
 #[cfg(target_os = "linux")]
@@ -134,9 +133,9 @@ fn main() -> io::Result<()> {
     })?;
 
     assert!(
-        evidence.crl.len() > 1,
+        evidence.crl.crls.len() > 1,
         "ensure CRLs were present, got {}",
-        evidence.crl.len()
+        evidence.crl.crls.len()
     );
 
     let buffer = evidence.quote;

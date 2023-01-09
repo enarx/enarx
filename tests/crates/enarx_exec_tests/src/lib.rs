@@ -2,6 +2,9 @@
 
 //! musl_fsbase_fix
 
+use der::Sequence;
+use x509_cert::crl::CertificateList;
+
 #[macro_export]
 macro_rules! musl_fsbase_fix {
     () => {
@@ -33,4 +36,16 @@ macro_rules! musl_fsbase_fix {
             rax as _
         }
     }
+}
+
+// These structures are copied from `src/caching.rs`
+#[derive(Debug, Sequence)]
+pub struct CrlListEntry<'a> {
+    pub url: String,
+    pub crl: CertificateList<'a>,
+}
+
+#[derive(Debug, Sequence)]
+pub struct CrlList<'a> {
+    pub crls: Vec<CrlListEntry<'a>>,
 }

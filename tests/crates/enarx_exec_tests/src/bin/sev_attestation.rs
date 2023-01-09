@@ -1,13 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use enarx_exec_tests::musl_fsbase_fix;
+use enarx_exec_tests::{musl_fsbase_fix, CrlList};
 
 use std::convert::TryFrom;
 use std::io;
 use std::mem::size_of;
 
 use der::{Decode, Document, Sequence};
-use x509_cert::crl::CertificateList;
 
 musl_fsbase_fix!();
 
@@ -129,7 +128,7 @@ impl TryFrom<u64> for TeeTech {
 #[derive(Sequence)]
 struct SnpEvidence<'a> {
     vcek: Document,
-    crl: Vec<CertificateList<'a>>,
+    crl: CrlList<'a>,
 }
 
 #[cfg(target_os = "linux")]
@@ -278,7 +277,10 @@ fn get_att(mut nonce: [u8; 64]) -> io::Result<()> {
     );
 
     let evidence = SnpEvidence::from_der(vcek_buf).unwrap();
-    assert!(!evidence.crl.is_empty(), "expected at least one AMD CRL");
+    assert!(
+        !evidence.crl.crls.is_empty(),
+        "expected at least one AMD CRL"
+    );
 
     let vcek_buf = evidence.vcek.as_bytes();
 
@@ -314,7 +316,7 @@ fn get_att(mut nonce: [u8; 64]) -> io::Result<()> {
         hex::encode(report.author_key_digest)
     );
 
-    eprintln!("CRLs: {:?}", evidence.crl);
+    eprintln!("CRLs: {:?}", evidence.crl.crls);
 
     Ok(())
 }

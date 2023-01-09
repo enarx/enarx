@@ -8,6 +8,8 @@
 #![allow(elided_lifetimes_in_paths)]
 
 mod backend;
+#[cfg(enarx_with_shim)]
+pub(crate) mod caching;
 mod cli;
 mod drawbridge;
 mod exec;
