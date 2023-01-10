@@ -5,7 +5,7 @@ use super::snp::firmware::Firmware;
 use super::snp::launch::*;
 
 use super::SnpKeepPersonality;
-use crate::backend::kvm::builder::kvm_try_from_builder;
+use crate::backend::kvm::builder::{kvm_try_from_builder, map_sallyports};
 use crate::backend::kvm::mem::Region;
 use crate::backend::sev::config::Config;
 use crate::backend::ByteSized;
@@ -15,10 +15,12 @@ use std::sync::{Arc, RwLock};
 use std::{thread, time};
 
 use anyhow::{anyhow, Context, Error};
+use kvm_bindings::kvm_userspace_memory_region;
 use kvm_ioctls::Kvm;
 use mmarinus::{perms, Map};
 use primordial::Page;
 use rand::{thread_rng, Rng};
+use sallyport::elf::pf::kvm::SALLYPORT;
 use sallyport::elf::pf::snp::{CPUID, SECRETS};
 use x86_64::VirtAddr;
 
@@ -106,20 +108,35 @@ impl super::super::Mapper for Builder {
         to: usize,
         with: u32,
     ) -> anyhow::Result<()> {
+        let slot = self.regions.len() as _;
+
         // Ignore regions with no pages.
         if pages.is_empty() {
             return Ok(());
         }
 
-        let mem_region = super::super::kvm::builder::kvm_builder_map(
-            self.config.sallyport_block_size as _,
-            &mut self.sallyports,
-            self.launcher.as_mut(),
-            &mut pages,
-            to,
-            with,
-            self.regions.len() as _,
-        )?;
+        if with & SALLYPORT != 0 {
+            map_sallyports(
+                &pages,
+                self.config.sallyport_block_size,
+                &mut self.sallyports,
+            );
+        }
+
+        let mem_region = kvm_userspace_memory_region {
+            slot,
+            flags: 0,
+            guest_phys_addr: to as _,
+            memory_size: pages.size() as _,
+            userspace_addr: pages.addr() as _,
+        };
+
+        unsafe {
+            self.launcher
+                .as_mut()
+                .set_user_memory_region(mem_region)
+                .context("Failed to set user memory region")?
+        };
 
         let dp = VmplPerms::empty();
 
