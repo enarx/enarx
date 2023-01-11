@@ -87,13 +87,20 @@ pub fn execute() -> anyhow::Result<()> {
         (None, None)
     };
     let level_filter: LevelFilter = log_level.map(Into::into).into();
-    let target_filter = filter_fn(|meta| match meta.target() {
-        "enarx" | "enarx_exec_wasmtime" | "enarx_shim_kvm" | "enarx_shim_sgx" => true,
-        target if target.starts_with("enarx::") => true,
-        target if target.starts_with("enarx_exec_wasmtime::") => true,
-        target if target.starts_with("enarx_shim_kvm::") => true,
-        target if target.starts_with("enarx_shim_sgx::") => true,
-        _ => false,
+    let target_filter = filter_fn(|meta| {
+        let target = meta.target();
+        [
+            "enarx",
+            "enarx_exec_wasmtime",
+            "enarx_shim_kvm",
+            "enarx_shim_sgx",
+            #[cfg(feature = "dbg")]
+            "rustls",
+            #[cfg(feature = "dbg")]
+            "wasi_common",
+        ]
+        .into_iter()
+        .any(|name| target.eq(name) || target.starts_with(&format!("{name}::")))
     });
     let log_filter = level_filter.and(target_filter);
     let fmt_layer = tracing_subscriber::fmt::layer()

@@ -16,7 +16,7 @@ default = []
 
 # non-default features
 gdb = ["dep:gdbstub", "enarx-shim-kvm/gdb", "enarx-shim-sgx/gdb"]
-dbg = [ "enarx-shim-kvm/dbg", "enarx-shim-sgx/dbg" ]
+dbg = [ "enarx-exec-wasmtime/dbg", "enarx-shim-kvm/dbg", "enarx-shim-sgx/dbg" ]
 disable-sgx-attestation = ["enarx-shim-sgx/disable-sgx-attestation"]
 bench = ["dep:tracing-flame", "enarx-exec-wasmtime/bench", "enarx-shim-kvm/bench", "enarx-shim-sgx/bench"]
 
