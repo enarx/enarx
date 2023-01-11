@@ -16,6 +16,7 @@ cap-std = { workspace = true }
 const-oid = { workspace = true }
 drawbridge-client = { workspace = true }
 enarx-config = { workspace = true }
+futures = { workspace = true, features = ["executor"] }
 getrandom = { workspace = true }
 io-lifetimes = { workspace = true }
 libc = { workspace = true }
@@ -34,6 +35,11 @@ ureq = { workspace = true, features = ["charset", "json", "tls"] }
 url = { workspace = true, features = ["serde"] }
 wasi-common = { workspace = true }
 wasmtime = { workspace = true }
+wasmtime-vfs-dir = { workspace = true }
+wasmtime-vfs-file = { workspace = true }
+wasmtime-vfs-keyfs = { workspace = true }
+wasmtime-vfs-ledger = { workspace = true }
+wasmtime-vfs-memory = { workspace = true }
 wasmtime-wasi = { workspace = true }
 webpki-roots = { workspace = true }
 wiggle = { workspace = true, features = ["tracing_log"] }

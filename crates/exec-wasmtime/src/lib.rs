@@ -17,6 +17,7 @@ pub use workload::{Package, Workload, PACKAGE_CONFIG, PACKAGE_ENTRYPOINT};
 
 use runtime::Runtime;
 
+use futures::executor::block_on;
 use wiggle::tracing::instrument;
 
 /// The Arguments
@@ -40,7 +41,7 @@ pub struct Args {
 /// Execute package
 #[instrument]
 pub fn execute_package(pkg: Package) -> anyhow::Result<()> {
-    Runtime::execute(pkg).map(|_| ())
+    block_on(Runtime::execute(pkg)).map(|_| ())
 }
 
 /// Execute with arguments read from file descriptor 3.
@@ -163,10 +164,10 @@ mod test {
         file.rewind().context("failed to rewind file")?;
         #[cfg(unix)]
         let file = file.into_raw_fd();
-        Runtime::execute(Package::Local {
+        block_on(Runtime::execute(Package::Local {
             wasm: file,
             conf: None,
-        })
+        }))
     }
 
     #[test]
