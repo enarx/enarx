@@ -42,55 +42,84 @@ args = [
 steward = "https://attest.profian.com"
 ```
 
-### `files`
-
-`files` specifies an array of file descriptor definitions to be pre-opened for the WASM application.
-
-A `files` entry can contain the following sub elements.
+### `stdin`, `stdout` and `stderr`
 
 #### `kind`
 
-`kind` can be one of `"null"`, `"stdin"`,`"stdout"`, `"stderr"`, `"listen"` or `"connect"`.
+`kind` can be either `"null"` or `"host"`.
 
-#### `name`
+### `network`
 
-Name of the file descriptor, exported in the `FD_NAMES` environment variable.
-The default `name` for `kind`  `"null"`, `"stdin"`,`"stdout"`, `"stderr"` is the `kind`. 
+#### `network.incoming`
 
-The `FD_NAMES` environment variable contains all `name` strings of the `files` array joined with ":".
-The `FD_COUNT` environment variable contains the number of `files` elements.
+`network.incoming` defines incoming network connection policy.
 
-#### `prot`
+Keys are listening port numbers.
 
-`prot` can be `"tcp"` or `"tls"` for `kind = "connect"` or `kind = "listen"`.
+A special `default` key defines default network policy to be used for incoming network connections if no matching entry is present.
 
-`"tls"` is the default, if `prot` is not specified.
+##### `prot`
+
+`prot` can be `"tcp"` or `"tls"`
 
 `tls` transparently wraps a TCP connection with the TLS protocol.
-For `kind = "listen"` every accepted connection is also wrapped with the TLS protocol. 
 
-#### `host`
-
-`host` specifies the host to connect to for a `kind = "connect"`
-
-#### `addr`
-
-`addr` specifies the address to bind to for a `kind = "listen"`.
-
-##### Examples
+#### Example
 
 ```toml
-addr = "::"          # bind to any interface IPv6 and IPv4 (the default, if not specified)
-addr = "0.0.0.0"     # bind to any IPv4 interface
-addr = "::1"         # bind to IPv6 localhost
-addr = "127.0.0.1"   # bind to IPv4 localhost
-addr = "192.168.1.1" # bind to a specific IPv4 address
+[network.incoming.default]
+prot = "tcp"
+
+[network.incoming.9000]
+prot = "tls"
+
+[network.incoming.9001]
+prot = "tcp"
 ```
 
-#### `port`
+#### `network.outgoing`
 
-`port` specifies the port to connect or bind to for `kind = "connect"` or `kind = "listen"`.
-The default value is `443`.
+`network.outgoing` defines outgoing network connection policy.
+
+Keys are Ipv4, Ipv6 or domain name hosts with optional port.
+
+If a host is specified without a port and one or more entries exist for the same host with a port, then the policy with a port takes precedence for connections using that port. For example, if `network.outgoing."example.com"` and `network.outgoing."example.com:12345"` both exist, then `network.outgoing."example.com:12345"` policy would be used for connections to `example.com` on port `12345` and policy for `example.com` would be used for all other connections.
+
+Host specification must match the URL standard as defined at https://url.spec.whatwg.org/#hosts-(domains-and-ip-addresses)
+
+A special `default` key defines default network policy to be used for outgoing network connections if no matching entry is present.
+
+##### `prot`
+
+`prot` can be `"tcp"` or `"tls"`
+
+`tls` transparently wraps a TCP connection with the TLS protocol.
+
+```toml
+[network.outgoing.default]
+prot = "tcp"
+
+[network.outgoing."tls.example.com"]
+prot = "tls"
+
+[network.outgoing."tls.example.com:8080"]
+prot = "tcp"
+
+[network.outgoing."tcp.example.com"]
+prot = "tcp"
+
+[network.outgoing."1.2.3.4:8080"]
+prot = "tls"
+
+[network.outgoing."1.2.3.4"]
+prot = "tcp"
+
+[network.outgoing."[2001:db8::1:0:0:1]"]
+prot = "tcp"
+
+[network.outgoing."[2001:db8::1:0:0:1]:5000"]
+prot = "tls"
+```
 
 ## Example
 ```toml
@@ -107,41 +136,28 @@ args = [
 VAR1 = "var1"
 VAR2 = "var2"
 
-# Pre-opened file descriptors
-[[files]]
+# Standard I/O configuration
+[stdin]
 kind = "null"
 
-[[files]]
-kind = "stdout"
+[stdout]
+kind = "host"
 
-[[files]]
-kind = "stderr"
+[stderr]
+kind = "host"
 
-# A listen socket
-[[files]]
-name = "listen"
-kind = "listen"
+# An incoming network policy for connections on port 12345
+[networking.incoming.12345]
 prot = "tls" # or prot = "tcp"
-port = 12345
 
-# An outgoing connected socket
-[[files]]
-name = "connect"
-kind = "connect"
+# An incoming network policy for connections to "127.0.0.1:23456"
+[networking.outgoing."127.0.0.1:23456"]
 prot = "tcp" # or prot = "tls"
-host = "127.0.0.1"
-port = 23456
 ```
 
 This configuration files passes the environment `VAR1=var1 VAR2=var2` and the arguments `--argument1 --argument2=foo` to the WASM application.
 
-Additionally, five file descriptors are pre-opened:
+Additionally, three file descriptors are pre-opened:
 - 0: `/dev/null`
 - 1: `/dev/stdout`
 - 2: `/dev/stderr`
-- 3: a TCP listen socket bound to port `12345` on address `::`, where every accepted connection is transparently wrapped with the TLS protocol 
-- 4: a normal TCP stream socket connected to `127.0.0.1:23456`
-
-Additionally, the following environment variables are exported:
-- `FD_COUNT=5`
-- `FD_NAMES=null:stdout:stderr:listen:connect`

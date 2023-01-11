@@ -5,11 +5,8 @@ Its main purpose is to read an `Enarx.toml` configuration file.
 extern crate toml;
 use enarx_config::Config;
 const CONFIG: &str = r#"
-[[files]]
-name = "LISTEN"
-kind = "listen"
+[network.incoming.12345]
 prot = "tls"
-port = 12345
 "#;
 
 let config: Config = toml::from_str(CONFIG).unwrap();

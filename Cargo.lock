@@ -1159,6 +1159,7 @@ dependencies = [
  "ff",
  "generic-array",
  "group",
+ "hkdf 0.12.3",
  "pem-rfc7468",
  "pkcs8",
  "rand_core 0.6.4",
@@ -1258,6 +1259,7 @@ dependencies = [
  "const-oid",
  "drawbridge-client",
  "enarx-config",
+ "futures",
  "getrandom 0.2.8",
  "io-extras 0.15.0",
  "io-lifetimes 0.7.5",
@@ -1280,6 +1282,11 @@ dependencies = [
  "url",
  "wasi-common",
  "wasmtime",
+ "wasmtime-vfs-dir",
+ "wasmtime-vfs-file",
+ "wasmtime-vfs-keyfs",
+ "wasmtime-vfs-ledger",
+ "wasmtime-vfs-memory",
  "wasmtime-wasi",
  "wat",
  "webpki-roots",
@@ -1811,6 +1818,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "hkdf"
+version = "0.12.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "791a029f6b9fc27657f6f188ec6e5e43f6911f6f878e0dc5501396e09809d437"
+dependencies = [
+ "hmac 0.12.1",
+]
+
+[[package]]
 name = "hmac"
 version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2077,6 +2093,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "49409df3e3bf0856b916e2ceaca09ee28e6871cf7d9ce97a692cacfdb2a25a47"
 dependencies = [
  "wasm-bindgen",
+]
+
+[[package]]
+name = "k256"
+version = "0.11.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "72c1e0b51e7ec0a97369623508396067a486bd0cbed95a2659a4b863d28cfc8b"
+dependencies = [
+ "cfg-if 1.0.0",
+ "ecdsa",
+ "elliptic-curve",
+ "sha2 0.10.6",
 ]
 
 [[package]]
@@ -2546,6 +2574,17 @@ name = "overload"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b15813163c1d831bf4a13c3610c05c0d03b39feb07f7e09fa234dac9b15aaf39"
+
+[[package]]
+name = "p256"
+version = "0.11.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "51f44edd08f51e2ade572f141051021c5af22677e42b7dd28a88155151c33594"
+dependencies = [
+ "ecdsa",
+ "elliptic-curve",
+ "sha2 0.10.6",
+]
 
 [[package]]
 name = "p384"
@@ -3184,7 +3223,7 @@ checksum = "e1da5c423b8783185fd3fecd1c8796c267d2c089d894ce5a93c280a5d3f780a2"
 dependencies = [
  "aes 0.7.5",
  "block-modes",
- "hkdf",
+ "hkdf 0.11.0",
  "lazy_static",
  "num",
  "rand 0.8.5",
@@ -3889,6 +3928,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "uuid"
+version = "1.2.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "422ee0de9031b5b948b97a8fc04e3aa35230001a722ddd27943e0be31564ce4c"
+dependencies = [
+ "getrandom 0.2.8",
+]
+
+[[package]]
 name = "valuable"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4242,6 +4290,72 @@ dependencies = [
  "serde",
  "thiserror",
  "wasmparser",
+]
+
+[[package]]
+name = "wasmtime-vfs-dir"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "79d4734b343981b7e28978d4f898cf33e594c4183e62db73b274937e13e148cc"
+dependencies = [
+ "async-trait",
+ "wasi-common",
+ "wasmtime-vfs-ledger",
+ "wasmtime-vfs-memory",
+]
+
+[[package]]
+name = "wasmtime-vfs-file"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "904a8b52085d2e356486a81ef8a7f0ab372b17eec0f31c98bd0a326eab6afa04"
+dependencies = [
+ "async-trait",
+ "wasi-common",
+ "wasmtime-vfs-ledger",
+ "wasmtime-vfs-memory",
+]
+
+[[package]]
+name = "wasmtime-vfs-keyfs"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4bebfe2c19846c278fd79b0b8b4ce78a87335a9060c863b89259fbe76311f747"
+dependencies = [
+ "async-trait",
+ "digest 0.10.6",
+ "ecdsa",
+ "k256",
+ "p256",
+ "p384",
+ "rand 0.8.5",
+ "rsa",
+ "sha2 0.10.6",
+ "signature",
+ "uuid",
+ "wasi-common",
+ "wasmtime-vfs-dir",
+ "wasmtime-vfs-file",
+ "wasmtime-vfs-ledger",
+ "wasmtime-vfs-memory",
+]
+
+[[package]]
+name = "wasmtime-vfs-ledger"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "24bc16977bed126c16d430468d8cf3de365ed4b9f4bddcc5173b539acf238910"
+
+[[package]]
+name = "wasmtime-vfs-memory"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8c2ea30423e782f6fed95775072ecdd4f3ffb1d71061be41904783c23c627359"
+dependencies = [
+ "async-trait",
+ "tokio",
+ "wasi-common",
+ "wasmtime-vfs-ledger",
 ]
 
 [[package]]
