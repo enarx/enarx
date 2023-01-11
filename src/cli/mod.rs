@@ -59,13 +59,20 @@ impl Options {
             .and_then(tracing_subscriber::filter::LevelFilter::into_level)
             .map(Into::into);
 
-        let target_filter = filter_fn(|meta| match meta.target() {
-            "enarx" | "enarx_exec_wasmtime" | "enarx_shim_kvm" | "enarx_shim_sgx" => true,
-            target if target.starts_with("enarx::") => true,
-            target if target.starts_with("enarx_exec_wasmtime::") => true,
-            target if target.starts_with("enarx_shim_kvm::") => true,
-            target if target.starts_with("enarx_shim_sgx::") => true,
-            _ => false,
+        let target_filter = filter_fn(|meta| {
+            let target = meta.target();
+            [
+                "enarx",
+                "enarx_exec_wasmtime",
+                "enarx_shim_kvm",
+                "enarx_shim_sgx",
+                #[cfg(feature = "dbg")]
+                "rustls",
+                #[cfg(feature = "dbg")]
+                "wasi_common",
+            ]
+            .into_iter()
+            .any(|name| target.eq(name) || target.starts_with(&format!("{name}::")))
         });
         let log_filter = env_filter.and(target_filter);
 

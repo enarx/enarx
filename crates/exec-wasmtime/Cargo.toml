@@ -9,6 +9,7 @@ license = "Apache-2.0"
 
 [features]
 bench = ["dep:tracing-flame"]
+dbg = ["rustls/logging"]
 
 [dependencies]
 anyhow = { workspace = true }
