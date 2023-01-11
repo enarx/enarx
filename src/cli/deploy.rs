@@ -125,10 +125,15 @@ impl Options {
                     let pkg = Package::Local {
                         wasm: wasm.into_raw_fd(),
                         conf: conf.map(|conf| conf.into_raw_fd()),
+                        args: None,
                     };
 
                     #[cfg(windows)]
-                    let pkg = Package::Local { wasm, conf };
+                    let pkg = Package::Local {
+                        wasm,
+                        conf,
+                        args: None,
+                    };
 
                     Ok(pkg)
                 };

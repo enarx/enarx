@@ -23,10 +23,6 @@ pub struct Options {
     #[clap(long, env = "ENARX_WASMCFGFILE")]
     pub wasmcfgfile: Option<Utf8PathBuf>,
 
-    /// Path of the WebAssembly module to run
-    #[clap(value_name = "MODULE")]
-    pub module: Utf8PathBuf,
-
     /// Start an unsigned Keep
     #[clap(long)]
     pub unsigned: bool,
@@ -39,6 +35,15 @@ pub struct Options {
     #[cfg(feature = "gdb")]
     #[clap(long, default_value = "localhost:23456")]
     pub gdblisten: String,
+
+    /// Path of the WebAssembly module to run
+    #[clap(value_name = "MODULE")]
+    pub module: Utf8PathBuf,
+
+    /// Arguments to pass to the WebAssembly module
+    /// (e.g. --arg=foo --arg=bar)
+    #[clap(value_name = "ARG")]
+    pub args: Option<Vec<String>>,
 }
 
 impl Options {
@@ -55,6 +60,7 @@ impl Options {
             signatures,
             #[cfg(feature = "gdb")]
             gdblisten,
+            args,
         } = self;
         let backend = backend.pick()?;
         let exec = EXECS
@@ -76,10 +82,11 @@ impl Options {
             let pkg = Package::Local {
                 wasm: wasm.into_raw_fd(),
                 conf: conf.map(|conf| conf.into_raw_fd()),
+                args,
             };
 
             #[cfg(windows)]
-            let pkg = Package::Local { wasm, conf };
+            let pkg = Package::Local { wasm, conf, args };
 
             Ok(pkg)
         };

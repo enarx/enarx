@@ -50,6 +50,8 @@ pub enum Package {
         wasm: std::os::unix::prelude::RawFd,
         /// Optional open config file descriptor
         conf: Option<std::os::unix::prelude::RawFd>,
+        /// Extra cmdline arguments
+        args: Option<Vec<String>>,
     },
 
     /// Local package
@@ -59,6 +61,8 @@ pub enum Package {
         wasm: File,
         /// Optional open config file
         conf: Option<File>,
+        /// Extra cmdline arguments
+        args: Option<Vec<String>>,
     },
 }
 
@@ -198,6 +202,7 @@ impl TryFrom<Package> for Workload {
             Package::Local {
                 ref mut wasm,
                 ref mut conf,
+                ref mut args,
             } => {
                 let mut webasm = Vec::new();
                 // SAFETY: This FD was passed to us by the host and we trust that we have exclusive
@@ -217,10 +222,21 @@ impl TryFrom<Package> for Workload {
                     let mut config = vec![];
                     conf.read_to_end(&mut config)
                         .context("failed to read config")?;
-                    let config = toml::from_slice(&config).context("failed to parse config")?;
+                    let mut config: Config =
+                        toml::from_slice(&config).context("failed to parse config")?;
+                    if let Some(args) = args {
+                        config.args.append(args);
+                    }
                     Some(config)
                 } else {
-                    None
+                    if let Some(args) = args {
+                        Some(Config {
+                            args: args.clone(),
+                            ..Default::default()
+                        })
+                    } else {
+                        None
+                    }
                 };
                 Ok(Workload { webasm, config })
             }
