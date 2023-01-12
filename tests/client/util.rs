@@ -132,7 +132,7 @@ pub async fn init_oidc() -> (String, Sender<()>, JoinHandle<()>) {
             .incoming()
             .take_until(oidc_rx)
             .for_each_concurrent(None, |stream| async {
-                async_h1::accept(
+                async_h1::server::Server::new(
                     stream.expect("failed to initialize stream"),
                     |req| async move {
                         fn json_response(
@@ -190,6 +190,7 @@ pub async fn init_oidc() -> (String, Sender<()>, JoinHandle<()>) {
                         }
                     },
                 )
+                .accept_one()
                 .await
                 .expect("failed to handle OIDC connection");
             })
