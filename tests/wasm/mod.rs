@@ -229,6 +229,19 @@ fn zerooneone() -> anyhow::Result<()> {
     let url = Url::from_file_path(&wasm).expect("failed to construct a URL from path");
     check_output(&enarx_deploy(&url, INPUT), 0, OUTPUT, None);
 
+    Ok(())
+}
+
+#[test]
+fn zerooneone_pkg() -> anyhow::Result<()> {
+    let wasm = wasm_path(env!("CARGO_BIN_FILE_ENARX_WASM_TESTS_zerooneone"));
+    const INPUT: &[u8] = br#"Good morning, that's a nice tnetennba.
+0118 999 881 999 119 725 3
+"#;
+    const OUTPUT: &[u8] = br#"Tbbq zbeavat, gung'f n avpr gargraaon.
+0118 999 881 999 119 725 3
+"#;
+
     const CONF: &str = r#"[[files]]
 kind = "stdin"
 
