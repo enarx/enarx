@@ -1,0 +1,10 @@
+name: Auto merge
+on:
+  pull_request_target
+
+jobs:
+  auto-merge:
+    permissions:
+      pull-requests: write
+      contents: write
+    uses: enarx/.github/.github/workflows/automerge.yml@main
