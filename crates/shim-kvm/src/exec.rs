@@ -85,9 +85,10 @@ fn map_elf(app_virt_start: VirtAddr) -> &'static Header {
         .iter()
         .filter(|ph| ph.p_type == PT_LOAD && ph.p_memsz > 0)
     {
-        let map_from = PhysAddr::new(code_start_phys.checked_add(ph.p_paddr).unwrap());
-
-        let map_to = app_virt_start + ph.p_vaddr;
+        let voff = ph.p_paddr % ph.p_align;
+        let map_from = PhysAddr::new(code_start_phys.checked_add(ph.p_paddr - voff).unwrap());
+        let voff = ph.p_vaddr % ph.p_align;
+        let map_to = app_virt_start + ph.p_vaddr - voff;
 
         let mut page_table_flags = PageTableFlags::PRESENT | PageTableFlags::USER_ACCESSIBLE;
         if (ph.p_flags & PF_X) == 0 {
@@ -97,14 +98,14 @@ fn map_elf(app_virt_start: VirtAddr) -> &'static Header {
             page_table_flags |= PageTableFlags::WRITABLE
         };
 
-        debug_assert_eq!(ph.p_align, Page::<Size4KiB>::SIZE);
+        debug_assert_eq!(ph.p_align % Page::<Size4KiB>::SIZE, 0);
 
         ALLOCATOR
             .lock()
             .map_memory(
                 map_from,
                 map_to,
-                ph.p_memsz as _,
+                (ph.p_memsz + voff) as _,
                 page_table_flags,
                 PageTableFlags::PRESENT
                     | PageTableFlags::USER_ACCESSIBLE
