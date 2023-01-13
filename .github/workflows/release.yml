@@ -351,7 +351,7 @@ jobs:
     - uses: actions/download-artifact@v3
       with:
         name: "enarx-${{ steps.version.outputs.version }}-1.aarch64.rpm"
-    - uses: softprops/action-gh-release@v1
+    - uses: softprops/action-gh-release@v0.1.13
       with:
         draft: true
         prerelease: true
