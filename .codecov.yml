@@ -20,6 +20,10 @@ coverage:
         paths: [ "crates/sallyport" ]
         target: auto  # auto compares coverage to the previous base commit
         threshold: 0.05%  # the leniency in hitting the target
+      shared:
+        paths: [ "crates/shared" ]
+        target: auto  # auto compares coverage to the previous base commit
+        threshold: 0.05%  # the leniency in hitting the target
       exec-wasmtime:
         paths: [ "crates/exec-wasmtime" ]
         target: auto  # auto compares coverage to the previous base commit
@@ -42,6 +46,10 @@ coverage:
         target: 0
       sallyport:
         paths: [ "crates/sallyport" ]
+        target: auto  # auto compares coverage to the previous base commit
+        threshold: 0.05%  # the leniency in hitting the target
+      shared:
+        paths: [ "crates/shared" ]
         target: auto  # auto compares coverage to the previous base commit
         threshold: 0.05%  # the leniency in hitting the target
       exec-wasmtime:

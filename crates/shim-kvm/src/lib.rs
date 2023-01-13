@@ -15,10 +15,9 @@
 #![warn(rust_2018_idioms)]
 #![cfg_attr(coverage, feature(no_coverage))]
 
-use crate::snp::cpuid_page::CpuidPage;
-
 use goblin::elf::header::header64::Header;
 use primordial::Page as Page4KiB;
+use shared::no_std::cpuid_page::CpuidPage;
 
 #[macro_use]
 pub mod print;

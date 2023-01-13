@@ -71,6 +71,7 @@ primordial = { workspace = true, features = ["alloc"] }
 protobuf = { workspace = true }
 rand = { workspace = true }
 sallyport = { workspace = true }
+shared = { workspace = true }
 semver = { workspace = true }
 sgx = { workspace = true, features = ["rcrypto"] }
 static_assertions = { workspace = true }
@@ -130,6 +131,9 @@ overflow-checks = true
 overflow-checks = true
 
 [profile.release.package.sallyport]
+overflow-checks = true
+
+[profile.release.package.shared]
 overflow-checks = true
 
 [workspace]
@@ -192,6 +196,7 @@ rsa = { version = "0.7.2", default-features = false }
 rustls = { version = "0.20.6", default-features = false }
 rustls-pemfile = { version = "1.0.0", default-features = false }
 sallyport = { version = "0.7.0", path = "crates/sallyport", default-features = false }
+shared = { version = "0.7.0", path = "crates/shared", default-features = false }
 sec1 = { version = "0.3.0-pre.1", features = ["der"], default-features = false }
 semver = { version = "1.0.0", default-features = false }
 serde = { version = "1.0.136", features = ["derive"], default-features = false }
