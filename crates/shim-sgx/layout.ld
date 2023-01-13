@@ -69,7 +69,7 @@ SECTIONS {
     .enarx.ssa (NOLOAD) : { . += 4K * 4; } :ssa =0
 
     /* EXEC */
-    . = ALIGN(1M);
+    . = ALIGN(2M);
     HIDDEN(ENARX_EXEC_START = .);
     .enarx.exec (NOLOAD) : { . = ALIGN(128M); } :exec =0
     . = ALIGN(4K);

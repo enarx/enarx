@@ -3,6 +3,7 @@
 use super::Config;
 
 use std::convert::TryInto;
+use std::fmt::Formatter;
 
 use anyhow::{anyhow, Error, Result};
 use goblin::elf::{header::*, note::NoteIterator, program_header::*, Elf};
@@ -11,13 +12,24 @@ use primordial::Page;
 
 use crate::backend::Signatures;
 use std::ops::Range;
+use tracing::{trace, trace_span};
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 struct Segment<'a> {
     bytes: &'a [u8],
     range: Range<usize>,
     skipb: usize,
     flags: u32,
+}
+
+impl std::fmt::Debug for Segment<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Segment")
+            .field("range", &format!("{:x?}", &self.range))
+            .field("skipb", &self.skipb)
+            .field("flags", &self.flags)
+            .finish()
+    }
 }
 
 pub struct Binary<'a>(&'a [u8], Elf<'a>);
@@ -68,17 +80,20 @@ impl<'a> Binary<'a> {
 
         self.headers(PT_LOAD).map(move |phdr| {
             let range = phdr.vm_range();
+            let align = phdr.p_align as usize;
             let range = range.start + relocate..range.end + relocate + Page::SIZE - 1;
 
-            Segment {
+            let segment = Segment {
                 bytes: &self.0[phdr.file_range()],
-                skipb: phdr.p_vaddr as usize % Page::SIZE,
+                skipb: range.start % align,
                 flags: phdr.p_flags,
                 range: Range {
-                    start: range.start / Page::SIZE * Page::SIZE,
+                    start: range.start / align * align,
                     end: range.end / Page::SIZE * Page::SIZE,
                 },
-            }
+            };
+            trace!(?phdr, ?relocate, ?segment);
+            segment
         })
     }
 
@@ -175,8 +190,11 @@ impl<T: Mapper> Loader for T {
         let mut loader: Self = Self::Config::new(&sbin, &ebin, signatures)?.try_into()?;
 
         // Get an array of all final segment locations (relocated).
-        let ssegs: Vec<Segment<'_>> = sbin.segments(0).collect();
-        let esegs: Vec<Segment<'_>> = ebin.segments(slot.start).collect();
+        let ssegs: Vec<Segment<'_>> =
+            trace_span!("shim segments").in_scope(|| sbin.segments(0).collect());
+
+        let esegs: Vec<Segment<'_>> =
+            trace_span!("exec segments").in_scope(|| ebin.segments(slot.start).collect());
 
         // Ensure no segments overlap in memory.
         let mut sorted: Vec<_> = ssegs.iter().chain(esegs.iter()).collect();
