@@ -2304,8 +2304,9 @@ dependencies = [
 
 [[package]]
 name = "mmledger"
-version = "0.3.0"
-source = "git+https://github.com/enarx/mmledger?rev=79bbef3ef90dc33bfd8a188ea4bc79db57fe91a0#79bbef3ef90dc33bfd8a188ea4bc79db57fe91a0"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ddebf36d94d93773f02ce68b188d843a27257f27ab058dcf5df5f0e99678b7ef"
 dependencies = [
  "bitflags",
  "const-default",
@@ -2889,8 +2890,9 @@ dependencies = [
 
 [[package]]
 name = "rcrt1"
-version = "2.4.0"
-source = "git+https://github.com/enarx/rcrt1?rev=54c556fc611754521ba8825033dc8e0574d81be9#54c556fc611754521ba8825033dc8e0574d81be9"
+version = "2.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8e46f4a2bd7970c8f08bca33089d6e243a5ebcc8e4c53162e754fe57983e9421"
 dependencies = [
  "goblin",
  "libc",
@@ -3906,8 +3908,9 @@ dependencies = [
 
 [[package]]
 name = "vdso"
-version = "0.2.2-alpha.1"
-source = "git+https://github.com/enarx/vdso?rev=b999f885a9910fe626c1f06a1814840b0dcf1369#b999f885a9910fe626c1f06a1814840b0dcf1369"
+version = "0.2.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f1109f2da2d9fc28c7ed467585bd188a76a21ec01d567da477579c903a693271"
 dependencies = [
  "crt0stack",
  "goblin",
