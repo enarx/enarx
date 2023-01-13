@@ -171,7 +171,7 @@ libc = { version = "0.2.137", default-features = false }
 linked_list_allocator = { version = "0.10.1", default-features = false }
 lset = { version = "0.3.0", default-features = false }
 mmarinus = { version = "0.4.0", default-features = false }
-mmledger = { git = "https://github.com/enarx/mmledger", rev="79bbef3ef90dc33bfd8a188ea4bc79db57fe91a0", default-features = false }
+mmledger = { version = "0.4.0", default-features = false }
 nbytes = { version = "0.1.0", default-features = false }
 noted = { version = "1.0.0", default-features = false }
 numtoa = { version = "0.2.4", default-features = false }
@@ -186,7 +186,7 @@ process_control = { version = "4.0.1", default-features = false }
 protobuf = { version = "2.22.0", default-features = false }
 protobuf-codegen-pure = { version = "2.27.0", default-features = false }
 rand = { version = "0.8.0", features = ["std", "std_rng"], default-features = false }
-rcrt1 = { git = "https://github.com/enarx/rcrt1", rev = "54c556fc611754521ba8825033dc8e0574d81be9", default-features = false }
+rcrt1 = { version = "2.5.0", default-features = false }
 ring = { version = "0.16.20", features = ["std"], default-features = false }
 rsa = { version = "0.7.2", default-features = false }
 rustls = { version = "0.20.6", default-features = false }
@@ -210,7 +210,7 @@ tracing-flame = { version = "0.2.0", default-features = false }
 tracing-subscriber = { version = "0.3.15", features = ["env-filter", "fmt"], default-features = false }
 ureq = { version = "2.4.0", default-features = false }
 url = { version = "2.2.2", default-features = false }
-vdso = { git = "https://github.com/enarx/vdso", rev = "b999f885a9910fe626c1f06a1814840b0dcf1369", default-features = false }
+vdso = { version = "0.2.2", default-features = false }
 wat = { version = "1.0.0", default-features = false }
 webpki-roots = { version = "0.22.2", default-features = false }
 x509-cert = { version = "0.1.0", features = ["std"], default-features = false }
