@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use super::cpuid_page::CpuidPage;
 use super::snp::firmware::Firmware;
 use super::snp::launch::*;
 
@@ -14,12 +13,14 @@ use std::convert::TryFrom;
 use std::sync::{Arc, RwLock};
 use std::{thread, time};
 
+use crate::backend::sev::cpuid_page::import_from_kvm;
 use anyhow::{anyhow, Context, Error};
 use kvm_ioctls::Kvm;
 use mmarinus::{perms, Map};
 use primordial::Page;
 use rand::{thread_rng, Rng};
 use sallyport::elf::pf::snp::{CPUID, SECRETS};
+use shared::std::cpuid_page::CpuidPage;
 use x86_64::VirtAddr;
 
 const SEV_RETRIES: usize = 3;
@@ -126,8 +127,7 @@ impl super::super::Mapper for Builder {
         if with & CPUID != 0 {
             assert_eq!(pages.len(), Page::SIZE);
             let mut cpuid_page = CpuidPage::default();
-            cpuid_page
-                .import_from_kvm(&mut self.kvm_fd)
+            import_from_kvm(&mut cpuid_page, &mut self.kvm_fd)
                 .context("Failed to create CPUID page")?;
 
             let guest_cpuid_page = pages.as_mut_ptr() as *mut CpuidPage;

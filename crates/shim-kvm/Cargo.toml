@@ -27,6 +27,7 @@ paste = { workspace = true }
 primordial = { workspace = true }
 rcrt1 = { workspace = true }
 sallyport = { workspace = true }
+shared = { workspace = true }
 spin = { workspace = true }
 x86_64 = { workspace = true, features = ["inline_asm", "instructions"] }
 xsave = { workspace = true }
