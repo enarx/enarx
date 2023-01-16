@@ -254,15 +254,16 @@ jobs:
         sudo chown root:root dpkg/usr/lib/enarx/enarx.sig
     - run: |
         dpkg-deb --build dpkg
+        mv dpkg.deb enarx_${{ steps.version.outputs.version }}-1_${{ matrix.architecture.debarch }}.deb
     # Test the just-built deb
     - if: ${{ matrix.architecture.build == 'x86_64' }}
       run: |
-        sudo dpkg -i dpkg.deb
+        sudo dpkg -i enarx_${{ steps.version.outputs.version }}-1_${{ matrix.architecture.debarch }}.deb
         /usr/bin/enarx --version
     - uses: actions/upload-artifact@v3
       with:
         name: "enarx_${{ steps.version.outputs.version }}-1_${{ matrix.architecture.debarch }}.deb"
-        path: dpkg.deb
+        path: "enarx_${{ steps.version.outputs.version }}-1_${{ matrix.architecture.debarch }}.deb"
         if-no-files-found: error
 
   push_oci:
