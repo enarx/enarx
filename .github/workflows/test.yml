@@ -19,16 +19,11 @@ jobs:
 
       - name: Install rustup
         run: curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain nightly-2023-01-02 -y
-      - uses: actions-rs/toolchain@v1
+      - uses: dtolnay/rust-toolchain@master
         with:
           target: x86_64-unknown-linux-gnu
           toolchain: nightly-2023-01-02
-          profile: minimal
-
-      - uses: actions-rs/cargo@v1
-        with:
-          command: test
-          args: ${{ matrix.profile.flag }}
+      - run: cargo test ${{ matrix.profile.flag }}
     strategy:
       fail-fast: false
       matrix:
@@ -54,10 +49,7 @@ jobs:
       - uses: actions/checkout@v3
       - name: Setup Rust toolchain
         run: rustup show
-      - uses: actions-rs/cargo@v1
-        with:
-          command: build
-          args: ${{ matrix.profile.flag }}
+      - run: cargo build ${{ matrix.profile.flag }}
     strategy:
       fail-fast: false
       matrix:
@@ -75,10 +67,7 @@ jobs:
       - uses: actions/checkout@v3
       - name: Setup Rust toolchain
         run: rustup show
-      - uses: actions-rs/cargo@v1
-        with:
-          command: test
-          args: --workspace
+      - run: cargo test --workspace
 
   windows:
     name: enarx Windows
@@ -87,10 +76,7 @@ jobs:
       - uses: actions/checkout@v3
       - name: Setup Rust toolchain
         run: rustup show
-      - uses: actions-rs/cargo@v1
-        with:
-          command: test
-          args: --workspace
+      - run: cargo test --workspace
 
   bindeps:
     name: ${{ matrix.crate.name }} nightly ${{ matrix.profile.name }}
@@ -119,18 +105,12 @@ jobs:
       - uses: actions/checkout@v3
       - name: Setup Rust toolchain
         run: rustup show
-      - uses: actions-rs/cargo@v1
-        name: cargo miri setup
-        with:
-          command: miri
-          args: setup --manifest-path ${{ matrix.crate.path }}/Cargo.toml
-      - uses: actions-rs/cargo@v1
-        name: cargo miri test
+      - name: cargo miri setup
+        run: cargo miri setup --manifest-path ${{ matrix.crate.path }}/Cargo.toml
+      - name: cargo miri test
         env:
           MIRIFLAGS: "-Zmiri-disable-isolation"
-        with:
-          command: miri
-          args: test --manifest-path ${{ matrix.crate.path }}/Cargo.toml
+        run: cargo miri test --manifest-path ${{ matrix.crate.path }}/Cargo.toml
     strategy:
       fail-fast: false
       matrix:

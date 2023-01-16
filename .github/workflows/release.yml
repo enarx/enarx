@@ -79,15 +79,9 @@ jobs:
       - uses: actions/checkout@v3
       - name: Setup Rust toolchain
         run: rustup show
-      - uses: actions-rs/cargo@v1
-        with:
-          command: build
-          args: --release
+      - run: cargo build --release
       - name: Add cargo-wix subcommand
-        uses: actions-rs/cargo@v1
-        with:
-          command: install
-          args: cargo-wix --version 0.3.3
+        run: cargo install cargo-wix --version 0.3.3
       - name: Create output directory
         run: mkdir output
       - name: Copy files to output
@@ -96,10 +90,7 @@ jobs:
           cp LICENSE output\
           cp README.md output\
       - name: Create msi with wix
-        uses: actions-rs/cargo@v1
-        with:
-          command: wix
-          args: --no-build -p enarx --nocapture -I release\windows\main.wxs --output target\wix\enarx-x86_64-windows.msi
+        run: cargo wix --no-build -p enarx --nocapture -I release\windows\main.wxs --output target\wix\enarx-x86_64-windows.msi
       - name: Rename artifact
         run: copy target\release\enarx.exe target\release\enarx-x86_64-windows.exe
       - uses: actions/upload-artifact@v3

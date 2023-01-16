@@ -47,11 +47,10 @@ jobs:
 
       - name: Install rustup
         run: curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain nightly-2023-01-02 -y
-      - uses: actions-rs/toolchain@v1
+      - uses: dtolnay/rust-toolchain@master
         with:
           target: x86_64-unknown-linux-gnu
           toolchain: nightly-2023-01-02
-          profile: minimal
           components: llvm-tools-preview
 
       - name: Install cargo-llvm-cov
