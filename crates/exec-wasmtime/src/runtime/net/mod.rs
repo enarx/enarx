@@ -54,6 +54,8 @@ pub fn listen_file(
     };
     let tcp = std::net::TcpListener::bind((addr.as_str(), *port))?;
     let tcp = TcpListener::from_std(tcp);
+    tcp.set_nonblocking(true)
+        .context("Error setting channel to nonblocking")?;
     let file = match file {
         ListenFile::Tcp { .. } => wasmtime_wasi::net::Socket::from(tcp).into(),
         ListenFile::Tls { .. } => {
