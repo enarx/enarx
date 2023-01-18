@@ -20,10 +20,6 @@ pub struct Options {
     #[clap(flatten)]
     pub backend: BackendOptions,
 
-    /// Shim to load and run
-    #[clap(long, value_name = "SHIM")]
-    pub shim: Option<Utf8PathBuf>,
-
     /// Binary to load and run inside the keep
     #[clap(value_name = "BINARY")]
     pub binpath: Utf8PathBuf,
@@ -49,7 +45,6 @@ impl Options {
 
         let Self {
             backend,
-            shim,
             binpath,
             unsigned,
             signatures,
@@ -62,11 +57,6 @@ impl Options {
 
         let backend = backend.pick()?;
         let binary = Map::load(binpath, Private, perms::Read)?;
-        let shim = if let Some(shim) = shim {
-            Some(Map::load(shim, Private, perms::Read)?)
-        } else {
-            None
-        };
 
         let signatures = if unsigned {
             None
@@ -80,12 +70,6 @@ impl Options {
         #[cfg(feature = "gdb")]
         let gdblisten = Some(gdblisten);
 
-        keep_exec(
-            backend,
-            shim.as_ref().map(|t| t.as_ref()).unwrap_or(backend.shim()),
-            binary,
-            signatures,
-            gdblisten,
-        )
+        keep_exec(backend, backend.shim(), binary, signatures, gdblisten)
     }
 }

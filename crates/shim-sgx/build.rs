@@ -9,6 +9,7 @@ fn main() {
             var("CARGO_MANIFEST_DIR").unwrap()
         );
         println!("cargo:rustc-link-arg-bin=enarx-shim-sgx=-Wl,--sort-section=alignment");
+        println!("cargo:rustc-link-arg-bin=enarx-shim-sgx=-Wl,-z,max-page-size=4096");
         println!("cargo:rustc-link-arg-bin=enarx-shim-sgx=-nostartfiles");
     }
 }
