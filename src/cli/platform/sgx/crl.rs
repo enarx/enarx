@@ -28,19 +28,25 @@ pub struct CrlCache {}
 impl CrlCache {
     pub fn execute(self) -> anyhow::Result<ExitCode> {
         let mut dest_file = sgx_cache_dir()?;
+        let mut crl_temp = dest_file.clone();
         dest_file.push("crls.der");
+        crl_temp.push("crls.der.tmp");
 
         let crls = fetch_crl_list([CERT_CRL.into(), PROCESSOR_CRL.into(), PLATFORM_CRL.into()])?;
         OpenOptions::new()
             .create(true)
             .write(true)
             .truncate(true)
-            .open(&dest_file)
+            .open(&crl_temp)
             .context(format!(
-                "opening destination file {dest_file:?} for saving Intel CRLs"
+                "opening destination file {crl_temp:?} for saving Intel CRLs"
             ))?
             .write_all(&crls)
-            .context(format!("writing Intel CRLs to file {dest_file:?}"))?;
+            .context(format!("writing Intel CRLs to file {crl_temp:?}"))?;
+
+        std::fs::rename(&crl_temp, &dest_file).context(format!(
+            "Failed to move temporary CRL file {crl_temp:?} to final path {dest_file:?}"
+        ))?;
 
         Ok(ExitCode::SUCCESS)
     }
