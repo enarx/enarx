@@ -22,6 +22,8 @@ mod parking;
 
 #[cfg(enarx_with_shim)]
 use binary::{Binary, Loader, Mapper};
+use serde_json::json;
+use serde_json::Value;
 
 use std::fs::File;
 use std::io::Read;
@@ -183,15 +185,119 @@ pub trait Backend: Sync + Send {
 }
 
 impl Serialize for dyn Backend {
+    //What I need  to do now is create a vector if that data type already exists.
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         let mut backend = serializer.serialize_struct("Backend", 2)?;
         backend.serialize_field("backend", self.name())?;
-        backend.serialize_field("data", &self.data())?;
+        //Make changes to this part here and your job will be done.
+        let data = self.data();
+        let mut ser = Vec::<serde_json::Value>::new();
+
+        for datum in data {
+            //If there is a space at the beginning then recurse till the innermost map and at it
+            //there.
+            let name = datum.name;
+            let pass = datum.pass;
+
+            let info = match &datum.info {
+                Some(res) => res,
+                None => "null",
+            };
+
+            let mesg = match &datum.mesg {
+                Some(res) => res,
+                None => "null",
+            };
+
+            //Count the number of whitespaces.
+            fn count_white_spaces(str: &str) -> i32 {
+                let mut white_spaces: i32 = 0;
+                for ch in str.to_string().chars() {
+                    if ch.is_whitespace() {
+                        white_spaces += 1;
+                    } else {
+                        break;
+                    }
+                }
+                white_spaces
+            }
+
+            let white_spaces = count_white_spaces(&name);
+            // println!("{name}: {white_spaces}");
+
+            let map = json!({
+                "name": name.trim(),
+                "pass": pass,
+                "info": info,
+                "mesg": mesg,
+            });
+
+            if white_spaces != 0 {
+                //find the number of white spaces and then recurse accordingly.
+                //That task is remaining now to be performed.
+                fn rec_insert(mut val: &mut Value, map: Value, mut counter: i32) {
+                    // println!("AT THE TOP\n {val} {counter} {map} \n");
+                    counter -= 1;
+                    if counter != 0 {
+                        val = val.get_mut("data").unwrap();
+                        return rec_insert(val, map.clone(), counter);
+                    }
+
+                    let is_object = val.is_object();
+
+                    if is_object {
+                        let last_object = val.as_object_mut().unwrap();
+                        if last_object.contains_key("data") {
+                            last_object
+                                .get_mut("data")
+                                .unwrap()
+                                .as_array_mut()
+                                .unwrap()
+                                .push(map);
+                        } else {
+                            let mut vec = Vec::<Value>::new();
+                            vec.push(map);
+                            last_object.insert("data".into(), vec.into());
+                        }
+                    } else {
+                        // println!("{val} {counter} {map} \n");
+                        let last_object = val.as_array_mut().unwrap();
+                        if last_object.is_empty() {
+                            last_object.push(map);
+                        } else {
+                            let prop = last_object.last_mut().unwrap().as_object_mut().unwrap();
+                            // println!("Map: {map} Prop : {:?}", prop);
+                            // let mut vec = Vec::<Value>::new();
+                            // vec.push(map);
+                            // prop.insert("data".into(), vec.into());
+                            if prop.contains_key("data") {
+                                prop.get_mut("data")
+                                    .unwrap()
+                                    .as_array_mut()
+                                    .unwrap()
+                                    .push(map);
+                            } else {
+                                let mut vec = Vec::<Value>::new();
+                                vec.push(map);
+                                prop.insert("data".into(), vec.into());
+                            }
+                        }
+                    }
+                }
+
+                rec_insert(ser.last_mut().unwrap(), map, white_spaces);
+            } else {
+                ser.push(map);
+            }
+        }
+
+        //Generate a nested map here
+        backend.serialize_field("data", &ser)?;
         backend.end()
     }
 }
 
-#[derive(serde::Serialize)]
+#[derive(serde::Serialize, Debug)]
 pub struct Datum {
     /// The name of this datum.
     pub name: String,

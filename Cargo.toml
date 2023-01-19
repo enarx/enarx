@@ -200,7 +200,7 @@ shared = { version = "0.7.0", path = "crates/shared", default-features = false }
 sec1 = { version = "0.3.0-pre.1", features = ["der"], default-features = false }
 semver = { version = "1.0.0", default-features = false }
 serde = { version = "1.0.136", features = ["derive"], default-features = false }
-serde_json = { version = "1.0.79", features = ["std"], default-features = false }
+serde_json = { version = "1.0.79", features = ["std", "preserve_order"], default-features = false }
 serial_test = { version = "0.10.0", default-features = false }
 sgx = { version = "0.6.0", default-features = false }
 sha2 = { version = "0.10.2", default-features = false }
