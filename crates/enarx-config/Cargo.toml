@@ -1,6 +1,6 @@
 [package]
 name = "enarx-config"
-version = "0.7.0"
+version = "0.7.1"
 edition = "2021"
 description = "Configuration for a WASI application in an Enarx Keep"
 authors = ["The Enarx Project Developers"]

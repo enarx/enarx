@@ -47,7 +47,7 @@ There are two ways to install Enarx on macOS, either downloading the binary or u
 
 To download and install the macOS binary, enter in the macOS terminal the following commands:
 
-`curl -L https://github.com/enarx/enarx/releases/download/v0.7.0/enarx-universal-darwin --output enarx`
+`curl -L https://github.com/enarx/enarx/releases/download/v0.7.1/enarx-universal-darwin --output enarx`
 
 `sudo install -m 755 enarx /usr/local/bin/enarx`
 
@@ -86,15 +86,15 @@ There are a few ways to install Enarx on Linux, either downloading the binary di
 
 To install the RPM package on Fedora, CentOS, or RHEL, you can use the following command:
 ```sh
-sudo yum install -y --nogpgcheck https://github.com/enarx/enarx/releases/download/v0.7.0/enarx-0.7.0-1.x86_64.rpm
+sudo yum install -y --nogpgcheck https://github.com/enarx/enarx/releases/download/v0.7.1/enarx-0.7.1-1.x86_64.rpm
 ```
 
 # DPKG Installation
 
 To install the DPKG package on Ubuntu or Debian systems, you can use the following command:
 ```sh
-wget https://github.com/enarx/enarx/releases/download/v0.7.0/enarx-0.7.0-1_amd64.deb
-sudo dpkg -i enarx-0.7.0-1_amd64.deb
+wget https://github.com/enarx/enarx/releases/download/v0.7.1/enarx-0.7.1-1_amd64.deb
+sudo dpkg -i enarx-0.7.1-1_amd64.deb
 ```
 
 # Binary Installation
@@ -102,7 +102,7 @@ To install Enarx on Linux, you can download the Enarx binary. For `X86_64` archi
 
 Download the appropriate Enarx binary (in the case below, we are downloading for `X86_64`):
 
-`wget https://github.com/enarx/enarx/releases/download/v0.7.0/enarx-x86_64-unknown-linux-musl`
+`wget https://github.com/enarx/enarx/releases/download/v0.7.1/enarx-x86_64-unknown-linux-musl`
 
 ![linux wget](/img/install/linux_wget.png)
 
@@ -118,7 +118,7 @@ Now type the following to install Enarx:
 
 If you are on the `X86_64` host, it is recommended to also install the signature file:
 ```sh
-wget https://github.com/enarx/enarx/releases/download/v0.7.0/enarx-x86_64-unknown-linux-musl.sig
+wget https://github.com/enarx/enarx/releases/download/v0.7.1/enarx-x86_64-unknown-linux-musl.sig
 sudo install -D -m 444 -o root -g root enarx-x86_64-unknown-linux-musl.sig /usr/lib/enarx/enarx.sig
 ```
 
