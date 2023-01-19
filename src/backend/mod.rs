@@ -22,6 +22,8 @@ mod parking;
 
 #[cfg(enarx_with_shim)]
 use binary::{Binary, Loader, Mapper};
+use serde_json::json;
+use serde_json::Value;
 
 use std::fs::File;
 use std::io::Read;
@@ -184,14 +186,62 @@ pub trait Backend: Sync + Send {
 
 impl Serialize for dyn Backend {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        fn leading_white_spaces(str: &str) -> usize {
+            str.chars().take_while(|c| c.is_whitespace()).count()
+        }
+
+        fn rec_insert(mut val: &mut Value, datum_json: Value, counter: usize) {
+            //each unwrap will never fail
+            if counter != 1 {
+                val = val
+                    .get_mut("data")
+                    .unwrap()
+                    .as_array_mut()
+                    .unwrap()
+                    .last_mut()
+                    .unwrap();
+                rec_insert(val, datum_json, counter - 1);
+            } else {
+                val.get_mut("data")
+                    .unwrap()
+                    .as_array_mut()
+                    .unwrap()
+                    .push(datum_json);
+            }
+        }
+
+        //Logic
+        let data = self.data();
+        let mut ser = Vec::<Value>::new();
+
+        for datum in data {
+            //Count the number of whitespaces.
+            let white_spaces = leading_white_spaces(&datum.name);
+
+            let datum_json = json!({
+                "name": &datum.name.trim(),
+                "pass": &datum.pass,
+                "info": &datum.info.unwrap_or("null".into()),
+                "mesg": &datum.mesg.unwrap_or("null".into()),
+                "data": [],
+            });
+
+            if white_spaces != 0 {
+                //This unwrap will never fail
+                rec_insert(ser.last_mut().unwrap(), datum_json, white_spaces);
+            } else {
+                ser.push(datum_json);
+            }
+        }
+
         let mut backend = serializer.serialize_struct("Backend", 2)?;
         backend.serialize_field("backend", self.name())?;
-        backend.serialize_field("data", &self.data())?;
+        backend.serialize_field("data", &ser)?;
         backend.end()
     }
 }
 
-#[derive(serde::Serialize)]
+#[derive(serde::Serialize, Debug)]
 pub struct Datum {
     /// The name of this datum.
     pub name: String,
