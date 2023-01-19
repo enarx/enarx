@@ -1,6 +1,6 @@
 [package]
 name = "enarx-shim-kvm"
-version = "0.7.0"
+version = "0.7.1"
 edition = "2021"
 description = "Enarx KVM shim"
 authors = ["The Enarx Project Developers"]

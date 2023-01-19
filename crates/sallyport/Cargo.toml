@@ -1,6 +1,6 @@
 [package]
 name = "sallyport"
-version = "0.7.0"
+version = "0.7.1"
 edition = "2021"
 description = "API for the Enarx hypervisor-microkernel boundary"
 authors = ["The Enarx Project Developers"]

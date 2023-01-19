@@ -1169,7 +1169,7 @@ dependencies = [
 
 [[package]]
 name = "enarx"
-version = "0.7.0"
+version = "0.7.1"
 dependencies = [
  "anyhow",
  "async-h1",
@@ -1243,7 +1243,7 @@ dependencies = [
 
 [[package]]
 name = "enarx-config"
-version = "0.7.0"
+version = "0.7.1"
 dependencies = [
  "serde",
  "toml",
@@ -1252,7 +1252,7 @@ dependencies = [
 
 [[package]]
 name = "enarx-exec-wasmtime"
-version = "0.7.0"
+version = "0.7.1"
 dependencies = [
  "anyhow",
  "cap-std",
@@ -1291,7 +1291,7 @@ dependencies = [
 
 [[package]]
 name = "enarx-shim-kvm"
-version = "0.7.0"
+version = "0.7.1"
 dependencies = [
  "aes-gcm",
  "array-const-fn-init",
@@ -1318,7 +1318,7 @@ dependencies = [
 
 [[package]]
 name = "enarx-shim-sgx"
-version = "0.7.0"
+version = "0.7.1"
 dependencies = [
  "bitflags",
  "const-default",
@@ -3099,7 +3099,7 @@ checksum = "7b4b9743ed687d4b4bcedf9ff5eaa7398495ae14e61cba0a295704edbc7decde"
 
 [[package]]
 name = "sallyport"
-version = "0.7.0"
+version = "0.7.1"
 dependencies = [
  "bitflags",
  "gdbstub",
@@ -3401,7 +3401,7 @@ dependencies = [
 
 [[package]]
 name = "shared"
-version = "0.7.0"
+version = "0.7.1"
 dependencies = [
  "const-default",
 ]
