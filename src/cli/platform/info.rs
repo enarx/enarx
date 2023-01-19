@@ -1,17 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
-
 use crate::backend::{Backend, BACKENDS};
-
-use std::fmt::{self, Formatter};
-use std::ops::Deref;
-use std::process::ExitCode;
-
 use clap::Args;
 #[cfg(unix)]
 use libc::{uname, utsname};
 use serde::Serialize;
-
+use std::fmt::{self, Formatter};
+use std::ops::Deref;
+use std::process::ExitCode;
 /// Show details about backend support on this system
+
 #[derive(Args, Debug)]
 pub struct Options {
     #[clap(short, long)]
@@ -133,8 +130,166 @@ impl fmt::Display for Info<'_> {
     }
 }
 
-#[test]
-fn test_info() {
-    Options { json: true }.execute().unwrap();
-    Options { json: false }.execute().unwrap();
+#[cfg(test)]
+mod test {
+    use super::Options;
+    use crate::backend::{Backend, Datum, Keep, Signatures};
+    use anyhow::bail;
+    use once_cell::sync::Lazy;
+    use serde_json::json;
+    use std::{ops::Deref, sync::Arc};
+
+    #[test]
+    fn test_info() {
+        Options { json: true }.execute().unwrap();
+        Options { json: false }.execute().unwrap();
+    }
+
+    #[test]
+    fn test_info_json() {
+        pub struct Dummy;
+
+        impl crate::backend::Backend for Dummy {
+            #[inline]
+            fn name(&self) -> &'static str {
+                "dummy"
+            }
+
+            #[inline]
+            fn shim(&self) -> &'static [u8] {
+                &[]
+            }
+
+            fn data(&self) -> Vec<Datum> {
+                //Here I will do all the main work.
+                vec![
+                    Datum {
+                        name: "Driver".into(),
+                        pass: true,
+                        info: Some("/dev/dummy".into()),
+                        mesg: None,
+                    },
+                    Datum {
+                        name: " Dummy Driver".into(),
+                        pass: false,
+                        info: Some("driver".into()),
+                        mesg: None,
+                    },
+                    Datum {
+                        name: " Dummy Backend".into(),
+                        pass: false,
+                        info: None,
+                        mesg: None,
+                    },
+                    Datum {
+                        name: "  Dummy Backend".into(),
+                        pass: false,
+                        info: None,
+                        mesg: None,
+                    },
+                    Datum {
+                        name: "   Dummy Backend".into(),
+                        pass: false,
+                        info: None,
+                        mesg: None,
+                    },
+                    Datum {
+                        name: "Dummy Backend".into(),
+                        pass: false,
+                        info: None,
+                        mesg: None,
+                    },
+                    Datum {
+                        name: "Dummy Backend".into(),
+                        pass: false,
+                        info: None,
+                        mesg: None,
+                    },
+                ]
+            }
+
+            fn config(&self) -> Vec<Datum> {
+                vec![]
+            }
+
+            fn keep(
+                &self,
+                _: &[u8],
+                _: &[u8],
+                _: Option<Signatures>,
+            ) -> anyhow::Result<Arc<dyn Keep>> {
+                bail!("This is a dummy backend")
+            }
+
+            fn hash(&self, _: &[u8], _: &[u8]) -> anyhow::Result<Vec<u8>> {
+                Ok(Vec::<u8>::new())
+            }
+        }
+
+        let expected_json_output = json! ({
+          "backend": "dummy",
+          "data": [
+            {
+              "name": "Driver",
+              "pass": true,
+              "info": "/dev/dummy",
+              "mesg": "null",
+              "data": [
+                {
+                  "name": "Dummy Driver",
+                  "pass": false,
+                  "info": "driver",
+                  "mesg": "null",
+                  "data": []
+                },
+                {
+                  "name": "Dummy Backend",
+                  "pass": false,
+                  "info": "null",
+                  "mesg": "null",
+                  "data": [
+                    {
+                      "name": "Dummy Backend",
+                      "pass": false,
+                      "info": "null",
+                      "mesg": "null",
+                      "data": [
+                        {
+                          "name": "Dummy Backend",
+                          "pass": false,
+                          "info": "null",
+                          "mesg": "null",
+                          "data": []
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Dummy Backend",
+              "pass": false,
+              "info": "null",
+              "mesg": "null",
+              "data": []
+            },
+            {
+              "name": "Dummy Backend",
+              "pass": false,
+              "info": "null",
+              "mesg": "null",
+              "data": []
+            }
+          ]
+        });
+
+        let dummy_instance: Lazy<Box<dyn Backend>> = Lazy::new(|| Box::new(Dummy {}));
+
+        assert_eq!(
+            serde_json::to_string_pretty(&dummy_instance.deref()).unwrap(),
+            serde_json::to_string_pretty(&expected_json_output).unwrap(),
+            "Platform info json output test failed"
+        );
+    }
 }
