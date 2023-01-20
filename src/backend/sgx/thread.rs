@@ -166,7 +166,11 @@ impl super::super::Thread for Thread {
         };
 
         // Keep track of the CSSA
-        match self.how { EENTER => self.cssa += 1, ERESUME => match self.cssa { 0 => unreachable!(),
+        match self.how { 
+
+            EENTER => self.cssa += 1, 
+            ERESUME => match self.cssa { 
+                0 => unreachable!(),
                 _ => self.cssa -= 1,
             },
             _ => unreachable!(),
