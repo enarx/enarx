@@ -185,113 +185,73 @@ pub trait Backend: Sync + Send {
 }
 
 impl Serialize for dyn Backend {
-    //What I need  to do now is create a vector if that data type already exists.
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        let mut backend = serializer.serialize_struct("Backend", 2)?;
-        backend.serialize_field("backend", self.name())?;
-        //Make changes to this part here and your job will be done.
-        let data = self.data();
-        let mut ser = Vec::<serde_json::Value>::new();
-
-        for datum in data {
-            //If there is a space at the beginning then recurse till the innermost map and at it
-            //there.
-            let name = datum.name;
-            let pass = datum.pass;
-
-            let info = match &datum.info {
-                Some(res) => res,
-                None => "null",
-            };
-
-            let mesg = match &datum.mesg {
-                Some(res) => res,
-                None => "null",
-            };
-
-            //Count the number of whitespaces.
-            fn count_white_spaces(str: &str) -> i32 {
-                let mut white_spaces: i32 = 0;
-                for ch in str.to_string().chars() {
-                    if ch.is_whitespace() {
-                        white_spaces += 1;
-                    } else {
-                        break;
-                    }
+        fn count_white_spaces(str: &str) -> i32 {
+            let mut white_spaces: i32 = 0;
+            for ch in str.to_string().chars() {
+                if ch.is_whitespace() {
+                    white_spaces += 1;
+                } else {
+                    break;
                 }
-                white_spaces
             }
+            white_spaces
+        }
 
-            let white_spaces = count_white_spaces(&name);
-            // println!("{name}: {white_spaces}");
+        fn rec_insert(mut val: &mut Value, datum_json: Value, counter: i32) {
+            //each unwrap will never fail
+            if counter != 1 {
+                rec_insert(val.get_mut("data").unwrap(), datum_json, counter - 1)
+            } else {
+                let is_object = val.is_object();
 
-            let map = json!({
-                "name": name.trim(),
-                "pass": pass,
-                "info": info,
-                "mesg": mesg,
-            });
+                if is_object {
+                    let last_prop = val.as_object_mut().unwrap();
+                    last_prop
+                        .get_mut("data")
+                        .unwrap()
+                        .as_array_mut()
+                        .unwrap()
+                        .push(datum_json);
+                } else {
+                    let last_prop = val.as_array_mut().unwrap();
 
-            if white_spaces != 0 {
-                //find the number of white spaces and then recurse accordingly.
-                //That task is remaining now to be performed.
-                fn rec_insert(mut val: &mut Value, map: Value, mut counter: i32) {
-                    // println!("AT THE TOP\n {val} {counter} {map} \n");
-                    counter -= 1;
-                    if counter != 0 {
-                        val = val.get_mut("data").unwrap();
-                        return rec_insert(val, map.clone(), counter);
-                    }
-
-                    let is_object = val.is_object();
-
-                    if is_object {
-                        let last_object = val.as_object_mut().unwrap();
-                        if last_object.contains_key("data") {
-                            last_object
-                                .get_mut("data")
-                                .unwrap()
-                                .as_array_mut()
-                                .unwrap()
-                                .push(map);
-                        } else {
-                            let mut vec = Vec::<Value>::new();
-                            vec.push(map);
-                            last_object.insert("data".into(), vec.into());
-                        }
+                    if last_prop.is_empty() {
+                        last_prop.push(datum_json);
                     } else {
-                        // println!("{val} {counter} {map} \n");
-                        let last_object = val.as_array_mut().unwrap();
-                        if last_object.is_empty() {
-                            last_object.push(map);
-                        } else {
-                            let prop = last_object.last_mut().unwrap().as_object_mut().unwrap();
-                            // println!("Map: {map} Prop : {:?}", prop);
-                            // let mut vec = Vec::<Value>::new();
-                            // vec.push(map);
-                            // prop.insert("data".into(), vec.into());
-                            if prop.contains_key("data") {
-                                prop.get_mut("data")
-                                    .unwrap()
-                                    .as_array_mut()
-                                    .unwrap()
-                                    .push(map);
-                            } else {
-                                let mut vec = Vec::<Value>::new();
-                                vec.push(map);
-                                prop.insert("data".into(), vec.into());
-                            }
-                        }
+                        val = last_prop.last_mut().unwrap();
+                        rec_insert(val, datum_json, counter)
                     }
                 }
-
-                rec_insert(ser.last_mut().unwrap(), map, white_spaces);
-            } else {
-                ser.push(map);
             }
         }
 
-        //Generate a nested map here
+        //Logic
+        let data = self.data();
+        let mut ser = Vec::<Value>::new();
+
+        for datum in data {
+            //Count the number of whitespaces.
+            let white_spaces = count_white_spaces(&datum.name);
+
+            let datum_json = json!({
+                "name": &datum.name.trim(),
+                "pass": &datum.pass,
+                "info": &datum.info.unwrap_or("null".into()),
+                "mesg": &datum.mesg.unwrap_or("null".into()),
+                "data": [],
+            });
+
+            if white_spaces != 0 {
+                //This unwrap will never fail
+                rec_insert(ser.last_mut().unwrap(), datum_json, white_spaces);
+            } else {
+                ser.push(datum_json);
+            }
+        }
+
+        let mut backend = serializer.serialize_struct("Backend", 2)?;
+        backend.serialize_field("backend", self.name())?;
         backend.serialize_field("data", &ser)?;
         backend.end()
     }
