@@ -1,6 +1,6 @@
 [package]
 name = "enarx"
-version = "0.7.0"
+version = "0.7.1"
 edition = "2021"
 description = "Tools for deploying WebAssembly into Enarx Keeps"
 authors = ["The Enarx Project Developers"]
@@ -81,9 +81,9 @@ x509-cert = { workspace = true }
 x86_64 = { workspace = true, features = ["instructions"] }
 
 # binary dependencies
-enarx-exec-wasmtime = { version = "0.7.0", path = "crates/exec-wasmtime", artifact = "bin", target = "x86_64-unknown-linux-musl", default-features = false }
-enarx-shim-kvm = { version = "0.7.0", path = "crates/shim-kvm", artifact = "bin", target = "x86_64-unknown-none", default-features = false }
-enarx-shim-sgx = { version = "0.7.0", path = "crates/shim-sgx", artifact = "bin", target = "x86_64-unknown-none", default-features = false }
+enarx-exec-wasmtime = { version = "0.7.1", path = "crates/exec-wasmtime", artifact = "bin", target = "x86_64-unknown-linux-musl", default-features = false }
+enarx-shim-kvm = { version = "0.7.1", path = "crates/shim-kvm", artifact = "bin", target = "x86_64-unknown-none", default-features = false }
+enarx-shim-sgx = { version = "0.7.1", path = "crates/shim-sgx", artifact = "bin", target = "x86_64-unknown-none", default-features = false }
 
 [build-dependencies]
 protobuf-codegen-pure = { workspace = true }
@@ -157,8 +157,8 @@ der = { version = "0.6.1", features = ["std"], default-features = false }
 dirs = { version = "4.0.0", default-features = false }
 drawbridge-client = { version = "0.2.2", default-features = false }
 drawbridge-server = { version = "0.2.2", default-features = false }
-enarx-exec-wasmtime = { version = "0.7.0", path = "crates/exec-wasmtime", default-features = false }
-enarx-config = { version = "0.7.0", path = "crates/enarx-config", default-features = false }
+enarx-exec-wasmtime = { version = "0.7.1", path = "crates/exec-wasmtime", default-features = false }
+enarx-config = { version = "0.7.1", path = "crates/enarx-config", default-features = false }
 futures = { version = "0.3.21", default-features = false }
 getrandom = { version = "0.2.6", features = ["rdrand"], default-features = false }
 gdbstub = { version = "0.5.0", default-features = false }
@@ -195,8 +195,8 @@ ring = { version = "0.16.20", features = ["std"], default-features = false }
 rsa = { version = "0.7.2", default-features = false }
 rustls = { version = "0.20.6", default-features = false }
 rustls-pemfile = { version = "1.0.0", default-features = false }
-sallyport = { version = "0.7.0", path = "crates/sallyport", default-features = false }
-shared = { version = "0.7.0", path = "crates/shared", default-features = false }
+sallyport = { version = "0.7.1", path = "crates/sallyport", default-features = false }
+shared = { version = "0.7.1", path = "crates/shared", default-features = false }
 sec1 = { version = "0.3.0-pre.1", features = ["der"], default-features = false }
 semver = { version = "1.0.0", default-features = false }
 serde = { version = "1.0.136", features = ["derive"], default-features = false }

@@ -30,6 +30,10 @@ fn main() -> anyhow::Result<()> {
     );
 
     let listener = unsafe { TcpListener::from_raw_fd(3) };
+    listener
+        .set_nonblocking(false)
+        .context("failed to set listener to blocking")?;
+
     let (stream, _) = listener
         .accept()
         .context("failed to accept first connection")?;

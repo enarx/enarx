@@ -5,17 +5,12 @@ set -e
 
 # set -x  # Uncomment to debug
 
-#
-# Constants
-#
+## Constants
 
 # The crates we plan on releasing
-readonly CRATES_REG_TARGETS=(enarx-config sallyport enarx-exec-wasmtime)
+readonly CRATES_REG_TARGETS=(enarx-config sallyport enarx-exec-wasmtime shared)
 readonly CRATES_UNKNOWN_NONE=(enarx-shim-kvm enarx-shim-sgx)
 readonly CRATES=( "${CRATES_REG_TARGETS[@]}" "${CRATES_UNKNOWN_NONE[@]}" enarx )
-
-# The enarx team-maintained dependencies we want to update
-readonly DEPS=(crt0stack flagset iocuddle lset mmarinus mmledger nbytes noted primordial rcrt1 sgx vdso xsave)
 
 # Constants for release testing container images
 readonly IMAGE_PREFIX="registry.gitlab.com/enarx/misc-testing/"
@@ -26,9 +21,7 @@ readonly IMAGE_SUFFIX="-base:latest"
 # E2E/Install documentation contexts used in docs/Install.md to test on container images (test plans)
 readonly CONTEXTS=("git,helloworld")
 
-#
-# Flags
-#
+## Flags
 
 readonly CLEANUP="${CLEANUP:-false}"  # Delete cloned repo, mock registry and stop process repository after build
 readonly CONFIRM="${CONFIRM:-true}"   # Should we confirm on each step (some steps cannot be skipped)
@@ -37,11 +30,10 @@ readonly GIT_REPO="${GIT_REPO:-NONE}" # Git repository URL of user's fork of ena
 readonly FAST="${FAST:-false}"        # Should we be fast or thorough when conducting pre-release tests
 
 readonly SKIP_TESTS="${SKIP_TESTS:-false}" # Skip tests and jump directly to release. THIS IS NOT RECOMMENDED.
+readonly IMAGES_OVERRIDE="${IMAGES_OVERRIDE:-}" #Provide a list of alternative fast images
 
+## Globals
 
-#
-# Globals
-#
 export MOCK_ON="false"
 export REPO_DIR=""
 export REPO_PATH=""
@@ -52,10 +44,7 @@ export CARGO_REGISTRIES_MOCKED_INDEX=""
 export CARGO_REGISTRIES_MOCKED_TOKEN=""
 export IMAGES=""
 
-
-#
-# Initial setup
-#
+## Initial setup
 
 # install_prereqs() {
 #     set +e
@@ -77,61 +66,35 @@ checkout_repository() {
         FORK_URL="$GIT_REPO"
     fi
     git clone "$FORK_URL" .
-    git remote add upstream https://github.com/enarx/enarx.git >/dev/null 2>&1
+    git remote add upstream git@github.com:enarx/enarx.git >/dev/null 2>&1
     git fetch --all --tags >/dev/null 2>&1
     git checkout -b "release/${version}" upstream/main >/dev/null 2>&1
 
     realpath "${REPO_DIR}"
 }
 
-#
-# Code building
-#
+## Code building
 
 build() {
-    time cargo build --release
+    cargo run -- platform info
     echo -e "\n\n\n"
-    time cargo run --release platform info
-    echo -e "\n\n\n"
-    time cargo test
+    cargo test
     echo -e "\n\n\n"
 }
 
 clean() {
-    cargo clean
     cargo clean -r
     cargo fetch
 }
 
-#
-# Version functions
-#
+## Version functions
 
 get_version() {
     rg '^version = ' Cargo.toml | cut -d\" -f2
 }
 
-get_latest_crate_version() {
-    local crate="$1"
-    cargo show "${crate}" | rg max_version | cut -d ' ' -f2
-}
-
 get_rust_toolchain_version() {
     grep channel rust-toolchain.toml | cut -d \" -f 2
-}
-
-#
-# Update versions
-#
-
-update_git_ref_to_crate() {
-    for i in "${DEPS[@]}"; do
-        latest_version="$(cargo show "$i" | rg max_version | cut -d ' ' -f2)"
-        find . -name "Cargo.toml" -exec sd "^$i\s*=\s*\{\s*version\s*=\s*\"\d+\.\d+\.\d+\w*\"" "$i = { version = \"${latest_version}\"" {} \;
-        find crates/ -name "Cargo.toml" -exec sd "$i\s*=\s*\{\s*git\s*=\s*\"https://github.com/enarx/$i\",\s*rev\s*=\s*\"\w+\"" "$i = { version = \"${latest_version}\"" {} \;
-        sd "$i\s*=\s*\{\s*git\s*=\s*\"https://github.com/enarx/$i\",\s*rev\s*=\s*\"\w+\"" "$i = { version = \"${latest_version}\"" Cargo.toml
-        cargo update -w
-    done
 }
 
 bump_version() {
@@ -182,9 +145,7 @@ install_test() {
 }
 
 
-#
-# Utility functions
-#
+## Utility functions
 
 # Since we have a lot of output, this makes it easier to refer to key sections/events
 shout() {
@@ -231,7 +192,12 @@ trap on_exit EXIT
 
 if [[ "$FAST" == "true" ]]; then
     echo -e "Warning: FAST=true environment variable set, will only test with single image."
-    IMAGES=( "${IMAGES_FAST[@]}" )
+# Use this varible to have an alternative FAST image
+    if [[ ! -z "${IMAGES_OVERRIDE}" ]]; then
+        IMAGES=( "${IMAGES_OVERRIDE[@]}" )
+    else
+        IMAGES=( "${IMAGES_FAST[@]}" )
+    fi
 else
     shout "FAST=true environment variable not set, will test with all images. This will take up to 90 minutes for the entire process"
     IMAGES=( "${IMAGES_THOROUGH[@]}" )
@@ -249,18 +215,10 @@ read -p "Enter the new Enarx version: " -r NEW_VERSION
 checkout_repository "${NEW_VERSION}"
 cd "${REPO_DIR}"
 
-# Stage 1a: Manual adjustments
+# Stage 2: Manual adjustments
 # This could include merging in any  additional code, e.g. updating the docs/Install.md file with new contexts for features available in release
 shout "Pausing to provide ability to do any manual adjustments prior to continuing release process. Repository located here: ${REPO_DIR}"
 should_continue "true"
-
-# Stage 2: Crate bump
-shout "Ensuring we are not using git revisions in cargo files"
-echo "NOTE: Assuming all necessary subcrates were published prior to Enarx release"
-update_git_ref_to_crate
-echo -e "Done!\n\n"
-git --no-pager diff
-should_continue
 
 # Stage 3: Version bump
 shout "Bumping version from ${old_version} to ${NEW_VERSION}"
@@ -275,7 +233,7 @@ echo "Cleaning cache"
 clean
 echo "Building..."
 build
-
+should_continue
 
 if [[ "$SKIP_TESTS" == "true" ]]; then
     shout "Warning: SKIP_TESTS environment variable set, no tests will be run. This is VERY dangerous."
