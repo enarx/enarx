@@ -462,6 +462,42 @@ impl RwLocked<GhcbHandle<'_>> {
         }
     }
 
+    /// GHCB AP_CREATION
+    #[cfg_attr(coverage, no_coverage)]
+    pub fn ap_creation(&self, apic_id: u16, vmsa_pa: u64, sev_features: u64) {
+        const SVM_VMGEXIT_AP_CREATION: u64 = 0x80000013;
+        const SVM_VMGEXIT_AP_CREATE_ON_INIT: u64 = 0;
+        const SVM_VMGEXIT_AP_CREATE: u64 = 1;
+
+        eprintln!(
+            "ap_creation: apic_id: {}, vmsa_pa: {:x}, sev_features: {:x}",
+            apic_id, vmsa_pa, sev_features
+        );
+        let mut this = self.write();
+
+        this.invalidate();
+
+        this.ghcb.save_area.rax = sev_features as _;
+        let offset: usize = ptr::addr_of!(this.ghcb.save_area.rax) as _;
+        this.set_offset_valid(offset);
+
+        unsafe {
+            if this
+                .vmgexit(
+                    SVM_VMGEXIT_AP_CREATION,
+                    (apic_id as u64) << 32 | SVM_VMGEXIT_AP_CREATE,
+                    vmsa_pa,
+                )
+                .is_err()
+            {
+                eprintln!("ap_creation failed");
+                crate::debug::_early_debug_panic(4, 0x10);
+            }
+
+            // FIXME: check error codes
+        }
+    }
+
     /// turn physical pages to decrypted / shared
     #[cfg_attr(coverage, no_coverage)]
     pub fn set_memory_shared(&self, virt_addr: VirtAddr, npages: usize) {

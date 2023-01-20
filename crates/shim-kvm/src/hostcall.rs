@@ -13,7 +13,8 @@ use crate::snp::snp_active;
 use crate::spin::RacyCell;
 use crate::syscall::SyscallStackFrameValue;
 use crate::thread::{
-    GenPurposeRegs, NewThreadFromRegisters, Tcb, TcbRefCell, NEW_THREAD_QUEUE, THREAD_ID_CNT,
+    GenPurposeRegs, NewThreadFromRegisters, Tcb, TcbRefCell, CPUNUM, CPUNUM_CREATED,
+    NEW_THREAD_QUEUE, THREAD_ID_CNT,
 };
 use crate::{trace, MAX_NUM_CPUS};
 
@@ -23,9 +24,10 @@ use core::ffi::{c_int, c_size_t, c_ulong, c_void};
 use core::ops::{Deref, DerefMut};
 use core::ptr::NonNull;
 use core::slice;
-use core::sync::atomic::{AtomicU32, Ordering};
+use core::sync::atomic::{AtomicU32, AtomicUsize, Ordering};
 
 use crate::addr::ShimPhysUnencryptedAddr;
+use crate::snp::vmsa::start_ap;
 use const_default::ConstDefault;
 use sallyport::guest::syscall::types::MremapFlags;
 use sallyport::guest::{Handler, Platform, ThreadLocalStorage};
@@ -459,6 +461,15 @@ impl Handler for HostCall<'_> {
         ptid.store(new_tid as _, Ordering::Relaxed);
 
         let ret = self.spawn(0);
+
+        if snp_active() {
+            eprintln!("start_ap");
+            let cpunum = AtomicUsize::fetch_add(&CPUNUM_CREATED, 1, Ordering::Relaxed);
+
+            let _ = start_ap(cpunum as u16);
+            eprintln!("start_ap done");
+        }
+
         trace!("[{tid}] spawn() = {ret:#?} {new_tid}");
         ret?;
 

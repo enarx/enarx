@@ -9,7 +9,7 @@ use core::cell::{Cell, UnsafeCell};
 use core::marker::PhantomData;
 use core::ops::{Deref, DerefMut};
 use core::ptr::NonNull;
-use core::sync::atomic::{AtomicI32, AtomicU32};
+use core::sync::atomic::{AtomicI32, AtomicU32, AtomicUsize};
 
 use crate::hostcall::{BlockGuard, HostCall};
 use sallyport::guest::ThreadLocalStorage;
@@ -18,6 +18,12 @@ use spin::RwLock;
 use x86_64::instructions::segmentation::{Segment64, GS};
 use x86_64::registers::rflags;
 use x86_64::VirtAddr;
+
+/// The current VCPUs in action
+pub static CPUNUM: AtomicUsize = AtomicUsize::new(0);
+
+/// The number of VCPUs allocated
+pub static CPUNUM_CREATED: AtomicUsize = AtomicUsize::new(1);
 
 /// todo
 pub fn pickup_new_threads() -> ! {

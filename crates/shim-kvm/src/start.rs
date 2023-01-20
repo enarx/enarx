@@ -16,6 +16,7 @@ use enarx_shim_kvm::pagetables::{PDPT, PDT_C000_0000, PML4T, PT_FFE0_0000};
 use enarx_shim_kvm::print::enable_printing;
 use enarx_shim_kvm::snp::C_BIT_MASK;
 use enarx_shim_kvm::sse;
+use enarx_shim_kvm::thread::CPUNUM;
 
 use core::arch::{asm, global_asm};
 use core::mem::size_of;
@@ -102,8 +103,6 @@ unsafe fn switch_shim_stack(
     options(noreturn, nomem)
     )
 }
-
-static CPUNUM: AtomicUsize = AtomicUsize::new(0);
 
 /// Defines the entry point function.
 ///

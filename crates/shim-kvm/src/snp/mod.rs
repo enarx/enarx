@@ -10,13 +10,12 @@ use x86_64::VirtAddr;
 
 pub use cpuid_page::{cpuid, cpuid_count, get_cpuid_max};
 
-use crate::snp::Error::{FailInput, FailSizeMismatch, Unknown};
-
 pub mod attestation;
 pub mod cpuid_page;
 pub mod ghcb;
 pub mod launch;
 pub mod secrets_page;
+pub mod vmsa;
 
 /// The C-Bit mask indicating encrypted physical addresses
 pub static C_BIT_MASK: AtomicU64 = AtomicU64::new(0);
@@ -36,7 +35,7 @@ pub fn snp_active() -> bool {
 /// Error returned by pvalidate
 #[derive(Debug)]
 #[non_exhaustive]
-pub enum Error {
+pub enum PvalidateError {
     /// Reasons:
     /// - Page size is 2MB and page is not 2MB aligned
     FailInput,
@@ -67,7 +66,11 @@ pub enum PvalidateSize {
 /// - VMPL or CPL not zero will result in a #GP(0) exception.
 #[inline(always)]
 #[cfg_attr(coverage, no_coverage)]
-pub fn pvalidate(addr: VirtAddr, size: PvalidateSize, validated: bool) -> Result<bool, Error> {
+pub fn pvalidate(
+    addr: VirtAddr,
+    size: PvalidateSize,
+    validated: bool,
+) -> Result<bool, PvalidateError> {
     let rmp_changed: u32;
     let ret: u64;
     let flag: u32 = validated.into();
@@ -87,9 +90,69 @@ pub fn pvalidate(addr: VirtAddr, size: PvalidateSize, validated: bool) -> Result
 
     match ret as u32 {
         0 => Ok(rmp_changed as u8 == 0),
-        1 => Err(FailInput),
-        6 => Err(FailSizeMismatch),
-        ret => Err(Unknown(ret)),
+        1 => Err(PvalidateError::FailInput),
+        6 => Err(PvalidateError::FailSizeMismatch),
+        ret => Err(PvalidateError::Unknown(ret)),
+    }
+}
+
+/// Error returned by rmpadjust
+#[derive(Debug)]
+#[non_exhaustive]
+pub enum RmpadjustError {
+    /// Reasons:
+    /// - Page size is 2MB and page is not 2MB aligned
+    FailInput,
+    /// Reasons:
+    /// - Insufficient permissions
+    FailPermission,
+    /// Reasons:
+    /// - 2MB validation backed by 4KB pages
+    FailSizeMismatch,
+    /// Unknown error
+    Unknown(u32),
+}
+
+/// The size of the page to `rmpadjust`
+#[repr(u64)]
+pub enum RmpadjustSize {
+    /// A 4k page
+    Size4K = 0,
+}
+
+const RMPADJUST_VMSA_PAGE_BIT: u64 = 1 << 16;
+
+/// AMD rmpadjust
+///
+/// returns `Ok(())` on success
+///
+/// - If `addr` is not a readable mapped page, `rmpadjust` will result in a Page Fault, #PF exception.
+/// - This is a privileged instruction. Attempted execution at a privilege level other than CPL0 will result in
+///   a #GP(0) exception.
+/// - VMPL or CPL not zero will result in a #GP(0) exception.
+#[inline(always)]
+#[cfg_attr(coverage, no_coverage)]
+pub fn rmpadjust(addr: VirtAddr, size: RmpadjustSize, attrs: u64) -> Result<(), RmpadjustError> {
+    let ret: u64;
+
+    // pvalidate and output the carry bit in edx
+    // return value in rax
+    unsafe {
+        asm!(
+        "rmpadjust",
+        inout("rax") addr.as_u64() & (!0xFFF) => ret,
+        in("rcx") size as u64,
+        in("rdx") attrs,
+        options(nostack, nomem)
+        );
+    }
+
+    match ret as u32 {
+        0 => Ok(()),
+        1 => Err(RmpadjustError::FailInput),
+        2 => Err(RmpadjustError::FailPermission),
+        6 => Err(RmpadjustError::FailSizeMismatch),
+        ret => Err(RmpadjustError::Unknown(ret)),
     }
 }
 

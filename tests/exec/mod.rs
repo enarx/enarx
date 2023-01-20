@@ -22,10 +22,6 @@ fn futex() {
 
 #[test]
 fn thread() {
-    if is_sev() {
-        eprintln!("SEV backend is enabled, ignoring");
-        return;
-    }
     let bin = env!("CARGO_BIN_FILE_ENARX_EXEC_TESTS_thread");
     let output = r#"Before Spawn
 After Spawn 1

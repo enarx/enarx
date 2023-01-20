@@ -12,6 +12,8 @@ use std::iter;
 use std::mem::{size_of, MaybeUninit};
 use std::ops::DerefMut;
 use std::sync::{Arc, RwLock};
+use std::thread::sleep;
+use std::time::Duration;
 
 use crate::backend::parking::THREAD_PARK;
 use anyhow::{bail, Context, Result};
@@ -29,7 +31,6 @@ use x86_64::PhysAddr;
 pub struct Thread<P: KeepPersonality> {
     keep: Arc<RwLock<super::Keep<P>>>,
     vcpu_fd: Option<VcpuFd>,
-
     #[cfg(feature = "gdb")]
     gdb_fd: Option<std::net::TcpStream>,
 }
@@ -53,7 +54,8 @@ impl<P: KeepPersonality + 'static> super::super::Keep for RwLock<super::Keep<P>>
                     num_cpus: num_cpu,
                     ..
                 } = this.deref_mut();
-                let vcpu_fd = Some(kvm_new_vcpu(kvm_fd, vm_fd, *num_cpu)?);
+                let cpunum = *num_cpu;
+                let vcpu_fd = Some(kvm_new_vcpu(kvm_fd, vm_fd, cpunum)?);
                 *num_cpu += 1;
                 vcpu_fd.map(|vcpu_fd| {
                     Box::new(Thread {
@@ -239,11 +241,14 @@ impl<P: KeepPersonality + 'static> Thread<P> {
                         "Thread",
                         id = ?std::thread::current().id()
                     )
-                    .in_scope(|| loop {
-                        match thread.enter(&None)? {
-                            Command::Continue => (),
-                            Command::Exit(exit_code) => {
-                                return Ok::<i32, anyhow::Error>(exit_code);
+                    .in_scope(|| {
+                        sleep(Duration::from_secs(1));
+                        loop {
+                            match thread.enter(&None)? {
+                                Command::Continue => (),
+                                Command::Exit(exit_code) => {
+                                    return Ok::<i32, anyhow::Error>(exit_code);
+                                }
                             }
                         }
                     });
@@ -270,7 +275,17 @@ impl<P: KeepPersonality + 'static> Thread<P> {
 impl<P: KeepPersonality + 'static> super::super::Thread for Thread<P> {
     fn enter(&mut self, _gdblisten: &Option<String>) -> Result<Command> {
         let vcpu_fd = self.vcpu_fd.as_mut().unwrap();
-        match vcpu_fd.run()? {
+
+        let run = vcpu_fd
+            .run()
+            .map_err(|e| io::Error::from_raw_os_error(e.errno()))
+            .context("vcpu run failed")?;
+
+        match run {
+            VcpuExit::FailEntry(hardware_entry_failure_reason, cpu) => {
+                error!("KVM: Failed to enter guest {hardware_entry_failure_reason:?} {cpu:?}");
+                bail!("KVM: Failed to enter guest");
+            }
             VcpuExit::IoOut(port, data) if port == KVM_SYSCALL_TRIGGER_EXIT => {
                 let status = data[0] as c_int + ((data[1] as c_int) << 8);
                 return Ok(Command::Exit(status));
