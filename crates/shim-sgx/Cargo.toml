@@ -1,6 +1,6 @@
 [package]
 name = "enarx-shim-sgx"
-version = "0.7.0"
+version = "0.7.1"
 edition = "2021"
 description = "Enarx SGX shim"
 authors = ["The Enarx Project Developers"]
