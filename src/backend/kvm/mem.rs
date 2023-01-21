@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use std::os::{
-    fd::{FromRawFd, OwnedFd},
+    fd::{AsFd, BorrowedFd, FromRawFd, OwnedFd},
     unix::io::AsRawFd,
 };
 
@@ -50,6 +50,10 @@ impl Region {
 
     pub fn backing_mut(&mut self) -> &mut [u8] {
         self.backing.as_mut()
+    }
+
+    pub fn restricted_fd(&self) -> Option<BorrowedFd> {
+        self.slot.restricted_fd.as_ref().map(AsFd::as_fd)
     }
 }
 
