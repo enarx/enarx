@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use std::os::fd::{FromRawFd, OwnedFd};
+use std::os::fd::{AsFd, BorrowedFd, FromRawFd, OwnedFd};
 
 use iocuddle::{Group, Ioctl, Write, WriteRead};
 use kvm_bindings::kvm_userspace_memory_region;
@@ -49,6 +49,10 @@ impl Region {
 
     pub fn backing_mut(&mut self) -> &mut [u8] {
         self.backing.as_mut()
+    }
+
+    pub fn restricted_fd(&self) -> Option<BorrowedFd> {
+        self.slot.restricted_fd.as_ref().map(AsFd::as_fd)
     }
 }
 

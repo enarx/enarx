@@ -16,13 +16,15 @@ use std::io;
 use std::iter;
 use std::mem::size_of;
 use std::ops::DerefMut;
+use std::os::fd::AsRawFd;
 use std::sync::{Arc, RwLock};
 
-use anyhow::ensure;
-use anyhow::{bail, Context, Result};
+use anyhow::{anyhow, bail, ensure, Context, Result};
 use kvm_bindings::kvm_run__bindgen_ty_1;
 use kvm_ioctls::{VcpuExit, VcpuFd};
-use libc::{c_int, timespec};
+use libc::{
+    c_int, fallocate, madvise, timespec, FALLOC_FL_KEEP_SIZE, FALLOC_FL_PUNCH_HOLE, MADV_FREE,
+};
 use lset::Contains;
 use mmarinus::{perms, Map};
 use sallyport::host::deref_aligned;
@@ -383,14 +385,14 @@ impl<P: KeepPersonality> Thread<P> {
             1 => {
                 // Page assignment, Private
 
-                set_memory_attributes(&mut self.keep.write().unwrap().vm_fd, gpa, 0x1000, true)
-                    .context("failed to change page state to private")?;
+                execute_page_state_change(gpa, &mut self.keep.write().unwrap(), true)
+                    .map_err(|_| anyhow!("failed to change page state to private"))?;
             }
             2 => {
                 // Page assignment, Shared
 
-                set_memory_attributes(&mut self.keep.write().unwrap().vm_fd, gpa, 0x1000, false)
-                    .context("failed to change page state to shared")?;
+                execute_page_state_change(gpa, &mut self.keep.write().unwrap(), false)
+                    .map_err(|_| anyhow!("failed to change page state to shared"))?;
             }
             _ => bail!("unimplemented operation {page_operation:#x}"),
         }
@@ -401,6 +403,10 @@ impl<P: KeepPersonality> Thread<P> {
     }
 }
 
+const INVALID_HEADER_ERROR: u64 = 0x0000_0001_0000_0001;
+const INVALID_ENTRY_ERROR: u64 = 0x0000_0001_0000_0002;
+const UNSPECIFIED_ERROR: u64 = 0x0000_0100_0000_0000;
+
 fn handle_next_page_state_change_request<P>(
     psc_desc: &SnpPscDesc,
     keep: &mut Keep<P>,
@@ -408,10 +414,6 @@ fn handle_next_page_state_change_request<P>(
 where
     P: KeepPersonality,
 {
-    const INVALID_HEADER_ERROR: u64 = 0x0000_0001_0000_0001;
-    const INVALID_ENTRY_ERROR: u64 = 0x0000_0001_0000_0002;
-    const UNSPECIFIED_ERROR: u64 = 0x0000_0100_0000_0000;
-
     let entry = psc_desc
         .entries
         .get(usize::from(psc_desc.cur_entry))
@@ -436,17 +438,13 @@ where
     match operation {
         0x001 => {
             // Page assignment, Private
-            set_memory_attributes(&mut keep.vm_fd, gpa, 0x1000, true).map_err(|_| {
-                // Indicate to the guest that an unspecified error occured.
-                UNSPECIFIED_ERROR
-            })
+
+            execute_page_state_change(gpa, keep, true)
         }
         0x002 => {
             // Page assignment, Shared
-            set_memory_attributes(&mut keep.vm_fd, gpa, 0x1000, false).map_err(|_| {
-                // Indicate to the guest that an unspecified error occured.
-                UNSPECIFIED_ERROR
-            })
+
+            execute_page_state_change(gpa, keep, false)
         }
         0x003 => {
             // PSMASH hint
@@ -467,6 +465,62 @@ where
             Err(INVALID_ENTRY_ERROR)
         }
     }
+}
+
+/// Execute a page state change.
+///
+/// This will also free up the memory in the opposite mapping.
+fn execute_page_state_change<P>(gpa: u64, keep: &mut Keep<P>, private: bool) -> Result<(), u64>
+where
+    P: KeepPersonality,
+{
+    let gpa = PhysAddr::new(gpa);
+
+    // Find the slot that maps the guest physical address.
+    let region = keep
+        .regions
+        .iter()
+        .find(|r| r.as_guest().contains(&gpa))
+        .ok_or(UNSPECIFIED_ERROR)?;
+
+    let offset = gpa - region.as_guest().start;
+
+    let mode = if private {
+        // Allocate memory for a private mapping in the restricted_fd.
+        0
+    } else {
+        // Free the memory for the private mapping by punching a hole in the restricted_fd.
+        FALLOC_FL_PUNCH_HOLE | FALLOC_FL_KEEP_SIZE
+    };
+    let res = unsafe {
+        fallocate(
+            region.restricted_fd().unwrap().as_raw_fd(),
+            mode,
+            offset as i64,
+            0x1000,
+        )
+    };
+    if res != 0 {
+        return Err(UNSPECIFIED_ERROR);
+    }
+
+    // Switch the memory.
+    set_memory_attributes(&mut keep.vm_fd, gpa.as_u64(), 0x1000, private).map_err(|_| {
+        // Indicate to the guest that an unspecified error occured.
+        UNSPECIFIED_ERROR
+    })?;
+
+    if private {
+        // Tell the kernel that we don't need the shared mapping right now.
+        let addr = region.as_virt().start + offset;
+        let addr = addr.as_mut_ptr();
+        let res = unsafe { madvise(addr, 0x1000, MADV_FREE) };
+        if res != 0 {
+            return Err(UNSPECIFIED_ERROR);
+        }
+    }
+
+    Ok(())
 }
 
 impl<P: KeepPersonality> super::super::Thread for Thread<P> {
