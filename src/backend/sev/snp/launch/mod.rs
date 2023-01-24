@@ -52,14 +52,14 @@ impl<T, V: AsRawFd> AsMut<VmFd> for Launcher<T, V> {
 impl<V: AsRawFd> Launcher<New, V> {
     /// Begin the SEV-SNP launch process by creating a Launcher and issuing the
     /// KVM_SNP_INIT ioctl.
-    pub fn new(vm_fd: VmFd, sev: V) -> Result<Self> {
+    pub fn new(vm_fd: VmFd, sev: V, flags: SnpInitFlags) -> Result<Self> {
         let mut launcher = Launcher {
             vm_fd,
             sev,
             state: PhantomData::default(),
         };
 
-        let init = Init::default();
+        let init = Init::new(flags.bits());
 
         let mut cmd = Command::from(&mut launcher.sev, &init);
         SNP_INIT
@@ -179,6 +179,18 @@ impl<'a> Update<'a> {
             vmpl2_perms: perms.1,
             vmpl1_perms: perms.0,
         }
+    }
+}
+
+bitflags! {
+    #[derive(Default)]
+    /// SNP_INIT command flags.
+    pub struct SnpInitFlags: u64 {
+        /// enable the restricted interrupt/exception injection
+        const RESTRICTED_INJECTION = 1;
+
+        /// enable the restricted injection timer
+        const RESTRICTED_TIMER_INJECTION = 1 << 1;
     }
 }
 

@@ -105,6 +105,13 @@ pub struct Init {
     flags: u64,
 }
 
+impl Init {
+    /// Create a new `Init` command
+    pub fn new(flags: u64) -> Self {
+        Self { flags }
+    }
+}
+
 /// Initialize the flow to launch a guest.
 #[repr(C)]
 pub struct LaunchStart<'a> {

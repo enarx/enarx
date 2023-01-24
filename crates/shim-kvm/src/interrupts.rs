@@ -13,6 +13,7 @@ use core::arch::global_asm;
 use core::fmt;
 use core::mem::size_of;
 use core::ops::{Deref, DerefMut};
+use core::ptr;
 
 use crate::addr::{ShimPhysAddr, ShimVirtAddr};
 use crate::allocator::{ALLOCATOR, ZERO_PAGE_FRAME};
@@ -114,30 +115,35 @@ pub(crate) struct ExtendedInterruptStackFrameValue {
 /// has_error - has error parameter
 macro_rules! declare_interrupt {
     (fn $name:ident ( $stack:ident : &mut ExtendedInterruptStackFrame $(,)? ) $code:block) => {
-        declare_interrupt!($name => "push rsi", { $code }, $stack: &mut ExtendedInterruptStackFrame);
+        declare_interrupt!($name => "push rsi", { $code }, $stack);
     };
 
     (fn $name:ident ( $stack:ident : &mut ExtendedInterruptStackFrame , $error:ident : u64 $(,)? ) $code:block) => {
-        declare_interrupt!($name => "xchg [rsp], rsi", { $code }, $stack : &mut ExtendedInterruptStackFrame, $error: u64);
+        declare_interrupt!($name => "xchg [rsp], rsi", { $code }, $stack, $error: u64);
     };
 
     (fn $name:ident ( $stack:ident : &mut ExtendedInterruptStackFrame , $error:ident : PageFaultErrorCode $(,)? ) $code:block) => {
-        declare_interrupt!($name => "xchg [rsp], rsi", { $code }, $stack : &mut ExtendedInterruptStackFrame, $error: PageFaultErrorCode);
+        declare_interrupt!($name => "xchg [rsp], rsi", { $code }, $stack, $error: PageFaultErrorCode);
     };
 
     (fn $name:ident ( $stack:ident : &mut ExtendedInterruptStackFrame $(,)? ) -> ! $code:block) => {
-        declare_interrupt!($name => "push rsi", { $code }, $stack: &mut ExtendedInterruptStackFrame);
+        declare_interrupt!($name => "push rsi", { $code }, $stack);
     };
 
     (fn $name:ident ( $stack:ident : &mut ExtendedInterruptStackFrame, $error:ident : u64 $(,)? )  -> ! $code:block) => {
-        declare_interrupt!($name => "xchg [rsp], rsi", { $code }, $stack: &mut ExtendedInterruptStackFrame, $error: u64);
+        declare_interrupt!($name => "xchg [rsp], rsi", { $code }, $stack, $error: u64);
     };
 
-    ($name:ident => $push_or_exchange:literal, { $code:block }, $($id:ident: $t:ty),*) => {
+    ($name:ident => $push_or_exchange:literal, { $code:block }, $stack:ident $(, $id:ident: $t:ty)?) => {
         paste! {
             #[cfg_attr(coverage, no_coverage)]
-            extern "sysv64" fn [<__ $name _inner>] ( $($id: $t,)* ) {
-                $code
+            extern "sysv64" fn [<__ $name _inner>] ( $stack: &mut ExtendedInterruptStackFrame, $($id: $t)? ) {
+                fn handler( $stack: &mut ExtendedInterruptStackFrame, $($id: $t)? ) { $code }
+
+                assert_eq!(($stack as *const _ as usize + size_of::<ExtendedInterruptStackFrame>()) % 0x10, 0,
+                            "interrupt stack frame not aligned correctly");
+
+                handler( $stack, $($id)? );
             }
         }
         extern "sysv64" {
@@ -237,6 +243,14 @@ declare_interrupt!(
         match error_code {
             0x72 => {
                 // VMEXIT_CPUID
+
+                // sanity check code in rip
+                const OP_CPUID: u16 = 0xa20f;
+                assert_eq!(
+                    OP_CPUID,
+                    unsafe { ptr::read_unaligned(stack_frame.instruction_pointer.as_ptr()) },
+                    "Unexpected instruction in VMEXIT_CPUID"
+                );
 
                 let cpuid_res = cpuid_count(stack_frame.rax as _, stack_frame.rcx as _);
 
@@ -339,10 +353,9 @@ fn handle_page_fault(address: VirtAddr, error_code: PageFaultErrorCode) -> Resul
 }
 
 declare_interrupt!(
-    fn page_fault_handler(
-        _stack_frame: &mut ExtendedInterruptStackFrame,
-        error_code: PageFaultErrorCode,
-    ) {
+    fn page_fault_handler(_stack_frame: &mut ExtendedInterruptStackFrame, error_code: u64) {
+        let error_code = PageFaultErrorCode::from_bits(error_code).expect("Invalid error code");
+
         let address = Cr2::read();
         if handle_page_fault(address, error_code).is_err() {
             eprintln!("EXCEPTION: PAGE FAULT");
