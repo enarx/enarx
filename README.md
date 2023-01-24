@@ -5,7 +5,6 @@
 <a href="https://github.com/enarx/enarx/actions/workflows/test.yml"><img alt="Test Status", src="https://github.com/enarx/enarx/actions/workflows/test.yml/badge.svg"></a>
 <a href="https://github.com/enarx/enarx/labels/bug"><img alt="Bug Status", src="https://img.shields.io/github/issues-raw/enarx/enarx/bug"></a>
 <a href="https://github.com/enarx/enarx/pulse"><img alt="Maintenance Status", src="https://img.shields.io/github/commit-activity/y/enarx/enarx"></a>
-<a href="https://crates.io/crates/enarx"><img alt="Version Status", src="https://img.shields.io/crates/v/enarx"></a>
 <a href="https://codecov.io/gh/enarx/enarx"><img alt="Coverage Status", src="https://codecov.io/gh/enarx/enarx/branch/main/graph/badge.svg?token=03QIZXNJ2Y"></a>
 </p>
 
