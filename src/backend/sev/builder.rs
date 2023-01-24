@@ -75,7 +75,9 @@ impl TryFrom<super::config::Config> for Builder {
                 .context("Failed to create a virtual machine")?;
 
             let sev = retry(|| Firmware::open().context("Failed to open '/dev/sev'"))?;
-            let launcher = Launcher::new(vm_fd, sev).context("SNP Launcher init failed")?;
+            // FIXME: use SnpInitFlags::RESTRICTED_INJECTION when available
+            let launcher = Launcher::new(vm_fd, sev, SnpInitFlags::empty())
+                .context("SNP Launcher init failed")?;
 
             Ok((kvm_fd, launcher))
         })?;
