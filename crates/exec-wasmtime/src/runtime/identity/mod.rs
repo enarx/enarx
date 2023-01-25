@@ -10,7 +10,7 @@ use platform::{Platform, Technology};
 
 use std::time::Duration;
 
-use anyhow::bail;
+use anyhow::{bail, Context};
 use const_oid::db::rfc5280::{
     ID_CE_BASIC_CONSTRAINTS, ID_CE_EXT_KEY_USAGE, ID_CE_KEY_USAGE, ID_KP_CLIENT_AUTH,
     ID_KP_SERVER_AUTH,
@@ -35,38 +35,56 @@ use zeroize::Zeroizing;
 
 fn csr(pki: &PrivateKeyInfo<'_>, exts: Vec<Extension<'_>>) -> anyhow::Result<Vec<u8>> {
     // Request the extensions.
-    let req = ExtensionReq::from(exts).to_vec()?;
+    let req = ExtensionReq::from(exts)
+        .to_vec()
+        .context("failed to encode an extension request")?;
 
     // Embed the extension requests in an attribute.
-    let any = AnyRef::from_der(&req)?;
+    let any = AnyRef::from_der(&req).context("failed to parse extension request from DER")?;
+    let att_values = vec![any]
+        .try_into()
+        .context("failed to generate attribute values")?;
     let att = Attribute {
         oid: ExtensionReq::OID,
-        values: vec![any].try_into()?,
+        values: att_values,
     };
+
+    let attributes = vec![att]
+        .try_into()
+        .context("failed to generate CRI attributes")?;
+    let public_key = pki.public_key().context("failed to extract public key")?;
 
     // Create a certification request information structure.
-    let cri = CertReqInfo {
+    let info = CertReqInfo {
         version: x509_cert::request::Version::V1,
-        attributes: vec![att].try_into()?,
+        attributes,
         subject: RdnSequence::default(),
-        public_key: pki.public_key()?,
+        public_key,
     };
+
+    let algorithm = pki
+        .signs_with()
+        .context("failed to query signing algorithm")?;
+    let info_bytes = info.to_vec().context("failed to encode CRI")?;
 
     // Sign the request.
-    let sig = pki.sign(&cri.to_vec()?, pki.signs_with()?)?;
-    let req = CertReq {
-        info: cri,
-        algorithm: pki.signs_with()?,
-        signature: BitStringRef::from_bytes(sig.as_ref())?,
-    };
-
-    Ok(req.to_vec()?)
+    let sig = pki
+        .sign(&info_bytes, algorithm)
+        .context("failed to sign request")?;
+    let signature = BitStringRef::from_bytes(sig.as_ref()).context("failed to parse signature")?;
+    CertReq {
+        info,
+        algorithm,
+        signature,
+    }
+    .to_vec()
+    .context("failed to encode CSR")
 }
 
 /// Generates a new private key and corresponding CSR
 #[instrument]
 pub fn generate() -> anyhow::Result<(Zeroizing<Vec<u8>>, Vec<u8>)> {
-    let platform = Platform::get()?;
+    let platform = Platform::get().context("failed to query platform")?;
     let cert_algo = match platform.technology() {
         Technology::Snp => SECP_384_R_1,
         Technology::Sgx => SECP_256_R_1,
@@ -74,8 +92,9 @@ pub fn generate() -> anyhow::Result<(Zeroizing<Vec<u8>>, Vec<u8>)> {
     };
 
     // Generate a keypair.
-    let raw = PrivateKeyInfo::generate(cert_algo)?;
-    let pki = PrivateKeyInfo::from_der(raw.as_ref())?;
+    let raw = PrivateKeyInfo::generate(cert_algo).context("failed to generate a private key")?;
+    let pki = PrivateKeyInfo::from_der(raw.as_ref())
+        .context("failed to parse DER-encoded private key")?;
     let der = pki.public_key().unwrap().to_vec().unwrap();
 
     let mut key_hash = [0u8; 64];
@@ -90,7 +109,7 @@ pub fn generate() -> anyhow::Result<(Zeroizing<Vec<u8>>, Vec<u8>)> {
         }
     };
 
-    let attestation_report = platform.attest(&key_hash)?;
+    let attestation_report = platform.attest(&key_hash).context("failed to attest")?;
 
     // Create extensions.
     let ext = vec![Extension {
@@ -100,7 +119,7 @@ pub fn generate() -> anyhow::Result<(Zeroizing<Vec<u8>>, Vec<u8>)> {
     }];
 
     // Make a certificate signing request.
-    let req = csr(&pki, ext)?;
+    let req = csr(&pki, ext).context("failed to generate a CSR")?;
 
     Ok((raw, req))
 }
