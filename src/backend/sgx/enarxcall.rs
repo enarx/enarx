@@ -104,10 +104,9 @@ pub(crate) fn sgx_enarxcall<'a>(
                     // Safety: `deref_aligned` gives us a pointer to an aligned `timespec` struct.
                     // We also know, that the resulting pointer is inside the allocated sallyport block, where `data`
                     // is a subslice of.
-                    (*deref_aligned::<MaybeUninit<timespec>>(data, *timeout, 1)
+                    *deref_aligned::<timespec>(data, *timeout, 1)
                         .map_err(io::Error::from_raw_os_error)
-                        .context("sgx_enarxcall deref")?)
-                    .assume_init()
+                        .context("failed to dereference timespec in Park enarxcall")?
                 })
             } else {
                 None
