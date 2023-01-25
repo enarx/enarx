@@ -15,6 +15,8 @@
 #![warn(rust_2018_idioms)]
 #![cfg_attr(coverage, feature(no_coverage))]
 
+extern crate alloc;
+
 use goblin::elf::header::header64::Header;
 use nbytes::bytes;
 use primordial::Page as Page4KiB;
