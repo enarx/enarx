@@ -13,6 +13,7 @@
 #![deny(missing_docs)]
 #![feature(asm_const, c_size_t)]
 #![warn(rust_2018_idioms)]
+#![allow(unsafe_op_in_unsafe_fn)]
 #![cfg_attr(coverage, feature(no_coverage))]
 
 extern crate alloc;
