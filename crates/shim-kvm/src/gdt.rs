@@ -84,7 +84,6 @@ pub unsafe fn init(stack_pointer: VirtAddr) {
         load_tss(tss_selector);
 
         // Clear the other segment registers
-        SS::set_reg(SegmentSelector(0));
         DS::set_reg(SegmentSelector(0));
         ES::set_reg(SegmentSelector(0));
         FS::set_reg(SegmentSelector(0));
