@@ -157,6 +157,23 @@ impl PassthroughAlloc for MunmapHost {
     }
 }
 
+/// Notify the host about a new sallyport block at `addr` given the `index`.
+pub struct NewSallyport {
+    pub addr: NonNull<c_void>,
+    pub index: usize,
+}
+
+impl PassthroughAlloc for NewSallyport {
+    const NUM: Number = Number::NewSallyport;
+
+    type Argv = Argv<2>;
+    type Ret = ();
+
+    fn stage(self) -> Self::Argv {
+        Argv([self.addr.as_ptr() as _, self.index])
+    }
+}
+
 /// Spawn a new thread
 #[repr(transparent)]
 pub struct Spawn {

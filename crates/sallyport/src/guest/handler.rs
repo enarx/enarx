@@ -1186,6 +1186,11 @@ pub trait Handler {
         self.execute(enarxcall::MunmapHost { addr, length })?
     }
 
+    /// Notify the host about a new sallyport block at `addr` given the `index`.
+    #[inline]
+    fn new_sallyport(&mut self, addr: NonNull<c_void>, index: usize) -> Result<()> {
+        self.execute(enarxcall::NewSallyport { addr, index })?
+    }
     /// Park the current thread
     ///
     /// # Arguments
