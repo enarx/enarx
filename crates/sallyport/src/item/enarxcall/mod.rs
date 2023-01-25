@@ -83,6 +83,9 @@ pub enum Number {
 
     /// Spawn a new thread
     Spawn = 0x13,
+
+    /// Register a new sallyport block
+    NewSallyport = 0x14,
 }
 
 #[cfg(test)]
