@@ -28,7 +28,8 @@ impl Runtime {
     // Execute an Enarx [Package]
     #[instrument]
     pub fn execute(package: Package) -> anyhow::Result<Vec<Val>> {
-        let (prvkey, crtreq) = identity::generate()?;
+        let (prvkey, crtreq) =
+            identity::generate().context("failed to generate a private key and CSR")?;
 
         let Workload { webasm, config } = package.try_into()?;
         let Config {
