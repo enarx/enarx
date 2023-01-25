@@ -8,27 +8,31 @@
 extern crate rcrt1;
 
 use enarx_shim_kvm::addr::SHIM_VIRT_OFFSET;
-use enarx_shim_kvm::exec;
+use enarx_shim_kvm::allocator::ZERO_PAGE_FRAME;
 use enarx_shim_kvm::gdt;
 use enarx_shim_kvm::hostcall::BLOCK_SIZE;
 use enarx_shim_kvm::interrupts;
 use enarx_shim_kvm::pagetables::{unmap_identity, PDPT, PDT_C000_0000, PML4T, PT_FFE0_0000};
 use enarx_shim_kvm::print::enable_printing;
+use enarx_shim_kvm::shim_stack::{init_stack_with_guard, GuardedStack};
+use enarx_shim_kvm::snp::launch::{Policy, PolicyFlags, Version};
 use enarx_shim_kvm::snp::C_BIT_MASK;
 use enarx_shim_kvm::sse;
+use enarx_shim_kvm::SHIM_STACK_START;
+use enarx_shim_kvm::{exec, SHIM_EX_STACK_START, SHIM_STACK_SIZE};
 
 use core::arch::{asm, global_asm};
 use core::mem::size_of;
 use core::sync::atomic::Ordering;
 
-use enarx_shim_kvm::allocator::ZERO_PAGE_FRAME;
-use enarx_shim_kvm::snp::launch::{Policy, PolicyFlags, Version};
 use noted::noted;
 use primordial::Page;
 use rcrt1::dyn_reloc;
 use sallyport::{elf::note, REQUIRES};
 use spin::Lazy;
 use x86_64::registers::control::{Cr0Flags, Cr4Flags, EferFlags};
+use x86_64::structures::paging::PageTableFlags;
+use x86_64::VirtAddr;
 
 const POLICY_FLAGS: PolicyFlags = PolicyFlags::SMT;
 
@@ -68,6 +72,13 @@ const INITIAL_STACK_PAGES: usize = 50;
 #[link_section = ".entry64_data"]
 static INITIAL_SHIM_STACK: [Page; INITIAL_STACK_PAGES] = [Page::zeroed(); INITIAL_STACK_PAGES];
 
+/// Create a shim stack
+pub fn shim_stack() -> GuardedStack {
+    let start = VirtAddr::new(SHIM_STACK_START);
+    assert!((start + SHIM_STACK_SIZE).as_u64() < SHIM_EX_STACK_START);
+    init_stack_with_guard(start, SHIM_STACK_SIZE, PageTableFlags::empty())
+}
+
 /// Switch the stack and jump to a function
 ///
 /// # Safety
@@ -76,18 +87,18 @@ static INITIAL_SHIM_STACK: [Page; INITIAL_STACK_PAGES] = [Page::zeroed(); INITIA
 /// aligned usable stack.
 #[allow(clippy::integer_arithmetic)]
 #[cfg_attr(coverage, no_coverage)]
-unsafe fn switch_shim_stack(ip: extern "sysv64" fn() -> !, sp: u64) -> ! {
-    debug_assert_eq!(sp % 16, 0);
+unsafe fn switch_shim_stack(ip: extern "sysv64" fn(VirtAddr) -> !, sp: VirtAddr) -> ! {
+    debug_assert_eq!(sp.as_u64() % 16, 0);
 
     // load a new stack pointer and jmp to function
     asm!(
-    "mov    rsp,    {SP}",
-    "sub    rsp,    8",
-    "push   rbp",
-    "call   {IP}",
+    "mov    rsp,    rdi",
+    "sub    rsp,    8  ",
+    "push   rbp        ",
+    "call   {IP}       ",
 
-    SP = in(reg) sp,
     IP = in(reg) ip,
+    in("rdi") sp.as_u64(),
 
     options(noreturn, nomem)
     )
@@ -103,17 +114,22 @@ unsafe extern "sysv64" fn _pre_main(c_bit_mask: u64) -> ! {
 
     unmap_identity();
 
+    let stack_pointer = shim_stack().pointer;
+
     // Everything setup, so print works
     enable_printing();
 
     // Switch the stack to a guarded stack
-    switch_shim_stack(main, gdt::INITIAL_STACK.pointer.as_u64())
+    switch_shim_stack(main, stack_pointer)
 }
 
 /// The main function for the shim with stack setup
 #[cfg_attr(coverage, no_coverage)]
-extern "sysv64" fn main() -> ! {
-    unsafe { gdt::init() };
+extern "sysv64" fn main(stack_pointer: VirtAddr) -> ! {
+    // Safety: The stack pointer is 16 byte aligned.
+    unsafe {
+        gdt::init(stack_pointer);
+    }
     sse::init_sse();
     interrupts::init();
     Lazy::force(&ZERO_PAGE_FRAME);
