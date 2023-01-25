@@ -4,6 +4,7 @@ use super::super::Command;
 use super::KeepPersonality;
 #[cfg(feature = "gdb")]
 use crate::backend::execute_gdb;
+use crate::backend::parking::THREAD_PARK;
 
 use std::io;
 use std::iter;
@@ -12,7 +13,9 @@ use std::sync::{Arc, RwLock};
 
 use anyhow::{bail, Context, Result};
 use kvm_ioctls::{VcpuExit, VcpuFd};
+use libc::timespec;
 use mmarinus::{perms, Map};
+use sallyport::host::deref_aligned;
 use sallyport::item::enarxcall::Payload;
 use sallyport::item::{Block, Item};
 use sallyport::{item, KVM_SYSCALL_TRIGGER_PORT};
@@ -117,7 +120,41 @@ impl<P: KeepPersonality> Thread<P> {
                 };
                 Ok(None)
             }
+            item::Enarxcall {
+                num: item::enarxcall::Number::Park,
+                argv: [val, timeout, ..],
+                ret,
+                ..
+            } => {
+                let timeout = if *timeout != sallyport::NULL {
+                    Some(unsafe {
+                        // Safety: `deref_aligned` gives us a pointer to an aligned `timespec` struct.
+                        // We also know, that the resulting pointer is inside the allocated sallyport block, where `data`
+                        // is a subslice of.
+                        *deref_aligned::<timespec>(data, *timeout, 1)
+                            .map_err(io::Error::from_raw_os_error)
+                            .context("failed to dereference timespec in Park enarxcall")?
+                    })
+                } else {
+                    None
+                };
 
+                *ret = THREAD_PARK
+                    .park(*val as _, timeout.as_ref())
+                    .map(|v| v as usize)
+                    .unwrap_or_else(|e| -e as usize);
+
+                Ok(None)
+            }
+            item::Enarxcall {
+                num: item::enarxcall::Number::UnPark,
+                ret,
+                ..
+            } => {
+                THREAD_PARK.unpark();
+                *ret = 0;
+                Ok(None)
+            }
             _ => return Ok(Some(Item::Enarxcall(enarxcall, data))),
         }
     }
