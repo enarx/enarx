@@ -14,13 +14,7 @@ use std::sync::Arc;
 use tempfile::Builder;
 
 #[test]
-#[cfg_attr(not(host_can_test_sgx), ignore = "Backend does not support SGX")]
 fn futex() {
-    if !is_sgx() {
-        eprintln!("SGX backend is disabled, ignoring");
-        return;
-    }
-
     let bin = env!("CARGO_BIN_FILE_ENARX_EXEC_TESTS_futex");
 
     run_test(bin, 0, None, None, None);
