@@ -7,12 +7,12 @@ use crate::exec::NEXT_MMAP_RWLOCK;
 use crate::hostcall::{HostCall, SHIM_LOCAL_STORAGE};
 use crate::paging::{EncPhysOffset, SHIM_PAGETABLE};
 use crate::snp::{get_cbit_mask, pvalidate, snp_active, PvalidateSize};
-use crate::spin::Locked;
 
 use core::alloc::{GlobalAlloc, Layout};
 use core::cmp::{max, min};
 use core::convert::TryFrom;
 use core::mem::{align_of, size_of};
+use core::ops::Deref;
 use core::ptr::NonNull;
 
 use goblin::elf::header::header64::Header;
@@ -22,7 +22,7 @@ use linked_list_allocator::Heap;
 use lset::{Line, Span};
 use primordial::{Address, Page as Page4KiB};
 use sallyport::guest::Handler;
-use spin::{Lazy, RwLockWriteGuard};
+use spin::{Lazy, Mutex, RwLockWriteGuard};
 use x86_64::instructions::tlb::flush_all;
 use x86_64::structures::paging::mapper::{MapToError, UnmapError};
 use x86_64::structures::paging::{
@@ -42,9 +42,24 @@ pub static ZERO_PAGE_FRAME: Lazy<PhysFrame<Size4KiB>> = Lazy::new(|| {
     frame
 });
 
-/// The global EnarxAllocator RwLock
-pub static ALLOCATOR: Lazy<Locked<EnarxAllocator>> =
-    Lazy::new(|| Locked::new(unsafe { EnarxAllocator::new() }));
+/// A global allocator that uses the `EnarxAllocator` to allocate memory.
+pub struct LockedEnarxAllocator {
+    inner: Lazy<Mutex<EnarxAllocator>>,
+}
+
+impl Deref for LockedEnarxAllocator {
+    type Target = Lazy<Mutex<EnarxAllocator>>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.inner
+    }
+}
+
+/// The global EnarxAllocator
+#[cfg_attr(target_os = "none", global_allocator)]
+pub static ALLOCATOR: LockedEnarxAllocator = LockedEnarxAllocator {
+    inner: Lazy::new(|| Mutex::new(unsafe { EnarxAllocator::new() })),
+};
 
 /// The allocator
 ///
@@ -599,15 +614,15 @@ fn shim_virt_to_enc_phys<T>(p: *mut T) -> PhysAddr {
     PhysAddr::new(virt.as_u64().checked_sub(SHIM_VIRT_OFFSET).unwrap() | get_cbit_mask())
 }
 
-unsafe impl GlobalAlloc for Locked<EnarxAllocator> {
+unsafe impl GlobalAlloc for LockedEnarxAllocator {
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
-        let mut this = self.lock();
+        let mut this = self.inner.lock();
         this.try_alloc(layout)
             .map_or(core::ptr::null_mut(), |p| p.as_ptr())
     }
 
     unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
-        let mut this = self.lock();
+        let mut this = self.inner.lock();
         this.deallocate(ptr, layout);
     }
 }
