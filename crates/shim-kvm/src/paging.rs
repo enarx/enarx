@@ -38,14 +38,15 @@ unsafe impl PageTableFrameMapping for EncPhysOffset {
     }
 }
 
+/// The shim's page table type
+pub type ShimPageTable = MappedPageTable<'static, EncPhysOffset>;
+
 /// The global `MappedPageTable` of the shim for encrypted pages.
-pub static SHIM_PAGETABLE: Lazy<RwLock<MappedPageTable<'static, EncPhysOffset>>> =
-    Lazy::new(|| {
-        let enc_phys_offset = EncPhysOffset::default();
+pub static SHIM_PAGETABLE: Lazy<RwLock<ShimPageTable>> = Lazy::new(|| {
+    let enc_phys_offset = EncPhysOffset::default();
 
-        let enc_offset_page_table = unsafe {
-            MappedPageTable::new(&mut (*(PML4T.get() as *mut PageTable)), enc_phys_offset)
-        };
+    let enc_offset_page_table =
+        unsafe { MappedPageTable::new(&mut (*(PML4T.get() as *mut PageTable)), enc_phys_offset) };
 
-        RwLock::new(enc_offset_page_table)
-    });
+    RwLock::new(enc_offset_page_table)
+});
