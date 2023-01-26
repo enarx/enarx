@@ -2,8 +2,9 @@
 
 //! Functions dealing with the exec
 
-use crate::addr::ShimPhysAddr;
+use crate::addr::{ShimPhysAddr, TranslateFrom};
 use crate::allocator::ALLOCATOR;
+use crate::paging::SHIM_PAGETABLE;
 use crate::random::random;
 use crate::shim_stack::init_stack_with_guard;
 use crate::snp::cpuid;
@@ -12,7 +13,6 @@ use crate::{
     EXEC_BRK_VIRT_ADDR_BASE, EXEC_ELF_VIRT_ADDR_BASE, EXEC_STACK_SIZE, EXEC_STACK_VIRT_ADDR_BASE,
 };
 
-use core::convert::TryFrom;
 use core::sync::atomic::{AtomicBool, Ordering};
 
 use crt0stack::{self, Builder, Entry};
@@ -65,7 +65,7 @@ fn map_elf(app_virt_start: VirtAddr) -> &'static Header {
     };
 
     // Convert to shim physical addresses with potential SEV C-Bit set
-    let code_start_phys = ShimPhysAddr::try_from(header as *const _)
+    let code_start_phys = ShimPhysAddr::translate_from(&SHIM_PAGETABLE.read(), header as *const _)
         .unwrap()
         .raw()
         .raw();
