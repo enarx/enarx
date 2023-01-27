@@ -2,7 +2,7 @@
 
 //! Host <-> Shim Communication
 
-use crate::allocator::{ALLOCATOR, ZERO_PAGE_FRAME};
+use crate::allocator::{PageTableAllocatorLock, ZERO_PAGE_FRAME};
 use crate::debug::_enarx_asm_triple_fault;
 use crate::exec::{BRK_LINE, NEXT_MMAP_RWLOCK};
 use crate::paging::SHIM_PAGETABLE;
@@ -377,8 +377,7 @@ impl Handler for HostCall<'_> {
                 let len = (brk_line.end - addr_u64_aligned).as_u64();
 
                 // unmap the rest
-                ALLOCATOR
-                    .lock()
+                PageTableAllocatorLock::new()
                     .unmap_memory(VirtAddr::new(addr_u64_aligned), len as usize)
                     .unwrap();
 
@@ -399,8 +398,7 @@ impl Handler for HostCall<'_> {
                 let addr_u64_aligned = align_up(addr_u64, Page::<Size4KiB>::SIZE);
                 let len = addr_u64_aligned.checked_sub(brk_line.end.as_u64()).unwrap();
 
-                ALLOCATOR
-                    .lock()
+                PageTableAllocatorLock::new()
                     .allocate_and_map_memory(
                         brk_line.end,
                         len as usize,
@@ -512,7 +510,7 @@ impl Handler for HostCall<'_> {
                 let end_page: Page = Page::containing_address(start_addr + new_size - 1u64);
                 let page_range = Page::range_inclusive(start_page, end_page);
 
-                let mut shim_page_table = SHIM_PAGETABLE.write();
+                let shim_page_table = SHIM_PAGETABLE.read();
 
                 let TranslateResult::Mapped { flags, .. } = shim_page_table.translate(VirtAddr::from_ptr(old_address.as_ptr())) else {
                     return Err(EINVAL);
@@ -546,16 +544,16 @@ impl Handler for HostCall<'_> {
                     )
                 });
 
+                drop(shim_page_table);
+
                 if check_mem_unmapped {
                     eprintln!("SC> mremap: adding to the end of the mapping");
 
                     let len_aligned =
                         align_up((new_size - old_size) as _, Page::<Size4KiB>::SIZE) as _;
 
-                    let _ = ALLOCATOR
-                        .lock()
+                    PageTableAllocatorLock::new()
                         .map_memory_zero(
-                            &mut shim_page_table,
                             start_addr,
                             len_aligned,
                             new_flags,
@@ -576,7 +574,6 @@ impl Handler for HostCall<'_> {
 
                     Ok(old_address)
                 } else {
-                    drop(shim_page_table);
                     // FIXME: copy the physical pages in the page table
 
                     // simply copy the old data to a new location
@@ -646,10 +643,8 @@ impl Handler for HostCall<'_> {
                 let virt_addr = *NEXT_MMAP_RWLOCK.read().deref();
                 let len_aligned = align_up(length as _, Page::<Size4KiB>::SIZE) as _;
 
-                let mem_slice = ALLOCATOR
-                    .lock()
+                let mem_slice = PageTableAllocatorLock::new()
                     .map_memory_zero(
-                        &mut SHIM_PAGETABLE.write(),
                         virt_addr,
                         len_aligned,
                         flags,
@@ -766,10 +761,9 @@ impl Handler for HostCall<'_> {
 
         let addr: &[u8] = platform.validate_slice(addr.as_ptr() as _, length)?;
 
+        let virt_addr = VirtAddr::from_ptr(addr.as_ptr());
         // It is not an error if the indicated range does not contain any mapped pages.
-        let _ = ALLOCATOR
-            .lock()
-            .unmap_memory(VirtAddr::from_ptr(addr.as_ptr()), length);
+        let _ = PageTableAllocatorLock::new().unmap_memory(virt_addr, length);
 
         Ok(())
     }

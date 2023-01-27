@@ -8,7 +8,7 @@
 extern crate rcrt1;
 
 use enarx_shim_kvm::addr::SHIM_VIRT_OFFSET;
-use enarx_shim_kvm::allocator::ZERO_PAGE_FRAME;
+use enarx_shim_kvm::allocator::{ALLOCATOR, ZERO_PAGE_FRAME};
 use enarx_shim_kvm::gdt;
 use enarx_shim_kvm::hostcall::BLOCK_SIZE;
 use enarx_shim_kvm::interrupts;
@@ -113,6 +113,8 @@ unsafe extern "sysv64" fn _pre_main(c_bit_mask: u64) -> ! {
     C_BIT_MASK.store(c_bit_mask, Ordering::Relaxed);
 
     unmap_identity();
+
+    Lazy::force(&ALLOCATOR);
 
     let stack_pointer = shim_stack().pointer;
 
