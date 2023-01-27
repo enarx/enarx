@@ -15,7 +15,7 @@ pub mod nil;
 mod binary;
 
 #[cfg(enarx_with_shim)]
-mod probe;
+pub(crate) mod probe;
 
 #[cfg(enarx_with_shim)]
 mod parking;

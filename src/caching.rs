@@ -7,6 +7,7 @@ use std::vec;
 use anyhow::Context;
 use der::{Decode, Encode, Sequence};
 use x509_cert::crl::CertificateList;
+use x509_cert::time::Time;
 
 #[derive(Sequence)]
 pub struct CrlListEntry<'a> {
@@ -43,6 +44,21 @@ impl<'a> CrlList<'a> {
         self.crls
             .iter()
             .map(|CrlListEntry { url, crl }| (url.as_str(), crl))
+    }
+
+    pub fn next_update(&self) -> Option<Time> {
+        let first = self.crls.first()?;
+        let mut first = first.crl.tbs_cert_list.next_update?;
+
+        for crl in self.crls.iter() {
+            if let Some(next) = crl.crl.tbs_cert_list.next_update {
+                if next.to_system_time() < first.to_system_time() {
+                    first = next;
+                }
+            }
+        }
+
+        Some(first)
     }
 }
 
