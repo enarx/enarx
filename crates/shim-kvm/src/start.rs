@@ -13,11 +13,11 @@ use enarx_shim_kvm::gdt;
 use enarx_shim_kvm::hostcall::BLOCK_SIZE;
 use enarx_shim_kvm::interrupts;
 use enarx_shim_kvm::pagetables::{unmap_identity, PDPT, PDT_C000_0000, PML4T, PT_FFE0_0000};
-use enarx_shim_kvm::print::enable_printing;
 use enarx_shim_kvm::shim_stack::{init_stack_with_guard, GuardedStack};
 use enarx_shim_kvm::snp::launch::{Policy, PolicyFlags, Version};
 use enarx_shim_kvm::snp::C_BIT_MASK;
 use enarx_shim_kvm::sse;
+use enarx_shim_kvm::stdio::enable_printing;
 use enarx_shim_kvm::SHIM_STACK_START;
 use enarx_shim_kvm::{exec, SHIM_EX_STACK_START, SHIM_STACK_SIZE};
 
@@ -148,7 +148,7 @@ fn panic(_info: &core::panic::PanicInfo<'_>) -> ! {
     use core::sync::atomic::AtomicBool;
     use enarx_shim_kvm::debug::_enarx_asm_triple_fault;
     #[cfg(feature = "dbg")]
-    use enarx_shim_kvm::print::{self, is_printing_enabled};
+    use enarx_shim_kvm::stdio::{self, is_printing_enabled};
 
     static mut ALREADY_IN_PANIC: AtomicBool = AtomicBool::new(false);
 
@@ -160,7 +160,7 @@ fn panic(_info: &core::panic::PanicInfo<'_>) -> ! {
         {
             #[cfg(feature = "dbg")]
             if is_printing_enabled() {
-                print::_eprint(format_args!("{_info}\n"));
+                stdio::_eprint(format_args!("{_info}\n"));
                 enarx_shim_kvm::debug::print_stack_trace();
             }
             // FIXME: might want to have a custom panic hostcall

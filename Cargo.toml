@@ -150,6 +150,7 @@ async-std = { version = "1.11.0", default-features = false, features = ["attribu
 atty = { version = "0.2.0", default-features = false }
 bitflags = { version = "1.2.0", default-features = false }
 camino = { version = "1.0.9", default-features = false }
+cfg-if = { version = "1.0.0", default-features = false }
 chrono = { version = "0.4.19", features = ["clock", "serde", "std"], default-features = false }
 clap = { version = "4.0", features = ["std", "derive", "env", "error-context", "help", "usage", "wrap_help"], default-features = false }
 colorful = { version = "0.2.0", default-features = false }

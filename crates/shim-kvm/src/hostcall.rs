@@ -4,7 +4,6 @@
 
 use crate::allocator::{ALLOCATOR, ZERO_PAGE_FRAME};
 use crate::debug::_enarx_asm_triple_fault;
-use crate::eprintln;
 use crate::exec::{BRK_LINE, NEXT_MMAP_RWLOCK};
 use crate::paging::SHIM_PAGETABLE;
 use crate::snp::attestation::asn1_encode_report_vcek;
@@ -323,7 +322,7 @@ impl Handler for HostCall<'_> {
                 unsafe {
                     FS::write_base(VirtAddr::new(addr));
                 }
-                eprintln!("SC> arch_prctl(ARCH_SET_FS, {:#x}) = 0", addr);
+                eprintln!("SC> arch_prctl(ARCH_SET_FS, {addr:#x}) = 0");
                 Ok(())
             }
             syscall::ARCH_GET_FS => {
@@ -336,7 +335,7 @@ impl Handler for HostCall<'_> {
                 unsafe {
                     GS::write_base(VirtAddr::new(addr));
                 }
-                eprintln!("SC> arch_prctl(ARCH_SET_GS, {:#x}) = 0", addr);
+                eprintln!("SC> arch_prctl(ARCH_SET_GS, {addr:#x}) = 0");
                 Ok(())
             }
             syscall::ARCH_GET_GS => {
@@ -345,7 +344,7 @@ impl Handler for HostCall<'_> {
                 Ok(())
             }
             x => {
-                eprintln!("SC> arch_prctl({:#x}, {:#x}) = -EINVAL", x, addr);
+                eprintln!("SC> arch_prctl({x:#x}, {addr:#x}) = -EINVAL");
                 Err(EINVAL)
             }
         }
@@ -359,11 +358,11 @@ impl Handler for HostCall<'_> {
         let mut brk_line = BRK_LINE.write();
         let brk_end_u64 = brk_line.end.as_u64();
 
-        eprintln!("SC> brk({:#?}) ...", addr);
+        eprintln!("SC> brk({addr:#?}) ...");
 
         match addr.map(|a| a.as_ptr() as u64) {
             None => {
-                eprintln!("SC> brk({:#?}) = {:#x}", addr, brk_end_u64);
+                eprintln!("SC> brk({addr:#?}) = {brk_end_u64:#x}");
                 Ok(NonNull::new(brk_line.end.as_mut_ptr()).unwrap())
             }
 
@@ -385,13 +384,13 @@ impl Handler for HostCall<'_> {
 
                 brk_line.end = VirtAddr::new(addr_u64_aligned);
 
-                eprintln!("SC> brk({:#?}) = {:#x}", addr, addr_u64);
+                eprintln!("SC> brk({addr:#?}) = {addr_u64:#x}");
                 Ok(NonNull::new(addr_u64 as _).unwrap())
             }
 
             // inside the last mapped page
             Some(addr_u64) if addr_u64 < brk_end_u64 => {
-                eprintln!("SC> brk({:#?}) = {:#x}", addr, addr_u64);
+                eprintln!("SC> brk({addr:#?}) = {addr_u64:#x}");
                 Ok(NonNull::new(addr_u64 as _).unwrap())
             }
 
@@ -413,13 +412,13 @@ impl Handler for HostCall<'_> {
                             | PageTableFlags::USER_ACCESSIBLE,
                     )
                     .map_err(|_| {
-                        eprintln!("SC> brk({:#?}) = ENOMEM", addr);
+                        eprintln!("SC> brk({addr:#?}) = ENOMEM");
                         ENOMEM
                     })?;
 
                 brk_line.end = VirtAddr::new(addr_u64_aligned);
 
-                eprintln!("SC> brk({:#?}) = {:#x}", addr, addr_u64);
+                eprintln!("SC> brk({addr:#?}) = {addr_u64:#x}");
                 Ok(NonNull::new(addr_u64 as _).unwrap())
             }
         }
@@ -473,10 +472,7 @@ impl Handler for HostCall<'_> {
             new_flags
         }
 
-        eprintln!(
-            "SC> mremap({:?}, {:?}, {:?}, {:#?}) ...",
-            old_address, old_size, new_size, flags
-        );
+        eprintln!("SC> mremap({old_address:?}, {old_size:?}, {new_size:?}, {flags:#?}) ...");
 
         match flags {
             None | Some(MremapFlags { FIXED: None, .. }) if new_size == old_size => Ok(old_address),
@@ -568,7 +564,7 @@ impl Handler for HostCall<'_> {
                                 | PageTableFlags::USER_ACCESSIBLE,
                         )
                         .map_err(|_| {
-                            eprintln!("SC> mmap(0, {}, ...) = ENOMEM", len_aligned);
+                            eprintln!("SC> mmap(0, {len_aligned}, ...) = ENOMEM");
                             ENOMEM
                         })?;
 
@@ -633,7 +629,7 @@ impl Handler for HostCall<'_> {
     ) -> sallyport::Result<NonNull<c_void>> {
         const PA: i32 = MAP_PRIVATE | MAP_ANONYMOUS;
 
-        eprintln!("SC> mmap({:#?}, {}, {}, ...)", addr, length, prot);
+        eprintln!("SC> mmap({addr:#?}, {length}, {prot}, ...)");
 
         match (addr, length, prot, flags, fd, offset) {
             (None, _, _, PA, -1, 0) => {
@@ -662,7 +658,7 @@ impl Handler for HostCall<'_> {
                             | PageTableFlags::USER_ACCESSIBLE,
                     )
                     .map_err(|_| {
-                        eprintln!("SC> mmap(0, {}, ...) = ENOMEM", length);
+                        eprintln!("SC> mmap(0, {length}, ...) = ENOMEM");
                         ENOMEM
                     })?;
 
@@ -672,7 +668,7 @@ impl Handler for HostCall<'_> {
                 Ok(NonNull::new(mem_slice.as_mut_ptr() as *mut c_void).unwrap())
             }
             (addr, ..) => {
-                eprintln!("SC> mmap({:#?}, {}, ...)", addr, length);
+                eprintln!("SC> mmap({addr:#?}, {length}, ...)");
                 unimplemented!()
             }
         }
@@ -711,8 +707,7 @@ impl Handler for HostCall<'_> {
                     if flags.contains(PageTableFlags::USER_ACCESSIBLE) => {}
                 _ => {
                     eprintln!(
-                        "SC> mprotect({:#?}, {}, {}, ...) = EINVAL !USER_ACCESSIBLE",
-                        addr, len, prot
+                        "SC> mprotect({addr:#?}, {len}, {prot}, ...) = EINVAL !USER_ACCESSIBLE"
                     );
                     return Err(EINVAL);
                 }
@@ -739,8 +734,7 @@ impl Handler for HostCall<'_> {
                         Ok(flush) => flush.ignore(),
                         Err(e) => {
                             eprintln!(
-                                "SC> mprotect({:#?}, {}, {}, ...) = EINVAL ({:#?})",
-                                addr, len, prot, e
+                                "SC> mprotect({addr:#?}, {len}, {prot}, ...) = EINVAL ({e:#?})"
                             );
                             return Err(EINVAL);
                         }
@@ -748,8 +742,7 @@ impl Handler for HostCall<'_> {
                 }
                 _ => {
                     eprintln!(
-                        "SC> mprotect({:#?}, {}, {}, ...) = EINVAL !USER_ACCESSIBLE",
-                        addr, len, prot
+                        "SC> mprotect({addr:#?}, {len}, {prot}, ...) = EINVAL !USER_ACCESSIBLE"
                     );
                     return Err(EINVAL);
                 }
@@ -758,7 +751,7 @@ impl Handler for HostCall<'_> {
 
         flush_all();
 
-        eprintln!("SC> mprotect({:#?}, {}, {}, ...) = 0", addr, len, prot);
+        eprintln!("SC> mprotect({addr:#?}, {len}, {prot}, ...) = 0");
 
         Ok(())
     }
@@ -769,7 +762,7 @@ impl Handler for HostCall<'_> {
         addr: NonNull<c_void>,
         length: c_size_t,
     ) -> sallyport::Result<()> {
-        eprintln!("SC> munmap({:#?}, {}) = 0", addr, length);
+        eprintln!("SC> munmap({addr:#?}, {length}) = 0");
 
         let addr: &[u8] = platform.validate_slice(addr.as_ptr() as _, length)?;
 

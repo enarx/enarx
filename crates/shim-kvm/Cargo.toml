@@ -16,6 +16,7 @@ bench = []
 aes-gcm = { workspace = true }
 array-const-fn-init = { workspace = true }
 bitflags = { workspace = true }
+cfg-if = { workspace = true }
 const-default = { workspace = true, features = ["derive"] }
 crt0stack = { workspace = true }
 goblin = { workspace = true }

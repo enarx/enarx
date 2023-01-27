@@ -8,7 +8,7 @@ use x86_64::instructions::tables::lidt;
 use x86_64::structures::DescriptorTablePointer;
 use x86_64::VirtAddr;
 
-#[cfg(feature = "dbg")]
+#[cfg(all(feature = "dbg", not(test)))]
 use crate::addr::SHIM_VIRT_OFFSET;
 use crate::snp::ghcb::{vmgexit_msr, GhcbMsr};
 use crate::snp::snp_active;
@@ -21,30 +21,36 @@ use crate::snp::snp_active;
 #[inline(never)]
 #[cfg_attr(coverage, no_coverage)]
 pub unsafe fn _early_debug_panic(reason: u64, value: u64) -> ! {
-    let mut rbp: u64;
+    if cfg!(all(feature = "dbg", not(test))) {
+        let mut rbp: u64;
 
-    // Safe the contents of the rbp register containing the stack frame pointer
-    asm!("mov {}, rbp", out(reg) rbp);
+        // Safe the contents of the rbp register containing the stack frame pointer
+        asm!("mov {}, rbp", out(reg) rbp);
 
-    if snp_active() {
+        if snp_active() {
+            _load_invalid_idt();
+
+            vmgexit_msr(
+                GhcbMsr::EXIT_REQ,
+                value.wrapping_shl(16) | (reason & 0x7).wrapping_shl(12),
+                0,
+            );
+            // a GHCB_MSR_EXIT_REQ should not return, but in case it does the
+            // `unreachable` `ud2` will cause a triple fault.
+            unreachable!();
+        }
+
+        let mut frames = backtrace(rbp);
+
+        frames[11] = reason;
+        frames[12] = value;
+
+        _inline_ud2_triple_fault(frames)
+    } else {
         _load_invalid_idt();
-
-        vmgexit_msr(
-            GhcbMsr::EXIT_REQ,
-            value.wrapping_shl(16) | (reason & 0x7).wrapping_shl(12),
-            0,
-        );
-        // a GHCB_MSR_EXIT_REQ should not return, but in case it does the
         // `unreachable` `ud2` will cause a triple fault.
         unreachable!();
     }
-
-    let mut frames = backtrace(rbp);
-
-    frames[11] = reason;
-    frames[12] = value;
-
-    _inline_ud2_triple_fault(frames)
 }
 
 /// Provoke a triple fault to shutdown the machine
@@ -59,18 +65,24 @@ pub unsafe fn _early_debug_panic(reason: u64, value: u64) -> ! {
 #[inline(never)]
 #[cfg_attr(coverage, no_coverage)]
 pub unsafe fn _enarx_asm_triple_fault() -> ! {
-    let mut rbp: u64;
+    if cfg!(all(feature = "dbg", not(test))) {
+        let mut rbp: u64;
 
-    // Safe the contents of the rbp register containing the stack frame pointer
-    asm!("mov {}, rbp", out(reg) rbp);
+        // Safe the contents of the rbp register containing the stack frame pointer
+        asm!("mov {}, rbp", out(reg) rbp);
 
-    if snp_active() {
-        _early_debug_panic(0x7, 0xFF);
+        if snp_active() {
+            _early_debug_panic(0x7, 0xFF);
+        }
+
+        let frames = backtrace(rbp);
+
+        _inline_ud2_triple_fault(frames)
+    } else {
+        _load_invalid_idt();
+        // `unreachable` `ud2` will cause a triple fault.
+        unreachable!();
     }
-
-    let frames = backtrace(rbp);
-
-    _inline_ud2_triple_fault(frames)
 }
 
 /// Load an invalid DescriptorTablePointer with no base and limit and
@@ -115,12 +127,12 @@ unsafe fn _load_invalid_idt() {
     lidt(&dtp);
 }
 
-#[cfg(not(feature = "dbg"))]
+#[cfg(not(all(feature = "dbg", not(test))))]
 unsafe fn backtrace(_rbp: u64) -> [u64; 16] {
     [0u64; 16]
 }
 
-#[cfg(feature = "dbg")]
+#[cfg(all(feature = "dbg", not(test)))]
 /// Produce a backtrace from a frame pointer
 #[inline(always)]
 #[cfg_attr(coverage, no_coverage)]
@@ -153,7 +165,7 @@ unsafe fn backtrace(mut rbp: u64) -> [u64; 16] {
     frames
 }
 
-#[cfg(feature = "dbg")]
+#[cfg(all(feature = "dbg", not(test)))]
 #[inline(never)]
 /// print a stack trace from a stack frame pointer
 #[cfg_attr(coverage, no_coverage)]
@@ -166,19 +178,19 @@ pub fn print_stack_trace() {
     }
 }
 
-#[cfg(feature = "dbg")]
+#[cfg(all(feature = "dbg", not(test)))]
 #[cfg_attr(coverage, no_coverage)]
 unsafe fn stack_trace_from_rbp(mut rbp: usize) {
     use crate::exec::EXEC_VIRT_ADDR;
     use crate::paging::SHIM_PAGETABLE;
-    use crate::print;
+    use crate::stdio::_eprint;
 
     use core::mem::size_of;
     use core::sync::atomic::Ordering;
 
     use x86_64::structures::paging::Translate;
 
-    print::_eprint(format_args!("TRACE:\n"));
+    _eprint(format_args!("TRACE:\n"));
 
     if SHIM_PAGETABLE.try_read().is_none() {
         SHIM_PAGETABLE.force_write_unlock()
@@ -213,11 +225,11 @@ unsafe fn stack_trace_from_rbp(mut rbp: usize) {
                     break;
                 }
                 if let Some(rip) = rip.checked_sub(shim_offset) {
-                    print::_eprint(format_args!("S 0x{rip:>016x}\n"));
+                    _eprint(format_args!("S 0x{rip:>016x}\n"));
                     rbp = *(rbp as *const usize);
                 } else if crate::exec::EXEC_READY.load(Ordering::Relaxed) {
                     if let Some(rip) = rip.checked_sub(EXEC_VIRT_ADDR.read().as_u64() as _) {
-                        print::_eprint(format_args!("E 0x{rip:>016x}\n"));
+                        _eprint(format_args!("E 0x{rip:>016x}\n"));
                         rbp = *(rbp as *const usize);
                     } else {
                         break;
@@ -234,7 +246,7 @@ unsafe fn stack_trace_from_rbp(mut rbp: usize) {
     }
 }
 
-#[cfg(feature = "dbg")]
+#[cfg(all(feature = "dbg", not(test)))]
 #[cfg_attr(coverage, no_coverage)]
 pub(crate) fn interrupt_trace(stack_frame: &crate::interrupts::ExtendedInterruptStackFrame) {
     use crate::exec::EXEC_VIRT_ADDR;

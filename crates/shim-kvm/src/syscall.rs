@@ -129,7 +129,7 @@ extern "sysv64" fn syscall_rust(
 
     #[cfg(feature = "dbg")]
     if !(nr == SYS_write as usize && (a == STDERR_FILENO as usize || a == STDOUT_FILENO as usize)) {
-        eprintln!("syscall {} ...", nr)
+        eprintln!("syscall {nr} ...")
     }
 
     let mut tls = THREAD_TLS.lock();

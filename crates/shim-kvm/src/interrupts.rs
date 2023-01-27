@@ -2,10 +2,9 @@
 
 //! Interrupt handling
 
-#[cfg(feature = "dbg")]
+#[cfg(all(feature = "dbg", not(test)))]
 use crate::debug::{interrupt_trace, print_stack_trace};
-#[cfg(any(debug_assertions, feature = "dbg"))]
-use crate::eprintln;
+#[cfg(any(all(feature = "dbg", not(test)), not(feature = "gdb")))]
 use crate::hostcall::shim_exit;
 use crate::snp::cpuid_count;
 
@@ -360,9 +359,9 @@ declare_interrupt!(
         if handle_page_fault(address, error_code).is_err() {
             eprintln!("EXCEPTION: PAGE FAULT");
 
-            eprintln!("Accessed Address: {:?}", address);
-            eprintln!("Error Code: {:?}", error_code);
-            #[cfg(feature = "dbg")]
+            eprintln!("Accessed Address: {address:?}");
+            eprintln!("Error Code: {error_code:?}");
+            #[cfg(all(feature = "dbg", not(test)))]
             interrupt_trace(_stack_frame);
 
             #[cfg(feature = "gdb")]
@@ -388,7 +387,7 @@ pub static IDT: Lazy<InterruptDescriptorTable> = Lazy::new(|| {
         let virt = VirtAddr::new_unsafe(page_fault_handler as usize as u64);
         idt.page_fault.set_handler_addr(virt).set_stack_index(6);
 
-        #[cfg(feature = "dbg")]
+        #[cfg(all(feature = "dbg", not(test)))]
         debug::idt_add_debug_exception_handlers(&mut idt);
     }
     idt
@@ -402,7 +401,7 @@ pub fn init() {
     IDT.load();
 }
 
-#[cfg(feature = "dbg")]
+#[cfg(all(feature = "dbg", not(test)))]
 mod debug {
     use super::*;
     use core::arch::asm;

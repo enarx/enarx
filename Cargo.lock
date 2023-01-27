@@ -1298,6 +1298,7 @@ dependencies = [
  "aes-gcm",
  "array-const-fn-init",
  "bitflags",
+ "cfg-if 1.0.0",
  "const-default",
  "crt0stack",
  "gdbstub",

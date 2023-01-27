@@ -24,8 +24,14 @@ use primordial::Page as Page4KiB;
 use shared::no_std::cpuid_page::CpuidPage;
 use x86_64::VirtAddr;
 
-#[macro_use]
-pub mod print;
+cfg_if::cfg_if! {
+    if #[cfg(not(test))] {
+        #[macro_use]
+        pub mod stdio;
+    } else {
+        pub use std::{println, print, eprintln, eprint};
+    }
+}
 pub mod addr;
 pub mod allocator;
 pub mod debug;
