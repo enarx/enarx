@@ -10,4 +10,7 @@ rustflags = ["-C", "target-feature=+crt-static"]
 
 [unstable]
 bindeps = true
-sparse-registry = true
+
+# In the future when sparse registries are the default, this key can be removed
+[registries.crates-io]
+protocol = "sparse"
