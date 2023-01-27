@@ -58,7 +58,7 @@ fn new_tss(stack_pointer: VirtAddr) -> &'static mut TaskStateSegment {
 #[cfg_attr(coverage, no_coverage)]
 pub unsafe fn init(stack_pointer: VirtAddr) {
     #[cfg(debug_assertions)]
-    crate::eprintln!("init_gdt");
+    eprintln!("init_gdt");
 
     let gdt = Box::leak(Box::new(GlobalDescriptorTable::new()));
     let tss = new_tss(stack_pointer);
@@ -108,5 +108,5 @@ pub unsafe fn init(stack_pointer: VirtAddr) {
         GS::write_base(base);
     }
 
-    crate::eprintln!("init_gdt done");
+    eprintln!("init_gdt done");
 }

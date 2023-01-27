@@ -265,7 +265,7 @@ pub(crate) fn gdb_session(stack_frame: &mut ExtendedInterruptStackFrameValue) {
     regs.regs
         .iter()
         .enumerate()
-        .for_each(|(i, v)| eprintln!("r{} = {:#x}", i, v));
+        .for_each(|(i, v)| eprintln!("r{i} = {v:#x}"));
 
     let mut target = GdbTarget::new(stack_frame);
 
@@ -273,7 +273,7 @@ pub(crate) fn gdb_session(stack_frame: &mut ExtendedInterruptStackFrameValue) {
 
     eprintln!("Starting GDB session...");
 
-    eprintln!("symbol-file -o {:#x} <shim>", SHIM_VIRT_OFFSET);
+    eprintln!("symbol-file -o {SHIM_VIRT_OFFSET:#x} <shim>");
 
     if EXEC_READY.load(Ordering::Relaxed) {
         let exec_virt = *EXEC_VIRT_ADDR.read();
@@ -302,7 +302,7 @@ pub(crate) fn gdb_session(stack_frame: &mut ExtendedInterruptStackFrameValue) {
             }
 
             Err(GdbStubError::TargetError(e)) => {
-                eprintln!("resume: {:#?}", e);
+                eprintln!("resume: {e:#?}");
                 break;
             }
 
@@ -314,7 +314,7 @@ pub(crate) fn gdb_session(stack_frame: &mut ExtendedInterruptStackFrameValue) {
                 GdbStubError::PacketUnexpected => break,
                 GdbStubError::TargetMismatch => break,
                 GdbStubError::UnsupportedStopReason => break,
-                _ => eprintln!("gdbstub internal error: {:#?}", e),
+                _ => eprintln!("gdbstub internal error: {e:#?}"),
             },
         };
     }

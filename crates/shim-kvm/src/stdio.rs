@@ -9,7 +9,20 @@ use core::sync::atomic::{AtomicUsize, Ordering};
 
 use sallyport::libc::{STDERR_FILENO, STDOUT_FILENO};
 
-struct HostWrite(HostFd);
+/// Write a formatted string to the host
+pub struct HostWrite(HostFd);
+
+impl HostWrite {
+    /// Use the host's stdout
+    pub fn stdout() -> Self {
+        unsafe { Self(HostFd::from_raw_fd(STDOUT_FILENO)) }
+    }
+
+    /// Use the host's stderr
+    pub fn stderr() -> Self {
+        unsafe { Self(HostFd::from_raw_fd(STDERR_FILENO)) }
+    }
+}
 
 // FIXME: remove, if https://github.com/enarx/enarx/issues/831 is fleshed out
 /// Global flag allowing debug output.
@@ -76,7 +89,7 @@ pub fn _print(args: fmt::Arguments<'_>) {
         return;
     }
 
-    HostWrite(unsafe { HostFd::from_raw_fd(STDOUT_FILENO) })
+    HostWrite::stdout()
         .write_fmt(args)
         .expect("Printing via Host fd 1 failed");
 }
@@ -91,7 +104,7 @@ pub fn _eprint(args: fmt::Arguments<'_>) {
         return;
     }
 
-    HostWrite(unsafe { HostFd::from_raw_fd(STDERR_FILENO) })
+    HostWrite::stderr()
         .write_fmt(args)
         .expect("Printing via Host fd 2 failed");
 }
@@ -109,7 +122,10 @@ pub fn _eprint(args: fmt::Arguments<'_>) {
 #[macro_export]
 macro_rules! print {
     ($($arg:tt)*) => {
-       if $crate::print::TRACE { $crate::print::_print(format_args!($($arg)*)); }
+       if $crate::stdio::TRACE {
+           use core::fmt::Write;
+           let _ = write!($crate::stdio::HostWrite::stdout(), $($arg)*);
+       }
     };
 }
 
@@ -128,9 +144,12 @@ macro_rules! print {
 /// Panics if writing to the host fails.
 #[macro_export]
 macro_rules! println {
-    () => ($crate::print!("\n"));
-    ($fmt:expr) => ($crate::print!(concat!($fmt, "\n")));
-    ($fmt:expr, $($arg:tt)*) => ($crate::print!(concat!($fmt, "\n"), $($arg)*));
+    ($($arg:tt)*) => {
+       if $crate::stdio::TRACE {
+           use core::fmt::Write;
+           let _ = writeln!($crate::stdio::HostWrite::stdout(), $($arg)*);
+       }
+    };
 }
 
 /// Prints to the standard error.
@@ -149,7 +168,10 @@ macro_rules! println {
 #[macro_export]
 macro_rules! eprint {
     ($($arg:tt)*) => {
-        if $crate::print::TRACE { $crate::print::_eprint(format_args!($($arg)*)) }
+       if $crate::stdio::TRACE {
+           use core::fmt::Write;
+           let _ = write!($crate::stdio::HostWrite::stderr(), $($arg)*);
+       }
     };
 }
 
@@ -169,9 +191,12 @@ macro_rules! eprint {
 /// Panics if writing to the host fails.
 #[macro_export]
 macro_rules! eprintln {
-    () => ($crate::eprint!("\n"));
-    ($fmt:expr) => ($crate::eprint!(concat!($fmt, "\n")));
-    ($fmt:expr, $($arg:tt)*) => ($crate::eprint!(concat!($fmt, "\n"), $($arg)*));
+    ($($arg:tt)*) => {
+       if $crate::stdio::TRACE {
+           use core::fmt::Write;
+           let _ = writeln!($crate::stdio::HostWrite::stderr(), $($arg)*);
+       }
+    };
 }
 
 /// Prints and returns the value of a given expression for quick and dirty
