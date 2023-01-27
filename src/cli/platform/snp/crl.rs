@@ -19,7 +19,7 @@ const MILAN: &str = "https://kdsintf.amd.com/vcek/v1/Milan/crl";
 
 /// Fetch AMD's Certificate Revocation Lists (CRLs),
 /// saving as cached files in `/var/cache/amd-sev/` directory
-#[derive(Args, Debug)]
+#[derive(Args, Debug, Default)]
 pub struct CrlCache {}
 
 impl CrlCache {

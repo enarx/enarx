@@ -180,12 +180,15 @@ pub fn aesm_socket() -> Datum {
 }
 
 pub fn intel_crl() -> Datum {
-    let name = "Intel CRL cache".to_string();
+    const NAME: &str = "Intel CRL cache file";
+    const UPDATE_MSG: &str =
+        "Run `enarx platform sgx cache-crl` to generate the Intel CRL cache file";
+
     let crl_file =
         match sgx_cache_dir() {
             Ok(p) => p.join("crls.der"),
             Err(e) => return Datum {
-                name,
+                name: NAME.to_string(),
                 pass: false,
                 info: Some(e.to_string()),
                 mesg: Some(
@@ -197,61 +200,68 @@ pub fn intel_crl() -> Datum {
 
     if !crl_file.exists() {
         return Datum {
-            name,
+            name: NAME.to_string(),
             pass: false,
             info: None,
-            mesg: Some(
-                "Run `enarx platform sgx cache-crl` to generate the Intel CRL cache file".into(),
-            ),
+            mesg: Some(UPDATE_MSG.to_string()),
         };
     }
 
-    let crls =
-        match std::fs::read(crl_file.clone()) {
-            Ok(c) => c,
-            Err(e) => return Datum {
-                name,
+    let crls = match std::fs::read(crl_file.clone()) {
+        Ok(c) => c,
+        Err(e) => {
+            return Datum {
+                name: NAME.to_string(),
                 pass: false,
                 info: Some(e.to_string()),
-                mesg: Some(
-                    "Re-run `enarx platform sgx cache-crl` to generate the Intel CRL cache file"
-                        .into(),
-                ),
-            },
-        };
+                mesg: Some(UPDATE_MSG.to_string()),
+            }
+        }
+    };
 
-    let crls =
-        match CrlList::from_der(&crls) {
-            Ok(c) => c,
-            Err(e) => return Datum {
-                name,
+    let crls = match CrlList::from_der(&crls) {
+        Ok(c) => c,
+        Err(e) => {
+            return Datum {
+                name: NAME.to_string(),
                 pass: false,
                 info: Some(e.to_string()),
-                mesg: Some(format!(
-                    "Re-run `enarx platform sgx cache-crl` to generate the Intel CRL cache file `{crl_file:?}`")),
-            },
-        };
+                mesg: Some(UPDATE_MSG.to_string()),
+            }
+        }
+    };
 
     for (_, crl) in crls.entries() {
         if let Some(update) = crl.tbs_cert_list.next_update {
             if update.to_system_time() <= SystemTime::now() {
                 return Datum {
-                    name,
+                    name: NAME.to_string(),
                     pass: false,
                     info: None,
-                    mesg: Some(
-                        format!("CRLs expired, re-run `enarx platform sgx cache-crl` to update the Intel CRL cache file `{crl_file:?}`"),
-                    ),
+                    mesg: Some(UPDATE_MSG.to_string()),
                 };
             }
         }
     }
 
-    Datum {
-        name,
-        pass: true,
-        info: None,
-        mesg: None,
+    if let Some(next_update) = crls.next_update() {
+        Datum {
+            name: NAME.to_string(),
+            pass: true,
+            info: Some(format!(
+                "{}, next update {}",
+                crl_file.to_string_lossy().into_owned(),
+                next_update
+            )),
+            mesg: None,
+        }
+    } else {
+        Datum {
+            name: NAME.to_string(),
+            pass: true,
+            info: crl_file.to_string_lossy().into_owned().into(),
+            mesg: None,
+        }
     }
 }
 

@@ -27,7 +27,7 @@ const PCKID_CSV_PATH: &str = "/var/cache/intel-sgx/pckid_retrieval.csv";
 // SGX API documentation: https://api.portal.trustedservices.intel.com/documentation
 // SGX cert extension documentation: https://download.01.org/intel-sgx/dcap-1.1/linux/docs/Intel_SGX_PCK_Certificate_CRL_Spec-1.1.pdf
 // Save the resulting files in the `/var/cache/intel-sgx/` directory
-#[derive(Args, Debug)]
+#[derive(Args, Debug, Default)]
 pub struct PckCache {}
 
 impl PckCache {
@@ -115,7 +115,7 @@ fn fetch_file(url: &str) -> anyhow::Result<(Vec<u8>, Option<String>)> {
 }
 
 /// Fetch the TCB report from Intel
-#[derive(Args, Debug)]
+#[derive(Args, Debug, Default)]
 pub struct TcbCache {}
 
 impl TcbCache {

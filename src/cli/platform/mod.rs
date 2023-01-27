@@ -2,9 +2,9 @@
 
 mod info;
 #[cfg(enarx_with_shim)]
-mod sgx;
+pub(crate) mod sgx;
 #[cfg(enarx_with_shim)]
-mod snp;
+pub(crate) mod snp;
 
 use std::process::ExitCode;
 

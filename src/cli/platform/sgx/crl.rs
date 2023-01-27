@@ -22,7 +22,7 @@ const PLATFORM_CRL: &str =
 
 /// Fetch Intel's Certificate Revocation Lists (CRLs),
 /// saving as cached files in `/var/cache/intel-sgx/` directory
-#[derive(Args, Debug)]
+#[derive(Args, Debug, Default)]
 pub struct CrlCache {}
 
 impl CrlCache {

@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
-mod crl;
-mod register;
-mod tcb;
+pub(crate) mod crl;
+pub(crate) mod register;
+pub(crate) mod tcb;
 
 use std::process::ExitCode;
 

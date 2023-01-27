@@ -8,7 +8,7 @@ use clap::Args;
 
 /// Download the current VCEK certificate for this platform
 /// to a cache file in the `/var/cache/amd-sev/` directory
-#[derive(Args, Debug)]
+#[derive(Args, Debug, Default)]
 pub struct Options {}
 
 impl Options {

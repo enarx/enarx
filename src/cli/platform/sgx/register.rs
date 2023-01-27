@@ -11,7 +11,7 @@ const PATH: &str = "/sys/firmware/efi/efivars";
 const URL: &str = "https://api.trustedservices.intel.com/sgx/registration/v1/platform";
 
 /// Register this machine with Intel.
-#[derive(Args, Debug)]
+#[derive(Args, Debug, Default)]
 pub struct Options {}
 
 impl Options {

@@ -14,6 +14,8 @@ mod tree;
 mod unstable;
 mod user;
 
+#[cfg(enarx_with_shim)]
+use crate::backend::probe::x86_64::Vendor;
 use crate::backend::{Backend, BACKENDS};
 
 use std::io;
@@ -143,6 +145,41 @@ impl Options {
             Subcommands::Tree(cmd) => cmd.dispatch(),
             Subcommands::User(cmd) => cmd.dispatch(),
             Subcommands::Unstable(cmd) => cmd.dispatch(),
+            #[cfg(enarx_with_shim)]
+            Subcommands::UpdateCache => {
+                match Vendor::get()? {
+                    Vendor::Amd => {
+                        use crate::cli::platform::snp::crl::CrlCache;
+                        let crl_cache_cmd = CrlCache::default();
+                        crl_cache_cmd.execute()?;
+                    }
+                    Vendor::Intel => {
+                        use crate::cli::platform::sgx::crl::CrlCache;
+                        use crate::cli::platform::sgx::tcb::TcbCache;
+                        let crl_cache_cmd = CrlCache::default();
+                        crl_cache_cmd.execute()?;
+                        let tcb_cache_cmd = TcbCache::default();
+                        tcb_cache_cmd.execute()?;
+                    }
+                }
+                Ok(ExitCode::SUCCESS)
+            }
+            #[cfg(enarx_with_shim)]
+            Subcommands::Initialize => {
+                match Vendor::get()? {
+                    Vendor::Amd => {
+                        use crate::cli::platform::snp::update::Options;
+                        let opt = Options::default();
+                        opt.execute()?;
+                    }
+                    Vendor::Intel => {
+                        use crate::cli::platform::sgx::register::Options;
+                        let opt = Options::default();
+                        opt.execute()?;
+                    }
+                }
+                Ok(ExitCode::SUCCESS)
+            }
         }
     }
 }
@@ -172,6 +209,12 @@ enum Subcommands {
     User(user::Subcommands),
     #[clap(subcommand, hide = true)]
     Unstable(unstable::Subcommands),
+    #[cfg(enarx_with_shim)]
+    /// Metacommand to update platform-specific caches, if a platform is detected.
+    UpdateCache,
+    #[cfg(enarx_with_shim)]
+    /// Metacommand to perform first-time platform-specific initialization, if a platform is detected.
+    Initialize,
 }
 
 /// Common backend and shim options
