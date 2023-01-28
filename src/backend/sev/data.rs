@@ -26,6 +26,7 @@ pub fn has_crl_cache() -> Result<Datum, Datum> {
         pass: false,
         info: Some(e.to_string()),
         mesg: Some(UPDATE_MSG.to_string()),
+        data: vec![],
     })?;
 
     let mut crls = Vec::new();
@@ -34,6 +35,7 @@ pub fn has_crl_cache() -> Result<Datum, Datum> {
         pass: false,
         info: Some(e.to_string()),
         mesg: Some(UPDATE_MSG.to_string()),
+        data: vec![],
     })?;
 
     let crls = CrlList::from_der(&crls).map_err(|e| Datum {
@@ -41,6 +43,7 @@ pub fn has_crl_cache() -> Result<Datum, Datum> {
         pass: false,
         info: Some(e.to_string()),
         mesg: Some(UPDATE_MSG.to_string()),
+        data: vec![],
     })?;
 
     for (_, crl) in crls.entries() {
@@ -51,6 +54,7 @@ pub fn has_crl_cache() -> Result<Datum, Datum> {
                     pass: false,
                     info: None,
                     mesg: Some("CRLs expired! ".to_string() + UPDATE_MSG),
+                    data: vec![],
                 });
             }
         }
@@ -66,6 +70,7 @@ pub fn has_crl_cache() -> Result<Datum, Datum> {
                 next_update
             )),
             mesg: None,
+            data: vec![],
         })
     } else {
         Ok(Datum {
@@ -73,6 +78,7 @@ pub fn has_crl_cache() -> Result<Datum, Datum> {
             pass: true,
             info: path.to_string_lossy().into_owned().into(),
             mesg: None,
+            data: vec![],
         })
     }
 }
@@ -92,6 +98,7 @@ pub fn has_vcek_cache() -> Datum {
                         "enarx expects the directory `/var/cache/amd-sev` to exist and be readable"
                             .to_string(),
                     ),
+                    data: vec![],
                 }
             }
         };
@@ -102,6 +109,7 @@ pub fn has_vcek_cache() -> Datum {
             pass: true,
             info: path.to_string_lossy().into_owned().into(),
             mesg: None,
+            data: vec![],
         },
         Err(e) => Datum {
             name,
@@ -110,6 +118,7 @@ pub fn has_vcek_cache() -> Datum {
             mesg: Some(
                 "Run `enarx platform snp vcek update` to generate the cache file.".to_string(),
             ),
+            data: vec![],
         },
     }
 }
@@ -158,6 +167,7 @@ pub fn has_reasonable_memlock_rlimit() -> Datum {
         pass,
         info,
         mesg,
+        data: vec![],
     }
 }
 
@@ -167,15 +177,17 @@ pub fn dev_sev() -> Datum {
         pass: std::path::Path::new("/dev/sev").exists(),
         info: Some("/dev/sev".into()),
         mesg: None,
+        data: vec![sev_enabled_in_kernel()],
     }
 }
 
 pub fn sev_enabled_in_kernel() -> Datum {
     let mut datum = Datum {
-        name: " SEV-SNP is enabled in host kernel".into(),
+        name: "SEV-SNP is enabled in host kernel".into(),
         pass: false,
         info: None,
         mesg: None,
+        data: vec![],
     };
 
     let mod_param = "/sys/module/kvm_amd/parameters/sev_snp";
@@ -196,6 +208,7 @@ pub fn dev_sev_readable() -> Datum {
         pass: opts.is_ok(),
         info: None,
         mesg: None,
+        data: vec![],
     }
 }
 
@@ -207,99 +220,111 @@ pub fn dev_sev_writable() -> Datum {
         pass: opts.is_ok(),
         info: None,
         mesg: None,
+        data: vec![],
     }
 }
 
-pub const CPUIDS: &[CpuId] = &[
-    CpuId {
-        name: "CPU",
-        leaf: 0x80000000,
-        subl: 0x00000000,
-        func: |res| CpuId::cpu_identifier(res, Some(Vendor::Amd)),
-        vend: None,
-    },
-    CpuId {
-        name: " Microcode support",
-        leaf: 0x80000002,
-        subl: 0x00000000,
-        func: |_res| {
-            let cpu_name = {
-                let mut bytestr = Vec::with_capacity(48);
-                for cpuid in 0x8000_0002_u32..=0x8000_0004_u32 {
-                    let cpuid = unsafe { __cpuid_count(cpuid, 0x0000_0000) };
-                    let mut bytes: Vec<u8> = [cpuid.eax, cpuid.ebx, cpuid.ecx, cpuid.edx]
-                        .iter()
-                        .flat_map(|r| r.to_le_bytes().to_vec())
-                        .collect();
-                    bytestr.append(&mut bytes);
-                }
-                String::from_utf8(bytestr).unwrap().trim().to_string()
-            };
+pub const CPUIDS: &[CpuId] = &[CpuId {
+    name: "CPU",
+    leaf: 0x80000000,
+    subl: 0x00000000,
+    func: |res| CpuId::cpu_identifier(res, Some(Vendor::Amd)),
+    vend: None,
+    data: &[
+        CpuId {
+            name: "Microcode support",
+            leaf: 0x80000002,
+            subl: 0x00000000,
+            func: |_res| {
+                let cpu_name = {
+                    let mut bytestr = Vec::with_capacity(48);
+                    for cpuid in 0x8000_0002_u32..=0x8000_0004_u32 {
+                        let cpuid = unsafe { __cpuid_count(cpuid, 0x0000_0000) };
+                        let mut bytes: Vec<u8> = [cpuid.eax, cpuid.ebx, cpuid.ecx, cpuid.edx]
+                            .iter()
+                            .flat_map(|r| r.to_le_bytes().to_vec())
+                            .collect();
+                        bytestr.append(&mut bytes);
+                    }
+                    String::from_utf8(bytestr).unwrap().trim().to_string()
+                };
 
-            (cpu_name.to_uppercase().contains("EPYC"), Some(cpu_name))
+                (cpu_name.to_uppercase().contains("EPYC"), Some(cpu_name))
+            },
+            vend: Some(Vendor::Amd),
+            data: &[],
         },
-        vend: Some(Vendor::Amd),
-    },
-    CpuId {
-        name: " Secure Memory Encryption (SME)",
-        leaf: 0x8000001f,
-        subl: 0x00000000,
-        func: |res| (res.eax & 0x1 != 0, None),
-        vend: Some(Vendor::Amd),
-    },
-    CpuId {
-        name: "  Physical address bit reduction",
-        leaf: 0x8000001f,
-        subl: 0x00000000,
-        func: |res| {
-            let field = res.ebx & 0b1111_1100_0000 >> 6;
-            (true, Some(format!("{field}")))
+        CpuId {
+            name: "Secure Memory Encryption (SME)",
+            leaf: 0x8000001f,
+            subl: 0x00000000,
+            func: |res| (res.eax & 0x1 != 0, None),
+            vend: Some(Vendor::Amd),
+            data: &[
+                CpuId {
+                    name: "Physical address bit reduction",
+                    leaf: 0x8000001f,
+                    subl: 0x00000000,
+                    func: |res| {
+                        let field = res.ebx & 0b1111_1100_0000 >> 6;
+                        (true, Some(format!("{field}")))
+                    },
+                    vend: Some(Vendor::Amd),
+                    data: &[],
+                },
+                CpuId {
+                    name: "C-bit location in page table entry",
+                    leaf: 0x8000001f,
+                    subl: 0x00000000,
+                    func: |res| {
+                        let field = res.ebx & 0b01_1111;
+                        (true, Some(format!("{field}")))
+                    },
+                    vend: Some(Vendor::Amd),
+                    data: &[],
+                },
+            ],
         },
-        vend: Some(Vendor::Amd),
-    },
-    CpuId {
-        name: "  C-bit location in page table entry",
-        leaf: 0x8000001f,
-        subl: 0x00000000,
-        func: |res| {
-            let field = res.ebx & 0b01_1111;
-            (true, Some(format!("{field}")))
+        CpuId {
+            name: "Secure Encrypted Virtualization (SEV)",
+            leaf: 0x8000001f,
+            subl: 0x00000000,
+            func: |res| (res.eax & (1 << 1) != 0, None),
+            vend: Some(Vendor::Amd),
+            data: &[
+                CpuId {
+                    name: "Number of encrypted guests supported simultaneously",
+                    leaf: 0x8000001f,
+                    subl: 0x00000000,
+                    func: |res| (true, Some(format!("{}", res.ecx))),
+                    vend: Some(Vendor::Amd),
+                    data: &[],
+                },
+                CpuId {
+                    name: "Minimum ASID value for SEV-enabled, SEV-ES disabled guest",
+                    leaf: 0x8000001f,
+                    subl: 0x00000000,
+                    func: |res| (true, Some(format!("{}", res.edx))),
+                    vend: Some(Vendor::Amd),
+                    data: &[],
+                },
+            ],
         },
-        vend: Some(Vendor::Amd),
-    },
-    CpuId {
-        name: " Secure Encrypted Virtualization (SEV)",
-        leaf: 0x8000001f,
-        subl: 0x00000000,
-        func: |res| (res.eax & (1 << 1) != 0, None),
-        vend: Some(Vendor::Amd),
-    },
-    CpuId {
-        name: "  Number of encrypted guests supported simultaneously",
-        leaf: 0x8000001f,
-        subl: 0x00000000,
-        func: |res| (true, Some(format!("{}", res.ecx))),
-        vend: Some(Vendor::Amd),
-    },
-    CpuId {
-        name: "  Minimum ASID value for SEV-enabled, SEV-ES disabled guest",
-        leaf: 0x8000001f,
-        subl: 0x00000000,
-        func: |res| (true, Some(format!("{}", res.edx))),
-        vend: Some(Vendor::Amd),
-    },
-    CpuId {
-        name: " Secure Encrypted Virtualization Secure Nested Paging (SEV-SNP)",
-        leaf: 0x8000001f,
-        subl: 0x00000000,
-        func: |res| (res.eax & (1 << 4) != 0, None),
-        vend: Some(Vendor::Amd),
-    },
-    CpuId {
-        name: " Page Flush MSR available",
-        leaf: 0x8000001f,
-        subl: 0x00000000,
-        func: |res| (res.eax & (1 << 2) != 0, None),
-        vend: Some(Vendor::Amd),
-    },
-];
+        CpuId {
+            name: "Secure Encrypted Virtualization Secure Nested Paging (SEV-SNP)",
+            leaf: 0x8000001f,
+            subl: 0x00000000,
+            func: |res| (res.eax & (1 << 4) != 0, None),
+            vend: Some(Vendor::Amd),
+            data: &[],
+        },
+        CpuId {
+            name: "Page Flush MSR available",
+            leaf: 0x8000001f,
+            subl: 0x00000000,
+            func: |res| (res.eax & (1 << 2) != 0, None),
+            vend: Some(Vendor::Amd),
+            data: &[],
+        },
+    ],
+}];

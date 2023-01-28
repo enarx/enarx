@@ -17,7 +17,7 @@ use super::kvm::{Keep, KeepPersonality};
 use super::Loader;
 use data::{
     dev_kvm, dev_sev, dev_sev_readable, dev_sev_writable, has_crl_cache,
-    has_reasonable_memlock_rlimit, kvm_version, sev_enabled_in_kernel, CPUIDS,
+    has_reasonable_memlock_rlimit, CPUIDS,
 };
 
 use std::io;
@@ -111,7 +111,7 @@ impl super::Backend for Backend {
     }
 
     fn data(&self) -> Vec<super::Datum> {
-        let mut data = vec![dev_sev(), sev_enabled_in_kernel(), dev_kvm(), kvm_version()];
+        let mut data = vec![dev_sev(), dev_kvm()];
         data.extend(CPUIDS.iter().map(|c| c.into()));
         data
     }

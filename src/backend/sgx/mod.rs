@@ -9,7 +9,7 @@ mod hasher;
 mod ioctls;
 mod thread;
 
-use super::Loader;
+use super::{Datum, Loader};
 
 use anyhow::{Context, Result};
 use mmarinus::{perms, Map};
@@ -71,10 +71,16 @@ impl crate::backend::Backend for Backend {
     fn data(&self) -> Vec<super::Datum> {
         let mut data = vec![data::dev_sgx_enclave()];
 
-        data.extend(data::CPUIDS.iter().map(|c| c.into()));
-
+        let mut cpu_datum = Datum::from(data::CPUIDS.get(0).unwrap());
         let max = unsafe { __cpuid_count(0x00000000, 0x00000000) }.eax;
-        data.push(data::epc_size(max));
+        cpu_datum
+            .data
+            .get_mut(0)
+            .unwrap()
+            .data
+            .push(data::epc_size(max));
+
+        data.push(cpu_datum);
         data.push(data::intel_crl());
         data.push(data::tcb_fmspc_cached());
 
