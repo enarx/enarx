@@ -28,12 +28,12 @@ use x86_64::{PhysAddr, VirtAddr};
 pub static EXEC_READY: AtomicBool = AtomicBool::new(false);
 
 /// The randomized virtual address of the exec
-#[cfg(not(feature = "gdb"))]
+#[cfg(not(any(feature = "gdb", feature = "dbg")))]
 pub static EXEC_VIRT_ADDR: Lazy<RwLock<VirtAddr>> =
     Lazy::new(|| RwLock::new(EXEC_ELF_VIRT_ADDR_BASE + (random() & 0x7F_FFFF_F000)));
 
 /// The non-randomized virtual address of the exec in case the gdb feature is active
-#[cfg(feature = "gdb")]
+#[cfg(any(feature = "gdb", feature = "dbg"))]
 pub static EXEC_VIRT_ADDR: Lazy<RwLock<VirtAddr>> =
     Lazy::new(|| RwLock::new(EXEC_ELF_VIRT_ADDR_BASE));
 
