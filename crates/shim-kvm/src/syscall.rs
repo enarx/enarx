@@ -1,19 +1,20 @@
 // SPDX-License-Identifier: Apache-2.0
 
 //! syscall interface layer between assembler and rust
+#![allow(non_upper_case_globals)]
 
 use crate::hostcall::{HostCall, UserMemScope};
-use crate::spin::{Locked, RacyCell};
 
 use core::arch::global_asm;
 use core::mem::size_of;
 
-use sallyport::guest;
+use crate::thread::TcbRefCell;
+
 use sallyport::guest::Handler;
 use sallyport::item::enarxcall::{SYS_GETATT, SYS_GETKEY};
 #[cfg(feature = "dbg")]
 use sallyport::libc::{SYS_write, STDERR_FILENO, STDOUT_FILENO};
-use spin::Lazy;
+use x86_64::VirtAddr;
 
 #[repr(C)]
 struct X8664DoubleReturn {
@@ -30,10 +31,10 @@ extern "sysv64" {
     #[cfg_attr(coverage, no_coverage)]
     pub fn _syscall_enter() -> !;
 }
-// TaskStateSegment.privilege_stack_table[0]
-const KERNEL_RSP_OFF: usize = size_of::<u32>();
-// TaskStateSegment.privilege_stack_table[3]
-const USR_RSP_OFF: usize = size_of::<u32>() + 3 * size_of::<u64>();
+// offset Tcb.kernel_stack
+const KERNEL_RSP_OFF: usize = 0;
+// offset Tcb.userspace_stack
+const USR_RSP_OFF: usize = size_of::<VirtAddr>();
 global_asm!(
         ".pushsection .text.syscall_enter,\"ax\",@progbits",
         ".global _syscall_enter",
@@ -48,7 +49,7 @@ global_asm!(
         "mov    QWORD PTR gs:{USR},     rsp",               // save userspace rsp
         "mov    rsp,                    QWORD PTR gs:{KRN}",// load kernel rsp
         "push   QWORD PTR gs:{USR}",                        // push userspace rsp - stack_pointer_ring_3
-        "mov    QWORD PTR gs:{USR},     0x0",               // clear userspace rsp in the TSS
+        "mov    QWORD PTR gs:{USR},     0x0",               // clear userspace rsp in the Tcb
         "push   r11",                                       // push RFLAGS stored in r11
         "push   rcx",                                       // push userspace return pointer
         "push   rbp",
@@ -106,14 +107,6 @@ global_asm!(
         syscall_rust = sym syscall_rust,
 );
 
-/// Thread local storage
-/// FIXME: when using multithreading
-pub static THREAD_TLS: Lazy<Locked<&mut guest::ThreadLocalStorage>> = Lazy::new(|| unsafe {
-    static TLSHANDLE: RacyCell<guest::ThreadLocalStorage> =
-        RacyCell::new(guest::ThreadLocalStorage::new());
-    Locked::<&mut guest::ThreadLocalStorage>::new(&mut (*TLSHANDLE.get()))
-});
-
 /// Handle a syscall in rust
 #[allow(clippy::many_single_char_names)]
 extern "sysv64" fn syscall_rust(
@@ -126,14 +119,14 @@ extern "sysv64" fn syscall_rust(
     nr: usize,
 ) -> X8664DoubleReturn {
     let orig_rdx: usize = c;
+    let mut tcb = TcbRefCell::from_gs_base().borrow_mut();
+    let mut h = HostCall::syscall(&mut tcb);
 
     #[cfg(feature = "dbg")]
     if !(nr == SYS_write as usize && (a == STDERR_FILENO as usize || a == STDOUT_FILENO as usize)) {
-        eprintln!("syscall {nr} ...")
+        let tid = h.get_tid();
+        eprintln!("[{tid}] syscall {nr} ...");
     }
-
-    let mut tls = THREAD_TLS.lock();
-    let mut h = HostCall::try_new(&mut tls).unwrap();
 
     let usermemscope = UserMemScope;
 
@@ -141,7 +134,6 @@ extern "sysv64" fn syscall_rust(
         SYS_GETKEY => {
             let ret = h.get_key(&usermemscope, a, b);
 
-            #[cfg(feature = "dbg")]
             eprintln!(
                 "syscall SYS_GETKEY = {}",
                 ret.map_or_else(|e| -e as usize, |v| v)
