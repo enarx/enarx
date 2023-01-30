@@ -380,12 +380,10 @@ pub static IDT: Lazy<InterruptDescriptorTable> = Lazy::new(|| {
     let mut idt = InterruptDescriptorTable::new();
     unsafe {
         let virt = VirtAddr::new_unsafe(vmm_communication_exception_handler as usize as u64);
-        idt.vmm_communication_exception
-            .set_handler_addr(virt)
-            .set_stack_index(0);
+        idt.vmm_communication_exception.set_handler_addr(virt);
 
         let virt = VirtAddr::new_unsafe(page_fault_handler as usize as u64);
-        idt.page_fault.set_handler_addr(virt).set_stack_index(6);
+        idt.page_fault.set_handler_addr(virt);
 
         #[cfg(all(feature = "dbg", not(test)))]
         debug::idt_add_debug_exception_handlers(&mut idt);
@@ -410,84 +408,64 @@ mod debug {
     pub(crate) fn idt_add_debug_exception_handlers(idt: &mut InterruptDescriptorTable) {
         unsafe {
             let virt = VirtAddr::new_unsafe(divide_error_handler as usize as u64);
-            idt.divide_error.set_handler_addr(virt).set_stack_index(6);
+            idt.divide_error.set_handler_addr(virt);
 
             let virt = VirtAddr::new_unsafe(debug_handler as usize as u64);
-            idt.debug.set_handler_addr(virt).set_stack_index(1);
+            idt.debug.set_handler_addr(virt);
 
             let virt = VirtAddr::new_unsafe(non_maskable_interrupt_handler as usize as u64);
-            idt.non_maskable_interrupt
-                .set_handler_addr(virt)
-                .set_stack_index(2);
+            idt.non_maskable_interrupt.set_handler_addr(virt);
 
             let virt = VirtAddr::new_unsafe(breakpoint_handler as usize as u64);
-            let br_opts = idt.breakpoint.set_handler_addr(virt).set_stack_index(1);
+            let br_opts = idt.breakpoint.set_handler_addr(virt);
             if cfg!(feature = "gdb") {
                 br_opts.set_privilege_level(x86_64::PrivilegeLevel::Ring3);
             }
 
             let virt = VirtAddr::new_unsafe(overflow_handler as usize as u64);
-            idt.overflow.set_handler_addr(virt).set_stack_index(6);
+            idt.overflow.set_handler_addr(virt);
 
             let virt = VirtAddr::new_unsafe(bound_range_exceeded_handler as usize as u64);
-            idt.bound_range_exceeded
-                .set_handler_addr(virt)
-                .set_stack_index(6);
+            idt.bound_range_exceeded.set_handler_addr(virt);
 
             let virt = VirtAddr::new_unsafe(invalid_opcode_handler as usize as u64);
-            idt.invalid_opcode.set_handler_addr(virt).set_stack_index(5);
+            idt.invalid_opcode.set_handler_addr(virt);
 
             let virt = VirtAddr::new_unsafe(device_not_available_handler as usize as u64);
-            idt.device_not_available
-                .set_handler_addr(virt)
-                .set_stack_index(5);
+            idt.device_not_available.set_handler_addr(virt);
 
             let virt = VirtAddr::new_unsafe(double_fault_handler as usize as u64);
-            idt.double_fault.set_handler_addr(virt).set_stack_index(3);
+            idt.double_fault.set_handler_addr(virt);
 
             let virt = VirtAddr::new_unsafe(invalid_tss_handler as usize as u64);
-            idt.invalid_tss.set_handler_addr(virt).set_stack_index(6);
+            idt.invalid_tss.set_handler_addr(virt);
 
             let virt = VirtAddr::new_unsafe(segment_not_present_handler as usize as u64);
-            idt.segment_not_present
-                .set_handler_addr(virt)
-                .set_stack_index(6);
+            idt.segment_not_present.set_handler_addr(virt);
 
             let virt = VirtAddr::new_unsafe(stack_segment_fault as usize as u64);
-            idt.stack_segment_fault
-                .set_handler_addr(virt)
-                .set_stack_index(6);
+            idt.stack_segment_fault.set_handler_addr(virt);
 
             let virt = VirtAddr::new_unsafe(general_protection_fault as usize as u64);
-            idt.general_protection_fault
-                .set_handler_addr(virt)
-                .set_stack_index(6);
+            idt.general_protection_fault.set_handler_addr(virt);
 
             let virt = VirtAddr::new_unsafe(x87_floating_point_handler as usize as u64);
-            idt.x87_floating_point
-                .set_handler_addr(virt)
-                .set_stack_index(6);
+            idt.x87_floating_point.set_handler_addr(virt);
 
             let virt = VirtAddr::new_unsafe(alignment_check_handler as usize as u64);
-            idt.alignment_check
-                .set_handler_addr(virt)
-                .set_stack_index(6);
+            idt.alignment_check.set_handler_addr(virt);
 
             let virt = VirtAddr::new_unsafe(machine_check_handler as usize as u64);
-            idt.machine_check.set_handler_addr(virt).set_stack_index(3);
+            idt.machine_check.set_handler_addr(virt);
 
             let virt = VirtAddr::new_unsafe(simd_floating_point_handler as usize as u64);
-            idt.simd_floating_point
-                .set_handler_addr(virt)
-                .set_stack_index(6);
+            idt.simd_floating_point.set_handler_addr(virt);
 
             let virt = VirtAddr::new_unsafe(virtualization_handler as usize as u64);
-            idt.virtualization.set_handler_addr(virt).set_stack_index(6);
+            idt.virtualization.set_handler_addr(virt);
 
             let virt = VirtAddr::new_unsafe(security_exception_handler as usize as u64);
-            idt.security_exception
-                .set_handler_addr(virt)
-                .set_stack_index(6);
+            idt.security_exception.set_handler_addr(virt);
         }
     }
 
