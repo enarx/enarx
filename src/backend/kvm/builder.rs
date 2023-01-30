@@ -113,12 +113,17 @@ impl TryFrom<Builder> for Arc<dyn super::super::Keep> {
     type Error = Error;
 
     fn try_from(mut builder: Builder) -> Result<Self> {
-        let vcpu_fd =
-            kvm_try_from_builder(&builder.sallyports, &mut builder.kvm_fd, &mut builder.vm_fd)?;
+        // If no LOAD segment were defined as sallyport blocks
+        if builder.sallyports.is_empty() {
+            anyhow::bail!("No sallyport blocks defined!");
+        }
+
+        let vcpu_fd = kvm_new_vcpu(&mut builder.kvm_fd, &mut builder.vm_fd, 0)?;
 
         Ok(Arc::new(RwLock::new(super::Keep::<KvmKeepPersonality> {
             kvm_fd: builder.kvm_fd,
             vm_fd: builder.vm_fd,
+            num_cpus: 1,
             cpu_fds: vec![vcpu_fd],
             regions: builder.regions,
             sallyport_block_size: builder.config.sallyport_block_size,
@@ -128,22 +133,13 @@ impl TryFrom<Builder> for Arc<dyn super::super::Keep> {
     }
 }
 
-pub fn kvm_try_from_builder(
-    sallyports: &[Option<VirtAddr>],
-    kvm_fd: &mut Kvm,
-    vm_fd: &mut VmFd,
-) -> Result<VcpuFd> {
-    // If no LOAD segment were defined as sallyport blocks
-    if sallyports.is_empty() {
-        anyhow::bail!("No sallyport blocks defined!");
-    }
-
+pub fn kvm_new_vcpu(kvm_fd: &mut Kvm, vm_fd: &mut VmFd, id: u64) -> Result<VcpuFd> {
     let cpuids = kvm_fd
         .get_supported_cpuid(KVM_MAX_CPUID_ENTRIES)
         .context("Failed to get supported CPUID entries from kvm")?;
 
     let vcpu_fd = vm_fd
-        .create_vcpu(0)
+        .create_vcpu(id)
         .context("Failed to create a virtual CPU")?;
     vcpu_fd
         .set_cpuid2(&cpuids)

@@ -8,7 +8,7 @@ use crate::paging::SHIM_PAGETABLE;
 use crate::random::random;
 use crate::shim_stack::init_stack_with_guard;
 use crate::snp::cpuid;
-use crate::usermode::usermode;
+use crate::thread::usermode;
 use crate::{
     EXEC_BRK_VIRT_ADDR_BASE, EXEC_ELF_VIRT_ADDR_BASE, EXEC_STACK_SIZE, EXEC_STACK_VIRT_ADDR_BASE,
 };

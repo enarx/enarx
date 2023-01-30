@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
+
 #![cfg(any(
     all(test, target_arch = "x86_64", target_os = "linux"),
     target_vendor = "unknown"
 ))]
+
 //! The SEV shim
 //!
 //! This crate contains the system/kernel that handles the syscalls (and cpuid instructions)
@@ -49,7 +51,6 @@ pub mod spin;
 pub mod sse;
 pub mod syscall;
 pub mod thread;
-pub mod usermode;
 
 extern "C" {
     /// Extern
@@ -63,6 +64,9 @@ extern "C" {
     /// Extern
     pub static _ENARX_CPUID: CpuidPage;
 }
+
+/// Maximum virtual cpus supported
+pub const MAX_NUM_CPUS: usize = 512;
 
 /// The virtual address of the main kernel stack
 pub const SHIM_STACK_START: u64 = 0xFFFF_FF48_4800_0000;

@@ -344,7 +344,7 @@ impl guest::Handler for Handler<'_> {
         let addr = self.tcb.clear_on_exit;
         if let Some(addr) = addr {
             debugln!(self, "[{tid}] clear TID at {addr:p}");
-            unsafe { (*addr.as_ptr()).store(0, Ordering::Relaxed) };
+            unsafe { (*addr.as_ptr()).store(0, Ordering::SeqCst) };
             let _ = self.unpark();
         } else {
             debugln!(self, "[{tid}] no TID to clear");

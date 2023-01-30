@@ -4,7 +4,7 @@ use super::snp::firmware::Firmware;
 use super::snp::launch::*;
 
 use super::SnpKeepPersonality;
-use crate::backend::kvm::builder::kvm_try_from_builder;
+use crate::backend::kvm::builder::kvm_new_vcpu;
 use crate::backend::kvm::mem::Region;
 use crate::backend::sev::config::Config;
 use crate::backend::ByteSized;
@@ -203,7 +203,12 @@ impl TryFrom<Builder> for Arc<dyn super::super::Keep> {
         let id_block;
         let id_auth;
 
-        let vcpu_fd = kvm_try_from_builder(&sallyports, &mut kvm_fd, launcher.as_mut())?;
+        // If no LOAD segment were defined as sallyport blocks
+        if sallyports.is_empty() {
+            anyhow::bail!("No sallyport blocks defined!");
+        }
+
+        let vcpu_fd = kvm_new_vcpu(&mut kvm_fd, launcher.as_mut(), 0)?;
 
         let finish = if let Some(signatures) = signatures {
             let sig_blob = signatures.sev;
@@ -225,6 +230,7 @@ impl TryFrom<Builder> for Arc<dyn super::super::Keep> {
         Ok(Arc::new(RwLock::new(super::Keep::<SnpKeepPersonality> {
             kvm_fd,
             vm_fd,
+            num_cpus: 1,
             cpu_fds: vec![vcpu_fd],
             regions,
             sallyport_block_size,

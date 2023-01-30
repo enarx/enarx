@@ -2,6 +2,8 @@
 
 //! Host <-> Shim Communication
 
+use crate::addr::ShimPhysUnencryptedAddr;
+use crate::addr::TranslateFrom;
 use crate::allocator::{PageTableAllocatorLock, ZERO_PAGE_FRAME};
 use crate::debug::_enarx_asm_triple_fault;
 use crate::exec::{BRK_LINE, NEXT_MMAP_RWLOCK};
@@ -9,14 +11,21 @@ use crate::paging::SHIM_PAGETABLE;
 use crate::snp::attestation::asn1_encode_report_vcek;
 use crate::snp::ghcb::{GHCB, GHCB_EXT, SNP_ATTESTATION_LEN_MAX, SNP_KEY_LEN};
 use crate::snp::snp_active;
-use crate::spin::{RacyCell, RwLocked};
-use crate::thread::{Tcb, TcbRefCell};
+use crate::spin::RacyCell;
+use crate::syscall::SyscallStackFrameValue;
+use crate::thread::{
+    GenPurposeRegs, NewThreadFromRegisters, Tcb, TcbRefCell, NEW_THREAD_QUEUE, THREADS_FREE,
+    THREAD_ID_CNT,
+};
+use crate::MAX_NUM_CPUS;
 
+use alloc::boxed::Box;
 use core::ffi::{c_int, c_size_t, c_ulong, c_void};
+use core::mem::{size_of, transmute};
 use core::ops::{Deref, DerefMut};
 use core::ptr::NonNull;
 use core::slice;
-use core::sync::atomic::AtomicU32;
+use core::sync::atomic::{AtomicU32, Ordering};
 
 use const_default::ConstDefault;
 use sallyport::guest::syscall::types::MremapFlags;
@@ -24,11 +33,12 @@ use sallyport::guest::{Handler, Platform, ThreadLocalStorage};
 use sallyport::item::enarxcall::sev::TECH;
 use sallyport::item::syscall;
 use sallyport::libc::{
-    off_t, pid_t, CloneFlags, EFAULT, EINVAL, EIO, EMSGSIZE, ENOMEM, ENOSYS, ENOTSUP,
-    MAP_ANONYMOUS, MAP_PRIVATE, PROT_EXEC, PROT_READ, PROT_WRITE,
+    off_t, pid_t, CloneFlags, EFAULT, EINVAL, EIO, EMSGSIZE, ENOMEM, ENOTSUP, MAP_ANONYMOUS,
+    MAP_PRIVATE, PROT_EXEC, PROT_READ, PROT_WRITE,
 };
 use sallyport::util::ptr::is_aligned_non_null;
-use sallyport::{libc, KVM_SYSCALL_TRIGGER_PORT};
+use sallyport::{libc, KVM_SYSCALL_TRIGGER_EXIT_THREAD, KVM_SYSCALL_TRIGGER_PORT};
+use spin::rwlock::{RwLock, RwLockWriteGuard};
 use spin::Lazy;
 use x86_64::instructions::port::Port;
 use x86_64::instructions::segmentation::{Segment64, FS, GS};
@@ -38,7 +48,8 @@ use x86_64::structures::paging::{Mapper, Page, PageTableFlags, Size4KiB, Transla
 use x86_64::{align_up, VirtAddr};
 
 /// The sallyport block size
-pub const BLOCK_SIZE: usize = 69632;
+pub const BLOCK_SIZE: usize = Page::<Size4KiB>::SIZE as usize * 17;
+
 /// The number of sallyport blocks
 pub const NUM_BLOCKS: usize = 2;
 
@@ -93,70 +104,85 @@ impl HostFd {
 }
 
 #[repr(C, align(4096))]
-struct FixedSallyBlock([usize; BLOCK_SIZE_USIZE * NUM_BLOCKS]);
+struct AlignedSallyBlock([usize; BLOCK_SIZE_USIZE]);
 
-impl ConstDefault for FixedSallyBlock {
-    const DEFAULT: Self = Self([0usize; BLOCK_SIZE_USIZE * NUM_BLOCKS]);
+impl AlignedSallyBlock {
+    #[inline]
+    pub fn mark_shared(&mut self) {
+        if snp_active() {
+            // For SEV-SNP mark the sallyport pages as shared/unencrypted
+            let npages = size_of::<Self>() / Page::<Size4KiB>::SIZE as usize;
+            GHCB.set_memory_shared(VirtAddr::from_ptr(self.0.as_ptr()), npages);
+        }
+    }
 }
 
-/// The static HostCall RwLocked
-///
-/// # Safety
-/// `HOST_CALL_ALLOC` is  the only way to get access to `_ENARX_SALLYPORT` and
-/// is guarded with a `RwLocked`
-pub static HOST_CALL_ALLOC: Lazy<RwLocked<HostCallAllocator>> = Lazy::new(|| {
-    #[link_section = ".sallyport"]
-    static SALLYPORT: RacyCell<FixedSallyBlock> = RacyCell::new(FixedSallyBlock::DEFAULT);
+impl ConstDefault for AlignedSallyBlock {
+    const DEFAULT: Self = Self([0usize; BLOCK_SIZE_USIZE]);
+}
 
-    if snp_active() {
-        // For SEV-SNP mark the sallyport pages as shared/unencrypted
-        let npages = BLOCK_SIZE * NUM_BLOCKS / Page::<Size4KiB>::SIZE as usize;
-        GHCB.set_memory_shared(VirtAddr::from_ptr(SALLYPORT.get()), npages);
-    }
+#[link_section = ".sallyport"]
+static SALLYPORT: RacyCell<[AlignedSallyBlock; 2]> = RacyCell::new([AlignedSallyBlock::DEFAULT; 2]);
 
-    let mut hostcall_allocator = HostCallAllocator::default();
+/// The maintenance sallyport block
+pub static MAINT_HOSTCALL: Lazy<RwLock<Maintenance>> = Lazy::new(|| {
+    // SAFETY: this is the only reference to the first sallyport block
+    let block = &mut unsafe { &mut *SALLYPORT.get() }[0];
+    block.mark_shared();
 
-    // Safety: Split up mutable references to `SALLYPORT`, which can only be handed out
-    // via the `RwLocked` `HostCallAllocator`
-    let block_mut = &mut unsafe { &mut *SALLYPORT.get() }.0;
-
-    let hostcall_iter = hostcall_allocator.0.iter_mut();
-
-    for (store, chunk) in hostcall_iter.zip(block_mut.chunks_mut(BLOCK_SIZE_USIZE)) {
-        store.replace(chunk);
-    }
-
-    RwLocked::<HostCallAllocator>::new(hostcall_allocator)
+    // Reserve the first sallyport block for the maintenance calls
+    RwLock::new(Maintenance {
+        tls: ThreadLocalStorage::new(),
+        block: BlockGuard {
+            block_index: 0,
+            block,
+        },
+    })
 });
-
-/// Allocator for all `sallyport::Block`
-#[derive(Default)]
-pub struct HostCallAllocator([Option<&'static mut [usize]>; NUM_BLOCKS]);
-
-impl RwLocked<HostCallAllocator> {
-    /// Try to allocate a `HostCall` object to use a `sallyport::Block`
-    pub fn try_alloc(&self) -> Option<BlockGuard> {
-        let mut this = self.write();
-        this.0
-            .iter_mut()
-            .enumerate()
-            .find(|(_i, x)| x.is_some())
-            .map(|(i, ele)| BlockGuard {
-                block_index: i as _,
-                block: ele.take(),
-            })
-    }
-}
 
 /// Communication with the Host
 pub struct BlockGuard {
     block_index: u16,
-    block: Option<&'static mut [usize]>,
+    block: &'static mut AlignedSallyBlock,
 }
 
-impl Drop for BlockGuard {
-    fn drop(&mut self) {
-        HOST_CALL_ALLOC.write().0[self.block_index as usize] = self.block.take();
+impl BlockGuard {
+    /// Create new BlockGuard
+    ///
+    /// # Safety
+    /// The caller has to ensure that this is only be called once per cpunum.
+    pub unsafe fn new(cpunum: usize) -> BlockGuard {
+        assert!(cpunum < MAX_NUM_CPUS);
+        let block_index = cpunum + 1;
+        let block = if (block_index) < NUM_BLOCKS {
+            // SAFETY: this is the only reference to the second and following sallyport blocks
+            let block = &mut unsafe { &mut *SALLYPORT.get() }[block_index];
+            block.mark_shared();
+
+            block
+        } else {
+            let block = Box::new(AlignedSallyBlock::DEFAULT);
+            let block = Box::leak(block);
+            block.mark_shared();
+
+            let block_phys =
+                ShimPhysUnencryptedAddr::translate_from(&SHIM_PAGETABLE.read(), block.0.as_ptr())
+                    .unwrap();
+
+            HostCall::maint()
+                .new_sallyport(
+                    NonNull::new(block_phys.raw().as_mut_ptr() as *mut c_void).unwrap(),
+                    block_index,
+                )
+                .unwrap();
+
+            block
+        };
+
+        BlockGuard {
+            block_index: block_index as u16,
+            block,
+        }
     }
 }
 
@@ -170,15 +196,16 @@ pub struct Maintenance {
 
 /// Syscall Hostcall
 pub struct Syscall<'a> {
+    /// syscall frame
+    syscall_frame: *const SyscallStackFrameValue,
     /// The thread control block
     tcb: &'a mut Tcb,
 }
 
 /// The syscall Handler
-#[allow(clippy::large_enum_variant)]
 pub enum HostCall<'a> {
     /// Maintainance HostCall
-    Maintenance(Maintenance),
+    Maintenance(RwLockWriteGuard<'a, Maintenance>),
     /// Syscall Hostcall
     Syscall(Syscall<'a>),
 }
@@ -186,15 +213,12 @@ pub enum HostCall<'a> {
 impl<'a> HostCall<'a> {
     /// Get the Maintainance HostCall
     pub fn maint() -> HostCall<'a> {
-        HostCall::Maintenance(Maintenance {
-            tls: Default::default(),
-            block: HOST_CALL_ALLOC.try_alloc().unwrap(),
-        })
+        HostCall::Maintenance(MAINT_HOSTCALL.write())
     }
 
     /// Get the per cpu syscall HostCall
-    pub fn syscall(tcb: &'a mut Tcb) -> HostCall<'a> {
-        HostCall::Syscall(Syscall { tcb })
+    pub fn syscall(tcb: &'a mut Tcb, syscall_frame: *const SyscallStackFrameValue) -> HostCall<'a> {
+        HostCall::Syscall(Syscall { syscall_frame, tcb })
     }
 
     /// Get the thread id
@@ -286,6 +310,30 @@ impl<'a> HostCall<'a> {
 
         Ok([len, TECH])
     }
+
+    /// exit the CPU to the host, enqueuing for future execution
+    pub fn exit_io(status: c_int) {
+        if !snp_active() {
+            let mut port = Port::<u16>::new(KVM_SYSCALL_TRIGGER_EXIT_THREAD);
+
+            // prevent earlier writes from being moved beyond this point
+            core::sync::atomic::compiler_fence(core::sync::atomic::Ordering::Release);
+
+            // SAFETY: this I/O port does not violate memory safety
+            unsafe { port.write(status as _) };
+
+            // prevent later reads from being moved before this point
+            core::sync::atomic::compiler_fence(core::sync::atomic::Ordering::Acquire);
+        } else {
+            // prevent earlier writes from being moved beyond this point
+            core::sync::atomic::compiler_fence(core::sync::atomic::Ordering::Release);
+
+            GHCB.do_io_out(KVM_SYSCALL_TRIGGER_EXIT_THREAD, status as _);
+
+            // prevent later reads from being moved before this point
+            core::sync::atomic::compiler_fence(core::sync::atomic::Ordering::Acquire);
+        }
+    }
 }
 
 impl Handler for HostCall<'_> {
@@ -305,10 +353,8 @@ impl Handler for HostCall<'_> {
             // prevent earlier writes from being moved beyond this point
             core::sync::atomic::compiler_fence(core::sync::atomic::Ordering::Release);
 
-            unsafe {
-                // Safety: this I/O port does not violate memory safety
-                port.write(block_index);
-            }
+            // SAFETY: this I/O port does not violate memory safety
+            unsafe { port.write(block_index) };
 
             // prevent later reads from being moved before this point
             core::sync::atomic::compiler_fence(core::sync::atomic::Ordering::Acquire);
@@ -327,16 +373,16 @@ impl Handler for HostCall<'_> {
     #[inline(always)]
     fn block(&self) -> &[usize] {
         match self {
-            HostCall::Maintenance(maint) => maint.block.block.as_ref().unwrap(),
-            HostCall::Syscall(syscall) => syscall.tcb.block.block.as_ref().unwrap(),
+            HostCall::Maintenance(maint) => maint.block.block.0.as_ref(),
+            HostCall::Syscall(syscall) => syscall.tcb.block.block.0.as_ref(),
         }
     }
 
     #[inline(always)]
     fn block_mut(&mut self) -> &mut [usize] {
         match self {
-            HostCall::Maintenance(maint) => maint.block.block.as_mut().unwrap(),
-            HostCall::Syscall(syscall) => syscall.tcb.block.block.as_mut().unwrap(),
+            HostCall::Maintenance(maint) => maint.block.block.0.as_mut(),
+            HostCall::Syscall(syscall) => syscall.tcb.block.block.0.as_mut(),
         }
     }
 
@@ -346,6 +392,107 @@ impl Handler for HostCall<'_> {
             HostCall::Maintenance(maint) => &mut maint.tls,
             HostCall::Syscall(syscall) => &mut syscall.tcb.tls,
         }
+    }
+
+    fn clone(
+        &mut self,
+        flags: CloneFlags,
+        stack: NonNull<c_void>,
+        ptid: Option<&AtomicU32>,
+        clear_on_exit: Option<&AtomicU32>,
+        tls: NonNull<c_void>,
+    ) -> sallyport::Result<c_int> {
+        let tid = self.get_tid();
+
+        if flags
+            != CloneFlags::VM
+                | CloneFlags::FS
+                | CloneFlags::FILES
+                | CloneFlags::SIGHAND
+                | CloneFlags::THREAD
+                | CloneFlags::SYSVSEM
+                | CloneFlags::SETTLS
+                | CloneFlags::PARENT_SETTID
+                | CloneFlags::CHILD_CLEARTID
+                | CloneFlags::DETACHED
+        {
+            return Err(ENOTSUP);
+        }
+
+        let clear_on_exit = clear_on_exit.ok_or(EINVAL)?;
+        let ptid = ptid.ok_or(EINVAL)?;
+
+        eprintln!(
+            "[{tid}] clone({flags:?}, stack = {stack:p}, ptid = {ptid:p}, clear_on_exit = {clear_on_exit:p}, tls = {tls:p})",
+            ptid = ptid as *const _,
+            clear_on_exit = clear_on_exit as *const _,
+            stack = stack.as_ptr(),
+            tls = tls.as_ptr()
+        );
+
+        let new_tid = THREAD_ID_CNT.fetch_add(1, Ordering::SeqCst);
+
+        let syscall_frame = match self {
+            HostCall::Maintenance(_) => panic!("clone() called from maintainance"),
+            HostCall::Syscall(syscall) => {
+                // SAFETY: syscall_frame is a valid pointer to a syscall stack frame
+                unsafe { &*syscall.syscall_frame }
+            }
+        };
+
+        let mut regs: GenPurposeRegs = syscall_frame.into();
+        regs.rsp = stack.as_ptr() as _;
+        regs.fsbase = tls.as_ptr() as _;
+        regs.rax = 0; // child
+
+        // SAFETY: clear_on_exit is a valid pointer to an atomic u32 and static for the lifetime of the process
+        // NOTE: not really safe, but that is the contract of the syscall
+        let clear_on_exit: &'static AtomicU32 = unsafe { transmute(clear_on_exit) };
+
+        let mut queue = NEW_THREAD_QUEUE.write();
+
+        queue.push_back(NewThreadFromRegisters {
+            clear_on_exit: Some(clear_on_exit),
+            regs,
+            tid: new_tid,
+        });
+
+        ptid.store(new_tid as _, Ordering::Relaxed);
+
+        if snp_active() && THREADS_FREE.load(Ordering::SeqCst) < queue.len() {
+            eprintln!("[{tid}] clone() no thread free, allocate new VMSA");
+            // https://github.com/enarx/enarx/issues/2310
+            todo!();
+        }
+
+        let ret = self.spawn(0);
+
+        eprintln!("[{tid}] spawn() = {ret:#?} {new_tid}");
+        ret?;
+
+        Ok(new_tid)
+    }
+
+    fn exit(&mut self, status: c_int) -> sallyport::Result<()> {
+        match self {
+            HostCall::Maintenance(_) => {
+                eprintln!("[maint] exit({status})");
+            }
+            HostCall::Syscall(syscall) => {
+                let tcb = &mut syscall.tcb;
+                let tid = tcb.tid;
+                if let Some(addr) = tcb.clear_on_exit {
+                    eprintln!("[{tid}] clear TID at {addr:p}");
+                    addr.store(0, Ordering::SeqCst);
+                    let _ = self.unpark();
+                } else {
+                    eprintln!("[{tid}] no TID to clear");
+                }
+            }
+        }
+
+        Self::exit_io(status);
+        Ok(())
     }
 
     fn arch_prctl(
@@ -458,28 +605,6 @@ impl Handler for HostCall<'_> {
                 Ok(NonNull::new(addr_u64 as _).unwrap())
             }
         }
-    }
-
-    fn clone(
-        &mut self,
-        _flags: CloneFlags,
-        _stack: NonNull<c_void>,
-        _ptid: Option<&AtomicU32>,
-        _ctid: Option<&AtomicU32>,
-        _tls: NonNull<c_void>,
-    ) -> sallyport::Result<c_int> {
-        Err(ENOSYS)
-    }
-
-    fn madvise(
-        &mut self,
-        _platform: &impl Platform,
-        _addr: NonNull<c_void>,
-        _length: c_size_t,
-        _advice: c_int,
-    ) -> sallyport::Result<()> {
-        // FIXME
-        Ok(())
     }
 
     /// Executes [`mremap`](https://man7.org/linux/man-pages/man2/mremap.2.html) syscall akin to [`libc::mremap`].
@@ -803,6 +928,17 @@ impl Handler for HostCall<'_> {
         // It is not an error if the indicated range does not contain any mapped pages.
         let _ = PageTableAllocatorLock::new().unmap_memory(virt_addr, length);
 
+        Ok(())
+    }
+
+    fn madvise(
+        &mut self,
+        _platform: &impl Platform,
+        _addr: NonNull<c_void>,
+        _length: c_size_t,
+        _advice: c_int,
+    ) -> sallyport::Result<()> {
+        // FIXME
         Ok(())
     }
 }

@@ -13,10 +13,11 @@ use anyhow::Result;
 use kvm_bindings::bindings::kvm_userspace_memory_region;
 use kvm_ioctls::Kvm;
 use kvm_ioctls::{VcpuFd, VmFd};
+use lset::Contains;
 use mmarinus::{perms, Map};
 use sallyport::item::enarxcall::Payload;
 use sallyport::item::Item;
-use x86_64::VirtAddr;
+use x86_64::{PhysAddr, VirtAddr};
 
 pub mod builder;
 pub mod config;
@@ -24,7 +25,7 @@ pub mod data;
 pub mod mem;
 pub mod thread;
 
-pub trait KeepPersonality: Send + Sync {
+pub trait KeepPersonality: Send + Sync + 'static {
     fn map(_vm_fd: &mut VmFd, _region: &Region) -> std::io::Result<()> {
         Ok(())
     }
@@ -42,9 +43,10 @@ struct KvmKeepPersonality(());
 
 impl KeepPersonality for KvmKeepPersonality {}
 
-pub struct Keep<P: KeepPersonality> {
+pub struct Keep<P: KeepPersonality + Send> {
     pub kvm_fd: Kvm,
     pub vm_fd: VmFd,
+    pub num_cpus: u64,
     pub cpu_fds: Vec<VcpuFd>,
     pub sallyport_block_size: usize,
     pub sallyports: Vec<Option<VirtAddr>>,
@@ -71,6 +73,14 @@ impl<P: KeepPersonality> Keep<P> {
         self.regions.push(region);
 
         Ok(self.regions.last_mut().unwrap())
+    }
+    pub fn virt_from_guest_phys(&self, guest_phys: PhysAddr) -> Option<VirtAddr> {
+        for region in &self.regions {
+            if region.as_guest().contains(&guest_phys) {
+                return Some(region.as_virt().start + (guest_phys - region.as_guest().start));
+            }
+        }
+        None
     }
 }
 
