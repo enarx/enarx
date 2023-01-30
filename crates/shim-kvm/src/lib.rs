@@ -48,6 +48,7 @@ pub mod snp;
 pub mod spin;
 pub mod sse;
 pub mod syscall;
+pub mod thread;
 pub mod usermode;
 
 extern "C" {

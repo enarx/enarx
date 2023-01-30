@@ -2,7 +2,9 @@
 
 //! Global Descriptor Table init
 
+use crate::hostcall::HOST_CALL_ALLOC;
 use crate::syscall::_syscall_enter;
+use crate::thread::TcbRefCell;
 
 use alloc::boxed::Box;
 
@@ -64,8 +66,12 @@ pub unsafe fn init(stack_pointer: VirtAddr) {
     // Clear trap flag and interrupt enable
     SFMask::write(RFlags::INTERRUPT_FLAG | RFlags::TRAP_FLAG);
 
-    // Set the kernel gs base to the TSS to be used in `_syscall_enter`
-    let base = VirtAddr::from_ptr(tss);
+    // Set the kernel gs base to the Tcb to be used in `_syscall_enter`
+    let tcb = Box::new(TcbRefCell::new(
+        stack_pointer,
+        HOST_CALL_ALLOC.try_alloc().unwrap(),
+    ));
+    let base = VirtAddr::from_ptr(Box::leak(tcb));
     KernelGsBase::write(base);
 
     // Safety: the GS base is not yet in use, because no syscalls happened yet for this CPU

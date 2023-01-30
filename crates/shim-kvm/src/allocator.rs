@@ -4,7 +4,7 @@
 
 use crate::addr::{ShimPhysAddr, ShimVirtAddr, SHIM_VIRT_OFFSET};
 use crate::exec::NEXT_MMAP_RWLOCK;
-use crate::hostcall::{HostCall, SHIM_LOCAL_STORAGE};
+use crate::hostcall::HostCall;
 use crate::paging::{ShimPageTable, SHIM_PAGETABLE};
 use crate::snp::{get_cbit_mask, pvalidate, snp_active, PvalidateSize};
 
@@ -391,12 +391,7 @@ pub enum AllocateError {
 
 impl EnarxAllocator {
     unsafe fn new() -> Self {
-        let mut tls = SHIM_LOCAL_STORAGE.write();
-        let meminfo = {
-            let mut host_call = HostCall::try_new(&mut tls).unwrap();
-            host_call.mem_info().unwrap()
-        };
-        drop(tls);
+        let meminfo = HostCall::maint().mem_info().unwrap();
 
         const MIN_EXP: u32 = 24; // start with 2^24 = 16 MiB
         let c_bit_mask = get_cbit_mask();
@@ -516,13 +511,11 @@ impl EnarxAllocator {
             let new_size = new_size.min(self.max_alloc);
             let num_pages = new_size.checked_div(PG_USIZE).unwrap();
 
-            let mut tls = SHIM_LOCAL_STORAGE.write();
-            let ret = HostCall::try_new(&mut tls).unwrap().balloon_memory(
+            let ret = HostCall::maint().balloon_memory(
                 12, // 1 << 12 == 4096 == page size
                 num_pages,
                 self.end_of_mem.as_u64() as _,
             );
-            drop(tls);
 
             match ret {
                 Ok(_) => {
