@@ -1,7 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 
-#![cfg_attr(target_os = "wasi", feature(wasi_ext))]
-
 #[cfg(unix)]
 use std::os::unix::io::FromRawFd;
 #[cfg(target_os = "wasi")]
