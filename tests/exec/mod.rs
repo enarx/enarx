@@ -21,13 +21,11 @@ fn futex() {
 }
 
 #[test]
-#[cfg_attr(not(host_can_test_sgx), ignore = "Backend does not support SGX")]
 fn thread() {
-    if !is_sgx() {
-        eprintln!("SGX backend is disabled, ignoring");
+    if is_sev() {
+        eprintln!("SEV backend is enabled, ignoring");
         return;
     }
-
     let bin = env!("CARGO_BIN_FILE_ENARX_EXEC_TESTS_thread");
     let output = r#"Before Spawn
 After Spawn 1
@@ -48,37 +46,31 @@ After Join 2
 }
 
 #[test]
-#[cfg_attr(not(host_can_test_sgx), ignore = "Backend does not support SGX")]
 fn thread_many() {
-    if !is_sgx() {
-        eprintln!("SGX backend is disabled, ignoring");
+    if is_sev() {
+        eprintln!("SEV backend is enabled, ignoring");
         return;
     }
-
     let bin = env!("CARGO_BIN_FILE_ENARX_EXEC_TESTS_thread-many");
     run_test(bin, 0, None, None, None);
 }
 
 #[test]
-#[cfg_attr(not(host_can_test_sgx), ignore = "Backend does not support SGX")]
 fn thread_exit_group() {
-    if !is_sgx() {
-        eprintln!("SGX backend is disabled, ignoring");
+    if is_sev() {
+        eprintln!("SEV backend is enabled, ignoring");
         return;
     }
-
     let bin = env!("CARGO_BIN_FILE_ENARX_EXEC_TESTS_thread-exit-group");
     run_test(bin, 0, None, None, None);
 }
 
 #[test]
-#[cfg_attr(not(host_can_test_sgx), ignore = "Backend does not support SGX")]
 fn thread_channel() {
-    if !is_sgx() {
-        eprintln!("SGX backend is disabled, ignoring");
+    if is_sev() {
+        eprintln!("SEV backend is enabled, ignoring");
         return;
     }
-
     let bin = env!("CARGO_BIN_FILE_ENARX_EXEC_TESTS_thread-channel");
     let output = "Start\nHello, thread\n";
     run_test(bin, 0, None, output.as_bytes(), None);

@@ -39,6 +39,7 @@ use std::time::Duration;
 
 use anyhow::{bail, Context, Result};
 use enarx_exec_wasmtime::{Args as ExecArgs, Package};
+use tracing::trace_span;
 
 /// Write timeout for writing the arguments to exec-wasmtime.
 #[cfg(unix)]
@@ -97,7 +98,11 @@ pub fn keep_exec(
 ) -> anyhow::Result<ExitCode> {
     let keep = backend.keep(shim.as_ref(), exec.as_ref(), signatures)?;
     let mut thread = keep.spawn()?.unwrap();
-    loop {
+    trace_span!(
+        "Thread",
+        id = ?std::thread::current().id()
+    )
+    .in_scope(|| loop {
         match thread.enter(&_gdblisten)? {
             Command::Continue => (),
             Command::Exit(code @ 0..=0xff) => return Ok(ExitCode::from(code as u8)),
@@ -105,7 +110,7 @@ pub fn keep_exec(
                 bail!("keep exited with a non-portable exit code `{code}`, which exceeds 255")
             }
         }
-    }
+    })
 }
 
 pub fn open_package(

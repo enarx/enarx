@@ -2,17 +2,136 @@
 
 //! Thread handling
 
-use crate::hostcall::BlockGuard;
+use crate::hostcall::{BlockGuard, HostCall};
+use crate::syscall::SyscallStackFrameValue;
 
+use alloc::collections::VecDeque;
+use core::arch::asm;
 use core::cell::{Cell, UnsafeCell};
 use core::marker::PhantomData;
 use core::ops::{Deref, DerefMut};
 use core::ptr::NonNull;
+use core::sync::atomic::{AtomicI32, AtomicU32, AtomicUsize, Ordering};
 
+use const_default::ConstDefault;
 use sallyport::guest::ThreadLocalStorage;
 use sallyport::libc::pid_t;
+use spin::RwLock;
 use x86_64::instructions::segmentation::{Segment64, GS};
+use x86_64::registers::rflags;
 use x86_64::VirtAddr;
+
+/// Pickup new threads from the queue.
+pub fn pickup_new_threads() -> ! {
+    loop {
+        let mut queue = NEW_THREAD_QUEUE.write();
+        let thread = queue.pop_front();
+        match thread {
+            Some(thread) => {
+                drop(queue);
+                let tcb = TcbRefCell::from_gs_base();
+                let mut tcb = tcb.borrow_mut();
+                tcb.tid = thread.tid;
+                tcb.clear_on_exit = thread.clear_on_exit;
+                tcb.tls = ThreadLocalStorage::new();
+                drop(tcb);
+                unsafe { thread.regs.load_registers() }
+            }
+            None => {
+                THREADS_FREE.fetch_add(1, Ordering::SeqCst);
+                drop(queue);
+                HostCall::exit_io(0);
+            }
+        }
+        THREADS_FREE.fetch_sub(1, Ordering::SeqCst);
+    }
+}
+
+/// A thread register state that is currently running.
+///
+/// The following registers cannot be restored, because they are
+/// r11 = rflags
+/// rcx = rip
+#[derive(Copy, Clone, Debug, Default)]
+#[repr(C)]
+pub struct GenPurposeRegs {
+    /// rax
+    pub rax: u64,
+    /// rdx
+    pub rdx: u64,
+    /// rbx
+    pub rbx: u64,
+    /// rbp
+    pub rbp: u64,
+    /// rsi
+    pub rsi: u64,
+    /// rdi
+    pub rdi: u64,
+    /// r8
+    pub r8: u64,
+    /// r9
+    pub r9: u64,
+    /// r10
+    pub r10: u64,
+    /// r12
+    pub r12: u64,
+    /// r13
+    pub r13: u64,
+    /// r14
+    pub r14: u64,
+    /// r15
+    pub r15: u64,
+    /// rflags
+    pub rflags: u64,
+    /// fsbase
+    pub fsbase: u64,
+    /// gsbase
+    pub gsbase: u64,
+    /// rip
+    pub rip: u64,
+    /// rsp
+    pub rsp: u64,
+}
+
+impl From<&SyscallStackFrameValue> for GenPurposeRegs {
+    fn from(value: &SyscallStackFrameValue) -> Self {
+        GenPurposeRegs {
+            rax: value.rax,
+            rdx: value.rdx,
+            r8: value.r8,
+            r9: value.r9,
+            r10: value.r10,
+            r12: value.r12,
+            r13: value.r13,
+            r14: value.r14,
+            r15: value.r15,
+            rflags: value.r11,
+            fsbase: 0,
+            gsbase: 0,
+            rsi: value.rsi,
+            rdi: value.rdi,
+            rbp: value.rbp,
+            rsp: value.rsp,
+            rbx: value.rbx,
+            rip: value.rcx,
+        }
+    }
+}
+
+/// Describe the state of the new thread
+#[derive(Clone, Copy, Debug)]
+pub struct NewThreadFromRegisters {
+    /// The registers to use for the new thread
+    pub regs: GenPurposeRegs,
+    /// The thread ID
+    pub tid: pid_t,
+    /// The address of a u32 to clear on exit
+    pub clear_on_exit: Option<&'static AtomicU32>,
+}
+
+/// Queue of new threads to be picked up
+pub static NEW_THREAD_QUEUE: RwLock<VecDeque<NewThreadFromRegisters>> =
+    RwLock::new(VecDeque::new());
 
 /// Thread Control Block
 ///
@@ -30,6 +149,8 @@ pub struct Tcb {
     userspace_stack: VirtAddr,
     /// The thread ID
     pub tid: pid_t,
+    /// Holds addresses of AtomicU32 to clear on exiting the thread
+    pub clear_on_exit: Option<&'static AtomicU32>,
     /// sallyport thread local storage
     pub tls: ThreadLocalStorage,
     /// sallyport block,
@@ -124,6 +245,7 @@ impl TcbRefCell {
                 kernel_stack,
                 userspace_stack: VirtAddr::zero(),
                 tid: 0,
+                clear_on_exit: None,
                 tls: Default::default(),
                 block,
             }),
@@ -162,6 +284,87 @@ impl TcbRefCell {
         let tcb = unsafe { base.as_ref() };
         tcb
     }
+}
+
+/// actual thread ID to be used for the next thread
+pub static THREAD_ID_CNT: AtomicI32 = AtomicI32::new(1);
+
+/// number of free threads
+pub static THREADS_FREE: AtomicUsize = AtomicUsize::new(0);
+
+/// Extend some trait with a method to load registers
+pub trait LoadRegsExt {
+    /// manually load the registers from the SSA
+    ///
+    /// # Safety
+    ///
+    /// The Caller has to ensure the integrity of the loaded registers.
+    unsafe fn load_registers(&self) -> !;
+}
+
+impl LoadRegsExt for GenPurposeRegs {
+    // r11 = rflags
+    // rcx = rip
+    unsafe fn load_registers(&self) -> ! {
+        static XSAVE: xsave::XSave = <xsave::XSave as ConstDefault>::DEFAULT;
+
+        asm!(
+        "mov rsp, rax                        ", // switch stack pointer
+
+        "mov rax, 0                          ",
+        "mov ds,  rax                        ", // clear segment selector
+        "mov es,  rax                        ", // clear segment selector
+        "mov rdx, ~0                         ", // Set mask for xrstor in rdx
+        "mov rax, ~0                         ", // Set mask for xrstor in rax
+        "xrstor [rip + {XSAVE}]              ", // Clear xCPU state with synthetic state
+
+        "pop rax                             ",
+        "pop rdx                             ",
+        "pop rbx                             ",
+        "pop rbp                             ",
+        "pop rsi                             ",
+        "pop rdi                             ",
+        "pop r8                              ",
+        "pop r9                              ",
+        "pop r10                             ",
+        "pop r12                             ",
+        "pop r13                             ",
+        "pop r14                             ",
+        "pop r15                             ",
+        "pop r11                             ", // pop rflags
+        "pop rcx                             ", // fsbase
+        "wrfsbase rcx                        ",
+        "pop rcx                             ", // gsbase
+        "swapgs                              ",
+        "lfence                              ",
+        "wrgsbase rcx                        ",
+        "pop rcx                             ", // rip
+        "pop rsp                             ", // rsp
+        "sysretq                             ",
+
+        XSAVE = sym XSAVE,
+        in("rax") self as *const _ as u64,
+
+        options(noreturn)
+        )
+    }
+}
+
+/// Enter Ring 3
+///
+/// # Safety
+///
+/// Because the caller can give any `entry_point` and `stack_pointer`
+/// including 0, this function is unsafe.
+#[cfg_attr(coverage, no_coverage)]
+pub unsafe fn usermode(ip: u64, sp: u64) -> ! {
+    let regs = GenPurposeRegs {
+        rip: ip,
+        rsp: sp,
+        rflags: rflags::read().bits(),
+        ..Default::default()
+    };
+    regs.load_registers()
 }
 
 #[cfg(test)]

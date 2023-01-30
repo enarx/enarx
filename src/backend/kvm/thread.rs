@@ -4,21 +4,27 @@ use super::super::Command;
 use super::KeepPersonality;
 #[cfg(feature = "gdb")]
 use crate::backend::execute_gdb;
+use crate::backend::kvm::builder::kvm_new_vcpu;
 use crate::backend::parking::THREAD_PARK;
+use crate::backend::Keep as _;
 
 use std::io;
 use std::iter;
 use std::mem::size_of;
+use std::ops::DerefMut;
 use std::sync::{Arc, RwLock};
 
 use anyhow::{bail, Context, Result};
 use kvm_ioctls::{VcpuExit, VcpuFd};
-use libc::timespec;
+use libc::{c_int, timespec};
 use mmarinus::{perms, Map};
 use sallyport::host::deref_aligned;
 use sallyport::item::enarxcall::Payload;
 use sallyport::item::{Block, Item};
-use sallyport::{item, KVM_SYSCALL_TRIGGER_PORT};
+use sallyport::libc::EAGAIN;
+use sallyport::{item, KVM_SYSCALL_TRIGGER_EXIT_THREAD, KVM_SYSCALL_TRIGGER_PORT};
+use tracing::{error, trace, trace_span};
+use x86_64::PhysAddr;
 
 pub struct Thread<P: KeepPersonality> {
     keep: Arc<RwLock<super::Keep<P>>>,
@@ -35,19 +41,38 @@ impl<P: KeepPersonality> Drop for Thread<P> {
     }
 }
 
-impl<P: KeepPersonality + 'static> super::super::Keep for RwLock<super::Keep<P>> {
+impl<P: KeepPersonality> super::super::Keep for RwLock<super::Keep<P>> {
     fn spawn(self: Arc<Self>) -> Result<Option<Box<dyn super::super::Thread>>> {
-        let cpu_opt = self.write().unwrap().cpu_fds.pop();
-        match cpu_opt {
-            None => Ok(None),
-            Some(vcpu_fd) => Ok(Some(Box::new(Thread {
-                keep: self,
+        let mut this = self.write().unwrap();
+        let cpu_opt = this.cpu_fds.pop();
+        let thread = match cpu_opt {
+            None => {
+                let super::Keep {
+                    kvm_fd,
+                    vm_fd,
+                    num_cpus: num_cpu,
+                    ..
+                } = this.deref_mut();
+                let vcpu_fd = Some(kvm_new_vcpu(kvm_fd, vm_fd, *num_cpu)?);
+                *num_cpu += 1;
+                vcpu_fd.map(|vcpu_fd| {
+                    Box::new(Thread {
+                        keep: self.clone(),
+                        vcpu_fd: Some(vcpu_fd),
+                        #[cfg(feature = "gdb")]
+                        gdb_fd: None,
+                    }) as Box<dyn super::super::Thread>
+                })
+            }
+            Some(vcpu_fd) => Some(Box::new(Thread {
+                keep: self.clone(),
                 vcpu_fd: Some(vcpu_fd),
 
                 #[cfg(feature = "gdb")]
                 gdb_fd: None,
-            }))),
-        }
+            }) as Box<dyn super::super::Thread>),
+        };
+        Ok(thread)
     }
 }
 
@@ -121,6 +146,52 @@ impl<P: KeepPersonality> Thread<P> {
                 Ok(None)
             }
             item::Enarxcall {
+                num: item::enarxcall::Number::NewSallyport,
+                argv: [addr, index, ..],
+                ret,
+                ..
+            } => {
+                // Register a new sallyport block
+                let mut keep = self.keep.write().unwrap();
+                let block_virt = keep
+                    .virt_from_guest_phys(PhysAddr::new(*addr as _))
+                    .unwrap();
+                if keep.sallyports.len() < *index + 1 {
+                    keep.sallyports.resize(*index + 1, None);
+                }
+                assert!(keep.sallyports[*index].is_none());
+                keep.sallyports[*index].replace(block_virt);
+                *ret = 0;
+                Ok(None)
+            }
+            item::Enarxcall {
+                num: item::enarxcall::Number::Spawn,
+                ret,
+                ..
+            } => {
+                // retry for a little time, there should be exiting threads in flight,
+                // which can be reused.
+                let thread: Option<_> = {
+                    let mut i = 0;
+                    loop {
+                        if let Some(thread) = self.keep.clone().spawn()? {
+                            break Some(thread);
+                        } else {
+                            i += 1;
+                            if i < 10 {
+                                std::thread::sleep(std::time::Duration::from_millis(50));
+                                continue;
+                            }
+                            break None;
+                        }
+                    }
+                };
+
+                *ret = Self::spawn_thread(thread);
+
+                Ok(None)
+            }
+            item::Enarxcall {
                 num: item::enarxcall::Number::Park,
                 argv: [val, timeout, ..],
                 ret,
@@ -158,13 +229,52 @@ impl<P: KeepPersonality> Thread<P> {
             _ => return Ok(Some(Item::Enarxcall(enarxcall, data))),
         }
     }
+
+    fn spawn_thread(thread: Option<Box<dyn super::super::Thread>>) -> usize {
+        if let Some(mut thread) = thread {
+            std::thread::spawn(move || {
+                std::panic::catch_unwind(move || {
+                    let ret = trace_span!(
+                        "Thread",
+                        id = ?std::thread::current().id()
+                    )
+                    .in_scope(|| loop {
+                        match thread.enter(&None)? {
+                            Command::Continue => (),
+                            Command::Exit(exit_code) => {
+                                return Ok::<i32, anyhow::Error>(exit_code);
+                            }
+                        }
+                    });
+
+                    if let Err(e) = ret {
+                        error!("Thread failed: {e:#?}");
+                        std::process::exit(1);
+                    }
+                    ret
+                })
+                .unwrap_or_else(|e| {
+                    error!("Thread panicked: {e:#?}");
+                    std::process::exit(1);
+                })
+            });
+            0
+        } else {
+            error!("no more Keep threads available");
+            -EAGAIN as usize
+        }
+    }
 }
 
 impl<P: KeepPersonality> super::super::Thread for Thread<P> {
     fn enter(&mut self, _gdblisten: &Option<String>) -> Result<Command> {
         let vcpu_fd = self.vcpu_fd.as_mut().unwrap();
         match vcpu_fd.run()? {
-            VcpuExit::IoOut(KVM_SYSCALL_TRIGGER_PORT, data) => {
+            VcpuExit::IoOut(port, data) if port == KVM_SYSCALL_TRIGGER_EXIT_THREAD => {
+                let status = data[0] as c_int + ((data[1] as c_int) << 8);
+                Ok(Command::Exit(status))
+            }
+            VcpuExit::IoOut(port, data) if port == KVM_SYSCALL_TRIGGER_PORT => {
                 debug_assert_eq!(data.len(), 2);
                 let block_nr = data[0] as usize + ((data[1] as usize) << 8);
                 let block_virt = self.keep.write().unwrap().sallyports[block_nr]
@@ -209,15 +319,23 @@ impl<P: KeepPersonality> super::super::Thread for Thread<P> {
                             }
                         }
 
+                        // Catch exit_group for a clean shutdown
+                        Item::Syscall(
+                            item::Syscall {
+                                num,
+                                argv: [code, ..],
+                                ..
+                            },
+                            ..,
+                        ) if (*num == libc::SYS_exit_group as usize) => {
+                            trace!("exit_group({code})");
+                            std::process::exit(*code as _);
+                        }
+
                         // Catch exit and exit_group for a clean shutdown
-                        Item::Syscall(syscall, ..)
-                            if (syscall.num == libc::SYS_exit as usize
-                                || syscall.num == libc::SYS_exit_group as usize) =>
-                        {
-                            if cfg!(feature = "dbg") {
-                                dbg!(&syscall);
-                            }
-                            return Ok(Command::Exit(syscall.argv[0] as _));
+                        Item::Syscall(syscall, ..) if (syscall.num == libc::SYS_exit as usize) => {
+                            trace!(?syscall);
+                            panic!("unexpected exit syscall!");
                         }
 
                         Item::Syscall(ref _syscall, ..) => {
@@ -231,7 +349,7 @@ impl<P: KeepPersonality> super::super::Thread for Thread<P> {
                                     libc::STDIN_FILENO | libc::STDOUT_FILENO | libc::STDERR_FILENO,
                                 ) => {}
                                 _ => {
-                                    dbg!(&_syscall);
+                                    trace!(?_syscall);
                                 }
                             }
 

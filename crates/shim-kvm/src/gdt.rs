@@ -2,9 +2,10 @@
 
 //! Global Descriptor Table init
 
-use crate::hostcall::HOST_CALL_ALLOC;
+use crate::hostcall::BlockGuard;
 use crate::syscall::_syscall_enter;
 use crate::thread::TcbRefCell;
+use crate::MAX_NUM_CPUS;
 
 use alloc::boxed::Box;
 
@@ -20,9 +21,13 @@ use x86_64::VirtAddr;
 ///
 /// # Safety
 /// The caller has to ensure that the stack pointer is valid and 16 byte aligned.
+/// The caller has to ensure that the CPU number is valid.
+/// The caller has to ensure that this function is only called once per CPU.
 #[cfg_attr(coverage, no_coverage)]
-pub unsafe fn init(stack_pointer: VirtAddr) {
-    eprintln!("init_gdt");
+pub unsafe fn init(cpunum: usize, stack_pointer: VirtAddr) {
+    assert!(cpunum < MAX_NUM_CPUS);
+
+    eprintln!("[{cpunum}] init_gdt");
 
     let gdt = Box::leak(Box::new(GlobalDescriptorTable::new()));
 
@@ -66,18 +71,16 @@ pub unsafe fn init(stack_pointer: VirtAddr) {
     // Clear trap flag and interrupt enable
     SFMask::write(RFlags::INTERRUPT_FLAG | RFlags::TRAP_FLAG);
 
+    // SAFETY: only called once per CPU
+    let block = unsafe { BlockGuard::new(cpunum) };
+
     // Set the kernel gs base to the Tcb to be used in `_syscall_enter`
-    let tcb = Box::new(TcbRefCell::new(
-        stack_pointer,
-        HOST_CALL_ALLOC.try_alloc().unwrap(),
-    ));
+    let tcb = Box::new(TcbRefCell::new(stack_pointer, block));
     let base = VirtAddr::from_ptr(Box::leak(tcb));
     KernelGsBase::write(base);
 
     // Safety: the GS base is not yet in use, because no syscalls happened yet for this CPU
-    unsafe {
-        GS::write_base(base);
-    }
+    unsafe { GS::write_base(base) };
 
-    eprintln!("init_gdt done");
+    eprintln!("[{cpunum}] init_gdt done");
 }
