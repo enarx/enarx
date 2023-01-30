@@ -10,20 +10,21 @@ use crate::snp::attestation::asn1_encode_report_vcek;
 use crate::snp::ghcb::{GHCB, GHCB_EXT, SNP_ATTESTATION_LEN_MAX, SNP_KEY_LEN};
 use crate::snp::snp_active;
 use crate::spin::{RacyCell, RwLocked};
+use crate::thread::{Tcb, TcbRefCell};
 
-use const_default::ConstDefault;
 use core::ffi::{c_int, c_size_t, c_ulong, c_void};
 use core::ops::{Deref, DerefMut};
 use core::ptr::NonNull;
 use core::slice;
 use core::sync::atomic::AtomicU32;
 
+use const_default::ConstDefault;
 use sallyport::guest::syscall::types::MremapFlags;
-use sallyport::guest::{self, Handler, Platform, ThreadLocalStorage};
+use sallyport::guest::{Handler, Platform, ThreadLocalStorage};
 use sallyport::item::enarxcall::sev::TECH;
 use sallyport::item::syscall;
 use sallyport::libc::{
-    off_t, CloneFlags, EAGAIN, EFAULT, EINVAL, EIO, EMSGSIZE, ENOMEM, ENOSYS, ENOTSUP,
+    off_t, pid_t, CloneFlags, EFAULT, EINVAL, EIO, EMSGSIZE, ENOMEM, ENOSYS, ENOTSUP,
     MAP_ANONYMOUS, MAP_PRIVATE, PROT_EXEC, PROT_READ, PROT_WRITE,
 };
 use sallyport::util::ptr::is_aligned_non_null;
@@ -43,10 +44,6 @@ pub const NUM_BLOCKS: usize = 2;
 
 const BLOCK_SIZE_USIZE: usize = BLOCK_SIZE / core::mem::size_of::<usize>();
 
-/// Global TLS for the SHIM
-pub static SHIM_LOCAL_STORAGE: Lazy<RwLocked<guest::ThreadLocalStorage>> =
-    Lazy::new(|| RwLocked::<guest::ThreadLocalStorage>::new(guest::ThreadLocalStorage::new()));
-
 const SNP_VCEK_BUF_SIZE: usize = 4096;
 
 /// SNP VCEK buffer
@@ -56,8 +53,7 @@ pub static SNP_VCEK: Lazy<Result<&[u8], c_int>> = Lazy::new(|| {
 
     let buffer_mut = unsafe { &mut *SNP_VCEK_BUFFER.get() };
 
-    let mut tls = SHIM_LOCAL_STORAGE.write();
-    let mut host_call = HostCall::try_new(&mut tls).ok_or(EAGAIN)?;
+    let mut host_call = HostCall::maint();
     let vcek_len = host_call.get_snp_vcek(buffer_mut)?;
 
     if vcek_len == 0 {
@@ -164,21 +160,49 @@ impl Drop for BlockGuard {
     }
 }
 
+/// Maintainance HostCall
+pub struct Maintenance {
+    /// Dummy thread local storage
+    tls: ThreadLocalStorage,
+    /// The sallyport block
+    block: BlockGuard,
+}
+
+/// Syscall Hostcall
+pub struct Syscall<'a> {
+    /// The thread control block
+    tcb: &'a mut Tcb,
+}
+
 /// The syscall Handler
-pub struct HostCall<'a> {
-    block_guard: BlockGuard,
-    tls: &'a mut ThreadLocalStorage,
+#[allow(clippy::large_enum_variant)]
+pub enum HostCall<'a> {
+    /// Maintainance HostCall
+    Maintenance(Maintenance),
+    /// Syscall Hostcall
+    Syscall(Syscall<'a>),
 }
 
 impl<'a> HostCall<'a> {
-    /// Try to get a new instance
-    pub fn try_new(tls: &'a mut ThreadLocalStorage) -> Option<HostCall<'a>> {
-        let bg = HOST_CALL_ALLOC.try_alloc()?;
-
-        Some(Self {
-            block_guard: bg,
-            tls,
+    /// Get the Maintainance HostCall
+    pub fn maint() -> HostCall<'a> {
+        HostCall::Maintenance(Maintenance {
+            tls: Default::default(),
+            block: HOST_CALL_ALLOC.try_alloc().unwrap(),
         })
+    }
+
+    /// Get the per cpu syscall HostCall
+    pub fn syscall(tcb: &'a mut Tcb) -> HostCall<'a> {
+        HostCall::Syscall(Syscall { tcb })
+    }
+
+    /// Get the thread id
+    pub fn get_tid(&self) -> pid_t {
+        match self {
+            HostCall::Maintenance(_) => TcbRefCell::from_gs_base().borrow_mut().tid,
+            HostCall::Syscall(syscall) => syscall.tcb.tid,
+        }
     }
 
     /// get an SNP derived key
@@ -270,6 +294,11 @@ impl Handler for HostCall<'_> {
     /// Returns the contents of the shared memory reply status, the host might have
     /// written.
     fn sally(&mut self) -> Result<(), c_int> {
+        let block_index = match self {
+            HostCall::Maintenance(maint) => maint.block.block_index,
+            HostCall::Syscall(syscall) => syscall.tcb.block.block_index,
+        };
+
         if !snp_active() {
             let mut port = Port::<u16>::new(KVM_SYSCALL_TRIGGER_PORT);
 
@@ -278,7 +307,7 @@ impl Handler for HostCall<'_> {
 
             unsafe {
                 // Safety: this I/O port does not violate memory safety
-                port.write(self.block_guard.block_index);
+                port.write(block_index);
             }
 
             // prevent later reads from being moved before this point
@@ -287,7 +316,7 @@ impl Handler for HostCall<'_> {
             // prevent earlier writes from being moved beyond this point
             core::sync::atomic::compiler_fence(core::sync::atomic::Ordering::Release);
 
-            GHCB.do_io_out(KVM_SYSCALL_TRIGGER_PORT, self.block_guard.block_index);
+            GHCB.do_io_out(KVM_SYSCALL_TRIGGER_PORT, block_index);
 
             // prevent later reads from being moved before this point
             core::sync::atomic::compiler_fence(core::sync::atomic::Ordering::Acquire);
@@ -297,17 +326,26 @@ impl Handler for HostCall<'_> {
 
     #[inline(always)]
     fn block(&self) -> &[usize] {
-        self.block_guard.block.as_ref().unwrap()
+        match self {
+            HostCall::Maintenance(maint) => maint.block.block.as_ref().unwrap(),
+            HostCall::Syscall(syscall) => syscall.tcb.block.block.as_ref().unwrap(),
+        }
     }
 
     #[inline(always)]
     fn block_mut(&mut self) -> &mut [usize] {
-        self.block_guard.block.as_mut().unwrap()
+        match self {
+            HostCall::Maintenance(maint) => maint.block.block.as_mut().unwrap(),
+            HostCall::Syscall(syscall) => syscall.tcb.block.block.as_mut().unwrap(),
+        }
     }
 
     #[inline(always)]
     fn thread_local_storage(&mut self) -> &mut ThreadLocalStorage {
-        self.tls
+        match self {
+            HostCall::Maintenance(maint) => &mut maint.tls,
+            HostCall::Syscall(syscall) => &mut syscall.tcb.tls,
+        }
     }
 
     fn arch_prctl(
@@ -864,8 +902,7 @@ pub fn shim_write_all(fd: HostFd, bytes: &[u8]) -> Result<(), c_int> {
     let bytes_len = bytes.len();
     let mut to_write = bytes_len;
 
-    let mut tls = SHIM_LOCAL_STORAGE.write();
-    let mut host_call = HostCall::try_new(&mut tls).ok_or(EAGAIN)?;
+    let mut host_call = HostCall::maint();
 
     loop {
         let next = bytes_len.checked_sub(to_write).ok_or(EFAULT)?;
@@ -885,9 +922,7 @@ pub fn shim_write_all(fd: HostFd, bytes: &[u8]) -> Result<(), c_int> {
 /// Reverts to a triple fault, which causes a `#VMEXIT` and a KVM shutdown,
 /// if it cannot talk to the host.
 pub fn shim_exit(status: i32) -> ! {
-    if let Some(mut host_call) = HostCall::try_new(SHIM_LOCAL_STORAGE.write().deref_mut()) {
-        let _ = host_call.exit_group(status);
-    }
+    let _ = HostCall::maint().exit_group(status);
 
     // provoke triple fault, causing a VM shutdown
     unsafe { _enarx_asm_triple_fault() }
