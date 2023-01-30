@@ -19,7 +19,7 @@ use enarx_shim_kvm::snp::C_BIT_MASK;
 use enarx_shim_kvm::sse;
 use enarx_shim_kvm::stdio::enable_printing;
 use enarx_shim_kvm::SHIM_STACK_START;
-use enarx_shim_kvm::{exec, SHIM_EX_STACK_START, SHIM_STACK_SIZE};
+use enarx_shim_kvm::{exec, SHIM_STACK_SIZE};
 
 use core::arch::{asm, global_asm};
 use core::mem::size_of;
@@ -75,7 +75,6 @@ static INITIAL_SHIM_STACK: [Page; INITIAL_STACK_PAGES] = [Page::zeroed(); INITIA
 /// Create a shim stack
 pub fn shim_stack() -> GuardedStack {
     let start = VirtAddr::new(SHIM_STACK_START);
-    assert!((start + SHIM_STACK_SIZE).as_u64() < SHIM_EX_STACK_START);
     init_stack_with_guard(start, SHIM_STACK_SIZE, PageTableFlags::empty())
 }
 

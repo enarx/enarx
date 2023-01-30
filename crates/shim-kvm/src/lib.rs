@@ -70,19 +70,6 @@ pub const SHIM_STACK_START: u64 = 0xFFFF_FF48_4800_0000;
 #[allow(clippy::integer_arithmetic)]
 pub const SHIM_STACK_SIZE: u64 = bytes![2; MiB];
 
-/// The virtual address of the exception kernel stacks
-pub const SHIM_EX_STACK_START: u64 = 0xFFFF_FF48_F000_0000;
-
-/// The size of the main kernel stack for exceptions
-#[allow(clippy::integer_arithmetic)]
-pub const SHIM_EX_STACK_SIZE: u64 = {
-    if cfg!(feature = "gdb") {
-        bytes![2; MiB]
-    } else {
-        bytes![32; KiB]
-    }
-};
-
 /// Exec virtual address, where the elf binary is mapped to, plus a random offset
 const EXEC_ELF_VIRT_ADDR_BASE: VirtAddr = VirtAddr::new_truncate(0x7f00_0000_0000);
 
