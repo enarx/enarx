@@ -71,8 +71,10 @@ impl TryFrom<super::config::Config> for Builder {
             // try to open /dev/sev and start the Launcher several times
 
             let kvm_fd = Kvm::new().context("Failed to open '/dev/kvm'")?;
+
+            const KVM_X86_SNP_VM: u64 = 3;
             let vm_fd = kvm_fd
-                .create_vm()
+                .create_vm_with_type(KVM_X86_SNP_VM)
                 .context("Failed to create a virtual machine")?;
 
             let sev = retry(|| Firmware::open().context("Failed to open '/dev/sev'"))?;
