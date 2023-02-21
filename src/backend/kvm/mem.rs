@@ -3,17 +3,13 @@
 use std::os::fd::{AsFd, BorrowedFd, FromRawFd, OwnedFd};
 
 use iocuddle::{Group, Ioctl, Write, WriteRead};
-use kvm_bindings::kvm_userspace_memory_region;
 use kvm_ioctls::VmFd;
 use lset::Span;
 use mmarinus::{perms, Map};
 use x86_64::{PhysAddr, VirtAddr};
 
 const KVM: Group = Group::new(0xAE);
-const KVM_SET_USER_MEMORY_REGION: Ioctl<Write, &kvm_userspace_memory_region> =
-    unsafe { KVM.write(0x46) };
-const KVM_SET_USER_MEMORY_REGION_EXT: Ioctl<Write, &Slot> =
-    unsafe { KVM_SET_USER_MEMORY_REGION.lie() };
+const KVM_SET_USER_MEMORY_REGION2: Ioctl<Write, &Slot> = unsafe { KVM.write(0x49) };
 const KVM_CREATE_GUEST_MEMFD: Ioctl<WriteRead, &KvmCreateGuestMemfd> =
     unsafe { KVM.write_read(0xd4) };
 const KVM_MEM_PRIVATE: u32 = 0x04;
@@ -100,7 +96,7 @@ impl Slot {
         };
 
         // Assign it to the VM.
-        KVM_SET_USER_MEMORY_REGION_EXT.ioctl(vm_fd, &slot)?;
+        KVM_SET_USER_MEMORY_REGION2.ioctl(vm_fd, &slot)?;
 
         Ok(slot)
     }
