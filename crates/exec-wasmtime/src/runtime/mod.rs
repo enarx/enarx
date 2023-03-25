@@ -111,8 +111,8 @@ impl Runtime {
         if let Err(e) = trace_span!("execute default function")
             .in_scope(|| func.call(wstore, Default::default(), &mut values))
         {
-            match e.downcast_ref::<Trap>().map(Trap::i32_exit_status) {
-                Some(Some(0)) => {} // function exited with a code of 0, treat as success
+            match e.downcast_ref::<Trap>() {
+                None => {} // function exited with a code of 0, treat as success
                 _ => bail!(e.context("failed to execute default function")),
             }
         };
