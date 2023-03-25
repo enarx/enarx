@@ -7,6 +7,7 @@ use std::io;
 use std::io::{IoSlice, IoSliceMut, Read, Write};
 use std::sync::Arc;
 
+use anyhow::Context;
 use cap_std::net::{Shutdown, TcpListener as CapListener, TcpStream as CapStream};
 #[cfg(windows)]
 use io_extras::os::windows::AsRawHandleOrSocket;
@@ -15,20 +16,10 @@ use io_lifetimes::AsFd;
 
 use rustls::{ClientConfig, ClientConnection, Connection, ServerConfig, ServerConnection};
 use wasi_common::file::{FdFlags, FileType, RiFlags, RoFlags, SdFlags, SiFlags};
-use wasi_common::{Context, Error, ErrorExt, ErrorKind, WasiFile};
+use wasi_common::{Error, ErrorExt, WasiFile};
 #[cfg(unix)]
 use wasmtime_wasi::net::get_fd_flags;
 use wasmtime_wasi::net::is_read_write;
-
-fn errmap(error: io::Error) -> Error {
-    match error.kind() {
-        io::ErrorKind::WouldBlock => ErrorKind::WouldBlk.into(),
-        io::ErrorKind::InvalidInput => ErrorKind::Inval.into(),
-        io::ErrorKind::Unsupported => ErrorKind::Notsup.into(),
-        io::ErrorKind::InvalidData => ErrorKind::Inval.into(),
-        _ => Error::from(ErrorKind::Io).context(error),
-    }
-}
 
 trait IOAsync {
     fn complete_io_async<T>(&mut self, io: &mut T) -> io::Result<(usize, usize)>
@@ -120,11 +111,14 @@ impl Stream {
         let name = name
             .as_ref()
             .try_into()
-            .context("failed to construct server name")?;
+            .map_err(|_| Error::invalid_argument().context("failed to construct server name"))?;
 
         let tls = ClientConnection::new(cfg, name)
             .context("failed to create a new TLS client connection")
-            .map(Connection::Client)?;
+            .map(Connection::Client)
+            .map_err(|_| {
+                Error::invalid_argument().context("failed to create a new TLS client connection")
+            })?;
 
         let mut stream = Self {
             tcp,
@@ -133,15 +127,19 @@ impl Stream {
         };
         stream
             .complete_io()
-            .context("failed to complete connection I/O")?;
+            .map_err(|_| Error::invalid_argument().context("failed to complete connection I/O"))?;
         Ok(stream)
     }
 
     fn complete_io(&mut self) -> Result<(), Error> {
         if self.nonblocking {
-            self.tls.complete_io_async(&mut self.tcp).map_err(errmap)?;
+            self.tls
+                .complete_io_async(&mut self.tcp)
+                .map_err(<std::io::Error as Into<Error>>::into)?;
         } else {
-            self.tls.complete_io(&mut self.tcp).map_err(errmap)?;
+            self.tls
+                .complete_io(&mut self.tcp)
+                .map_err(<std::io::Error as Into<Error>>::into)?;
         }
         Ok(())
     }
@@ -177,13 +175,13 @@ impl WasiFile for Stream {
         if fdflags == FdFlags::NONBLOCK {
             self.tcp
                 .set_nonblocking(true)
-                .context("failed to enable NONBLOCK")?;
+                .map_err(|_| Error::invalid_argument().context("failed to enable NONBLOCK"))?;
             self.nonblocking = true;
             Ok(())
         } else if fdflags.is_empty() {
             self.tcp
                 .set_nonblocking(false)
-                .context("failed to disable NONBLOCK")?;
+                .map_err(|_| Error::invalid_argument().context("failed to disable NONBLOCK"))?;
             self.nonblocking = false;
             Ok(())
         } else {
@@ -195,9 +193,13 @@ impl WasiFile for Stream {
         loop {
             self.complete_io()?;
             match self.tls.reader().read_vectored(bufs) {
-                Ok(n) => return n.try_into().map_err(|e| Error::range().context(e)),
+                Ok(n) => {
+                    return n
+                        .try_into()
+                        .map_err(<std::num::TryFromIntError as Into<Error>>::into)
+                }
                 Err(e) if !self.nonblocking && e.kind() == io::ErrorKind::WouldBlock => {}
-                Err(e) => return Err(errmap(e)),
+                Err(e) => return Err(e.into()),
             }
         }
     }
@@ -206,9 +208,10 @@ impl WasiFile for Stream {
         match self.tls.writer().write_vectored(bufs) {
             Ok(n) => {
                 self.complete_io()?;
-                n.try_into().map_err(|e| Error::range().context(e))
+                n.try_into()
+                    .map_err(<std::num::TryFromIntError as Into<Error>>::into)
             }
-            Err(e) => Err(errmap(e)),
+            Err(e) => Err(e.into()),
         }
     }
 
@@ -320,26 +323,24 @@ impl WasiFile for Listener {
         let (tcp, ..) = self.listener.accept()?;
 
         let tls = ServerConnection::new(self.cfg.clone())
-            .map_err(|e| Error::io().context(e))
-            .context("could not create new TLS connection")
-            .map(Connection::Server)?;
+            .map_err(|e| Error::invalid_argument().context(e.to_string()))
+            .map(Connection::Server)
+            .map_err(|e| Error::invalid_argument().context(e.to_string()))?;
 
         let mut stream = Stream {
             tcp,
             tls,
             nonblocking: false,
         };
-        stream
-            .set_fdflags(FdFlags::empty())
-            .await
-            .context("failed to unset client stream FD flags")?;
+        stream.set_fdflags(FdFlags::empty()).await.map_err(|_| {
+            Error::invalid_argument().context("failed to unset client stream FD flags")
+        })?;
         stream
             .complete_io()
-            .context("failed to complete connection I/O")?;
-        stream
-            .set_fdflags(fdflags)
-            .await
-            .context("failed to set requested client stream FD flags")?;
+            .map_err(|_| Error::invalid_argument().context("failed to complete connection I/O"))?;
+        stream.set_fdflags(fdflags).await.map_err(|_| {
+            Error::invalid_argument().context("failed to set requested client stream FD flags")
+        })?;
         Ok(Box::new(stream))
     }
 

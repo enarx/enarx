@@ -230,10 +230,10 @@ zeroize = { version = "1.5.4", features = ["alloc"], default-features = false }
 
 # wasmtime and its pinned dependencies
 # these will need to be updated together
-wasmtime = { version = "2.0.0", features = ["cranelift", "pooling-allocator"], default-features = false }
-cap-std = { version = "0.26.0", default-features = false }
-io-lifetimes = { version = "0.7.3", default-features = false }
-rustix = { version = "0.35.11", features = ["std"], default-features = false }
-wasi-common = { version = "2.0.0", default-features = false }
-wasmtime-wasi = { version = "2.0.0", features = ["sync"], default-features = false }
-wiggle = { version = "2.0.0", default-features = false }
+wasmtime = { version = "5.0.1", features = ["cranelift", "pooling-allocator"], default-features = false }
+cap-std = { version = "1.0.0", default-features = false }
+io-lifetimes = { version = "1.0.0", default-features = false }
+rustix = { version = "0.36.0", features = ["std"], default-features = false }
+wasi-common = { version = "5.0.1", default-features = false }
+wasmtime-wasi = { version = "5.0.1", features = ["sync"], default-features = false }
+wiggle = { version = "5.0.1", default-features = false }
