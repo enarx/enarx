@@ -1,0 +1,9 @@
+// SAFETY: This function assumes that `self` is a valid non-null pointer to a `MyStruct` object and that `self` is not modified while the function is executing.
+//
+// Rationale: We assume `self` is valid because it is created by the caller and is guaranteed to be non-null.
+// We also assume `self` is not modified because this function only reads data from `self`.
+impl MyStruct {
+    fn get_data(&self) -> &Data {
+        // ...
+    }
+}
