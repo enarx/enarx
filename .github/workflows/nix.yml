@@ -52,6 +52,7 @@ jobs:
         extra_nix_config: |
           access-tokens = github.com=${{ github.token }}
     - uses: cachix/cachix-action@v12
+      continue-on-error: true
       with:
         name: enarx
         authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
@@ -66,6 +67,7 @@ jobs:
         extra_nix_config: |
           access-tokens = github.com=${{ github.token }}
     - uses: cachix/cachix-action@v12
+      continue-on-error: true
       with:
         name: enarx
         authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
