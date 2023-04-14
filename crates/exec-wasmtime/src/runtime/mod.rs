@@ -12,11 +12,11 @@ use self::net::{connect_file, listen_file};
 
 use super::{Package, Workload};
 
-use anyhow::{bail, Context};
+use anyhow::Context;
 use enarx_config::{Config, File};
 use wasi_common::file::FileCaps;
 use wasi_common::WasiFile;
-use wasmtime::{AsContextMut, Engine, Linker, Module, Store, Trap, Val};
+use wasmtime::{AsContextMut, Engine, Linker, Module, Store, Val};
 use wasmtime_wasi::stdio::{stderr, stdin, stdout};
 use wasmtime_wasi::{add_to_linker, WasiCtxBuilder};
 use wiggle::tracing::{instrument, trace_span};
@@ -109,14 +109,9 @@ impl Runtime {
             .context("failed to get default function")?;
 
         let mut values = vec![Val::null(); func.ty(&wstore).results().len()];
-        if let Err(e) = trace_span!("execute default function")
+        trace_span!("execute default function")
             .in_scope(|| func.call(wstore, Default::default(), &mut values))
-        {
-            match e.downcast_ref::<Trap>() {
-                None => {} // function exited with a code of 0, treat as success
-                _ => bail!(e.context("failed to execute default function")),
-            }
-        };
+            .context("failed to execute default function")?;
         Ok(values)
     }
 }
