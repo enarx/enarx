@@ -147,7 +147,7 @@ anyhow = { version = "1.0.66", default-features = false }
 array-const-fn-init = { version = "0.1.0", default-features = false }
 async-h1 = { version = "2.3.3", default-features = false }
 async-std = { version = "1.11.0", default-features = false, features = ["attributes"] }
-atty = { version = "0.2.0", default-features = false }
+atty = { version = "0.2.14", default-features = false }
 bitflags = { version = "1.2.0", default-features = false }
 camino = { version = "1.0.9", default-features = false }
 cfg-if = { version = "1.0.0", default-features = false }
@@ -175,7 +175,7 @@ iocuddle = { version = "0.1.1", default-features = false }
 keyring = { version = "1.1.2", default-features = false }
 kvm-bindings = { version = "0.6.0", default-features = false }
 kvm-ioctls = { version = "0.12.0", default-features = false }
-libc = { version = "0.2.137", default-features = false }
+libc = { version = "0.2.141", default-features = false }
 linked_list_allocator = { version = "0.10.1", default-features = false }
 lset = { version = "0.3.0", default-features = false }
 mmarinus = { version = "0.4.0", default-features = false }
@@ -210,9 +210,9 @@ serial_test = { version = "0.10.0", default-features = false }
 sgx = { version = "0.6.0", default-features = false }
 sha2 = { version = "0.10.2", default-features = false }
 shell-words = { version = "1.1.0", default-features = false }
-spin = { version = "0.9.4", default-features = false, features = ["lock_api", "spin_mutex", "rwlock", "lazy"] }
+spin = { version = "0.9.8", default-features = false, features = ["lock_api", "spin_mutex", "rwlock", "lazy"] }
 static_assertions = { version = "1.1.0", default-features = false }
-tempfile = { version = "3.3.0", default-features = false }
+tempfile = { version = "3.5.0", default-features = false }
 testaso = { version = "0.1.0", default-features = false }
 toml = { version = "0.5.9", default-features = false }
 tracing = { version = "0.1.36", features = ["attributes"], default-features = false }
