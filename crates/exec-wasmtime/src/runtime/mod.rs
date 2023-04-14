@@ -48,7 +48,8 @@ impl Runtime {
         .map(rustls::Certificate)
         .collect::<Vec<_>>();
 
-        let config = wasmtime::Config::new();
+        let mut config = wasmtime::Config::new();
+        config.memory_init_cow(false);
         let engine = trace_span!("initialize Wasmtime engine")
             .in_scope(|| Engine::new(&config))
             .context("failed to create execution engine")?;
