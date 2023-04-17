@@ -6,7 +6,7 @@ use crate::Result;
 
 use core::alloc::Layout;
 use core::marker::PhantomData;
-use core::mem::{align_of, size_of};
+use core::mem::{align_of, size_of, size_of_val};
 use core::ptr::NonNull;
 
 pub(crate) mod phase {
@@ -255,10 +255,10 @@ impl<'a> Alloc<'a, phase::Commit> {
                 block.as_ptr(),
                 unsafe { ptr.cast::<u8>().as_ptr().sub(offset) } as _
             );
-            debug_assert!(block.len() * size_of::<usize>() >= offset);
+            debug_assert!(size_of_val(block) >= offset);
 
             if block.as_ptr() != unsafe { ptr.cast::<u8>().as_ptr().sub(offset) } as _
-                || block.len() * size_of::<usize>() < offset
+                || size_of_val(block) < offset
             {
                 Err(EFAULT)
             } else {

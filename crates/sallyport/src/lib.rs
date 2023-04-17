@@ -5,7 +5,6 @@
 // TODO: Enable https://github.com/enarx/sallyport/issues/32
 //#![deny(missing_docs)]
 #![feature(c_size_t)]
-#![feature(nonnull_slice_from_raw_parts)]
 #![feature(slice_ptr_get)]
 #![feature(slice_ptr_len)]
 
