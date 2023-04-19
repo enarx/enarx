@@ -74,15 +74,15 @@
         "rust-overlay": "rust-overlay"
       },
       "locked": {
-        "lastModified": 1681723512,
-        "narHash": "sha256-DYJB5Cl7x8/crkKaUeVjOaIt3AccQSBUB8qAIA99UoA=",
-        "owner": "haraldh",
+        "lastModified": 1681790279,
+        "narHash": "sha256-+b28aKs5B9lL9KTfAVjXIHoVUnSWL+G4m/JZs5SBMo0=",
+        "owner": "enarx",
         "repo": "nixify",
-        "rev": "1d878de09b4b1c7a68e825d5419ca43b1123528a",
+        "rev": "a0ea1201f6a53f718e8319f6ffc4544345ddbc24",
         "type": "github"
       },
       "original": {
-        "owner": "haraldh",
+        "owner": "enarx",
         "repo": "nixify",
         "type": "github"
       }
