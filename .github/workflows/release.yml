@@ -47,10 +47,11 @@ jobs:
     runs-on: ${{ matrix.platform.host }}
     steps:
     - uses: actions/checkout@v3
-    - uses: cachix/install-nix-action@v20
+    - uses: DeterminateSystems/nix-installer-action@v4
       with:
-        extra_nix_config: |
-          access-tokens = github.com=${{ github.token }}
+        extra-conf: |
+          accept-flake-config = true
+    - uses: DeterminateSystems/magic-nix-cache-action@v2
     - uses: cachix/cachix-action@v12
       continue-on-error: true
       with:
