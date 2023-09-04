@@ -56,6 +56,15 @@ $ sudo bash -c "cat > /etc/udev/rules.d/50-sev.rules" <<EOF
 KERNEL=="sev", MODE="0666"
 EOF
 ```
+
+- Give yourself access to `/dev/kvm`
+
+```sh:snp;
+$ sudo adduser $(whoami) kvm
+```
+
+And login again.
+
 - Increase the memlock limit for SEV keeps (need to pin a large number of pages)
 
 ```sh:snp;
