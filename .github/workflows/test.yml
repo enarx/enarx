@@ -120,3 +120,19 @@ jobs:
           - name: debug
           - name: release
             flag: --release
+
+  audit:
+    name: enarx `cargo audit`
+    runs-on: ubuntu-20.04
+    steps:
+      - uses: actions/checkout@v3
+      - uses: DeterminateSystems/nix-installer-action@v4
+        with:
+          extra-conf: |
+            accept-flake-config = true
+      - uses: cachix/cachix-action@v12
+        continue-on-error: true
+        with:
+          name: enarx
+          authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
+      - run: nix build -L .#checks.x86_64-linux.audit

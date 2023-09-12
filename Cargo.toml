@@ -222,7 +222,7 @@ ureq = { version = "2.4.0", default-features = false }
 url = { version = "2.2.2", default-features = false }
 vdso = { version = "0.2.2", default-features = false }
 wat = { version = "1.0.0", default-features = false }
-webpki-roots = { version = "0.22.2", default-features = false }
+webpki-roots = { version = "0.25.2", default-features = false }
 x509-cert = { version = "0.1.0", features = ["std"], default-features = false }
 x86_64 = { version = "0.14.9", default-features = false }
 xsave = { version = "2.0.2", default-features = false }

@@ -1,7 +1,7 @@
 {
   description = "Tools for deploying WebAssembly into Enarx Keeps.";
 
-  inputs.nixify.url = github:enarx/nixify;
+  inputs.nixify.url = github:rvolosatovs/nixify/v0.1.0;
 
   outputs = {nixify, ...}: let
   in
@@ -9,7 +9,7 @@
       rust.mkFlake {
         src = ./.;
 
-        ignorePaths = [
+        excludePaths = [
           "/.codecov.yml"
           "/.github"
           "/.gitignore"
@@ -37,15 +37,17 @@
         clippy.allTargets = true;
         clippy.deny = ["warnings"];
 
-        targets.x86_64-unknown-none = false;
+        targets.armv7-unknown-linux-musleabihf = false;
+        targets.wasm32-wasi = false;
+        targets.x86_64-pc-windows-gnu = false;
 
         buildOverrides = {
           pkgs,
-          buildInputs ? [],
+          pkgsCross ? pkgs,
           ...
-        } @ args:
-          with pkgs.lib;
-          with (args.pkgsCross or pkgs); {
+        }: {buildInputs ? [], ...}:
+          with pkgsCross;
+          with pkgs.lib; {
             buildInputs =
               buildInputs
               ++ optional stdenv.targetPlatform.isDarwin darwin.apple_sdk.frameworks.Security;
@@ -62,7 +64,7 @@
                 [
                   pkgs.openssl
                 ]
-                ++ optional pkgs.stdenv.isDarwin pkgs.darwin.apple_sdk.frameworks.Security;
+                ++ optional pkgs.stdenv.buildPlatform.isDarwin pkgs.darwin.apple_sdk.frameworks.Security;
             }
             devShells;
       };
