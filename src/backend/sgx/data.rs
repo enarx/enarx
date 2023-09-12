@@ -4,7 +4,6 @@ use crate::backend::probe::x86_64::{CpuId, Vendor};
 use crate::backend::sgx::{sgx_cache_dir, TcbPackage, AESM_SOCKET, FMSPC_PATH, TCB_PATH};
 use crate::backend::Datum;
 use crate::caching::CrlList;
-
 use sgx::parameters::{Features, MiscSelect, Xfrm};
 
 use std::arch::x86_64::__cpuid_count;
@@ -40,95 +39,103 @@ fn humanize(mut size: f64) -> (f64, &'static str) {
     (size, suffix)
 }
 
-pub const CPUIDS: &[CpuId] = &[
-    CpuId {
-        name: "CPU",
-        leaf: 0x80000000,
-        subl: 0x00000000,
-        func: |res| CpuId::cpu_identifier(res, Some(Vendor::Intel)),
-        vend: None,
-    },
-    CpuId {
-        name: " SGX Support",
+pub const CPUIDS: &[CpuId] = &[CpuId {
+    name: "CPU",
+    leaf: 0x80000000,
+    subl: 0x00000000,
+    func: |res| CpuId::cpu_identifier(res, Some(Vendor::Intel)),
+    vend: None,
+    data: &[CpuId {
+        name: "SGX Support",
         leaf: 0x00000007,
         subl: 0x00000000,
         func: |res| (res.ebx & (1 << 2) != 0, None),
         vend: Some(Vendor::Intel),
-    },
-    CpuId {
-        name: "  Version 1",
-        leaf: 0x00000012,
-        subl: 0x00000000,
-        func: |res| (res.eax & (1 << 0) != 0, None),
-        vend: Some(Vendor::Intel),
-    },
-    CpuId {
-        name: "  Version 2",
-        leaf: 0x00000012,
-        subl: 0x00000000,
-        func: |res| (res.eax & (1 << 1) != 0, None),
-        vend: Some(Vendor::Intel),
-    },
-    CpuId {
-        name: "  FLC Support",
-        leaf: 0x00000007,
-        subl: 0x00000000,
-        func: |res| (res.ecx & (1 << 30) != 0, None),
-        vend: Some(Vendor::Intel),
-    },
-    CpuId {
-        name: "  Max Size (32-bit)",
-        leaf: 0x00000012,
-        subl: 0x00000000,
-        func: |res| {
-            let bits = res.edx as u8;
-            let (n, s) = humanize((1u64 << bits) as f64);
-            (true, Some(format!("{n:.0} {s}")))
-        },
-        vend: Some(Vendor::Intel),
-    },
-    CpuId {
-        name: "  Max Size (64-bit)",
-        leaf: 0x00000012,
-        subl: 0x00000000,
-        func: |res| {
-            let bits = res.edx >> 8 & 0xff;
-            let (n, s) = humanize((1u64 << bits) as f64);
-            (true, Some(format!("{n:.0} {s}")))
-        },
-        vend: Some(Vendor::Intel),
-    },
-    CpuId {
-        name: "  MiscSelect",
-        leaf: 0x00000012,
-        subl: 0x00000000,
-        func: |res| match MiscSelect::from_bits(res.ebx) {
-            Some(ms) => (true, Some(format!("{ms:?}"))),
-            None => (false, None),
-        },
-        vend: Some(Vendor::Intel),
-    },
-    CpuId {
-        name: "  Features",
-        leaf: 0x00000012,
-        subl: 0x00000001,
-        func: |res| match Features::from_bits((res.ebx as u64) << 32 | res.eax as u64) {
-            Some(features) => (true, Some(format!("{features:?}"))),
-            None => (false, None),
-        },
-        vend: Some(Vendor::Intel),
-    },
-    CpuId {
-        name: "  Xfrm",
-        leaf: 0x00000012,
-        subl: 0x00000001,
-        func: |res| match Xfrm::from_bits((res.edx as u64) << 32 | res.ecx as u64) {
-            Some(flags) => (true, Some(format!("{flags:?}"))),
-            None => (false, None),
-        },
-        vend: Some(Vendor::Intel),
-    },
-];
+        data: &[
+            CpuId {
+                name: "Version 1",
+                leaf: 0x00000012,
+                subl: 0x00000000,
+                func: |res| (res.eax & (1 << 0) != 0, None),
+                vend: Some(Vendor::Intel),
+                data: &[],
+            },
+            CpuId {
+                name: "Version 2",
+                leaf: 0x00000012,
+                subl: 0x00000000,
+                func: |res| (res.eax & (1 << 1) != 0, None),
+                vend: Some(Vendor::Intel),
+                data: &[],
+            },
+            CpuId {
+                name: "FLC Support",
+                leaf: 0x00000007,
+                subl: 0x00000000,
+                func: |res| (res.ecx & (1 << 30) != 0, None),
+                vend: Some(Vendor::Intel),
+                data: &[],
+            },
+            CpuId {
+                name: "Max Size (32-bit)",
+                leaf: 0x00000012,
+                subl: 0x00000000,
+                func: |res| {
+                    let bits = res.edx as u8;
+                    let (n, s) = humanize((1u64 << bits) as f64);
+                    (true, Some(format!("{n:.0} {s}")))
+                },
+                vend: Some(Vendor::Intel),
+                data: &[],
+            },
+            CpuId {
+                name: "Max Size (64-bit)",
+                leaf: 0x00000012,
+                subl: 0x00000000,
+                func: |res| {
+                    let bits = res.edx >> 8 & 0xff;
+                    let (n, s) = humanize((1u64 << bits) as f64);
+                    (true, Some(format!("{n:.0} {s}")))
+                },
+                vend: Some(Vendor::Intel),
+                data: &[],
+            },
+            CpuId {
+                name: "MiscSelect",
+                leaf: 0x00000012,
+                subl: 0x00000000,
+                func: |res| match MiscSelect::from_bits(res.ebx) {
+                    Some(ms) => (true, Some(format!("{ms:?}"))),
+                    None => (false, None),
+                },
+                vend: Some(Vendor::Intel),
+                data: &[],
+            },
+            CpuId {
+                name: "Features",
+                leaf: 0x00000012,
+                subl: 0x00000001,
+                func: |res| match Features::from_bits((res.ebx as u64) << 32 | res.eax as u64) {
+                    Some(features) => (true, Some(format!("{features:?}"))),
+                    None => (false, None),
+                },
+                vend: Some(Vendor::Intel),
+                data: &[],
+            },
+            CpuId {
+                name: "Xfrm",
+                leaf: 0x00000012,
+                subl: 0x00000001,
+                func: |res| match Xfrm::from_bits((res.edx as u64) << 32 | res.ecx as u64) {
+                    Some(flags) => (true, Some(format!("{flags:?}"))),
+                    None => (false, None),
+                },
+                vend: Some(Vendor::Intel),
+                data: &[],
+            },
+        ],
+    }],
+}];
 
 pub fn epc_size(max: u32) -> Datum {
     let mut pass = false;
@@ -154,10 +161,11 @@ pub fn epc_size(max: u32) -> Datum {
     }
 
     Datum {
-        name: "  EPC Size".into(),
+        name: "EPC Size".into(),
         mesg: None,
         pass,
         info,
+        data: vec![],
     }
 }
 
@@ -167,6 +175,7 @@ pub fn dev_sgx_enclave() -> Datum {
         pass: File::open("/dev/sgx_enclave").is_ok(),
         info: Some("/dev/sgx_enclave".into()),
         mesg: None,
+        data: vec![],
     }
 }
 
@@ -176,6 +185,7 @@ pub fn aesm_socket() -> Datum {
         pass: cfg!(feature = "disable-sgx-attestation") || Path::new(AESM_SOCKET).exists(),
         info: Some(AESM_SOCKET.into()),
         mesg: None,
+        data: vec![],
     }
 }
 
@@ -195,6 +205,7 @@ pub fn intel_crl() -> Datum {
                     "enarx expects the directory `/var/cache/intel-sgx` to exist and be readable"
                         .into(),
                 ),
+                data: vec![],
             },
         };
 
@@ -203,7 +214,10 @@ pub fn intel_crl() -> Datum {
             name: NAME.to_string(),
             pass: false,
             info: None,
-            mesg: Some(UPDATE_MSG.to_string()),
+            mesg: Some(
+                "Run `enarx platform sgx cache-crl` to generate the Intel CRL cache file".into(),
+            ),
+            data: vec![],
         };
     }
 
@@ -215,6 +229,7 @@ pub fn intel_crl() -> Datum {
                 pass: false,
                 info: Some(e.to_string()),
                 mesg: Some(UPDATE_MSG.to_string()),
+                data: vec![],
             }
         }
     };
@@ -227,6 +242,7 @@ pub fn intel_crl() -> Datum {
                 pass: false,
                 info: Some(e.to_string()),
                 mesg: Some(UPDATE_MSG.to_string()),
+                data: vec![],
             }
         }
     };
@@ -239,6 +255,7 @@ pub fn intel_crl() -> Datum {
                     pass: false,
                     info: None,
                     mesg: Some(UPDATE_MSG.to_string()),
+                    data: vec![],
                 };
             }
         }
@@ -254,6 +271,7 @@ pub fn intel_crl() -> Datum {
                 next_update
             )),
             mesg: None,
+            data: vec![],
         }
     } else {
         Datum {
@@ -261,6 +279,7 @@ pub fn intel_crl() -> Datum {
             pass: true,
             info: crl_file.to_string_lossy().into_owned().into(),
             mesg: None,
+            data: vec![],
         }
     }
 }
@@ -275,6 +294,7 @@ pub fn tcb_fmspc_cached() -> Datum {
             pass: false,
             info: Some("Missing FMSPC".into()),
             mesg: Some("Run `enarx platform sgx cache-pck`".into()),
+            data: vec![],
         };
     }
 
@@ -284,6 +304,7 @@ pub fn tcb_fmspc_cached() -> Datum {
             pass: false,
             info: Some("Missing TCB report".into()),
             mesg: Some(TCB_INSTRUCTION.into()),
+            data: vec![],
         };
     }
 
@@ -295,6 +316,7 @@ pub fn tcb_fmspc_cached() -> Datum {
                 pass: false,
                 info: Some(format!("Unable to read TCB report: {e}")),
                 mesg: Some(TCB_INSTRUCTION.into()),
+                data: vec![],
             };
         }
     };
@@ -307,6 +329,7 @@ pub fn tcb_fmspc_cached() -> Datum {
                 pass: false,
                 info: Some(format!("Unable to decode TCB report: {e}")),
                 mesg: Some(TCB_INSTRUCTION.into()),
+                data: vec![],
             };
         }
     };
@@ -319,6 +342,7 @@ pub fn tcb_fmspc_cached() -> Datum {
                 pass: false,
                 info: Some(format!("Unable to decode JSON TCB report: {e}")),
                 mesg: Some(TCB_INSTRUCTION.into()),
+                data: vec![],
             };
         }
     };
@@ -331,6 +355,7 @@ pub fn tcb_fmspc_cached() -> Datum {
                 pass: false,
                 info: Some(format!("Unable to decode JSON TCB report: {e}")),
                 mesg: Some(TCB_INSTRUCTION.into()),
+                data: vec![],
             };
         }
     };
@@ -343,6 +368,7 @@ pub fn tcb_fmspc_cached() -> Datum {
                 pass: false,
                 info: Some("Unable to decode JSON TCB report, missing `tcbInfo` field".into()),
                 mesg: Some(TCB_INSTRUCTION.into()),
+                data: vec![],
             };
         }
     };
@@ -357,6 +383,7 @@ pub fn tcb_fmspc_cached() -> Datum {
                     "Unable to decode JSON TCB report, missing `tcbInfo.nextUpdate` field".into(),
                 ),
                 mesg: Some(TCB_INSTRUCTION.into()),
+                data: vec![],
             };
         }
     };
@@ -372,6 +399,7 @@ pub fn tcb_fmspc_cached() -> Datum {
                         .into(),
                 ),
                 mesg: Some(TCB_INSTRUCTION.into()),
+                data: vec![],
             };
         }
     };
@@ -386,6 +414,7 @@ pub fn tcb_fmspc_cached() -> Datum {
                     "Unable to decode timestamp in JSON TCB report: {e}"
                 )),
                 mesg: Some(TCB_INSTRUCTION.into()),
+                data: vec![],
             };
         }
     };
@@ -410,6 +439,7 @@ pub fn tcb_fmspc_cached() -> Datum {
             pass: false,
             info: Some(format!("Intel TCB expired on {next_update}, {elapsed} ago")),
             mesg: Some(TCB_INSTRUCTION.into()),
+            data: vec![],
         };
     }
 
@@ -418,5 +448,6 @@ pub fn tcb_fmspc_cached() -> Datum {
         pass: true,
         info: Some(format!("Next update: {next_update}")),
         mesg: None,
+        data: vec![],
     }
 }

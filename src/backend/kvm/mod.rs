@@ -3,7 +3,7 @@
 pub use kvm_bindings::kvm_userspace_memory_region as KvmUserspaceMemoryRegion;
 
 use super::Loader;
-use data::{dev_kvm, kvm_version, CPUIDS};
+use data::{dev_kvm, CPUIDS};
 use mem::Region;
 
 use std::sync::Arc;
@@ -103,7 +103,7 @@ impl crate::backend::Backend for Backend {
     }
 
     fn data(&self) -> Vec<super::Datum> {
-        let mut data = vec![dev_kvm(), kvm_version()];
+        let mut data = vec![dev_kvm()];
         data.extend(CPUIDS.iter().map(|c| c.into()));
         data
     }

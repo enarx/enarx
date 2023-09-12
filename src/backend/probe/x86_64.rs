@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::backend::Datum;
-
 use static_assertions::const_assert_eq;
 
 use std::arch::x86_64::{CpuidResult, __cpuid, __cpuid_count};
@@ -54,15 +53,17 @@ impl Vendor {
     }
 }
 
-pub struct CpuId {
+#[derive(Clone)]
+pub struct CpuId<'a> {
     pub name: &'static str,
     pub leaf: u32,
     pub subl: u32,
     pub func: fn(CpuidResult) -> (bool, Option<String>),
     pub vend: Option<Vendor>,
+    pub data: &'a [CpuId<'a>],
 }
 
-impl CpuId {
+impl<'a> CpuId<'a> {
     /// Get the Processor Brand String or the CPU manufacturer if unavailable.
     pub fn cpu_identifier(
         res: CpuidResult,
@@ -118,13 +119,17 @@ impl CpuId {
     }
 }
 
-impl From<&CpuId> for Datum {
+impl<'a> From<&CpuId<'a>> for Datum {
     fn from(cpuid: &CpuId) -> Datum {
+        let mut data = Vec::<Datum>::new();
+        data.extend(cpuid.data.iter().cloned().map(|x| (&x).into()));
+
         let datum = Datum {
             name: cpuid.name.into(),
             pass: false,
             info: None,
             mesg: None,
+            data,
         };
 
         let this_vendor = match Vendor::get() {
@@ -149,6 +154,7 @@ impl From<&CpuId> for Datum {
             pass,
             info,
             mesg: datum.mesg,
+            data: datum.data,
         }
     }
 }
