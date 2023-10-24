@@ -280,7 +280,7 @@ jobs:
     - run: podman manifest inspect enarx:manifest
     - name: metadata
       id: metadata
-      uses: docker/metadata-action@v4
+      uses: docker/metadata-action@v5
       with:
         images: ghcr.io/enarx/enarx
         tags: |
