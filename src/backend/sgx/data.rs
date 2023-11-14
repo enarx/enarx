@@ -143,9 +143,9 @@ pub fn epc_size(max: u32) -> Datum {
                 break;
             }
 
-            let low = result.ecx as u64 & 0xfffff000;
-            let high = result.edx as u64 & 0x000fffff;
-            size += high << 12 | low;
+            let low = result.ecx as u64 & 0xffff_f000;
+            let high = result.edx as u64 & 0x000f_ffff;
+            size += high << 32 | low;
         }
 
         let (n, s) = humanize(size as f64);
