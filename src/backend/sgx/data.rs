@@ -102,9 +102,9 @@ pub const CPUIDS: &[CpuId] = &[
         name: "  MiscSelect",
         leaf: 0x00000012,
         subl: 0x00000000,
-        func: |res| match MiscSelect::from_bits(res.ebx) {
-            Some(ms) => (true, Some(format!("{ms:?}"))),
-            None => (false, None),
+        func: |res| {
+            let ms = MiscSelect::from_bits_truncate(res.ebx);
+            (true, Some(format!("{ms:?}")))
         },
         vend: Some(Vendor::Intel),
     },
@@ -112,9 +112,9 @@ pub const CPUIDS: &[CpuId] = &[
         name: "  Features",
         leaf: 0x00000012,
         subl: 0x00000001,
-        func: |res| match Features::from_bits((res.ebx as u64) << 32 | res.eax as u64) {
-            Some(features) => (true, Some(format!("{features:?}"))),
-            None => (false, None),
+        func: |res| {
+            let features = Features::from_bits_truncate((res.ebx as u64) << 32 | res.eax as u64);
+            (true, Some(format!("{features:?}")))
         },
         vend: Some(Vendor::Intel),
     },
@@ -122,9 +122,9 @@ pub const CPUIDS: &[CpuId] = &[
         name: "  Xfrm",
         leaf: 0x00000012,
         subl: 0x00000001,
-        func: |res| match Xfrm::from_bits((res.edx as u64) << 32 | res.ecx as u64) {
-            Some(flags) => (true, Some(format!("{flags:?}"))),
-            None => (false, None),
+        func: |res| {
+            let flags = Xfrm::from_bits_truncate((res.edx as u64) << 32 | res.ecx as u64);
+            (true, Some(format!("{flags:?}")))
         },
         vend: Some(Vendor::Intel),
     },
