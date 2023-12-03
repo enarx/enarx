@@ -11,7 +11,7 @@ jobs:
     name: cargo fmt
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Setup Rust toolchain
         run: rustup show
       - run: cargo fmt --all -- --check
@@ -22,7 +22,7 @@ jobs:
     steps:
       - run: sudo apt -o Acquire::Retries=3 update
       - run: sudo apt -o Acquire::Retries=3 install -y musl-tools
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Setup Rust toolchain
         run: rustup show
       - run: cargo clippy ${{ matrix.args }} -- -D warnings
@@ -40,7 +40,7 @@ jobs:
     name: cargo deny
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: EmbarkStudios/cargo-deny-action@v1
         with:
           arguments: --workspace
@@ -49,7 +49,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - uses: enarx/spdx@master
         with:
           licenses: Apache-2.0 BSD-3-Clause MIT
