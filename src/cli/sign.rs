@@ -19,12 +19,12 @@ use anyhow::{anyhow, bail, Context, Result};
 use camino::Utf8PathBuf;
 use clap::Args;
 use p384::ecdsa::signature::Signer as _;
-use p384::ecdsa::SigningKey;
+use p384::ecdsa::{Signature, SigningKey};
 use p384::elliptic_curve::sec1::Coordinates;
 use p384::pkcs8::DecodePrivateKey;
 use p384::EncodedPoint;
 use sgx::crypto::{rcrypto::*, *};
-use sgx::signature::{Author, Body, Signature};
+use sgx::signature::{Author, Body};
 
 // SAFETY: Signature is a C struct with no UD states and pointers.
 unsafe impl ByteSized for Signature {}
@@ -60,7 +60,8 @@ fn sign_sgx(body_bytes: &[u8], sgx_key: &RS256PrivateKey) -> Result<Vec<u8>> {
 
     // FIXME: do we need the date and sw defined value?
     let author = Author::new(0, 0);
-    let sig = Signature::new(sgx_key, author, body).context("Failed to create RSA signature")?;
+    let sig = sgx::signature::Signature::new(sgx_key, author, body)
+        .context("Failed to create RSA signature")?;
 
     Ok(sig.as_bytes().to_vec())
 }
@@ -77,7 +78,7 @@ fn sign_sev(id_block_bytes: &[u8], sev_key: &SigningKey, signature: &[u8]) -> Re
     };
 
     // Sign the ID block with the SEV signing key.
-    let sig = sev_key.sign(id_block_bytes);
+    let sig: Signature = sev_key.sign(id_block_bytes);
     // The r and s values have to be in little-endian order.
     let r = sig.r().as_ref().to_le_bytes();
     let s = sig.s().as_ref().to_le_bytes();

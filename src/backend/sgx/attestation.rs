@@ -466,7 +466,7 @@ pub fn get_quote_size_with_collateral(akid: Vec<u8>) -> Result<usize, Error> {
     };
 
     let evidence_vec = evidence
-        .to_vec()
+        .to_der()
         .map_err(|e| Error::new(ErrorKind::Other, format!("SGX evidence to DER error: {e}")))?;
 
     Ok(evidence_vec.len())
@@ -500,7 +500,7 @@ pub fn get_quote_and_collateral(
         tcb,
     };
 
-    let evidence = evidence.to_vec().map_err(|e| {
+    let evidence = evidence.to_der().map_err(|e| {
         Error::new(
             ErrorKind::InvalidData,
             format!("SGX CRL & report error {e}"),

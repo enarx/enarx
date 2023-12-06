@@ -177,7 +177,7 @@ pub fn run_package(
     );
 
     let package = package()?;
-    let args = toml::to_vec(&ExecArgs {
+    let args = toml::ser::to_string(&ExecArgs {
         package,
         log_level,
         #[cfg(feature = "bench")]
@@ -194,7 +194,7 @@ pub fn run_package(
 
     let exec_io = thread::spawn(move || {
         host_sock
-            .write_all(&args)
+            .write_all(args.as_bytes())
             .context("failed to write arguments to `wasmtime-exec`")?;
         host_sock
             .shutdown(Shutdown::Write)

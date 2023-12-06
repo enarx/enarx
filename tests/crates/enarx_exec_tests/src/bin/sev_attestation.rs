@@ -126,9 +126,9 @@ impl TryFrom<u64> for TeeTech {
 }
 
 #[derive(Sequence)]
-struct SnpEvidence<'a> {
+struct SnpEvidence {
     vcek: Document,
-    crl: CrlList<'a>,
+    crl: CrlList,
 }
 
 #[cfg(target_os = "linux")]

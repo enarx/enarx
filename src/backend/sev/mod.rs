@@ -73,7 +73,7 @@ impl KeepPersonality for SnpKeepPersonality {
 
                 let evidence = SnpEvidence::read()
                     .context(UPDATE_ERROR)?
-                    .to_vec()
+                    .to_der()
                     .context("SnpEvidence.to_vec()")?;
                 if *ret == 0 {
                     bail!(UPDATE_ERROR)

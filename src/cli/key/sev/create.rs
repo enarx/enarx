@@ -22,8 +22,8 @@ pub struct Options {
 
 impl Options {
     pub fn execute(self) -> anyhow::Result<ExitCode> {
-        let rng = rand::thread_rng();
-        let signing_key = SigningKey::random(rng);
+        let mut rng = rand::thread_rng();
+        let signing_key = SigningKey::random(&mut rng);
 
         let res_key = signing_key.to_pkcs8_pem(LineEnding::default())?;
 

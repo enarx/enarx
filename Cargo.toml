@@ -47,7 +47,7 @@ rustls-pemfile = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 sha2 = { workspace = true }
-toml = { workspace = true }
+toml = { workspace = true, features = ["display"] }
 url = { workspace = true }
 x509-cert = { workspace = true }
 
@@ -157,7 +157,7 @@ colorful = { version = "0.2.0", default-features = false }
 const-default = { version = "1.0.0", default-features = false }
 const-oid = { version = "0.9.0", default-features = false }
 crt0stack = { version = "0.1.0", default-features = false }
-der = { version = "0.6.1", features = ["std"], default-features = false }
+der = { version = "0.7.8", features = ["std"], default-features = false }
 dirs = { version = "4.0.0", default-features = false }
 drawbridge-client = { version = "0.2.2", default-features = false }
 drawbridge-server = { version = "0.2.2", default-features = false }
@@ -186,35 +186,35 @@ numtoa = { version = "0.2.4", default-features = false }
 oauth2 = { version = "4.2.2", default-features = false, features = ["ureq"] }
 once_cell = { version = "1.13.0", default-features = false }
 openidconnect = { version = "2.3.1", default-features = false }
-p384 = { version = "0.11.1", features = ["std", "pem", "ecdsa"], default-features = false }
-paste = { version = "1.0.0", default-features = false }
-percent-encoding = { version = "2.2.0", default-features = false }
-pkcs8 = { version = "0.9.0" }
+p384 = { version = "0.13.0", features = ["std", "pem", "ecdsa"], default-features = false }
+paste = { version = "1.0.14", default-features = false }
+percent-encoding = { version = "2.3.1", default-features = false }
+pkcs8 = { version = "0.10.2" }
 primordial = { version = "0.5.0", default-features = false }
 process_control = { version = "4.0.1", default-features = false }
 protobuf = { version = "2.22.0", default-features = false }
 protobuf-codegen-pure = { version = "2.27.0", default-features = false }
-rand = { version = "0.8.0", features = ["std", "std_rng"], default-features = false }
+rand = { version = "0.8.5", features = ["std", "std_rng"], default-features = false }
 rcrt1 = { version = "2.5.0", default-features = false }
 ring = { version = "0.16.20", features = ["std"], default-features = false }
-rsa = { version = "0.7.2", default-features = false }
+rsa = { version = "0.9.6", default-features = false }
 rustls = { version = "0.20.6", default-features = false }
 rustls-pemfile = { version = "1.0.0", default-features = false }
 sallyport = { version = "0.7.1", path = "crates/sallyport", default-features = false }
 shared = { version = "0.7.1", path = "crates/shared", default-features = false }
-sec1 = { version = "0.3.0-pre.1", features = ["der"], default-features = false }
+sec1 = { version = "0.7.3", features = ["der"], default-features = false }
 semver = { version = "1.0.0", default-features = false }
 serde = { version = "1.0.136", features = ["derive"], default-features = false }
 serde_json = { version = "1.0.79", features = ["std"], default-features = false }
 serial_test = { version = "0.10.0", default-features = false }
-sgx = { version = "0.6.0", default-features = false }
-sha2 = { version = "0.10.2", default-features = false }
+sgx = { version = "0.6.1", default-features = false }
+sha2 = { version = "0.10.8", default-features = false }
 shell-words = { version = "1.1.0", default-features = false }
 spin = { version = "0.9.8", default-features = false, features = ["lock_api", "spin_mutex", "rwlock", "lazy"] }
 static_assertions = { version = "1.1.0", default-features = false }
 tempfile = { version = "3.5.0", default-features = false }
 testaso = { version = "0.1.0", default-features = false }
-toml = { version = "0.5.9", default-features = false }
+toml = { version = "0.8.8", default-features = false }
 tracing = { version = "0.1.36", features = ["attributes"], default-features = false }
 tracing-flame = { version = "0.2.0", default-features = false }
 tracing-subscriber = { version = "0.3.15", features = ["env-filter", "fmt"], default-features = false }
@@ -222,11 +222,11 @@ ureq = { version = "2.4.0", default-features = false }
 url = { version = "2.2.2", default-features = false }
 vdso = { version = "0.2.2", default-features = false }
 wat = { version = "1.0.0", default-features = false }
-webpki-roots = { version = "0.22.2", default-features = false }
-x509-cert = { version = "0.1.0", features = ["std"], default-features = false }
+webpki-roots = { version = "0.25.3", default-features = false }
+x509-cert = { version = "0.2.4", features = ["std"], default-features = false }
 x86_64 = { version = "0.14.9", default-features = false }
 xsave = { version = "2.0.2", default-features = false }
-zeroize = { version = "1.5.4", features = ["alloc"], default-features = false }
+zeroize = { version = "1.7.0", features = ["alloc"], default-features = false }
 
 # wasmtime and its pinned dependencies
 # these will need to be updated together

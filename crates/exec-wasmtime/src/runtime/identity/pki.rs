@@ -3,23 +3,25 @@
 //! Some cryptographic utilities
 
 use anyhow::{anyhow, Result};
-use pkcs8::{AlgorithmIdentifier, ObjectIdentifier, PrivateKeyInfo, SubjectPublicKeyInfo};
+use pkcs8::{ObjectIdentifier, PrivateKeyInfo};
 use zeroize::Zeroizing;
 
 use sec1::EcPrivateKey;
-use x509_cert::der::{Decode, Encode};
+use x509_cert::der::asn1::BitString;
+use x509_cert::der::{Any, Decode, Encode, Tagged};
 
 use const_oid::db::rfc5912::{
     ECDSA_WITH_SHA_256, ECDSA_WITH_SHA_384, ID_EC_PUBLIC_KEY as ECPK, SECP_256_R_1 as P256,
     SECP_384_R_1 as P384,
 };
+use x509_cert::spki::{AlgorithmIdentifier, AlgorithmIdentifierOwned, SubjectPublicKeyInfoOwned};
 
-const ES256: AlgorithmIdentifier<'static> = AlgorithmIdentifier {
+const ES256: AlgorithmIdentifierOwned = AlgorithmIdentifierOwned {
     oid: ECDSA_WITH_SHA_256,
     parameters: None,
 };
 
-const ES384: AlgorithmIdentifier<'static> = AlgorithmIdentifier {
+const ES384: AlgorithmIdentifierOwned = AlgorithmIdentifierOwned {
     oid: ECDSA_WITH_SHA_384,
     parameters: None,
 };
@@ -36,16 +38,16 @@ pub trait PrivateKeyInfoExt {
     /// this private key. Note that this function does not do any cryptographic
     /// calculations. It expects that the `PrivateKeyInfo` already contains the
     /// public key.
-    fn public_key(&self) -> Result<SubjectPublicKeyInfo<'_>>;
+    fn public_key(&self) -> Result<SubjectPublicKeyInfoOwned>;
 
     /// Get the default signing algorithm for this `SubjectPublicKeyInfo`
-    fn signs_with(&self) -> Result<AlgorithmIdentifier<'_>>;
+    fn signs_with(&self) -> Result<AlgorithmIdentifierOwned>;
 
     /// Signs the body with the specified algorithm
     ///
     /// Note that the signature is returned in its encoded form as it will
     /// appear in an X.509 certificate or PKCS#10 certification request.
-    fn sign(&self, body: &[u8], algo: AlgorithmIdentifier<'_>) -> Result<Vec<u8>>;
+    fn sign(&self, body: &[u8], algo: &AlgorithmIdentifierOwned) -> Result<Vec<u8>>;
 }
 
 impl<'a> PrivateKeyInfoExt for PrivateKeyInfo<'a> {
@@ -69,21 +71,31 @@ impl<'a> PrivateKeyInfoExt for PrivateKeyInfo<'a> {
         Ok(doc.as_ref().to_vec().into())
     }
 
-    fn public_key(&self) -> Result<SubjectPublicKeyInfo<'_>> {
+    fn public_key(&self) -> Result<SubjectPublicKeyInfoOwned> {
         match self.algorithm.oids()? {
             (ECPK, ..) => {
                 let ec = EcPrivateKey::from_der(self.private_key)?;
                 let pk = ec.public_key.ok_or_else(|| anyhow!("missing public key"))?;
-                Ok(SubjectPublicKeyInfo {
-                    algorithm: self.algorithm,
-                    subject_public_key: pk,
+
+                let params = if let Some(param) = self.algorithm.parameters {
+                    Some(Any::new(param.tag(), param.value())?)
+                } else {
+                    None
+                };
+
+                Ok(SubjectPublicKeyInfoOwned {
+                    algorithm: AlgorithmIdentifier {
+                        oid: self.algorithm.oid,
+                        parameters: params,
+                    },
+                    subject_public_key: BitString::from_bytes(pk)?,
                 })
             }
             _ => Err(anyhow!("unsupported")),
         }
     }
 
-    fn signs_with(&self) -> Result<AlgorithmIdentifier<'_>> {
+    fn signs_with(&self) -> Result<AlgorithmIdentifierOwned> {
         match self.algorithm.oids()? {
             (ECPK, Some(P256)) => Ok(ES256),
             (ECPK, Some(P384)) => Ok(ES384),
@@ -91,18 +103,18 @@ impl<'a> PrivateKeyInfoExt for PrivateKeyInfo<'a> {
         }
     }
 
-    fn sign(&self, body: &[u8], algo: AlgorithmIdentifier<'_>) -> Result<Vec<u8>> {
+    fn sign(&self, body: &[u8], algo: &AlgorithmIdentifierOwned) -> Result<Vec<u8>> {
         let rng = ring::rand::SystemRandom::new();
         match (self.algorithm.oids()?, algo) {
-            ((ECPK, Some(P256)), ES256) => {
+            ((ECPK, Some(P256)), &ES256) => {
                 use ring::signature::{EcdsaKeyPair, ECDSA_P256_SHA256_ASN1_SIGNING as ALG};
-                let kp = EcdsaKeyPair::from_pkcs8(&ALG, &self.to_vec()?)?;
+                let kp = EcdsaKeyPair::from_pkcs8(&ALG, &self.to_der()?)?;
                 Ok(kp.sign(&rng, body)?.as_ref().to_vec())
             }
 
-            ((ECPK, Some(P384)), ES384) => {
+            ((ECPK, Some(P384)), &ES384) => {
                 use ring::signature::{EcdsaKeyPair, ECDSA_P384_SHA384_ASN1_SIGNING as ALG};
-                let kp = EcdsaKeyPair::from_pkcs8(&ALG, &self.to_vec()?)?;
+                let kp = EcdsaKeyPair::from_pkcs8(&ALG, &self.to_der()?)?;
                 Ok(kp.sign(&rng, body)?.as_ref().to_vec())
             }
 

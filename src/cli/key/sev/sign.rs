@@ -12,7 +12,7 @@ use anyhow::{bail, Context};
 use camino::Utf8PathBuf;
 use clap::Args;
 use p384::ecdsa::signature::Signer as _;
-use p384::ecdsa::SigningKey;
+use p384::ecdsa::{Signature, SigningKey};
 use p384::elliptic_curve::sec1::Coordinates;
 use p384::pkcs8::DecodePrivateKey;
 use p384::EncodedPoint;
@@ -55,10 +55,12 @@ pub fn sign_id_sev_key(
     id_auth.id_key.component.r[..r.len()].copy_from_slice(&r);
     id_auth.id_key.component.s[..s.len()].copy_from_slice(&s);
     // Sign the SEV signing key with the SEV author key.
-    let sig = sev_author_key.sign(id_auth.id_key.as_bytes());
+    let sig: Signature = sev_author_key.sign(id_auth.id_key.as_bytes());
     // The r and s values have to be in little-endian order.
-    let r = sig.r().as_ref().to_le_bytes();
-    let s = sig.s().as_ref().to_le_bytes();
+    let mut r = sig.r().as_ref().to_bytes();
+    r.reverse();
+    let mut s = sig.s().as_ref().to_bytes();
+    s.reverse();
     // and are zero extended to the size of the components in the IdAuth struct.
     id_auth.id_key_sig.component.r[..r.as_slice().len()].copy_from_slice(r.as_slice());
     id_auth.id_key_sig.component.s[..s.as_slice().len()].copy_from_slice(s.as_slice());

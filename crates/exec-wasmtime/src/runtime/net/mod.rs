@@ -94,7 +94,7 @@ pub fn connect_file(
         ConnectFile::Tcp { .. } => wasmtime_wasi::net::Socket::from(tcp).into(),
         ConnectFile::Tls { .. } => {
             let mut server_roots = RootCertStore::empty();
-            server_roots.add_server_trust_anchors(webpki_roots::TLS_SERVER_ROOTS.0.iter().map(
+            server_roots.add_server_trust_anchors(webpki_roots::TLS_SERVER_ROOTS.iter().map(
                 |ta| {
                     rustls::OwnedTrustAnchor::from_subject_spki_name_constraints(
                         ta.subject,
