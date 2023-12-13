@@ -10,37 +10,37 @@ use x509_cert::crl::CertificateList;
 use x509_cert::time::Time;
 
 #[derive(Sequence)]
-pub struct CrlListEntry<'a> {
+pub struct CrlListEntry {
     pub url: String,
-    pub crl: CertificateList<'a>,
+    pub crl: CertificateList,
 }
 
-impl<'a> From<(String, CertificateList<'a>)> for CrlListEntry<'a> {
-    fn from((url, crl): (String, CertificateList<'a>)) -> Self {
+impl From<(String, CertificateList)> for CrlListEntry {
+    fn from((url, crl): (String, CertificateList)) -> Self {
         Self { url, crl }
     }
 }
 
-impl<'a> From<CrlListEntry<'a>> for (String, CertificateList<'a>) {
-    fn from(CrlListEntry { url, crl }: CrlListEntry<'a>) -> Self {
+impl From<CrlListEntry> for (String, CertificateList) {
+    fn from(CrlListEntry { url, crl }: CrlListEntry) -> Self {
         (url, crl)
     }
 }
 
 #[derive(Sequence)]
-pub struct CrlList<'a> {
-    pub crls: Vec<CrlListEntry<'a>>,
+pub struct CrlList {
+    pub crls: Vec<CrlListEntry>,
 }
 
-impl<'a> FromIterator<(String, CertificateList<'a>)> for CrlList<'a> {
-    fn from_iter<T: IntoIterator<Item = (String, CertificateList<'a>)>>(crls: T) -> Self {
+impl FromIterator<(String, CertificateList)> for CrlList {
+    fn from_iter<T: IntoIterator<Item = (String, CertificateList)>>(crls: T) -> Self {
         let crls = crls.into_iter().map(Into::into).collect();
         Self { crls }
     }
 }
 
-impl<'a> CrlList<'a> {
-    pub fn entries(&self) -> impl Iterator<Item = (&str, &CertificateList<'_>)> {
+impl CrlList {
+    pub fn entries(&self) -> impl Iterator<Item = (&str, &CertificateList)> {
         self.crls
             .iter()
             .map(|CrlListEntry { url, crl }| (url.as_str(), crl))
@@ -88,6 +88,6 @@ pub fn fetch_crl_list<const N: usize>(urls: [String; N]) -> anyhow::Result<Vec<u
     }
     zip(urls, crls)
         .collect::<CrlList>()
-        .to_vec()
+        .to_der()
         .context("failed to encode CRL list")
 }

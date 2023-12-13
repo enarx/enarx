@@ -83,12 +83,13 @@ fn decode_extension(cert: &Certificate) -> anyhow::Result<String> {
             if extension.extn_id == SGX_EXT_OID {
                 let offset = extension
                     .extn_value
+                    .as_bytes()
                     .windows(FMSPC_OID_LEN)
                     .position(|window| window == FMSPC_OID.as_bytes());
                 if let Some(offset) = offset {
                     // Index into the extension bytes at the offset + OID size + 2
                     // The extra +2 gets us past the ASN.1 header for these bytes.
-                    let fmspc = &extension.extn_value
+                    let fmspc = &extension.extn_value.as_bytes()
                         [offset + FMSPC_OID_LEN + 2..offset + FMSPC_OID_LEN + 6 + 2];
                     return Ok(hex::encode_upper(fmspc));
                 }
@@ -157,7 +158,7 @@ impl TcbCache {
         };
 
         let tcb_package = tcb_package
-            .to_vec()
+            .to_der()
             .context("Failed to encode TCB certs and report to DER")?;
 
         let mut tcb_temp = String::from(TCB_PATH);

@@ -9,8 +9,7 @@ use std::process::ExitCode;
 use camino::Utf8PathBuf;
 use clap::Args;
 use p384::ecdsa::SigningKey;
-use p384::pkcs8::{self, LineEnding};
-use pkcs8::EncodePrivateKey;
+use p384::pkcs8::{EncodePrivateKey, LineEnding};
 
 /// Generate an SEV key for use with Enarx.
 #[derive(Args, Debug)]
@@ -22,8 +21,8 @@ pub struct Options {
 
 impl Options {
     pub fn execute(self) -> anyhow::Result<ExitCode> {
-        let rng = rand::thread_rng();
-        let signing_key = SigningKey::random(rng);
+        let mut rng = rand::thread_rng();
+        let signing_key = SigningKey::random(&mut rng);
 
         let res_key = signing_key.to_pkcs8_pem(LineEnding::default())?;
 

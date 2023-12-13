@@ -20,6 +20,7 @@ use camino::Utf8PathBuf;
 use clap::Args;
 use p384::ecdsa::signature::Signer as _;
 use p384::ecdsa::SigningKey;
+use p384::elliptic_curve::bigint::Encoding;
 use p384::elliptic_curve::sec1::Coordinates;
 use p384::pkcs8::DecodePrivateKey;
 use p384::EncodedPoint;
@@ -77,10 +78,10 @@ fn sign_sev(id_block_bytes: &[u8], sev_key: &SigningKey, signature: &[u8]) -> Re
     };
 
     // Sign the ID block with the SEV signing key.
-    let sig = sev_key.sign(id_block_bytes);
+    let sig: p384::ecdsa::Signature = sev_key.sign(id_block_bytes);
     // The r and s values have to be in little-endian order.
-    let r = sig.r().as_ref().to_le_bytes();
-    let s = sig.s().as_ref().to_le_bytes();
+    let r = sig.r().as_ref().to_canonical().to_le_bytes();
+    let s = sig.s().as_ref().to_canonical().to_le_bytes();
     // and are zero extended to the size of the components in the IdAuth struct.
     id_auth.id_block_sig.component.r[..r.len()].copy_from_slice(&r);
     id_auth.id_block_sig.component.s[..s.len()].copy_from_slice(&s);

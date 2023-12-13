@@ -155,9 +155,9 @@ chrono = { version = "0.4.19", features = ["clock", "serde", "std"], default-fea
 clap = { version = "4.0", features = ["std", "derive", "env", "error-context", "help", "usage", "wrap_help"], default-features = false }
 colorful = { version = "0.2.0", default-features = false }
 const-default = { version = "1.0.0", default-features = false }
-const-oid = { version = "0.9.0", default-features = false }
+const-oid = { version = "0.9.5", default-features = false }
 crt0stack = { version = "0.1.0", default-features = false }
-der = { version = "0.6.1", features = ["std"], default-features = false }
+der = { version = "0.7.8", features = ["derive", "std"], default-features = false }
 dirs = { version = "4.0.0", default-features = false }
 drawbridge-client = { version = "0.2.2", default-features = false }
 drawbridge-server = { version = "0.2.2", default-features = false }
@@ -186,29 +186,29 @@ numtoa = { version = "0.2.4", default-features = false }
 oauth2 = { version = "4.2.2", default-features = false, features = ["ureq"] }
 once_cell = { version = "1.13.0", default-features = false }
 openidconnect = { version = "2.3.1", default-features = false }
-p384 = { version = "0.11.1", features = ["std", "pem", "ecdsa"], default-features = false }
+p384 = { version = "0.13.0", features = ["std", "pem", "ecdsa"], default-features = false }
 paste = { version = "1.0.0", default-features = false }
 percent-encoding = { version = "2.2.0", default-features = false }
-pkcs8 = { version = "0.9.0" }
+pkcs8 = { version = "0.10.2", features = ["std"] }
 primordial = { version = "0.5.0", default-features = false }
 process_control = { version = "4.0.1", default-features = false }
 protobuf = { version = "2.22.0", default-features = false }
 protobuf-codegen-pure = { version = "2.27.0", default-features = false }
-rand = { version = "0.8.0", features = ["std", "std_rng"], default-features = false }
+rand = { version = "0.8.5", features = ["std", "std_rng"], default-features = false }
 rcrt1 = { version = "2.5.0", default-features = false }
 ring = { version = "0.16.20", features = ["std"], default-features = false }
-rsa = { version = "0.7.2", default-features = false }
+rsa = { version = "0.9.3", features = ["std"], default-features = false }
 rustls = { version = "0.20.6", default-features = false }
 rustls-pemfile = { version = "1.0.0", default-features = false }
 sallyport = { version = "0.7.1", path = "crates/sallyport", default-features = false }
 shared = { version = "0.7.1", path = "crates/shared", default-features = false }
-sec1 = { version = "0.3.0-pre.1", features = ["der"], default-features = false }
+sec1 = { version = "0.7.3", features = ["der", "std"], default-features = false }
 semver = { version = "1.0.0", default-features = false }
 serde = { version = "1.0.136", features = ["derive"], default-features = false }
 serde_json = { version = "1.0.79", features = ["std"], default-features = false }
 serial_test = { version = "0.10.0", default-features = false }
-sgx = { version = "0.6.0", default-features = false }
-sha2 = { version = "0.10.2", default-features = false }
+sgx = { version = "0.6.1", default-features = false }
+sha2 = { version = "0.10.8", default-features = false }
 shell-words = { version = "1.1.0", default-features = false }
 spin = { version = "0.9.8", default-features = false, features = ["lock_api", "spin_mutex", "rwlock", "lazy"] }
 static_assertions = { version = "1.1.0", default-features = false }
@@ -223,8 +223,8 @@ url = { version = "2.2.2", default-features = false }
 vdso = { version = "0.2.2", default-features = false }
 wat = { version = "1.0.0", default-features = false }
 webpki-roots = { version = "0.22.2", default-features = false }
-x509-cert = { version = "0.1.0", features = ["std"], default-features = false }
-x86_64 = { version = "0.14.9", default-features = false }
+x509-cert = { version = "0.2.4", features = ["std"], default-features = false }
+x86_64 = { version = "0.14.11", default-features = false }
 xsave = { version = "2.0.2", default-features = false }
 zeroize = { version = "1.5.4", features = ["alloc"], default-features = false }
 
