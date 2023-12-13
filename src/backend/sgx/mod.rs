@@ -32,7 +32,7 @@ pub type Tcs = usize;
 
 #[derive(Sequence)]
 pub(crate) struct TcbPackage<'a> {
-    pub(crate) crts: Vec<Certificate<'a>>,
+    pub(crate) crts: Vec<Certificate>,
     #[asn1(type = "OCTET STRING")]
     pub(crate) report: &'a [u8],
 }

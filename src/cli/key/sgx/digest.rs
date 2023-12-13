@@ -10,7 +10,8 @@ use anyhow::Context;
 use camino::Utf8PathBuf;
 use clap::Args;
 use rsa::pkcs1::DecodeRsaPrivateKey;
-use rsa::{BigUint, PublicKeyParts, RsaPrivateKey};
+use rsa::traits::PublicKeyParts;
+use rsa::{BigUint, RsaPrivateKey};
 use sha2::{Digest, Sha256};
 
 /// Generate Digest for provided SGX key and write to file.

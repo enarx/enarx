@@ -7,6 +7,7 @@ mod platform;
 
 use pki::PrivateKeyInfoExt;
 use platform::{Platform, Technology};
+use std::str::FromStr;
 
 use std::time::Duration;
 
@@ -18,29 +19,33 @@ use const_oid::db::rfc5280::{
 use const_oid::db::rfc5912::{SECP_256_R_1, SECP_384_R_1};
 use const_oid::AssociatedOid;
 use getrandom::getrandom;
+use pkcs8::der::asn1::{BitString, OctetString};
+use pkcs8::der::referenced::{OwnedToRef, RefToOwned};
+use pkcs8::der::Any;
 use pkcs8::PrivateKeyInfo;
 use sha2::{Digest, Sha256, Sha384};
 use url::Url;
 use wiggle::tracing::instrument;
 use x509_cert::attr::Attribute;
-use x509_cert::der::asn1::{BitStringRef, UIntRef};
-use x509_cert::der::{AnyRef, Decode, Encode};
+use x509_cert::der::asn1::BitStringRef;
+use x509_cert::der::{Decode, Encode};
 use x509_cert::ext::pkix::{BasicConstraints, ExtendedKeyUsage, KeyUsage, KeyUsages};
 use x509_cert::ext::Extension;
 use x509_cert::name::RdnSequence;
 use x509_cert::request::{CertReq, CertReqInfo, ExtensionReq};
+use x509_cert::serial_number::SerialNumber;
 use x509_cert::time::Validity;
 use x509_cert::{Certificate, PkiPath, TbsCertificate};
 use zeroize::Zeroizing;
 
-fn csr(pki: &PrivateKeyInfo<'_>, exts: Vec<Extension<'_>>) -> anyhow::Result<Vec<u8>> {
+fn csr(pki: &PrivateKeyInfo<'_>, exts: Vec<Extension>) -> anyhow::Result<Vec<u8>> {
     // Request the extensions.
     let req = ExtensionReq::from(exts)
-        .to_vec()
+        .to_der()
         .context("failed to encode an extension request")?;
 
     // Embed the extension requests in an attribute.
-    let any = AnyRef::from_der(&req).context("failed to parse extension request from DER")?;
+    let any = Any::from_der(&req).context("failed to parse extension request from DER")?;
     let att_values = vec![any]
         .try_into()
         .context("failed to generate attribute values")?;
@@ -59,13 +64,13 @@ fn csr(pki: &PrivateKeyInfo<'_>, exts: Vec<Extension<'_>>) -> anyhow::Result<Vec
         version: x509_cert::request::Version::V1,
         attributes,
         subject: RdnSequence::default(),
-        public_key,
+        public_key: public_key.ref_to_owned(),
     };
 
     let algorithm = pki
         .signs_with()
         .context("failed to query signing algorithm")?;
-    let info_bytes = info.to_vec().context("failed to encode CRI")?;
+    let info_bytes = info.to_der().context("failed to encode CRI")?;
 
     // Sign the request.
     let sig = pki
@@ -74,10 +79,10 @@ fn csr(pki: &PrivateKeyInfo<'_>, exts: Vec<Extension<'_>>) -> anyhow::Result<Vec
     let signature = BitStringRef::from_bytes(sig.as_ref()).context("failed to parse signature")?;
     CertReq {
         info,
-        algorithm,
-        signature,
+        algorithm: algorithm.ref_to_owned(),
+        signature: signature.ref_to_owned(),
     }
-    .to_vec()
+    .to_der()
     .context("failed to encode CSR")
 }
 
@@ -95,7 +100,11 @@ pub fn generate() -> anyhow::Result<(Zeroizing<Vec<u8>>, Vec<u8>)> {
     let raw = PrivateKeyInfo::generate(cert_algo).context("failed to generate a private key")?;
     let pki = PrivateKeyInfo::from_der(raw.as_ref())
         .context("failed to parse DER-encoded private key")?;
-    let der = pki.public_key().unwrap().to_vec().unwrap();
+    let der = pki
+        .public_key()
+        .context("failed to get public key")?
+        .to_der()
+        .context("failed to get der-encoded public key")?;
 
     let mut key_hash = [0u8; 64];
     match platform.technology() {
@@ -115,7 +124,8 @@ pub fn generate() -> anyhow::Result<(Zeroizing<Vec<u8>>, Vec<u8>)> {
     let ext = vec![Extension {
         extn_id: platform.technology().into(),
         critical: false,
-        extn_value: &attestation_report,
+        extn_value: OctetString::new(attestation_report)
+            .context("failed to wrap attestation evidence in `OctetString`")?,
     }];
 
     // Make a certificate signing request.
@@ -141,7 +151,7 @@ pub fn steward(url: &Url, csr: impl AsRef<[u8]>) -> anyhow::Result<Vec<Vec<u8>>>
 
     // Decode the certificate chain.
     let path = PkiPath::from_der(&body)?;
-    path.iter().rev().map(|c| Ok(c.to_vec()?)).collect()
+    path.iter().rev().map(|c| Ok(c.to_der()?)).collect()
 }
 
 #[instrument(skip(key))]
@@ -149,16 +159,16 @@ pub fn selfsigned(key: impl AsRef<[u8]>) -> anyhow::Result<Vec<Vec<u8>>> {
     let pki = PrivateKeyInfo::from_der(key.as_ref())?;
 
     // Create a relative distinguished name.
-    let rdns = RdnSequence::encode_from_string("CN=localhost")?;
+    let rdns = RdnSequence::from_str("CN=localhost")?;
 
     // Create the extensions.
-    let ku = KeyUsage(KeyUsages::DigitalSignature | KeyUsages::KeyEncipherment).to_vec()?;
-    let eu = ExtendedKeyUsage(vec![ID_KP_SERVER_AUTH, ID_KP_CLIENT_AUTH]).to_vec()?;
+    let ku = KeyUsage(KeyUsages::DigitalSignature | KeyUsages::KeyEncipherment).to_der()?;
+    let eu = ExtendedKeyUsage(vec![ID_KP_SERVER_AUTH, ID_KP_CLIENT_AUTH]).to_der()?;
     let bc = BasicConstraints {
         ca: false,
         path_len_constraint: None,
     }
-    .to_vec()?;
+    .to_der()?;
 
     // Steward uses UUIDs as serial numbers, use 16-octet long serial number to loosely
     // resemble format used by the Steward.
@@ -168,41 +178,42 @@ pub fn selfsigned(key: impl AsRef<[u8]>) -> anyhow::Result<Vec<Vec<u8>>> {
     // Create the certificate body.
     let tbs = TbsCertificate {
         version: x509_cert::Version::V3,
-        serial_number: UIntRef::new(&serial)?,
-        signature: pki.signs_with()?,
-        issuer: RdnSequence::from_der(&rdns)?,
+        serial_number: SerialNumber::new(&serial)?,
+        signature: pki.signs_with()?.ref_to_owned(),
+        issuer: rdns.clone(),
         validity: Validity::from_now(Duration::from_secs(60 * 60 * 24 * 365))?,
-        subject: RdnSequence::from_der(&rdns)?,
-        subject_public_key_info: pki.public_key()?,
+        subject: rdns,
+        subject_public_key_info: pki.public_key()?.ref_to_owned(),
         issuer_unique_id: None,
         subject_unique_id: None,
         extensions: Some(vec![
             x509_cert::ext::Extension {
                 extn_id: ID_CE_KEY_USAGE,
                 critical: true,
-                extn_value: &ku,
+                extn_value: OctetString::new(ku)?,
             },
             x509_cert::ext::Extension {
                 extn_id: ID_CE_BASIC_CONSTRAINTS,
                 critical: true,
-                extn_value: &bc,
+                extn_value: OctetString::new(bc)?,
             },
             x509_cert::ext::Extension {
                 extn_id: ID_CE_EXT_KEY_USAGE,
                 critical: false,
-                extn_value: &eu,
+                extn_value: OctetString::new(eu)?,
             },
         ]),
     };
 
     // Self-sign the certificate.
-    let alg = tbs.signature;
-    let sig = pki.sign(&tbs.to_vec()?, alg)?;
+    let alg = tbs.signature.clone();
+    let tbs_copy = tbs.clone();
+    let sig = pki.sign(&tbs_copy.to_der()?, alg.owned_to_ref())?;
     let crt = Certificate {
         tbs_certificate: tbs,
         signature_algorithm: alg,
-        signature: BitStringRef::from_bytes(&sig)?,
+        signature: BitString::from_bytes(&sig)?,
     };
 
-    Ok(vec![crt.to_vec()?])
+    Ok(vec![crt.to_der()?])
 }

@@ -41,7 +41,7 @@ impl TryFrom<u64> for TeeTech {
 
 #[derive(Sequence)]
 pub struct TcbPackage<'a> {
-    pub crts: Vec<Certificate<'a>>,
+    pub crts: Vec<Certificate>,
     #[asn1(type = "OCTET STRING")]
     pub report: &'a [u8],
 }
@@ -50,7 +50,7 @@ pub struct TcbPackage<'a> {
 pub struct SgxEvidence<'a> {
     #[asn1(type = "OCTET STRING")]
     pub quote: &'a [u8],
-    pub crl: CrlList<'a>,
+    pub crl: CrlList,
     pub tcb: TcbPackage<'a>,
 }
 

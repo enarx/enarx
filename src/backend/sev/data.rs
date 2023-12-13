@@ -107,9 +107,7 @@ pub fn has_vcek_cache() -> Datum {
             name,
             pass: false,
             info: Some(e.to_string()),
-            mesg: Some(
-                "Run `enarx platform snp update` to generate the cache file.".to_string(),
-            ),
+            mesg: Some("Run `enarx platform snp update` to generate the cache file.".to_string()),
         },
     }
 }

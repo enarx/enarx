@@ -40,12 +40,12 @@ macro_rules! musl_fsbase_fix {
 
 // These structures are copied from `src/caching.rs`
 #[derive(Debug, Sequence)]
-pub struct CrlListEntry<'a> {
+pub struct CrlListEntry {
     pub url: String,
-    pub crl: CertificateList<'a>,
+    pub crl: CertificateList,
 }
 
 #[derive(Debug, Sequence)]
-pub struct CrlList<'a> {
-    pub crls: Vec<CrlListEntry<'a>>,
+pub struct CrlList {
+    pub crls: Vec<CrlListEntry>,
 }
