@@ -27,7 +27,7 @@ fn main() -> anyhow::Result<()> {
             == "stdin:stdout:stderr:stream"
     );
 
-    assert_stream(unsafe { TcpStream::from_raw_fd(3) })
+    assert_stream(unsafe { TcpStream::from_raw_fd(3) }, false)
 }
 
 #[cfg(not(any(target_os = "wasi", unix)))]

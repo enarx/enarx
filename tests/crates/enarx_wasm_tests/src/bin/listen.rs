@@ -35,7 +35,10 @@ fn main() -> anyhow::Result<()> {
     let (stream, _) = listener
         .accept()
         .context("failed to accept first connection")?;
-    assert_stream(stream).context("failed to assert default stream")?;
+    stream
+        .set_nonblocking(false)
+        .context("failed to set stream to blocking")?;
+    assert_stream(stream, false).context("failed to assert default stream")?;
 
     listener
         .set_nonblocking(false)
@@ -43,7 +46,10 @@ fn main() -> anyhow::Result<()> {
     let (stream, _) = listener
         .accept()
         .context("failed to accept second connection")?;
-    assert_stream(stream).context("failed to assert blocking stream")?;
+    stream
+        .set_nonblocking(false)
+        .context("failed to set stream to blocking")?;
+    assert_stream(stream, false).context("failed to assert blocking stream")?;
 
     listener
         .set_nonblocking(true)
@@ -51,7 +57,10 @@ fn main() -> anyhow::Result<()> {
     loop {
         match listener.accept() {
             Ok((stream, _)) => {
-                assert_stream(stream).context("failed to assert non-blocking stream")?;
+                stream
+                    .set_nonblocking(true)
+                    .context("failed to set stream to non-blocking")?;
+                assert_stream(stream, true).context("failed to assert non-blocking stream")?;
                 break;
             }
             Err(e) if e.kind() == io::ErrorKind::WouldBlock => {}
