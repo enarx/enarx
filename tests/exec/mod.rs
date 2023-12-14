@@ -15,6 +15,10 @@ use tempfile::Builder;
 
 #[test]
 fn futex() {
+    if is_nil() {
+        eprintln!("Not supported on nil backend, ignoring");
+        return;
+    }
     let bin = env!("CARGO_BIN_FILE_ENARX_EXEC_TESTS_futex");
 
     run_test(bin, 0, None, None, None);
@@ -22,6 +26,10 @@ fn futex() {
 
 #[test]
 fn thread() {
+    if is_nil() {
+        eprintln!("Not supported on nil backend, ignoring");
+        return;
+    }
     if is_sev() {
         eprintln!("SEV backend is enabled, ignoring");
         return;
@@ -47,6 +55,10 @@ After Join 2
 
 #[test]
 fn thread_many() {
+    if is_nil() {
+        eprintln!("Not supported on nil backend, ignoring");
+        return;
+    }
     if is_sev() {
         eprintln!("SEV backend is enabled, ignoring");
         return;
@@ -57,6 +69,10 @@ fn thread_many() {
 
 #[test]
 fn thread_exit_group() {
+    if is_nil() {
+        eprintln!("Not supported on nil backend, ignoring");
+        return;
+    }
     if is_sev() {
         eprintln!("SEV backend is enabled, ignoring");
         return;
@@ -67,6 +83,10 @@ fn thread_exit_group() {
 
 #[test]
 fn thread_channel() {
+    if is_nil() {
+        eprintln!("Not supported on nil backend, ignoring");
+        return;
+    }
     if is_sev() {
         eprintln!("SEV backend is enabled, ignoring");
         return;
