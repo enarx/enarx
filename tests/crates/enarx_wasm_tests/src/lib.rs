@@ -28,10 +28,13 @@ pub fn assert_copy_line(
     Ok(())
 }
 
-pub fn assert_stream(mut stream: impl BorrowMut<TcpStream>) -> anyhow::Result<()> {
+pub fn assert_stream(
+    mut stream: impl BorrowMut<TcpStream>,
+    non_blocking: bool,
+) -> anyhow::Result<()> {
     let mut stream = BufReader::new(stream.borrow_mut());
 
-    assert_copy_line(&mut stream, false).context("failed to copy first line")?;
+    assert_copy_line(&mut stream, non_blocking).context("failed to copy first line")?;
     ensure!(stream.buffer().is_empty());
 
     stream
