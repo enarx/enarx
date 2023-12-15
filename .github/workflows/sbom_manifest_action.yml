@@ -30,13 +30,13 @@ jobs:
         run: cargo cyclonedx --all --format=xml
 
       - name: Upload the JSON BOM file
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: SBOM.json
           path: bom.json
 
       - name: Upload the XML BOM file
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: SBOM.xml
           path: bom.xml

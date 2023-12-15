@@ -59,7 +59,7 @@ jobs:
 
     - run: nix build -L --show-trace '.#enarx-${{ matrix.platform.target }}'
     - run: nix run --inputs-from . 'nixpkgs#coreutils' -- --coreutils-prog=ginstall -p ./result/bin/enarx "enarx-${{ matrix.platform.target }}"
-    - uses: actions/upload-artifact@v3
+    - uses: actions/upload-artifact@v4
       with:
         name: enarx-${{ matrix.platform.target }}
         path: enarx-${{ matrix.platform.target }}
@@ -67,7 +67,7 @@ jobs:
 
     - run: nix build -L --show-trace '.#enarx-${{ matrix.platform.target }}-oci'
     - run: nix run --inputs-from . 'nixpkgs#coreutils' -- --coreutils-prog=ginstall -p ./result "enarx-${{ matrix.platform.target }}-oci"
-    - uses: actions/upload-artifact@v3
+    - uses: actions/upload-artifact@v4
       with:
         name: enarx-${{ matrix.platform.target }}-oci
         path: enarx-${{ matrix.platform.target }}-oci
@@ -94,11 +94,11 @@ jobs:
         run: cargo wix --no-build -p enarx --nocapture -I release\windows\main.wxs --output target\wix\enarx-x86_64-windows.msi
       - name: Rename artifact
         run: copy target\release\enarx.exe target\release\enarx-x86_64-windows.exe
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: enarx-x86_64-windows
           path: target\release\enarx-x86_64-windows.exe
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: enarx-x86_64-windows-msi
           path: target\wix\enarx-x86_64-windows.msi
@@ -134,7 +134,7 @@ jobs:
       run: ./enarx-x86_64-unknown-linux-musl sign --sgx-key sgx.key --sev-id-key sev-id.key --sev-id-key-signature sev-id-key-signature.blob --out enarx-x86_64-unknown-linux-musl.sig
     - name: Remove keys
       run: rm -f sgx.key sev-author.key sev-id.key sev-id-key-signature.blob
-    - uses: actions/upload-artifact@v3
+    - uses: actions/upload-artifact@v4
       with:
         name: enarx-x86_64-unknown-linux-musl-sig
         path: enarx-x86_64-unknown-linux-musl.sig
@@ -150,7 +150,7 @@ jobs:
       with:
         name: enarx-x86_64-apple-darwin
     - run: lipo -create ./enarx-aarch64-apple-darwin ./enarx-x86_64-apple-darwin -output ./enarx-universal-darwin
-    - uses: actions/upload-artifact@v3
+    - uses: actions/upload-artifact@v4
       with:
         name: enarx-universal-darwin
         path: enarx-universal-darwin
@@ -205,7 +205,7 @@ jobs:
       run: |
         sudo rpm -i "${{ matrix.architecture }}/enarx-${{ steps.version.outputs.version }}-1.${{ matrix.architecture }}.rpm"
         /usr/bin/enarx --version
-    - uses: actions/upload-artifact@v3
+    - uses: actions/upload-artifact@v4
       with:
         name: "enarx-${{ steps.version.outputs.version }}-1.${{ matrix.architecture }}.rpm"
         path: "${{ matrix.architecture }}/enarx-${{ steps.version.outputs.version }}-1.${{ matrix.architecture }}.rpm"
@@ -252,7 +252,7 @@ jobs:
       run: |
         sudo dpkg -i enarx_${{ steps.version.outputs.version }}-1_${{ matrix.architecture.debarch }}.deb
         /usr/bin/enarx --version
-    - uses: actions/upload-artifact@v3
+    - uses: actions/upload-artifact@v4
       with:
         name: "enarx_${{ steps.version.outputs.version }}-1_${{ matrix.architecture.debarch }}.deb"
         path: "enarx_${{ steps.version.outputs.version }}-1_${{ matrix.architecture.debarch }}.deb"
