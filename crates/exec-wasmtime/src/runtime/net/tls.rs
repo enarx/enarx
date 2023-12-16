@@ -20,6 +20,7 @@ use wasi_common::{Error, ErrorExt, WasiFile};
 #[cfg(unix)]
 use wasmtime_wasi::net::get_fd_flags;
 use wasmtime_wasi::net::is_read_write;
+use wiggle::bitflags::Flags;
 
 trait IOAsync {
     fn complete_io_async<T>(&mut self, io: &mut T) -> io::Result<(usize, usize)>
@@ -161,12 +162,12 @@ impl WasiFile for Stream {
         Some(self.tcp.as_raw_handle_or_socket())
     }
 
-    async fn get_filetype(&mut self) -> Result<FileType, Error> {
+    async fn get_filetype(&self) -> Result<FileType, Error> {
         Ok(FileType::SocketStream)
     }
 
     #[cfg(unix)]
-    async fn get_fdflags(&mut self) -> Result<FdFlags, Error> {
+    async fn get_fdflags(&self) -> Result<FdFlags, Error> {
         let fdflags = get_fd_flags(&self.tcp)?;
         Ok(fdflags)
     }
@@ -189,7 +190,7 @@ impl WasiFile for Stream {
         }
     }
 
-    async fn read_vectored<'a>(&mut self, bufs: &mut [IoSliceMut<'a>]) -> Result<u64, Error> {
+    async fn read_vectored<'a>(&self, bufs: &mut [IoSliceMut<'a>]) -> Result<u64, Error> {
         loop {
             self.complete_io()?;
             match self.tls.reader().read_vectored(bufs) {
@@ -204,7 +205,7 @@ impl WasiFile for Stream {
         }
     }
 
-    async fn write_vectored<'a>(&mut self, bufs: &[IoSlice<'a>]) -> Result<u64, Error> {
+    async fn write_vectored<'a>(&self, bufs: &[IoSlice<'a>]) -> Result<u64, Error> {
         match self.tls.writer().write_vectored(bufs) {
             Ok(n) => {
                 self.complete_io()?;
@@ -215,13 +216,13 @@ impl WasiFile for Stream {
         }
     }
 
-    async fn peek(&mut self, _buf: &mut [u8]) -> Result<u64, Error> {
+    async fn peek(&self, _buf: &mut [u8]) -> Result<u64, Error> {
         // TODO: implement
         // https://github.com/enarx/enarx/issues/2241
         Err(Error::badf())
     }
 
-    async fn num_ready_bytes(&self) -> Result<u64, Error> {
+    fn num_ready_bytes(&self) -> Result<u64, Error> {
         // TODO: implement
         // https://github.com/enarx/enarx/issues/2242
         Ok(0)
@@ -245,7 +246,7 @@ impl WasiFile for Stream {
     }
 
     async fn sock_recv<'a>(
-        &mut self,
+        &self,
         ri_data: &mut [IoSliceMut<'a>],
         ri_flags: RiFlags,
     ) -> Result<(u64, RoFlags), Error> {
@@ -259,7 +260,7 @@ impl WasiFile for Stream {
     }
 
     async fn sock_send<'a>(
-        &mut self,
+        &self,
         si_data: &[IoSlice<'a>],
         si_flags: SiFlags,
     ) -> Result<u64, Error> {
@@ -271,7 +272,7 @@ impl WasiFile for Stream {
         Ok(n)
     }
 
-    async fn sock_shutdown(&mut self, how: SdFlags) -> Result<(), Error> {
+    async fn sock_shutdown(&self, how: SdFlags) -> Result<(), Error> {
         let how = if how == SdFlags::RD | SdFlags::WR {
             Shutdown::Both
         } else if how == SdFlags::RD {
@@ -319,7 +320,7 @@ impl WasiFile for Listener {
         Some(self.listener.as_raw_handle_or_socket())
     }
 
-    async fn sock_accept(&mut self, fdflags: FdFlags) -> Result<Box<dyn WasiFile>, Error> {
+    async fn sock_accept(&self, fdflags: FdFlags) -> Result<Box<dyn WasiFile>, Error> {
         let (tcp, ..) = self.listener.accept()?;
 
         let tls = ServerConnection::new(self.cfg.clone())
@@ -344,12 +345,12 @@ impl WasiFile for Listener {
         Ok(Box::new(stream))
     }
 
-    async fn get_filetype(&mut self) -> Result<FileType, Error> {
+    async fn get_filetype(&self) -> Result<FileType, Error> {
         Ok(FileType::SocketStream)
     }
 
     #[cfg(unix)]
-    async fn get_fdflags(&mut self) -> Result<FdFlags, Error> {
+    async fn get_fdflags(&self) -> Result<FdFlags, Error> {
         let fdflags = get_fd_flags(&self.listener)?;
         Ok(fdflags)
     }
@@ -365,7 +366,7 @@ impl WasiFile for Listener {
         Ok(())
     }
 
-    async fn num_ready_bytes(&self) -> Result<u64, Error> {
+    fn num_ready_bytes(&self) -> Result<u64, Error> {
         Ok(1)
     }
 }
