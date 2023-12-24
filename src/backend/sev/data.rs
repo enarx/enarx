@@ -170,7 +170,7 @@ pub fn dev_sev() -> Datum {
 
 pub fn sev_enabled_in_kernel() -> Datum {
     let mut datum = Datum {
-        name: " SEV-SNP is enabled in host kernel".into(),
+        name: " SEV-SNP is enabled in host kernel with the v10 host patches".into(),
         pass: false,
         info: None,
         mesg: None,
