@@ -63,7 +63,7 @@ jobs:
         run: cargo llvm-cov --coverage-target-only --target x86_64-unknown-linux-gnu --workspace --lcov --output-path lcov.info ${{ matrix.crate.flags }}
 
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v4
         with:
           directory: ./
           fail_ci_if_error: false
