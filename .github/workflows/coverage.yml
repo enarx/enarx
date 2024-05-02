@@ -38,7 +38,7 @@ jobs:
 
     steps:
       - if: matrix.crate.name == 'nil'
-        run: | 
+        run: |
           sudo apt -o Acquire::Retries=3 update
           sudo apt -o Acquire::Retries=3 install -y musl-tools lcov
       - name: Cleanup working directory
@@ -50,7 +50,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@master
         with:
           target: x86_64-unknown-linux-gnu
-          toolchain: nightly-2023-04-15
+          toolchain: nightly-2024-05-01
           components: llvm-tools-preview
 
       - name: Install cargo-llvm-cov

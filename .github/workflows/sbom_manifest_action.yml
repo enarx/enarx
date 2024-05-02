@@ -1,6 +1,6 @@
 name: Generate the CycloneDX BOM for a Rust crate
 
-on: [workflow_dispatch, workflow_call]
+on: [ workflow_dispatch, workflow_call ]
 
 jobs:
   Generate-BOM-Manifest:
@@ -17,7 +17,7 @@ jobs:
         uses: dtolnay/rust-toolchain@master
         with:
           target: x86_64-unknown-linux-musl
-          toolchain: nightly-2023-04-15
+          toolchain: nightly-2024-05-01
           override: true
 
       - name: Install cargo-cyclonedx

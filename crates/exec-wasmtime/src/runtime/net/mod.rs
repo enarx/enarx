@@ -12,19 +12,21 @@ use anyhow::{Context, Result};
 use cap_std::net::{TcpListener, TcpStream};
 use enarx_config::{ConnectFile, ListenFile};
 use once_cell::sync::Lazy;
-use rustls::cipher_suite::{
+use rustls::crypto::ring::cipher_suite::{
     TLS13_AES_128_GCM_SHA256, TLS13_AES_256_GCM_SHA384, TLS13_CHACHA20_POLY1305_SHA256,
 };
-use rustls::kx_group::{SECP256R1, SECP384R1, X25519};
+use rustls::crypto::ring::kx_group::{SECP256R1, SECP384R1, X25519};
 use rustls::version::TLS13;
-use rustls::{Certificate, PrivateKey, RootCertStore};
+use rustls::RootCertStore;
+use rustls_pki_types::{CertificateDer, Der, PrivateKeyDer};
 use wasi_common::file::FileCaps;
 use wasi_common::WasiFile;
 use zeroize::Zeroizing;
 
 static DEFAULT_TLS_PROTOCOL_VERSIONS: &[&rustls::SupportedProtocolVersion] = &[&TLS13];
 
-static DEFAULT_TLS_KX_GROUPS: &[&rustls::SupportedKxGroup] = &[&X25519, &SECP384R1, &SECP256R1];
+static DEFAULT_TLS_KX_GROUPS: &[&dyn rustls::crypto::SupportedKxGroup] =
+    &[X25519, SECP384R1, SECP256R1];
 
 static DEFAULT_TLS_CIPHER_SUITES: &[rustls::SupportedCipherSuite] = &[
     TLS13_AES_256_GCM_SHA384,
@@ -46,7 +48,7 @@ static CONNECT_CAPS: Lazy<FileCaps> = Lazy::new(|| {
 
 pub fn listen_file(
     file: &ListenFile,
-    certs: Vec<Certificate>,
+    certs: Vec<CertificateDer<'static>>,
     key: &Zeroizing<Vec<u8>>,
 ) -> Result<(Box<dyn WasiFile>, FileCaps)> {
     let (addr, port) = match file {
@@ -59,12 +61,17 @@ pub fn listen_file(
         ListenFile::Tls { .. } => {
             tcp.set_nonblocking(true)
                 .context("Error setting channel to nonblocking")?;
-            let cfg = rustls::ServerConfig::builder()
-                .with_cipher_suites(DEFAULT_TLS_CIPHER_SUITES)
-                .with_kx_groups(DEFAULT_TLS_KX_GROUPS)
-                .with_protocol_versions(DEFAULT_TLS_PROTOCOL_VERSIONS)?
-                .with_no_client_auth() // TODO: https://github.com/enarx/enarx/issues/1547
-                .with_single_cert(certs, PrivateKey(key.deref().clone()))?;
+            let cfg =
+                rustls::ServerConfig::builder_with_protocol_versions(DEFAULT_TLS_PROTOCOL_VERSIONS)
+                    //.with_cipher_suites(DEFAULT_TLS_CIPHER_SUITES)
+                    //.with_kx_groups(DEFAULT_TLS_KX_GROUPS)
+                    //.with_protocol_versions(DEFAULT_TLS_PROTOCOL_VERSIONS)?
+                    .with_no_client_auth() // TODO: https://github.com/enarx/enarx/issues/1547
+                    .with_single_cert(
+                        certs,
+                        PrivateKeyDer::try_from(key.deref().clone())
+                            .expect("failed to parse private key der"),
+                    )?;
             tls::Listener::new(tcp, Arc::new(cfg)).into()
         }
     };
@@ -73,7 +80,7 @@ pub fn listen_file(
 
 pub fn connect_file(
     file: &ConnectFile,
-    certs: Vec<Certificate>,
+    certs: Vec<CertificateDer<'static>>,
     key: &Zeroizing<Vec<u8>>,
 ) -> Result<(Box<dyn WasiFile>, FileCaps)> {
     let (host, port) = match &file {
@@ -94,21 +101,24 @@ pub fn connect_file(
         ConnectFile::Tcp { .. } => wasmtime_wasi::net::Socket::from(tcp).into(),
         ConnectFile::Tls { .. } => {
             let mut server_roots = RootCertStore::empty();
-            server_roots.add_server_trust_anchors(webpki_roots::TLS_SERVER_ROOTS.0.iter().map(
-                |ta| {
-                    rustls::OwnedTrustAnchor::from_subject_spki_name_constraints(
-                        ta.subject,
-                        ta.spki,
-                        ta.name_constraints,
-                    )
-                },
-            ));
-            let cfg = rustls::ClientConfig::builder()
-                .with_cipher_suites(DEFAULT_TLS_CIPHER_SUITES)
-                .with_kx_groups(DEFAULT_TLS_KX_GROUPS)
-                .with_protocol_versions(DEFAULT_TLS_PROTOCOL_VERSIONS)?
-                .with_root_certificates(server_roots)
-                .with_single_cert(certs, PrivateKey(key.deref().clone()))?;
+            server_roots.extend(webpki_roots::TLS_SERVER_ROOTS.0.iter().map(|ta| {
+                rustls_pki_types::TrustAnchor {
+                    subject: Der::from(ta.subject),
+                    subject_public_key_info: Der::from(ta.spki),
+                    name_constraints: ta.name_constraints.map(|t| Der::from(t)),
+                }
+            }));
+            let cfg =
+                rustls::ClientConfig::builder_with_protocol_versions(DEFAULT_TLS_PROTOCOL_VERSIONS)
+                    //.with_cipher_suites(DEFAULT_TLS_CIPHER_SUITES)
+                    //.with_kx_groups(DEFAULT_TLS_KX_GROUPS)
+                    //.with_protocol_versions(DEFAULT_TLS_PROTOCOL_VERSIONS)?
+                    .with_root_certificates(server_roots)
+                    .with_client_auth_cert(
+                        certs,
+                        PrivateKeyDer::try_from(key.deref().clone())
+                            .expect("failed to parse private key der"),
+                    )?;
 
             tls::Stream::connect(tcp, host, Arc::new(cfg))?.into()
         }
