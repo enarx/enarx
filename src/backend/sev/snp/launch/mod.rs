@@ -19,7 +19,6 @@ use std::mem::size_of;
 use std::os::unix::io::AsRawFd;
 
 use bitflags::bitflags;
-use kvm_bindings::kvm_enc_region;
 use kvm_ioctls::VmFd;
 
 /// Launcher type-state that indicates a brand new launch.
@@ -93,12 +92,6 @@ impl<V: AsRawFd> Launcher<Started, V> {
     pub fn update_data(&mut self, update: Update<'_>) -> Result<()> {
         let launch_update_data = LaunchUpdate::from(update);
         let mut cmd = Command::from(&mut self.sev, &launch_update_data);
-
-        let memory_region = kvm_enc_region {
-            addr: update.uaddr.as_ptr() as _,
-            size: update.uaddr.len() as _,
-        };
-        self.vm_fd.register_enc_memory_region(&memory_region)?;
 
         SNP_LAUNCH_UPDATE
             .ioctl(&mut self.vm_fd, &mut cmd)

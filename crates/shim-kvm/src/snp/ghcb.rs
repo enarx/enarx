@@ -526,11 +526,6 @@ impl RwLocked<GhcbHandle<'_>> {
                 }
             }
 
-            if this.ghcb.save_area.sw_exit_info2 != 0 {
-                unsafe {
-                    crate::debug::_early_debug_panic(4, 0x34);
-                }
-            }
             if psc_desc.reserved != 0 {
                 unsafe {
                     crate::debug::_early_debug_panic(4, 0x35);

@@ -12,7 +12,10 @@ use sallyport::libc::timespec;
 #[test]
 fn balloon_memory() {
     run_test(1, [0xff; 16], move |_, _, handler| {
-        assert_eq!(handler.balloon_memory(1, 2, 0xfeed as _), Err(ENOSYS));
+        assert_eq!(
+            handler.balloon_memory(1, 2, 0xfeed as _, false),
+            Err(ENOSYS)
+        );
     })
 }
 

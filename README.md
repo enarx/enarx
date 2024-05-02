@@ -6,6 +6,7 @@
 <a href="https://github.com/enarx/enarx/labels/bug"><img alt="Bug Status", src="https://img.shields.io/github/issues-raw/enarx/enarx/bug"></a>
 <a href="https://github.com/enarx/enarx/pulse"><img alt="Maintenance Status", src="https://img.shields.io/github/commit-activity/y/enarx/enarx"></a>
 <a href="https://codecov.io/gh/enarx/enarx"><img alt="Coverage Status", src="https://codecov.io/gh/enarx/enarx/branch/main/graph/badge.svg?token=03QIZXNJ2Y"></a>
+<a href="https://www.bestpractices.dev/projects/5414"><img src="https://www.bestpractices.dev/projects/5414/badge"></a>
 </p>
 
 # Enarx

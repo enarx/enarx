@@ -3,9 +3,9 @@
 use super::snp::firmware::Firmware;
 use super::snp::launch::*;
 
-use super::SnpKeepPersonality;
-use crate::backend::kvm::builder::kvm_new_vcpu;
-use crate::backend::kvm::mem::Region;
+use super::{set_memory_attributes, SnpKeepPersonality};
+use crate::backend::kvm::builder::{kvm_new_vcpu, map_sallyports};
+use crate::backend::kvm::mem::{Region, Slot};
 use crate::backend::sev::config::Config;
 use crate::backend::ByteSized;
 
@@ -19,6 +19,7 @@ use kvm_ioctls::Kvm;
 use mmarinus::{perms, Map};
 use primordial::Page;
 use rand::{thread_rng, Rng};
+use sallyport::elf::pf::kvm::SALLYPORT;
 use sallyport::elf::pf::snp::{CPUID, SECRETS};
 use shared::std::cpuid_page::CpuidPage;
 use x86_64::VirtAddr;
@@ -70,8 +71,10 @@ impl TryFrom<super::config::Config> for Builder {
             // try to open /dev/sev and start the Launcher several times
 
             let kvm_fd = Kvm::new().context("Failed to open '/dev/kvm'")?;
+
+            const KVM_X86_SNP_VM: u64 = 3;
             let vm_fd = kvm_fd
-                .create_vm()
+                .create_vm_with_type(KVM_X86_SNP_VM)
                 .context("Failed to create a virtual machine")?;
 
             let sev = retry(|| Firmware::open().context("Failed to open '/dev/sev'"))?;
@@ -114,14 +117,20 @@ impl super::super::Mapper for Builder {
             return Ok(());
         }
 
-        let mem_region = super::super::kvm::builder::kvm_builder_map(
-            self.config.sallyport_block_size as _,
-            &mut self.sallyports,
+        if with & SALLYPORT != 0 {
+            map_sallyports(
+                &pages,
+                self.config.sallyport_block_size,
+                &mut self.sallyports,
+            );
+        }
+
+        let slot = Slot::new(
             self.launcher.as_mut(),
-            &mut pages,
-            to,
-            with,
-            self.regions.len() as _,
+            self.regions.len() as u32,
+            &pages,
+            to as u64,
+            true,
         )?;
 
         let dp = VmplPerms::empty();
@@ -179,7 +188,9 @@ impl super::super::Mapper for Builder {
                 .context("SNP Launcher update_data failed")?;
         };
 
-        self.regions.push(Region::new(mem_region, pages));
+        set_memory_attributes(self.launcher.as_mut(), to as u64, pages.len() as u64, true)?;
+
+        self.regions.push(Region::new(slot, pages));
 
         Ok(())
     }
