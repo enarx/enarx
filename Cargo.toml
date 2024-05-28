@@ -16,7 +16,7 @@ default = []
 
 # non-default features
 gdb = ["dep:gdbstub", "enarx-shim-kvm/gdb", "enarx-shim-sgx/gdb"]
-dbg = [ "enarx-exec-wasmtime/dbg", "enarx-shim-kvm/dbg", "enarx-shim-sgx/dbg" ]
+dbg = ["enarx-exec-wasmtime/dbg", "enarx-shim-kvm/dbg", "enarx-shim-sgx/dbg"]
 disable-sgx-attestation = ["enarx-shim-sgx/disable-sgx-attestation"]
 bench = ["dep:tracing-flame", "enarx-exec-wasmtime/bench", "enarx-shim-kvm/bench", "enarx-shim-sgx/bench"]
 
@@ -92,14 +92,14 @@ protobuf-codegen-pure = { workspace = true }
 
 [dev-dependencies]
 process_control = { workspace = true }
-rustls = { workspace = true, features = ["dangerous_configuration"] } # `dangerous_configuration` is required to specify a custom TLS verifier
+rustls = { workspace = true }
 shell-words = { workspace = true }
 testaso = { workspace = true }
 tempfile = { workspace = true }
 wat = { workspace = true }
 
 # binary dependencies
-enarx_wasm_tests  = { path = "tests/crates/enarx_wasm_tests", artifact = "bin", target = "wasm32-wasi", default-features = false }
+enarx_wasm_tests = { path = "tests/crates/enarx_wasm_tests", artifact = "bin", target = "wasm32-wasi", default-features = false }
 
 [target.'cfg(all(target_os = "linux", target_arch = "x86_64"))'.dev-dependencies]
 enarx_exec_tests = { path = "tests/crates/enarx_exec_tests", artifact = "bin", target = "x86_64-unknown-linux-musl", default-features = false }
@@ -159,8 +159,8 @@ const-oid = { version = "0.9.5", default-features = false }
 crt0stack = { version = "0.1.0", default-features = false }
 der = { version = "0.7.8", features = ["derive", "std"], default-features = false }
 dirs = { version = "4.0.0", default-features = false }
-drawbridge-client = { version = "0.2.2", default-features = false }
-drawbridge-server = { version = "0.2.2", default-features = false }
+drawbridge-client = { version = "0.4.2", default-features = false }
+drawbridge-server = { version = "0.4.2", default-features = false }
 enarx-exec-wasmtime = { version = "0.7.1", path = "crates/exec-wasmtime", default-features = false }
 enarx-config = { version = "0.7.1", path = "crates/enarx-config", default-features = false }
 futures = { version = "0.3.21", default-features = false }
@@ -197,9 +197,10 @@ protobuf-codegen-pure = { version = "2.27.0", default-features = false }
 rand = { version = "0.8.5", features = ["std", "std_rng"], default-features = false }
 rcrt1 = { version = "2.5.0", default-features = false }
 ring = { version = "0.16.20", features = ["std"], default-features = false }
-rsa = { version = "0.9.3", features = ["std"], default-features = false }
-rustls = { version = "0.20.6", default-features = false }
-rustls-pemfile = { version = "1.0.0", default-features = false }
+rsa = { version = "0.9.6", features = ["std"], default-features = false }
+rustls = { version = "0.22.4", default-features = false }
+rustls-pemfile = { version = "2.1.2", default-features = false }
+rustls-pki-types = { version = "1.4.1", default-features = false }
 sallyport = { version = "0.7.1", path = "crates/sallyport", default-features = false }
 shared = { version = "0.7.1", path = "crates/shared", default-features = false }
 sec1 = { version = "0.7.3", features = ["der", "std"], default-features = false }

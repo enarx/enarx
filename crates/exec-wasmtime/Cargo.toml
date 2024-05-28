@@ -25,6 +25,7 @@ pkcs8 = { workspace = true }
 ring = { workspace = true }
 rustix = { workspace = true }
 rustls = { workspace = true }
+rustls-pki-types = { workspace = true }
 sec1 = { workspace = true }
 serde = { workspace = true }
 sha2 = { workspace = true }

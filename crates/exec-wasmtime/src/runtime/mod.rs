@@ -45,7 +45,7 @@ impl Runtime {
             identity::selfsigned(&prvkey).context("failed to generate self-signed certificates")?
         }
         .into_iter()
-        .map(rustls::Certificate)
+        .map(rustls_pki_types::CertificateDer::from)
         .collect::<Vec<_>>();
 
         let mut config = wasmtime::Config::new();

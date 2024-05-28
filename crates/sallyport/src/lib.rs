@@ -6,7 +6,6 @@
 //#![deny(missing_docs)]
 #![feature(c_size_t)]
 #![feature(slice_ptr_get)]
-#![feature(slice_ptr_len)]
 
 pub mod elf;
 #[cfg(any(
