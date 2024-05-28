@@ -184,7 +184,7 @@ nbytes = { version = "0.1.0", default-features = false }
 noted = { version = "1.0.0", default-features = false }
 numtoa = { version = "0.2.4", default-features = false }
 oauth2 = { version = "4.2.2", default-features = false, features = ["ureq"] }
-once_cell = { version = "1.13.0", default-features = false }
+once_cell = { version = "1.19.0", default-features = false }
 openidconnect = { version = "2.3.1", default-features = false }
 p384 = { version = "0.13.0", features = ["std", "pem", "ecdsa"], default-features = false }
 paste = { version = "1.0.0", default-features = false }
