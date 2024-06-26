@@ -72,7 +72,7 @@ impl TryFrom<super::config::Config> for Builder {
 
             let kvm_fd = Kvm::new().context("Failed to open '/dev/kvm'")?;
 
-            const KVM_X86_SNP_VM: u64 = 3;
+            const KVM_X86_SNP_VM: u64 = 4;
             let vm_fd = kvm_fd
                 .create_vm_with_type(KVM_X86_SNP_VM)
                 .context("Failed to create a virtual machine")?;
