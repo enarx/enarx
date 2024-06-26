@@ -6,6 +6,7 @@ use super::snp::launch::*;
 use super::{set_memory_attributes, SnpKeepPersonality};
 use crate::backend::kvm::builder::{kvm_new_vcpu, map_sallyports};
 use crate::backend::kvm::mem::{Region, Slot};
+use crate::backend::kvm::KVM_HC_MAP_GPA_RANGE;
 use crate::backend::sev::config::Config;
 use crate::backend::ByteSized;
 
@@ -15,6 +16,7 @@ use std::{thread, time};
 
 use crate::backend::sev::cpuid_page::import_from_kvm;
 use anyhow::{anyhow, Context, Error};
+use kvm_bindings::{kvm_enable_cap, KVM_CAP_EXIT_HYPERCALL};
 use kvm_ioctls::Kvm;
 use mmarinus::{perms, Map};
 use primordial::Page;
@@ -76,6 +78,15 @@ impl TryFrom<super::config::Config> for Builder {
             let vm_fd = kvm_fd
                 .create_vm_with_type(KVM_X86_SNP_VM)
                 .context("Failed to create a virtual machine")?;
+
+            vm_fd
+                .enable_cap(&kvm_enable_cap {
+                    cap: KVM_CAP_EXIT_HYPERCALL,
+                    flags: 0,
+                    args: [1 << KVM_HC_MAP_GPA_RANGE, 0, 0, 0],
+                    pad: [0; 64],
+                })
+                .context("Failed to enable hypercall exits")?;
 
             let sev = retry(|| Firmware::open().context("Failed to open '/dev/sev'"))?;
             // FIXME: use RESTRICTED_INJECTION when available
