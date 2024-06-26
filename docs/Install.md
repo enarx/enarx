@@ -40,7 +40,7 @@ EOF
 #### Hardware requirements for SEV
 For AMD our recommendation would be the EPYC 7003 Milan. This [article](https://www.servethehome.com/amd-epyc-7003-milan-sku-list-and-value-analysis/) offers an analysis of the different models.
 
-- You must run a Linux kernel with patches applied from this repository tree: https://github.com/AMDESE/linux/tree/sev-snp-part2-v6
+- You must run a Linux kernel with patches applied from this repository tree: https://github.com/AMDESE/linux/tree/snp-guest-req-v1b
 - Update the machine to the latest BIOS and/or install the [latest firmware](https://developer.amd.com/sev/):
 
 ```sh:snp;
