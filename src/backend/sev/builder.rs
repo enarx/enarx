@@ -208,9 +208,9 @@ impl TryFrom<Builder> for Arc<dyn super::super::Keep> {
             id_block = IdBlock::from_bytes(&sig_blob.id_block)
                 .ok_or_else(|| anyhow!("Invalid SEV signature IdBlock blob size."))?;
 
-            Finish::new(Some((&id_block, &id_auth)), true, [0u8; 32])
+            Finish::new(Some((&id_block, &id_auth)), true, false, [0u8; 32])
         } else {
-            Finish::new(None, false, [0u8; 32])
+            Finish::new(None, false, false, [0u8; 32])
         };
 
         let (vm_fd, sev_fd) = launcher

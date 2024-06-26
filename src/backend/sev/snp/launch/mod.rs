@@ -204,6 +204,8 @@ pub struct Finish<'a, 'b> {
     /// Indicates that the author key is present in the ID authentication information structure.
     pub(crate) auth_key_en: bool,
 
+    pub(crate) vcek_disabled: bool,
+
     /// Opaque host-supplied data to describe the guest. The firmware does not interpret this
     /// value.
     pub(crate) host_data: [u8; KVM_SEV_SNP_FINISH_DATA_SIZE],
@@ -214,11 +216,13 @@ impl<'a, 'b> Finish<'a, 'b> {
     pub fn new(
         id_block_n_auth: Option<(&'a IdBlock, &'b IdAuth)>,
         auth_key_en: bool,
+        vcek_disabled: bool,
         host_data: [u8; KVM_SEV_SNP_FINISH_DATA_SIZE],
     ) -> Self {
         Self {
             id_block_n_auth,
             auth_key_en,
+            vcek_disabled,
             host_data,
         }
     }
