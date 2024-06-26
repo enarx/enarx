@@ -22,7 +22,7 @@ impl_const_id! {
     Init2 = 22,
     LaunchStart = 100,
     LaunchUpdate<'_> = 101,
-    LaunchFinish<'_> = 25,
+    LaunchFinish<'_> = 102,
 }
 
 const KVM: Group = Group::new(0xAE);
@@ -218,10 +218,16 @@ pub struct LaunchFinish<'a> {
     /// Ignored if ID_BLOCK_EN is 0.
     auth_key_en: u8,
 
+    vcek_disabled: u8,
+
     /// Opaque host-supplied data to describe the guest. The firmware does not interpret this value.
     host_data: [u8; KVM_SEV_SNP_FINISH_DATA_SIZE],
 
-    pad: [u8; 6],
+    pad: [u8; 3],
+
+    flags: u16,
+
+    pad1: [u64; 4],
 
     _phantom: PhantomData<&'a [u8]>,
 }
@@ -239,8 +245,11 @@ impl From<Finish<'_, '_>> for LaunchFinish<'_> {
                 .unwrap_or(0),
             id_block_en: finish.id_block_n_auth.is_some().into(),
             auth_key_en: finish.auth_key_en.into(),
+            vcek_disabled: u8::from(finish.vcek_disabled),
             host_data: finish.host_data,
-            pad: [0u8; 6],
+            pad: [0u8; 3],
+            flags: 0,
+            pad1: [0; 4],
             _phantom: PhantomData,
         }
     }
