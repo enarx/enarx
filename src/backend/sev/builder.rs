@@ -132,8 +132,6 @@ impl super::super::Mapper for Builder {
             true,
         )?;
 
-        let dp = VmplPerms::empty();
-
         if with & CPUID != 0 {
             assert_eq!(pages.len(), Page::SIZE);
             let mut cpuid_page = CpuidPage::default();
@@ -145,13 +143,7 @@ impl super::super::Mapper for Builder {
                 guest_cpuid_page.write(cpuid_page);
             }
 
-            let update = Update::new(
-                to as u64 >> 12,
-                &pages,
-                false,
-                PageType::Cpuid,
-                (dp, dp, dp),
-            );
+            let update = Update::new(to as u64 >> 12, &pages, PageType::Cpuid);
 
             if self.launcher.update_data(update).is_err() {
                 // Just try again with the firmware corrected values
@@ -162,25 +154,13 @@ impl super::super::Mapper for Builder {
         } else if with & SECRETS != 0 {
             assert_eq!(pages.len(), Page::SIZE);
 
-            let update = Update::new(
-                to as u64 >> 12,
-                &pages,
-                false,
-                PageType::Secrets,
-                (dp, dp, dp),
-            );
+            let update = Update::new(to as u64 >> 12, &pages, PageType::Secrets);
 
             self.launcher
                 .update_data(update)
                 .context("SNP Launcher update_data failed")?;
         } else {
-            let update = Update::new(
-                to as u64 >> 12,
-                pages.as_ref(),
-                false,
-                PageType::Normal,
-                (dp, dp, dp),
-            );
+            let update = Update::new(to as u64 >> 12, pages.as_ref(), PageType::Normal);
 
             self.launcher
                 .update_data(update)

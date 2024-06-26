@@ -90,12 +90,16 @@ impl<V: AsRawFd> Launcher<New, V> {
 impl<V: AsRawFd> Launcher<Started, V> {
     /// Encrypt guest SNP data.
     pub fn update_data(&mut self, update: Update<'_>) -> Result<()> {
-        let launch_update_data = LaunchUpdate::from(update);
-        let mut cmd = Command::from(&mut self.sev, &launch_update_data);
+        let mut launch_update_data = LaunchUpdate::from(update);
 
-        SNP_LAUNCH_UPDATE
-            .ioctl(&mut self.vm_fd, &mut cmd)
-            .map_err(|e| cmd.encapsulate(e))?;
+        // We may need to issue the ioctl multiple times until the launch
+        // updates has been completed.
+        while !launch_update_data.is_done() {
+            let mut cmd = Command::from_mut(&mut self.sev, &mut launch_update_data);
+            SNP_LAUNCH_UPDATE
+                .ioctl(&mut self.vm_fd, &mut cmd)
+                .map_err(|e| cmd.encapsulate(e))?;
+        }
 
         Ok(())
     }
@@ -132,52 +136,18 @@ pub struct Update<'a> {
     /// The userspace of address of the encrypted region.
     pub(crate) uaddr: &'a [u8],
 
-    /// Indicates that this page is part of the IMI of the guest.
-    pub(crate) imi_page: bool,
-
     /// Encoded page type.
     pub(crate) page_type: PageType,
-
-    /// VMPL3 permission mask.
-    pub(crate) vmpl3_perms: VmplPerms,
-
-    /// VMPL2 permission mask.
-    pub(crate) vmpl2_perms: VmplPerms,
-
-    /// VMPL1 permission mask.
-    pub(crate) vmpl1_perms: VmplPerms,
 }
 
 impl<'a> Update<'a> {
     /// Encapsulate all data needed for the SNP_LAUNCH_UPDATE ioctl.
-    pub fn new(
-        start_gfn: u64,
-        uaddr: &'a [u8],
-        imi_page: bool,
-        page_type: PageType,
-        perms: (VmplPerms, VmplPerms, VmplPerms),
-    ) -> Self {
+    pub fn new(start_gfn: u64, uaddr: &'a [u8], page_type: PageType) -> Self {
         Self {
             start_gfn,
             uaddr,
-            imi_page,
             page_type,
-            vmpl3_perms: perms.2,
-            vmpl2_perms: perms.1,
-            vmpl1_perms: perms.0,
         }
-    }
-}
-
-bitflags! {
-    #[derive(Default)]
-    /// SNP_INIT command flags.
-    pub struct SnpInitFlags: u64 {
-        /// enable the restricted interrupt/exception injection
-        const RESTRICTED_INJECTION = 1;
-
-        /// enable the restricted injection timer
-        const RESTRICTED_TIMER_INJECTION = 1 << 1;
     }
 }
 

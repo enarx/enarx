@@ -21,7 +21,7 @@ impl_const_id! {
 
     Init2 = 22,
     LaunchStart = 100,
-    LaunchUpdate<'_> = 24,
+    LaunchUpdate<'_> = 101,
     LaunchFinish<'_> = 25,
 }
 
@@ -163,25 +163,25 @@ pub struct LaunchUpdate<'a> {
 
     /// Length of the page needed to be encrypted:
     /// (end encryption uaddr = uaddr + len).
-    len: u32,
-
-    /// Indicates that this page is part of the IMI of the guest.
-    imi_page: u8,
+    len: u64,
 
     /// Encoded page type. See Table 58 if the SNP Firmware specification.
     page_type: u8,
 
-    /// VMPL permission mask for VMPL3. See Table 59 of the SNP Firmware
-    /// specification for the definition of the mask.
-    vmpl3_perms: u8,
+    pad0: u8,
 
-    /// VMPL permission mask for VMPL2.
-    vmpl2_perms: u8,
+    flags: u16,
 
-    /// VMPL permission mask for VMPL1.
-    vmpl1_perms: u8,
+    pad1: u32,
+    pad2: [u64; 4],
 
     _phantom: PhantomData<&'a ()>,
+}
+
+impl LaunchUpdate<'_> {
+    pub fn is_done(&self) -> bool {
+        self.len == 0
+    }
 }
 
 impl From<Update<'_>> for LaunchUpdate<'_> {
@@ -190,11 +190,11 @@ impl From<Update<'_>> for LaunchUpdate<'_> {
             start_gfn: update.start_gfn,
             uaddr: update.uaddr.as_ptr() as _,
             len: update.uaddr.len() as _,
-            imi_page: update.imi_page.into(),
             page_type: update.page_type as _,
-            vmpl3_perms: update.vmpl3_perms.bits(),
-            vmpl2_perms: update.vmpl2_perms.bits(),
-            vmpl1_perms: update.vmpl1_perms.bits(),
+            pad0: 0,
+            flags: 0,
+            pad1: 0,
+            pad2: [0; 4],
             _phantom: PhantomData,
         }
     }
