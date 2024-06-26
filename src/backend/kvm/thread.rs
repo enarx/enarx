@@ -650,12 +650,15 @@ impl<P: KeepPersonality> super::super::Thread for Thread<P> {
                 Ok(Command::Continue)
             }
             #[cfg(debug_assertions)]
-            reason => bail!(
-                "KVM error: {:?} {:#x?} {:#x?}",
-                reason,
-                vcpu_fd.get_regs(),
-                vcpu_fd.get_sregs()
-            ),
+            reason => {
+                let reason = format!("{reason:?}");
+                bail!(
+                    "KVM error: {} {:#x?} {:#x?}",
+                    reason,
+                    vcpu_fd.get_regs(),
+                    vcpu_fd.get_sregs()
+                )
+            }
 
             #[cfg(not(debug_assertions))]
             reason => bail!("KVM error: {:?}", reason),

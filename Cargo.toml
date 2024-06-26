@@ -173,8 +173,8 @@ http-types = { version = "2.12.0", default-features = false }
 io-extras = { version = "=0.17.0", default-features = false }
 iocuddle = { version = "0.1.1", default-features = false }
 keyring = { version = "1.1.2", default-features = false }
-kvm-bindings = { version = "0.6.0", default-features = false }
-kvm-ioctls = { version = "0.12.0", default-features = false }
+kvm-bindings = { version = "0.8.2", default-features = false }
+kvm-ioctls = { version = "0.17.0", default-features = false }
 libc = { version = "0.2.141", default-features = false }
 linked_list_allocator = { version = "0.10.1", default-features = false }
 lset = { version = "0.3.0", default-features = false }
