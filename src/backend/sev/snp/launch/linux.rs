@@ -19,7 +19,7 @@ impl_const_id! {
     /// The ioctl sub number
     pub Id => u32;
 
-    Init = 22,
+    Init2 = 22,
     LaunchStart<'_> = 23,
     LaunchUpdate<'_> = 24,
     LaunchFinish<'_> = 25,
@@ -41,7 +41,7 @@ const ENC_OP: Ioctl<WriteRead, &c_ulong> = unsafe { KVM.write_read(0xBA) };
 // that ioctl.
 
 /// Initialize the SEV-SNP platform in KVM.
-pub const SNP_INIT: Ioctl<WriteRead, &Command<'_, Init>> = unsafe { ENC_OP.lie() };
+pub const SEV_INIT2: Ioctl<WriteRead, &Command<'_, Init2>> = unsafe { ENC_OP.lie() };
 
 /// Initialize the flow to launch a guest.
 pub const SNP_LAUNCH_START: Ioctl<WriteRead, &Command<'_, LaunchStart<'_>>> =
@@ -100,15 +100,27 @@ impl<'a, T: Id> Command<'a, T> {
 /// Initialize the SEV-SNP platform in KVM.
 #[derive(Default)]
 #[repr(C, packed)]
-pub struct Init {
+pub struct Init2 {
+    /// initial value of features field in VMSA
+    vmsa_features: u64,
     /// Reserved space, must be always set to 0 when issuing the ioctl.
-    flags: u64,
+    flags: u32,
+    /// maximum guest GHCB version allowed
+    ghcb_version: u16,
+    pad1: u16,
+    pad2: [u32; 8],
 }
 
-impl Init {
+impl Init2 {
     /// Create a new `Init` command
-    pub fn new(flags: u64) -> Self {
-        Self { flags }
+    pub fn new() -> Self {
+        Self {
+            vmsa_features: 0,
+            flags: 0,
+            ghcb_version: 2,
+            pad1: 0,
+            pad2: [0; 8],
+        }
     }
 }
 

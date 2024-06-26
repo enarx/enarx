@@ -50,18 +50,18 @@ impl<T, V: AsRawFd> AsMut<VmFd> for Launcher<T, V> {
 
 impl<V: AsRawFd> Launcher<New, V> {
     /// Begin the SEV-SNP launch process by creating a Launcher and issuing the
-    /// KVM_SNP_INIT ioctl.
-    pub fn new(vm_fd: VmFd, sev: V, flags: SnpInitFlags) -> Result<Self> {
+    /// KVM_SEV_INIT2 ioctl.
+    pub fn new(vm_fd: VmFd, sev: V) -> Result<Self> {
         let mut launcher = Launcher {
             vm_fd,
             sev,
             state: PhantomData::default(),
         };
 
-        let init = Init::new(flags.bits());
+        let init = Init2::new();
 
         let mut cmd = Command::from(&mut launcher.sev, &init);
-        SNP_INIT
+        SEV_INIT2
             .ioctl(&mut launcher.vm_fd, &mut cmd)
             .map_err(|e| cmd.encapsulate(e))?;
 
