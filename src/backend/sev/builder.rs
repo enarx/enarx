@@ -132,6 +132,8 @@ impl super::super::Mapper for Builder {
             true,
         )?;
 
+        set_memory_attributes(self.launcher.as_mut(), to as u64, pages.len() as u64, true)?;
+
         if with & CPUID != 0 {
             assert_eq!(pages.len(), Page::SIZE);
             let mut cpuid_page = CpuidPage::default();
@@ -166,8 +168,6 @@ impl super::super::Mapper for Builder {
                 .update_data(update)
                 .context("SNP Launcher update_data failed")?;
         };
-
-        set_memory_attributes(self.launcher.as_mut(), to as u64, pages.len() as u64, true)?;
 
         self.regions.push(Region::new(slot, pages));
 
