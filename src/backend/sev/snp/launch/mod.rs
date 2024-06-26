@@ -69,7 +69,7 @@ impl<V: AsRawFd> Launcher<New, V> {
     }
 
     /// Initialize the flow to launch a guest.
-    pub fn start(mut self, start: Start<'_>) -> Result<Launcher<Started, V>> {
+    pub fn start(mut self, start: Start) -> Result<Launcher<Started, V>> {
         let mut launch_start = LaunchStart::from(start);
         let mut cmd = Command::from_mut(&mut self.sev, &mut launch_start);
 
@@ -115,15 +115,9 @@ impl<V: AsRawFd> Launcher<Started, V> {
 
 /// Encapsulates the various data needed to begin the launch process.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub struct Start<'a> {
-    /// The userspace address of the migration agent region to be encrypted.
-    pub(crate) ma_uaddr: Option<&'a [u8]>,
-
+pub struct Start {
     /// Describes a policy that the AMD Secure Processor will enforce.
     pub(crate) policy: u64,
-
-    /// Indicates that this launch flow is launching an IMI for the purpose of guest-assisted migration.
-    pub(crate) imi_en: bool,
 
     /// Hypervisor provided value to indicate guest OS visible workarounds.The format is hypervisor defined.
     pub(crate) gosvw: [u8; 16],

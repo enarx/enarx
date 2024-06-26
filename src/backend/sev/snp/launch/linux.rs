@@ -20,7 +20,7 @@ impl_const_id! {
     pub Id => u32;
 
     Init2 = 22,
-    LaunchStart<'_> = 23,
+    LaunchStart = 100,
     LaunchUpdate<'_> = 24,
     LaunchFinish<'_> = 25,
 }
@@ -44,8 +44,7 @@ const ENC_OP: Ioctl<WriteRead, &c_ulong> = unsafe { KVM.write_read(0xBA) };
 pub const SEV_INIT2: Ioctl<WriteRead, &Command<'_, Init2>> = unsafe { ENC_OP.lie() };
 
 /// Initialize the flow to launch a guest.
-pub const SNP_LAUNCH_START: Ioctl<WriteRead, &Command<'_, LaunchStart<'_>>> =
-    unsafe { ENC_OP.lie() };
+pub const SNP_LAUNCH_START: Ioctl<WriteRead, &Command<'_, LaunchStart>> = unsafe { ENC_OP.lie() };
 
 /// Insert pages into the guest physical address space.
 pub const SNP_LAUNCH_UPDATE: Ioctl<WriteRead, &Command<'_, LaunchUpdate<'_>>> =
@@ -126,44 +125,29 @@ impl Init2 {
 
 /// Initialize the flow to launch a guest.
 #[repr(C)]
-pub struct LaunchStart<'a> {
+pub struct LaunchStart {
     /// Guest policy. See Table 7 of the AMD SEV-SNP Firmware
     /// specification for a description of the guest policy structure.
     policy: u64,
-
-    /// Userspace address of migration agent
-    ma_uaddr: u64,
-
-    /// 1 if this guest is associated with a migration agent. Otherwise 0.
-    ma_en: u8,
-
-    /// 1 if this launch flow is launching an IMI for the purpose of
-    /// guest-assisted migration. Otherwise 0.
-    imi_en: u8,
 
     /// Hypervisor provided value to indicate guest OS visible workarounds.
     /// The format is hypervisor defined.
     gosvw: [u8; 16],
 
-    pad: [u8; 6],
+    flags: u16,
 
-    _phantom: PhantomData<&'a [u8]>,
+    pad0: [u8; 6],
+    pad1: [u64; 4],
 }
 
-impl From<Start<'_>> for LaunchStart<'_> {
-    fn from(start: Start<'_>) -> Self {
+impl From<Start> for LaunchStart {
+    fn from(start: Start) -> Self {
         Self {
             policy: start.policy,
-            ma_uaddr: if let Some(addr) = start.ma_uaddr {
-                addr.as_ptr() as u64
-            } else {
-                0
-            },
-            ma_en: start.ma_uaddr.is_some().into(),
-            imi_en: start.imi_en as _,
             gosvw: start.gosvw,
-            pad: [0u8; 6],
-            _phantom: PhantomData,
+            flags: 0,
+            pad0: [0; 6],
+            pad1: [0; 4],
         }
     }
 }
