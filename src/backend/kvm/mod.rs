@@ -22,6 +22,8 @@ pub mod data;
 pub mod mem;
 pub mod thread;
 
+pub(crate) const KVM_HC_MAP_GPA_RANGE: u64 = 12;
+
 pub trait KeepPersonality: Send + Sync + 'static {
     fn map(_vm_fd: &mut VmFd, _region: &Region, _is_private: bool) -> std::io::Result<()> {
         Ok(())

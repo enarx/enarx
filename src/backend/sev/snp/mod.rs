@@ -31,7 +31,6 @@ macro_rules! impl_const_id {
 }
 
 pub mod firmware;
-pub mod ghcb;
 pub mod launch;
 pub mod sign;
 pub mod vcek;

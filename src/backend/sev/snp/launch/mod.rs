@@ -50,18 +50,18 @@ impl<T, V: AsRawFd> AsMut<VmFd> for Launcher<T, V> {
 
 impl<V: AsRawFd> Launcher<New, V> {
     /// Begin the SEV-SNP launch process by creating a Launcher and issuing the
-    /// KVM_SNP_INIT ioctl.
-    pub fn new(vm_fd: VmFd, sev: V, flags: SnpInitFlags) -> Result<Self> {
+    /// KVM_SEV_INIT2 ioctl.
+    pub fn new(vm_fd: VmFd, sev: V) -> Result<Self> {
         let mut launcher = Launcher {
             vm_fd,
             sev,
             state: PhantomData::default(),
         };
 
-        let init = Init::new(flags.bits());
+        let init = Init2::new();
 
         let mut cmd = Command::from(&mut launcher.sev, &init);
-        SNP_INIT
+        SEV_INIT2
             .ioctl(&mut launcher.vm_fd, &mut cmd)
             .map_err(|e| cmd.encapsulate(e))?;
 
@@ -69,7 +69,7 @@ impl<V: AsRawFd> Launcher<New, V> {
     }
 
     /// Initialize the flow to launch a guest.
-    pub fn start(mut self, start: Start<'_>) -> Result<Launcher<Started, V>> {
+    pub fn start(mut self, start: Start) -> Result<Launcher<Started, V>> {
         let mut launch_start = LaunchStart::from(start);
         let mut cmd = Command::from_mut(&mut self.sev, &mut launch_start);
 
@@ -90,12 +90,16 @@ impl<V: AsRawFd> Launcher<New, V> {
 impl<V: AsRawFd> Launcher<Started, V> {
     /// Encrypt guest SNP data.
     pub fn update_data(&mut self, update: Update<'_>) -> Result<()> {
-        let launch_update_data = LaunchUpdate::from(update);
-        let mut cmd = Command::from(&mut self.sev, &launch_update_data);
+        let mut launch_update_data = LaunchUpdate::from(update);
 
-        SNP_LAUNCH_UPDATE
-            .ioctl(&mut self.vm_fd, &mut cmd)
-            .map_err(|e| cmd.encapsulate(e))?;
+        // We may need to issue the ioctl multiple times until the launch
+        // updates has been completed.
+        while !launch_update_data.is_done() {
+            let mut cmd = Command::from_mut(&mut self.sev, &mut launch_update_data);
+            SNP_LAUNCH_UPDATE
+                .ioctl(&mut self.vm_fd, &mut cmd)
+                .map_err(|e| cmd.encapsulate(e))?;
+        }
 
         Ok(())
     }
@@ -115,15 +119,9 @@ impl<V: AsRawFd> Launcher<Started, V> {
 
 /// Encapsulates the various data needed to begin the launch process.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub struct Start<'a> {
-    /// The userspace address of the migration agent region to be encrypted.
-    pub(crate) ma_uaddr: Option<&'a [u8]>,
-
+pub struct Start {
     /// Describes a policy that the AMD Secure Processor will enforce.
     pub(crate) policy: u64,
-
-    /// Indicates that this launch flow is launching an IMI for the purpose of guest-assisted migration.
-    pub(crate) imi_en: bool,
 
     /// Hypervisor provided value to indicate guest OS visible workarounds.The format is hypervisor defined.
     pub(crate) gosvw: [u8; 16],
@@ -138,52 +136,18 @@ pub struct Update<'a> {
     /// The userspace of address of the encrypted region.
     pub(crate) uaddr: &'a [u8],
 
-    /// Indicates that this page is part of the IMI of the guest.
-    pub(crate) imi_page: bool,
-
     /// Encoded page type.
     pub(crate) page_type: PageType,
-
-    /// VMPL3 permission mask.
-    pub(crate) vmpl3_perms: VmplPerms,
-
-    /// VMPL2 permission mask.
-    pub(crate) vmpl2_perms: VmplPerms,
-
-    /// VMPL1 permission mask.
-    pub(crate) vmpl1_perms: VmplPerms,
 }
 
 impl<'a> Update<'a> {
     /// Encapsulate all data needed for the SNP_LAUNCH_UPDATE ioctl.
-    pub fn new(
-        start_gfn: u64,
-        uaddr: &'a [u8],
-        imi_page: bool,
-        page_type: PageType,
-        perms: (VmplPerms, VmplPerms, VmplPerms),
-    ) -> Self {
+    pub fn new(start_gfn: u64, uaddr: &'a [u8], page_type: PageType) -> Self {
         Self {
             start_gfn,
             uaddr,
-            imi_page,
             page_type,
-            vmpl3_perms: perms.2,
-            vmpl2_perms: perms.1,
-            vmpl1_perms: perms.0,
         }
-    }
-}
-
-bitflags! {
-    #[derive(Default)]
-    /// SNP_INIT command flags.
-    pub struct SnpInitFlags: u64 {
-        /// enable the restricted interrupt/exception injection
-        const RESTRICTED_INJECTION = 1;
-
-        /// enable the restricted injection timer
-        const RESTRICTED_TIMER_INJECTION = 1 << 1;
     }
 }
 
@@ -240,6 +204,8 @@ pub struct Finish<'a, 'b> {
     /// Indicates that the author key is present in the ID authentication information structure.
     pub(crate) auth_key_en: bool,
 
+    pub(crate) vcek_disabled: bool,
+
     /// Opaque host-supplied data to describe the guest. The firmware does not interpret this
     /// value.
     pub(crate) host_data: [u8; KVM_SEV_SNP_FINISH_DATA_SIZE],
@@ -250,11 +216,13 @@ impl<'a, 'b> Finish<'a, 'b> {
     pub fn new(
         id_block_n_auth: Option<(&'a IdBlock, &'b IdAuth)>,
         auth_key_en: bool,
+        vcek_disabled: bool,
         host_data: [u8; KVM_SEV_SNP_FINISH_DATA_SIZE],
     ) -> Self {
         Self {
             id_block_n_auth,
             auth_key_en,
+            vcek_disabled,
             host_data,
         }
     }

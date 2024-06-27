@@ -6,6 +6,7 @@ use super::snp::launch::*;
 use super::{set_memory_attributes, SnpKeepPersonality};
 use crate::backend::kvm::builder::{kvm_new_vcpu, map_sallyports};
 use crate::backend::kvm::mem::{Region, Slot};
+use crate::backend::kvm::KVM_HC_MAP_GPA_RANGE;
 use crate::backend::sev::config::Config;
 use crate::backend::ByteSized;
 
@@ -15,6 +16,7 @@ use std::{thread, time};
 
 use crate::backend::sev::cpuid_page::import_from_kvm;
 use anyhow::{anyhow, Context, Error};
+use kvm_bindings::{kvm_enable_cap, KVM_CAP_EXIT_HYPERCALL};
 use kvm_ioctls::Kvm;
 use mmarinus::{perms, Map};
 use primordial::Page;
@@ -72,15 +74,23 @@ impl TryFrom<super::config::Config> for Builder {
 
             let kvm_fd = Kvm::new().context("Failed to open '/dev/kvm'")?;
 
-            const KVM_X86_SNP_VM: u64 = 3;
+            const KVM_X86_SNP_VM: u64 = 4;
             let vm_fd = kvm_fd
                 .create_vm_with_type(KVM_X86_SNP_VM)
                 .context("Failed to create a virtual machine")?;
 
+            vm_fd
+                .enable_cap(&kvm_enable_cap {
+                    cap: KVM_CAP_EXIT_HYPERCALL,
+                    flags: 0,
+                    args: [1 << KVM_HC_MAP_GPA_RANGE, 0, 0, 0],
+                    pad: [0; 64],
+                })
+                .context("Failed to enable hypercall exits")?;
+
             let sev = retry(|| Firmware::open().context("Failed to open '/dev/sev'"))?;
-            // FIXME: use SnpInitFlags::RESTRICTED_INJECTION when available
-            let launcher = Launcher::new(vm_fd, sev, SnpInitFlags::empty())
-                .context("SNP Launcher init failed")?;
+            // FIXME: use RESTRICTED_INJECTION when available
+            let launcher = Launcher::new(vm_fd, sev).context("SNP Launcher init failed")?;
 
             Ok((kvm_fd, launcher))
         })?;
@@ -133,7 +143,7 @@ impl super::super::Mapper for Builder {
             true,
         )?;
 
-        let dp = VmplPerms::empty();
+        set_memory_attributes(self.launcher.as_mut(), to as u64, pages.len() as u64, true)?;
 
         if with & CPUID != 0 {
             assert_eq!(pages.len(), Page::SIZE);
@@ -146,13 +156,7 @@ impl super::super::Mapper for Builder {
                 guest_cpuid_page.write(cpuid_page);
             }
 
-            let update = Update::new(
-                to as u64 >> 12,
-                &pages,
-                false,
-                PageType::Cpuid,
-                (dp, dp, dp),
-            );
+            let update = Update::new(to as u64 >> 12, &pages, PageType::Cpuid);
 
             if self.launcher.update_data(update).is_err() {
                 // Just try again with the firmware corrected values
@@ -163,32 +167,18 @@ impl super::super::Mapper for Builder {
         } else if with & SECRETS != 0 {
             assert_eq!(pages.len(), Page::SIZE);
 
-            let update = Update::new(
-                to as u64 >> 12,
-                &pages,
-                false,
-                PageType::Secrets,
-                (dp, dp, dp),
-            );
+            let update = Update::new(to as u64 >> 12, &pages, PageType::Secrets);
 
             self.launcher
                 .update_data(update)
                 .context("SNP Launcher update_data failed")?;
         } else {
-            let update = Update::new(
-                to as u64 >> 12,
-                pages.as_ref(),
-                false,
-                PageType::Normal,
-                (dp, dp, dp),
-            );
+            let update = Update::new(to as u64 >> 12, pages.as_ref(), PageType::Normal);
 
             self.launcher
                 .update_data(update)
                 .context("SNP Launcher update_data failed")?;
         };
-
-        set_memory_attributes(self.launcher.as_mut(), to as u64, pages.len() as u64, true)?;
 
         self.regions.push(Region::new(slot, pages));
 
@@ -229,9 +219,9 @@ impl TryFrom<Builder> for Arc<dyn super::super::Keep> {
             id_block = IdBlock::from_bytes(&sig_blob.id_block)
                 .ok_or_else(|| anyhow!("Invalid SEV signature IdBlock blob size."))?;
 
-            Finish::new(Some((&id_block, &id_auth)), true, [0u8; 32])
+            Finish::new(Some((&id_block, &id_auth)), true, false, [0u8; 32])
         } else {
-            Finish::new(None, false, [0u8; 32])
+            Finish::new(None, false, false, [0u8; 32])
         };
 
         let (vm_fd, sev_fd) = launcher

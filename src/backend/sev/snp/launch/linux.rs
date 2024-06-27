@@ -19,10 +19,10 @@ impl_const_id! {
     /// The ioctl sub number
     pub Id => u32;
 
-    Init = 22,
-    LaunchStart<'_> = 23,
-    LaunchUpdate<'_> = 24,
-    LaunchFinish<'_> = 25,
+    Init2 = 22,
+    LaunchStart = 100,
+    LaunchUpdate<'_> = 101,
+    LaunchFinish<'_> = 102,
 }
 
 const KVM: Group = Group::new(0xAE);
@@ -41,11 +41,10 @@ const ENC_OP: Ioctl<WriteRead, &c_ulong> = unsafe { KVM.write_read(0xBA) };
 // that ioctl.
 
 /// Initialize the SEV-SNP platform in KVM.
-pub const SNP_INIT: Ioctl<WriteRead, &Command<'_, Init>> = unsafe { ENC_OP.lie() };
+pub const SEV_INIT2: Ioctl<WriteRead, &Command<'_, Init2>> = unsafe { ENC_OP.lie() };
 
 /// Initialize the flow to launch a guest.
-pub const SNP_LAUNCH_START: Ioctl<WriteRead, &Command<'_, LaunchStart<'_>>> =
-    unsafe { ENC_OP.lie() };
+pub const SNP_LAUNCH_START: Ioctl<WriteRead, &Command<'_, LaunchStart>> = unsafe { ENC_OP.lie() };
 
 /// Insert pages into the guest physical address space.
 pub const SNP_LAUNCH_UPDATE: Ioctl<WriteRead, &Command<'_, LaunchUpdate<'_>>> =
@@ -100,58 +99,55 @@ impl<'a, T: Id> Command<'a, T> {
 /// Initialize the SEV-SNP platform in KVM.
 #[derive(Default)]
 #[repr(C, packed)]
-pub struct Init {
+pub struct Init2 {
+    /// initial value of features field in VMSA
+    vmsa_features: u64,
     /// Reserved space, must be always set to 0 when issuing the ioctl.
-    flags: u64,
+    flags: u32,
+    /// maximum guest GHCB version allowed
+    ghcb_version: u16,
+    pad1: u16,
+    pad2: [u32; 8],
 }
 
-impl Init {
+impl Init2 {
     /// Create a new `Init` command
-    pub fn new(flags: u64) -> Self {
-        Self { flags }
+    pub fn new() -> Self {
+        Self {
+            vmsa_features: 0,
+            flags: 0,
+            ghcb_version: 2,
+            pad1: 0,
+            pad2: [0; 8],
+        }
     }
 }
 
 /// Initialize the flow to launch a guest.
 #[repr(C)]
-pub struct LaunchStart<'a> {
+pub struct LaunchStart {
     /// Guest policy. See Table 7 of the AMD SEV-SNP Firmware
     /// specification for a description of the guest policy structure.
     policy: u64,
-
-    /// Userspace address of migration agent
-    ma_uaddr: u64,
-
-    /// 1 if this guest is associated with a migration agent. Otherwise 0.
-    ma_en: u8,
-
-    /// 1 if this launch flow is launching an IMI for the purpose of
-    /// guest-assisted migration. Otherwise 0.
-    imi_en: u8,
 
     /// Hypervisor provided value to indicate guest OS visible workarounds.
     /// The format is hypervisor defined.
     gosvw: [u8; 16],
 
-    pad: [u8; 6],
+    flags: u16,
 
-    _phantom: PhantomData<&'a [u8]>,
+    pad0: [u8; 6],
+    pad1: [u64; 4],
 }
 
-impl From<Start<'_>> for LaunchStart<'_> {
-    fn from(start: Start<'_>) -> Self {
+impl From<Start> for LaunchStart {
+    fn from(start: Start) -> Self {
         Self {
             policy: start.policy,
-            ma_uaddr: if let Some(addr) = start.ma_uaddr {
-                addr.as_ptr() as u64
-            } else {
-                0
-            },
-            ma_en: start.ma_uaddr.is_some().into(),
-            imi_en: start.imi_en as _,
             gosvw: start.gosvw,
-            pad: [0u8; 6],
-            _phantom: PhantomData,
+            flags: 0,
+            pad0: [0; 6],
+            pad1: [0; 4],
         }
     }
 }
@@ -167,25 +163,25 @@ pub struct LaunchUpdate<'a> {
 
     /// Length of the page needed to be encrypted:
     /// (end encryption uaddr = uaddr + len).
-    len: u32,
-
-    /// Indicates that this page is part of the IMI of the guest.
-    imi_page: u8,
+    len: u64,
 
     /// Encoded page type. See Table 58 if the SNP Firmware specification.
     page_type: u8,
 
-    /// VMPL permission mask for VMPL3. See Table 59 of the SNP Firmware
-    /// specification for the definition of the mask.
-    vmpl3_perms: u8,
+    pad0: u8,
 
-    /// VMPL permission mask for VMPL2.
-    vmpl2_perms: u8,
+    flags: u16,
 
-    /// VMPL permission mask for VMPL1.
-    vmpl1_perms: u8,
+    pad1: u32,
+    pad2: [u64; 4],
 
     _phantom: PhantomData<&'a ()>,
+}
+
+impl LaunchUpdate<'_> {
+    pub fn is_done(&self) -> bool {
+        self.len == 0
+    }
 }
 
 impl From<Update<'_>> for LaunchUpdate<'_> {
@@ -194,11 +190,11 @@ impl From<Update<'_>> for LaunchUpdate<'_> {
             start_gfn: update.start_gfn,
             uaddr: update.uaddr.as_ptr() as _,
             len: update.uaddr.len() as _,
-            imi_page: update.imi_page.into(),
             page_type: update.page_type as _,
-            vmpl3_perms: update.vmpl3_perms.bits(),
-            vmpl2_perms: update.vmpl2_perms.bits(),
-            vmpl1_perms: update.vmpl1_perms.bits(),
+            pad0: 0,
+            flags: 0,
+            pad1: 0,
+            pad2: [0; 4],
             _phantom: PhantomData,
         }
     }
@@ -222,10 +218,16 @@ pub struct LaunchFinish<'a> {
     /// Ignored if ID_BLOCK_EN is 0.
     auth_key_en: u8,
 
+    vcek_disabled: u8,
+
     /// Opaque host-supplied data to describe the guest. The firmware does not interpret this value.
     host_data: [u8; KVM_SEV_SNP_FINISH_DATA_SIZE],
 
-    pad: [u8; 6],
+    pad: [u8; 3],
+
+    flags: u16,
+
+    pad1: [u64; 4],
 
     _phantom: PhantomData<&'a [u8]>,
 }
@@ -243,8 +245,11 @@ impl From<Finish<'_, '_>> for LaunchFinish<'_> {
                 .unwrap_or(0),
             id_block_en: finish.id_block_n_auth.is_some().into(),
             auth_key_en: finish.auth_key_en.into(),
+            vcek_disabled: u8::from(finish.vcek_disabled),
             host_data: finish.host_data,
-            pad: [0u8; 6],
+            pad: [0u8; 3],
+            flags: 0,
+            pad1: [0; 4],
             _phantom: PhantomData,
         }
     }
@@ -259,7 +264,7 @@ impl From<Finish<'_, '_>> for LaunchFinish<'_> {
 ///
 /// A real fix would be a KVM_SNP_LAUNCH_FINISH_WITH_RESET_VECTOR ioctl, with a well-defined VMSA page contents.
 pub const SEV_SNP_VMSA_SHA384: [u8; 48] = [
-    0x82, 0x99, 0x7f, 0x94, 0x44, 0xa4, 0x39, 0xbd, 0x6e, 0xd1, 0xc6, 0x9f, 0x17, 0xb3, 0xb5, 0xe2,
-    0x3d, 0x9c, 0xa9, 0x9b, 0x9d, 0xfe, 0xf0, 0xd1, 0x74, 0x20, 0x87, 0x35, 0xc3, 0xd3, 0xea, 0x88,
-    0xa9, 0x39, 0x96, 0x26, 0xfd, 0x8f, 0xc3, 0x69, 0x09, 0x69, 0x57, 0xbb, 0xc5, 0x60, 0x67, 0xe0,
+    0x64, 0x65, 0x7e, 0x8c, 0xbf, 0xcb, 0x82, 0x71, 0x16, 0xbf, 0x6e, 0x1b, 0x2d, 0xcc, 0x27, 0x49,
+    0x18, 0xe6, 0xa2, 0x17, 0xb7, 0x59, 0x97, 0xdf, 0x16, 0x45, 0x52, 0x5e, 0x71, 0x59, 0x58, 0x13,
+    0xf8, 0x99, 0x13, 0xc4, 0x60, 0x62, 0x1d, 0xb2, 0xa2, 0xa2, 0xe2, 0xbc, 0x91, 0x4d, 0x98, 0x5d,
 ];

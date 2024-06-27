@@ -130,7 +130,7 @@ pub fn set_memory_attributes(
     };
 
     const KVM_SET_MEMORY_ATTRIBUTES: Ioctl<Write, &KvmSetMemoryAttributes> =
-        unsafe { Group::new(0xAE).write::<KvmSetMemoryAttributes>(0xd3) };
+        unsafe { Group::new(0xAE).write::<KvmSetMemoryAttributes>(0xd2) };
 
     KVM_SET_MEMORY_ATTRIBUTES.ioctl(vm_fd, &attributes)?;
 
