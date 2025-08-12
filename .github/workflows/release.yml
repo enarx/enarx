@@ -108,7 +108,7 @@ jobs:
     needs: build-nix
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/download-artifact@v4
+    - uses: actions/download-artifact@v5
       with:
         name: enarx-x86_64-unknown-linux-musl
     - run: chmod +x enarx-x86_64-unknown-linux-musl
@@ -143,10 +143,10 @@ jobs:
     needs: build-nix
     runs-on: macos-latest
     steps:
-    - uses: actions/download-artifact@v4
+    - uses: actions/download-artifact@v5
       with:
         name: enarx-aarch64-apple-darwin
-    - uses: actions/download-artifact@v4
+    - uses: actions/download-artifact@v5
       with:
         name: enarx-x86_64-apple-darwin
     - run: lipo -create ./enarx-aarch64-apple-darwin ./enarx-x86_64-apple-darwin -output ./enarx-universal-darwin
@@ -165,7 +165,7 @@ jobs:
 
     runs-on: ${{ matrix.platform.host }}
     steps:
-    - uses: actions/download-artifact@v4
+    - uses: actions/download-artifact@v5
       with:
         name: enarx-universal-darwin
     - run: chmod +x ./enarx-universal-darwin
@@ -183,11 +183,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v5
-    - uses: actions/download-artifact@v4
+    - uses: actions/download-artifact@v5
       with:
         name: "enarx-${{ matrix.architecture }}-unknown-linux-musl"
     - if: ${{ matrix.architecture == 'x86_64' }}
-      uses: actions/download-artifact@v4
+      uses: actions/download-artifact@v5
       with:
         name: "enarx-x86_64-unknown-linux-musl-sig"
     - id: version
@@ -223,11 +223,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v5
-    - uses: actions/download-artifact@v4
+    - uses: actions/download-artifact@v5
       with:
         name: "enarx-${{ matrix.architecture.build }}-unknown-linux-musl"
     - if: ${{ matrix.architecture.build == 'x86_64' }}
-      uses: actions/download-artifact@v4
+      uses: actions/download-artifact@v5
       with:
         name: "enarx-x86_64-unknown-linux-musl-sig"
     - id: version
@@ -265,10 +265,10 @@ jobs:
       packages: write
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/download-artifact@v4
+    - uses: actions/download-artifact@v5
       with:
         name: enarx-aarch64-unknown-linux-musl-oci
-    - uses: actions/download-artifact@v4
+    - uses: actions/download-artifact@v5
       with:
         name: enarx-x86_64-unknown-linux-musl-oci
     - run: skopeo copy docker-archive:./enarx-aarch64-unknown-linux-musl-oci containers-storage:localhost/enarx:aarch64
@@ -310,40 +310,40 @@ jobs:
     - uses: actions/checkout@v5
     - id: version
       run: echo "version=$(cargo metadata --format-version=1 --no-deps | jq '.packages[] | select(.name == "enarx") | .version' --raw-output)" >>$GITHUB_OUTPUT
-    - uses: actions/download-artifact@v4
+    - uses: actions/download-artifact@v5
       with:
         name: enarx-x86_64-windows
-    - uses: actions/download-artifact@v4
+    - uses: actions/download-artifact@v5
       with:
         name: enarx-x86_64-windows-msi
-    - uses: actions/download-artifact@v4
+    - uses: actions/download-artifact@v5
       with:
         name: enarx-x86_64-apple-darwin-oci
-    - uses: actions/download-artifact@v4
+    - uses: actions/download-artifact@v5
       with:
         name: enarx-x86_64-unknown-linux-musl
-    - uses: actions/download-artifact@v4
+    - uses: actions/download-artifact@v5
       with:
         name: enarx-x86_64-unknown-linux-musl-sig
-    - uses: actions/download-artifact@v4
+    - uses: actions/download-artifact@v5
       with:
         name: enarx-x86_64-unknown-linux-musl-oci
-    - uses: actions/download-artifact@v4
+    - uses: actions/download-artifact@v5
       with:
         name: enarx-aarch64-unknown-linux-musl
-    - uses: actions/download-artifact@v4
+    - uses: actions/download-artifact@v5
       with:
         name: enarx-universal-darwin
-    - uses: actions/download-artifact@v4
+    - uses: actions/download-artifact@v5
       with:
         name: "enarx_${{ steps.version.outputs.version }}-1_amd64.deb"
-    - uses: actions/download-artifact@v4
+    - uses: actions/download-artifact@v5
       with:
         name: "enarx_${{ steps.version.outputs.version }}-1_arm64.deb"
-    - uses: actions/download-artifact@v4
+    - uses: actions/download-artifact@v5
       with:
         name: "enarx-${{ steps.version.outputs.version }}-1.x86_64.rpm"
-    - uses: actions/download-artifact@v4
+    - uses: actions/download-artifact@v5
       with:
         name: "enarx-${{ steps.version.outputs.version }}-1.aarch64.rpm"
     - uses: softprops/action-gh-release@v2
