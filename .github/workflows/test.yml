@@ -15,7 +15,7 @@ jobs:
     steps:
       - name: Cleanup working directory
         run: rm -fr * $HOME/.cargo $HOME/.rustup
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Install rustup
         run: curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain nightly-2023-04-15 -y
@@ -46,7 +46,7 @@ jobs:
     steps:
       - run: sudo apt -o Acquire::Retries=3 update
       - run: sudo apt -o Acquire::Retries=3 install -y musl-tools
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Setup Rust toolchain
         run: rustup show
       - run: cargo build ${{ matrix.profile.flag }}
@@ -64,7 +64,7 @@ jobs:
     name: enarx MacOS
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Setup Rust toolchain
         run: rustup show
       - run: cargo test --workspace
@@ -73,7 +73,7 @@ jobs:
     name: enarx Windows
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Setup Rust toolchain
         run: rustup show
       - run: cargo test --workspace
@@ -84,7 +84,7 @@ jobs:
     steps:
       - run: sudo apt -o Acquire::Retries=3 update
       - run: sudo apt -o Acquire::Retries=3 install -y musl-tools
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Setup Rust toolchain
         run: rustup show
       - run: cargo test ${{ matrix.profile.flag }} --workspace --target x86_64-unknown-linux-gnu
@@ -102,7 +102,7 @@ jobs:
     steps:
       - run: sudo apt -o Acquire::Retries=3 update
       - run: sudo apt -o Acquire::Retries=3 install -y musl-tools
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Setup Rust toolchain
         run: rustup show
       - name: cargo miri setup

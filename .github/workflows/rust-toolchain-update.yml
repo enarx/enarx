@@ -16,7 +16,7 @@ jobs:
       - name: Generate rust toolchain snapshot version
         id: toolchain_version
         run: echo "toolchain_version=nightly-$(date +%Y-%m-%d)" >>$GITHUB_OUTPUT
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           repository: ${{ github.repository }}
           ref: chore/update-rust-toolchain 

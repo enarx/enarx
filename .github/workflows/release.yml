@@ -46,7 +46,7 @@ jobs:
 
     runs-on: ${{ matrix.platform.host }}
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
     - uses: cachix/install-nix-action@v31
       with:
         extra_nix_config: |
@@ -77,7 +77,7 @@ jobs:
     name: enarx Windows build
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Setup Rust toolchain
         run: rustup show
       - run: cargo build --release
@@ -182,7 +182,7 @@ jobs:
     needs: [ build-nix, sign-x86_64 ]
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
     - uses: actions/download-artifact@v4
       with:
         name: "enarx-${{ matrix.architecture }}-unknown-linux-musl"
@@ -222,7 +222,7 @@ jobs:
     needs: [ build-nix, sign-x86_64 ]
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
     - uses: actions/download-artifact@v4
       with:
         name: "enarx-${{ matrix.architecture.build }}-unknown-linux-musl"
@@ -307,7 +307,7 @@ jobs:
     permissions:
       contents: write
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
     - id: version
       run: echo "version=$(cargo metadata --format-version=1 --no-deps | jq '.packages[] | select(.name == "enarx") | .version' --raw-output)" >>$GITHUB_OUTPUT
     - uses: actions/download-artifact@v4
