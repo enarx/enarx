@@ -142,7 +142,7 @@ overflow-checks = true
 members = ["crates/*", "tests/crates/*"]
 
 [workspace.dependencies]
-aes-gcm = { version = "0.10.1", features = ["aes"], default-features = false }
+aes-gcm = { version = "0.10.3", features = ["aes"], default-features = false }
 anyhow = { version = "1.0.66", default-features = false }
 array-const-fn-init = { version = "0.1.0", default-features = false }
 async-h1 = { version = "2.3.3", default-features = false }
