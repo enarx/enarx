@@ -5,7 +5,7 @@ use std::os::fd::{AsFd, BorrowedFd, FromRawFd, OwnedFd};
 use iocuddle::{Group, Ioctl, Write, WriteRead};
 use kvm_ioctls::VmFd;
 use lset::Span;
-use mmarinus::{perms, Map};
+use vm_memory::{MmapRegion, VolatileMemory};
 use x86_64::{PhysAddr, VirtAddr};
 
 const KVM: Group = Group::new(0xAE);
@@ -16,11 +16,11 @@ const KVM_MEM_PRIVATE: u32 = 0x04;
 
 pub struct Region {
     slot: Slot,
-    backing: Map<perms::ReadWrite>,
+    backing: MmapRegion,
 }
 
 impl Region {
-    pub fn new(slot: Slot, backing: Map<perms::ReadWrite>) -> Self {
+    pub fn new(slot: Slot, backing: MmapRegion) -> Self {
         Self { slot, backing }
     }
 
@@ -39,12 +39,12 @@ impl Region {
         }
     }
 
-    pub fn backing(&self) -> &[u8] {
-        self.backing.as_ref()
+    pub fn backing_ptr(&self) -> *mut u8 {
+        self.backing.as_ptr()
     }
 
-    pub fn backing_mut(&mut self) -> &mut [u8] {
-        self.backing.as_mut()
+    pub fn backing_len(&self) -> usize {
+        self.backing.len()
     }
 
     pub fn restricted_fd(&self) -> Option<BorrowedFd> {
@@ -70,7 +70,7 @@ impl Slot {
     pub fn new(
         vm_fd: &mut VmFd,
         slot_index: u32,
-        backing_memory: &Map<perms::ReadWrite>,
+        backing_memory: &MmapRegion,
         guest_phys_addr: u64,
         is_private: bool,
     ) -> std::io::Result<Self> {
@@ -88,7 +88,7 @@ impl Slot {
             flags,
             guest_phys_addr,
             memory_size,
-            userspace_addr: u64::try_from(backing_memory.addr()).unwrap(),
+            userspace_addr: backing_memory.as_ptr() as u64,
             restricted_offset: 0,
             restricted_fd,
             pad1: 0,

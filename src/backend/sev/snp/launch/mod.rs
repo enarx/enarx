@@ -20,6 +20,7 @@ use std::os::unix::io::AsRawFd;
 
 use bitflags::bitflags;
 use kvm_ioctls::VmFd;
+use vm_memory::{MmapRegion, VolatileMemory};
 
 /// Launcher type-state that indicates a brand new launch.
 pub struct New;
@@ -133,20 +134,27 @@ pub struct Update<'a> {
     /// guest start frame number.
     pub(crate) start_gfn: u64,
 
-    /// The userspace of address of the encrypted region.
-    pub(crate) uaddr: &'a [u8],
+    /// The userspace address of the encrypted region.
+    pub(crate) uaddr: *const u8,
+
+    /// Length of the encrypted region.
+    pub(crate) len: usize,
 
     /// Encoded page type.
     pub(crate) page_type: PageType,
+
+    _phantom: PhantomData<&'a [u8]>,
 }
 
 impl<'a> Update<'a> {
     /// Encapsulate all data needed for the SNP_LAUNCH_UPDATE ioctl.
-    pub fn new(start_gfn: u64, uaddr: &'a [u8], page_type: PageType) -> Self {
+    pub fn from_region(start_gfn: u64, region: &'a MmapRegion, page_type: PageType) -> Self {
         Self {
             start_gfn,
-            uaddr,
+            uaddr: region.as_ptr(),
+            len: region.len(),
             page_type,
+            _phantom: PhantomData,
         }
     }
 }

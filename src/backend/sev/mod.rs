@@ -43,8 +43,8 @@ struct SnpKeepPersonality {
 impl KeepPersonality for SnpKeepPersonality {
     fn map(vm_fd: &mut VmFd, region: &Region, is_private: bool) -> io::Result<()> {
         let memory_region = kvm_enc_region {
-            addr: region.backing().as_ptr() as _,
-            size: region.backing().len() as _,
+            addr: region.backing_ptr() as _,
+            size: region.backing_len() as _,
         };
         vm_fd
             .register_enc_memory_region(&memory_region)

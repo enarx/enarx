@@ -18,12 +18,12 @@ use crate::backend::sev::cpuid_page::import_from_kvm;
 use anyhow::{anyhow, Context, Error};
 use kvm_bindings::{kvm_enable_cap, KVM_CAP_EXIT_HYPERCALL};
 use kvm_ioctls::Kvm;
-use mmarinus::{perms, Map};
 use primordial::Page;
 use rand::{thread_rng, Rng};
 use sallyport::elf::pf::kvm::SALLYPORT;
 use sallyport::elf::pf::snp::{CPUID, SECRETS};
 use shared::std::cpuid_page::CpuidPage;
+use vm_memory::{Bytes, MmapRegion, VolatileMemory};
 use x86_64::VirtAddr;
 
 const SEV_RETRIES: usize = 3;
@@ -116,14 +116,9 @@ impl super::super::Mapper for Builder {
     type Config = super::config::Config;
     type Output = Arc<dyn super::super::Keep>;
 
-    fn map(
-        &mut self,
-        mut pages: Map<perms::ReadWrite>,
-        to: usize,
-        with: u32,
-    ) -> anyhow::Result<()> {
+    fn map(&mut self, pages: MmapRegion, to: usize, with: u32) -> anyhow::Result<()> {
         // Ignore regions with no pages.
-        if pages.is_empty() {
+        if pages.len() == 0 {
             return Ok(());
         }
 
@@ -151,12 +146,15 @@ impl super::super::Mapper for Builder {
             import_from_kvm(&mut cpuid_page, &mut self.kvm_fd)
                 .context("Failed to create CPUID page")?;
 
-            let guest_cpuid_page = pages.as_mut_ptr() as *mut CpuidPage;
-            unsafe {
-                guest_cpuid_page.write(cpuid_page);
-            }
+            let cpuid_bytes = cpuid_page.as_bytes();
+            let guest_cpuid_slice = pages
+                .get_slice(0, cpuid_bytes.len())
+                .context("Failed to map CPUID page")?;
+            guest_cpuid_slice
+                .write_slice(cpuid_bytes, 0)
+                .context("Failed to write CPUID page")?;
 
-            let update = Update::new(to as u64 >> 12, &pages, PageType::Cpuid);
+            let update = Update::from_region(to as u64 >> 12, &pages, PageType::Cpuid);
 
             if self.launcher.update_data(update).is_err() {
                 // Just try again with the firmware corrected values
@@ -167,13 +165,13 @@ impl super::super::Mapper for Builder {
         } else if with & SECRETS != 0 {
             assert_eq!(pages.len(), Page::SIZE);
 
-            let update = Update::new(to as u64 >> 12, &pages, PageType::Secrets);
+            let update = Update::from_region(to as u64 >> 12, &pages, PageType::Secrets);
 
             self.launcher
                 .update_data(update)
                 .context("SNP Launcher update_data failed")?;
         } else {
-            let update = Update::new(to as u64 >> 12, pages.as_ref(), PageType::Normal);
+            let update = Update::from_region(to as u64 >> 12, &pages, PageType::Normal);
 
             self.launcher
                 .update_data(update)

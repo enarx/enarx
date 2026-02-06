@@ -52,11 +52,11 @@ impl Options {
             gdblisten,
         } = self;
 
+        use crate::cli::mmap_file::MmapFile;
         use crate::exec::keep_exec;
-        use mmarinus::{perms, Map, Private};
 
         let backend = backend.pick()?;
-        let binary = Map::load(binpath, Private, perms::Read)?;
+        let binary = MmapFile::load(binpath)?;
 
         let signatures = if unsigned {
             None

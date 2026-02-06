@@ -15,6 +15,7 @@ use iocuddle::*;
 use sgx::page::{SecInfo, Secs};
 use sgx::signature::Signature;
 use tracing::debug;
+use vm_memory::{MmapRegion, VolatileMemory};
 
 const SGX: Group = Group::new(0xA4);
 
@@ -80,6 +81,31 @@ impl<'a> AddPages<'a> {
             src: bytes.as_ptr() as _,
             offset: offset as _,
             length: bytes.len() as _,
+            secinfo: secinfo as *const _ as _,
+            flags,
+            count: 0,
+            phantom: PhantomData,
+        }
+    }
+
+    /// Creates a new AddPages struct backed by a memory-mapped region.
+    pub fn from_region(
+        region: &'a MmapRegion,
+        offset: usize,
+        secinfo: &'a SecInfo,
+        measure: bool,
+    ) -> Self {
+        const MEASURE: u64 = 1 << 0;
+
+        let flags = match measure {
+            true => MEASURE,
+            false => 0,
+        };
+
+        Self {
+            src: region.as_ptr() as _,
+            offset: offset as _,
+            length: region.len() as _,
             secinfo: secinfo as *const _ as _,
             flags,
             count: 0,

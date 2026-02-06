@@ -11,8 +11,8 @@ use std::sync::{Arc, RwLock};
 use anyhow::{Context, Error, Result};
 use kvm_bindings::fam_wrappers::KVM_MAX_CPUID_ENTRIES;
 use kvm_ioctls::{Kvm, VcpuFd, VmFd};
-use mmarinus::{perms, Map};
 use sallyport::elf::pf::kvm::SALLYPORT;
+use vm_memory::{MmapRegion, VolatileMemory};
 use x86_64::{align_up, VirtAddr};
 
 pub struct Builder {
@@ -46,9 +46,9 @@ impl super::super::Mapper for Builder {
     type Config = super::config::Config;
     type Output = Arc<dyn super::super::Keep>;
 
-    fn map(&mut self, pages: Map<perms::ReadWrite>, to: usize, with: u32) -> anyhow::Result<()> {
+    fn map(&mut self, pages: MmapRegion, to: usize, with: u32) -> anyhow::Result<()> {
         // Ignore regions with no pages.
-        if pages.is_empty() {
+        if pages.len() == 0 {
             return Ok(());
         }
 
@@ -75,13 +75,13 @@ impl super::super::Mapper for Builder {
 }
 
 pub fn map_sallyports(
-    pages: &Map<perms::ReadWrite>,
+    pages: &MmapRegion,
     block_size: usize,
     sallyports: &mut Vec<Option<VirtAddr>>,
 ) {
-    for start in (0..pages.size()).step_by(block_size) {
+    for start in (0..pages.len()).step_by(block_size) {
         let start = align_up(start as u64, align_of::<usize>() as u64) as usize;
-        if start + block_size <= pages.size() {
+        if start + block_size <= pages.len() {
             let virt = VirtAddr::from_ptr(pages.as_ptr()) + start;
             sallyports.push(Some(virt));
         }

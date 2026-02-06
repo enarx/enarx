@@ -4,6 +4,8 @@ mod config;
 mod deploy;
 #[cfg(enarx_with_shim)]
 mod key;
+#[cfg(enarx_with_shim)]
+mod mmap_file;
 mod package;
 mod platform;
 mod repo;

@@ -188,8 +188,8 @@ impl From<Update<'_>> for LaunchUpdate<'_> {
     fn from(update: Update<'_>) -> Self {
         Self {
             start_gfn: update.start_gfn,
-            uaddr: update.uaddr.as_ptr() as _,
-            len: update.uaddr.len() as _,
+            uaddr: update.uaddr as _,
+            len: update.len as _,
             page_type: update.page_type as _,
             pad0: 0,
             flags: 0,

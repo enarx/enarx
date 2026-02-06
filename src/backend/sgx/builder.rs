@@ -14,6 +14,7 @@ use primordial::Page;
 use sgx::crypto::{rcrypto::*, *};
 use sgx::page::{Class, Flags, SecInfo};
 use sgx::signature::{Author, Hasher, Signature};
+use vm_memory::{Bytes, MmapRegion, VolatileMemory};
 
 use tracing::trace;
 
@@ -85,42 +86,54 @@ impl super::super::Mapper for Builder {
     type Config = super::config::Config;
     type Output = Arc<dyn super::super::Keep>;
 
-    fn map(
-        &mut self,
-        pages: Map<perms::ReadWrite>,
-        to: usize,
-        with: (SecInfo, bool),
-    ) -> anyhow::Result<()> {
+    fn map(&mut self, pages: MmapRegion, to: usize, with: (SecInfo, bool)) -> anyhow::Result<()> {
         // Ignore regions with no pages.
-        if pages.is_empty() {
+        if pages.len() == 0 {
             return Ok(());
         }
 
         trace!(
             "adding pages: {:016x}-{:016x} {}",
             self.mmap.addr() + to,
-            self.mmap.addr() + to + pages.size(),
+            self.mmap.addr() + to + pages.len(),
             with.0
         );
 
         // Update the enclave.
-        let mut ap = AddPages::new(&pages, to, &with.0, with.1);
+        let mut ap = AddPages::from_region(&pages, to, &with.0, with.1);
         ENCLAVE_ADD_PAGES
             .ioctl(&mut self.file, &mut ap)
             .context("Failed to add pages to SGX enclave")?;
 
         // Update the hasher.
-        self.hash.load(&pages, to, with.0, with.1).unwrap();
+        assert_eq!(pages.len() % Page::SIZE, 0);
+        let mut page_buf = [0u8; Page::SIZE];
+        let mut offset = 0;
+        while offset < pages.len() {
+            let page_slice = pages
+                .get_slice(offset, Page::SIZE)
+                .context("Failed to map SGX page")?;
+            page_slice
+                .read_slice(&mut page_buf, 0)
+                .context("Failed to read SGX page")?;
+            self.hash
+                .load(&page_buf, to + offset, with.0, with.1)
+                .unwrap();
+            offset += Page::SIZE;
+        }
 
         // Save permissions fixups for later.
         let mut addr = self.mmap.addr() + to;
-        self.perm.push((addr as *const (), pages.size(), with.0));
+        self.perm.push((addr as *const (), pages.len(), with.0));
 
         // Keep track of TCS pages.
         if with.0.class() == Class::Tcs {
-            for chunk in pages.chunks(Page::SIZE) {
+            let mut remaining = pages.len();
+            while remaining > 0 {
                 self.tcsp.push(addr);
-                addr += chunk.len();
+                let step = remaining.min(Page::SIZE);
+                addr += step;
+                remaining -= step;
             }
         }
 

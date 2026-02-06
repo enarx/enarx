@@ -26,13 +26,14 @@ use libc::{
     c_int, fallocate, madvise, timespec, FALLOC_FL_KEEP_SIZE, FALLOC_FL_PUNCH_HOLE, MADV_FREE,
 };
 use lset::Contains;
-use mmarinus::{perms, Map};
 use sallyport::host::deref_aligned;
 use sallyport::item::enarxcall::Payload;
 use sallyport::item::{Block, Item};
 use sallyport::libc::EAGAIN;
 use sallyport::{item, KVM_SYSCALL_TRIGGER_EXIT_THREAD, KVM_SYSCALL_TRIGGER_PORT};
 use tracing::{error, trace, trace_span};
+use vm_memory::mmap::MmapRegionError;
+use vm_memory::MmapRegion;
 use x86_64::PhysAddr;
 
 pub struct Thread<P: KeepPersonality> {
@@ -105,11 +106,17 @@ impl<P: KeepPersonality> Thread<P> {
         }
 
         // Allocate the new memory
-        let pages = Map::bytes(size * npgs)
-            .anywhere()
-            .anonymously()
-            .with(perms::ReadWrite)
-            .map_err(|e| e.err.raw_os_error().unwrap_or(libc::ENOTSUP))?;
+        let len = size * npgs;
+        let pages = MmapRegion::build(
+            None,
+            len,
+            libc::PROT_READ | libc::PROT_WRITE,
+            libc::MAP_PRIVATE | libc::MAP_ANONYMOUS,
+        )
+        .map_err(|e| match e {
+            MmapRegionError::Mmap(io_err) => io_err.raw_os_error().unwrap_or(libc::ENOTSUP),
+            _ => libc::ENOTSUP,
+        })?;
 
         let mut keep = self.keep.write().unwrap();
 

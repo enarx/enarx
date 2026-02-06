@@ -8,11 +8,11 @@ use crate::backend::ByteSized;
 
 use std::convert::TryFrom;
 
-use anyhow::Error;
-use mmarinus::{perms, Map};
+use anyhow::{Context, Error};
 use primordial::Page;
 use ring::digest;
 use sallyport::elf::pf::snp::{CPUID, SECRETS};
+use vm_memory::{Bytes, MmapRegion, VolatileMemory};
 
 pub struct Hasher {
     pub config: Config,
@@ -64,7 +64,12 @@ impl Hasher {
 }
 
 impl Hasher {
-    pub(crate) fn hash(&mut self, pages: &[u8], to: usize, with: u32) -> anyhow::Result<()> {
+    pub(crate) fn hash_region(
+        &mut self,
+        pages: &MmapRegion,
+        to: usize,
+        with: u32,
+    ) -> anyhow::Result<()> {
         // Ignore regions with no pages.
         if pages.is_empty() {
             return Ok(());
@@ -77,8 +82,18 @@ impl Hasher {
             assert_eq!(pages.len(), Page::SIZE);
             self.update(PageType::Secrets, to, None);
         } else {
-            for (i, page) in pages.chunks(Page::SIZE).enumerate() {
-                self.update(PageType::Normal, to + i * Page::SIZE, Some(page));
+            assert_eq!(pages.len() % Page::SIZE, 0);
+            let mut page_buf = [0u8; Page::SIZE];
+            let mut offset = 0;
+            while offset < pages.len() {
+                let page_slice = pages
+                    .get_slice(offset, Page::SIZE)
+                    .context("Failed to map SNP page")?;
+                page_slice
+                    .read_slice(&mut page_buf, 0)
+                    .context("Failed to read SNP page")?;
+                self.update(PageType::Normal, to + offset, Some(&page_buf));
+                offset += Page::SIZE;
             }
         };
 
@@ -90,8 +105,8 @@ impl super::super::Mapper for Hasher {
     type Config = Config;
     type Output = Vec<u8>;
 
-    fn map(&mut self, pages: Map<perms::ReadWrite>, to: usize, with: u32) -> anyhow::Result<()> {
-        self.hash(pages.as_ref(), to, with)
+    fn map(&mut self, pages: MmapRegion, to: usize, with: u32) -> anyhow::Result<()> {
+        self.hash_region(&pages, to, with)
     }
 }
 

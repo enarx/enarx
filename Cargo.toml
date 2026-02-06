@@ -79,6 +79,7 @@ sgx = { workspace = true, features = ["rcrypto"] }
 static_assertions = { workspace = true }
 ureq = { workspace = true }
 vdso = { workspace = true }
+vm-memory = { workspace = true }
 x509-cert = { workspace = true }
 x86_64 = { workspace = true, features = ["instructions"] }
 
@@ -230,6 +231,7 @@ zeroize = { version = "1.5.4", features = ["alloc"], default-features = false }
 
 # wasmtime and its pinned dependencies
 # these will need to be updated together
+vm-memory = { version = "0.12.0", default-features = false, features = ["backend-mmap"] }
 wasmtime = { version = "5.0.1", features = ["cranelift", "pooling-allocator"], default-features = false }
 cap-std = { version = "1.0.0", default-features = false }
 io-lifetimes = { version = "1.0.0", default-features = false }

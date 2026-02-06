@@ -198,7 +198,13 @@ impl WasiFile for Stream {
                         .try_into()
                         .map_err(<std::num::TryFromIntError as Into<Error>>::into)
                 }
-                Err(e) if !self.nonblocking && e.kind() == io::ErrorKind::WouldBlock => {}
+                // Blocking mode: retry
+                Err(e) if !self.nonblocking && e.kind() == io::ErrorKind::WouldBlock => {
+                }
+                // Non-blocking mode: yield and retry
+                Err(e) if self.nonblocking && e.kind() == io::ErrorKind::WouldBlock => {
+                    self.readable().await?;
+                }
                 Err(e) => return Err(e.into()),
             }
         }

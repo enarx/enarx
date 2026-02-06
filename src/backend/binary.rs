@@ -7,8 +7,8 @@ use std::fmt::Formatter;
 
 use anyhow::{anyhow, Error, Result};
 use goblin::elf::{header::*, note::NoteIterator, program_header::*, Elf};
-use mmarinus::{perms, Map};
 use primordial::Page;
+use vm_memory::{Bytes, MmapRegion, VolatileMemory};
 
 use crate::backend::Signatures;
 use std::ops::Range;
@@ -208,15 +208,25 @@ impl<T: Mapper> Loader for T {
         // Load segments.
         for seg in ssegs.iter().chain(esegs.iter()) {
             // Create the mapping and copy the bytes.
-            let mut map = Map::bytes(seg.range.end - seg.range.start)
-                .anywhere()
-                .anonymously()
-                .with(perms::ReadWrite)?;
-            map[seg.skipb..][..seg.bytes.len()].copy_from_slice(seg.bytes);
+            let size = seg.range.end - seg.range.start;
+            let mmap_region = MmapRegion::build(
+                None,
+                size,
+                libc::PROT_READ | libc::PROT_WRITE,
+                libc::MAP_PRIVATE | libc::MAP_ANONYMOUS,
+            )
+            .map_err(|e| anyhow!("Failed to create MmapRegion: {:?}", e))?;
+
+            let seg_slice = mmap_region
+                .get_slice(seg.skipb, seg.bytes.len())
+                .map_err(|e| anyhow!("Failed to map segment bytes: {:?}", e))?;
+            seg_slice
+                .write_slice(seg.bytes, 0)
+                .map_err(|e| anyhow!("Failed to write segment bytes: {:?}", e))?;
 
             // Pass the region to the builder.
             let flags = Self::Config::flags(seg.flags);
-            loader.map(map, seg.range.start, flags)?;
+            loader.map(mmap_region, seg.range.start, flags)?;
         }
 
         loader.try_into()
@@ -229,7 +239,7 @@ pub(crate) trait Mapper: Sized + TryFrom<Self::Config, Error = Error> {
 
     fn map(
         &mut self,
-        pages: Map<perms::ReadWrite>,
+        pages: MmapRegion,
         to: usize,
         with: <Self::Config as Config>::Flags,
     ) -> Result<()>;

@@ -137,9 +137,10 @@ impl Options {
     }
 
     pub fn execute(self) -> anyhow::Result<ExitCode> {
-        use mmarinus::{perms, Map, Private};
+        use super::mmap_file::MmapFile;
+
         let binary = if let Some(ref path) = self.binpath {
-            Some(Map::load(path, Private, perms::Read)?)
+            Some(MmapFile::load(path)?)
         } else {
             None
         };

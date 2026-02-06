@@ -11,9 +11,9 @@ use anyhow::Result;
 use kvm_ioctls::Kvm;
 use kvm_ioctls::{VcpuFd, VmFd};
 use lset::Contains;
-use mmarinus::{perms, Map};
 use sallyport::item::enarxcall::Payload;
 use sallyport::item::Item;
+use vm_memory::MmapRegion;
 use x86_64::{PhysAddr, VirtAddr};
 
 pub mod builder;
@@ -57,7 +57,7 @@ impl<P: KeepPersonality> Keep<P> {
     /// Allocator for `enarxcall::BalloonMemory'.
     pub fn map(
         &mut self,
-        pages: Map<perms::ReadWrite>,
+        pages: MmapRegion,
         to: usize,
         is_private: bool,
     ) -> std::io::Result<&mut Region> {

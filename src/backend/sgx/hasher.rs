@@ -4,12 +4,13 @@ use super::config::Config;
 
 use std::convert::TryFrom;
 
-use anyhow::{Error, Result};
-use mmarinus::{perms, Map};
+use anyhow::{Context, Error, Result};
+use primordial::Page;
 use sgx::crypto::rcrypto::S256Digest;
 use sgx::page::SecInfo;
 use sgx::signature::Body;
 use sgx::signature::Hasher as SgxHasher;
+use vm_memory::{Bytes, MmapRegion, VolatileMemory};
 
 pub struct Hasher {
     digest: SgxHasher<S256Digest>,
@@ -33,13 +34,26 @@ impl super::super::Mapper for Hasher {
     type Output = Vec<u8>;
 
     #[inline]
-    fn map(
-        &mut self,
-        pages: Map<perms::ReadWrite>,
-        to: usize,
-        with: (SecInfo, bool),
-    ) -> anyhow::Result<()> {
-        self.digest.load(&pages, to, with.0, with.1).unwrap();
+    fn map(&mut self, pages: MmapRegion, to: usize, with: (SecInfo, bool)) -> anyhow::Result<()> {
+        if pages.is_empty() {
+            return Ok(());
+        }
+
+        assert_eq!(pages.len() % Page::SIZE, 0);
+        let mut page_buf = [0u8; Page::SIZE];
+        let mut offset = 0;
+        while offset < pages.len() {
+            let page_slice = pages
+                .get_slice(offset, Page::SIZE)
+                .context("Failed to map SGX page")?;
+            page_slice
+                .read_slice(&mut page_buf, 0)
+                .context("Failed to read SGX page")?;
+            self.digest
+                .load(&page_buf, to + offset, with.0, with.1)
+                .unwrap();
+            offset += Page::SIZE;
+        }
         Ok(())
     }
 }

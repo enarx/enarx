@@ -2,12 +2,16 @@
 
 //! Structures and methods to handle the SEV-SNP CPUID page
 
+use crate::backend::ByteSized;
 use anyhow::Context;
 use kvm_bindings::bindings::KVM_CPUID_FLAG_SIGNIFCANT_INDEX;
 use kvm_bindings::fam_wrappers::KVM_MAX_CPUID_ENTRIES;
 use kvm_ioctls::Kvm;
 use shared::std::cpuid_page::CpuIdStdExt as _;
 use shared::std::cpuid_page::{CpuidFunctionEntry, CpuidPage};
+
+/// SAFETY: CpuidPage is a C struct with no invalid bit patterns or pointers.
+unsafe impl ByteSized for CpuidPage {}
 
 /// Import all cpuid entry from a KVM vCPU
 pub fn import_from_kvm(cpuid_page: &mut CpuidPage, kvm_fd: &mut Kvm) -> anyhow::Result<()> {
