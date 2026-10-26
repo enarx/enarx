@@ -81,7 +81,7 @@ pub fn pvalidate(addr: VirtAddr, size: PvalidateSize, validated: bool) -> Result
         inout("rax") addr.as_u64() & (!0xFFF) => ret,
         in("rcx") size as u64,
         inout("edx") flag => rmp_changed,
-        options(nostack, nomem)
+        options(nostack)
         );
     }
 
